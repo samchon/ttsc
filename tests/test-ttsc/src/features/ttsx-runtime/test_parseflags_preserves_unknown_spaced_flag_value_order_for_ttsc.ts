@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { parseFlags } from "../../../../../packages/ttsc/lib/flags/parser.js";
+import { parseFlags } from "../../../../../packages/ttsc/lib/flags/parseFlags.js";
 
 const isTsInput = (token: string): boolean =>
   [".ts", ".tsx", ".mts", ".cts"].some((ext) => token.endsWith(ext));

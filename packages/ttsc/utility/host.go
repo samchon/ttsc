@@ -285,7 +285,7 @@ func parseHostOptions(command string, args []string, stdout, stderr io.Writer) (
 // with their value argument when they clearly take one (no inline "=" and the
 // next token does not start with "-").
 //
-// The allow-list itself is generated from packages/ttsc/src/flags/schema.ts
+// The allow-list itself is generated from packages/ttsc/src/flags/FLAG_SCHEMA.ts
 // (see flags_gen.go); editing it means editing the schema and re-running
 // `pnpm format`, not patching this file.
 func filterHostArgs(args []string) []string {
@@ -321,7 +321,7 @@ func filterHostArgs(args []string) []string {
 // argument contains "=").
 //
 // Lower-casing is the same normalization `normalizeFlagToken` in
-// packages/ttsc/src/flags/schema.ts applies, and the generated
+// packages/ttsc/src/flags/FLAG_SCHEMA.ts applies, and the generated
 // HostFlagAllowList keys are produced by it, so this layer recognises exactly
 // the spellings the launcher and the compiler do.
 func flagName(arg string) (string, bool) {

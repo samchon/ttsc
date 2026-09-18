@@ -163,7 +163,7 @@ export const test_loadprojectplugins_ttsx_descriptor_tracks_runtime_inputs =
     fs.writeFileSync(
       worker,
       [
-        `const { loadProjectPlugins } = require(${JSON.stringify(path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "lib", "plugin", "internal", "loadProjectPlugins.js"))});`,
+        `const { loadProjectPlugins } = require(${JSON.stringify(path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "lib", "plugin", "internal", "load", "loadProjectPlugins.js"))});`,
         `const loaded = loadProjectPlugins({ binary: "", cacheDir: ${JSON.stringify(path.join(root, "cache"))}, tsconfig: ${JSON.stringify(projectConfig)} });`,
         `process.stdout.write(JSON.stringify({ hostInputHashes: loaded.hostInputHashes, hostInputs: loaded.hostInputs }));`,
         "",

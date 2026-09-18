@@ -1,31 +1,20 @@
 import path from "node:path";
-
 import { resolveNodeBinary } from "../../internal/resolveNodeBinary";
-import { loadProjectPlugins } from "../../plugin/internal/loadProjectPlugins";
+import { loadProjectPlugins } from "../../plugin/internal/load/loadProjectPlugins";
 import type { ITtscCompilerContext } from "../../structures/ITtscCompilerContext";
 import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
 import { readProjectConfig } from "./project/readProjectConfig";
-import { ResidentTransformProcess } from "./residentTransformProcess";
+import { ResidentTransformProcess } from "./ResidentTransformProcess";
 import { resolveBinary } from "./resolveBinary";
 import { resolveTsgo } from "./resolveTsgo";
-import {
-  assertSharedHostCompatibility,
-  clearInheritedSemanticConfigPath,
-  clearInheritedTsgoArgs,
-  inheritedSidecarEnv,
-  linkedTransformPlugins,
-  resolvePluginConfigDir,
-  selectSharedHostPlugin,
-} from "./sharedHostHelpers";
-
-/**
- * A started resident transform host plus the project root its keys are relative
- * to.
- */
-export interface StartedResidentTransform {
-  process: ResidentTransformProcess;
-  projectRoot: string;
-}
+import { assertSharedHostCompatibility } from "./sharedHost/assertSharedHostCompatibility";
+import { clearInheritedSemanticConfigPath } from "./sharedHost/clearInheritedSemanticConfigPath";
+import { clearInheritedTsgoArgs } from "./sharedHost/clearInheritedTsgoArgs";
+import { inheritedSidecarEnv } from "./sharedHost/inheritedSidecarEnv";
+import { linkedTransformPlugins } from "./sharedHost/linkedTransformPlugins";
+import { resolvePluginConfigDir } from "./sharedHost/resolvePluginConfigDir";
+import { selectSharedHostPlugin } from "./sharedHost/selectSharedHostPlugin";
+import type { StartedResidentTransform } from "./StartedResidentTransform";
 
 /**
  * Start a resident `serve` host for the configured project.

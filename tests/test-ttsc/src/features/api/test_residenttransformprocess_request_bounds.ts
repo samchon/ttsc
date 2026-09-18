@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { ResidentTransformProcess } from "../../../../../packages/ttsc/lib/compiler/internal/residentTransformProcess.js";
+import { ResidentTransformProcess } from "../../../../../packages/ttsc/lib/compiler/internal/ResidentTransformProcess.js";
 
 /** A host that stays alive and consumes stdin but intentionally never replies. */
 const SILENT_STUB = `

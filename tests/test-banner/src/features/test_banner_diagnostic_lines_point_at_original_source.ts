@@ -12,7 +12,7 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
  * before TypeScript-Go parses), which shifts every recorded coordinate down by
  * the banner's line count — diagnostics included. The reported line then names
  * a line that does not exist in the file on disk, and because the duplicate
- * filter in `runBuild.ts` compares positions, the shifted report never matched
+ * filter in `CompilerDiagnostics.ts` compares positions, the shifted report never matched
  * the plugin-free recovery pass and the user was shown one error twice at two
  * contradictory positions. The source-map side of this invariant is already
  * covered here; this is the diagnostic side.

@@ -1,11 +1,9 @@
 import assert from "node:assert/strict";
 
-import {
-  SEMANTIC_CONFIG_PATH_ENV,
-  TSGO_ARGS_ENV,
-  clearInheritedSemanticConfigPath,
-  clearInheritedTsgoArgs,
-} from "../../../../../packages/ttsc/lib/compiler/internal/sharedHostHelpers.js";
+import { SEMANTIC_CONFIG_PATH_ENV } from "../../../../../packages/ttsc/lib/compiler/internal/sharedHost/SEMANTIC_CONFIG_PATH_ENV.js";
+import { TSGO_ARGS_ENV } from "../../../../../packages/ttsc/lib/compiler/internal/sharedHost/TSGO_ARGS_ENV.js";
+import { clearInheritedSemanticConfigPath } from "../../../../../packages/ttsc/lib/compiler/internal/sharedHost/clearInheritedSemanticConfigPath.js";
+import { clearInheritedTsgoArgs } from "../../../../../packages/ttsc/lib/compiler/internal/sharedHost/clearInheritedTsgoArgs.js";
 
 /**
  * Verifies a sidecar environment drops per-invocation compiler state it did not

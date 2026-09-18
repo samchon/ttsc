@@ -54,6 +54,7 @@ export const test_banner_shared_host_ignores_future_optional_flags = () => {
       "lib",
       "plugin",
       "internal",
+      "load",
       "loadProjectPlugins.js",
     ),
   );

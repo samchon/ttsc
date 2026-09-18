@@ -293,7 +293,7 @@ Distinct executable compiler hosts cannot be chained blindly, because each one w
 
 ### Combining plugins from different vendors
 
-Before the host invokes any transform plugin, `assertSharedHostCompatibility` (`packages/ttsc/src/compiler/internal/sharedHostHelpers.ts`) checks the resolved plugin binaries after linked packages are removed from the compiler-owner set. If more than one distinct executable binary remains active, the host aborts with one of:
+Before the host invokes any transform plugin, `assertSharedHostCompatibility` (`packages/ttsc/src/compiler/internal/sharedHost/assertSharedHostCompatibility.ts`) checks the resolved plugin binaries after linked packages are removed from the compiler-owner set. If more than one distinct executable binary remains active, the host aborts with one of:
 
 ```text
 ttsc: multiple compiler native backends cannot share one emit pass;
@@ -577,7 +577,7 @@ Project-wide transform build. Run diagnostics and write TypeScript-Go outputs.
 
 When multiple entries resolve to the same binary, `ttsc` sends them together. Select the entry you need by `name`, `mode`, or plugin-owned option fields.
 
-**Plugin order.** The array is deterministically ordered: all `check`-stage plugins first, in their tsconfig order, then all `transform`-stage plugins, in their tsconfig order. A plugin that needs to know its position in the pipeline can rely on this rule (see `packages/ttsc/src/plugin/internal/loadProjectPlugins.ts::orderNativePlugins`).
+**Plugin order.** The array is deterministically ordered: all `check`-stage plugins first, in their tsconfig order, then all `transform`-stage plugins, in their tsconfig order. A plugin that needs to know its position in the pipeline can rely on this rule (see `packages/ttsc/src/plugin/internal/load/loadProjectPlugins.ts::orderNativePlugins`).
 
 ## Environment
 

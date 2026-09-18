@@ -1,7 +1,5 @@
-import {
-  type CanonicalTempDirectoryOperations,
-  createCanonicalTempDirectory,
-} from "../../../../../packages/ttsc/lib/internal/createCanonicalTempDirectory.js";
+import { type CanonicalTempDirectoryOperations } from "../../../../../packages/ttsc/lib/internal/CanonicalTempDirectoryOperations.js";
+import { createCanonicalTempDirectory } from "../../../../../packages/ttsc/lib/internal/createCanonicalTempDirectory.js";
 import { assert, fs, path } from "../../internal/compiler";
 
 /**

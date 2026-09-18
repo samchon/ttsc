@@ -202,7 +202,7 @@ The host emits flags in equals form; construct your tests the same way.
 // TestPluginReceivesTtscTsgoBinary verifies the host injects TTSC_TSGO_BINARY
 // into the plugin process.
 //
-// Locks the host-side seam (`runBuild.ts:21,32-34`) so plugins that re-spawn
+// Locks the host-side seam (`BuildExecution.nativePluginEnv`) so plugins that re-spawn
 // tsgo for a typecheck second-pass have a deterministic path. Regressing this
 // env injection would silently break every plugin that uses os.Getenv to
 // reach the toolchain.

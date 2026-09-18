@@ -2,10 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { prepareExecution } from "./launcher/internal/prepareExecution";
-import {
-  type RuntimeManifest,
-  installRuntimeHooks,
-} from "./launcher/internal/runtimeHooks";
+import { type RuntimeManifest } from "./launcher/internal/runtime/RuntimeManifest";
+import { installRuntimeHooks } from "./launcher/internal/runtime/installRuntimeHooks";
 
 const cleanupDirectories = new Set<string>();
 let runtimeSequence = 0;

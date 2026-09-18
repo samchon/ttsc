@@ -60,6 +60,7 @@ export const test_loadprojectplugins_isolated_typescript_descriptor_preserves_pr
       "lib",
       "plugin",
       "internal",
+      "load",
       "loadProjectPlugins.js",
     );
     const script = path.join(root, "load-worker.cjs");

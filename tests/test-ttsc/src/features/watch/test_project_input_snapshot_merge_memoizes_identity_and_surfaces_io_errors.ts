@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { mergeProjectInputSnapshots } from "../../../../../packages/ttsc/lib/compiler/internal/runBuild.js";
-import { createProjectInputPathIdentityContext } from "../../../../../packages/ttsc/lib/internal/projectInputPathIdentity.js";
+import { mergeProjectInputSnapshots } from "../../../../../packages/ttsc/lib/compiler/internal/build/mergeProjectInputSnapshots.js";
+import { createProjectInputPathIdentityContext } from "../../../../../packages/ttsc/lib/internal/pathIdentity/createProjectInputPathIdentityContext.js";
 
 /**
  * Verifies one snapshot merge memoizes ancestor probes and preserves hard

@@ -187,7 +187,7 @@ export const test_loadprojectplugins_tracks_bun_esm_descriptor_dependencies =
     fs.writeFileSync(
       worker,
       [
-        `const { loadProjectPlugins } = require(${JSON.stringify(path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "lib", "plugin", "internal", "loadProjectPlugins.js"))});`,
+        `const { loadProjectPlugins } = require(${JSON.stringify(path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "lib", "plugin", "internal", "load", "loadProjectPlugins.js"))});`,
         `delete process.env.TTSC_BUN_DESCRIPTOR_SOURCE;`,
         `const loaded = loadProjectPlugins({`,
         `  binary: "",`,

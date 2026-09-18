@@ -1,10 +1,8 @@
 import assert from "node:assert/strict";
 
-import {
-  bufferResidentCheckEntryRequests,
-  planResidentCheckEntries,
-  takeResidentCheckEntryRequest,
-} from "../../../../../packages/ttsc/lib/compiler/internal/runBuild.js";
+import { bufferResidentCheckEntryRequests } from "../../../../../packages/ttsc/lib/compiler/internal/build/bufferResidentCheckEntryRequests.js";
+import { planResidentCheckEntries } from "../../../../../packages/ttsc/lib/compiler/internal/build/planResidentCheckEntries.js";
+import { takeResidentCheckEntryRequest } from "../../../../../packages/ttsc/lib/compiler/internal/build/takeResidentCheckEntryRequest.js";
 
 /**
  * Verifies duplicate resident check entries share a process, not pending state.

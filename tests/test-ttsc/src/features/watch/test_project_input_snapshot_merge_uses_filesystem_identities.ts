@@ -4,7 +4,7 @@ import child_process from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-import { mergeProjectInputSnapshots } from "../../../../../packages/ttsc/lib/compiler/internal/runBuild.js";
+import { mergeProjectInputSnapshots } from "../../../../../packages/ttsc/lib/compiler/internal/build/mergeProjectInputSnapshots.js";
 
 /**
  * Verifies project-input merge keys follow physical filesystem identities.

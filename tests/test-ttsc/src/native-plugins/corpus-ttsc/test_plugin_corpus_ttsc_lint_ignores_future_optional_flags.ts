@@ -60,6 +60,7 @@ export const test_plugin_corpus_ttsc_lint_ignores_future_optional_flags =
         "lib",
         "plugin",
         "internal",
+        "load",
         "loadProjectPlugins.js",
       ),
     );

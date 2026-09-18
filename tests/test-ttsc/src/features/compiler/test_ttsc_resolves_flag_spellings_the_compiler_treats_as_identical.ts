@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 
-import { parseFlags } from "../../../../../packages/ttsc/lib/flags/parser.js";
-import { resolveFlagSpec } from "../../../../../packages/ttsc/lib/flags/schema.js";
+import { parseFlags } from "../../../../../packages/ttsc/lib/flags/parseFlags.js";
+import { resolveFlagSpec } from "../../../../../packages/ttsc/lib/flags/resolveFlagSpec.js";
 
 const isInputFile = (token: string): boolean =>
   [".ts", ".tsx", ".mts", ".cts"].some((ext) => token.endsWith(ext));

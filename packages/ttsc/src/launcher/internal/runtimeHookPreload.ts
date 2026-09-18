@@ -1,4 +1,4 @@
-import { installRuntimeHooks } from "./runtimeHooks";
+import { installRuntimeHooks } from "./runtime/installRuntimeHooks";
 
 /**
  * `--require` target that only installs the runtime module hooks. `ttsx` puts

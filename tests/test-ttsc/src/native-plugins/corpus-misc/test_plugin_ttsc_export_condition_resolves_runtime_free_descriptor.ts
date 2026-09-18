@@ -16,7 +16,7 @@ import {
  * descriptor over the package's default barrel entry.
  *
  * Locks the `ttsc`-condition branch added to
- * `loadProjectPlugins.ts::resolvePluginRequest`. A package whose `.` entry is a
+ * `PluginPackageResolution.ts::resolvePluginRequest`. A package whose `.` entry is a
  * runtime barrel (the real case is `typia`, whose index re-exports the whole
  * validator runtime) cannot serve as the plugin descriptor entry — loading it
  * during plugin bootstrap pulls the runtime in and, for a self-hosting

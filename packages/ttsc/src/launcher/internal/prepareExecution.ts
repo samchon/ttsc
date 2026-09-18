@@ -1,29 +1,16 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-
-import { isOutsideRelativePath } from "../../compiler/internal/paths";
+import { isOutsideRelativePath } from "../../compiler/internal/isOutsideRelativePath";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { resolveEmittedJavaScript } from "../../compiler/internal/resolveEmittedJavaScript";
-import { runBuild } from "../../compiler/internal/runBuild";
-import { createFilesystemPathIdentityContext } from "../../internal/projectInputPathIdentity";
+import { runBuild } from "../../compiler/internal/build/runBuild";
+import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
 import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
-import { type OwningModuleOptions, projectModuleOptions } from "./runtimeHooks";
-
-/**
- * Maximum number of ancestor directories above the project root that the
- * virtual filesystem overlay mirrors. Three levels covers the common monorepo
- * layout (workspace-root → packages → package-root) so `node_modules` symlinks
- * resolve correctly without reaching an unsafe boundary.
- */
-const MAX_VIRTUAL_PARENT_DEPTH = 3;
-/**
- * Emit directory of the entry-only fallback build, a sibling of the virtual
- * layout's volume-label directories so it can never collide with a mirrored
- * project path.
- */
-const ENTRY_PROJECT_EMIT_DIR = "entry-project";
+import { type OwningModuleOptions } from "./runtime/OwningModuleOptions";
+import { projectModuleOptions } from "./runtime/projectModuleOptions";
+import { linkVirtualEntry } from "./linkVirtualEntry";
 
 /** Build the owning project and locate the emitted JavaScript entry for `ttsx`. */
 export function prepareExecution(
@@ -86,6 +73,21 @@ export function prepareExecution(
     throw error;
   }
 }
+
+/**
+ * Maximum number of ancestor directories above the project root that the
+ * virtual filesystem overlay mirrors. Three levels covers the common monorepo
+ * layout (workspace-root → packages → package-root) so `node_modules` symlinks
+ * resolve correctly without reaching an unsafe boundary.
+ */
+const MAX_VIRTUAL_PARENT_DEPTH = 3;
+
+/**
+ * Emit directory of the entry-only fallback build, a sibling of the virtual
+ * layout's volume-label directories so it can never collide with a mirrored
+ * project path.
+ */
+const ENTRY_PROJECT_EMIT_DIR = "entry-project";
 
 /**
  * The JavaScript this build emitted for `entry`, or `null` when it emitted none
@@ -244,9 +246,9 @@ function createProjectContext(
  * The entry's directory is not that root — it is only the same directory when
  * the entry happens to sit beside the tsconfig, which is precisely why a
  * `src/`-shaped project mislaid its emit here (issue #1172) while a flat one
- * worked. `runtimeHooks.ts::resolveDependencySourceRoot` and
- * `watchTopology.ts::inferPerSourceCompilerOutputs` already model the same
- * rule, and `runBuild.ts::pinnedRootDirArgs` pins it for tsgo itself.
+ * worked. `installRuntimeHooks.ts::resolveDependencySourceRoot` and
+ * `WatchTopology.ts::inferPerSourceCompilerOutputs` already model the same
+ * rule, and `TsgoArguments.ts::pinnedRootDirArgs` pins it for tsgo itself.
  *
  * Resolving it is the other half of `resolveEntrySpelling`, and skipping it
  * leaves the comparison mixed rather than merely imprecise. `project.root`
@@ -533,69 +535,6 @@ function linkVirtualProjectLayout(
       }
       linkVirtualEntry(realEntry, virtualEntry, entry);
     }
-  }
-}
-
-// Exported for direct exercise by the ttsx e2e suite: the Windows fallback
-// branches below cannot be reached through a spawned run on CI (creating a
-// file-symlink fixture needs the very privilege the fallback avoids).
-export function linkVirtualEntry(
-  realEntry: string,
-  virtualEntry: string,
-  entry: fs.Dirent,
-): void {
-  if (entry.isDirectory()) {
-    // Use junction points on Windows; plain symlinks elsewhere.
-    fs.symlinkSync(
-      realEntry,
-      virtualEntry,
-      process.platform === "win32" ? "junction" : undefined,
-    );
-    return;
-  }
-  if (entry.isFile()) {
-    try {
-      // Hard-link first: cheap, preserves inode, no extra disk usage.
-      fs.linkSync(realEntry, virtualEntry);
-    } catch {
-      // Cross-device or unsupported filesystem: fall back to a full copy.
-      fs.copyFileSync(realEntry, virtualEntry);
-    }
-    return;
-  }
-  if (
-    process.platform === "win32" &&
-    entry.isSymbolicLink() &&
-    isDirectorySymlinkTarget(realEntry)
-  ) {
-    fs.symlinkSync(realEntry, virtualEntry, "junction");
-    return;
-  }
-  // Symlinks (and other special entries) are re-symlinked as-is. On Windows,
-  // a file symlink needs SeCreateSymbolicLinkPrivilege (admin or Developer
-  // Mode), so mirror the plain-file branch's hard-link/copy fallback instead
-  // of failing the run (#306). A link whose target no longer exists is
-  // skipped: it can serve no module, and none of the fallbacks can
-  // materialize it without symlink privileges.
-  try {
-    fs.symlinkSync(realEntry, virtualEntry);
-  } catch {
-    if (!fs.existsSync(realEntry)) {
-      return;
-    }
-    try {
-      fs.linkSync(realEntry, virtualEntry);
-    } catch {
-      fs.copyFileSync(realEntry, virtualEntry);
-    }
-  }
-}
-
-function isDirectorySymlinkTarget(realEntry: string): boolean {
-  try {
-    return fs.statSync(realEntry).isDirectory();
-  } catch {
-    return false;
   }
 }
 

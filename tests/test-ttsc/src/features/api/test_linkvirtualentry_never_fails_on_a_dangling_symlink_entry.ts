@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { linkVirtualEntry } from "../../../../../packages/ttsc/lib/launcher/internal/prepareExecution.js";
+import { linkVirtualEntry } from "../../../../../packages/ttsc/lib/launcher/internal/linkVirtualEntry.js";
 
 /**
  * Verifies `linkVirtualEntry` never fails on a dangling symlink entry.

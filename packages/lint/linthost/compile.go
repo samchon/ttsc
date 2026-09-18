@@ -620,7 +620,7 @@ func filterKnownFlags(args []string, known map[string]bool) []string {
     }
     // Lower-cased to match the one normalization the schema uses when it
     // generates this allow-list (`normalizeFlagToken` in
-    // packages/ttsc/src/flags/schema.ts): TypeScript's option parser matches
+    // packages/ttsc/src/flags/normalizeFlagToken.ts): TypeScript's option parser matches
     // names case-insensitively, so an exact-spelling lookup here would stop
     // recognising a flag the launcher already resolved.
     needsValue, ok := known[strings.ToLower(name)]

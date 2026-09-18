@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { planCompilerDirectoryWatchEvent } from "../../../../../packages/ttsc/lib/launcher/internal/watchTopology.js";
+import { planCompilerDirectoryWatchEvent } from "../../../../../packages/ttsc/lib/launcher/internal/watch/planCompilerDirectoryWatchEvent.js";
 
 /**
  * Verifies compiler directory events map deterministically to watch actions.

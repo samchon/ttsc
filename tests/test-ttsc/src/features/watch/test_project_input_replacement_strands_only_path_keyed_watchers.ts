@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { projectInputReplacementStrandsWatchers } from "../../../../../packages/ttsc/lib/launcher/internal/watchTopology.js";
+import { projectInputReplacementStrandsWatchers } from "../../../../../packages/ttsc/lib/launcher/internal/watch/projectInputReplacementStrandsWatchers.js";
 
 /**
  * Verifies a recursive root is reinstalled only where a replacement strands it.

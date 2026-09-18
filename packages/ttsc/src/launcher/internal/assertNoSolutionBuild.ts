@@ -1,4 +1,4 @@
-import { type ParseResult } from "../../flags/parser";
+import { type ParseResult } from "../../flags/ParseResult";
 
 /**
  * Refuse tsgo's solution-build mode (`--build` / `-b`) in the launcher's own

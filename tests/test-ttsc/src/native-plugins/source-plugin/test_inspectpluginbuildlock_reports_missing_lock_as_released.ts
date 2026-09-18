@@ -10,7 +10,7 @@ import {
  * Verifies inspectPluginBuildLock reports a missing lock directory as released.
  *
  * Pins the issue #421 regression in
- * `buildSourcePlugin.ts::inspectPluginBuildLock`. A holder's `finally` removes
+ * `inspectPluginBuildLock.ts::inspectPluginBuildLock`. A holder's `finally` removes
  * the lock the moment its build publishes or throws, so a waiter routinely
  * observes the directory vanishing between two polls. The old code encoded the
  * failed `statSync` as an Infinity age, classified the released lock as an

@@ -29,14 +29,13 @@ export const test_ttsx_dependency_cache_fences_two_stale_observers_of_a_dead_own
   async () => {
     const root = TestProject.tmpdir("ttsx-depcache-fence-");
     const lockDir = path.join(root, "entry.lock");
-    const libraryPath = dependencyCacheLibraryPath();
 
     const seedScript = path.join(root, "seed.cjs");
     fs.writeFileSync(
       seedScript,
       [
         `const fs = require("node:fs");`,
-        `const { acquireDependencyBuildLock } = require(${JSON.stringify(libraryPath)});`,
+        `const { acquireDependencyBuildLock } = require(${JSON.stringify(dependencyCacheLibraryPath("acquireDependencyBuildLock"))});`,
         `const lease = acquireDependencyBuildLock(${JSON.stringify(lockDir)});`,
         `if (!lease) throw new Error("seed failed to acquire lock");`,
         `fs.writeFileSync(${JSON.stringify(path.join(root, "seed.json"))}, JSON.stringify(lease), "utf8");`,
@@ -57,7 +56,10 @@ export const test_ttsx_dependency_cache_fences_two_stale_observers_of_a_dead_own
       observerScript,
       [
         `const fs = require("node:fs");`,
-        `const { acquireDependencyBuildLock, inspectDependencyBuildLock, reclaimDependencyBuildLock, releaseDependencyBuildLock } = require(${JSON.stringify(libraryPath)});`,
+        `const { acquireDependencyBuildLock } = require(${JSON.stringify(dependencyCacheLibraryPath("acquireDependencyBuildLock"))});`,
+        `const { inspectDependencyBuildLock } = require(${JSON.stringify(dependencyCacheLibraryPath("inspectDependencyBuildLock"))});`,
+        `const { reclaimDependencyBuildLock } = require(${JSON.stringify(dependencyCacheLibraryPath("reclaimDependencyBuildLock"))});`,
+        `const { releaseDependencyBuildLock } = require(${JSON.stringify(dependencyCacheLibraryPath("releaseDependencyBuildLock"))});`,
         `const lockDir = ${JSON.stringify(lockDir)};`,
         `const readyFile = process.env.OBS_READY;`,
         `const releaseFile = process.env.OBS_RELEASE;`,

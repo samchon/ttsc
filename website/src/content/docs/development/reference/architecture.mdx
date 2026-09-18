@@ -98,7 +98,7 @@ GOTOOLCHAIN GOROOT
 
 `ttsc` also folds selected external cgo/pkg-config environment values into the key when they are set, including include/library search path variables (`CPATH`, `LIBRARY_PATH`, `INCLUDE`, `LIB`, `LIBPATH`), pkg-config search variables (`PKG_CONFIG_PATH`, `PKG_CONFIG_LIBDIR`, `PKG_CONFIG_SYSROOT_DIR`), and Apple SDK/deployment variables (`SDKROOT`, `MACOSX_DEPLOYMENT_TARGET`).
 
-Source: `packages/ttsc/src/plugin/internal/buildSourcePlugin.ts` (`GO_BUILD_ENV_KEYS` and `EXTERNAL_GO_BUILD_ENV_KEYS`; the cache-key loop folds each non-empty effective value into the hash).
+Source: `packages/ttsc/src/plugin/internal/source/computeCacheKey.ts` (`GO_BUILD_ENV_KEYS` and `EXTERNAL_GO_BUILD_ENV_KEYS`; the cache-key loop folds each non-empty effective value into the hash).
 
 ### Injected into the plugin process
 
@@ -109,7 +109,7 @@ Before spawning a plugin, `ttsc` sets three env vars (`TTSC_NODE_BINARY`, `TTSC_
 - `TTSC_TTSX_BINARY`: resolved `ttsx` launcher.
 - `TTSC_PLUGIN_CONFIG_DIR` (only when the embedding sets `pluginConfigDir`): the directory that plugin config-file discovery and relative `configFile` resolution anchor at. Build integrations that compile through a generated wrapper tsconfig set it to the real project root (the bundler adapters write such a wrapper into the system temp directory for aliases and `compilerOptions` overlays); absent it, plugins anchor at the tsconfig's own directory.
 
-A plugin that wants to re-spawn `ttsx` or `tsgo` (for example to type-check a generated file) should call these vars rather than re-resolving from `$PATH`. They guarantee the same helper toolchain selected by the host. A plugin that discovers its own config file should anchor at `TTSC_PLUGIN_CONFIG_DIR` when set; the shipped utility plugins do this through `driver.PluginConfigBaseDir`. Sources: `runBuild.ts` and `transformProjectInMemory.ts`. See [Recipes → Re-spawn ttsx or tsgo from a plugin](/docs/development/authoring/recipes#re-spawn-ttsx-or-tsgo-from-a-plugin) for usage.
+A plugin that wants to re-spawn `ttsx` or `tsgo` (for example to type-check a generated file) should call these vars rather than re-resolving from `$PATH`. They guarantee the same helper toolchain selected by the host. A plugin that discovers its own config file should anchor at `TTSC_PLUGIN_CONFIG_DIR` when set; the shipped utility plugins do this through `driver.PluginConfigBaseDir`. Sources: `compiler/internal/build/BuildExecution.ts` and `compiler/internal/transformProjectInMemory.ts`. See [Recipes → Re-spawn ttsx or tsgo from a plugin](/docs/development/authoring/recipes#re-spawn-ttsx-or-tsgo-from-a-plugin) for usage.
 
 ### `GOROOT` is auto-injected only when unset
 

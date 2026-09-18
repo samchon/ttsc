@@ -24,7 +24,7 @@ import "strings"
 // (no inline `=` and the next token does not start with `-`).
 //
 // The allow-list itself is generated from
-// `packages/ttsc/src/flags/schema.ts` (see `flags_gen.go`); editing it
+// `packages/ttsc/src/flags/FLAG_SCHEMA.ts` (see `flags_gen.go`); editing it
 // means editing the schema and re-running `pnpm format`, not patching
 // this file.
 func filterHostArgs(args []string) []string {
@@ -64,7 +64,7 @@ func filterHostArgs(args []string) []string {
 // (`--foo=value`).
 //
 // Lower-casing is the same normalization `normalizeFlagToken` in
-// `packages/ttsc/src/flags/schema.ts` applies, and the generated
+// `packages/ttsc/src/flags/normalizeFlagToken.ts` applies, and the generated
 // `HostFlagAllowList` keys are produced by it. TypeScript's option parser
 // matches option names case-insensitively, so keying this lookup on the exact
 // spelling would make the Go layer stop recognising a flag the launcher and the

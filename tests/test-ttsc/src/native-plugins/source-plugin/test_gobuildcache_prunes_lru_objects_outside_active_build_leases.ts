@@ -329,7 +329,8 @@ export const test_gobuildcache_prunes_lru_objects_outside_active_build_leases =
         "lib",
         "plugin",
         "internal",
-        "buildSourcePlugin.js",
+        "source",
+        "withGoBuildCacheLease.js",
       );
       const permissionRun = child_process.spawnSync(
         process.execPath,

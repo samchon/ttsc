@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { createFilesystemPathIdentityContext } from "../../../../packages/ttsc/lib/internal/projectInputPathIdentity.js";
+import { createFilesystemPathIdentityContext } from "../../../../packages/ttsc/lib/internal/pathIdentity/createFilesystemPathIdentityContext.js";
 import {
   discoverNearestProjectTsconfig,
   findNearestProjectTsconfig,

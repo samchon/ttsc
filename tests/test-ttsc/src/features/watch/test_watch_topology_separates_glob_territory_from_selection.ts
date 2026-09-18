@@ -2,7 +2,7 @@ import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { projectInputReloadEventShouldNotify } from "../../../../../packages/ttsc/lib/launcher/internal/watchTopology.js";
+import { projectInputReloadEventShouldNotify } from "../../../../../packages/ttsc/lib/launcher/internal/watch/projectInputReloadEventShouldNotify.js";
 
 /**
  * Verifies a declared glob's root is data even inside a resolution directory.

@@ -4,11 +4,9 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import {
-  fingerprintInitialLSPProjectInputSnapshot,
-  initialLSPProjectInputSnapshotIsCurrent,
-  materializeLSPPluginManifest,
-} from "../../../../../packages/ttsc/lib/launcher/internal/runTtscserver.js";
+import { fingerprintInitialLSPProjectInputSnapshot } from "../../../../../packages/ttsc/lib/launcher/internal/ttscserver/fingerprintInitialLSPProjectInputSnapshot.js";
+import { initialLSPProjectInputSnapshotIsCurrent } from "../../../../../packages/ttsc/lib/launcher/internal/ttscserver/initialLSPProjectInputSnapshotIsCurrent.js";
+import { materializeLSPPluginManifest } from "../../../../../packages/ttsc/lib/launcher/internal/ttscserver/materializeLSPPluginManifest.js";
 
 /**
  * Verifies a server selection snapshot fingerprints both reload input lanes.

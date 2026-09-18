@@ -2,8 +2,8 @@ import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { residentCheckRequest } from "../../../../../packages/ttsc/lib/compiler/internal/runBuild.js";
-import { PendingResidentCheckWatchChanges } from "../../../../../packages/ttsc/lib/launcher/internal/runTtsc.js";
+import { residentCheckRequest } from "../../../../../packages/ttsc/lib/compiler/internal/build/residentCheckRequest.js";
+import { PendingResidentCheckWatchChanges } from "../../../../../packages/ttsc/lib/launcher/internal/PendingResidentCheckWatchChanges.js";
 
 /**
  * Verifies project-input invalidation survives the CLI watch debounce.

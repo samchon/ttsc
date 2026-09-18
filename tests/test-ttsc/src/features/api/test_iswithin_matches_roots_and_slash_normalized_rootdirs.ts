@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { createFilesystemPathIdentityContext } from "../../../../../packages/ttsc/lib/internal/projectInputPathIdentity.js";
-import { isWithin } from "../../../../../packages/ttsc/lib/launcher/internal/runtimeHooks.js";
+import { createFilesystemPathIdentityContext } from "../../../../../packages/ttsc/lib/internal/pathIdentity/createFilesystemPathIdentityContext.js";
+import { isWithin } from "../../../../../packages/ttsc/lib/launcher/internal/runtime/isWithin.js";
 
 /**
  * Verifies `isWithin` matches root directories and slash-normalized `rootDir`s.

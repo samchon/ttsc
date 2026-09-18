@@ -1,10 +1,8 @@
 import { TestProject } from "@ttsc/testing";
 
-import {
-  computeCacheKey,
-  spawnGoTool,
-  windowsGoCommandArgs,
-} from "../../../../../packages/ttsc/lib/plugin/internal/buildSourcePlugin.js";
+import { computeCacheKey } from "../../../../../packages/ttsc/lib/plugin/internal/source/computeCacheKey.js";
+import { spawnGoTool } from "../../../../../packages/ttsc/lib/plugin/internal/source/spawnGoTool.js";
+import { windowsGoCommandArgs } from "../../../../../packages/ttsc/lib/plugin/internal/source/windowsGoCommandArgs.js";
 import { assert, fs, path } from "../../internal/source-build";
 
 /**

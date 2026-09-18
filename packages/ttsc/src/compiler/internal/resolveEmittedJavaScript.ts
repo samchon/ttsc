@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { isOutsideRelativePath } from "./paths";
+import { isOutsideRelativePath } from "./isOutsideRelativePath";
 
 /**
  * Locate the JavaScript file emitted for a TypeScript source file.

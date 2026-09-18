@@ -1,12 +1,10 @@
 import path from "node:path";
 
 import { resolveNodeBinary } from "../../internal/resolveNodeBinary";
-import {
-  collectProjectHostInputs,
-  hashHostInputPaths,
-  loadProjectPlugins,
-  realpathHostInputPaths,
-} from "../../plugin/internal/loadProjectPlugins";
+import { collectProjectHostInputs } from "../../plugin/internal/load/collectProjectHostInputs";
+import { hashHostInputPaths } from "../../plugin/internal/load/hashHostInputPaths";
+import { loadProjectPlugins } from "../../plugin/internal/load/loadProjectPlugins";
+import { realpathHostInputPaths } from "../../plugin/internal/load/realpathHostInputPaths";
 import type { ITtscCompilerContext } from "../../structures/ITtscCompilerContext";
 import type { ITtscCompilerDiagnostic } from "../../structures/ITtscCompilerDiagnostic";
 import type { ITtscCompilerTransformation } from "../../structures/ITtscCompilerTransformation";
@@ -14,21 +12,21 @@ import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoa
 import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
 import { buildNativeCompiler } from "./buildNativeCompiler";
-import { packageRootDir } from "./paths";
+import { packageRootDir } from "./packageRootDir";
 import { createNativeProjectContextArgs } from "./project/createNativeProjectContextArgs";
 import { resolveBinary } from "./resolveBinary";
 import { resolveTsgo } from "./resolveTsgo";
-import { appendBuildOutput, normalizeBuildOutput } from "./runBuild";
-import {
-  assertSharedHostCompatibility,
-  clearInheritedSemanticConfigPath,
-  clearInheritedTsgoArgs,
-  inheritedSidecarEnv,
-  linkedTransformPlugins,
-  resolvePluginConfigDir,
-  selectSharedHostPlugin,
-} from "./sharedHostHelpers";
-import { outputText, spawnNative } from "./spawnNative";
+import { appendBuildOutput } from "./build/appendBuildOutput";
+import { normalizeBuildOutput } from "./build/normalizeBuildOutput";
+import { assertSharedHostCompatibility } from "./sharedHost/assertSharedHostCompatibility";
+import { clearInheritedSemanticConfigPath } from "./sharedHost/clearInheritedSemanticConfigPath";
+import { clearInheritedTsgoArgs } from "./sharedHost/clearInheritedTsgoArgs";
+import { inheritedSidecarEnv } from "./sharedHost/inheritedSidecarEnv";
+import { linkedTransformPlugins } from "./sharedHost/linkedTransformPlugins";
+import { resolvePluginConfigDir } from "./sharedHost/resolvePluginConfigDir";
+import { selectSharedHostPlugin } from "./sharedHost/selectSharedHostPlugin";
+import { outputText } from "./outputText";
+import { spawnNative } from "./spawnNative";
 
 /**
  * Transform a project and capture TypeScript source output in memory.

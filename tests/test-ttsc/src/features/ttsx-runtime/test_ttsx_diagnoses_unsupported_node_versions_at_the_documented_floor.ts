@@ -1,9 +1,7 @@
 import assert from "node:assert/strict";
 
-import {
-  TTSX_MINIMUM_NODE_VERSION,
-  checkNodeRuntimeSupport,
-} from "../../../../../packages/ttsc/lib/launcher/internal/runtimeHooks.js";
+import { TTSX_MINIMUM_NODE_VERSION } from "../../../../../packages/ttsc/lib/launcher/internal/runtime/TTSX_MINIMUM_NODE_VERSION.js";
+import { checkNodeRuntimeSupport } from "../../../../../packages/ttsc/lib/launcher/internal/runtime/checkNodeRuntimeSupport.js";
 
 /**
  * Verifies ttsx diagnoses every Node.js version below its documented floor with

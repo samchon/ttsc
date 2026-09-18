@@ -5,7 +5,7 @@ import { createCanonicalTempDirectory } from "../../internal/createCanonicalTemp
 import type { TtscSingleFileEmitOptions } from "../../structures/internal/TtscSingleFileEmitOptions";
 import { readProjectConfig } from "./project/readProjectConfig";
 import { resolveEmittedJavaScript } from "./resolveEmittedJavaScript";
-import { runBuild } from "./runBuild";
+import { runBuild } from "./build/runBuild";
 
 /**
  * Emit one source file by building its project into a temporary directory.

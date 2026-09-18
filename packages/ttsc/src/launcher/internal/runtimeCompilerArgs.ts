@@ -1,6 +1,7 @@
 import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
-import { outputText, spawnNative } from "../../compiler/internal/spawnNative";
-import { normalizeFlagToken } from "../../flags/schema";
+import { outputText } from "../../compiler/internal/outputText";
+import { spawnNative } from "../../compiler/internal/spawnNative";
+import { normalizeFlagToken } from "../../flags/normalizeFlagToken";
 import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
 
 /**

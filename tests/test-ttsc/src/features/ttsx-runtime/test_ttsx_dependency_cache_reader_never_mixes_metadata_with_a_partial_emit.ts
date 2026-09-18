@@ -60,7 +60,7 @@ export const test_ttsx_dependency_cache_reader_never_mixes_metadata_with_a_parti
       [
         `const fs = require("node:fs");`,
         `const path = require("node:path");`,
-        `require(${JSON.stringify(dependencyCacheLibraryPath())});`,
+        `require(${JSON.stringify(dependencyCacheLibraryPath("readDependencyCache"))});`,
         `const cacheDir = ${JSON.stringify(cacheDir)};`,
         `const metaPath = ${JSON.stringify(metaPath)};`,
         `const genB = ${JSON.stringify(genB)};`,

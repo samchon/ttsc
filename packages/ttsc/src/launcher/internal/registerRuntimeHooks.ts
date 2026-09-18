@@ -1,11 +1,9 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import {
-  entryModuleFormat,
-  installRuntimeHooks,
-  realPath,
-} from "./runtimeHooks";
+import { entryModuleFormat } from "./runtime/entryModuleFormat";
+import { installRuntimeHooks } from "./runtime/installRuntimeHooks";
+import { realPath } from "./runtime/realPath";
 
 /**
  * Bootstrap `ttsx` spawns as the child's main module: it installs the runtime

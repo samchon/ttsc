@@ -1,11 +1,9 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import {
-  isAbsoluteLocalProjectInputPath,
-  mergeProjectInputSnapshots,
-  parseProjectInputSnapshot,
-} from "../../../../../packages/ttsc/lib/compiler/internal/runBuild.js";
+import { isAbsoluteLocalProjectInputPath } from "../../../../../packages/ttsc/lib/compiler/internal/build/isAbsoluteLocalProjectInputPath.js";
+import { mergeProjectInputSnapshots } from "../../../../../packages/ttsc/lib/compiler/internal/build/mergeProjectInputSnapshots.js";
+import { parseProjectInputSnapshot } from "../../../../../packages/ttsc/lib/compiler/internal/build/parseProjectInputSnapshot.js";
 
 /**
  * Verifies the launcher accepts only absolute local dependency snapshots and

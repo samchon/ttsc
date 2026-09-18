@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { WatchTopology } from "../../../../../packages/ttsc/lib/launcher/internal/watchTopology.js";
+import { WatchTopology } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
 
 /**
  * Verifies a rejected project-input watch root is reported and retryable.

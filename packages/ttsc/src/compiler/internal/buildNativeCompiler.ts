@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { buildSourcePlugin } from "../../plugin/internal/buildSourcePlugin";
+import { buildSourcePlugin } from "../../plugin/internal/source/buildSourcePlugin";
 
 /**
  * Build (or retrieve from cache) the native ttsc compiler host binary used by

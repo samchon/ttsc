@@ -10,7 +10,7 @@ import (
 // when it generates that allow-list.
 //
 // TypeScript's option parser matches option names case-insensitively, and
-// `normalizeFlagToken` in `packages/ttsc/src/flags/schema.ts` is the one
+// `normalizeFlagToken` in `packages/ttsc/src/flags/normalizeFlagToken.ts` is the one
 // normalization every layer keys off, including `buildGoAllowList`, whose
 // output is `linthost/flags_gen.go`. Keying this lookup on the exact spelling
 // while the generated keys are normalized would drop a flag the launcher and

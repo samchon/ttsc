@@ -3,19 +3,17 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
-import {
-  getBoolean,
-  getNumber,
-  getString,
-  getStringList,
-  parseFlags,
-} from "../../flags/parser";
-import { resolveFlagSpec } from "../../flags/schema";
+import { getBoolean } from "../../flags/getBoolean";
+import { getNumber } from "../../flags/getNumber";
+import { getString } from "../../flags/getString";
+import { getStringList } from "../../flags/getStringList";
+import { parseFlags } from "../../flags/parseFlags";
+import { resolveFlagSpec } from "../../flags/resolveFlagSpec";
 import { assertNoSolutionBuild } from "./assertNoSolutionBuild";
 import { getCompilerVersionText } from "./getCompilerVersionText";
 import { prepareExecution } from "./prepareExecution";
 import { resolveCacheDir } from "./resolveCacheDir";
-import { checkNodeRuntimeSupport } from "./runtimeHooks";
+import { checkNodeRuntimeSupport } from "./runtime/checkNodeRuntimeSupport";
 
 /**
  * CLI entry point for `ttsx`. Type-checks the owning project via tsgo, emits

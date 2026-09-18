@@ -3,11 +3,9 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { createProjectInputPathIdentityContext } from "../../../../../packages/ttsc/lib/internal/projectInputPathIdentity.js";
-import {
-  projectInputAvailableWatchDirectory,
-  syncWatchers,
-} from "../../../../../packages/ttsc/lib/launcher/internal/watchTopology.js";
+import { createProjectInputPathIdentityContext } from "../../../../../packages/ttsc/lib/internal/pathIdentity/createProjectInputPathIdentityContext.js";
+import { projectInputAvailableWatchDirectory } from "../../../../../packages/ttsc/lib/launcher/internal/watch/projectInputAvailableWatchDirectory.js";
+import { syncWatchers } from "../../../../../packages/ttsc/lib/launcher/internal/watch/syncWatchers.js";
 
 /**
  * Verifies project-input watcher reconciliation is transactional.

@@ -5,37 +5,9 @@ import path from "node:path";
 import type { ITtscProjectPluginConfig } from "../../../structures/ITtscProjectPluginConfig";
 import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
 import type { ITtscProjectLocatorOptions } from "../../../structures/internal/ITtscProjectLocatorOptions";
-import { readJsonFile, readJsoncFile } from "./readConfigJson";
-import { resolveProjectIdentity } from "./resolveProjectConfig";
-
-/**
- * Compiler option keys whose values are file-system paths that must be resolved
- * relative to the tsconfig that declares them, not the project root.
- */
-const PATH_OPTIONS = new Set([
-  "baseUrl",
-  "declarationDir",
-  "outFile",
-  "rootDir",
-  "tsBuildInfoFile",
-]);
-const CONFIG_DIR_TEMPLATE = "${configDir}";
-
-/**
- * Intermediate type used during `extends`-chain resolution before the result is
- * projected into `ITtscParsedProjectConfig`.
- */
-type ResolvedCompilerOptions = {
-  configPaths: string[];
-  options: Record<string, unknown>;
-  /** Directory of the tsconfig that last declared each option key. */
-  optionBaseDirs: Record<string, string>;
-  outDir?: string;
-  pluginBaseDirs: string[];
-  /** True when any tsconfig in the chain explicitly declared `plugins`. */
-  pluginsDeclared: boolean;
-  plugins: ITtscProjectPluginConfig[];
-};
+import { readJsonFile } from "./readJsonFile";
+import { readJsoncFile } from "./readJsoncFile";
+import { resolveProjectIdentity } from "./resolveProjectIdentity";
 
 /**
  * Read and resolve the project config subset used by ttsc.
@@ -73,6 +45,34 @@ export function readProjectConfig(
   };
 }
 
+/**
+ * Compiler option keys whose values are file-system paths that must be resolved
+ * relative to the tsconfig that declares them, not the project root.
+ */
+const PATH_OPTIONS = new Set([
+  "baseUrl",
+  "declarationDir",
+  "outFile",
+  "rootDir",
+  "tsBuildInfoFile",
+]);
+const CONFIG_DIR_TEMPLATE = "${configDir}";
+
+/**
+ * Intermediate type used during `extends`-chain resolution before the result is
+ * projected into `ITtscParsedProjectConfig`.
+ */
+type ResolvedCompilerOptions = {
+  configPaths: string[];
+  options: Record<string, unknown>;
+  /** Directory of the tsconfig that last declared each option key. */
+  optionBaseDirs: Record<string, string>;
+  outDir?: string;
+  pluginBaseDirs: string[];
+  /** True when any tsconfig in the chain explicitly declared `plugins`. */
+  pluginsDeclared: boolean;
+  plugins: ITtscProjectPluginConfig[];
+};
 /**
  * Type guard: accept any non-null object as a plugin config entry. This is
  * intentionally loose because the shape is validated later by plugin loaders.

@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
  * Verifies ttsx classifies an unset `module` option from the target, not from
  * the package type — including when the package states CommonJS outright.
  *
- * Pins the `module`-absent branch of `runtimeHooks.ts::effectiveModuleKind`.
+ * Pins the `module`-absent branch of `RuntimeModuleFormat.ts::effectiveModuleKind`.
  * tsgo derives the emit kind from `target` when `module` is missing, and every
  * target TypeScript 7 still accepts is ES2015 or later, so such a project emits
  * ES modules whatever the manifest says. The classifier used to read the absent

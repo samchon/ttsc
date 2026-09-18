@@ -9,6 +9,7 @@ description: Defines ttsc implementation rules, testing standards, validation, c
 
 - [Forbidden](#forbidden)
 - [Work Rules](#work-rules)
+- [Source Structure](#source-structure)
 - [Consequence Analysis](#consequence-analysis)
 - [Plugin Configuration](#plugin-configuration)
 - [Testing](#testing)
@@ -33,6 +34,17 @@ These four are never acceptable; choosing any one means the approach is already 
 - `shim.go` files marked `gen_shims:hand-maintained` are not regenerated.
 - When code behavior changes, update the matching page under `website/src/content/docs/` in the same change.
 - Run `pnpm format` before every ordinary commit and stage the result; never commit unformatted output. An issue campaign instead formats its unified cycle pull request once, and in a multi-agent campaign only the lead runs that formatter.
+
+## Source Structure
+
+`packages/ttsc/src` follows the `@ttsc/evidence` `evidence/singular` and `evidence/documented` rules even though ttsc cannot install them on itself.
+
+- **One public identity per file, named after it.** A file exports exactly one symbol, and the file name is that symbol's name. An `index.ts` or a documented re-export barrel is the only exception. Declarations merged under one name count once.
+- **The export comes first.** Place it right after the imports. Private helpers, constants, and types it uses follow it.
+- **Every public unit carries a JSDoc block.** This covers the export itself and its public members: interface properties, public class members, and namespace members. Write the context a human or an agent needs to start from: what it answers, why it exists, and which invariant it keeps.
+- **Shared internals become one namespace.** When several helpers serve one concern, group them as a single `export namespace` in a file named after it, and export only the members used outside it. Do not add a second export beside the first.
+
+`tests/test-evidence/src/features/test_evidence_repository_ttsc_source_holds_one_documented_identity_per_file.ts` runs the real rules over a copy of `packages/ttsc/src` and fails on any diagnostic. The `evidence` validation lane runs it whenever `packages/ttsc` changes.
 
 ## Consequence Analysis
 

@@ -15,7 +15,7 @@ import (
 // unknown value flags, and positional arguments in one direct helper test.
 //
 // The `known` map models the generated `LintFlagAllowList`, whose keys are
-// produced by `normalizeFlagToken` in `packages/ttsc/src/flags/schema.ts` and
+// produced by `normalizeFlagToken` in `packages/ttsc/src/flags/normalizeFlagToken.ts` and
 // are therefore lower-cased. The double keys them the same way, or it would
 // stop being a faithful stand-in for the map the sidecar actually receives.
 //

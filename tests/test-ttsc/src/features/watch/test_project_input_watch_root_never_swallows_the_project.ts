@@ -3,10 +3,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import {
-  projectInputActiveWatchDirectories,
-  projectInputWatchDirectories,
-} from "../../../../../packages/ttsc/lib/launcher/internal/watchTopology.js";
+import { projectInputActiveWatchDirectories } from "../../../../../packages/ttsc/lib/launcher/internal/watch/projectInputActiveWatchDirectories.js";
+import { projectInputWatchDirectories } from "../../../../../packages/ttsc/lib/launcher/internal/watch/projectInputWatchDirectories.js";
 
 /**
  * Verifies an external declaration never anchors above the project.

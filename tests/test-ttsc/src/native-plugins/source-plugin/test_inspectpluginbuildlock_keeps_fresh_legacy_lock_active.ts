@@ -11,7 +11,7 @@ import {
  * Verifies inspectPluginBuildLock keeps a fresh metadata-less lock active.
  *
  * Negative twin of both the `released` and the abandoned-legacy classifications
- * in `buildSourcePlugin.ts::inspectPluginBuildLock`. A lock directory that
+ * in `inspectPluginBuildLock.ts::inspectPluginBuildLock`. A lock directory that
  * exists but has no `owner.json` yet is the normal instant between a holder's
  * `mkdir` and its owner write — treating it as released would race waiters into
  * duplicate acquisition, and treating it as abandoned would steal a healthy

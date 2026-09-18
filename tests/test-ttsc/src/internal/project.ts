@@ -10,18 +10,12 @@ import os from "node:os";
 import path from "node:path";
 
 import { readProjectConfig } from "../../../../packages/ttsc/lib/compiler/internal/project/readProjectConfig.js";
-import {
-  resolveProjectConfig,
-  resolveProjectIdentity,
-} from "../../../../packages/ttsc/lib/compiler/internal/project/resolveProjectConfig.js";
-import {
-  javascriptRuntimeCapabilities,
-  resolveNodeBinary,
-} from "../../../../packages/ttsc/lib/internal/resolveNodeBinary.js";
-import {
-  COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE,
-  loadProjectPlugins,
-} from "../../../../packages/ttsc/lib/plugin/internal/loadProjectPlugins.js";
+import { resolveProjectConfig } from "../../../../packages/ttsc/lib/compiler/internal/project/resolveProjectConfig.js";
+import { resolveProjectIdentity } from "../../../../packages/ttsc/lib/compiler/internal/project/resolveProjectIdentity.js";
+import { javascriptRuntimeCapabilities } from "../../../../packages/ttsc/lib/internal/javascriptRuntimeCapabilities.js";
+import { resolveNodeBinary } from "../../../../packages/ttsc/lib/internal/resolveNodeBinary.js";
+import { COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE } from "../../../../packages/ttsc/lib/plugin/internal/load/COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE.js";
+import { loadProjectPlugins } from "../../../../packages/ttsc/lib/plugin/internal/load/loadProjectPlugins.js";
 
 export {
   assert,

@@ -3,10 +3,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import {
-  type WatchInputChange,
-  WatchTopology,
-} from "../../../../../packages/ttsc/lib/launcher/internal/watchTopology.js";
+import { type WatchInputChange } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
+import { WatchTopology } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
 import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
 
 /**

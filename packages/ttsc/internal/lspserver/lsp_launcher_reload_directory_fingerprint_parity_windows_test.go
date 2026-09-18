@@ -60,7 +60,7 @@ func launcherReloadDirectoryDigest(
 ) string {
   t.Helper()
   module, err := filepath.Abs(
-    filepath.Join("..", "..", "lib", "launcher", "internal", "runTtscserver.js"),
+    filepath.Join("..", "..", "lib", "launcher", "internal", "ttscserver", "fingerprintInitialLSPProjectInputSnapshot.js"),
   )
   if err != nil {
     t.Fatal(err)

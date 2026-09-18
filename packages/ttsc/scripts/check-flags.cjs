@@ -67,7 +67,7 @@ function main() {
   const drift = computeDrift(before, after, targets);
   if (drift.length !== 0) {
     process.stderr.write(
-      "ttsc flag schema: generated output drifted from src/flags/schema.ts:\n",
+      "ttsc flag schema: generated output drifted from src/flags/FLAG_SCHEMA.ts:\n",
     );
     for (const file of drift) {
       process.stderr.write(`  ${path.relative(repoRoot, file)}\n`);
