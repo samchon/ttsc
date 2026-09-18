@@ -47,21 +47,24 @@ export function runtimeCompilerArgs(
   const jsx = option("jsx");
   if (typeof jsx === "string" && PRESERVED_JSX.has(jsx.toLowerCase())) {
     // A project that preserves JSX hands it to another tool, and Node is not
-    // that tool. The runtime build compiles it with the factory the project
-    // already declares: a classic `jsxFactory`, `jsxFragmentFactory`, or
-    // `reactNamespace` keeps the classic transform, and otherwise the automatic
-    // runtime is used, which reads `jsxImportSource` (default `react`) and
-    // per-file pragmas.
-    const classic =
-      option("jsxFactory") != null ||
-      option("jsxFragmentFactory") != null ||
-      option("reactNamespace") != null;
-    args.push("--jsx", classic ? "react" : "react-jsx");
-    // `preserve` accepts a factory and an import source together; the classic
-    // transform rejects the import source (TS5089), and the declared factory is
-    // the more specific request, so the import source is set aside.
-    if (classic && option("jsxImportSource") != null) {
-      args.push("--jsxImportSource", "null");
+    // that tool. The runtime build compiles it the way the compiler already
+    // checks it. A `jsxImportSource` makes the checker read JSX as the automatic
+    // runtime even under `preserve`, so it selects `react-jsx`. Without one, a
+    // `jsxFactory`, `jsxFragmentFactory`, or `reactNamespace` declares the
+    // classic transform, and a project that declares nothing gets the automatic
+    // runtime's default source, `react`.
+    const factories = ["jsxFactory", "jsxFragmentFactory", "reactNamespace"];
+    const automatic =
+      option("jsxImportSource") != null ||
+      factories.every((name) => option(name) == null);
+    args.push("--jsx", automatic ? "react-jsx" : "react");
+    // `preserve` accepts a factory beside an import source, and `react-jsx`
+    // rejects it (TS5089), so the factories the automatic runtime never reads
+    // are set aside for the runtime build.
+    if (automatic) {
+      for (const name of factories) {
+        if (option(name) != null) args.push(`--${name}`, "null");
+      }
     }
   }
   return args;

@@ -14,11 +14,12 @@ import {
  * The runtime build replaces only a preserved JSX mode (samchon/ttsc#1408).
  * `react` and `react-jsxdev` already produce JavaScript Node can run and must
  * reach the compiler untouched. For `preserve`, the choice of replacement
- * follows the declaration: `reactNamespace` is a classic declaration as much as
- * `jsxFactory` is, and a project that declares both a factory and an import
- * source, which `preserve` allows but no executable mode does, keeps its
- * factory. A `--jsx preserve` inside a response file is read through the
- * compiler, exactly as a visible flag is.
+ * follows the declaration the way the checker reads it: `reactNamespace` is a
+ * classic declaration as much as `jsxFactory` is, and a project that declares
+ * both a factory and an import source, which `preserve` allows but no
+ * executable mode does, is checked as the automatic runtime, so it runs as one,
+ * with no factory in scope. A `--jsx preserve` inside a response file is read
+ * through the compiler, exactly as a visible flag is.
  *
  * 1. Create one project per configuration: `react` with a factory, `react-jsxdev`
  *    with an import source, `preserve` with `reactNamespace`, `preserve` with a
@@ -62,6 +63,8 @@ export const test_ttsx_keeps_executable_jsx_modes_and_honors_every_classic_decla
         files: { "src/jsx.d.ts": globalJsx },
       },
       {
+        // No factory in scope and no global `JSX`: only the automatic runtime
+        // the checker already reads under `preserve` can compile this.
         label: "factory and import source",
         options: {
           jsx: "preserve",
@@ -69,8 +72,7 @@ export const test_ttsx_keeps_executable_jsx_modes_and_honors_every_classic_decla
           jsxFragmentFactory: "Fragment",
           jsxImportSource: "myjsx",
         },
-        view: classicImports + JSX_COMPONENT_SOURCE,
-        files: { "src/jsx.d.ts": globalJsx },
+        view: JSX_COMPONENT_SOURCE,
       },
       {
         label: "response file",

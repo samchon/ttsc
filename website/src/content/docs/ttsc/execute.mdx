@@ -75,10 +75,11 @@ TypeScript-Go preserves proposal syntax when `target` is `ESNext`. For execution
 
 ## JSX
 
-A project that sets `jsx` to `preserve` or `react-native` keeps JSX in its output for another tool, as Next.js projects do by default. Node cannot parse JSX, so `ttsx` compiles it in its private runtime build with the factory the project declares:
+A project that sets `jsx` to `preserve` or `react-native` keeps JSX in its output for another tool, as Next.js projects do by default. Node cannot parse JSX, so `ttsx` compiles it in its private runtime build the way the type-check already reads it:
 
-- A `jsxFactory`, `jsxFragmentFactory`, or `reactNamespace` selects the classic transform (`react`). If the project also sets `jsxImportSource`, which `preserve` allows but the classic transform does not, the declared factory wins and the import source is set aside for the runtime build.
-- Otherwise `ttsx` uses the automatic runtime (`react-jsx`). It reads `jsxImportSource` (default `react`) and per-file `@jsxImportSource` pragmas. A file that relies on a per-file `@jsx` factory pragma needs `@jsxRuntime classic` beside it, as it would under `react-jsx` anywhere.
+- A `jsxImportSource` selects the automatic runtime (`react-jsx`), even when the project also declares a classic factory. `preserve` allows both, and the type-checker then reads JSX through the import source, so the factories are set aside for the runtime build.
+- Otherwise a `jsxFactory`, `jsxFragmentFactory`, or `reactNamespace` selects the classic transform (`react`).
+- A project that declares none of these gets the automatic runtime with its default import source, `react`. The automatic runtime also reads per-file `@jsxImportSource` pragmas. A file that relies on a per-file `@jsx` factory pragma needs `@jsxRuntime classic` beside it, as it would under `react-jsx` anywhere.
 
 The classic transform compiles a fragment (`<>…</>`) through `jsxFragmentFactory`, so a project that declares only `jsxFactory` and uses fragments needs both, as it would under `react`.
 
