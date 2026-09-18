@@ -29,9 +29,12 @@ import { subscribeLinuxDirectoryWatch } from "./subscribeLinuxDirectoryWatch";
  *
  * @returns The handle, with `track` to watch the directories leading to a path
  *   registered after the observer opened, and the path itself while it is a
- *   directory, whatever `admit` says of them. With `subtree`, `track` also
- *   watches every directory below that path which `admit` now accepts, for a
- *   registration that widened what `admit` accepts there (samchon/ttsc#1419).
+ *   directory, whatever `admit` says of them. A directory it newly watches
+ *   follows `admit` below itself, as every watched directory does, but one
+ *   already watched is not read again. With `subtree`, `track` reads the
+ *   directories below that path again and watches every one `admit` now
+ *   accepts, for a registration that widened what `admit` accepts there
+ *   (samchon/ttsc#1419).
  */
 export function openLinuxDirectoryObserver(
   root: string,

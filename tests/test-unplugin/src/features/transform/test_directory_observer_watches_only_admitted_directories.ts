@@ -27,9 +27,9 @@ import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
  *    directory stays unwatched.
  * 3. Track a file below `node_modules` and assert exactly its directory chain
  *    joins the watch set, and a directory, which is watched itself. Then widen
- *    the admission below one package, as a project's root-file membership does
- *    (samchon/ttsc#1419), and assert only a `subtree` track watches what it now
- *    admits there.
+ *    the admission below a package already tracked, as a project's root-file
+ *    membership does (samchon/ttsc#1419), and assert only a `subtree` track
+ *    watches what it now admits there.
  * 4. Close both observers and assert every shared watch is released.
  */
 export async function test_directory_observer_watches_only_admitted_directories(): Promise<void> {
@@ -121,12 +121,13 @@ export async function test_directory_observer_watches_only_admitted_directories(
       "tracking a directory watches the directory itself, whose entries a listing decides",
     );
 
+    first.track(at("node_modules", "pkg-7"));
     widened = at("node_modules", "pkg-7");
     first.track(widened);
     assert.equal(
       watchedBelowRoot().includes("node_modules/pkg-7/lib"),
       false,
-      "without subtree, tracking stops at the path",
+      "without subtree, a path already watched is not read again",
     );
     first.track(widened, true);
     assert.deepEqual(
