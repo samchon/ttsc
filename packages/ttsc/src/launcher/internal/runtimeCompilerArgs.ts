@@ -15,7 +15,7 @@ import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscPa
  *   transform and keeps native class-field semantics, without changing the
  *   implied library or module kind.
  * - `jsx: preserve` and `jsx: react-native` keep JSX. The build compiles it
- *   with the factory the project declares (samchon/ttsc#1408).
+ *   with the JSX runtime the type-check already reads (samchon/ttsc#1408).
  */
 export function runtimeCompilerArgs(
   project: ITtscParsedProjectConfig,

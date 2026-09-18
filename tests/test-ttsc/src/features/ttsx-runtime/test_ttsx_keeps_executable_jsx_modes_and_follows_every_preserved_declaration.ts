@@ -9,7 +9,7 @@ import {
 
 /**
  * Verifies ttsx leaves executable JSX modes as configured and, for a preserved
- * one, honors every way a project declares the classic transform.
+ * one, runs every declaration a project can make the way the checker reads it.
  *
  * The runtime build replaces only a preserved JSX mode (samchon/ttsc#1408).
  * `react` and `react-jsxdev` already produce JavaScript Node can run and must
@@ -23,12 +23,12 @@ import {
  *
  * 1. Create one project per configuration: `react` with a factory, `react-jsxdev`
  *    with an import source, `preserve` with `reactNamespace`, `preserve` with a
- *    factory and an import source, and `react-jsx` run with a response file that
+ *    factory or a namespace beside an import source, and `react-jsx` run with a response file that
  *    forwards `--jsx preserve`.
  * 2. Run each entry.
  * 3. Assert every run renders the component.
  */
-export const test_ttsx_keeps_executable_jsx_modes_and_honors_every_classic_declaration =
+export const test_ttsx_keeps_executable_jsx_modes_and_follows_every_preserved_declaration =
   () => {
     const globalJsx = [
       `declare namespace JSX {`,
@@ -70,6 +70,15 @@ export const test_ttsx_keeps_executable_jsx_modes_and_honors_every_classic_decla
           jsx: "preserve",
           jsxFactory: "h",
           jsxFragmentFactory: "Fragment",
+          jsxImportSource: "myjsx",
+        },
+        view: JSX_COMPONENT_SOURCE,
+      },
+      {
+        label: "namespace and import source",
+        options: {
+          jsx: "preserve",
+          reactNamespace: "R",
           jsxImportSource: "myjsx",
         },
         view: JSX_COMPONENT_SOURCE,

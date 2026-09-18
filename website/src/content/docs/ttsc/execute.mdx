@@ -77,7 +77,7 @@ TypeScript-Go preserves proposal syntax when `target` is `ESNext`. For execution
 
 A project that sets `jsx` to `preserve` or `react-native` keeps JSX in its output for another tool, as Next.js projects do by default. Node cannot parse JSX, so `ttsx` compiles it in its private runtime build the way the type-check already reads it:
 
-- A `jsxImportSource` selects the automatic runtime (`react-jsx`), even when the project also declares a classic factory. `preserve` allows both, and the type-checker then reads JSX through the import source, so the factories are set aside for the runtime build.
+- A `jsxImportSource` selects the automatic runtime (`react-jsx`), even when the project also declares a classic factory. `preserve` allows both, and the type-checker then reads JSX through the import source, so the factories are set aside for the runtime build. A file marked `@jsxRuntime classic` in such a project then needs its own `@jsx` and `@jsxFrag` pragmas.
 - Otherwise a `jsxFactory`, `jsxFragmentFactory`, or `reactNamespace` selects the classic transform (`react`).
 - A project that declares none of these gets the automatic runtime with its default import source, `react`. The automatic runtime also reads per-file `@jsxImportSource` pragmas. A file that relies on a per-file `@jsx` factory pragma needs `@jsxRuntime classic` beside it, as it would under `react-jsx` anywhere.
 
