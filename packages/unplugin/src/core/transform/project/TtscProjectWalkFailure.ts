@@ -2,7 +2,7 @@
 export interface TtscProjectWalkFailure {
   /**
    * How the observation failed: unreadable or changing metadata, a failed
-   * listing, or a file that failed or moved during its read.
+   * listing, or a file that failed or changed during its read.
    */
   kind:
     | "directory-changed-during-walk"

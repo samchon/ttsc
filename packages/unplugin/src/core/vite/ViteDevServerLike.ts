@@ -14,10 +14,10 @@ export interface ViteDevServerLike {
   config?: { root?: string };
   /** Per-environment graphs and channels under the environment API (Vite 6+). */
   environments?: Record<string, ViteEnvironmentLike>;
-  /** The deprecated server-level hot channel some majors still carry. */
+  /** The server-level channel; in Vite 6+ an alias of the client environment's. */
   hot?: ViteHotChannelLike;
-  /** The mixed module graph of Vite 5. */
+  /** The mixed module graph, primary in Vite 5 and kept for compatibility after. */
   moduleGraph?: ViteModuleGraphLike;
-  /** The websocket channel of Vite 5 and earlier. */
+  /** The websocket channel to connected clients, present in every major. */
   ws?: ViteHotChannelLike;
 }

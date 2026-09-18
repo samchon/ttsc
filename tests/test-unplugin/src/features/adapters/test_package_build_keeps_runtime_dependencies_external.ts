@@ -1,7 +1,7 @@
 import { TestProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { builtinModules } from "node:module";
+import { createRequire, isBuiltin } from "node:module";
 import path from "node:path";
 
 const PACKAGE_DIR = path.join(
@@ -9,6 +9,36 @@ const PACKAGE_DIR = path.join(
   "packages",
   "unplugin",
 );
+
+/** The slice of the legacy compiler API this scenario parses output with. */
+interface ILegacyParser {
+  createSourceFile(
+    file: string,
+    text: string,
+    target: number,
+    setParentNodes: boolean,
+    kind: number,
+  ): ILegacyNode;
+  forEachChild(node: ILegacyNode, visit: (child: ILegacyNode) => void): void;
+  ScriptKind: { JS: number };
+  ScriptTarget: { Latest: number };
+  SyntaxKind: Record<string, number>;
+}
+
+/** A parsed node, read only through the fields this scenario inspects. */
+interface ILegacyNode {
+  arguments?: ILegacyNode[];
+  expression?: ILegacyNode;
+  kind: number;
+  moduleSpecifier?: ILegacyNode;
+  text?: string;
+}
+
+// TypeScript 7 ships no compiler API; the package's own declaration build
+// already depends on the legacy one, so the output is parsed with that.
+const LEGACY: ILegacyParser = createRequire(
+  path.join(PACKAGE_DIR, "package.json"),
+)("ts-legacy");
 
 /**
  * Verifies every emitted runtime module keeps its package dependencies external
@@ -20,15 +50,16 @@ const PACKAGE_DIR = path.join(
  * host's path identity next to the one the host uses. The check therefore scans
  * the whole `lib` output in both formats. It also pins the stale dev-time
  * externals (`diff-match-patch-es`, `magic-string`) out of the config and the
- * output, and keeps the config free of `rollup-plugin-node-externals` and
- * `rollup-plugin-auto-external`, whose v9 calls the ES2025 `RegExp.escape` and
+ * output, and keeps the config free of `rollup-plugin-auto-external` and
+ * `rollup-plugin-node-externals`, whose v9 calls the ES2025 `RegExp.escape` and
  * crashes the build on Node 22; the config derives its externals from
  * `package.json` instead.
  *
- * 1. Collect every bare specifier each emitted `.js` and `.mjs` module imports.
- * 2. Assert each is a Node builtin or a declared dependency or peer, and that
- *    `ttsc`, `ttsc/path-identity`, and `unplugin` stay external in both
- *    formats.
+ * 1. Parse every emitted `.js` and `.mjs` module and collect its bare import
+ *    specifiers.
+ * 2. Assert each is a Node builtin or a declared, optional, or peer dependency,
+ *    and that `ttsc`, `ttsc/path-identity`, and `unplugin` stay external in
+ *    both formats.
  * 3. Assert no module carries a virtual shim, `__dirname`, a workspace path, or a
  *    stale external, and that no `_virtual` directory was emitted.
  * 4. Assert the rollup config imports neither externals plugin.
@@ -38,13 +69,14 @@ export async function test_package_build_keeps_runtime_dependencies_external(): 
     fs.readFileSync(path.join(PACKAGE_DIR, "package.json"), "utf8"),
   ) as {
     dependencies?: Record<string, string>;
+    optionalDependencies?: Record<string, string>;
     peerDependencies?: Record<string, string>;
   };
   const declared = new Set([
     ...Object.keys(manifest.dependencies ?? {}),
+    ...Object.keys(manifest.optionalDependencies ?? {}),
     ...Object.keys(manifest.peerDependencies ?? {}),
   ]);
-  const builtins = new Set(builtinModules);
   const lib = path.dirname(TestUnpluginRuntime.libPath("index", "js"));
   const outputs = collectRuntimeOutputs(lib);
   assert.ok(outputs.length > 0, "the build emitted no runtime modules");
@@ -53,12 +85,9 @@ export async function test_package_build_keeps_runtime_dependencies_external(): 
   for (const file of outputs) {
     const source = fs.readFileSync(file, "utf8");
     const relative = path.relative(lib, file).replaceAll(path.sep, "/");
-    for (const specifier of bareSpecifiers(source)) {
-      const bare = specifier.startsWith("node:")
-        ? specifier.slice("node:".length)
-        : specifier;
+    for (const specifier of bareSpecifiers(file, source)) {
       assert.ok(
-        builtins.has(bare) || declared.has(packageName(specifier)),
+        isBuiltin(specifier) || declared.has(packageName(specifier)),
         `${relative} imports undeclared ${specifier}`,
       );
       externals[file.endsWith(".mjs") ? "mjs" : "js"].add(specifier);
@@ -109,15 +138,51 @@ function collectRuntimeOutputs(directory: string): string[] {
   });
 }
 
-/** Non-relative specifiers of `require`, static, and dynamic imports. */
-function bareSpecifiers(source: string): string[] {
-  return [
-    ...source.matchAll(
-      /(?:require\(|\bfrom\s*|\bimport\(|\bimport\s+)["']([^"']+)["']/g,
+/**
+ * Non-relative specifiers of static imports and re-exports, `require` calls,
+ * and dynamic `import()`, read from the parsed module so a specifier inside a
+ * comment or a string (such as the Windows broker's embedded child script)
+ * neither satisfies nor fails the check.
+ */
+function bareSpecifiers(file: string, source: string): string[] {
+  const kinds = LEGACY.SyntaxKind;
+  const output: string[] = [];
+  const text = (node: ILegacyNode | undefined): string | undefined =>
+    node !== undefined && node.kind === kinds.StringLiteral
+      ? node.text
+      : undefined;
+  const visit = (node: ILegacyNode): void => {
+    let specifier: string | undefined;
+    if (
+      node.kind === kinds.ImportDeclaration ||
+      node.kind === kinds.ExportDeclaration
+    ) {
+      specifier = text(node.moduleSpecifier);
+    } else if (
+      node.kind === kinds.CallExpression &&
+      node.arguments?.length === 1 &&
+      node.expression !== undefined &&
+      (node.expression.kind === kinds.ImportKeyword ||
+        (node.expression.kind === kinds.Identifier &&
+          node.expression.text === "require"))
+    ) {
+      specifier = text(node.arguments[0]);
+    }
+    if (specifier !== undefined && !specifier.startsWith(".")) {
+      output.push(specifier);
+    }
+    LEGACY.forEachChild(node, visit);
+  };
+  visit(
+    LEGACY.createSourceFile(
+      file,
+      source,
+      LEGACY.ScriptTarget.Latest,
+      true,
+      LEGACY.ScriptKind.JS,
     ),
-  ]
-    .map((match) => match[1]!)
-    .filter((specifier) => !specifier.startsWith("."));
+  );
+  return output;
 }
 
 /** The package a bare specifier names, without its subpath. */

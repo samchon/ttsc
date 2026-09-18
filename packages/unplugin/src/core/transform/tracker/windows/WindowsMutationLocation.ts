@@ -6,7 +6,11 @@
  * trackers keep their event traffic proportional to the inputs they own.
  */
 export interface WindowsMutationLocation {
-  /** Directory the broker watches, in the walk's own spelling. */
+  /**
+   * Directory to watch, as the registering tracker spells it: the walk's
+   * spelling for the project tracker, the physical path for exact-input
+   * trackers.
+   */
   directory: string;
   /**
    * Entry names to report, case-folded by the broker; omitted for a recursive

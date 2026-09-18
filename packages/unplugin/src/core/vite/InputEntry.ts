@@ -7,8 +7,8 @@ import type { WatchScope } from "./WatchScope";
  * Holds every spelling an event can arrive under (`aliases`), the ancestors
  * whose rename can move it (`renameAliases`), the scopes and links observing
  * it, and the recorded conditions that decide whether an event really changed
- * it. `fallback` marks an entry no native scope can cover, which the bounded
- * poll checks instead.
+ * it. `fallback` marks an entry the bounded poll checks instead of a native
+ * scope.
  */
 export interface InputEntry {
   /**
@@ -20,7 +20,11 @@ export interface InputEntry {
   changedAt: number;
   /** Recorded states by serialized evidence, each with its importers. */
   conditions: Map<string, InputCondition>;
-  /** Whether no native scope can cover the entry, so the bounded poll checks it. */
+  /**
+   * Whether the bounded poll checks this entry: no native scope covers it, it
+   * has more than one hard link, a linked component cannot be resolved, or its
+   * native watcher failed.
+   */
   fallback: boolean;
   /** Absolute spelling registered by the transform. */
   file: string;

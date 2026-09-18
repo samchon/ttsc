@@ -2,6 +2,6 @@
 export interface PackedUnpluginPackage {
   /** The packed `package.json`, with `workspace:` ranges rewritten as published. */
   manifest: Record<string, any>;
-  /** Directory the tarball was extracted to. */
+  /** The extracted package directory, `<destination>/extract/package`. */
   packageRoot: string;
 }

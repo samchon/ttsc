@@ -33,8 +33,8 @@ export interface TtscProjectMutationTracker {
    */
   drain?: () => Promise<void>;
   /**
-   * Whether the watcher could not be opened or has errored; a failed tracker
-   * proves nothing either way.
+   * Whether the watcher could not be opened, has errored, or was closed; a
+   * failed tracker proves nothing either way.
    */
   failed: boolean;
   /**
