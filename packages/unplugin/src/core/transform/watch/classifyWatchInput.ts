@@ -14,6 +14,9 @@ import type { TtscWatchInputKind } from "./TtscWatchInputKind";
  * `addWatchFile` watches a directory recursively. Deciding the kind once here
  * keeps every adapter's mapping a table instead of a second derivation.
  *
+ * The project's root-file membership carries its own codec, which names its
+ * kind outright (samchon/ttsc#1419).
+ *
  * A recovery registration after a failed compile carries no evidence, since the
  * failed generation observed nothing reusable. It is classified from the
  * current filesystem, and an existing directory counts as a listing, since
@@ -24,6 +27,7 @@ export function classifyWatchInput(
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
 ): TtscWatchInputKind {
   const evidence = input.evidence;
+  if (evidence?.state?.codec === "membership") return "membership";
   if (evidence === undefined) {
     try {
       return filesystem.stat(input.file).isDirectory() ? "listing" : "file";

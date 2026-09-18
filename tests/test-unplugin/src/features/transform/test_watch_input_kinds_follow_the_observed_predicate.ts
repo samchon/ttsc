@@ -20,7 +20,9 @@ import { missingWatchInputShape } from "../../../../../packages/unplugin/lib/cor
  *
  * A missing input also carries what must appear there. esbuild keeps one watch
  * state per path and observes a file's creation and a directory's through
- * different channels, so the shape decides its channel.
+ * different channels, so the shape decides its channel. The project's root
+ * files, which no compiler predicate reports, name their own kind
+ * (samchon/ttsc#1419).
  *
  * 1. Classify each recorded observation, and the legacy evidence without one.
  * 2. Classify evidence-free recovery inputs from the filesystem.
@@ -115,6 +117,23 @@ export async function test_watch_input_kinds_follow_the_observed_predicate(): Pr
       { evidence: { identity: "x", missing: true }, file: "x" },
       "missing",
       "file",
+    ],
+    [
+      "the project's root-file membership",
+      {
+        evidence: {
+          identity: "x",
+          missing: false,
+          state: {
+            codec: "membership",
+            digest: "d",
+            directories: ["x"],
+            policy: { excludedDirectories: [], inputExtensions: [".ts"] },
+          },
+        },
+        file: "x",
+      },
+      "membership",
     ],
   ];
   for (const [label, input, expected, shape] of rows) {

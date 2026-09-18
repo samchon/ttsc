@@ -33,7 +33,8 @@ import type { HostWatchBridge } from "./HostWatchBridge";
  *
  * A directory observed only to exist is never registered. The compiler consults
  * it to gate descendant probes, and each of those is registered in its own
- * right.
+ * right. The project's root-file membership is registered only with a bridge
+ * (samchon/ttsc#1419).
  */
 export function registerBuildWatchInputs(props: {
   /** The host's own file channel. */
@@ -67,6 +68,10 @@ export function registerBuildWatchInputs(props: {
     const kind = classifyWatchInput(input);
     if (kind === "presence") continue;
     if (props.bridge?.kinds.has(kind) === true) bridged.push(input);
+    // Only a bridge observes the project's root files. A one-shot host's
+    // directory channel is recursive, so handing it the project's directories
+    // would invalidate every module on any edit below them.
+    else if (kind === "membership") continue;
     else if (props.loader === undefined) props.addWatchFile(input.file);
     else if (kind === "file") props.loader.addDependency(input.file);
     else if (kind === "missing") props.loader.addMissingDependency(input.file);

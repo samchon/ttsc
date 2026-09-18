@@ -30,6 +30,16 @@ export interface TtscTransformHooks {
    */
   addWatchFiles?: (inputs: readonly TtscWatchInput[], failed?: boolean) => void;
   /**
+   * Whether the batch also carries the project's root-file membership: one
+   * input for the project root, of kind `membership` (samchon/ttsc#1419).
+   *
+   * A watching host needs it to hear that a file the tsconfig includes appeared
+   * or disappeared, since no compiler input changes when one does. A host that
+   * already re-keys on the whole project walk, as `@ttsc/metro` does, leaves it
+   * out.
+   */
+  membership?: boolean;
+  /**
    * Invoked when the plugin declared the transformed file volatile (the
    * envelope's `volatile` list): its output depends on non-file inputs that no
    * file-dependency snapshot can represent. Adapters should mark the module

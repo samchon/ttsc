@@ -81,16 +81,26 @@ export function createEsbuildOptions(
             // (samchon/ttsc#1388): `watchDirs` for a directory's entries or
             // its creation, and `watchFiles` for a file's content or creation.
             // An absent path either kind could replace is observed through
-            // its parent's listing. A directory the compiler only checked
-            // exists is not registered, so a tool writing a new entry below
-            // `node_modules` no longer rebuilds; each descendant the compiler
-            // probed is registered in its own right.
+            // its parent's listing, and the project's root files through the
+            // listing of every directory its walk enters. A directory the
+            // compiler only checked exists is not registered, so a tool
+            // writing a new entry below `node_modules` no longer rebuilds;
+            // each descendant the compiler probed is registered in its own
+            // right.
             const register = (inputs: readonly TtscWatchInput[]) => {
               for (const input of inputs) {
                 const kind = classifyWatchInput(input);
                 if (kind === "listing") observe(input.file, "dirs");
                 else if (kind === "file") observe(input.file, "files");
-                else if (kind === "missing") {
+                else if (
+                  kind === "membership" &&
+                  input.evidence?.state?.codec === "membership"
+                ) {
+                  // A root file appears as a new entry of a directory the
+                  // project walk enters (samchon/ttsc#1419).
+                  for (const directory of input.evidence.state.directories)
+                    observe(directory, "dirs");
+                } else if (kind === "missing") {
                   const shape = missingWatchInputShape(input);
                   if (shape === "directory") observe(input.file, "dirs");
                   else if (shape === "file") observe(input.file, "files");
@@ -108,7 +118,7 @@ export function createEsbuildOptions(
                 options,
                 undefined,
                 cache,
-                { addWatchFiles: register },
+                { addWatchFiles: register, membership: true },
               );
               contents =
                 result === undefined ? source : inlineSourceMap(result);

@@ -5,6 +5,7 @@ import { formatUnknownError } from "../diagnostics/formatUnknownError";
 import { isTransformScratchInput } from "../tsconfig/isTransformScratchInput";
 import type { TtscTransformHooks } from "./TtscTransformHooks";
 import type { TtscWatchInput } from "./TtscWatchInput";
+import { projectMembershipInput } from "./projectMembershipInput";
 
 /**
  * Register the failed generation's project and external inputs so the host can
@@ -74,6 +75,11 @@ export function notifyFailedGenerationInputs(
       append(path.resolve(cached.projectRoot, diagnostic));
     }
   }
+  // A root file the tsconfig includes, such as the global declaration the
+  // failed compile was missing, can repair it too (samchon/ttsc#1419).
+  const membership =
+    hooks?.membership === true ? projectMembershipInput(cached) : undefined;
+  if (membership !== undefined) inputs.push(membership);
   if (addWatchFiles !== undefined) {
     addWatchFiles(inputs, true);
     return;

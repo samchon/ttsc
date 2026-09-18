@@ -9,6 +9,7 @@ import { MISSING_INPUT_STATE } from "../validation/MISSING_INPUT_STATE";
 import type { TtscTransformHooks } from "./TtscTransformHooks";
 import type { TtscWatchInput } from "./TtscWatchInput";
 import type { TtscWatchInputState } from "./TtscWatchInputState";
+import { projectMembershipInput } from "./projectMembershipInput";
 
 /**
  * Forward every derived watch input for `file` to the adapter's `addWatchFile`
@@ -101,6 +102,11 @@ export function notifyWatchInputs(
       },
     };
   });
+  // The root files are the adapter's own decision rather than a compiler
+  // input, so a host that asked for them gets them beside the derived ones.
+  const membership =
+    hooks?.membership === true ? projectMembershipInput(cached) : undefined;
+  if (membership !== undefined) inputs.push(membership);
   if (addWatchFiles !== undefined) {
     addWatchFiles(inputs);
     return;

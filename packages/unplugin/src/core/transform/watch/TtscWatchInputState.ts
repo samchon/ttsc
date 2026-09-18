@@ -1,5 +1,7 @@
 import type { ITtscCompilerTransformation } from "ttsc";
 
+import type { ITtscProjectMembershipPolicy } from "../../tsconfig/ITtscProjectMembershipPolicy";
+
 /** Exact generation state behind one derived watch input. */
 export type TtscWatchInputState =
   | {
@@ -17,4 +19,24 @@ export type TtscWatchInputState =
       /** The exact compiler predicates observed for a resolver input. */
       codec: "predicates";
       observation: ITtscCompilerTransformation.IInputObservation;
+    }
+  | {
+      /**
+       * The project's root-file membership, which the adapter's project walk
+       * decides rather than the compiler (samchon/ttsc#1419). The input's path
+       * is the project root.
+       */
+      codec: "membership";
+      /**
+       * `projectMembershipDigest` of the walk: the policy and every directory
+       * that can hold a program input, with its membership signature.
+       */
+      digest: string;
+      /**
+       * Every directory the walk enters, including those that hold no program
+       * input yet, since a file created in one is a new root file.
+       */
+      directories: readonly string[];
+      /** The rule the walk applied, which a re-walk must apply too. */
+      policy: ITtscProjectMembershipPolicy;
     };

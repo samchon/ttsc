@@ -29,14 +29,16 @@ import { subscribeLinuxDirectoryWatch } from "./subscribeLinuxDirectoryWatch";
  *
  * @returns The handle, with `track` to watch the directories leading to a path
  *   registered after the observer opened, and the path itself while it is a
- *   directory, whatever `admit` says of them.
+ *   directory, whatever `admit` says of them. With `subtree`, `track` also
+ *   watches every directory below that path which `admit` now accepts, for a
+ *   registration that widened what `admit` accepts there (samchon/ttsc#1419).
  */
 export function openLinuxDirectoryObserver(
   root: string,
   admit: (directory: string) => boolean,
   listener: (eventType: string, filename: string | null) => void,
   onError: () => void,
-): { close(): void; track(file: string): void } {
+): { close(): void; track(file: string, subtree?: boolean): void } {
   const base = path.resolve(root);
   const watched = new Map<string, { close(): void }>();
   let closed = false;
@@ -93,6 +95,23 @@ export function openLinuxDirectoryObserver(
       if (entry.isDirectory()) watch(child, false, announce);
     }
   };
+  // Watch the admitted directories below a watched one that the observer
+  // passed over when `admit` still declined them.
+  const scan = (directory: string): void => {
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(directory, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (closed || failed) return;
+      if (!entry.isDirectory()) continue;
+      const child = path.join(directory, entry.name);
+      if (watched.has(child)) scan(child);
+      else watch(child);
+    }
+  };
   const deliver = (
     directory: string,
     eventType: string,
@@ -127,7 +146,7 @@ export function openLinuxDirectoryObserver(
       for (const subscription of watched.values()) subscription.close();
       watched.clear();
     },
-    track: (file) => {
+    track: (file, subtree = false) => {
       const absolute = path.resolve(file);
       if (!pathIsWithin(absolute, base)) return;
       const relative = path.relative(base, absolute);
@@ -143,6 +162,7 @@ export function openLinuxDirectoryObserver(
         watch(directory, true);
         if (!watched.has(directory)) return;
       }
+      if (subtree && watched.has(directory)) scan(directory);
     },
   };
 }

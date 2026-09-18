@@ -93,6 +93,11 @@ export function matchesCompleteInputSnapshot(
     external: externalCurrent.signatures,
     project: current.provenSignatures,
   });
+  // The program's membership is proven unchanged, while a directory that holds
+  // no program input may have appeared since the capture. Adopting the walk's
+  // list registers it with a watching host from now on, so a root file created
+  // in it later is heard (samchon/ttsc#1419).
+  cached.projectDirectories = current.projectDirectories;
   return true;
 }
 

@@ -3,12 +3,17 @@ import path from "node:path";
 import { createFilesystemPathIdentityContext } from "ttsc/path-identity";
 
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
+import { pathIsWithin } from "../transform/filesystem/pathIsWithin";
 import { validateGraphInputObservation } from "../transform/inputs/validateGraphInputObservation";
+import { isProjectWalkDirectory } from "../transform/project/isProjectWalkDirectory";
+import { projectMembershipMatches } from "../transform/project/projectMembershipMatches";
+import { reportsProgramMembership } from "../transform/project/reportsProgramMembership";
 import { hostDeclaresPolling } from "../transform/tracker/hostDeclaresPolling";
 import { watchLocationIdentity } from "../transform/tracker/watchLocationIdentity";
 import type { TtscWatchInputBaseline } from "../transform/watch/TtscWatchInputBaseline";
 import { captureWatchInputBaseline } from "../transform/watch/captureWatchInputBaseline";
 import { watchInputEvidenceMatchesBaseline } from "../transform/watch/watchInputEvidenceMatchesBaseline";
+import type { ITtscProjectMembershipPolicy } from "../tsconfig/ITtscProjectMembershipPolicy";
 import type { InputEntry } from "./InputEntry";
 import type { LinkedPath } from "./LinkedPath";
 import type { ViteDevServerLike } from "./ViteDevServerLike";
@@ -17,6 +22,7 @@ import type { ViteServeWatchOperations } from "./ViteServeWatchOperations";
 import type { WatchScope } from "./WatchScope";
 import { containsPath } from "./containsPath";
 import { hasMultipleLinks } from "./hasMultipleLinks";
+import { invalidateImporters } from "./invalidateImporters";
 import { linkedComponents } from "./linkedComponents";
 import { nearestExistingDirectory } from "./nearestExistingDirectory";
 import { openIsolatedRecursiveWatch } from "./openIsolatedRecursiveWatch";
@@ -38,6 +44,13 @@ import { someSet } from "./someSet";
  * their nearest available scope. Inputs a native scope cannot safely cover
  * share one bounded fallback poll; linked files also share topology checks
  * because retargeting a junction need not emit events on its old descendants.
+ *
+ * A project's root-file membership is one entry for the project root
+ * (samchon/ttsc#1419). Its scope admits every directory the project walk
+ * enters, an event its policy counts as a membership change marks it, and its
+ * check re-walks the project. Its importers are invalidated without an HMR
+ * update, since most new files change no other module: the next request
+ * re-transforms them from the new program.
  */
 export function createViteServeInputWatch(
   operations: Partial<ViteServeWatchOperations> = {},
@@ -47,6 +60,8 @@ export function createViteServeInputWatch(
   const renameAliases = new Map<string, Set<InputEntry>>();
   const importerInputs = new Map<string, Map<string, string>>();
   const pending = new Set<InputEntry>();
+  // Entries holding a project's root-file membership (samchon/ttsc#1419).
+  const memberships = new Set<InputEntry>();
   const polled = new Set<InputEntry>();
   const links = new Map<string, LinkedPath>();
   const scopes = new Map<string, WatchScope>();
@@ -140,6 +155,35 @@ export function createViteServeInputWatch(
     if (indexed?.size === 0) aliases.delete(alias);
   };
 
+  /** The policies of an entry's membership conditions. */
+  const membershipPolicies = (
+    entry: InputEntry,
+  ): ITtscProjectMembershipPolicy[] => {
+    const policies: ITtscProjectMembershipPolicy[] = [];
+    for (const condition of entry.conditions.values()) {
+      const state = condition.evidence?.state;
+      if (state?.codec === "membership") policies.push(state.policy);
+    }
+    return policies;
+  };
+
+  /** Whether a membership in `scope` needs a directory-level watch there. */
+  const admitsMembership = (scope: WatchScope, directory: string): boolean => {
+    for (const entry of memberships) {
+      if (!entry.scopes.has(scope) || !pathIsWithin(directory, entry.file)) {
+        continue;
+      }
+      if (
+        membershipPolicies(entry).some((policy) =>
+          isProjectWalkDirectory(directory, policy),
+        )
+      ) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   const closeScope = (scope: WatchScope): void => {
     scopes.delete(watchPathKey(scope.root));
     try {
@@ -186,6 +230,7 @@ export function createViteServeInputWatch(
   const remove = (entry: InputEntry): void => {
     entries.delete(entry.file);
     pending.delete(entry);
+    memberships.delete(entry);
     polled.delete(entry);
     for (const alias of entry.aliases) unbindAlias(alias, entry);
     entry.aliases.clear();
@@ -218,12 +263,27 @@ export function createViteServeInputWatch(
 
   const check = (selected: Iterable<InputEntry>): void => {
     const importers = new Set<string>();
+    const invalidated = new Set<string>();
     for (const entry of selected) {
       if (entries.get(entry.file) !== entry) continue;
       let baseline: TtscWatchInputBaseline | undefined;
       for (const [key, condition] of entry.conditions) {
         const state = condition.evidence?.state;
         let changed: boolean;
+        if (state?.codec === "membership") {
+          if (
+            projectMembershipMatches(
+              entry.file,
+              state,
+              DEFAULT_FILESYSTEM_OPERATIONS,
+            )
+          ) {
+            continue;
+          }
+          for (const importer of condition.importers) invalidated.add(importer);
+          entry.conditions.delete(key);
+          continue;
+        }
         if (state?.codec === "predicates") {
           changed =
             validateGraphInputObservation(entry.file, state.observation)
@@ -250,6 +310,10 @@ export function createViteServeInputWatch(
     if (server !== undefined && importers.size !== 0) {
       reloadImporters(server, importers);
     }
+    for (const importer of importers) invalidated.delete(importer);
+    if (server !== undefined && invalidated.size !== 0) {
+      invalidateImporters(server, invalidated);
+    }
   };
 
   const enqueue = (eventType: string, file: string): void => {
@@ -265,6 +329,30 @@ export function createViteServeInputWatch(
       for (const entry of aliases.get(key) ?? []) {
         entry.changedAt = changeSequence;
         pending.add(entry);
+      }
+    }
+    // A root file appearing or leaving anywhere a project's walk enters is a
+    // membership change, whatever path the event names (samchon/ttsc#1419).
+    // Only a rename can be one; an edit to an existing file is not.
+    if (eventType === "rename") {
+      for (const entry of memberships) {
+        if (absolute === entry.file || !pathIsWithin(absolute, entry.file)) {
+          continue;
+        }
+        if (
+          membershipPolicies(entry).some((policy) =>
+            reportsProgramMembership(
+              entry.file,
+              absolute,
+              path.basename(absolute),
+              policy,
+              DEFAULT_FILESYSTEM_OPERATIONS,
+            ),
+          )
+        ) {
+          entry.changedAt = changeSequence;
+          pending.add(entry);
+        }
       }
     }
     if (eventType === "rename") {
@@ -386,7 +474,9 @@ export function createViteServeInputWatch(
             failScope(owned);
             updatePoller();
           },
-          (directory) => owned.directories.has(watchPathKey(directory)),
+          (directory) =>
+            owned.directories.has(watchPathKey(directory)) ||
+            admitsMembership(owned, directory),
         );
         if (scope.failed) {
           // An injected or platform watcher may report failure synchronously
@@ -645,6 +735,7 @@ export function createViteServeInputWatch(
     },
     async dispose() {
       entries.clear();
+      memberships.clear();
       aliases.clear();
       renameAliases.clear();
       importerInputs.clear();
@@ -701,10 +792,20 @@ export function createViteServeInputWatch(
       const current = new Map<string, string>();
       const added = new Set<InputEntry>();
       const touched = new Set<InputEntry>();
+      // Memberships new to this replacement, checked at once: a root file can
+      // have appeared after the walk the digest was taken from.
+      const recorded = new Set<InputEntry>();
       for (const input of inputs) {
         const file = path.resolve(input.file);
         const evidence = input.evidence;
-        const key = JSON.stringify(evidence ?? null);
+        const state = evidence?.state;
+        // A membership is keyed by its digest alone, which covers its policy:
+        // its directory list only grows the registration, and serializing it
+        // for every module would cost the most on the largest projects.
+        const key =
+          state?.codec === "membership"
+            ? `membership\0${state.digest}`
+            : JSON.stringify(evidence ?? null);
         current.set(file, key);
         let entry = entries.get(file);
         if (entry === undefined) {
@@ -734,6 +835,15 @@ export function createViteServeInputWatch(
             importers: new Set(),
           };
           entry.conditions.set(key, condition);
+          if (state?.codec === "membership") {
+            memberships.add(entry);
+            recorded.add(entry);
+            // Its scope now admits the walk's directories, which a
+            // directory-level backend passed over before.
+            for (const scope of entry.scopes) {
+              scope.watcher?.track?.(entry.file, true);
+            }
+          }
         }
         condition.importers.add(importer);
       }
@@ -762,7 +872,11 @@ export function createViteServeInputWatch(
         } else {
           const raced: InputEntry[] = [];
           for (const entry of touched) {
-            if (entry.fallback || entry.changedAt > startedAt) {
+            if (
+              entry.fallback ||
+              entry.changedAt > startedAt ||
+              recorded.has(entry)
+            ) {
               raced.push(entry);
               continue;
             }

@@ -54,8 +54,9 @@ function predicateProbe() {
 /**
  * A project whose compile records the predicates a host channel must observe
  * (samchon/ttsc#1388): a type reference resolved past a missing `@types`
- * directory, the listing of the included `src` directory, and package
- * directories checked only to exist.
+ * directory, and package directories checked only to exist. Its `include`
+ * admits `src`, whose root files no compiler predicate reports: the project's
+ * root-file membership reaches the host instead (samchon/ttsc#1419).
  *
  * Its plugin is a linked contributor with no transform, so its compile goes
  * through TypeScript-Go's program and reports the full graph, and its
@@ -142,8 +143,8 @@ export async function warmPredicateProbe() {
  * `start` opens the host's watch session on the fixture and calls `built` once
  * per completed build. It returns the session's `close`, and `poke` for a host
  * whose watcher is driven by hand. A write the compiler never observed must
- * start no build. A missing directory's creation and a new entry in a listed
- * directory must each recompile the project.
+ * start no build. A missing directory's creation and a new root file in the
+ * included directory must each recompile the project.
  */
 export async function predicateContract(name, start) {
   const project = predicateFixture(name);
@@ -205,7 +206,7 @@ export async function predicateContract(name, start) {
     await eventually(
       runs,
       (count) => count === 3,
-      `${name}: a new entry in a listed directory recompiles`,
+      `${name}: a new root file in the included directory recompiles`,
     ).catch((error) => {
       const sentinels =
         signaled === undefined

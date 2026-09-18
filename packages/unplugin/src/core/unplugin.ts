@@ -416,6 +416,10 @@ const unpluginFactory: UnpluginFactory<
                     });
                   }
                 },
+          // A watching session's bridge and the dev server's watcher observe
+          // the project's root files as well; a one-shot build host skips
+          // them (samchon/ttsc#1419).
+          membership: true,
           // A module the plugin declared volatile depends on non-file inputs,
           // which no file-dependency snapshot can represent; mark it
           // uncacheable where the bundler exposes that control.

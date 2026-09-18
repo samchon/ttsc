@@ -22,7 +22,7 @@ export function openRecursiveWatch(
   listener: (eventType: string, file: string | null) => void,
   onError: () => void,
   admit: (directory: string) => boolean = () => true,
-): { close(): void; track?(file: string): void } {
+): { close(): void; track?(file: string, subtree?: boolean): void } {
   if (process.platform !== "darwin" && process.platform !== "win32") {
     return openLinuxDirectoryObserver(root, admit, listener, onError);
   }

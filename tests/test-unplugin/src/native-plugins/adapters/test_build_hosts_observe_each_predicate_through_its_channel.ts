@@ -25,7 +25,9 @@ import { createRealNativeEnvelopeFixture } from "../../internal/real-native-enve
  * 2. Deliver the same module through a watching Rollup context, and assert only
  *    its sentinel is registered.
  * 3. Write below a package directory and assert the sentinel is untouched. Then
- *    create the missing resolution candidate and assert it is rewritten.
+ *    create the missing resolution candidate, and a declaration the tsconfig's
+ *    `include` admits, a new root file (samchon/ttsc#1419), and assert each
+ *    rewrites it.
  * 4. Close the watcher and assert the sentinel is gone.
  */
 export async function test_build_hosts_observe_each_predicate_through_its_channel(): Promise<void> {
@@ -138,6 +140,16 @@ export async function test_build_hosts_observe_each_predicate_through_its_channe
     await waitFor(
       () => signal() !== initial,
       "the sentinel to be rewritten when the missing candidate appears",
+    );
+
+    const created = signal();
+    fs.writeFileSync(
+      path.join(root, "src", "membership.d.ts"),
+      "declare const membership: 1;\n",
+    );
+    await waitFor(
+      () => signal() !== created,
+      "the sentinel to be rewritten when a new root file appears",
     );
   } finally {
     await invoke(rollupPlugin.closeWatcher, {});

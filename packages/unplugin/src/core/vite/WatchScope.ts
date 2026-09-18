@@ -44,5 +44,5 @@ export interface WatchScope {
    * The native handle, absent once failed or closed. `track` exists only on a
    * directory-level backend.
    */
-  watcher?: { close(): void; track?(file: string): void };
+  watcher?: { close(): void; track?(file: string, subtree?: boolean): void };
 }

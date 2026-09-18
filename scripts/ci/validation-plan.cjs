@@ -203,7 +203,7 @@ const LANES = [
       "--include=bun_native_host --include=host_input_tracker " +
       "--include=vite_serve --include=machine_directory " +
       "--include=predicate_proofs --include=real_native_envelope " +
-      "--include=watch_broker && " +
+      "--include=watch_broker --include=registers_new_directories && " +
       // `packages/metro/**` selects this lane, so it has to run metro's own
       // walk-facing cases rather than only the adapter's. There is no
       // Windows-only branch in `@ttsc/metro` itself; what these cases add is

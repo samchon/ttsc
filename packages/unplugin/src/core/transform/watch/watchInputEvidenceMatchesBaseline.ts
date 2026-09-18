@@ -33,6 +33,9 @@ export function watchInputEvidenceMatchesBaseline(
       )
     );
   }
+  // A key baseline records one path's own state, and the project's root-file
+  // membership is a walk over many; it never stands for one.
+  if (evidence.state.codec === "membership") return false;
   const observation = evidence.state.observation;
   if (
     observation.fileExists !== undefined &&

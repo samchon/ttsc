@@ -26,8 +26,10 @@ import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
  *    watched and the file reported relative to the root, while a new package
  *    directory stays unwatched.
  * 3. Track a file below `node_modules` and assert exactly its directory chain
- *    joins the watch set, then track a directory and assert it is watched
- *    itself.
+ *    joins the watch set, and a directory, which is watched itself. Then widen
+ *    the admission below one package, as a project's root-file membership does
+ *    (samchon/ttsc#1419), and assert only a `subtree` track watches what it now
+ *    admits there.
  * 4. Close both observers and assert every shared watch is released.
  */
 export async function test_directory_observer_watches_only_admitted_directories(): Promise<void> {
@@ -51,8 +53,13 @@ export async function test_directory_observer_watches_only_admitted_directories(
       .filter((key) => key === root || key.startsWith(`${root}${path.sep}`))
       .map((key) => path.relative(root, key).replace(/\\/g, "/"))
       .sort();
+  // A widened subtree is admitted too, the way a membership's walk widens a
+  // scope's admission after its observer opened.
+  let widened: string | undefined;
   const admit = (directory: string): boolean =>
-    !directory.split(path.sep).includes("node_modules");
+    !directory.split(path.sep).includes("node_modules") ||
+    (widened !== undefined &&
+      (directory === widened || directory.startsWith(`${widened}${path.sep}`)));
 
   const reported: string[] = [];
   const failures: string[] = [];
@@ -112,6 +119,26 @@ export async function test_directory_observer_watches_only_admitted_directories(
     assert.ok(
       watchedBelowRoot().includes("node_modules/pkg-5"),
       "tracking a directory watches the directory itself, whose entries a listing decides",
+    );
+
+    widened = at("node_modules", "pkg-7");
+    first.track(widened);
+    assert.equal(
+      watchedBelowRoot().includes("node_modules/pkg-7/lib"),
+      false,
+      "without subtree, tracking stops at the path",
+    );
+    first.track(widened, true);
+    assert.deepEqual(
+      watchedBelowRoot().filter((key) => key.startsWith("node_modules/pkg-")),
+      [
+        "node_modules/pkg-3",
+        "node_modules/pkg-3/lib",
+        "node_modules/pkg-5",
+        "node_modules/pkg-7",
+        "node_modules/pkg-7/lib",
+      ],
+      "a subtree track watches what the widened admission now accepts below the path, and nothing beside it",
     );
     assert.deepEqual(failures, []);
   } finally {

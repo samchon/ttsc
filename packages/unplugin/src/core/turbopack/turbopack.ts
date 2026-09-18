@@ -134,6 +134,9 @@ export function turbopack(
                 addMissingDependency: addDependency,
               },
             }),
+          // Only a development session's bridge observes the root files; a
+          // one-shot build has no channel for them (samchon/ttsc#1419).
+          membership: bridgeStartedAt !== undefined,
         }),
     ...(cacheable === undefined
       ? {}
