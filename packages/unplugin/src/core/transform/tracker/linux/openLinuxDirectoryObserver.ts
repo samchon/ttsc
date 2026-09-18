@@ -20,11 +20,11 @@ import { subscribeLinuxDirectoryWatch } from "./subscribeLinuxDirectoryWatch";
  *
  * Events reach `listener` as a recursive watch reports them: the event type and
  * the changed path relative to `root`, or `null` when the backend could not
- * name the entry, which may then be anything below the root. A root that
- * cannot be watched throws, exactly as `fs.watch` does. Any other watch that
- * cannot be opened or that fails while its directory still exists, the
- * per-user limit among the causes, reaches `onError`, since the observer can
- * no longer claim to cover what it was asked to.
+ * name the entry, which may then be anything below the root. A root that cannot
+ * be watched throws, exactly as `fs.watch` does. Any other watch that cannot be
+ * opened or that fails while its directory still exists, the per-user limit
+ * among the causes, reaches `onError`, since the observer can no longer claim
+ * to cover what it was asked to.
  *
  * @returns The handle, with `track` to watch the directories leading to a path
  *   registered after the observer opened, whatever `admit` says of them.
