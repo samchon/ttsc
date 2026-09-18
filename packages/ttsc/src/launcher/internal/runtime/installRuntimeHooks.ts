@@ -1879,6 +1879,10 @@ function ensureProjectBuilt(
   if (cached !== undefined) {
     return cached;
   }
+  const failed = failedProjects.get(tsconfig);
+  if (failed !== undefined) {
+    throw failed;
+  }
   const { cacheDir, lockDir, metaPath, root } = dependencyCachePaths(tsconfig);
 
   const reuse = readDependencyCache(cacheDir, metaPath);
@@ -1888,12 +1892,27 @@ function ensureProjectBuilt(
   }
 
   fs.mkdirSync(root, { recursive: true });
-  const built = withBuildLock(cacheDir, metaPath, lockDir, () =>
-    buildDependency(tsconfig, cacheDir, metaPath),
-  );
+  let built: DependencyBuildGeneration.BuiltProject;
+  try {
+    built = withBuildLock(cacheDir, metaPath, lockDir, () =>
+      buildDependency(tsconfig, cacheDir, metaPath),
+    );
+  } catch (error) {
+    // Every file the project owns asks for this build before its own root
+    // lane, so a build that produced nothing would otherwise run again for
+    // each of them. It is built once per process either way, like a success.
+    failedProjects.set(tsconfig, error);
+    throw error;
+  }
   builtProjects.set(tsconfig, built);
   return built;
 }
+
+/**
+ * Project builds that failed in this process, by tsconfig, the counterpart of
+ * {@link builtProjects}.
+ */
+const failedProjects = new Map<string, unknown>();
 
 interface DependencyCachePaths {
   /** Container of this dependency's generation-stamped emit directories. */
