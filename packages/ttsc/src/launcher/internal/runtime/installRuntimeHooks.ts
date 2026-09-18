@@ -1592,8 +1592,9 @@ function serveEntryEmit(real: string): ServedSource | null {
 }
 
 /**
- * Serve `real` through the project of its nearest `tsconfig.json`, or `null`
- * when no tsconfig owns it or that project's build produced nothing at all.
+ * Serve `real` through the project that owns it, or `null` when no tsconfig
+ * owns it or an emit-only root build of it failed; the caller then falls back
+ * to the isolated emit.
  *
  * The project is built once per run, honouring its own tsconfig (transform
  * plugins included), so a source-shipping package that needs a transform
@@ -1614,15 +1615,16 @@ function serveProjectEmit(real: string): ServedSource | null {
   if (tsconfig === null) {
     return null;
   }
-  let built: DependencyBuildGeneration.BuiltProject;
+  let built: DependencyBuildGeneration.BuiltProject | null;
   try {
     built = ensureProjectBuilt(tsconfig);
   } catch {
-    // The owning project produced no emit at all; fall back to isolated emit of
-    // this single file rather than failing the whole run.
-    return null;
+    // The project's build produced nothing at all — a config that lists no
+    // files emits nothing, for one. That says nothing about this file, which is
+    // then a root like any other the build did not compile.
+    built = null;
   }
-  const served = serveBuiltDependency(built, real);
+  const served = built === null ? null : serveBuiltDependency(built, real);
   if (served !== null) {
     return served;
   }
