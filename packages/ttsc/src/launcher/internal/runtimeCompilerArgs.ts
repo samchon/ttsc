@@ -48,12 +48,21 @@ export function runtimeCompilerArgs(
   if (typeof jsx === "string" && PRESERVED_JSX.has(jsx.toLowerCase())) {
     // A project that preserves JSX hands it to another tool, and Node is not
     // that tool. The runtime build compiles it with the factory the project
-    // already declares: a classic `jsxFactory` or `jsxFragmentFactory` keeps
-    // the classic transform, and otherwise the automatic runtime is used,
-    // which reads `jsxImportSource` (default `react`) and per-file pragmas.
+    // already declares: a classic `jsxFactory`, `jsxFragmentFactory`, or
+    // `reactNamespace` keeps the classic transform, and otherwise the automatic
+    // runtime is used, which reads `jsxImportSource` (default `react`) and
+    // per-file pragmas.
     const classic =
-      option("jsxFactory") != null || option("jsxFragmentFactory") != null;
+      option("jsxFactory") != null ||
+      option("jsxFragmentFactory") != null ||
+      option("reactNamespace") != null;
     args.push("--jsx", classic ? "react" : "react-jsx");
+    // `preserve` accepts a factory and an import source together; the classic
+    // transform rejects the import source (TS5089), and the declared factory is
+    // the more specific request, so the import source is set aside.
+    if (classic && option("jsxImportSource") != null) {
+      args.push("--jsxImportSource", "null");
+    }
   }
   return args;
 }

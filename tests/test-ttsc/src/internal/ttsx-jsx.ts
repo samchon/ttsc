@@ -3,9 +3,11 @@
  * need no React. It renders an element to its HTML text, which makes the
  * compiled factory calls observable on stdout.
  *
- * It serves both transforms. The automatic runtime imports `jsx`, `jsxs`, and
- * `Fragment` from `myjsx/jsx-runtime`; the classic transform calls the `h` and
- * `Fragment` exported from `myjsx` itself, as `jsxFactory: "h"` names them.
+ * It serves every transform. The automatic runtime imports `jsx`, `jsxs`, and
+ * `Fragment` from `myjsx/jsx-runtime`, and its development form `jsxDEV` from
+ * `myjsx/jsx-dev-runtime`. The classic transform calls the `h` and `Fragment`
+ * exported from `myjsx` itself, as `jsxFactory: "h"` names them, or
+ * `createElement` on a namespace, as `reactNamespace` names it.
  */
 export const JSX_RUNTIME_PACKAGE: Readonly<Record<string, string>> = {
   "node_modules/myjsx/package.json": JSON.stringify({
@@ -19,6 +21,10 @@ export const JSX_RUNTIME_PACKAGE: Readonly<Record<string, string>> = {
         types: "./jsx-runtime.d.ts",
         default: "./jsx-runtime.js",
       },
+      "./jsx-dev-runtime": {
+        types: "./jsx-dev-runtime.d.ts",
+        default: "./jsx-dev-runtime.js",
+      },
     },
   }),
   "node_modules/myjsx/index.js": [
@@ -30,12 +36,13 @@ export const JSX_RUNTIME_PACKAGE: Readonly<Record<string, string>> = {
     `function h(type, props, ...children) {`,
     `  return render(type, { ...props, children });`,
     `}`,
-    `module.exports = { Fragment, h, render };`,
+    `module.exports = { Fragment, createElement: h, h, render };`,
     ``,
   ].join("\n"),
   "node_modules/myjsx/index.d.ts": [
     `export declare function Fragment(props: { children?: unknown }): string;`,
     `export declare function h(type: unknown, props: unknown, ...children: unknown[]): string;`,
+    `export declare const createElement: typeof h;`,
     `export declare function render(type: unknown, props: unknown): string;`,
     `export declare namespace JSX {`,
     `  type Element = string;`,
@@ -46,6 +53,16 @@ export const JSX_RUNTIME_PACKAGE: Readonly<Record<string, string>> = {
   "node_modules/myjsx/jsx-runtime.js": [
     `const { Fragment, render } = require("./index.js");`,
     `module.exports = { Fragment, jsx: render, jsxs: render };`,
+    ``,
+  ].join("\n"),
+  "node_modules/myjsx/jsx-dev-runtime.js": [
+    `const { Fragment, render } = require("./index.js");`,
+    `module.exports = { Fragment, jsxDEV: render };`,
+    ``,
+  ].join("\n"),
+  "node_modules/myjsx/jsx-dev-runtime.d.ts": [
+    `export { Fragment, JSX } from "./index";`,
+    `export declare function jsxDEV(type: unknown, props: unknown, ...rest: unknown[]): string;`,
     ``,
   ].join("\n"),
   "node_modules/myjsx/jsx-runtime.d.ts": [

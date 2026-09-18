@@ -73,7 +73,14 @@ TypeScript-Go preserves proposal syntax when `target` is `ESNext`. For execution
 
 ## JSX
 
-A project that sets `jsx` to `preserve` or `react-native` keeps JSX in its output for another tool, as Next.js projects do by default. Node cannot parse JSX, so `ttsx` compiles it in its private runtime build with the factory the project declares. A `jsxFactory` or `jsxFragmentFactory` selects the classic transform (`react`). Otherwise `ttsx` uses the automatic runtime (`react-jsx`), which reads `jsxImportSource` (default `react`) and per-file `@jsxImportSource` pragmas. The same rule applies to a `--jsx` value forwarded before the entry, to dependencies built through their own `tsconfig.json`, and to `ttsc/register`. A `.tsx` file with no project compiles with the automatic runtime. The `react`, `react-jsx`, and `react-jsxdev` modes already produce executable JavaScript and are used as configured. Your `tsconfig.json` and ordinary `ttsc` output are unchanged.
+A project that sets `jsx` to `preserve` or `react-native` keeps JSX in its output for another tool, as Next.js projects do by default. Node cannot parse JSX, so `ttsx` compiles it in its private runtime build with the factory the project declares:
+
+- A `jsxFactory`, `jsxFragmentFactory`, or `reactNamespace` selects the classic transform (`react`). If the project also sets `jsxImportSource`, which `preserve` allows but the classic transform does not, the declared factory wins and the import source is set aside for the runtime build.
+- Otherwise `ttsx` uses the automatic runtime (`react-jsx`). It reads `jsxImportSource` (default `react`) and per-file `@jsxImportSource` pragmas. A file that relies on a per-file `@jsx` factory pragma needs `@jsxRuntime classic` beside it, as it would under `react-jsx` anywhere.
+
+The classic transform compiles a fragment (`<>…</>`) through `jsxFragmentFactory`, so a project that declares only `jsxFactory` and uses fragments needs both, as it would under `react`.
+
+The same rule applies to a `--jsx` value forwarded before the entry or inside a response file, to dependencies built through their own `tsconfig.json`, and to `ttsc/register`. A `.tsx` file with no project compiles with the automatic runtime. The `react`, `react-jsx`, and `react-jsxdev` modes already produce executable JavaScript and are used as configured. Your `tsconfig.json` and ordinary `ttsc` output are unchanged.
 
 ## Raw-TypeScript dependencies
 
