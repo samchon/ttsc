@@ -15,6 +15,7 @@ import { openDirectoryWatch } from "./openDirectoryWatch";
 import { pathTraversesSymbolicLink } from "./pathTraversesSymbolicLink";
 import { recordProjectChange } from "./recordProjectChange";
 import { recordProjectMutation } from "./recordProjectMutation";
+import { watchLocationIdentity } from "./watchLocationIdentity";
 import { registerWindowsProjectMutationTracker } from "./windows/registerWindowsProjectMutationTracker";
 
 /** Watch every walked directory for membership changes after generation. */
@@ -53,6 +54,19 @@ export async function createProjectMutationTracker(
     contentAuthoritative: filesystem.watch === undefined,
   };
   if (root === undefined) return tracker;
+  const rootIdentity = watchLocationIdentity(root, filesystem);
+  if (rootIdentity === undefined) {
+    tracker.failed = true;
+    return tracker;
+  }
+  tracker.verifyLocations = () => {
+    if (
+      !tracker.failed &&
+      watchLocationIdentity(root, filesystem) !== rootIdentity
+    ) {
+      tracker.failed = true;
+    }
+  };
   const knownDirectories = new Set(
     directories
       .filter((directory) => directory.relevant)

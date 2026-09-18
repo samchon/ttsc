@@ -49,4 +49,16 @@ export interface TtscProjectMutationTracker {
    * barrier serves them all.
    */
   settle?: Promise<void>;
+  /**
+   * Re-check that every watched directory is still the one the watch opened on,
+   * and fail the tracker when one is not.
+   *
+   * An inotify watch follows the inode, and FSEvents does not report a watched
+   * root that moves, so replacing a watched directory, or any of its ancestors,
+   * leaves the watch observing the old directory while the new one goes
+   * unheard, and silence would then be read as proof (samchon/ttsc#1384). One
+   * metadata call per watched directory, made once per delivery, bounds that
+   * window.
+   */
+  verifyLocations?: () => void;
 }

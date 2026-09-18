@@ -200,7 +200,7 @@ const LANES = [
       "--include=persistent_host --include=hashed_bundle --include=allowjs " +
       "--include=non_source_host_inputs --include=policy_reports " +
       "--include=compiler_inputs --include=subscription_and_alias " +
-      "--include=bun_native_host " +
+      "--include=bun_native_host --include=host_input_tracker " +
       "--include=predicate_proofs --include=real_native_envelope && " +
       // `packages/metro/**` selects this lane, so it has to run metro's own
       // walk-facing cases rather than only the adapter's. There is no
@@ -223,7 +223,11 @@ const LANES = [
       "sudo sysctl -w kern.maxfiles=524288 && " +
       "sudo sysctl -w kern.maxfilesperproc=262144 && " +
       "ulimit -n 65536 && " +
-      "pnpm --filter @ttsc/test-unplugin start -- --include=high_darwin_descriptors",
+      // The host-input tracker scenario runs FSEvents itself: a watched
+      // directory replaced on macOS reports nothing, which only the location
+      // identity check can notice (samchon/ttsc#1384).
+      "pnpm --filter @ttsc/test-unplugin start -- --include=high_darwin_descriptors " +
+      "--include=host_input_tracker",
     dirs: ["native-plugins"],
   },
   {

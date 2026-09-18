@@ -297,6 +297,17 @@ A directory outside root-file discovery or selected by the effective exclusion r
 
 Generation-scoped directory notifications detect new, removed, or renamed project inputs without repeating a directory-stat pass per module. Windows isolates those notifications so deletion of a watched temporary tree cannot crash the host. A reported membership event is evidence of a change and replaces the generation.
 
+Notifications about inputs outside the project walk count only the events that can change what the compiler observed about each input.
+
+- A declaration the compiler read counts a change to its own content.
+- A directory the resolver only probed for existence, such as `node_modules`, counts only its own rename. Writes below it, like `vitest` caching results, record nothing.
+- A directory the compiler listed, such as an `@types` root, counts renames of its direct children.
+- A missing path counts anything that appears at or below its first missing component.
+- An absent resolution candidate that exists as a directory counts anything below it, because only replacing that directory can turn it into the file the compiler looked for, and a recursive delete reports the directory's contents before the directory itself.
+- Every input also counts a rename of any of its ancestors, because moving or replacing a directory moves its contents without an event on each of them.
+
+Every platform applies these rules through the same decision, so the Windows notification broker and the POSIX watcher agree. On Linux and macOS, a watch keeps following the directory it opened on after that directory is replaced. Every delivery therefore re-checks each watched directory's identity and stops trusting notifications from one that changed; the Vite dev server's external observers are re-checked by the same bounded poll.
+
 ### Proving an input unchanged
 
 Every input a generation has already proven carries the nanosecond metadata signature captured around the read that proved it, so a later delivery that finds the signature unchanged reuses that proof instead of re-reading the bytes. Any signature change falls back to the full content comparison.

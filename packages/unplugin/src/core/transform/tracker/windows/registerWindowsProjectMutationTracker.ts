@@ -27,6 +27,16 @@ export async function registerWindowsProjectMutationTracker(
   membership?: (location: string, filename: string) => boolean,
   content?: (location: string, filename: string) => boolean,
   changeAddsMembership?: (location: string, filename: string) => boolean,
+  /**
+   * The exact-input trackers' shared event decision. When present it is the
+   * only filter the broker applies, so a Windows tracker records exactly what
+   * the in-process listener would for the same event.
+   */
+  classify?: (
+    location: string,
+    filename: string | null,
+    eventType: string,
+  ) => "change" | "mutation" | undefined,
 ): Promise<void> {
   const broker = getWindowsProjectMutationBroker();
   // The child watches canonical directories, and reports its events under that
@@ -62,6 +72,7 @@ export async function registerWindowsProjectMutationTracker(
   });
   broker.trackers.set(id, {
     ...(changeAddsMembership === undefined ? {} : { changeAddsMembership }),
+    ...(classify === undefined ? {} : { classify }),
     ...(content === undefined ? {} : { content }),
     ...(membership === undefined ? {} : { membership }),
     ready: resolveReady,

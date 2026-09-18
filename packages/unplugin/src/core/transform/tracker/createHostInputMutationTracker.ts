@@ -8,23 +8,42 @@ import { pathIsWithin } from "../filesystem/pathIsWithin";
 import { hostInputRealpath } from "../inputs/hostInputRealpath";
 import { missingPathProbe } from "../inputs/missingPathProbe";
 import type { TtscProjectMutationTracker } from "./TtscProjectMutationTracker";
+import type { TtscTrackedInputScope } from "./TtscTrackedInputScope";
 import { closeDirectoryWatches } from "./closeDirectoryWatches";
 import { openDirectoryWatch } from "./openDirectoryWatch";
 import { pathTraversesSymbolicLink } from "./pathTraversesSymbolicLink";
 import { recordProjectChange } from "./recordProjectChange";
 import { recordProjectMutation } from "./recordProjectMutation";
+import { trackedInputScope } from "./trackedInputScope";
+import { watchLocationIdentity } from "./watchLocationIdentity";
 import { registerWindowsProjectMutationTracker } from "./windows/registerWindowsProjectMutationTracker";
 
 /** Maximum unrelated roots watched before snapshot validation takes over. */
 const MAX_HOST_INPUT_WATCH_SCOPES = 16;
 
-/** Watch exact universal inputs, or their nearest existing parent if missing. */
+/**
+ * Watch exact universal inputs, or their nearest existing parent if missing,
+ * and record only the events that can change what the compiler observed about
+ * them (samchon/ttsc#1384).
+ *
+ * Relevance comes from each input's {@link TtscTrackedInputScope}: an event on
+ * the path itself, a rename of an ancestor, and below the path only what its
+ * scope admits. A directory the resolver merely probed for existence, such as
+ * `node_modules`, therefore no longer collects every write beneath it, and a
+ * replaced ancestor directory, which reports only itself, is no longer missed.
+ */
 export async function createHostInputMutationTracker(
   inputs: readonly string[],
   filesystem: TtscTransformFilesystemOperations,
   covered: ReadonlySet<string>,
   events: "all" | "rename" = "all",
   preferredRoot?: string,
+  /**
+   * The event scope of each input, keyed by its resolved spelling, derived from
+   * the compiler's observations. An input missing here is classified from the
+   * filesystem.
+   */
+  scopes?: ReadonlyMap<string, TtscTrackedInputScope>,
 ): Promise<TtscProjectMutationTracker> {
   const identities = createHostPathIdentityContext(filesystem);
   const linkedAncestors = new Map<string, boolean>();
@@ -57,46 +76,84 @@ export async function createHostInputMutationTracker(
         );
       }),
   );
+  // Every tracked path with its event scope. A missing input is tracked as its
+  // first missing component, whose creation can arrive through any descendant.
+  const tracked = new Map<string, Set<TtscTrackedInputScope>>();
+  // Every ancestor of a tracked path, whose rename moves the path with it.
+  const ancestors = new Set<string>();
+  const track = (file: string, scope: TtscTrackedInputScope): void => {
+    const key = pathIdentityKey(file, identities);
+    // A path observed two ways keeps every answer either observation needs.
+    const current = tracked.get(key) ?? new Set<TtscTrackedInputScope>();
+    current.add(scope);
+    tracked.set(key, current);
+    for (
+      let child = path.resolve(file), parent = path.dirname(child);
+      parent !== child;
+      child = parent, parent = path.dirname(child)
+    ) {
+      ancestors.add(pathIdentityKey(parent, identities));
+    }
+  };
   const locationsByDirectory = new Map<
     string,
     {
       directory: string;
-      names: Set<string>;
-      paths?: Set<string>;
+      /** Entry names the watch reports, or every entry when absent. */
+      names?: Set<string>;
       recursive?: boolean;
     }
   >();
   const internalRoot =
     preferredRoot === undefined ? undefined : path.resolve(preferredRoot);
-  for (const input of inputs) {
-    const absolute = path.resolve(input);
-    const probe = filesystem.exists(absolute)
-      ? { directory: path.dirname(absolute), name: path.basename(absolute) }
-      : missingPathProbe(absolute, filesystem);
-    const internal =
-      internalRoot !== undefined && pathIsWithin(absolute, internalRoot);
-    const directory = internal ? internalRoot : probe.directory;
+  const watchDirectory = (
+    directory: string,
+    name: string | undefined,
+    recursive: boolean,
+  ): void => {
     const directoryIdentity = identities.resolve(directory);
     let location = locationsByDirectory.get(directoryIdentity.key);
     if (location === undefined) {
       location = {
         directory: directoryIdentity.path,
-        names: new Set<string>(),
-        ...(internal ? { paths: new Set<string>(), recursive: true } : {}),
+        ...(name === undefined ? {} : { names: new Set<string>() }),
+        ...(recursive ? { recursive: true } : {}),
       };
       locationsByDirectory.set(directoryIdentity.key, location);
     }
-    if (location.paths !== undefined) {
-      location.paths.add(
-        pathIdentityKey(path.resolve(probe.directory, probe.name), identities),
-      );
+    if (name === undefined) {
+      // Some input needs every entry of this directory reported.
+      delete location.names;
     } else {
-      location.names.add(
+      location.names?.add(
         normalizeHostInputName(
-          probe.name,
+          name,
           identities.caseSensitive(directoryIdentity.path),
         ),
       );
+    }
+  };
+  for (const input of inputs) {
+    const absolute = path.resolve(input);
+    const exists = filesystem.exists(absolute);
+    const probe = exists
+      ? { directory: path.dirname(absolute), name: path.basename(absolute) }
+      : missingPathProbe(absolute, filesystem);
+    const probed = path.resolve(probe.directory, probe.name);
+    const scope = exists
+      ? (scopes?.get(absolute) ??
+        trackedInputScope(absolute, undefined, filesystem))
+      : "subtree";
+    track(probed, scope);
+    if (internalRoot !== undefined && pathIsWithin(absolute, internalRoot)) {
+      watchDirectory(internalRoot, undefined, true);
+      continue;
+    }
+    watchDirectory(probe.directory, probe.name, false);
+    // A listing changes through the entries of the directory itself, which a
+    // watch on its parent never reports.
+    if (scope === "children") {
+      watchDirectory(probed, undefined, false);
     }
   }
   const locations = [...locationsByDirectory.values()];
@@ -128,27 +185,67 @@ export async function createHostInputMutationTracker(
     tracker.failed = true;
     return tracker;
   }
-  const matches = (directory: string, filename: string): boolean => {
-    const location = locationsByDirectory.get(
-      identities.resolve(directory).key,
-    );
-    if (location === undefined) return false;
-    if (location.paths !== undefined) {
-      let changed = path.resolve(directory, filename);
-      for (;;) {
-        if (location.paths.has(pathIdentityKey(changed, identities))) {
-          return true;
-        }
-        const parent = path.dirname(changed);
-        if (parent === changed || !pathIsWithin(parent, location.directory)) {
-          return false;
-        }
-        changed = parent;
+  // The identity each watch opened on; a location that no longer resolves to
+  // it withdraws the tracker's authority (see `verifyLocations`).
+  const opened = locations.map((location) => ({
+    directory: location.directory,
+    identity: watchLocationIdentity(location.directory, filesystem),
+  }));
+  if (opened.some((location) => location.identity === undefined)) {
+    tracker.failed = true;
+    return tracker;
+  }
+  tracker.verifyLocations = () => {
+    if (tracker.failed) return;
+    for (const location of opened) {
+      if (
+        watchLocationIdentity(location.directory, filesystem) !==
+        location.identity
+      ) {
+        tracker.failed = true;
+        return;
       }
     }
-    return location.names.has(
-      normalizeHostInputName(filename, identities.caseSensitive(directory)),
-    );
+  };
+  /**
+   * The one event decision both backends share, so the POSIX listener and the
+   * Windows broker cannot disagree about the same event (samchon/ttsc#1384). A
+   * rename-only tracker drops every other event before it is classified, and an
+   * event the backend could not attribute to a name may concern any input below
+   * the watched directory, so it always counts.
+   */
+  const classify = (
+    directory: string,
+    filename: string | null,
+    eventType: string,
+  ): "change" | "mutation" | undefined => {
+    const rename = eventType === "rename";
+    if (events === "rename" && !rename) return undefined;
+    if (filename === null) return rename ? "mutation" : "change";
+    const changed = path.resolve(directory, filename);
+    const key = pathIdentityKey(changed, identities);
+    const verdict = rename ? "mutation" : "change";
+    const own = tracked.get(key);
+    if (own !== undefined) {
+      // Only a read or an unknown subtree hears its own content change.
+      if (rename || own.has("content") || own.has("subtree")) return verdict;
+      return undefined;
+    }
+    // Moving or replacing an ancestor moves the input without an event on it.
+    if (rename && ancestors.has(key)) return "mutation";
+    for (
+      let child = changed, parent = path.dirname(child);
+      parent !== child;
+      child = parent, parent = path.dirname(child)
+    ) {
+      const scopes = tracked.get(pathIdentityKey(parent, identities));
+      if (scopes === undefined) continue;
+      if (scopes.has("subtree")) return verdict;
+      if (scopes.has("children") && child === changed && rename) {
+        return "mutation";
+      }
+    }
+    return undefined;
   };
   if (process.platform === "win32" && filesystem.watch === undefined) {
     await registerWindowsProjectMutationTracker(
@@ -157,12 +254,16 @@ export async function createHostInputMutationTracker(
         directory: location.directory,
         ...(location.recursive === true
           ? { recursive: true }
-          : { names: [...location.names] }),
+          : location.names === undefined
+            ? {}
+            : { names: [...location.names] }),
       })),
       events === "all",
       filesystem,
-      matches,
-      matches,
+      undefined,
+      undefined,
+      undefined,
+      classify,
     );
     return tracker;
   }
@@ -178,20 +279,14 @@ export async function createHostInputMutationTracker(
           filesystem,
           location.directory,
           (eventType, filename) => {
-            if (events === "rename" && eventType !== "rename") {
-              return;
-            }
-            if (filename === null || matches(location.directory, filename)) {
-              const changed =
-                filename === null
-                  ? location.directory
-                  : path.join(location.directory, filename);
-              if (eventType === "rename") {
-                recordProjectMutation(tracker, changed);
-              } else {
-                recordProjectChange(tracker, changed);
-              }
-            }
+            const verdict = classify(location.directory, filename, eventType);
+            const changed =
+              filename === null
+                ? location.directory
+                : path.join(location.directory, filename);
+            if (verdict === "mutation") recordProjectMutation(tracker, changed);
+            else if (verdict === "change")
+              recordProjectChange(tracker, changed);
           },
           () => {
             tracker.failed = true;

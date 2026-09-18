@@ -43,6 +43,15 @@ export interface WindowsProjectMutationBroker {
       membership?: (location: string, filename: string) => boolean;
       /** Whether one named event can change compiler-consumed content. */
       content?: (location: string, filename: string) => boolean;
+      /**
+       * The exact-input trackers' event decision, which replaces the three
+       * filters above when present.
+       */
+      classify?: (
+        location: string,
+        filename: string | null,
+        eventType: string,
+      ) => "change" | "mutation" | undefined;
       /** Classify a backend `change` that can add one unknown program path. */
       changeAddsMembership?: (location: string, filename: string) => boolean;
       ready: () => void;

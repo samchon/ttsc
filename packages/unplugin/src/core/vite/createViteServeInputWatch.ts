@@ -2,7 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { createFilesystemPathIdentityContext } from "ttsc/path-identity";
 
+import { DEFAULT_FILESYSTEM_OPERATIONS } from "../transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import { validateGraphInputObservation } from "../transform/inputs/validateGraphInputObservation";
+import { watchLocationIdentity } from "../transform/tracker/watchLocationIdentity";
 import type { TtscWatchInputBaseline } from "../transform/watch/TtscWatchInputBaseline";
 import { captureWatchInputBaseline } from "../transform/watch/captureWatchInputBaseline";
 import { watchInputEvidenceMatchesBaseline } from "../transform/watch/watchInputEvidenceMatchesBaseline";
@@ -336,6 +338,14 @@ export function createViteServeInputWatch(
       scope = {
         entries: new Set(),
         failed: false,
+        ...(external
+          ? {
+              identity: watchLocationIdentity(
+                root,
+                DEFAULT_FILESYSTEM_OPERATIONS,
+              ),
+            }
+          : {}),
         pinned,
         root,
         startedAt: changeSequence,
@@ -366,15 +376,7 @@ export function createViteServeInputWatch(
           },
           () => {
             if (scopes.get(key) !== owned) return;
-            owned.failed = true;
-            try {
-              owned.watcher?.close();
-            } catch {
-              // The fallback owns validation now; a failed native handle is no
-              // longer useful, and cleanup must not replace that recovery.
-            }
-            owned.watcher = undefined;
-            for (const entry of owned.entries) requirePolling(entry);
+            failScope(owned);
             updatePoller();
           },
         );
@@ -407,6 +409,26 @@ export function createViteServeInputWatch(
     return !scope.failed;
   };
 
+  /** Hand a scope that can no longer observe its root to the bounded poll. */
+  function failScope(scope: WatchScope): void {
+    scope.failed = true;
+    try {
+      scope.watcher?.close();
+    } catch {
+      // The fallback owns validation now; a failed native handle is no
+      // longer useful, and cleanup must not replace that recovery.
+    }
+    scope.watcher = undefined;
+    for (const entry of scope.entries) requirePolling(entry);
+  }
+
+  /** External observers whose root the poll re-checks each tick. */
+  function verifiableScopes(): WatchScope[] {
+    return [...scopes.values()].filter(
+      (scope) => !scope.failed && scope.identity !== undefined,
+    );
+  }
+
   function requirePolling(entry: InputEntry): void {
     entry.fallback = true;
     if (polled.size === 0) pollIterator = undefined;
@@ -425,7 +447,8 @@ export function createViteServeInputWatch(
   };
 
   function updatePoller(): void {
-    const needed = links.size !== 0 || polled.size !== 0;
+    const needed =
+      links.size !== 0 || polled.size !== 0 || verifiableScopes().length !== 0;
     if (!needed) {
       poller?.close();
       poller = undefined;
@@ -434,6 +457,18 @@ export function createViteServeInputWatch(
     if (poller !== undefined) return;
     poller = openPoller(() => {
       const selected = new Set<InputEntry>();
+      // One metadata call per external observer, at most the scope bound: a
+      // root replaced since it opened is watched no longer, so its entries are
+      // checked now and polled from then on.
+      for (const scope of verifiableScopes()) {
+        if (
+          watchLocationIdentity(scope.root, DEFAULT_FILESYSTEM_OPERATIONS) !==
+          scope.identity
+        ) {
+          failScope(scope);
+          for (const entry of scope.entries) selected.add(entry);
+        }
+      }
       for (
         let count = 0;
         count < MAX_FALLBACK_PROBES_PER_TICK && polled.size !== 0;

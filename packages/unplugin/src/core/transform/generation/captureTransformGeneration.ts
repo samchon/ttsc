@@ -20,6 +20,7 @@ import type { TtscProjectMutationTracker } from "../tracker/TtscProjectMutationT
 import { createHostInputMutationTracker } from "../tracker/createHostInputMutationTracker";
 import { createProjectMutationTracker } from "../tracker/createProjectMutationTracker";
 import { settleMutationTrackers } from "../tracker/settleMutationTrackers";
+import { trackedInputScopes } from "../tracker/trackedInputScopes";
 import { createTransformScratchDirectory } from "../tsconfig/createTransformScratchDirectory";
 import { createTransformTsconfig } from "../tsconfig/createTransformTsconfig";
 import { readTransformTsconfigState } from "../tsconfig/readTransformTsconfigState";
@@ -210,6 +211,12 @@ export async function captureTransformGeneration(props: {
           ),
           "all",
           projectRoot,
+          trackedInputScopes({
+            filesystem: props.filesystem,
+            inputs: persistentValidationInputs,
+            projectRoot,
+            result,
+          }),
         )
       : undefined;
     // The candidates and the directories carrying them get their own tracker,
@@ -219,14 +226,28 @@ export async function captureTransformGeneration(props: {
     // backend that reports a write below a directory as a change to that
     // directory's entry (Windows does) would otherwise replace the generation
     // every time a bundler wrote inside `node_modules`.
+    const absentCandidates = new Set(notifiableAbsence.candidates);
     candidateTracker =
       notifiableAbsence.watched.length !== 0
         ? await createHostInputMutationTracker(
             notifiableAbsence.watched,
             props.filesystem,
-            new Set(notifiableAbsence.candidates),
+            absentCandidates,
             "rename",
             projectRoot,
+            // The directories carrying a candidate matter only for being
+            // replaced or retargeted. A candidate itself is left to the
+            // tracker: absent, it is tracked as its first missing component,
+            // and present as a directory, which only a replacement can turn
+            // into the file the compiler asked for, it keeps every event
+            // below it. A recursive delete reports the children before the
+            // directory, and on Windows the directory's own event can still
+            // be in flight when a delivery reads the tracker.
+            new Map(
+              notifiableAbsence.watched
+                .filter((input) => !absentCandidates.has(input))
+                .map((input) => [path.resolve(input), "presence" as const]),
+            ),
           )
         : undefined;
     const inputSnapshot = collectProjectInputSnapshot(

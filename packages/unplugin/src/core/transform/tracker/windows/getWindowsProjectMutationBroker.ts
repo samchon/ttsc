@@ -84,6 +84,19 @@ export function getWindowsProjectMutationBroker(): WindowsProjectMutationBroker 
           typeof record.filename === "string"
             ? path.join(reported, record.filename)
             : reported;
+        if (registration.classify !== undefined) {
+          const verdict = registration.classify(
+            reported,
+            typeof record.filename === "string" ? record.filename : null,
+            record.eventType ?? "rename",
+          );
+          if (verdict === "mutation") {
+            recordProjectMutation(registration.tracker, changed);
+          } else if (verdict === "change") {
+            recordProjectChange(registration.tracker, changed);
+          }
+          return;
+        }
         if (
           typeof record.filename === "string" &&
           registration.membership !== undefined

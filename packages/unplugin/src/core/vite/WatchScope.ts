@@ -19,6 +19,13 @@ export interface WatchScope {
   /** Directory observed recursively. */
   root: string;
   /**
+   * The device and file id `root` resolved to when an external observer opened,
+   * re-checked by the bounded poll. A replaced root leaves an inotify or
+   * FSEvents observer watching the old directory, so a mismatch fails the scope
+   * and hands its entries to the poll (samchon/ttsc#1384).
+   */
+  identity?: string;
+  /**
    * Whether the scope lives for the server's lifetime, as the project root
    * does.
    */
