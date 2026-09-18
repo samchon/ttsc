@@ -9,6 +9,7 @@ import { createTtscTransformCache } from "../transform/cache/createTtscTransform
 import { resetTtscTransformCache } from "../transform/cache/resetTtscTransformCache";
 import { transformTtsc } from "../transform/transformTtsc";
 import type { TtscWatchInput } from "../transform/watch/TtscWatchInput";
+import { classifyWatchInput } from "../transform/watch/classifyWatchInput";
 
 /** Preserve esbuild's distinct file and directory dependency channels. */
 export function createEsbuildOptions(
@@ -48,33 +49,22 @@ export function createEsbuildOptions(
             if (!includes(file)) return;
             const watchFiles = new Set<string>([file]);
             const watchDirs = new Set<string>();
+            // Each input goes to the channel that observes its predicate
+            // (samchon/ttsc#1388): `watchDirs` for a directory's entries and
+            // `watchFiles` for a file. A path whose creation matters goes to
+            // both, since what appears there may be a file or a directory, and
+            // esbuild compares each channel's own view of the path. A
+            // directory the compiler only checked exists is not registered, so
+            // a tool writing a new entry below `node_modules` no longer
+            // rebuilds; each descendant the compiler probed is registered in
+            // its own right.
             const register = (inputs: readonly TtscWatchInput[]) => {
               for (const input of inputs) {
-                const observation =
-                  input.evidence?.state?.codec === "predicates"
-                    ? input.evidence.state.observation
-                    : undefined;
-                const directory =
-                  observation?.directoryExists === true ||
-                  observation?.stat === "directory" ||
-                  observation?.accessibleEntries !== undefined;
-                const missingDirectory =
-                  observation?.directoryExists === false &&
-                  observation.fileExists !== true &&
-                  observation.stat !== "file";
-                if (directory || missingDirectory) watchDirs.add(input.file);
-                if (!directory || observation?.fileExists !== undefined)
+                const kind = classifyWatchInput(input);
+                if (kind === "listing" || kind === "missing")
+                  watchDirs.add(input.file);
+                if (kind === "file" || kind === "missing")
                   watchFiles.add(input.file);
-                // Failed envelopes carry no generation evidence. This rare
-                // path must still classify existing recovery directories.
-                if (input.evidence === undefined) {
-                  try {
-                    if (fs.statSync(input.file).isDirectory())
-                      watchDirs.add(input.file);
-                  } catch {
-                    // Missing files are already tracked through watchFiles.
-                  }
-                }
               }
             };
             let contents: string;

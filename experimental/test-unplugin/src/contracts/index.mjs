@@ -5,6 +5,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 import { workspace } from "./common.mjs";
+import { warmPredicateProbe } from "./predicates.mjs";
 
 // This inventory is checked against the installed package. Adding a public host
 // without a direct execution contract must fail the package rehearsal.
@@ -35,6 +36,10 @@ assert.deepEqual(
 );
 const selected = process.argv.slice(2);
 for (const host of selected) assert.ok(host in hosts, `Unknown host: ${host}`);
+// The predicate matrix links a contributor into the utility host, whose first
+// build can take minutes on a cold Go cache. Pay it here, outside any host's
+// deadline, so every host reuses the cached build.
+await warmPredicateProbe();
 for (const host of selected.length ? selected : Object.keys(hosts)) {
   const start = Date.now();
   await new Promise((resolve, reject) => {

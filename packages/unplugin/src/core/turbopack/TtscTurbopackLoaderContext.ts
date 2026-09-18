@@ -12,6 +12,11 @@ export interface TtscTurbopackLoaderContext {
   async(): (error?: unknown, content?: string) => void;
   /** Absolute path of the module being loaded. */
   resourcePath: string;
+  /**
+   * The project root Turbopack resolves from, which anchors the watch bridge's
+   * pinned scope (samchon/ttsc#1388).
+   */
+  rootContext?: string;
   /** The rule's `options` object, when one was configured. */
   getOptions?(): TtscUnpluginOptions | undefined;
   /**
@@ -22,6 +27,13 @@ export interface TtscTurbopackLoaderContext {
    * build that predates the method) still loads.
    */
   addDependency?(file: string): void;
+  /**
+   * Register a directory whose entries the transformed module depends on. Part
+   * of the same loader contract; Turbopack observes a directory gaining or
+   * losing an entry only through this channel (samchon/ttsc#1388). Optional for
+   * the same reason as `addDependency`.
+   */
+  addContextDependency?(directory: string): void;
   /**
    * Toggle result cacheability. Part of the webpack loader context contract;
    * called with `false` when the ttsc plugin declared the module volatile

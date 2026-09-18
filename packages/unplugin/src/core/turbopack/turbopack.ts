@@ -1,9 +1,14 @@
+import { BRIDGED_WATCH_INPUT_KINDS } from "../bridge/BRIDGED_WATCH_INPUT_KINDS";
+import type { HostWatchBridge } from "../bridge/HostWatchBridge";
+import { openHostWatchBridge } from "../bridge/openHostWatchBridge";
+import { registerBuildWatchInputs } from "../bridge/registerBuildWatchInputs";
 import { isTransformTarget } from "../isTransformTarget";
 import { resolveOptions } from "../options/resolveOptions";
 import { createTtscTransformCache } from "../transform/cache/createTtscTransformCache";
 import { transformTtsc } from "../transform/transformTtsc";
 import { stripQuery } from "../transform/utils/stripQuery";
 import type { TtscTransformHooks } from "../transform/watch/TtscTransformHooks";
+import type { TtscWatchInput } from "../transform/watch/TtscWatchInput";
 import type { TtscTurbopackLoaderContext } from "./TtscTurbopackLoaderContext";
 
 /**
@@ -14,6 +19,12 @@ import type { TtscTurbopackLoaderContext } from "./TtscTurbopackLoaderContext";
  * `transformTtsc`).
  */
 const transformCache = createTtscTransformCache();
+
+/**
+ * The worker's watch bridge for directory listings during `next dev`, opened by
+ * its first watching delivery and alive for the worker's lifetime.
+ */
+let bridge: HostWatchBridge | undefined;
 
 /**
  * Standalone webpack-loader entrypoint for Turbopack.
@@ -67,10 +78,58 @@ export function turbopack(
   // transform cache lives for the worker lifetime across requests. A module
   // the plugin declared volatile is marked uncacheable through the same loader
   // contract.
+  //
+  // Each input goes to the channel measured to observe its predicate
+  // (samchon/ttsc#1388). `addDependency` observes a file's edit and a missing
+  // path's creation, where `addMissingDependency` does not observe the
+  // creation. A directory the compiler only checked exists is not registered,
+  // since each of its probed descendants is. A listing needs a directory
+  // channel, and Turbopack's `addContextDependency` is recursive: on the
+  // project root, which the compiler lists, every write into `.next`
+  // re-invalidated the module, and `next dev` re-ran the loader hundreds of
+  // times per change. A development session therefore observes listings
+  // through the worker's bridge, and only a one-shot build, whose persistent
+  // cache still needs them, takes the context channel.
   const addDependency = this.addDependency?.bind(this);
+  const addContextDependency = this.addContextDependency?.bind(this);
   const cacheable = this.cacheable?.bind(this);
+  const watching = process.env.NODE_ENV !== "production";
+  const bridgeStartedAt =
+    watching && addDependency !== undefined
+      ? (bridge ??= openHostWatchBridge(
+          this.rootContext ?? process.cwd(),
+        )).begin()
+      : undefined;
   const hooks: TtscTransformHooks = {
-    ...(addDependency === undefined ? {} : { addWatchFile: addDependency }),
+    ...(addDependency === undefined
+      ? {}
+      : {
+          addWatchFiles: (
+            inputs: readonly TtscWatchInput[],
+            failed?: boolean,
+          ) =>
+            registerBuildWatchInputs({
+              addWatchFile: addDependency,
+              ...(bridge !== undefined && bridgeStartedAt !== undefined
+                ? {
+                    bridge: {
+                      instance: bridge,
+                      kinds:
+                        BRIDGED_WATCH_INPUT_KINDS.recursiveDirectoryChannel,
+                      startedAt: bridgeStartedAt,
+                    },
+                  }
+                : {}),
+              failed,
+              file,
+              inputs,
+              loader: {
+                addContextDependency: addContextDependency ?? addDependency,
+                addDependency,
+                addMissingDependency: addDependency,
+              },
+            }),
+        }),
     ...(cacheable === undefined
       ? {}
       : { markVolatile: () => cacheable(false) }),

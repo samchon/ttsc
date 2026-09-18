@@ -4,6 +4,10 @@ import {
   createUnplugin,
 } from "unplugin";
 
+import { BRIDGED_WATCH_INPUT_KINDS } from "./bridge/BRIDGED_WATCH_INPUT_KINDS";
+import type { HostWatchBridge } from "./bridge/HostWatchBridge";
+import { openHostWatchBridge } from "./bridge/openHostWatchBridge";
+import { registerBuildWatchInputs } from "./bridge/registerBuildWatchInputs";
 import { createEsbuildOptions } from "./esbuild/createEsbuildOptions";
 import { isTransformTarget } from "./isTransformTarget";
 import type { TtscUnpluginOptions } from "./options/TtscUnpluginOptions";
@@ -15,6 +19,7 @@ import { resetTtscTransformCache } from "./transform/cache/resetTtscTransformCac
 import { hostDeclaresPolling } from "./transform/tracker/hostDeclaresPolling";
 import { transformTtsc } from "./transform/transformTtsc";
 import { stripQuery } from "./transform/utils/stripQuery";
+import type { TtscWatchInputKind } from "./transform/watch/TtscWatchInputKind";
 import { createViteServeInputWatch } from "./vite/createViteServeInputWatch";
 
 const name = "ttsc-unplugin";
@@ -57,6 +62,19 @@ const unpluginFactory: UnpluginFactory<
   // old containers cannot dispose a replacement's freshly initialized cache.
   let viteBuildOwners = new WeakSet<object>();
   let viteBuildLifecycles = 0;
+  // The observer a watching build gets for the compiler predicates its own
+  // channel cannot observe, opened by the session's first watching delivery
+  // and closed where the session ends (samchon/ttsc#1388).
+  let bridge: HostWatchBridge | undefined;
+  // Farm reports no watch mode to a transform. Its development mode is the one
+  // that watches: `farm start` and `farm watch` resolve it, `farm build` does
+  // not.
+  let farmWatching = false;
+  const closeBridge = async (): Promise<void> => {
+    const open = bridge;
+    bridge = undefined;
+    await open?.close();
+  };
 
   return {
     name,
@@ -157,6 +175,7 @@ const unpluginFactory: UnpluginFactory<
         viteBuildLifecycles = 0;
         resetTtscTransformCache(transformCache);
         await serveInputs.dispose();
+        await closeBridge();
       },
     },
 
@@ -180,8 +199,9 @@ const unpluginFactory: UnpluginFactory<
           resetTtscTransformCache(transformCache);
         }
       },
-      closeWatcher() {
+      async closeWatcher() {
         resetTtscTransformCache(transformCache);
+        await closeBridge();
       },
     },
     rolldown: {
@@ -190,8 +210,9 @@ const unpluginFactory: UnpluginFactory<
           resetTtscTransformCache(transformCache);
         }
       },
-      closeWatcher() {
+      async closeWatcher() {
         resetTtscTransformCache(transformCache);
+        await closeBridge();
       },
     },
 
@@ -201,14 +222,23 @@ const unpluginFactory: UnpluginFactory<
     webpack(compiler) {
       compiler.hooks.shutdown.tap(name, () => {
         resetTtscTransformCache(transformCache);
+        closeBridge().catch(() => undefined);
       });
     },
     rspack(compiler) {
       compiler.hooks.shutdown.tap(name, () => {
         resetTtscTransformCache(transformCache);
+        closeBridge().catch(() => undefined);
       });
     },
     farm: {
+      configResolved(config: {
+        compilation?: { mode?: string; watch?: unknown };
+      }) {
+        farmWatching =
+          config.compilation?.mode === "development" ||
+          (config.compilation?.watch ?? false) !== false;
+      },
       // Farm calls buildStart only for the initial compilation. Every update
       // opens a new pass so a failed verdict can recover, while an unchanged
       // successful generation remains reusable across its module deliveries.
@@ -267,6 +297,33 @@ const unpluginFactory: UnpluginFactory<
         viteCommand === "serve" && viteWatching
           ? serveInputs.begin()
           : undefined;
+      const native = this.getNativeBuildContext?.();
+      const meta = (
+        this as { meta?: { rolldownVersion?: string; watchMode?: boolean } }
+      ).meta;
+      // The compiler predicates a watching build's own channels observe
+      // imprecisely or not at all, which go through the bridge instead. Its
+      // sequence token is taken before the compile, as the dev server's is.
+      const bridgedKinds: ReadonlySet<TtscWatchInputKind> | undefined =
+        viteCommand === "serve"
+          ? undefined
+          : native?.framework === "webpack" || native?.framework === "rspack"
+            ? (native.compiler as { watchMode?: boolean }).watchMode === true
+              ? BRIDGED_WATCH_INPUT_KINDS.recursiveDirectoryChannel
+              : undefined
+            : native?.framework === "farm"
+              ? farmWatching
+                ? BRIDGED_WATCH_INPUT_KINDS.fileChannel
+                : undefined
+              : native === undefined && meta?.watchMode === true
+                ? meta.rolldownVersion === undefined
+                  ? BRIDGED_WATCH_INPUT_KINDS.watcherPerPath
+                  : BRIDGED_WATCH_INPUT_KINDS.fileChannel
+                : undefined;
+      const bridgeStartedAt =
+        bridgedKinds === undefined
+          ? undefined
+          : (bridge ??= openHostWatchBridge(process.cwd())).begin();
       return transformTtsc(file, source, options, aliases, transformCache, {
         // A watcherless server has no invalidation channel and needs no
         // watch-input derivation. Every other host keeps its native contract.
@@ -277,23 +334,33 @@ const unpluginFactory: UnpluginFactory<
                 if (viteCommand === "serve") {
                   serveInputs.replace(file, inputs, failed, serveStartedAt);
                 } else {
-                  const native = this.getNativeBuildContext?.();
-                  for (const input of inputs) {
-                    if (
-                      native?.framework === "rspack" &&
-                      native.loaderContext !== undefined
-                    ) {
-                      // Compilation-level dependencies schedule a pass but do
-                      // not invalidate Rspack's cached transformed modules.
-                      if (input.evidence?.missing === true)
-                        native.loaderContext.addMissingDependency(input.file);
-                      else native.loaderContext.addDependency(input.file);
-                    } else if (native?.framework === "farm") {
-                      native.context.addWatchFile(file, input.file);
-                    } else {
-                      this.addWatchFile(input.file);
-                    }
-                  }
+                  registerBuildWatchInputs({
+                    addWatchFile:
+                      native?.framework === "farm"
+                        ? (input) => native.context.addWatchFile(file, input)
+                        : (input) => this.addWatchFile(input),
+                    ...(bridge !== undefined &&
+                    bridgedKinds !== undefined &&
+                    bridgeStartedAt !== undefined
+                      ? {
+                          bridge: {
+                            instance: bridge,
+                            kinds: bridgedKinds,
+                            startedAt: bridgeStartedAt,
+                          },
+                        }
+                      : {}),
+                    failed,
+                    file,
+                    inputs,
+                    // Module-level channels, since compilation-level ones
+                    // schedule a pass without invalidating the module.
+                    ...((native?.framework === "webpack" ||
+                      native?.framework === "rspack") &&
+                    native.loaderContext !== undefined
+                      ? { loader: native.loaderContext }
+                      : {}),
+                  });
                 }
               },
         // A module the plugin declared volatile depends on non-file inputs,
