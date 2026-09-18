@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { EmitOwnershipIndex } from "../../compiler/internal/EmitOwnershipIndex";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
+import { resolveOwningProjectConfig } from "../../compiler/internal/project/resolveOwningProjectConfig";
 import { readEffectiveCompilerOptions } from "../../compiler/internal/readEffectiveCompilerOptions";
 import { runBuild } from "../../compiler/internal/build/runBuild";
 import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
@@ -189,15 +190,13 @@ function createProjectContext(
   discoveryFile: string,
   options: NonNullable<Parameters<typeof prepareExecution>[1]>,
 ) {
-  const project = readProjectConfig(
-    options.project
-      ? {
-          cwd,
-          projectRoot: options.projectRoot,
-          tsconfig: path.resolve(cwd, options.project),
-        }
-      : { cwd, file: discoveryFile, projectRoot: options.projectRoot },
-  );
+  const project = options.project
+    ? readProjectConfig({
+        cwd,
+        projectRoot: options.projectRoot,
+        tsconfig: path.resolve(cwd, options.project),
+      })
+    : discoverOwningProject(cwd, discoveryFile, options);
   const tsconfig = project.path;
   const root = project.root;
   const explicitCacheDir = resolveCacheDir(cwd, options.cacheDir);
@@ -249,6 +248,40 @@ function createProjectContext(
     built: false,
     outputs: [] as readonly string[],
   };
+}
+
+/**
+ * The project that owns `file`, found the way the language service finds it.
+ *
+ * The nearest config is where discovery starts, not where it has to stop. A
+ * solution-style config (`"files": []` plus `references`) owns nothing itself,
+ * and compiling an entry through it applies its empty options to code whose
+ * real project sets `experimentalDecorators`, `jsx`, or `paths`
+ * (samchon/ttsc#1406). When the nearest config does not contain the file, the
+ * referenced project that does is used; an explicit `-P` skips all of this.
+ */
+function discoverOwningProject(
+  cwd: string,
+  file: string,
+  options: NonNullable<Parameters<typeof prepareExecution>[1]>,
+): ReturnType<typeof readProjectConfig> {
+  const nearest = readProjectConfig({
+    cwd,
+    file,
+    projectRoot: options.projectRoot,
+  });
+  const owning = resolveOwningProjectConfig({
+    binary: options.binary,
+    file,
+    tsconfig: nearest.path,
+  });
+  return owning === path.resolve(nearest.path)
+    ? nearest
+    : readProjectConfig({
+        cwd,
+        projectRoot: options.projectRoot,
+        tsconfig: owning,
+      });
 }
 
 /**

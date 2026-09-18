@@ -11,6 +11,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
+import { resolveOwningProjectConfig } from "../../../compiler/internal/project/resolveOwningProjectConfig";
 import { EmitOwnershipIndex } from "../../../compiler/internal/EmitOwnershipIndex";
 import { resolveTsgo } from "../../../compiler/internal/resolveTsgo";
 import { runBuild } from "../../../compiler/internal/build/runBuild";
@@ -868,7 +869,7 @@ function owningModuleOptions(filename: string): OwningModuleOptions | null {
   if (owner !== undefined) {
     return owner.moduleOptions ?? {};
   }
-  const tsconfig = nearestTsconfig(real);
+  const tsconfig = owningTsconfig(real);
   if (tsconfig === null) {
     return null;
   }
@@ -1541,7 +1542,7 @@ function serveEntryEmit(real: string): ServedSource | null {
  * package the project build already serves.
  */
 function serveProjectEmit(real: string): ServedSource | null {
-  const tsconfig = nearestTsconfig(real);
+  const tsconfig = owningTsconfig(real);
   if (tsconfig === null) {
     return null;
   }
@@ -2107,6 +2108,31 @@ interface ITsconfigLookup {
   candidates: readonly string[];
   result: string | null;
 }
+
+/**
+ * The config of the project that owns `real`: its nearest `tsconfig.json`, or,
+ * when that config is a solution that does not contain the file, the
+ * referenced project that does (samchon/ttsc#1406). `null` when no config
+ * owns the file at all.
+ */
+function owningTsconfig(real: string): string | null {
+  const nearest = nearestTsconfig(real);
+  if (nearest === null) return null;
+  const memo = `${nearest}\0${real}`;
+  let owning = owningTsconfigCache.get(memo);
+  if (owning === undefined) {
+    owning = resolveOwningProjectConfig({
+      file: real,
+      onConfig: (config) =>
+        recordPluginDescriptorTsconfigCandidates([config]),
+      tsconfig: nearest,
+    });
+    owningTsconfigCache.set(memo, owning);
+  }
+  return owning;
+}
+
+const owningTsconfigCache = new Map<string, string>();
 
 const tsconfigCache = new Map<string, ITsconfigLookup>();
 

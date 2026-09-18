@@ -10,7 +10,7 @@ npx ttsx src/index.ts
 
 `ttsx`:
 
-1. Resolves `tsconfig.json` from the current directory (or `-P path/to/tsconfig.json`).
+1. Resolves the entry's project: the nearest `tsconfig.json` above the entry, or `-P path/to/tsconfig.json`. When the nearest config is a solution that does not contain the entry, ttsx uses the referenced project that does. See [Solution-style configs](#solution-style-configs).
 2. Type-checks the project, including every plugin you've configured.
 3. If the check passes, executes the script natively.
 
@@ -27,7 +27,7 @@ mocha --require ttsc/register --extension ts,tsx "test/**/*.ts"
 
 The package is named `ttsc`, even though its typed execution command is `ttsx`, so the resolvable preload is `ttsc/register`. The short Node spelling `-r ttsc/register` is equivalent to `--require ttsc/register`.
 
-The preload installs the same runtime hooks as `ttsx`. When a TypeScript main module or a TypeScript file loaded by a JavaScript host first enters the runtime, `ttsc/register` discovers its nearest `tsconfig.json`, checks the project, applies configured plugins, and executes the compiler-owned JavaScript. A test file outside the config's `include` still inherits that config's compiler options and plugins, just like an out-of-include `ttsx` entry. A diagnostic stops that root before any of its statements execute.
+The preload installs the same runtime hooks as `ttsx`. When a TypeScript main module or a TypeScript file loaded by a JavaScript host first enters the runtime, `ttsc/register` discovers its project (the nearest `tsconfig.json`, or the referenced project that owns the file under a [solution-style config](#solution-style-configs)), checks the project, applies configured plugins, and executes the compiler-owned JavaScript. A test file outside the config's `include` still inherits that config's compiler options and plugins, just like an out-of-include `ttsx` entry. A diagnostic stops that root before any of its statements execute.
 
 Several roots and tsconfigs can enter one runner process. Their temporary emits coexist for that process and are removed on exit. Register-owned output uses the same project-local ttsx cache as an ordinary run and stays temporary.
 
@@ -129,6 +129,17 @@ npx ttsx -r dotenv/config src/index.ts
 ```
 
 Repeatable: `-r a -r b` preloads `a` then `b`. These modules are passed to Node's `--require` loader after the runtime hooks are installed, so a TypeScript preload is compiled like any other file the program reaches. Its own project builds it, and when that project does not include it, it is compiled alone and type-checked in your tree. See [Files the program reaches at run time](#files-the-program-reaches-at-run-time).
+
+## Solution-style configs
+
+Vite, Nx, and many monorepo templates generate a root `tsconfig.json` that owns no files and delegates them through `references`:
+
+```jsonc
+// tsconfig.json
+{ "files": [], "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }] }
+```
+
+`ttsx`, `ttsc/register`, and the runtime hooks pick a file's project the way your editor does. When the nearest config does not contain the file, they search its references in order, and the first referenced project whose files include it owns it. A reference may name a config file or a directory holding `tsconfig.json`. A referenced solution is searched through its own references, and a reference cycle is visited once. So `ttsx src/main.ts` runs with `tsconfig.app.json`'s options, and `ttsx vite.config.ts` runs with `tsconfig.node.json`'s. A file that no referenced project contains still runs through the discovered config, like any [script outside `include`](#scripts-your-tsconfig-does-not-include). `-P` always wins and skips the search.
 
 ## Pick a tsconfig
 
