@@ -13,12 +13,15 @@ import { isTransformTarget } from "./isTransformTarget";
 import type { TtscUnpluginOptions } from "./options/TtscUnpluginOptions";
 import { resolveOptions } from "./options/resolveOptions";
 import { beginTtscTransformBuild } from "./transform/cache/beginTtscTransformBuild";
+import { createTransformCacheLease } from "./transform/cache/createTransformCacheLease";
 import { createTtscTransformCache } from "./transform/cache/createTtscTransformCache";
 import { declareTtscTransformPolling } from "./transform/cache/declareTtscTransformPolling";
 import { resetTtscTransformCache } from "./transform/cache/resetTtscTransformCache";
+import { sharedBuildTransformCache } from "./transform/cache/sharedBuildTransformCache";
 import { hostDeclaresPolling } from "./transform/tracker/hostDeclaresPolling";
 import { transformTtsc } from "./transform/transformTtsc";
 import { isHostWrapperQuery } from "./transform/utils/isHostWrapperQuery";
+import { stableStringify } from "./transform/utils/stableStringify";
 import { stripQuery } from "./transform/utils/stripQuery";
 import type { TtscWatchInputKind } from "./transform/watch/TtscWatchInputKind";
 import { createViteServeInputWatch } from "./vite/createViteServeInputWatch";
@@ -47,7 +50,19 @@ const unpluginFactory: UnpluginFactory<
   if (meta.framework === "esbuild") {
     return createEsbuildOptions(options, isTransformTarget);
   }
-  const transformCache = createTtscTransformCache();
+  // webpack and Rspack call this factory once per compiler, so the client,
+  // server, and edge compilers of one Next build each compiled the same
+  // program. Equal options share one process-wide cache, whose lease spans
+  // all of their sessions (samchon/ttsc#1396).
+  const shared =
+    meta.framework === "webpack" || meta.framework === "rspack"
+      ? sharedBuildTransformCache(stableStringify(options))
+      : undefined;
+  shared?.lease.acquire();
+  const transformCache = shared?.cache ?? createTtscTransformCache();
+  // A non-watching Vite build keeps its generation from one environment's
+  // build to the next instead of compiling the program again for each.
+  const viteBuildLease = createTransformCacheLease(transformCache);
   const serveInputs = createViteServeInputWatch();
   let aliases: unknown;
   let viteCommand: string | undefined;
@@ -159,8 +174,12 @@ const unpluginFactory: UnpluginFactory<
           viteBuildLifecycles -= 1;
         }
         if (viteBuildLifecycles === 0) {
-          if (viteCommand === "serve" || !viteBuildWatching) {
+          if (viteCommand === "serve") {
             resetTtscTransformCache(transformCache);
+          } else if (!viteBuildWatching) {
+            // The next environment's build of the same app, if any, starts
+            // within the lease's grace and proves the generation first.
+            viteBuildLease.release();
           }
           await serveInputs.dispose();
         }
@@ -230,13 +249,19 @@ const unpluginFactory: UnpluginFactory<
     // are installed by unplugin alongside its ordinary transform wiring.
     webpack(compiler) {
       compiler.hooks.shutdown.tap(name, () => {
-        resetTtscTransformCache(transformCache);
+        // The shared generation outlives this compiler for the next one; the
+        // lease resets it once no compiler has used it for its grace.
+        if (shared === undefined) resetTtscTransformCache(transformCache);
+        else shared.lease.release();
         closeBridge().catch(() => undefined);
       });
     },
     rspack(compiler) {
       compiler.hooks.shutdown.tap(name, () => {
-        resetTtscTransformCache(transformCache);
+        // The shared generation outlives this compiler for the next one; the
+        // lease resets it once no compiler has used it for its grace.
+        if (shared === undefined) resetTtscTransformCache(transformCache);
+        else shared.lease.release();
         closeBridge().catch(() => undefined);
       });
     },
@@ -261,6 +286,13 @@ const unpluginFactory: UnpluginFactory<
       if (viteCommand !== undefined && !viteBuildOwners.has(this as object)) {
         viteBuildOwners.add(this as object);
         viteBuildLifecycles += 1;
+        if (
+          viteBuildLifecycles === 1 &&
+          viteCommand === "build" &&
+          !viteBuildWatching
+        ) {
+          viteBuildLease.acquire();
+        }
       }
       // Persistent validation exists for a session that spans edits it can
       // observe, and a dev server told to open no watcher is not one:

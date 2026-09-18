@@ -215,27 +215,36 @@ export async function webpackContract(name) {
       `${name} compiler close`,
     );
   }
-  // Reuse the plugin object after a true compiler shutdown. A new compiler
-  // must not inherit the generation resources owned by the closed one.
-  const next = bundler(options);
-  try {
-    await deadline(
-      new Promise((resolve, reject) =>
-        next.run((error, stats) =>
-          error || stats?.hasErrors()
-            ? reject(error ?? new Error(stats.toString()))
-            : resolve(),
+  // Reuse the plugin object after a true compiler shutdown. The closed
+  // compiler's bridge is gone, but its generation holds no watcher: a
+  // compiler started within the release grace proves it and reuses it, the
+  // way Next runs its server, edge, and client compilers one after another
+  // (samchon/ttsc#1396). One started after the grace compiles again.
+  const run = async (label) => {
+    const next = bundler(options);
+    try {
+      await deadline(
+        new Promise((resolve, reject) =>
+          next.run((error, stats) =>
+            error || stats?.hasErrors()
+              ? reject(error ?? new Error(stats.toString()))
+              : resolve(),
+          ),
         ),
-      ),
-      `${name} replacement build`,
-    );
-    expectOutput(fs.readFileSync(project.output, "utf8"), "THIRD", 4);
-    assert.equal(project.runs(), 4);
-  } finally {
-    await new Promise((resolve, reject) =>
-      next.close((error) => (error ? reject(error) : resolve())),
-    );
-  }
+        `${name} ${label}`,
+      );
+      expectOutput(fs.readFileSync(project.output, "utf8"), "THIRD", 4);
+    } finally {
+      await new Promise((resolve, reject) =>
+        next.close((error) => (error ? reject(error) : resolve())),
+      );
+    }
+  };
+  await run("replacement build");
+  assert.equal(project.runs(), 3, `${name} reuses the proven generation`);
+  await new Promise((resolve) => setTimeout(resolve, 2_500));
+  await run("build after the grace");
+  assert.equal(project.runs(), 4, `${name} releases an unused generation`);
 }
 
 /** Farm's public Compiler.update owns incremental dependency expansion. */
