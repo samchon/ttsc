@@ -124,6 +124,9 @@ export async function test_transformttsc_reported_graph_proof_failures_fail_afte
   const edited = modules[1]!;
   const editedSource = `${sources.get(edited)!}// disk edit\n`;
   fs.writeFileSync(edited, editedSource, "utf8");
+  // A host delivers a changed module from a later turn, after its watcher
+  // reported the change; the verdict is confirmed once per turn (#1398).
+  await new Promise((resolve) => setImmediate(resolve));
   const unchangedSibling = modules[2]!;
   let editedFailure: Error | undefined;
   await assert.rejects(

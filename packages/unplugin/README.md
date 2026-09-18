@@ -373,7 +373,7 @@ A compile that failed outright is retained for the rest of that pass, so its rem
 
 #### What this changes for you
 
-A module the compiled program does not contain is left untransformed and reported once per pass, naming the file and the tsconfig it is missing from. This is not a build error: the file is simply not this project's to transform, and the usual cause is a bundle graph that reaches further than the tsconfig's `include`. Add it there if ttsc plugins should apply to it.
+A module the compiled program does not contain is left untransformed and reported once per pass, naming the file and the tsconfig it is missing from. This is not a build error: the file is simply not this project's to transform, and the usual cause is a bundle graph that reaches further than the tsconfig's `include`. Add it there if ttsc plugins should apply to it. In a persistent host, such a module is answered from the generation's watchers while they report no change to the program, so a module outside it costs no project walk per delivery.
 
 A file whose transform no plugin can contribute to is validated against the universal inputs and itself rather than its whole reference closure. Its diagnostics narrow with it, so a type error introduced in such a file surfaces at the next compile the build runs for another reason rather than at the edit. Run the compiler's own check beside the bundler when you want type errors at the edit.
 

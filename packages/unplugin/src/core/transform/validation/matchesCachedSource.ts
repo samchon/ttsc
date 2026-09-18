@@ -12,6 +12,7 @@ import { toProjectKey } from "../project/toProjectKey";
 import { hashText } from "../utils/hashText";
 import { matchesCompleteInputSnapshot } from "./matchesCompleteInputSnapshot";
 import { matchesNarrowPersistentInputs } from "./matchesNarrowPersistentInputs";
+import { notificationsProveProgramUnchanged } from "./notificationsProveProgramUnchanged";
 
 /**
  * Validate a cached project transform against the current on-disk project
@@ -53,6 +54,11 @@ export function matchesCachedSource(
       cached.result.typescript,
     ));
     if (!outputs.has(identity)) {
+      // While the watchers prove the program unchanged, the module is still
+      // outside it, and no walk is needed to say so (samchon/ttsc#1398).
+      if (notificationsProveProgramUnchanged(cached)) {
+        return true;
+      }
       // Root discovery deliberately never hashed this unrelated module. Its
       // bytes cannot affect an output the compiler did not produce, but the
       // whole program must still be current before we reuse that absence: a

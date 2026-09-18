@@ -2,11 +2,13 @@ import { envelopeDerivation } from "../envelope/envelopeDerivation";
 import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransformFilesystemOperations";
 import { pathIdentityKey } from "../filesystem/pathIdentityKey";
 import { hostInputStateHash } from "../inputs/hostInputStateHash";
+import { inputMetadataEvidence } from "../inputs/inputMetadataEvidence";
 import { collectProjectInputSnapshot } from "../project/collectProjectInputSnapshot";
 import { hashText } from "../utils/hashText";
 import { sameHashes } from "../validation/sameHashes";
 import { sameProjectDirectories } from "../validation/sameProjectDirectories";
 import { walkSnapshotComplete } from "../validation/walkSnapshotComplete";
+import { TERMINAL_ENVIRONMENT_VERDICTS } from "./TERMINAL_ENVIRONMENT_VERDICTS";
 import type { TtscFailedGenerationValidation } from "./TtscFailedGenerationValidation";
 import { failedGenerationInputState } from "./failedGenerationInputState";
 import { projectWalkFailureFingerprint } from "./projectWalkFailureFingerprint";
@@ -17,6 +19,17 @@ import { projectWalkFailureFingerprint } from "./projectWalkFailureFingerprint";
  * This is deliberately a confirmation test: inability to re-probe retains the
  * old verdict instead of turning every module request into another compile.
  * Cache lifecycle reset remains the unconditional recovery boundary.
+ *
+ * The delivered module's own text is checked on every delivery. The rest of the
+ * environment, the project walk and every recorded input outside it, is
+ * confirmed once per event-loop turn and shared by that turn's deliveries, and
+ * it is proven by metadata first, as live validation does: a file or input
+ * whose separable signature still matches carries its recorded state and is not
+ * read again (samchon/ttsc#1398).
+ *
+ * A write made in the same turn as a confirmation is seen from the next turn
+ * on. Every host delivers a changed module from a later turn, after its own
+ * watcher has reported the change.
  */
 export function failedGenerationEnvironmentChanged(
   validation: TtscFailedGenerationValidation,
@@ -43,42 +56,67 @@ export function failedGenerationEnvironmentChanged(
     ) {
       return true;
     }
-    const current = collectProjectInputSnapshot(
-      validation.cached.projectRoot,
-      identities,
-      props.filesystem,
-      undefined,
-      { policy: validation.cached.membershipPolicy },
-    );
-    if (
-      validation.projectWalkComplete !==
-        walkSnapshotComplete(current, validation.declaredInputs) ||
-      validation.projectWalkFailures !==
-        projectWalkFailureFingerprint(
-          current,
-          validation.declaredInputs,
-          validation.cached.projectRoot,
-          identities,
-        ) ||
-      !sameHashes(
-        validation.projectInputHashes,
-        current.hashes,
-        validation.declaredInputs,
-      ) ||
-      !sameProjectDirectories(
-        validation.cached.projectDirectories ?? [],
-        current.projectDirectories,
-      )
-    ) {
-      return true;
-    }
-    for (const [input, recorded] of validation.inputStates) {
-      if (failedGenerationInputState(input, props.filesystem) !== recorded) {
-        return true;
-      }
-    }
-    return false;
+    const shared = TERMINAL_ENVIRONMENT_VERDICTS.get(validation);
+    if (shared !== undefined) return shared;
+    const verdict = environmentChanged(validation, props.filesystem);
+    TERMINAL_ENVIRONMENT_VERDICTS.set(validation, verdict);
+    setImmediate(() => TERMINAL_ENVIRONMENT_VERDICTS.delete(validation));
+    return verdict;
   } catch {
     return false;
   }
+}
+
+/** Confirm the project walk and every recorded input outside it. */
+function environmentChanged(
+  validation: TtscFailedGenerationValidation,
+  filesystem: TtscTransformFilesystemOperations,
+): boolean {
+  const identities = envelopeDerivation(validation.cached).identityContext;
+  const current = collectProjectInputSnapshot(
+    validation.cached.projectRoot,
+    identities,
+    filesystem,
+    {
+      hashes: validation.projectInputHashes,
+      signatures: validation.cached.inputSignatures ?? {},
+    },
+    { policy: validation.cached.membershipPolicy },
+  );
+  if (
+    validation.projectWalkComplete !==
+      walkSnapshotComplete(current, validation.declaredInputs) ||
+    validation.projectWalkFailures !==
+      projectWalkFailureFingerprint(
+        current,
+        validation.declaredInputs,
+        validation.cached.projectRoot,
+        identities,
+      ) ||
+    !sameHashes(
+      validation.projectInputHashes,
+      current.hashes,
+      validation.declaredInputs,
+    ) ||
+    !sameProjectDirectories(
+      validation.cached.projectDirectories ?? [],
+      current.projectDirectories,
+    )
+  ) {
+    return true;
+  }
+  for (const [input, recorded] of validation.inputStates) {
+    const evidence = inputMetadataEvidence(input, filesystem);
+    if (
+      recorded.signature !== undefined &&
+      evidence?.separable === true &&
+      evidence.signature === recorded.signature
+    ) {
+      continue;
+    }
+    if (failedGenerationInputState(input, filesystem) !== recorded.state) {
+      return true;
+    }
+  }
+  return false;
 }

@@ -1,4 +1,5 @@
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
+import type { TtscFailedGenerationInputState } from "./TtscFailedGenerationInputState";
 
 /** Filesystem state that may authorize replacing one terminal failed generation. */
 export interface TtscFailedGenerationValidation {
@@ -7,8 +8,8 @@ export interface TtscFailedGenerationValidation {
   /** Input keys whose content can affect the generation, or the whole walk. */
   declaredInputs: ReadonlySet<string> | undefined;
   /** Fingerprints of every out-of-walk and exact host input. */
-  inputStates: ReadonlyMap<string, string>;
-  /** Unmodified on-disk project hashes before the in-memory source overlay. */
+  inputStates: ReadonlyMap<string, TtscFailedGenerationInputState>;
+  /** On-disk project hashes the final attempt's walk recorded. */
   projectInputHashes: Readonly<Record<string, string>>;
   /** Coherence and exact failure state of the final project walk. */
   projectWalkComplete: boolean;
