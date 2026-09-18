@@ -25,6 +25,7 @@ export async function test_real_native_envelope_esbuild_observes_directories_and
   const root = fs.realpathSync.native(fixture.root);
   const options = { project: path.join(root, "tsconfig.json") };
   const results: Array<{ errors: unknown[] }> = [];
+  let starts = 0;
   const start = () =>
     esbuild.context({
       absWorkingDir: root,
@@ -38,6 +39,9 @@ export async function test_real_native_envelope_esbuild_observes_directories_and
         {
           name: "observe-native-esbuild",
           setup(build: any) {
+            build.onStart(() => {
+              starts += 1;
+            });
             build.onEnd((result: { errors: unknown[] }) => {
               results.push(result);
             });
@@ -48,11 +52,17 @@ export async function test_real_native_envelope_esbuild_observes_directories_and
   const nextResult = async (count: number, failed = false) => {
     // The first event can build the shared native host on a cold cache. Later
     // events must arrive promptly; no fixed delay is paid on either path.
+    // A timeout names which side stalled: a build esbuild never started, one
+    // that started and never ended, or a recompile still running.
     await waitFor(
       () => results.length >= count,
       "esbuild watch result",
       count === 1 ? 240_000 : 20_000,
-    );
+    ).catch((error: Error) => {
+      throw new Error(
+        `${error.message} ${count}: ${starts} build(s) started, ${results.length} ended, ${programRuns(fixture.runLog)} compile(s)`,
+      );
+    });
     assert.equal(results[count - 1]!.errors.length !== 0, failed);
   };
   const observe = async (change: () => void, failed = false) => {
