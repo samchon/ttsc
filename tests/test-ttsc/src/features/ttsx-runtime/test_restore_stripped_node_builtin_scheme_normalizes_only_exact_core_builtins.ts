@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { restoreStrippedNodeBuiltinScheme } from "../../../../../packages/ttsc/lib/launcher/internal/runtimeHooks.js";
+import { restoreStrippedNodeBuiltinScheme } from "../../../../../packages/ttsc/lib/launcher/internal/runtime/restoreStrippedNodeBuiltinScheme.js";
 
 /**
  * Verifies builtin URL normalization owns only Node's exact resolver defect.

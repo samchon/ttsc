@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { projectInputMembershipInvalidatesProgram } from "../../../../../packages/ttsc/lib/launcher/internal/watchTopology.js";
+import { projectInputMembershipInvalidatesProgram } from "../../../../../packages/ttsc/lib/launcher/internal/watch/projectInputMembershipInvalidatesProgram.js";
 
 /**
  * Verifies project-input membership invalidates only possible Program modules.

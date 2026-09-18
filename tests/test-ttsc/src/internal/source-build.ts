@@ -12,24 +12,22 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import {
-  acquirePluginBuildLock,
-  autoQuoteGoModToken,
-  buildSourcePlugin,
-  computeCacheKey,
-  ensureExecutableGoToolchain,
-  formatDuration,
-  formatGoWorkPath,
-  inspectPluginBuildLock,
-  pruneGoBuildCacheRoot,
-  prunePluginCacheRoot,
-  reclaimPluginBuildLock,
-  releasePluginBuildLock,
-  resolvePluginCacheRoot,
-  resolveSourceBuildCachePaths,
-  waitForPluginBinary,
-  withGoBuildCacheLease,
-} from "../../../../packages/ttsc/lib/plugin/internal/buildSourcePlugin.js";
+import { acquirePluginBuildLock } from "../../../../packages/ttsc/lib/plugin/internal/source/acquirePluginBuildLock.js";
+import { autoQuoteGoModToken } from "../../../../packages/ttsc/lib/plugin/internal/source/autoQuoteGoModToken.js";
+import { buildSourcePlugin } from "../../../../packages/ttsc/lib/plugin/internal/source/buildSourcePlugin.js";
+import { computeCacheKey } from "../../../../packages/ttsc/lib/plugin/internal/source/computeCacheKey.js";
+import { ensureExecutableGoToolchain } from "../../../../packages/ttsc/lib/plugin/internal/source/ensureExecutableGoToolchain.js";
+import { formatDuration } from "../../../../packages/ttsc/lib/plugin/internal/source/formatDuration.js";
+import { formatGoWorkPath } from "../../../../packages/ttsc/lib/plugin/internal/source/formatGoWorkPath.js";
+import { inspectPluginBuildLock } from "../../../../packages/ttsc/lib/plugin/internal/source/inspectPluginBuildLock.js";
+import { pruneGoBuildCacheRoot } from "../../../../packages/ttsc/lib/plugin/internal/source/pruneGoBuildCacheRoot.js";
+import { prunePluginCacheRoot } from "../../../../packages/ttsc/lib/plugin/internal/source/prunePluginCacheRoot.js";
+import { reclaimPluginBuildLock } from "../../../../packages/ttsc/lib/plugin/internal/source/reclaimPluginBuildLock.js";
+import { releasePluginBuildLock } from "../../../../packages/ttsc/lib/plugin/internal/source/releasePluginBuildLock.js";
+import { resolvePluginCacheRoot } from "../../../../packages/ttsc/lib/plugin/internal/source/resolvePluginCacheRoot.js";
+import { resolveSourceBuildCachePaths } from "../../../../packages/ttsc/lib/plugin/internal/source/resolveSourceBuildCachePaths.js";
+import { waitForPluginBinary } from "../../../../packages/ttsc/lib/plugin/internal/source/waitForPluginBinary.js";
+import { withGoBuildCacheLease } from "../../../../packages/ttsc/lib/plugin/internal/source/withGoBuildCacheLease.js";
 
 /**
  * Writes a fake `go` executable (Node.js script) into `root` and returns its
@@ -259,8 +257,8 @@ function spawnNodeWorker(opts: {
   });
 }
 
-/** Absolute path to the built source-plugin implementation used by workers. */
-function sourceBuildLibraryPath(): string {
+/** Absolute path to one built source-plugin module used by workers. */
+function sourceBuildLibraryPath(module: string): string {
   return path.join(
     TestProject.WORKSPACE_ROOT,
     "packages",
@@ -268,7 +266,8 @@ function sourceBuildLibraryPath(): string {
     "lib",
     "plugin",
     "internal",
-    "buildSourcePlugin.js",
+    "source",
+    `${module}.js`,
   );
 }
 
@@ -288,7 +287,7 @@ function createSourcePluginWorkerScript(opts: {
   root: string;
   source: string;
 }): string {
-  const libraryPath = sourceBuildLibraryPath();
+  const libraryPath = sourceBuildLibraryPath("buildSourcePlugin");
   const script = path.join(opts.root, "build-source-plugin-worker.cjs");
   fs.writeFileSync(
     script,

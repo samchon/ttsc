@@ -6,10 +6,14 @@ import path from "node:path";
 
 const require_ = createRequire(import.meta.url);
 const ttscLib = path.dirname(require_.resolve("ttsc"));
-const { readCapabilityResolution, writeCapabilityResolution } = require_(
-  path.join(ttscLib, "plugin", "internal", "capabilityResolutionCache.js"),
+const { readCapabilityResolution } = require_(
+  path.join(ttscLib, "plugin", "internal", "readCapabilityResolution.js"),
 ) as {
   readCapabilityResolution(options: IKey): IEntry | null;
+};
+const { writeCapabilityResolution } = require_(
+  path.join(ttscLib, "plugin", "internal", "writeCapabilityResolution.js"),
+) as {
   writeCapabilityResolution(options: IKey, answer: IAnswer): void;
 };
 

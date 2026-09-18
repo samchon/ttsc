@@ -23,7 +23,7 @@ import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import * as path from "node:path";
 
-import { FLAG_SCHEMA } from "../src/flags/schema.ts";
+import { FLAG_SCHEMA } from "../src/flags/FLAG_SCHEMA.ts";
 
 type UpstreamOption = {
   /** Canonical upstream name including the leading dashes. */
@@ -64,7 +64,7 @@ function compareKinds(table: ReadonlyMap<string, UpstreamOption>): boolean {
     process.stderr.write(`${contradictions.join("\n")}\n`);
     process.stderr.write(
       "a flag must occupy exactly the argv tokens its consuming tool implements;\n" +
-        "fix the row in packages/ttsc/src/flags/schema.ts and re-run `pnpm run gen:flags`.\n",
+        "fix the row in packages/ttsc/src/flags/FLAG_SCHEMA.ts and re-run `pnpm run gen:flags`.\n",
     );
     return false;
   }

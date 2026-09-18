@@ -1,18 +1,16 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { createProcessDiagnostic } from "./compiler/internal/build/createProcessDiagnostic";
 import { compileProjectInMemory } from "./compiler/internal/compileProjectInMemory";
 import { resolveProjectConfig } from "./compiler/internal/project/resolveProjectConfig";
 import { resolveBinary } from "./compiler/internal/resolveBinary";
-import { createProcessDiagnostic } from "./compiler/internal/runBuild";
 import { transformProjectInMemory } from "./compiler/internal/transformProjectInMemory";
 import { transformProjectInWorker } from "./compiler/internal/transformProjectInWorker";
-import {
-  type SafeCacheCleanupTarget,
-  resolveSafeCacheCleanupTargets,
-} from "./internal/resolveSafeCacheCleanupTargets";
-import { resolveCleanTargets } from "./plugin/internal/buildSourcePlugin";
-import { loadProjectPlugins } from "./plugin/internal/loadProjectPlugins";
+import { type SafeCacheCleanupTarget } from "./internal/SafeCacheCleanupTarget";
+import { resolveSafeCacheCleanupTargets } from "./internal/resolveSafeCacheCleanupTargets";
+import { loadProjectPlugins } from "./plugin/internal/load/loadProjectPlugins";
+import { resolveCleanTargets } from "./plugin/internal/source/resolveCleanTargets";
 import type { ITtscCompilerContext } from "./structures/ITtscCompilerContext";
 import type { ITtscCompilerDiagnostic } from "./structures/ITtscCompilerDiagnostic";
 import type { ITtscCompilerResult } from "./structures/ITtscCompilerResult";
@@ -355,7 +353,7 @@ function runTransformation(
  *   `ttsc.transform.check:`. The Go-toolchain missing envelope also surfaces
  *   here.
  * - Host: everything else under the `ttsc:` umbrella — the bare `ttsc:` strings
- *   from `paths.ts`, `ttsc: TypeScript-Go executable not found`
+ *   from `packageRootDir.ts`, `ttsc: TypeScript-Go executable not found`
  *   (`resolveTsgo.ts`), `ttsc: failed to spawn native compiler host`
  *   (`transformProjectInMemory.ts`), and tsconfig / extended-tsconfig shapes
  *   from `readProjectConfig.ts`.

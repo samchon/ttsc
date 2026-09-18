@@ -1,4 +1,4 @@
-import { installRuntimeHooks } from "./runtimeHooks";
+import { installRuntimeHooks } from "./runtime/installRuntimeHooks";
 
 /**
  * `--require` target that only installs the runtime module hooks. `ttsx` puts
@@ -7,8 +7,8 @@ import { installRuntimeHooks } from "./runtimeHooks";
  * source-loading hooks, the way `ts-node` propagates through `--require
  * ts-node/register`. The preload itself is CommonJS and only registers the
  * hooks; ESM support comes from the `registerHooks` they install, not from how
- * the preload is loaded. The entry process additionally goes through the
- * bootstrap, which loads the entry itself; here we only register
+ * the preload is loaded. The entry process gets it the same way, which is what
+ * lets Node load the entry itself as its main module; here we only register
  * (idempotently).
  */
 installRuntimeHooks();

@@ -192,6 +192,13 @@ test("compiler and platform changes select verified reverse consumers", () => {
   assert.equal(compilerWindows.plugin_cache, true);
   assert.equal(compilerWindows.bun, false);
   assert.equal(compilerWindows.source_map, false);
+  assert.deepEqual(
+    compiler.platformMatrix.include
+      .filter((row) => row.runtime)
+      .map((row) => row.name),
+    ["darwin-x64", "win32-x64"],
+    "the ttsx runtime suite runs on the macOS and Windows representatives; Linux runs it in the core lane",
+  );
 
   const platform = ids(["packages/ttsc-linux-x64/package.json"]);
   assert.ok(platform.includes("ttsc-core"));
@@ -228,6 +235,32 @@ test("platform integrations reuse only the physical rows they need", () => {
   );
   assert.ok(
     watch.every((row) => row.watch && !row.experimental && !row.vscode),
+  );
+
+  const runtimeSuite = planForPaths([
+    "tests/test-ttsc/src/features/ttsx-runtime/test_example.ts",
+  ]);
+  assert.ok(runtimeSuite.laneIds.includes("ttsc-core"));
+  assert.deepEqual(
+    runtimeSuite.platformMatrix.include.map((row) => row.name),
+    ["darwin-x64", "win32-x64"],
+  );
+  assert.ok(
+    runtimeSuite.platformMatrix.include.every(
+      (row) =>
+        row.runtime &&
+        row.build &&
+        row.build_scope === "experimental" &&
+        row.needs_go &&
+        !row.experimental &&
+        !row.watch,
+    ),
+  );
+  assert.equal(
+    planForPaths(["tests/test-ttsc/src/features/api/test_example.ts"])
+      .platformMatrix.include.length,
+    0,
+    "other feature suites keep their Linux-only topology",
   );
 
   const vscode = planForPaths(["packages/vscode/src/extension.ts"])
@@ -611,6 +644,12 @@ test("remaining workflow path filters match the repository contract", () => {
       .TTSC_TEST_DIR,
     "features/watch",
   );
+  const runtimeTests = platformSteps.find(
+    (step) => step.name === "Run ttsx runtime tests",
+  );
+  assert.equal(runtimeTests.if, "matrix.runtime");
+  assert.equal(runtimeTests.run, "pnpm --filter @ttsc/test-ttsc start");
+  assert.equal(runtimeTests.env.TTSC_TEST_DIR, "features/ttsx-runtime");
   assert.equal(
     platformSteps.find((step) => step.name === "Build @ttsc/vscode").run,
     "pnpm --filter @ttsc/vscode build",
@@ -775,7 +814,10 @@ test("remaining workflow path filters match the repository contract", () => {
   const systemGo = platformSteps.find(
     (step) => step.name === "Use System Go For Source Plugin Tests",
   );
-  assert.equal(systemGo.if, "matrix.watch || matrix.plugin_cache");
+  assert.equal(
+    systemGo.if,
+    "matrix.watch || matrix.plugin_cache || matrix.runtime",
+  );
   assert.equal(systemGo.shell, "bash");
   assert.equal(
     systemGo.run,

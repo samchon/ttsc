@@ -15,8 +15,8 @@ import {
  *
  * The negative twin of
  * `test_plugin_ttsc_export_condition_resolves_runtime_free_descriptor`. The
- * `ttsc`-condition branch in `loadProjectPlugins.ts::resolvePluginRequest` is
- * strictly opt-in: a package that does not declare a `ttsc` condition must
+ * `ttsc`-condition branch in `PluginPackageResolution.ts::resolvePluginRequest`
+ * is strictly opt-in: a package that does not declare a `ttsc` condition must
  * resolve exactly as before (through `require.resolve` to the default entry),
  * so the override cannot silently divert packages that never asked for it.
  *

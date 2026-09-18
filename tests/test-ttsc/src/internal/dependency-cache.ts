@@ -2,10 +2,11 @@
  * Shared helpers for the ttsx dependency-cache regressions
  * (`acquireDependencyBuildLock`, `releaseDependencyBuildLock`,
  * `reclaimDependencyBuildLock`, `inspectDependencyBuildLock`,
- * `readDependencyCache`). These drive the fenced generation protocol in
- * `runtimeHooks.ts` directly, with real child processes held at explicit
- * barrier files instead of sleeps, so a stale-observer / delayed-finalizer
- * interleaving is deterministic rather than timing-dependent.
+ * `readDependencyCache`). These drive the fenced generation protocol in the
+ * built dependency-lock modules directly, with real child processes held at
+ * explicit barrier files instead of sleeps, so a stale-observer /
+ * delayed-finalizer interleaving is deterministic rather than
+ * timing-dependent.
  */
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
@@ -13,13 +14,11 @@ import child_process from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-import {
-  acquireDependencyBuildLock,
-  inspectDependencyBuildLock,
-  readDependencyCache,
-  reclaimDependencyBuildLock,
-  releaseDependencyBuildLock,
-} from "../../../../packages/ttsc/lib/launcher/internal/runtimeHooks.js";
+import { acquireDependencyBuildLock } from "../../../../packages/ttsc/lib/launcher/internal/runtime/acquireDependencyBuildLock.js";
+import { inspectDependencyBuildLock } from "../../../../packages/ttsc/lib/launcher/internal/runtime/inspectDependencyBuildLock.js";
+import { readDependencyCache } from "../../../../packages/ttsc/lib/launcher/internal/runtime/readDependencyCache.js";
+import { reclaimDependencyBuildLock } from "../../../../packages/ttsc/lib/launcher/internal/runtime/reclaimDependencyBuildLock.js";
+import { releaseDependencyBuildLock } from "../../../../packages/ttsc/lib/launcher/internal/runtime/releaseDependencyBuildLock.js";
 
 /** Captured output of one dependency-cache lock worker. */
 interface IDependencyCacheWorkerResult {
@@ -54,8 +53,8 @@ function spawnNodeWorker(opts: {
   });
 }
 
-/** Absolute path to the built runtime-hooks module used by lock workers. */
-function dependencyCacheLibraryPath(): string {
+/** Absolute path to one built dependency-lock module used by lock workers. */
+function dependencyCacheLibraryPath(module: string): string {
   return path.join(
     TestProject.WORKSPACE_ROOT,
     "packages",
@@ -63,7 +62,8 @@ function dependencyCacheLibraryPath(): string {
     "lib",
     "launcher",
     "internal",
-    "runtimeHooks.js",
+    "runtime",
+    `${module}.js`,
   );
 }
 
@@ -75,14 +75,16 @@ function dependencyCacheLibraryPath(): string {
  * successor.
  */
 function writeLockHolderScript(root: string, lockDir: string): string {
-  const libraryPath = dependencyCacheLibraryPath();
   const script = path.join(root, "lock-holder.cjs");
   fs.writeFileSync(
     script,
     [
       `const fs = require("node:fs");`,
-      `const { acquireDependencyBuildLock, releaseDependencyBuildLock } = require(${JSON.stringify(
-        libraryPath,
+      `const { acquireDependencyBuildLock } = require(${JSON.stringify(
+        dependencyCacheLibraryPath("acquireDependencyBuildLock"),
+      )});`,
+      `const { releaseDependencyBuildLock } = require(${JSON.stringify(
+        dependencyCacheLibraryPath("releaseDependencyBuildLock"),
       )});`,
       `const lockDir = ${JSON.stringify(lockDir)};`,
       `const leaseFile = process.env.LOCK_LEASE_FILE;`,

@@ -2,10 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { prepareExecution } from "./launcher/internal/prepareExecution";
-import {
-  type RuntimeManifest,
-  installRuntimeHooks,
-} from "./launcher/internal/runtimeHooks";
+import { type RuntimeManifest } from "./launcher/internal/runtime/RuntimeManifest";
+import { installRuntimeHooks } from "./launcher/internal/runtime/installRuntimeHooks";
 
 const cleanupDirectories = new Set<string>();
 let runtimeSequence = 0;
@@ -22,9 +20,9 @@ function prepareEntry(filename: string): RuntimeManifest {
   return {
     depCacheDir: path.join(execution.cleanupDir, "deps"),
     emitDir: execution.emitDir,
-    emittedFiles: execution.emittedFiles,
     entryFile: execution.entryFile,
     entrySource: execution.entrySource,
+    outputs: execution.outputs,
     moduleOptions: execution.moduleOptions,
     projectRoot: execution.projectRoot,
     rootDir: execution.rootDir,

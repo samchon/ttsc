@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { spawnSyncWithLowDescriptors } from "../../../../../packages/ttsc/lib/internal/spawnSyncResilient.js";
+import { spawnSyncWithLowDescriptors } from "../../../../../packages/ttsc/lib/internal/spawnSyncWithLowDescriptors.js";
 
 /**
  * Verifies subprocess resilience: the low-descriptor broker preserves spawn

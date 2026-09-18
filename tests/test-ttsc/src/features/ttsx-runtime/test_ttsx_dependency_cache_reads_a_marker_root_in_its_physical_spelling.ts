@@ -52,6 +52,7 @@ export const test_ttsx_dependency_cache_reads_a_marker_root_in_its_physical_spel
       JSON.stringify({
         generation,
         moduleOptions: { module: "commonjs" },
+        outputs: ["index.js"],
         rootDir: linkedRoot,
       }),
       "utf8",

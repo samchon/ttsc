@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { createProjectInputPathIdentityContext } from "../../../../../packages/ttsc/lib/internal/projectInputPathIdentity.js";
+import { createProjectInputPathIdentityContext } from "../../../../../packages/ttsc/lib/internal/pathIdentity/createProjectInputPathIdentityContext.js";
 
 /**
  * Verifies a directory with nothing to probe answers the way its platform does.

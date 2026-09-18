@@ -16,7 +16,7 @@ import {
  * Verifies plugin corpus: `--singleThreaded` does not break a native plugin
  * build.
  *
- * Pins the compatibility regression from #113: `runBuild.ts` used to forward
+ * Pins the compatibility regression from #113: `runBuild` used to forward
  * `--singleThreaded` / `--checkers` to native plugin hosts as bare CLI flags. A
  * third-party host built before #113 has no such flag in its `flag.FlagSet`,
  * and a host that parses with `flag.ContinueOnError` exits 2 on the unknown

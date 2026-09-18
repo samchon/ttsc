@@ -76,6 +76,7 @@ export const test_loadprojectplugins_ttsx_descriptor_names_a_failure_from_its_mo
       "lib",
       "plugin",
       "internal",
+      "load",
       "loadProjectPlugins.js",
     );
     const script = path.join(root, "load-worker.cjs");

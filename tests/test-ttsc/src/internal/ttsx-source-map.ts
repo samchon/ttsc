@@ -193,19 +193,29 @@ function readCoverageScripts(coverageDir: string): ScriptCoverage[] {
     } catch {
       continue;
     }
-    const smc = parsed["source-map-cache"] ?? {};
+    // Node spells one file two ways here: the script URL keeps a `~` (a
+    // Windows 8.3 name such as `RUNNER~1`) literal, while the source-map
+    // cache is keyed by `pathToFileURL`, which encodes it as `%7E`. Both are
+    // matched by the path they decode to, as a coverage tool must.
+    const smc = new Map<string, { data: { sources?: unknown } | null }>();
+    for (const [url, cache] of Object.entries(
+      parsed["source-map-cache"] ?? {},
+    )) {
+      if (cache !== undefined) smc.set(fileUrlKey(url), cache);
+    }
     for (const entry of parsed.result) {
       if (!entry.url.startsWith("file:")) {
         continue;
       }
+      const key = fileUrlKey(entry.url);
       // Prefer a record that carries function counts; a later empty duplicate
       // (e.g. the parent process's view) must not clobber the child's real one.
-      const existing = byUrl.get(entry.url);
+      const existing = byUrl.get(key);
       if (existing !== undefined && existing.functions.length > 0) {
         continue;
       }
-      const cache = smc[entry.url];
-      byUrl.set(entry.url, {
+      const cache = smc.get(key);
+      byUrl.set(key, {
         url: entry.url,
         hasSourceMapCacheEntry: cache !== undefined,
         sourceMap: cache?.data ?? null,
@@ -214,6 +224,11 @@ function readCoverageScripts(coverageDir: string): ScriptCoverage[] {
     }
   }
   return [...byUrl.values()];
+}
+
+/** The file a `file:` URL names, whichever way its characters are escaped. */
+function fileUrlKey(url: string): string {
+  return path.normalize(fileURLToPath(url));
 }
 
 function listJsonFiles(dir: string): string[] {

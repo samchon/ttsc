@@ -1,9 +1,7 @@
 import assert from "node:assert/strict";
 
-import {
-  COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE,
-  PLUGIN_DESCRIPTOR_SHIM_SOURCE,
-} from "../../../../../packages/ttsc/lib/plugin/internal/loadProjectPlugins.js";
+import { COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE } from "../../../../../packages/ttsc/lib/plugin/internal/load/COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE.js";
+import { PLUGIN_DESCRIPTOR_SHIM_SOURCE } from "../../../../../packages/ttsc/lib/plugin/internal/load/PLUGIN_DESCRIPTOR_SHIM_SOURCE.js";
 
 /**
  * Verifies the plugin-descriptor shim is emitted as source that can parse.

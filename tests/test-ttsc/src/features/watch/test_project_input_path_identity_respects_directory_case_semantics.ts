@@ -4,10 +4,8 @@ import childProcess from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-import {
-  createFilesystemPathIdentityContext,
-  createProjectInputPathIdentityContext,
-} from "../../../../../packages/ttsc/lib/internal/projectInputPathIdentity.js";
+import { createFilesystemPathIdentityContext } from "../../../../../packages/ttsc/lib/internal/pathIdentity/createFilesystemPathIdentityContext.js";
+import { createProjectInputPathIdentityContext } from "../../../../../packages/ttsc/lib/internal/pathIdentity/createProjectInputPathIdentityContext.js";
 
 /**
  * Verifies missing suffixes inherit their existing ancestor's case semantics.

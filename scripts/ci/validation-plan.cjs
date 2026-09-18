@@ -489,6 +489,7 @@ function planForPaths(files) {
 
   const selected = new Set(["typecheck"]);
   let watch = false;
+  let runtime = false;
   const integrations = {
     bun: matchesAnyPath(normalized, PLATFORM_INTEGRATION_PATHS.bun),
     experimental: matchesAnyPath(
@@ -518,6 +519,7 @@ function planForPaths(files) {
     if (file.startsWith("packages/ttsc/")) {
       add(TTSC_DOWNSTREAM_IDS, file);
       watch = true;
+      runtime = true;
       if (file.startsWith("packages/ttsc/shim/")) selected.add("shim-audit");
       continue;
     }
@@ -628,6 +630,7 @@ function planForPaths(files) {
       const ttsc = planTtscTest(file);
       add(ttsc.lanes, file);
       watch ||= ttsc.watch;
+      runtime ||= ttsc.runtime;
       continue;
     }
     const packageTest = /^tests\/test-([^/]+)\//.exec(file);
@@ -682,7 +685,10 @@ function planForPaths(files) {
           : [...LINT_LANE_IDS, "ttsc-native"],
         file,
       );
-      if (file.startsWith("tests/utils/")) watch = true;
+      if (file.startsWith("tests/utils/")) {
+        watch = true;
+        runtime = true;
+      }
       continue;
     }
     if (file.startsWith("tests/projects/")) {
@@ -778,22 +784,28 @@ function planForPaths(files) {
     return fullPlan(`unknown input: ${file}`);
   }
 
-  return createPlan(selected, watch, reasons, integrations);
+  return createPlan(selected, watch, reasons, { ...integrations, runtime });
 }
 
 function planTtscTest(file) {
-  if (file.includes("/features/watch/")) return { lanes: [], watch: true };
+  if (file.includes("/features/watch/"))
+    return { lanes: [], watch: true, runtime: false };
+  // The runtime suite runs in the core lane on Linux and again on the
+  // representative macOS and Windows rows, where its process, path, and
+  // signal behavior differs.
+  if (file.includes("/features/ttsx-runtime/"))
+    return { lanes: ["ttsc-core"], watch: false, runtime: true };
   if (file.includes("/features/"))
-    return { lanes: ["ttsc-core"], watch: false };
+    return { lanes: ["ttsc-core"], watch: false, runtime: false };
   for (const lane of LANES.filter((item) => item.id.startsWith("ttsc-"))) {
     if (
       lane.dirs?.some((directory) =>
         file.startsWith(`tests/test-ttsc/src/${directory}/`),
       )
     )
-      return { lanes: [lane.id], watch: false };
+      return { lanes: [lane.id], watch: false, runtime: false };
   }
-  return { lanes: FULL_LANE_IDS, watch: true };
+  return { lanes: FULL_LANE_IDS, watch: true, runtime: true };
 }
 
 function isFullPlanInput(file) {
@@ -829,6 +841,7 @@ function fullPlan(reason) {
     experimental: true,
     unpluginE2e: true,
     pluginCache: true,
+    runtime: true,
     sourceMap: true,
     vscode: true,
   });
@@ -843,6 +856,7 @@ function createPlan(selected, watch, reasons, integrations) {
     experimental: integrations.experimental,
     unpluginE2e: integrations.unpluginE2e,
     pluginCache: integrations.pluginCache,
+    runtime: integrations.runtime,
     sourceMap: integrations.sourceMap,
     vscode: integrations.vscode,
     watch,
@@ -873,23 +887,27 @@ function createPlatformPlan(tasks) {
       const unpluginE2e = tasks.unpluginE2e && row.name === "linux-x64";
       const vscode = tasks.vscode && row.representative;
       const watch = tasks.watch && row.representative;
-      const build = !tasks.experimental && (watch || pluginCache);
+      // Linux already runs the runtime suite in the core lane.
+      const runtime = tasks.runtime && row.representative && row.os !== "linux";
+      const build = !tasks.experimental && (watch || pluginCache || runtime);
       return {
         name: row.name,
         os: row.os,
         runner: row.runner,
         bun,
         build,
-        build_scope: watch ? "experimental" : "plugin-cache",
+        build_scope: watch || runtime ? "experimental" : "plugin-cache",
         experimental: tasks.experimental,
         needs_go:
           tasks.experimental ||
           unpluginE2e ||
           bun ||
           pluginCache ||
+          runtime ||
           sourceMap ||
           watch,
         plugin_cache: pluginCache,
+        runtime,
         setup_bun: bun || unpluginE2e || (pluginCache && row.os === "linux"),
         source_map: sourceMap,
         unplugin_e2e: unpluginE2e,
@@ -902,6 +920,7 @@ function createPlatformPlan(tasks) {
         row.experimental ||
         row.bun ||
         row.plugin_cache ||
+        row.runtime ||
         row.source_map ||
         row.unplugin_e2e ||
         row.watch ||

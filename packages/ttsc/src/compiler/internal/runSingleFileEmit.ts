@@ -3,19 +3,26 @@ import path from "node:path";
 
 import { createCanonicalTempDirectory } from "../../internal/createCanonicalTempDirectory";
 import type { TtscSingleFileEmitOptions } from "../../structures/internal/TtscSingleFileEmitOptions";
+import { EmitOwnershipIndex } from "./EmitOwnershipIndex";
+import { runBuild } from "./build/runBuild";
 import { readProjectConfig } from "./project/readProjectConfig";
-import { resolveEmittedJavaScript } from "./resolveEmittedJavaScript";
-import { runBuild } from "./runBuild";
+import { readEffectiveCompilerOptions } from "./readEffectiveCompilerOptions";
 
 /**
  * Emit one source file by building its project into a temporary directory.
  *
- * The full project is compiled with `forceListEmittedFiles` so that the emitted
- * file list is available for `resolveEmittedJavaScript`. The temp directory is
- * always cleaned up in the `finally` block, even on error.
+ * The full project is compiled with its `rootDir` pinned, and the output is
+ * taken only when it was provably emitted from the requested file: the
+ * ownership index mirrors that file below the pinned root and, for another
+ * spelling of it, compares filesystem identities. A file outside the project's
+ * file set has no output of its own, and it is refused by name rather than
+ * answered with another file's JavaScript that shares its name
+ * (samchon/ttsc#1382). The temp directory is always cleaned up in the `finally`
+ * block, even on error.
  *
  * @returns The transformed JavaScript source text.
- * @throws When the build exits non-zero or no output is produced for the file.
+ * @throws When the build exits non-zero or the project does not compile the
+ *   file.
  */
 export function runSingleFileEmit(options: TtscSingleFileEmitOptions): string {
   const cwd = path.resolve(options.cwd ?? process.cwd());
@@ -31,22 +38,33 @@ export function runSingleFileEmit(options: TtscSingleFileEmitOptions): string {
     tsconfig: options.tsconfig,
   });
   const tsconfig = project.path;
-  const projectRoot = project.root;
+  // The root tsgo lays the outputs against: a `--rootDir` forwarded on the
+  // command line, which reaches it after the config; otherwise the declared
+  // one, which `readProjectConfig` already absolutized; otherwise the project's
+  // own directory, which `pinInferredRootDir` hands it below.
+  const effective = readEffectiveCompilerOptions(
+    project,
+    options.passthrough,
+    options.binary,
+  )?.("rootDir");
+  const rootDir =
+    typeof effective === "string"
+      ? path.resolve(project.root, effective)
+      : project.root;
   const outDir = createCanonicalTempDirectory("ttsc-single-file-");
   try {
     const result = runBuild({
       ...options,
       cwd,
       emit: true,
-      forceListEmittedFiles: true,
       isolateOutputsTo: outDir,
       outDir,
       // The private temp directory above is an `outDir` this lane injected, not
       // one the project declared, and tsgo answers an inferred common source
       // directory with TS5011 as soon as any `outDir` is in play. Pinning the
       // root tsgo would infer keeps `ttsc <file.ts>` working on a project that
-      // declares no output at all, and it is the same root
-      // `resolveEmittedJavaScript` mirrors below (issue #1172).
+      // declares no output at all, and it is the same root the ownership
+      // lookup below mirrors against (issue #1172).
       pinInferredRootDir: true,
       resolvedProject: project,
       tsconfig,
@@ -59,15 +77,13 @@ export function runSingleFileEmit(options: TtscSingleFileEmitOptions): string {
           (result.stderr || result.stdout),
       );
     }
-    const emitted = resolveEmittedJavaScript({
-      emittedFiles: result.emittedFiles,
-      outDir,
-      projectRoot,
-      sourceFile,
-    });
+    const emitted = new EmitOwnershipIndex({
+      emitDir: outDir,
+      rootDir,
+    }).find(sourceFile);
     if (emitted === null) {
       throw new Error(
-        `ttsc single-file emit: no output produced for ${sourceFile}`,
+        `ttsc single-file emit: ${sourceFile} is not part of the program of ${tsconfig}; add it to that project's "include" or "files", or pass a tsconfig that compiles it`,
       );
     }
     const transformed = fs.readFileSync(emitted, "utf8");

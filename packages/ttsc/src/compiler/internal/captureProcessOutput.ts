@@ -2,20 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { createCanonicalTempDirectory } from "../../internal/createCanonicalTempDirectory";
-
-export interface CapturedProcessOutput {
-  /** Close the descriptors and remove the backing files. */
-  dispose(): void;
-  /** Read one stream's bytes, decoded unless `"buffer"` is asked for. */
-  read(
-    stream: "stdout" | "stderr",
-    encoding: BufferEncoding | "buffer" | undefined,
-  ): string | Buffer;
-  stderrFd: number;
-  stderrPath: string;
-  stdoutFd: number;
-  stdoutPath: string;
-}
+import type { CapturedProcessOutput } from "./CapturedProcessOutput";
 
 /**
  * A pair of temporary files standing in for a child process's pipes.

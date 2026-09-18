@@ -85,6 +85,7 @@ export default () => ({
       "lib",
       "plugin",
       "internal",
+      "load",
       "loadProjectPlugins.js",
     );
     const script = path.join(root, "load-worker.cjs");

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { ResidentTransformProcess } from "../../../../../packages/ttsc/lib/compiler/internal/residentTransformProcess.js";
+import { ResidentTransformProcess } from "../../../../../packages/ttsc/lib/compiler/internal/ResidentTransformProcess.js";
 
 /**
  * A stub that answers a transform request (`file` set) with a valid `{

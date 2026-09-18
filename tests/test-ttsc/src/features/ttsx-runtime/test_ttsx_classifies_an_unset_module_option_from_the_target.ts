@@ -5,13 +5,14 @@ import assert from "node:assert/strict";
  * Verifies ttsx classifies an unset `module` option from the target, not from
  * the package type — including when the package states CommonJS outright.
  *
- * Pins the `module`-absent branch of `runtimeHooks.ts::effectiveModuleKind`.
- * tsgo derives the emit kind from `target` when `module` is missing, and every
- * target TypeScript 7 still accepts is ES2015 or later, so such a project emits
- * ES modules whatever the manifest says. The classifier used to read the absent
- * option as "ask the nearest package.json", answered CommonJS, and Node died on
- * the emitted `export` before the entry ran — in the single most ordinary
- * project shape there is.
+ * Pins the `module`-absent branch of
+ * `RuntimeModuleFormat.ts::effectiveModuleKind`. tsgo derives the emit kind
+ * from `target` when `module` is missing, and every target TypeScript 7 still
+ * accepts is ES2015 or later, so such a project emits ES modules whatever the
+ * manifest says. The classifier used to read the absent option as "ask the
+ * nearest package.json", answered CommonJS, and Node died on the emitted
+ * `export` before the entry ran — in the single most ordinary project shape
+ * there is.
  *
  * The `"type": "commonjs"` half is the twin that makes this about the
  * derivation rather than about a missing manifest: an explicit CommonJS

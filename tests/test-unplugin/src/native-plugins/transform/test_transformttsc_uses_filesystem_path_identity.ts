@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { createFilesystemPathIdentityContext } from "../../../../../packages/ttsc/lib/internal/projectInputPathIdentity.js";
+import { createFilesystemPathIdentityContext } from "../../../../../packages/ttsc/lib/internal/pathIdentity/createFilesystemPathIdentityContext.js";
 import { normalizeHostInputName } from "../../../../../packages/unplugin/lib/core/transform/filesystem/normalizeHostInputName.mjs";
 import { pathIdentityKey } from "../../../../../packages/unplugin/lib/core/transform/filesystem/pathIdentityKey.mjs";
 

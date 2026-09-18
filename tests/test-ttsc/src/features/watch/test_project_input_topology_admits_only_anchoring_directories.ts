@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { projectInputTopologyMayAffect } from "../../../../../packages/ttsc/lib/launcher/internal/watchTopology.js";
+import { projectInputTopologyMayAffect } from "../../../../../packages/ttsc/lib/launcher/internal/watch/projectInputTopologyMayAffect.js";
 
 /**
  * Verifies a directory event is admitted from where it happened.

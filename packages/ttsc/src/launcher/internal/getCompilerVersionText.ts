@@ -1,8 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { outputText } from "../../compiler/internal/outputText";
 import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
-import { outputText, spawnNative } from "../../compiler/internal/spawnNative";
+import { spawnNative } from "../../compiler/internal/spawnNative";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
 
 /** Format the CLI version banner from the wrapper package and resolved tsc. */

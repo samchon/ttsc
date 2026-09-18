@@ -1,38 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { createNativeProjectContextJson } from "../compiler/internal/project/createNativeProjectContextArgs";
+import { createNativeProjectContextJson } from "../compiler/internal/project/createNativeProjectContextJson";
 import { resolveBinary } from "../compiler/internal/resolveBinary";
-import {
-  readCapabilityResolution,
-  writeCapabilityResolution,
-} from "./internal/capabilityResolutionCache";
-import { loadProjectPlugins } from "./internal/loadProjectPlugins";
-
-/**
- * One plugin that declared the requested capability.
- *
- * `manifest` is the `--plugins-json` payload its sidecar needs to find its own
- * configured entry. Without it the sidecar loads an empty rule configuration
- * and answers as though the project declared nothing — an empty answer that
- * looks exactly like a project which genuinely publishes none.
- */
-export interface ITtscCapabilityPlugin {
-  binary: string;
-  manifest: string;
-  /**
-   * The `--project-context-json` payload, or `undefined` when the plugin's
-   * descriptor does not declare it wants one.
-   *
-   * A sidecar is handed a project root, not asked to derive one. Without this a
-   * rule that resolves its own inputs — the documents an evidence claim reads,
-   * a Prisma schema, an OpenAPI file — has no base to resolve them against, and
-   * answers with an empty set rather than an error, because "this project
-   * declares nothing" is a legitimate answer it cannot distinguish from "I was
-   * not told where the project is".
-   */
-  projectContext?: string;
-}
+import type { ITtscCapabilityPlugin } from "./ITtscCapabilityPlugin";
+import { loadProjectPlugins } from "./internal/load/loadProjectPlugins";
+import { readCapabilityResolution } from "./internal/readCapabilityResolution";
+import { writeCapabilityResolution } from "./internal/writeCapabilityResolution";
 
 /**
  * The built sidecars of a project's configured plugins that declare one

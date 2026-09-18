@@ -7,7 +7,9 @@
  * package surface remains small and stable.
  */
 
+export * from "./plugin/ITtscCapabilityPlugin";
 export * from "./plugin/resolveCapabilityPlugins";
 export * from "./TtscCompiler";
+export * from "./TtscServiceRequestOptions";
 export * from "./TtscService";
 export * from "./structures/index";

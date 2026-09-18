@@ -19,6 +19,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { test } = require("node:test");
+const { pathToFileURL } = require("node:url");
 
 const {
   STRIP_TYPES_NODE_ARGS,
@@ -35,6 +36,10 @@ test("the strip-types loader suppresses only the deliberate module warning", () 
   assert.deepEqual(STRIP_TYPES_NODE_ARGS, [
     "--disable-warning=MODULE_TYPELESS_PACKAGE_JSON",
     "--experimental-strip-types",
+    "--import",
+    pathToFileURL(
+      path.join(__dirname, "..", "..", "..", "scripts", "register-extensionless-ts-loader.mjs"),
+    ).href,
   ]);
   const root = createCanonicalTempDirectory("ttsc-strip-types-");
   try {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { parseWindowsDirectoryCaseSensitivity } from "../../../../../packages/ttsc/lib/internal/windowsDirectoryCaseSensitivity.js";
+import { parseWindowsDirectoryCaseSensitivity } from "../../../../../packages/ttsc/lib/internal/parseWindowsDirectoryCaseSensitivity.js";
 
 /**
  * Verifies fsutil case-sensitivity parsing does not depend on English text.

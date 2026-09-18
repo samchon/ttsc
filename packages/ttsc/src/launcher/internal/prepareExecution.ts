@@ -1,29 +1,20 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { isOutsideRelativePath } from "../../compiler/internal/paths";
+import { EmitOwnershipIndex } from "../../compiler/internal/EmitOwnershipIndex";
+import { runBuild } from "../../compiler/internal/build/runBuild";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
-import { resolveEmittedJavaScript } from "../../compiler/internal/resolveEmittedJavaScript";
-import { runBuild } from "../../compiler/internal/runBuild";
-import { createFilesystemPathIdentityContext } from "../../internal/projectInputPathIdentity";
+import { resolveOwningProjectConfig } from "../../compiler/internal/project/resolveOwningProjectConfig";
+import { readEffectiveCompilerOptions } from "../../compiler/internal/readEffectiveCompilerOptions";
+import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
+import { buildSingleRootProject } from "./buildSingleRootProject";
+import { linkVirtualEntry } from "./linkVirtualEntry";
+import { type OwningModuleOptions } from "./runtime/OwningModuleOptions";
 import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
-import { type OwningModuleOptions, projectModuleOptions } from "./runtimeHooks";
-
-/**
- * Maximum number of ancestor directories above the project root that the
- * virtual filesystem overlay mirrors. Three levels covers the common monorepo
- * layout (workspace-root → packages → package-root) so `node_modules` symlinks
- * resolve correctly without reaching an unsafe boundary.
- */
-const MAX_VIRTUAL_PARENT_DEPTH = 3;
-/**
- * Emit directory of the entry-only fallback build, a sibling of the virtual
- * layout's volume-label directories so it can never collide with a mirrored
- * project path.
- */
-const ENTRY_PROJECT_EMIT_DIR = "entry-project";
+import { runtimeEmitProfile } from "./runtimeEmitProfile";
 
 /** Build the owning project and locate the emitted JavaScript entry for `ttsx`. */
 export function prepareExecution(
@@ -37,8 +28,9 @@ export function prepareExecution(
 ): {
   cleanupDir: string;
   emitDir: string;
-  emittedFiles?: readonly string[];
   entryFile: string;
+  /** The build's record of its outputs, relative to `emitDir`. */
+  outputs: readonly string[];
   entrySource: string;
   moduleOptions: OwningModuleOptions;
   projectRoot: string;
@@ -74,9 +66,9 @@ export function prepareExecution(
     return {
       cleanupDir: context.processDir,
       emitDir: context.emitDir,
-      emittedFiles: context.emittedFiles ?? undefined,
       entryFile: emittedEntry,
       entrySource: entry,
+      outputs: context.outputs,
       moduleOptions: context.moduleOptions,
       projectRoot: context.root,
       rootDir: context.runtimeRootDir,
@@ -88,39 +80,74 @@ export function prepareExecution(
 }
 
 /**
- * The JavaScript this build emitted for `entry`, or `null` when it emitted none
- * — which is the signal that the entry sits outside the project's file set.
+ * Maximum number of ancestor directories above the project root that the
+ * virtual filesystem overlay mirrors. Three levels covers the common monorepo
+ * layout (workspace-root → packages → package-root) so `node_modules` symlinks
+ * resolve correctly without reaching an unsafe boundary.
+ */
+const MAX_VIRTUAL_PARENT_DEPTH = 3;
+
+/**
+ * Emit directory of the entry-only fallback build, a sibling of the virtual
+ * layout's volume-label directories so it can never collide with a mirrored
+ * project path.
+ */
+const ENTRY_PROJECT_EMIT_DIR = "entry-project";
+
+/**
+ * The JavaScript this build emitted from `entry`, or `null` when it emitted
+ * none — which is the signal that the entry sits outside the project's file
+ * set.
  *
- * The guard is what makes this an ownership answer rather than a guess. tsgo
- * strips `runtimeRootDir` from every output path, so a file outside that root
- * cannot have an output under `outDir` at all; without the guard the lookup
- * falls through to `resolveEmittedJavaScript`'s trailing-stem matcher, and a
- * `build/release.ts` would happily match the `release.js` emitted for an
- * unrelated `src/release.ts` — running the wrong file instead of compiling the
- * requested one.
- *
- * It is lexical on purpose, and it is the same test `resolveEmittedJavaScript`
- * then applies — including its rejection of an entry that _is_ the root. That
- * only holds because both sides are _produced_ physically: the entry by
- * `resolveEntrySpelling`, the root by `resolveRuntimeSourceRoot`. Folding here
- * instead would paper over a mixed pair and disagree with the mirror that runs
- * immediately after; keeping the pair honest is what makes folding
- * unnecessary.
+ * Only an output proven to come from the entry itself counts. A
+ * `scripts/index.ts` outside `include` shares its name with the `src/index.js`
+ * the project build emitted, and taking that output would run the wrong program
+ * instead of compiling the requested one (samchon/ttsc#1382).
  */
 function emittedEntryOf(
   context: ReturnType<typeof createProjectContext>,
   entry: string,
 ): string | null {
-  const relative = path.relative(context.runtimeRootDir, entry);
-  if (relative === "" || isOutsideRelativePath(relative)) {
-    return null;
-  }
-  return resolveEmittedJavaScript({
-    emittedFiles: context.emittedFiles ?? undefined,
-    outDir: context.emitDir,
-    projectRoot: context.runtimeRootDir,
-    sourceFile: entry,
+  return new EmitOwnershipIndex({
+    emitDir: context.emitDir,
+    outputs: context.outputs,
+    rootDir: context.runtimeRootDir,
+  }).find(entry);
+}
+
+/**
+ * Compile an entry the whole-project build did not emit, through a project that
+ * inherits every option and declares only the entry, then point the context at
+ * that build.
+ */
+function buildEntryProject(
+  context: ReturnType<typeof createProjectContext>,
+  options: NonNullable<Parameters<typeof prepareExecution>[1]>,
+  entry: string,
+): void {
+  const emitDir = path.join(context.virtualRoot, ENTRY_PROJECT_EMIT_DIR);
+  const { rootDir } = buildSingleRootProject({
+    checked: true,
+    emitDir,
+    key: context.runtimeCacheKey,
+    options: { ...options, cacheDir: context.pluginCacheDir },
+    projectRoot: context.root,
+    role: "entry",
+    source: entry,
+    tsconfig: context.tsconfig,
   });
+  context.emitDir = emitDir;
+  context.outputs = EmitOwnershipIndex.listOutputs(emitDir);
+  context.runtimeRootDir = rootDir;
+  // Classified by the project itself: the synthesized config only extends it
+  // with overrides that do not touch the module format, and it is already
+  // removed, so a response file expanded through `--showConfig` could not read
+  // it again.
+  context.moduleOptions = runtimeEmitProfile(
+    context.project,
+    options.passthrough,
+    options.binary,
+  ).moduleOptions;
 }
 
 /**
@@ -139,9 +166,10 @@ function emittedEntryOf(
  * transform plugins, `target`, `paths`, and source map all silently dropped —
  * from a run that still prints and still exits zero.
  *
- * Resolving the link widens `rootDir` to the ancestor the two trees share,
- * which is not a cost but the requirement: the file genuinely lives outside the
- * project, and no root that excludes it can compile it.
+ * Resolving the link can place the entry outside the project, which is the
+ * truth rather than a cost: the file genuinely lives there. The project build
+ * then does not emit it, and the entry-only build, whose private layout is
+ * rooted at the volume, compiles it wherever it lives.
  */
 function resolveEntrySpelling(cwd: string, entryFile: string): string {
   const identities = createFilesystemPathIdentityContext({
@@ -172,25 +200,26 @@ function createProjectContext(
   discoveryFile: string,
   options: NonNullable<Parameters<typeof prepareExecution>[1]>,
 ) {
-  const project = readProjectConfig(
-    options.project
-      ? {
-          cwd,
-          projectRoot: options.projectRoot,
-          tsconfig: path.resolve(cwd, options.project),
-        }
-      : { cwd, file: discoveryFile, projectRoot: options.projectRoot },
-  );
+  const project = options.project
+    ? readProjectConfig({
+        cwd,
+        projectRoot: options.projectRoot,
+        tsconfig: path.resolve(cwd, options.project),
+      })
+    : discoverOwningProject(cwd, discoveryFile, options);
   const tsconfig = project.path;
   const root = project.root;
   const explicitCacheDir = resolveCacheDir(cwd, options.cacheDir);
-  const cacheDirSpelling =
-    explicitCacheDir ??
-    path.join(root, "node_modules", ".cache", "ttsc", "ttsx");
+  const cacheDirSpelling = explicitCacheDir ?? defaultRuntimeCacheDir(root);
   const runtimeCacheKey = resolveRuntimeCacheKey(options.runtimeCacheKey);
   // Resolved once: it now costs a realpath (and, for a missing directory on
   // Windows, a case-sensitivity probe) rather than a string join.
-  const runtimeRootDir = resolveRuntimeSourceRoot(project);
+  const runtimeRootDir = resolveRuntimeSourceRoot(project, options);
+  const emitProfile = runtimeEmitProfile(
+    project,
+    options.passthrough,
+    options.binary,
+  );
   fs.mkdirSync(cacheDirSpelling, { recursive: true });
   // Pin the cache parent before deriving a generation path. Descriptors run
   // after this point and may retarget a caller-controlled symlink or junction;
@@ -220,18 +249,51 @@ function createProjectContext(
     // classify each served file the same way tsgo chose when emitting it.
     // `target` belongs here as much as `module` does: with `module` absent tsgo
     // derives the module kind from `target`, so publishing only `module` makes
-    // the hooks guess.
-    moduleOptions: projectModuleOptions(project.compilerOptions),
-    // Force a source map on the transient runtime emit only when the project
-    // configures none — when it already emits `sourceMap` or `inlineSourceMap`,
-    // the serve path inlines/absolutizes that map, so no override is needed
-    // (issue #353).
-    forceRuntimeSourceMap:
-      project.compilerOptions.sourceMap !== true &&
-      project.compilerOptions.inlineSourceMap !== true,
+    // the hooks guess. A `--module` forwarded before the entry decides the
+    // emit as much as the config does, so both are read.
+    moduleOptions: emitProfile.moduleOptions,
+    // Force a source map on the transient runtime emit only when the build
+    // would carry none — when the project or a forwarded flag already emits
+    // `sourceMap` or `inlineSourceMap`, the serve path inlines/absolutizes that
+    // map, so no override is needed (issue #353).
+    forceRuntimeSourceMap: emitProfile.forceRuntimeSourceMap,
     built: false,
-    emittedFiles: undefined as string[] | undefined,
+    outputs: [] as readonly string[],
   };
+}
+
+/**
+ * The project that owns `file`, found the way the language service finds it.
+ *
+ * The nearest config is where discovery starts, not where it has to stop. A
+ * solution-style config (`"files": []` plus `references`) owns nothing itself,
+ * and compiling an entry through it applies its empty options to code whose
+ * real project sets `experimentalDecorators`, `jsx`, or `paths`
+ * (samchon/ttsc#1406). When the nearest config does not contain the file, the
+ * referenced project that does is used; an explicit `-P` skips all of this.
+ */
+function discoverOwningProject(
+  cwd: string,
+  file: string,
+  options: NonNullable<Parameters<typeof prepareExecution>[1]>,
+): ReturnType<typeof readProjectConfig> {
+  const nearest = readProjectConfig({
+    cwd,
+    file,
+    projectRoot: options.projectRoot,
+  });
+  const owning = resolveOwningProjectConfig({
+    binary: options.binary,
+    file,
+    tsconfig: nearest.path,
+  });
+  return owning === path.resolve(nearest.path)
+    ? nearest
+    : readProjectConfig({
+        cwd,
+        projectRoot: options.projectRoot,
+        tsconfig: owning,
+      });
 }
 
 /**
@@ -244,9 +306,9 @@ function createProjectContext(
  * The entry's directory is not that root — it is only the same directory when
  * the entry happens to sit beside the tsconfig, which is precisely why a
  * `src/`-shaped project mislaid its emit here (issue #1172) while a flat one
- * worked. `runtimeHooks.ts::resolveDependencySourceRoot` and
- * `watchTopology.ts::inferPerSourceCompilerOutputs` already model the same
- * rule, and `runBuild.ts::pinnedRootDirArgs` pins it for tsgo itself.
+ * worked. `installRuntimeHooks.ts::resolveDependencySourceRoot` and
+ * `WatchTopology.ts::inferPerSourceCompilerOutputs` already model the same
+ * rule, and `TsgoArguments.ts::pinnedRootDirArgs` pins it for tsgo itself.
  *
  * Resolving it is the other half of `resolveEntrySpelling`, and skipping it
  * leaves the comparison mixed rather than merely imprecise. `project.root`
@@ -266,8 +328,18 @@ function createProjectContext(
  */
 function resolveRuntimeSourceRoot(
   project: ReturnType<typeof readProjectConfig>,
+  options: NonNullable<Parameters<typeof prepareExecution>[1]>,
 ): string {
-  const rootDir = project.compilerOptions.rootDir;
+  // A `--rootDir` forwarded before the entry reaches the compiler after the
+  // config, so it is the root the outputs are laid out against. Invalid
+  // arguments fail the build on their own; the config's root stands until then.
+  const effective = readEffectiveCompilerOptions(
+    project,
+    options.passthrough,
+    options.binary,
+  )?.("rootDir");
+  const rootDir =
+    typeof effective === "string" ? effective : project.compilerOptions.rootDir;
   const identities = createFilesystemPathIdentityContext({
     throwOnRealpathError: false,
   });
@@ -295,9 +367,13 @@ function buildProject(
     cwd: context.root,
     emit: true,
     env: options.env,
-    forceListEmittedFiles: true,
     cacheDir: context.pluginCacheDir,
     outDir: context.emitDir,
+    // Every output this build writes stays in ttsx's private directory: a
+    // declared `declarationDir`, `tsBuildInfoFile`, or `outFile`, and any
+    // output location forwarded on the command line, would otherwise land in
+    // the user's tree (samchon/ttsc#1404).
+    isolateOutputsTo: context.emitDir,
     passthrough: runtimeCompilerArgs(
       context.project,
       options.passthrough,
@@ -324,12 +400,13 @@ function buildProject(
     tsconfig: context.tsconfig,
   });
   if (result.status === 0) {
+    // Record the build's outputs before the virtual layout links the user's
+    // own files in beside them. Without an `outDir` the emit directory is the
+    // mirror of the project root, and a `tool.js` linked there from the user's
+    // tree would otherwise be recorded as the output of `tool.ts`.
+    context.outputs = EmitOwnershipIndex.listOutputs(context.emitDir);
     linkVirtualProjectLayout(context);
     context.built = true;
-    context.emittedFiles =
-      result.emittedFiles && result.emittedFiles.length !== 0
-        ? result.emittedFiles
-        : undefined;
     return;
   }
 
@@ -344,164 +421,30 @@ function buildProject(
 }
 
 /**
- * Build an entry the owning project's file set does not contain.
+ * The runtime cache a run uses when `--cache-dir` names none: the project's own
+ * `node_modules/.cache/ttsc/ttsx`, or, when the project refuses that directory
+ * (a read-only checkout, mount, or container filesystem), one below the system
+ * temp directory, keyed by the project.
  *
- * `ttsc` selects a _file set_: a project whose `include` is `src` must emit
- * only `src` into `outDir`, and a `clear.ts`, a `build/release.ts`, or a
- * `lint.config.ts` beside the tsconfig has no business in `lib`. `ttsx` selects
- * an _entry_: it needs that same project's compiler options, not its file list.
- * Those two requirements are not in conflict, but the whole-project build
- * cannot satisfy the second one, so an entry it did not emit is compiled here
- * through a project that inherits every option and declares only the entry.
- *
- * The synthesized tsconfig is written beside the real one on purpose. `extends`
- * with an absolute path would resolve from anywhere, but `${configDir}` and
- * `paths` are anchored to the directory of the config that consumes them, so
- * any other location silently retargets them. It is removed as soon as the
- * build returns.
- *
- * `rootDir` widens to the nearest directory holding both the project root and
- * the entry — for the layout this exists for, the project root itself; for an
- * entry that is a symlink out of the tree, the ancestor the two trees share. It
- * has to widen at least that far, because the inherited `rootDir` (`src`) does
- * not contain the entry and tsgo emits an input outside `rootDir` to its own
- * source path.
- *
- * Widening costs precision, not safety. The manifest's `rootDir` bounds which
- * files the runtime hooks will try to serve from this emit, so a wide one
- * admits more sources to the lookup — but the lookup only ever answers with a
- * file from this build's own emit directory, whether from `emittedFiles` or a
- * scan of `outDir` (`resolveEmittedJavaScript`). What a wide root risks is the
- * exact mirror missing and the trailing-stem matcher picking the wrong output
- * _of this build_; it cannot reach a raw source on disk.
+ * Every run writes its output into a directory of its own below the cache and
+ * removes it on exit, so any writable parent serves; the project-local default
+ * only keeps the runs of one project together. A `--cache-dir` the user named
+ * is never replaced: it is the user's choice, and a failure there is reported.
  */
-function buildEntryProject(
-  context: ReturnType<typeof createProjectContext>,
-  options: NonNullable<Parameters<typeof prepareExecution>[1]>,
-  entry: string,
-): void {
-  // `entry` already carries the one spelling `prepareExecution` decided on.
-  // tsgo compares it against `rootDir` textually — `GetCommonSourceDirectory`
-  // takes `rootDir` verbatim and `ContainsPath` is lexical — so a mismatch here
-  // is not a near miss: the entry counts as outside `rootDir`, and tsgo emits
-  // it to its own source path with the extension changed instead of under
-  // `outDir`, writing a `.js` and its map beside the user's `.ts` where nothing
-  // cleans them up.
-  const rootDir = commonAncestorDirectory(path.dirname(entry), context.root);
-  const tsconfig = path.join(
-    context.root,
-    `.ttsx-entry.${context.runtimeCacheKey}.tsconfig.json`,
-  );
-  fs.writeFileSync(
-    tsconfig,
-    JSON.stringify(
-      {
-        extends: context.tsconfig.replace(/\\/g, "/"),
-        compilerOptions: { rootDir: rootDir.replace(/\\/g, "/") },
-        // `files` alone does not displace an inherited `include`, and an
-        // inherited `exclude` could drop the entry back out of the program, so
-        // both are overridden explicitly.
-        files: [entry.replace(/\\/g, "/")],
-        include: [],
-        exclude: [],
-      },
-      null,
-      2,
-    ),
-    "utf8",
-  );
+function defaultRuntimeCacheDir(root: string): string {
+  const local = path.join(root, "node_modules", ".cache", "ttsc", "ttsx");
   try {
-    const project = readProjectConfig({
-      cwd: context.root,
-      projectRoot: options.projectRoot,
-      tsconfig,
-    });
-    const emitDir = path.join(context.virtualRoot, ENTRY_PROJECT_EMIT_DIR);
-    fs.mkdirSync(emitDir, { recursive: true });
-    const result = runBuild({
-      binary: options.binary,
-      checkers: options.checkers,
-      cwd: context.root,
-      emit: true,
-      env: options.env,
-      forceListEmittedFiles: true,
-      cacheDir: context.pluginCacheDir,
-      outDir: emitDir,
-      passthrough: runtimeCompilerArgs(
-        project,
-        options.passthrough,
-        options.binary,
-      ),
-      forceRuntimeSourceMap: context.forceRuntimeSourceMap,
-      pluginConfigDir: options.pluginConfigDir,
-      plugins: options.plugins,
-      quiet: true,
-      resolvedProject: project,
-      singleThreaded: options.singleThreaded,
-      tsconfig,
-    });
-    if (result.status !== 0) {
-      removeRuntimeOutput(context.processDir);
-      throw new Error(
-        [
-          `ttsx: entry check failed for ${entry}`,
-          result.stderr || result.stdout,
-        ]
-          .filter((line) => line.trim().length !== 0)
-          .join("\n"),
-      );
-    }
-    context.emitDir = emitDir;
-    context.runtimeRootDir = rootDir;
-    context.moduleOptions = projectModuleOptions(project.compilerOptions);
-    context.emittedFiles =
-      result.emittedFiles && result.emittedFiles.length !== 0
-        ? result.emittedFiles
-        : undefined;
-  } finally {
-    try {
-      fs.rmSync(tsconfig, { force: true });
-    } catch {
-      // Best effort: a leftover synthesized tsconfig must not mask a build
-      // failure, and it is runtime-scoped so it can never be mistaken for a
-      // real project config.
-    }
+    fs.mkdirSync(local, { recursive: true });
+    return local;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== "EACCES" && code !== "EPERM" && code !== "EROFS") throw error;
   }
-}
-
-/**
- * The nearest directory containing both `left` and `right`, in the physical
- * spelling both of them share.
- *
- * Containment is asked through the same filesystem-identity predicate the
- * runtime hooks use, and the answer is resolved through it too. Its caller now
- * passes an already-resolved directory, so the two spellings agree before the
- * walk starts; the predicate stays because this returns a `rootDir` that tsgo
- * takes verbatim, and answering in anything but the physical spelling would
- * leave tsgo unable to place a sibling source under it.
- *
- * Falls back to the entry's directory when there genuinely is no shared
- * ancestor, as on two different Windows volumes: the entry still has to
- * compile, and a root that contains it is the closest thing to correct
- * available.
- */
-function commonAncestorDirectory(left: string, right: string): string {
-  const identities = createFilesystemPathIdentityContext({
-    throwOnRealpathError: false,
-  });
-  const from = identities.resolve(path.resolve(left)).path;
-  const target = identities.resolve(path.resolve(right)).path;
-  let current = from;
-  for (;;) {
-    if (identities.isWithin(current, target)) {
-      return current;
-    }
-    const parent = path.dirname(current);
-    if (parent === current) {
-      return from;
-    }
-    current = parent;
-  }
+  return path.join(
+    os.tmpdir(),
+    "ttsc-ttsx",
+    crypto.createHash("sha256").update(root).digest("hex").slice(0, 16),
+  );
 }
 
 function removeRuntimeOutput(directory: string): void {
@@ -533,69 +476,6 @@ function linkVirtualProjectLayout(
       }
       linkVirtualEntry(realEntry, virtualEntry, entry);
     }
-  }
-}
-
-// Exported for direct exercise by the ttsx e2e suite: the Windows fallback
-// branches below cannot be reached through a spawned run on CI (creating a
-// file-symlink fixture needs the very privilege the fallback avoids).
-export function linkVirtualEntry(
-  realEntry: string,
-  virtualEntry: string,
-  entry: fs.Dirent,
-): void {
-  if (entry.isDirectory()) {
-    // Use junction points on Windows; plain symlinks elsewhere.
-    fs.symlinkSync(
-      realEntry,
-      virtualEntry,
-      process.platform === "win32" ? "junction" : undefined,
-    );
-    return;
-  }
-  if (entry.isFile()) {
-    try {
-      // Hard-link first: cheap, preserves inode, no extra disk usage.
-      fs.linkSync(realEntry, virtualEntry);
-    } catch {
-      // Cross-device or unsupported filesystem: fall back to a full copy.
-      fs.copyFileSync(realEntry, virtualEntry);
-    }
-    return;
-  }
-  if (
-    process.platform === "win32" &&
-    entry.isSymbolicLink() &&
-    isDirectorySymlinkTarget(realEntry)
-  ) {
-    fs.symlinkSync(realEntry, virtualEntry, "junction");
-    return;
-  }
-  // Symlinks (and other special entries) are re-symlinked as-is. On Windows,
-  // a file symlink needs SeCreateSymbolicLinkPrivilege (admin or Developer
-  // Mode), so mirror the plain-file branch's hard-link/copy fallback instead
-  // of failing the run (#306). A link whose target no longer exists is
-  // skipped: it can serve no module, and none of the fallbacks can
-  // materialize it without symlink privileges.
-  try {
-    fs.symlinkSync(realEntry, virtualEntry);
-  } catch {
-    if (!fs.existsSync(realEntry)) {
-      return;
-    }
-    try {
-      fs.linkSync(realEntry, virtualEntry);
-    } catch {
-      fs.copyFileSync(realEntry, virtualEntry);
-    }
-  }
-}
-
-function isDirectorySymlinkTarget(realEntry: string): boolean {
-  try {
-    return fs.statSync(realEntry).isDirectory();
-  } catch {
-    return false;
   }
 }
 

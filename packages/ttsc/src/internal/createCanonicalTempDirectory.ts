@@ -2,17 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-export interface CanonicalTempDirectoryOperations {
-  lstat(location: string): { isDirectory(): boolean };
-  mkdtemp(prefix: string): string;
-  realpath(location: string): string;
-}
-
-const FILESYSTEM_OPERATIONS: CanonicalTempDirectoryOperations = {
-  lstat: fs.lstatSync,
-  mkdtemp: fs.mkdtempSync,
-  realpath: fs.realpathSync.native,
-};
+import type { CanonicalTempDirectoryOperations } from "./CanonicalTempDirectoryOperations";
 
 /**
  * Create a unique temporary directory under a frozen physical parent.
@@ -51,3 +41,9 @@ export function createCanonicalTempDirectory(
   }
   return physicalDirectory;
 }
+
+const FILESYSTEM_OPERATIONS: CanonicalTempDirectoryOperations = {
+  lstat: fs.lstatSync,
+  mkdtemp: fs.mkdtempSync,
+  realpath: fs.realpathSync.native,
+};

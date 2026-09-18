@@ -44,6 +44,7 @@ export const test_ttsx_dependency_cache_rejects_a_marker_without_module_options 
       JSON.stringify({
         generation,
         moduleOption: "commonjs",
+        outputs: ["index.js"],
         rootDir: "/root",
       }),
       "utf8",
@@ -59,6 +60,7 @@ export const test_ttsx_dependency_cache_rejects_a_marker_without_module_options 
       JSON.stringify({
         generation,
         moduleOptions: { module: "commonjs" },
+        outputs: ["index.js"],
         rootDir: "/root",
       }),
       "utf8",

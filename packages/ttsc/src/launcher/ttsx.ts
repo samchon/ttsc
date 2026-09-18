@@ -2,7 +2,6 @@
 
 import { runTtsx } from "./internal/runTtsx";
 
-const code = runTtsx(process.argv.slice(2));
-if (typeof code === "number") {
+void runTtsx(process.argv.slice(2)).then((code) => {
   process.exitCode = code;
-}
+});

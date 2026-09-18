@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { resolveSingleFileOutput } from "../../../../../packages/ttsc/lib/launcher/internal/singleFileOutput.js";
+import { resolveSingleFileOutput } from "../../../../../packages/ttsc/lib/launcher/internal/resolveSingleFileOutput.js";
 
 /**
  * Verifies tsgo remains authoritative for syntax of forwarded compiler flags.

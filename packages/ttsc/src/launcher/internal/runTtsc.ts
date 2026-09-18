@@ -2,36 +2,30 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { TtscCompiler } from "../../TtscCompiler";
+import { ResidentCheckWatchSession } from "../../compiler/internal/build/ResidentCheckWatchSession";
+import { runBuild } from "../../compiler/internal/build/runBuild";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { resolveProjectConfig } from "../../compiler/internal/project/resolveProjectConfig";
-import {
-  type ResidentCheckWatchChange,
-  ResidentCheckWatchSession,
-  runBuild,
-} from "../../compiler/internal/runBuild";
 import { runSingleFileEmit } from "../../compiler/internal/runSingleFileEmit";
-import {
-  getBoolean,
-  getNumber,
-  getString,
-  parseFlags,
-} from "../../flags/parser";
-import { resolveFlagSpec } from "../../flags/schema";
+import { getBoolean } from "../../flags/getBoolean";
+import { getNumber } from "../../flags/getNumber";
+import { getString } from "../../flags/getString";
+import { parseFlags } from "../../flags/parseFlags";
+import { resolveFlagSpec } from "../../flags/resolveFlagSpec";
 import { resolveSafeCacheCleanupTargets } from "../../internal/resolveSafeCacheCleanupTargets";
-import {
-  isPathWithin,
-  legacyGlobalCacheTargets,
-  resolveCleanTargets,
-  resolveSourceBuildCachePaths,
-} from "../../plugin/internal/buildSourcePlugin";
+import { isPathWithin } from "../../plugin/internal/source/isPathWithin";
+import { legacyGlobalCacheTargets } from "../../plugin/internal/source/legacyGlobalCacheTargets";
+import { resolveCleanTargets } from "../../plugin/internal/source/resolveCleanTargets";
+import { resolveSourceBuildCachePaths } from "../../plugin/internal/source/resolveSourceBuildCachePaths";
 import type { ITtscProjectInputSnapshot } from "../../structures/internal/ITtscProjectInputSnapshot";
-import type { TtscBuildOptions } from "../../structures/internal/TtscBuildOptions";
 import type { TtscSingleFileEmitOptions } from "../../structures/internal/TtscSingleFileEmitOptions";
+import { PendingResidentCheckWatchChanges } from "./PendingResidentCheckWatchChanges";
 import { assertNoSolutionBuild } from "./assertNoSolutionBuild";
 import { getCompilerVersionText } from "./getCompilerVersionText";
 import { resolveCacheDir } from "./resolveCacheDir";
-import { resolveSingleFileOutput } from "./singleFileOutput";
-import { type WatchInputChange, WatchTopology } from "./watchTopology";
+import { resolveSingleFileOutput } from "./resolveSingleFileOutput";
+import { type WatchInputChange } from "./watch/WatchInputChange";
+import { WatchTopology } from "./watch/WatchTopology";
 
 /**
  * CLI entry point for `ttsc`. Dispatches argv to the appropriate build lane
@@ -828,59 +822,6 @@ function runWatch(
     return toExitCode(lastStatus === 0 ? 2 : lastStatus);
   }
   return toExitCode(lastStatus);
-}
-
-/**
- * Coalesces filesystem events until the next resident check-watch cycle.
- *
- * A full reload dominates every narrower signal. Program invalidation remains
- * distinct so a project-input module creation/deletion can cold-load the
- * Program without discarding the selected execution or restarting the sidecar.
- */
-export class PendingResidentCheckWatchChanges {
-  private readonly changed = new Set<string>();
-  private readonly external = new Set<string>();
-  private invalidate = false;
-  private reload = false;
-
-  public push(change?: WatchInputChange, reload = false): void {
-    if (reload || change?.kind === "config" || change?.kind === "plugin") {
-      this.reload = true;
-      this.invalidate = false;
-      this.changed.clear();
-      this.external.clear();
-      return;
-    }
-    if (this.reload) return;
-    if (change?.invalidate === true) this.invalidate = true;
-    if (change?.path === undefined) {
-      if (change?.kind === "compiler") {
-        this.reload = true;
-        this.invalidate = false;
-        this.changed.clear();
-        this.external.clear();
-      }
-      return;
-    }
-    this.changed.add(change.path);
-    if (change.kind === "project") this.external.add(change.path);
-  }
-
-  public take(): ResidentCheckWatchChange {
-    const change: ResidentCheckWatchChange = {
-      ...(this.reload ? { reload: true } : {}),
-      ...(this.invalidate ? { invalidate: true } : {}),
-      ...(this.changed.size === 0 ? {} : { changed: [...this.changed].sort() }),
-      ...(this.external.size === 0
-        ? {}
-        : { external: [...this.external].sort() }),
-    };
-    this.reload = false;
-    this.invalidate = false;
-    this.changed.clear();
-    this.external.clear();
-    return change;
-  }
 }
 
 // Coerces a build status into a valid process exit code: 0 stays 0, any

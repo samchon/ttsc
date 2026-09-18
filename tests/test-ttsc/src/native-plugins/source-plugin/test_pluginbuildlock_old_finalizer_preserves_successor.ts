@@ -27,7 +27,6 @@ export const test_pluginbuildlock_old_finalizer_preserves_successor =
   async () => {
     const root = TestProject.tmpdir("ttsc-lock-finalizer-");
     const lockDir = path.join(root, "entry.lock");
-    const libraryPath = sourceBuildLibraryPath();
     const oldLeaseFile = path.join(root, "old-lease.json");
     const oldFinalizeFile = path.join(root, "old-finalize");
     const oldResultFile = path.join(root, "old-result.json");
@@ -40,7 +39,12 @@ export const test_pluginbuildlock_old_finalizer_preserves_successor =
       workerScript,
       [
         `const fs = require("node:fs");`,
-        `const { acquirePluginBuildLock, releasePluginBuildLock } = require(${JSON.stringify(libraryPath)});`,
+        `const { acquirePluginBuildLock } = require(${JSON.stringify(
+          sourceBuildLibraryPath("acquirePluginBuildLock"),
+        )});`,
+        `const { releasePluginBuildLock } = require(${JSON.stringify(
+          sourceBuildLibraryPath("releasePluginBuildLock"),
+        )});`,
         `const lockDir = ${JSON.stringify(lockDir)};`,
         `const leaseFile = process.env.LOCK_LEASE_FILE;`,
         `const releaseFile = process.env.LOCK_RELEASE_FILE;`,

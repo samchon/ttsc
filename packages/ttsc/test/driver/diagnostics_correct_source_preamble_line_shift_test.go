@@ -54,7 +54,7 @@ const preambleDiagnosticDeclaration = `export interface Named {
 // line could land past the end of the real file. The neighbouring source-map lane
 // has corrected the identical shift for a long time; the diagnostic lane is where
 // the same invariant was missing, which also defeated the duplicate filter in
-// `runBuild.ts` (it compares positions, so a shifted report never matched its
+// `CompilerDiagnostics.ts` (it compares positions, so a shifted report never matched its
 // plugin-free twin and the user saw the same error twice at two positions).
 //
 //  1. Load each fixture with the preamble the case declares, so the program is

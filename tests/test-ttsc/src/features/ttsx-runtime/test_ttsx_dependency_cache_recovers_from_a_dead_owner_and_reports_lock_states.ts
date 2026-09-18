@@ -39,7 +39,7 @@ export const test_ttsx_dependency_cache_recovers_from_a_dead_owner_and_reports_l
       seedScript,
       [
         `const fs = require("node:fs");`,
-        `const { acquireDependencyBuildLock } = require(${JSON.stringify(dependencyCacheLibraryPath())});`,
+        `const { acquireDependencyBuildLock } = require(${JSON.stringify(dependencyCacheLibraryPath("acquireDependencyBuildLock"))});`,
         `const lease = acquireDependencyBuildLock(${JSON.stringify(lockDir)});`,
         `if (!lease) throw new Error("seed failed to acquire lock");`,
         `fs.writeFileSync(${JSON.stringify(seedFile)}, JSON.stringify(lease), "utf8");`,

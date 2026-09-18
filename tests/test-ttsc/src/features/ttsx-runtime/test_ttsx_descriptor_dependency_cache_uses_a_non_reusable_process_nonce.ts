@@ -14,17 +14,23 @@ import path from "node:path";
  */
 export const test_ttsx_descriptor_dependency_cache_uses_a_non_reusable_process_nonce =
   () => {
-    const mod = TestProject.REQUIRE_FROM_TEST(
-      path.join(
-        TestProject.WORKSPACE_ROOT,
-        "packages",
-        "ttsc",
-        "lib",
-        "launcher",
-        "internal",
-        "runtimeHooks.js",
-      ),
-    );
+    const runtime = (name: string) =>
+      TestProject.REQUIRE_FROM_TEST(
+        path.join(
+          TestProject.WORKSPACE_ROOT,
+          "packages",
+          "ttsc",
+          "lib",
+          "launcher",
+          "internal",
+          "runtime",
+          `${name}.js`,
+        ),
+      );
+    const mod = {
+      ...runtime("dependencyCacheKey"),
+      ...runtime("dependencyCacheRoot"),
+    };
     const tsconfig = path.join(TestProject.WORKSPACE_ROOT, "tsconfig.json");
     const ordinaryA = mod.dependencyCacheKey(tsconfig, {
       descriptorLoad: false,

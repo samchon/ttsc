@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { inlineServedSourceMap } from "../../../../../packages/ttsc/lib/launcher/internal/servedSourceMap.js";
+import { inlineServedSourceMap } from "../../../../../packages/ttsc/lib/launcher/internal/inlineServedSourceMap.js";
 
 /**
  * Verifies the source-map inliner's boundary behavior on the map shapes a

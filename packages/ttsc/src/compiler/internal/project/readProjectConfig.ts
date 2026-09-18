@@ -5,37 +5,9 @@ import path from "node:path";
 import type { ITtscProjectPluginConfig } from "../../../structures/ITtscProjectPluginConfig";
 import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
 import type { ITtscProjectLocatorOptions } from "../../../structures/internal/ITtscProjectLocatorOptions";
-import { readJsonFile, readJsoncFile } from "./readConfigJson";
-import { resolveProjectIdentity } from "./resolveProjectConfig";
-
-/**
- * Compiler option keys whose values are file-system paths that must be resolved
- * relative to the tsconfig that declares them, not the project root.
- */
-const PATH_OPTIONS = new Set([
-  "baseUrl",
-  "declarationDir",
-  "outFile",
-  "rootDir",
-  "tsBuildInfoFile",
-]);
-const CONFIG_DIR_TEMPLATE = "${configDir}";
-
-/**
- * Intermediate type used during `extends`-chain resolution before the result is
- * projected into `ITtscParsedProjectConfig`.
- */
-type ResolvedCompilerOptions = {
-  configPaths: string[];
-  options: Record<string, unknown>;
-  /** Directory of the tsconfig that last declared each option key. */
-  optionBaseDirs: Record<string, string>;
-  outDir?: string;
-  pluginBaseDirs: string[];
-  /** True when any tsconfig in the chain explicitly declared `plugins`. */
-  pluginsDeclared: boolean;
-  plugins: ITtscProjectPluginConfig[];
-};
+import { readJsonFile } from "./readJsonFile";
+import { readJsoncFile } from "./readJsoncFile";
+import { resolveProjectIdentity } from "./resolveProjectIdentity";
 
 /**
  * Read and resolve the project config subset used by ttsc.
@@ -74,6 +46,34 @@ export function readProjectConfig(
 }
 
 /**
+ * Compiler option keys whose values are file-system paths that must be resolved
+ * relative to the tsconfig that declares them, not the project root.
+ */
+const PATH_OPTIONS = new Set([
+  "baseUrl",
+  "declarationDir",
+  "outFile",
+  "rootDir",
+  "tsBuildInfoFile",
+]);
+const CONFIG_DIR_TEMPLATE = "${configDir}";
+
+/**
+ * Intermediate type used during `extends`-chain resolution before the result is
+ * projected into `ITtscParsedProjectConfig`.
+ */
+type ResolvedCompilerOptions = {
+  configPaths: string[];
+  options: Record<string, unknown>;
+  /** Directory of the tsconfig that last declared each option key. */
+  optionBaseDirs: Record<string, string>;
+  outDir?: string;
+  pluginBaseDirs: string[];
+  /** True when any tsconfig in the chain explicitly declared `plugins`. */
+  pluginsDeclared: boolean;
+  plugins: ITtscProjectPluginConfig[];
+};
+/**
  * Type guard: accept any non-null object as a plugin config entry. This is
  * intentionally loose because the shape is validated later by plugin loaders.
  */
@@ -95,9 +95,18 @@ function resolveRealPath(location: string): string {
   }
 }
 
-/** Resolve `target` against `cwd` when it is not already absolute. */
+/**
+ * Resolve `target` against `cwd`, normalized to native separators.
+ *
+ * An absolute `target` is normalized too, not returned as given. Every path
+ * option is resolved once in the config that declares it and again in each
+ * config that inherits it, after its separators were folded to `/` for the
+ * `${configDir}` check, so returning an absolute value verbatim handed an
+ * inherited `rootDir` back as `C:/…/src` on Windows while a declared one came
+ * back as `C:\…\src`.
+ */
 function resolveAbsolutePath(cwd: string, target: string): string {
-  return path.isAbsolute(target) ? target : path.resolve(cwd, target);
+  return path.resolve(cwd, target);
 }
 
 /**

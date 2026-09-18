@@ -17,12 +17,18 @@ import {
  * can confirm both that ttsx used it and that the resulting `.js` was
  * executed.
  *
+ * The stub is a Node script installed under the compiler's binary name, which a
+ * POSIX kernel runs through its shebang. Windows runs only a real executable
+ * named `tsc.exe`, so the case runs on POSIX; the resolution it pins is the
+ * same code on every platform.
+ *
  * 1. Install a fake `typescript` into the project.
  * 2. Run ttsx without the workspace tsgo override (`spawnWithoutTsgoOverride`).
  * 3. Assert the fake tsgo's output was executed (not the original source).
  */
 export const test_ttsx_executes_javascript_emitted_by_the_consumer_local_tsgo =
   () => {
+    if (process.platform === "win32") return;
     const root = TestProject.createProject({
       "package.json": JSON.stringify({ private: true }),
       "tsconfig.json": JSON.stringify({

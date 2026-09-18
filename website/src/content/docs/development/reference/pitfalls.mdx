@@ -138,7 +138,7 @@ This fails. Two unrelated executable transform binaries cannot share one source-
 }
 ```
 
-`assertSharedHostCompatibility` (`packages/ttsc/src/compiler/internal/sharedHostHelpers.ts`) aborts the spawn with one of:
+`assertSharedHostCompatibility` (`packages/ttsc/src/compiler/internal/sharedHost/assertSharedHostCompatibility.ts`) aborts the spawn with one of:
 
 ```text
 ttsc: multiple compiler native backends cannot share one emit pass;
@@ -280,6 +280,8 @@ exports.name = void 0;
 ```
 
 Normal transform plugins avoid this by mutating TypeScript AST and letting TypeScript-Go print the final JavaScript through `shimprinter.EmitSourceFile`.
+
+A sidecar that writes output itself must also put each file where TypeScript-Go would: under the `--outDir` it received, at the source's path relative to `rootDir`, with the emitted extension. `ttsx` and `ttsc <file>` find a source's JavaScript only at that mirrored path, because they accept an output as a file's own only when the compiler's layout proves it. A sidecar that writes `outDir/main.js` for `src/scripts/main.ts` produces output no runtime lane will serve.
 
 ## See also
 

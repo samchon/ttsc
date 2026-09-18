@@ -14,7 +14,7 @@ import {
  * sidecar.
  *
  * The benchmark cell `typeorm:ttsc-lint:format:single` collapsed to within 1%
- * of the multi-threaded cell because `runBuild.ts` had stopped forwarding
+ * of the multi-threaded cell because `runBuild` had stopped forwarding
  * `--singleThreaded` / `--checkers` to native plugin hosts (ad3443a). For the
  * lint sidecar specifically that meant the threading knob was silently dropped:
  * the engine pool ran parallel and the parser pool ran parallel regardless of

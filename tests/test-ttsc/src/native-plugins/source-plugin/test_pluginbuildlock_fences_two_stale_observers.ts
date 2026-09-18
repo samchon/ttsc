@@ -26,7 +26,6 @@ export const test_pluginbuildlock_fences_two_stale_observers = async () => {
   const root = TestProject.tmpdir("ttsc-lock-fence-");
   const lockDir = path.join(root, "entry.lock");
   const binaryPath = path.join(root, "entry", "plugin.exe");
-  const libraryPath = sourceBuildLibraryPath();
   const seedFile = path.join(root, "seed.json");
   const buildReleaseFile = path.join(root, "build-release");
   const buildLog = path.join(root, "build.log");
@@ -37,7 +36,9 @@ export const test_pluginbuildlock_fences_two_stale_observers = async () => {
     seedScript,
     [
       `const fs = require("node:fs");`,
-      `const { acquirePluginBuildLock } = require(${JSON.stringify(libraryPath)});`,
+      `const { acquirePluginBuildLock } = require(${JSON.stringify(
+        sourceBuildLibraryPath("acquirePluginBuildLock"),
+      )});`,
       `const lease = acquirePluginBuildLock(${JSON.stringify(lockDir)});`,
       `if (!lease) throw new Error("seed failed to acquire lock");`,
       `fs.writeFileSync(${JSON.stringify(seedFile)}, JSON.stringify(lease), "utf8");`,
@@ -57,7 +58,18 @@ export const test_pluginbuildlock_fences_two_stale_observers = async () => {
     [
       `const fs = require("node:fs");`,
       `const path = require("node:path");`,
-      `const { acquirePluginBuildLock, inspectPluginBuildLock, reclaimPluginBuildLock, releasePluginBuildLock } = require(${JSON.stringify(libraryPath)});`,
+      `const { acquirePluginBuildLock } = require(${JSON.stringify(
+        sourceBuildLibraryPath("acquirePluginBuildLock"),
+      )});`,
+      `const { inspectPluginBuildLock } = require(${JSON.stringify(
+        sourceBuildLibraryPath("inspectPluginBuildLock"),
+      )});`,
+      `const { reclaimPluginBuildLock } = require(${JSON.stringify(
+        sourceBuildLibraryPath("reclaimPluginBuildLock"),
+      )});`,
+      `const { releasePluginBuildLock } = require(${JSON.stringify(
+        sourceBuildLibraryPath("releasePluginBuildLock"),
+      )});`,
       `const lockDir = ${JSON.stringify(lockDir)};`,
       `const binaryPath = ${JSON.stringify(binaryPath)};`,
       `const buildLog = ${JSON.stringify(buildLog)};`,

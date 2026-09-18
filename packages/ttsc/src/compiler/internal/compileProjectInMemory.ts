@@ -2,17 +2,19 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { createCanonicalTempDirectory } from "../../internal/createCanonicalTempDirectory";
-import { hasProjectPluginEntries } from "../../plugin/internal/loadProjectPlugins";
+import { hasProjectPluginEntries } from "../../plugin/internal/load/hasProjectPluginEntries";
 import type { ITtscCompilerContext } from "../../structures/ITtscCompilerContext";
 import type { ITtscCompilerDiagnostic } from "../../structures/ITtscCompilerDiagnostic";
 import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
+import { runBuild } from "./build/runBuild";
 import { buildNativeCompiler } from "./buildNativeCompiler";
-import { isOutsideRelativePath, packageRootDir } from "./paths";
+import { isOutsideRelativePath } from "./isOutsideRelativePath";
+import { outputText } from "./outputText";
+import { packageRootDir } from "./packageRootDir";
 import { readProjectConfig } from "./project/readProjectConfig";
-import { runBuild } from "./runBuild";
-import { inheritedSidecarEnv } from "./sharedHostHelpers";
-import { outputText, spawnNative } from "./spawnNative";
+import { inheritedSidecarEnv } from "./sharedHost/inheritedSidecarEnv";
+import { spawnNative } from "./spawnNative";
 
 /**
  * Compile a project and capture emitted files without writing to the project
