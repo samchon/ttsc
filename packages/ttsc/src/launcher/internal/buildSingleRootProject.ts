@@ -167,7 +167,12 @@ export function buildSingleRootProject(props: {
       forceRuntimeSourceMap:
         project.compilerOptions.sourceMap !== true &&
         project.compilerOptions.inlineSourceMap !== true,
-      pluginConfigDir: options.pluginConfigDir,
+      // Native plugins discover their config files from the tsconfig's
+      // directory, which for a private tsconfig is ttsx's cache; anchor them
+      // at the real one, as a bundler adapter's temporary overlay does.
+      pluginConfigDir:
+        options.pluginConfigDir ??
+        (beside ? undefined : path.dirname(props.tsconfig)),
       plugins: options.plugins,
       quiet: true,
       resolvedProject: project,
