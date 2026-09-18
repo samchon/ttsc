@@ -451,33 +451,6 @@ function removeRuntimeOutput(directory: string): void {
   }
 }
 
-/**
- * The runtime cache a run uses when `--cache-dir` names none: the project's own
- * `node_modules/.cache/ttsc/ttsx`, or, when the project refuses that directory
- * (a read-only checkout, mount, or container filesystem), one below the system
- * temp directory, keyed by the project.
- *
- * Every run writes its output into a directory of its own below the cache and
- * removes it on exit, so any writable parent serves; the project-local default
- * only keeps the runs of one project together. A `--cache-dir` the user named
- * is never replaced: it is the user's choice, and a failure there is reported.
- */
-function defaultRuntimeCacheDir(root: string): string {
-  const local = path.join(root, "node_modules", ".cache", "ttsc", "ttsx");
-  try {
-    fs.mkdirSync(local, { recursive: true });
-    return local;
-  } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    if (code !== "EACCES" && code !== "EPERM" && code !== "EROFS") throw error;
-  }
-  return path.join(
-    os.tmpdir(),
-    "ttsc-ttsx",
-    crypto.createHash("sha256").update(root).digest("hex").slice(0, 16),
-  );
-}
-
 function resolveCacheDir(cwd: string, cacheDir?: string): string | undefined {
   if (!cacheDir) {
     return undefined;
