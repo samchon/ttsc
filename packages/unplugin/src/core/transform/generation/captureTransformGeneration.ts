@@ -39,8 +39,6 @@ import { captureExternalInputSnapshot } from "../validation/captureExternalInput
 import { captureUniversalHostInputValidation } from "../validation/captureUniversalHostInputValidation";
 import { compilerGraphInputProofFailures } from "../validation/compilerGraphInputProofFailures";
 import { restrictNotificationCoverageToProvenInputs } from "../validation/restrictNotificationCoverageToProvenInputs";
-import { sameHashes } from "../validation/sameHashes";
-import { sameProjectDirectories } from "../validation/sameProjectDirectories";
 import { walkSnapshotComplete } from "../validation/walkSnapshotComplete";
 import { TRANSFORM_FAILED_GENERATION_VALIDATIONS } from "./TRANSFORM_FAILED_GENERATION_VALIDATIONS";
 import { TRANSFORM_GENERATION_FAILURES } from "./TRANSFORM_GENERATION_FAILURES";
@@ -49,10 +47,10 @@ import { captureTransformSourceHashes } from "./captureTransformSourceHashes";
 import { createGenerationProofFailures } from "./createGenerationProofFailures";
 import { mergeGenerationProofFailures } from "./mergeGenerationProofFailures";
 import { projectWalkFailureFingerprint } from "./projectWalkFailureFingerprint";
+import { projectWalkStable } from "./projectWalkStable";
 import { recordGenerationProofFailure } from "./recordGenerationProofFailure";
 import { recordProjectSnapshotFailures } from "./recordProjectSnapshotFailures";
 import { selectPersistentHostInputs } from "./selectPersistentHostInputs";
-import { trackerChangedDeclaredProjectInput } from "./trackerChangedDeclaredProjectInput";
 
 const TTSC_SEMANTIC_CONFIG_PATH = "TTSC_SEMANTIC_CONFIG_PATH";
 
@@ -344,42 +342,19 @@ export async function captureTransformGeneration(props: {
       result,
       scratchDirectory: envelopeScratchDirectory,
     });
-    // The before/after snapshots prove bytes and metadata. Drain the watcher
-    // opened before compilation as the independent A-B-A witness: a producer
-    // can restore both bytes and timestamps before the second walk, but it
-    // cannot withdraw the already queued content event.
-    //
-    // Only that watcher can decide the verdict. The host-input and candidate
-    // trackers opened after the compile returned, so they never saw what it
-    // read: a change in their window before the reads below is already visible
-    // to those reads, which fail the attempt on a real mismatch, and a change
-    // after them stays queued as a path witness that sends the input back to
-    // being proven on the next delivery. Letting their events reject the
-    // attempt added no correctness and turned unrelated writes, a test
-    // runner's cache under `node_modules` among them, into a terminal
-    // generation failure (samchon/ttsc#1383). They are still settled here so
-    // a failed watcher is known before the generation is published.
+    // Only the tracker opened before the compile decides the verdict (see
+    // `projectWalkStable`). The host-input and candidate trackers are still
+    // settled here so a failed watcher is known before the generation is
+    // published.
     await settleMutationTrackers([tracker, hostInputTracker, candidateTracker]);
-    const walkStable =
-      configStable &&
-      walkSnapshotComplete(before, declaredInputs) &&
-      walkSnapshotComplete(inputSnapshot, declaredInputs) &&
-      sameHashes(before.hashes, inputSnapshot.hashes, declaredInputs) &&
-      sameHashes(
-        before.fileSignatures,
-        inputSnapshot.fileSignatures,
-        declaredInputs,
-      ) &&
-      sameProjectDirectories(
-        before.projectDirectories,
-        inputSnapshot.projectDirectories,
-      ) &&
-      !trackerChangedDeclaredProjectInput(
-        tracker,
-        declaredInputs,
-        projectRoot,
-      ) &&
-      tracker?.membershipChanged !== true;
+    const walkStable = projectWalkStable({
+      before,
+      configStable,
+      declared: declaredInputs,
+      projectRoot,
+      snapshot: inputSnapshot,
+      tracker,
+    });
     const notificationsAvailable =
       tracker?.failed !== true &&
       hostInputTracker?.failed !== true &&

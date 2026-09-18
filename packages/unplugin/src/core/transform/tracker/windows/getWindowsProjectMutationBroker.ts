@@ -1,10 +1,8 @@
 import { spawn } from "node:child_process";
-import path from "node:path";
 
-import { recordProjectChange } from "../recordProjectChange";
-import { recordProjectMutation } from "../recordProjectMutation";
 import { WINDOWS_PROJECT_MUTATION_BROKER } from "./WINDOWS_PROJECT_MUTATION_BROKER";
 import type { WindowsProjectMutationBroker } from "./WindowsProjectMutationBroker";
+import { routeWindowsProjectMutationMessage } from "./routeWindowsProjectMutationMessage";
 
 /**
  * Return the process-wide Windows watch broker, starting it on first use.
@@ -50,81 +48,9 @@ export function getWindowsProjectMutationBroker(): WindowsProjectMutationBroker 
   };
   child.on("error", fail);
   child.on("exit", fail);
-  child.on("message", (message: unknown) => {
-    if (message === null || typeof message !== "object") return;
-    const record = message as {
-      directory?: string;
-      drained?: boolean;
-      failed?: boolean;
-      filename?: string | null;
-      eventType?: string;
-      id?: number;
-      ready?: boolean;
-    };
-    if (typeof record.id !== "number") return;
-    if (record.drained === true) {
-      // Every event the child had already sent arrived before this reply, since
-      // one IPC channel delivers in order.
-      const release = broker.drains.get(record.id);
-      broker.drains.delete(record.id);
-      release?.();
-      return;
-    }
-    const registration = broker.trackers.get(record.id);
-    if (registration === undefined) return;
-    if (record.failed === true) registration.tracker.failed = true;
-    if (record.ready === true) registration.ready();
-    if (record.ready !== true && record.failed !== true) {
-      if (typeof record.directory === "string") {
-        // The walk's spelling for this directory, which is what every
-        // comparison and every recorded witness downstream expects.
-        const reported =
-          registration.spellings.get(record.directory) ?? record.directory;
-        const changed =
-          typeof record.filename === "string"
-            ? path.join(reported, record.filename)
-            : reported;
-        if (registration.classify !== undefined) {
-          const verdict = registration.classify(
-            reported,
-            typeof record.filename === "string" ? record.filename : null,
-            record.eventType ?? "rename",
-          );
-          if (verdict === "mutation") {
-            recordProjectMutation(registration.tracker, changed);
-          } else if (verdict === "change") {
-            recordProjectChange(registration.tracker, changed);
-          }
-          return;
-        }
-        if (
-          typeof record.filename === "string" &&
-          registration.membership !== undefined
-        ) {
-          const membership = registration.membership(reported, record.filename);
-          if (
-            membership &&
-            (record.eventType === "rename" ||
-              registration.changeAddsMembership?.(reported, record.filename) ===
-                true)
-          ) {
-            recordProjectMutation(registration.tracker, changed);
-            return;
-          }
-          if (
-            record.eventType !== "rename" &&
-            registration.content?.(reported, record.filename) === true
-          ) {
-            recordProjectChange(registration.tracker, changed);
-          }
-          return;
-        }
-        recordProjectMutation(registration.tracker, changed);
-      } else {
-        registration.tracker.membershipChanged = true;
-      }
-    }
-  });
+  child.on("message", (message: unknown) =>
+    routeWindowsProjectMutationMessage(broker, message),
+  );
   WINDOWS_PROJECT_MUTATION_BROKER.current = broker;
   return broker;
 }
