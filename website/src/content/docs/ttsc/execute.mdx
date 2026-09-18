@@ -16,6 +16,8 @@ npx ttsx src/index.ts
 
 Type errors stop execution. So do `@ttsc/lint` errors (warnings don't).
 
+The entry runs as Node's own main module, exactly as under `node <entry>`. `require.main === module` and `import.meta.main` hold in it, `process.argv[1]` is the entry, an error it throws reaches `process.on("uncaughtException")`, and the exit status is the program's.
+
 ## Register in Node and test runners
 
 When Node, Mocha, or another JavaScript tool owns the process, preload the ttsx runtime from the `ttsc` package:

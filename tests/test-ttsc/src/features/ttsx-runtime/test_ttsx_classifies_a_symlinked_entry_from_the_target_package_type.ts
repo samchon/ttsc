@@ -10,7 +10,7 @@ import path from "node:path";
  * Under the `node*` module family the format is decided by the nearest
  * `package.json` `"type"`, and the compiler decides it from the file it is
  * handed — the physical path — so it emits ESM for a target inside a `"type":
- * "module"` package. The bootstrap has to reach the same answer or it hands
+ * "module"` package. The runtime has to reach the same answer or it hands
  * that ESM emit to `require`, which fails on the first `export`.
  *
  * Asking from the link's own directory reads the _consuming_ project's package

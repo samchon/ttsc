@@ -46,9 +46,9 @@ import { DependencyBuildLockProtocol } from "./DependencyBuildLockProtocol";
 
 /**
  * Install the source-loading hooks on the current (main) thread. Idempotent:
- * the bootstrap installs them for the entry process, and `NODE_OPTIONS`
- * re-imports the installer in every child process the program spawns — both may
- * run in the same process.
+ * the preload on `NODE_OPTIONS` installs them in the entry process and in every
+ * child process the program spawns, and `ttsc/register` may install them again
+ * in a process that already has them.
  *
  * The hooks give ttsx ts-node-style whole-graph reach without weakening the
  * compile gate. The owning entry project is type-checked and built up front (by
@@ -536,7 +536,7 @@ function recordPluginDescriptorResolutionCandidates(
 
 /**
  * Report one resolved descriptor edge to the parent loader. The channel is
- * armed by the generated descriptor shim only after ttsx's own bootstrap and
+ * armed by the generated descriptor shim only after ttsx's own runtime and
  * imports have loaded, keeping compiler implementation files out of the
  * project's persistent-cache inputs.
  */

@@ -315,9 +315,14 @@ function isRelativeSpecifier(specifier: string): boolean {
  * module hooks serve the already-built entry project and build raw `.ts`
  * dependencies on demand.
  *
- * The child is `node [-r preload...] registerRuntimeHooks.js <source-entry>
- * <argv...>` (the bootstrap, run as the main module — not `--import`, so a
- * CommonJS `require` chain reaches the hooks). A runtime manifest pins the
+ * The child is `node [-r preload...] <source-entry> <argv...>`, with the
+ * runtime-hook preload on `NODE_OPTIONS` ahead of every user preload. The
+ * entry is Node's own main module, exactly as under `node <entry>` or `node
+ * -r ttsc/register <entry>`: `require.main === module` and `import.meta.main`
+ * hold in it, `process.argv` is Node's own, and an error thrown while it
+ * evaluates reaches `process.on("uncaughtException")` and Node's exit status
+ * (samchon/ttsc#1402). A bootstrap used to load the entry instead, and the
+ * program saw the bootstrap as its main module. A runtime manifest pins the
  * entry project's emit for the hooks; `TTSC_TSGO_BINARY` lets dependency builds
  * find tsgo without re-resolving it from inside the hook.
  */
@@ -355,14 +360,12 @@ function runPreparedEntry(
       cwd: execution.projectRoot,
     }).binary;
 
-    const bootstrap = path.join(__dirname, "registerRuntimeHooks.js");
     const args = [
       "--disable-warning=ExperimentalWarning",
       ...parsed.preload.flatMap((preload) => [
         "-r",
         resolvePreload(cwd, preload),
       ]),
-      bootstrap,
       sourceEntry,
       ...parsed.passthrough,
     ];
