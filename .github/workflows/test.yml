@@ -85,7 +85,7 @@ jobs:
         run: pnpm --dir experimental/test-unplugin start -- --pack-current
 
       - name: Use System Go For Source Plugin Tests
-        if: matrix.watch || matrix.plugin_cache
+        if: matrix.watch || matrix.plugin_cache || matrix.runtime
         shell: bash
         run: echo "TTSC_GO_BINARY=$(go env GOROOT)/bin/go" >> "$GITHUB_ENV"
 
@@ -106,6 +106,12 @@ jobs:
         run: pnpm --filter @ttsc/test-ttsc start
         env:
           TTSC_TEST_DIR: features/watch
+
+      - name: Run ttsx runtime tests
+        if: matrix.runtime
+        run: pnpm --filter @ttsc/test-ttsc start
+        env:
+          TTSC_TEST_DIR: features/ttsx-runtime
 
       - name: Verify Linux Package Managers
         if: matrix.plugin_cache && matrix.os == 'linux'
