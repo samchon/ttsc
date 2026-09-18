@@ -7,16 +7,25 @@ import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransf
  * Followed through links, because a watch opens on the directory a spelling
  * resolves to: a retargeted link and a replaced directory both change it, and
  * that is exactly the change a watch cannot report about itself.
+ *
+ * @param seen Identities already read during one verification, by directory. A
+ *   generation's trackers watch the same project root, so sharing one map
+ *   across them makes a delivery read each watched directory once rather than
+ *   once per tracker.
  */
 export function watchLocationIdentity(
   directory: string,
   filesystem: TtscTransformFilesystemOperations,
+  seen?: Map<string, string | undefined>,
 ): string | undefined {
+  if (seen?.has(directory) === true) return seen.get(directory);
+  let identity: string | undefined;
   try {
     const stats = filesystem.statBigInt(directory);
-    if (!stats.isDirectory()) return undefined;
-    return `${stats.dev}:${stats.ino}`;
+    if (stats.isDirectory()) identity = `${stats.dev}:${stats.ino}`;
   } catch {
-    return undefined;
+    // An unreadable location has no identity.
   }
+  seen?.set(directory, identity);
+  return identity;
 }

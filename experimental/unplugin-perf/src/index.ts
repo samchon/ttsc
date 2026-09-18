@@ -25,6 +25,17 @@ const requireFromTtsc = createRequire(
  */
 const MEMBERSHIP_STAT_BUDGET = 8;
 
+/**
+ * Filesystem calls one steady-state serve delivery makes whatever the project
+ * and its graph: the lstat that refreshes the generation's clock reference
+ * before a content signature may be reused (samchon/ttsc#1344), and the stat
+ * that confirms the project root is still the directory the generation's
+ * watchers opened on. A replaced directory changes that identity without any
+ * watch reporting it (samchon/ttsc#1384). The generation's trackers share that
+ * read, so it stays one call however many of them watch the root.
+ */
+const SERVE_DELIVERY_SYSCALL_BUDGET = 2;
+
 main()
   .catch((error) => {
     console.error(error);
@@ -104,7 +115,7 @@ async function main(): Promise<void> {
       // entry. Nothing here may grow with the envelope's size.
       partitionExternalInputs: true,
       readBudget: 0,
-      syscallBudget: 1,
+      syscallBudget: SERVE_DELIVERY_SYSCALL_BUDGET,
       unrelatedDirectoryCount: 100,
     }),
   );
@@ -134,7 +145,7 @@ async function main(): Promise<void> {
       graphGlobals: 50,
       partitionExternalInputs: false,
       readBudget: 0,
-      syscallBudget: 1,
+      syscallBudget: SERVE_DELIVERY_SYSCALL_BUDGET,
       unrelatedDirectoryCount: 100,
     }),
   );
@@ -158,10 +169,10 @@ async function main(): Promise<void> {
       graphFanout: sharedClosureModules,
       graphGlobals: 50,
       // The producer-declared dependencies must collapse into the generation's
-      // shared proof, leaving only the delivered module's metadata check.
+      // shared proof, leaving only the calls every delivery makes.
       partitionExternalInputs: false,
       readBudget: 0,
-      syscallBudget: 1,
+      syscallBudget: SERVE_DELIVERY_SYSCALL_BUDGET,
       unrelatedDirectoryCount: 100,
     }),
   );
@@ -577,7 +588,8 @@ async function measureGraphBuild(
  * program has, since a program's global-scope declarations belong to all of it
  * — so reads grow with that shared set unless one generation's proof of an
  * input is reused across its sibling deliveries. Every shape is gated by the
- * same zero-read, one-filesystem-call steady-state contract.
+ * same zero-read steady-state contract of `SERVE_DELIVERY_SYSCALL_BUDGET`
+ * calls.
  */
 async function measureServeValidation(
   adapter: Adapter,

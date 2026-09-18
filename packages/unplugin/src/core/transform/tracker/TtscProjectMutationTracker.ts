@@ -67,6 +67,10 @@ export interface TtscProjectMutationTracker {
    * unheard, and silence would then be read as proof (samchon/ttsc#1384). One
    * metadata call per watched directory, made once per delivery, bounds that
    * window.
+   *
+   * @param seen Identities already read during this verification, by directory,
+   *   shared across a generation's trackers so a directory they all watch is
+   *   read once.
    */
-  verifyLocations?: () => void;
+  verifyLocations?: (seen?: Map<string, string | undefined>) => void;
 }

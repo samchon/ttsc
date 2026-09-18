@@ -25,7 +25,9 @@ import { createHostInputMutationTracker } from "../../../../../packages/unplugin
  *    seam.
  * 2. Deliver each row's event and assert the witness it records, if any, and that
  *    a rename-only tracker drops content changes.
- * 3. Replace a watched directory and assert the tracker withdraws its authority.
+ * 3. Verify two trackers of one project through one shared read and assert the
+ *    root they both watch is read once, then replace a watched directory and
+ *    assert the tracker withdraws its authority.
  */
 export async function test_host_input_tracker_relevance_follows_observed_scopes(): Promise<void> {
   const root = fs.realpathSync.native(
@@ -40,6 +42,7 @@ export async function test_host_input_tracker_relevance_follows_observed_scopes(
     "project/types/existing/index.d.ts": "export {};\n",
   });
   const at = (...segments: string[]): string => path.join(root, ...segments);
+  const identityReads: string[] = [];
   const open = async (
     base: string,
     events: "all" | "rename",
@@ -59,6 +62,10 @@ export async function test_host_input_tracker_relevance_follows_observed_scopes(
       inputs,
       {
         ...DEFAULT_FILESYSTEM_OPERATIONS,
+        statBigInt: (location) => {
+          identityReads.push(location);
+          return DEFAULT_FILESYSTEM_OPERATIONS.statBigInt(location);
+        },
         watch: (directory, listener) => {
           listeners.set(path.resolve(directory), listener);
           return { close: () => undefined };
@@ -133,6 +140,15 @@ export async function test_host_input_tracker_relevance_follows_observed_scopes(
     "a rename-only tracker drops content changes before classifying them",
   );
   assert.equal(renameOnly.fire(at("project"), "rename", "missing"), "mutation");
+
+  // A delivery verifies all of a generation's trackers with one shared read,
+  // so the project root they both watch costs one metadata call.
+  identityReads.length = 0;
+  const seen = new Map<string, string | undefined>();
+  internal.tracker.verifyLocations?.(seen);
+  renameOnly.tracker.verifyLocations?.(seen);
+  assert.deepEqual(identityReads, [at("project")]);
+  assert.equal(internal.tracker.failed || renameOnly.tracker.failed, false);
 
   external.tracker.verifyLocations?.();
   assert.equal(external.tracker.failed, false, "unchanged locations hold");

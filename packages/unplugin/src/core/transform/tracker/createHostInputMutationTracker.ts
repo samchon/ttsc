@@ -228,11 +228,11 @@ export async function createHostInputMutationTracker(
     tracker.failed = true;
     return tracker;
   }
-  tracker.verifyLocations = () => {
+  tracker.verifyLocations = (seen) => {
     if (tracker.failed) return;
     for (const location of opened) {
       if (
-        watchLocationIdentity(location.directory, filesystem) !==
+        watchLocationIdentity(location.directory, filesystem, seen) !==
         location.identity
       ) {
         tracker.failed = true;

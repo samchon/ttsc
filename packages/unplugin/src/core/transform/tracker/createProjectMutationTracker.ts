@@ -61,10 +61,10 @@ export async function createProjectMutationTracker(
     tracker.failed = true;
     return tracker;
   }
-  tracker.verifyLocations = () => {
+  tracker.verifyLocations = (seen) => {
     if (
       !tracker.failed &&
-      watchLocationIdentity(root, filesystem) !== rootIdentity
+      watchLocationIdentity(root, filesystem, seen) !== rootIdentity
     ) {
       tracker.failed = true;
     }
