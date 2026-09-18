@@ -82,14 +82,6 @@ export const test_evidence_repository_ttsc_source_holds_one_documented_identity_
       linkPackageDependencies(packageRoot, project.directory);
       const result: IRunResult = runCheck(project.directory);
       const diagnostics: IDiagnostic[] = parseDiagnostics(result.output);
-      // A diagnostic with no location (an option error, say) matches no parsed
-      // line, so every code the compiler printed has to be one of them.
-      const printed: number =
-        stripColors(result.output).match(/\berror TS\d+:/g)?.length ?? 0;
-      if (printed !== diagnostics.length)
-        throw new Error(
-          `The check printed ${printed} error code(s) but only ${diagnostics.length} located diagnostic(s); a failure outside any file would otherwise pass unseen.\n\nActual output:\n${result.output}`,
-        );
       const canary: IDiagnostic[] = diagnostics.filter(
         (diagnostic) => diagnostic.file === CANARY,
       );
@@ -112,6 +104,16 @@ export const test_evidence_repository_ttsc_source_holds_one_documented_identity_
                 `  ${diagnostic.file.replace(/^src\//, "packages/ttsc/src/")}:${diagnostic.line} ${diagnostic.message}`,
             ),
           ].join("\n"),
+        );
+
+      // A diagnostic with no location (an option error, say) matches no parsed
+      // line, so every code the compiler printed has to be one of them.
+      const printed: number =
+        stripColors(result.output).match(/\b(?:error|warning) TS\d+:/g)
+          ?.length ?? 0;
+      if (printed !== diagnostics.length)
+        throw new Error(
+          `The check printed ${printed} diagnostic code(s) but parsed ${diagnostics.length} located diagnostic(s); a failure outside any file would otherwise pass unseen.\n\nActual output:\n${result.output}`,
         );
     } finally {
       project.cleanup();
