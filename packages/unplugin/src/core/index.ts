@@ -36,4 +36,5 @@ export type { ITtscProjectMembershipPolicy } from "./tsconfig/ITtscProjectMember
 export { mergeMembershipPolicyOverlay } from "./tsconfig/mergeMembershipPolicyOverlay";
 export { readProjectMembershipPolicy } from "./tsconfig/readProjectMembershipPolicy";
 export { readTsconfigSourceSnapshot } from "./tsconfig/readTsconfigSourceSnapshot";
+export { searchedReferencedProjects } from "./tsconfig/searchedReferencedProjects";
 export { unplugin, unplugin as default } from "./unplugin";

@@ -1,5 +1,6 @@
 import type { ITtscCompilerTransformation } from "ttsc";
 
+import { searchedReferencedProjects } from "../../tsconfig/searchedReferencedProjects";
 import { formatDiagnostics } from "../diagnostics/formatDiagnostics";
 import { formatUnknownError } from "../diagnostics/formatUnknownError";
 import { TtscMissingProgramOutputError } from "../errors/TtscMissingProgramOutputError";
@@ -52,5 +53,9 @@ export function selectTransformedSource(props: {
   if (source !== undefined) {
     return source;
   }
-  throw new TtscMissingProgramOutputError(props.file, props.tsconfig);
+  throw new TtscMissingProgramOutputError(
+    props.file,
+    props.tsconfig,
+    searchedReferencedProjects(props.tsconfig),
+  );
 }

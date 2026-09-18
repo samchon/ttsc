@@ -21,7 +21,7 @@ import { isVolatileFile } from "./envelope/isVolatileFile";
 import { TtscMissingProgramOutputError } from "./errors/TtscMissingProgramOutputError";
 import { transformProject } from "./generation/transformProject";
 import { settleProjectMutationEvents } from "./tracker/settleProjectMutationEvents";
-import { resolveTsconfig } from "./tsconfig/resolveTsconfig";
+import { resolveProjectSelection } from "./tsconfig/resolveProjectSelection";
 import { createTransformResult } from "./utils/createTransformResult";
 import { isDeclarationFile } from "./utils/isDeclarationFile";
 import { isHostWrapperQuery } from "./utils/isHostWrapperQuery";
@@ -32,6 +32,7 @@ import { matchesCachedSource } from "./validation/matchesCachedSource";
 import type { TtscTransformHooks } from "./watch/TtscTransformHooks";
 import { notifyFailedGenerationInputs } from "./watch/notifyFailedGenerationInputs";
 import { notifyWatchInputs } from "./watch/notifyWatchInputs";
+import { withSelectionInputs } from "./watch/withSelectionInputs";
 
 /**
  * Apply the ttsc plugin transform to a single source file.
@@ -84,7 +85,11 @@ export async function transformTtsc(
     return undefined;
   }
 
-  const tsconfig = resolveTsconfig(file, options.project, filesystem);
+  const selection = resolveProjectSelection(file, options.project, filesystem);
+  const tsconfig = selection.tsconfig;
+  // A solution config that routed this file elsewhere is a watch input too:
+  // editing its `references` can move the file (samchon/ttsc#1397).
+  hooks = withSelectionInputs(hooks, selection.consulted, filesystem);
   const aliasPaths = createAliasPaths(aliases);
   const key = createTransformCacheKey({
     aliasPaths,

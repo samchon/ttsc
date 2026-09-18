@@ -58,6 +58,7 @@ import {
   mergeMembershipPolicyOverlay,
   readProjectMembershipPolicy,
   readTsconfigSourceSnapshot,
+  searchedReferencedProjects,
   watchInputEvidenceMatchesBaseline,
 } from "@ttsc/unplugin/api";
 import type {
@@ -427,6 +428,30 @@ function fingerprintProjectViews(props: {
         props.compilerOptions,
       ),
     );
+  }
+  // A solution config routes its files to the projects it references, and the
+  // worker compiles those (samchon/ttsc#1397), so their configs and inputs
+  // key the cache as well. The solution's own snapshot covers its list.
+  for (const project of [...projects]) {
+    for (const referenced of searchedReferencedProjects(project.tsconfig)) {
+      if (
+        !fs.existsSync(referenced) ||
+        projects.some((known) => samePath(known.tsconfig, referenced))
+      ) {
+        continue;
+      }
+      projects.push(
+        stableFingerprintProjectView(
+          createProjectView({
+            base: primary.base,
+            compilerOptions: props.compilerOptions,
+            explicitProject: undefined,
+            tsconfig: referenced,
+          }),
+          props.compilerOptions,
+        ),
+      );
+    }
   }
   const secondMap = findProjectTsconfigs(
     primary.base,

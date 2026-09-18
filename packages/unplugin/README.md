@@ -310,7 +310,7 @@ Each entrypoint supports ESM import and CJS require. In CommonJS configs, read t
 
 `@ttsc/unplugin/bun-register` is the Bun **runtime** entry rather than a bundler adapter, covered under [Bun](#bun) above. `@ttsc/unplugin/api` exposes the transform core itself (`transformTtsc`, `resolveOptions`, the cache lifecycle) for hosts that are not unplugin-shaped; `@ttsc/metro` is built on it.
 
-That entry point also exposes the project-membership rule (`readProjectMembershipPolicy`, `mergeMembershipPolicyOverlay`, `ITtscProjectMembershipPolicy`, `isProjectWalkPath`, and the input-hash collectors), which decides which files can enter the compiled program and therefore which changes invalidate a cached compile. These exist so a host that keeps its own cache asks that question exactly the way the transform core asks it: `@ttsc/metro` folds them into Metro's static transformer key, and the two halves disagreeing about one project is the bug class they exist to prevent. They are shaped for that use rather than as a general-purpose configuration reader, and they move with the core rather than under a stability guarantee of their own. Build a host on them if you need it; pin your `@ttsc/unplugin` version if you do.
+That entry point also exposes the project-membership rule (`readProjectMembershipPolicy`, `mergeMembershipPolicyOverlay`, `ITtscProjectMembershipPolicy`, `isProjectWalkPath`, `searchedReferencedProjects`, and the input-hash collectors), which decides which files can enter the compiled program and therefore which changes invalidate a cached compile. These exist so a host that keeps its own cache asks that question exactly the way the transform core asks it: `@ttsc/metro` folds them into Metro's static transformer key, and the two halves disagreeing about one project is the bug class they exist to prevent. They are shaped for that use rather than as a general-purpose configuration reader, and they move with the core rather than under a stability guarantee of their own. Build a host on them if you need it; pin your `@ttsc/unplugin` version if you do.
 
 ### Options
 
@@ -326,7 +326,7 @@ const options: TtscUnpluginOptions = {
 };
 ```
 
-- `project`: path to the `tsconfig.json` used by the bundler.
+- `project`: path to the `tsconfig.json` used by the bundler. When omitted, each file starts from its nearest `tsconfig.json`. A solution config that admits no files itself, one with `"files": []` and `references` such as the create-vite `react-ts` template's, is followed to the first referenced project that admits the file.
 - `compilerOptions`: temporary override layered on the selected project config.
 - `plugins`: direct `ttsc` plugin list override, or `false` to disable plugins.
 

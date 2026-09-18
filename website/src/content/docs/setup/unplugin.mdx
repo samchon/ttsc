@@ -224,7 +224,11 @@ Importing `@ttsc/unplugin/bun-register` registers exactly one runtime loader, sh
 
 ## Options
 
-Most projects need none: the adapter finds `tsconfig.json` on its own, and your plugins and `lint.config.ts` apply unchanged. Three options layer on top:
+Most projects need none: the adapter finds `tsconfig.json` on its own, and your plugins and `lint.config.ts` apply unchanged.
+
+The adapter selects each file's project the way TypeScript's editor tooling does. It starts from the nearest `tsconfig.json` and keeps it when that config's `files` and `include` admit the file. A solution config admits nothing itself: it declares `"files": []` and lists the real projects under `references`, as the create-vite `react-ts` template and `tsc -b` layouts do. For such a config, the adapter searches the referenced projects depth-first, in declaration order, and compiles the file with the first one that admits it. `src/App.tsx` therefore compiles under `tsconfig.app.json`, and `vite.config.ts` under `tsconfig.node.json`. The solution config is watched as well, so editing its `references` re-routes the file. A file no project admits is left untransformed, and the notice names every project that was searched.
+
+Three options layer on top:
 
 - `project` points at a non-default config file, resolved from `process.cwd()`:
 
