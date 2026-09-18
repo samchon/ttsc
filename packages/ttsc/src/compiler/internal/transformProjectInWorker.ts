@@ -10,6 +10,12 @@ import type { transformProjectInMemory } from "./transformProjectInMemory";
 const IDLE_WORKERS: Worker[] = [];
 
 /**
+ * The listener each idle worker carries while it waits in {@link IDLE_WORKERS},
+ * which takes it out of the pool if it fails or exits there.
+ */
+const IDLE_RETIREMENTS = new WeakMap<Worker, () => void>();
+
+/**
  * {@link transformProjectInMemory} on a worker thread, so the calling thread's
  * event loop stays free for the whole transform (samchon/ttsc#1391).
  *
@@ -40,7 +46,7 @@ export function transformProjectInWorker(
     env: { ...process.env },
   };
   const worker =
-    IDLE_WORKERS.pop() ??
+    takeIdleWorker() ??
     new Worker(path.join(__dirname, "transformProjectWorker.js"));
   worker.ref();
   return new Promise((resolve, reject) => {
@@ -49,8 +55,7 @@ export function transformProjectInWorker(
       worker.off("error", onError);
       worker.off("exit", onExit);
       if (reusable) {
-        worker.unref();
-        IDLE_WORKERS.push(worker);
+        parkIdleWorker(worker);
       } else {
         void worker.terminate();
       }
@@ -90,4 +95,41 @@ export function transformProjectInWorker(
       reject(error);
     }
   });
+}
+
+/**
+ * Return a worker to the idle pool, with a listener that retires it if it fails
+ * or exits while it waits there.
+ *
+ * An idle worker has no transform listening to it. Without that listener, an
+ * error it raised would be unhandled and crash the host, and a worker that
+ * exited would stay pooled, so the next transform would post to a dead thread
+ * and wait forever.
+ */
+function parkIdleWorker(worker: Worker): void {
+  const retire = (): void => {
+    worker.off("error", retire);
+    worker.off("exit", retire);
+    IDLE_RETIREMENTS.delete(worker);
+    const index = IDLE_WORKERS.indexOf(worker);
+    if (index !== -1) IDLE_WORKERS.splice(index, 1);
+  };
+  worker.on("error", retire);
+  worker.on("exit", retire);
+  IDLE_RETIREMENTS.set(worker, retire);
+  worker.unref();
+  IDLE_WORKERS.push(worker);
+}
+
+/** Take a worker out of the idle pool, detaching its idle-time listener. */
+function takeIdleWorker(): Worker | undefined {
+  const worker = IDLE_WORKERS.pop();
+  if (worker === undefined) return undefined;
+  const retire = IDLE_RETIREMENTS.get(worker);
+  if (retire !== undefined) {
+    worker.off("error", retire);
+    worker.off("exit", retire);
+    IDLE_RETIREMENTS.delete(worker);
+  }
+  return worker;
 }
