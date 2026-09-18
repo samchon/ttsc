@@ -2,12 +2,12 @@ import { TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
 /**
- * Invoke the built turbopack loader and return both the transformed content and
- * the files it registered through the webpack loader context's
- * `addDependency(file)` — the channel that feeds Turbopack's `fileDependencies`
- * invalidation set. Setting `omitAddDependency` models a minimal/older loader
- * context that does not expose the method at all, proving the loader stays
- * optional about it.
+ * Invoke the built turbopack loader and return the transformed content, the
+ * source map it handed back beside it, and the files it registered through the
+ * webpack loader context's `addDependency(file)` — the channel that feeds
+ * Turbopack's `fileDependencies` invalidation set. Setting `omitAddDependency`
+ * models a minimal/older loader context that does not expose the method at all,
+ * proving the loader stays optional about it.
  */
 export async function runTurbopackLoaderWithContext(props: {
   resourcePath: string;
@@ -18,6 +18,7 @@ export async function runTurbopackLoaderWithContext(props: {
   cacheableCalls: boolean[];
   content: string;
   dependencies: string[];
+  map?: unknown;
 }> {
   const loader = await TestUnpluginRuntime.loadUnpluginAdapter("turbopack");
   const cacheableCalls: boolean[] = [];
@@ -26,6 +27,7 @@ export async function runTurbopackLoaderWithContext(props: {
     cacheableCalls: boolean[];
     content: string;
     dependencies: string[];
+    map?: unknown;
   }>((resolve, reject) => {
     const context: Record<string, unknown> = {
       resourcePath: props.resourcePath,
@@ -38,12 +40,17 @@ export async function runTurbopackLoaderWithContext(props: {
       },
       async:
         () =>
-        (error?: unknown, content?: string): void => {
+        (error?: unknown, content?: string, map?: unknown): void => {
           if (error !== undefined && error !== null) {
             reject(error instanceof Error ? error : new Error(String(error)));
             return;
           }
-          resolve({ cacheableCalls, content: content ?? "", dependencies });
+          resolve({
+            cacheableCalls,
+            content: content ?? "",
+            dependencies,
+            ...(map === undefined ? {} : { map }),
+          });
         },
     };
     if (props.omitAddDependency !== true) {

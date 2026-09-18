@@ -25,6 +25,8 @@ import { stableStringify } from "./transform/utils/stableStringify";
 import { stripQuery } from "./transform/utils/stripQuery";
 import type { TtscWatchInputKind } from "./transform/watch/TtscWatchInputKind";
 import { createViteServeInputWatch } from "./vite/createViteServeInputWatch";
+import { TTSC_SOURCE_MAP_STASH } from "./webpack/TTSC_SOURCE_MAP_STASH";
+import { registerTtscSourceMapLoader } from "./webpack/registerTtscSourceMapLoader";
 
 const name = "ttsc-unplugin";
 
@@ -110,7 +112,7 @@ const unpluginFactory: UnpluginFactory<
         // Re-read per config resolution: a plugin instance reused across a
         // serve and a later build must stop routing missing inputs to the
         // serve-time poll, even though the closed server stays attached
-        // (see the dispose note in viteServe.ts).
+        // (see the dispose note in vite/createViteServeInputWatch.ts).
         viteCommand = config.command;
         // `server.watch: null` disables Vite's watcher outright, which is how
         // a one-shot consumer (a `vitest --run` suite above all) configures the
@@ -248,6 +250,7 @@ const unpluginFactory: UnpluginFactory<
     // their true compiler or context teardown instead. The custom callbacks
     // are installed by unplugin alongside its ordinary transform wiring.
     webpack(compiler) {
+      registerTtscSourceMapLoader(compiler);
       compiler.hooks.shutdown.tap(name, () => {
         // The shared generation outlives this compiler for the next one; the
         // lease resets it once no compiler has used it for its grace.
@@ -257,6 +260,7 @@ const unpluginFactory: UnpluginFactory<
       });
     },
     rspack(compiler) {
+      registerTtscSourceMapLoader(compiler);
       compiler.hooks.shutdown.tap(name, () => {
         // The shared generation outlives this compiler for the next one; the
         // lease resets it once no compiler has used it for its grace.
@@ -366,58 +370,76 @@ const unpluginFactory: UnpluginFactory<
         bridgedKinds === undefined
           ? undefined
           : (bridge ??= openHostWatchBridge(process.cwd())).begin();
-      return transformTtsc(file, source, options, aliases, transformCache, {
-        // A watcherless server has no invalidation channel and needs no
-        // watch-input derivation. Every other host keeps its native contract.
-        addWatchFiles:
-          viteCommand === "serve" && !viteWatching
-            ? undefined
-            : (inputs, failed) => {
-                if (viteCommand === "serve") {
-                  serveInputs.replace(file, inputs, failed, serveStartedAt);
-                } else {
-                  registerBuildWatchInputs({
-                    addWatchFile:
-                      native?.framework === "farm"
-                        ? (input) => native.context.addWatchFile(file, input)
-                        : (input) => this.addWatchFile(input),
-                    ...(bridge !== undefined &&
-                    bridgedKinds !== undefined &&
-                    bridgeStartedAt !== undefined
-                      ? {
-                          bridge: {
-                            instance: bridge,
-                            kinds: bridgedKinds,
-                            startedAt: bridgeStartedAt,
-                          },
-                        }
-                      : {}),
-                    failed,
-                    file,
-                    inputs,
-                    // Module-level channels, since compilation-level ones
-                    // schedule a pass without invalidating the module.
-                    ...((native?.framework === "webpack" ||
-                      native?.framework === "rspack") &&
-                    native.loaderContext !== undefined
-                      ? { loader: native.loaderContext }
-                      : {}),
-                  });
-                }
-              },
-        // A module the plugin declared volatile depends on non-file inputs,
-        // which no file-dependency snapshot can represent; mark it
-        // uncacheable where the bundler exposes that control.
-        markVolatile: () => {
-          const native = this.getNativeBuildContext?.();
-          if (
-            native?.framework === "webpack" ||
-            native?.framework === "rspack"
-          ) {
-            native.loaderContext?.cacheable?.(false);
-          }
+      const result = await transformTtsc(
+        file,
+        source,
+        options,
+        aliases,
+        transformCache,
+        {
+          // A watcherless server has no invalidation channel and needs no
+          // watch-input derivation. Every other host keeps its native contract.
+          addWatchFiles:
+            viteCommand === "serve" && !viteWatching
+              ? undefined
+              : (inputs, failed) => {
+                  if (viteCommand === "serve") {
+                    serveInputs.replace(file, inputs, failed, serveStartedAt);
+                  } else {
+                    registerBuildWatchInputs({
+                      addWatchFile:
+                        native?.framework === "farm"
+                          ? (input) => native.context.addWatchFile(file, input)
+                          : (input) => this.addWatchFile(input),
+                      ...(bridge !== undefined &&
+                      bridgedKinds !== undefined &&
+                      bridgeStartedAt !== undefined
+                        ? {
+                            bridge: {
+                              instance: bridge,
+                              kinds: bridgedKinds,
+                              startedAt: bridgeStartedAt,
+                            },
+                          }
+                        : {}),
+                      failed,
+                      file,
+                      inputs,
+                      // Module-level channels, since compilation-level ones
+                      // schedule a pass without invalidating the module.
+                      ...((native?.framework === "webpack" ||
+                        native?.framework === "rspack") &&
+                      native.loaderContext !== undefined
+                        ? { loader: native.loaderContext }
+                        : {}),
+                    });
+                  }
+                },
+          // A module the plugin declared volatile depends on non-file inputs,
+          // which no file-dependency snapshot can represent; mark it
+          // uncacheable where the bundler exposes that control.
+          markVolatile: () => {
+            const native = this.getNativeBuildContext?.();
+            if (
+              native?.framework === "webpack" ||
+              native?.framework === "rspack"
+            ) {
+              native.loaderContext?.cacheable?.(false);
+            }
+          },
         },
-      });
+      );
+      // Unplugin's webpack and Rspack loaders drop the map of a module that
+      // arrived without one, which the first loader's module always does, so
+      // the loader after it hands the map on (samchon/ttsc#1392).
+      if (
+        result?.map !== undefined &&
+        (native?.framework === "webpack" || native?.framework === "rspack") &&
+        native.loaderContext !== undefined
+      ) {
+        TTSC_SOURCE_MAP_STASH.set(native.loaderContext, result);
+      }
+      return result;
     },
   };
 };

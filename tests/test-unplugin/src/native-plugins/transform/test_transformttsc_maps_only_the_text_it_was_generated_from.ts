@@ -85,5 +85,5 @@ export async function test_transformttsc_maps_only_the_text_it_was_generated_fro
   );
   assert.ok(sidecar);
   TestUnpluginProject.assertTransformedToPlugin(sidecar.code);
-  assert.equal(sidecar.map, undefined, "a host without maps claims none");
+  assert.equal("map" in sidecar, false, "a host without maps claims none");
 }

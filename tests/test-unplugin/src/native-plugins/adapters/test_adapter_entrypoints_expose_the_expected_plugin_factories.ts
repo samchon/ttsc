@@ -14,7 +14,7 @@ import path from "node:path";
  *
  * 1. Assert each of the four adapter entries is a callable factory.
  * 2. Wire the raw plugin to fake webpack and Rspack compilers and assert each taps
- *    `shutdown` under the plugin's name.
+ *    `shutdown` under the plugin's name and gains the source-map rule.
  * 3. Deliver the entry module and assert one compile, then fire each shutdown and
  *    assert the next delivery compiles again.
  */
@@ -56,7 +56,9 @@ export async function test_adapter_entrypoints_expose_the_expected_plugin_factor
   const disposals = new Map<"webpack" | "rspack", () => void>();
   for (const framework of ["webpack", "rspack"] as const) {
     let registeredName: string | undefined;
+    const rules: unknown[] = [];
     raw[framework]?.({
+      options: { module: { rules } },
       hooks: {
         shutdown: {
           tap(name: string, callback: () => void) {
@@ -68,6 +70,7 @@ export async function test_adapter_entrypoints_expose_the_expected_plugin_factor
     } as never);
     assert.equal(registeredName, "ttsc-unplugin", framework);
     assert.equal(typeof disposals.get(framework), "function", framework);
+    assert.equal(rules.length, 1, `${framework} gains the source-map rule`);
   }
   const context = { addWatchFile(_file: string) {} };
   assert.equal(typeof raw.transform, "function");
