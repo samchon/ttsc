@@ -17,9 +17,10 @@
 //
 // Requires a real Go toolchain via TTSC_GO_BINARY (as the test workflows set
 // it) and a built current-platform ttsc (`pnpm run build:current`).
+
 import { spawnSync } from "node:child_process";
-import fs from "node:fs";
 import { createRequire } from "node:module";
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -73,10 +74,7 @@ function main() {
     const env = buildEnv(home);
 
     const first = buildPackage(workdir, "a", env);
-    expect(
-      first.status === 0,
-      `[${pm}] package a build failed:\n${first.stderr}`,
-    );
+    expect(first.status === 0, `[${pm}] package a build failed:\n${first.stderr}`);
     expect(
       COLD_BUILD_MARKER.test(first.stderr),
       `[${pm}] package a was expected to COLD-build the source plugin, but no ` +
@@ -243,11 +241,7 @@ function normalizeGoBinary(goBinary) {
   if (fs.existsSync(goBinary)) {
     return goBinary;
   }
-  if (
-    onWindows() &&
-    !/\.exe$/i.test(goBinary) &&
-    fs.existsSync(`${goBinary}.exe`)
-  ) {
+  if (onWindows() && !/\.exe$/i.test(goBinary) && fs.existsSync(`${goBinary}.exe`)) {
     return `${goBinary}.exe`;
   }
   return goBinary;
@@ -272,10 +266,7 @@ function resolveTsgoBinary() {
 
 function buildPackage(workdir, name, env) {
   const cwd = path.join(workdir, "packages", name);
-  return run(process.execPath, [TTSC_BIN, "--cwd", cwd, "--emit"], {
-    cwd,
-    env,
-  });
+  return run(process.execPath, [TTSC_BIN, "--cwd", cwd, "--emit"], { cwd, env });
 }
 
 function expectPluginOutput(workdir, name, pm) {
