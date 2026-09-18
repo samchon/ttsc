@@ -19,8 +19,9 @@ import type { WatchBroker } from "./WatchBroker";
  *   event of a tracker already closed.
  * - `gap` says the child's native watches were re-created while the registration
  *   was live, so its events may have been lost (samchon/ttsc#1418). The
- *   registration's own `gap` answers it; without one, the tracker fails, since
- *   its silence no longer proves anything.
+ *   registration's own `gap` answers it; without one, the tracker is marked
+ *   unverified, and its silence proves nothing until a delivery proves the
+ *   recorded state again.
  * - `failed` fails the tracker, and `ready` resolves its registration. One
  *   message can carry both, when some of the watches could not be opened.
  * - An event without a directory is a membership change the child could not
@@ -62,7 +63,7 @@ export function routeWatchBrokerMessage(
   if (registration === undefined) return;
   if (record.gap === true) {
     if (registration.gap !== undefined) registration.gap();
-    else registration.tracker.failed = true;
+    else registration.tracker.unverified = true;
     return;
   }
   if (record.failed === true) registration.tracker.failed = true;

@@ -43,8 +43,8 @@ export async function registerBrokeredMutationTracker(
     eventType: string,
   ) => "change" | "mutation" | undefined,
   /**
-   * What a gap notice means to this registration; absent, the tracker fails.
-   * See `WatchBroker`.
+   * What a gap notice means to this registration; absent, the tracker is marked
+   * unverified. See `WatchBroker`.
    */
   gap?: () => void,
 ): Promise<void> {

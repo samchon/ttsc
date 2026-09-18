@@ -57,8 +57,9 @@ export interface WatchBroker {
       /**
        * What a gap notice means to this registration (samchon/ttsc#1418): the
        * child's native watches were re-created while it was live, so events may
-       * have been lost. Absent, the tracker stops trusting its silence and
-       * fails; a Vite serve scope re-checks its entries instead.
+       * have been lost. Absent, the tracker is marked unverified, and its
+       * silence proves nothing until a delivery re-proves the recorded state; a
+       * Vite serve scope re-checks its entries instead.
        */
       gap?: () => void;
       ready: () => void;

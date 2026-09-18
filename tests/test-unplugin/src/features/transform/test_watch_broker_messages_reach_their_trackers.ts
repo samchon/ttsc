@@ -105,17 +105,19 @@ export async function test_watch_broker_messages_reach_their_trackers(): Promise
     "a status message is not an event",
   );
 
-  // A gap fails a tracker whose silence was proof, and is answered by a
-  // registration that re-checks instead; either way nothing is recorded.
+  // A gap leaves a tracker unverified, since it hears everything after it but
+  // nothing inside it, and is answered by a registration that re-checks
+  // instead; either way nothing is recorded.
   const gapped = broker();
   gapped.route({ gap: true, id: 99 });
-  assert.equal(gapped.tracker.failed, false, "a stale gap reaches no one");
+  assert.equal(
+    gapped.tracker.unverified,
+    undefined,
+    "a stale gap reaches no one",
+  );
   gapped.route({ gap: true, id: 7 });
-  assert.deepEqual(recorded(gapped.tracker), {
-    changes: [],
-    failed: true,
-    membershipChanged: false,
-  });
+  assert.deepEqual(recorded(gapped.tracker), recorded(tracker()));
+  assert.equal(gapped.tracker.unverified, true);
   let rechecked = 0;
   const answered = broker({
     gap: () => {

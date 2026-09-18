@@ -8,7 +8,12 @@ export function trackerProvesInputUnchanged(
   tracker: TtscProjectMutationTracker | undefined,
   input: string,
 ): boolean {
-  if (tracker === undefined || tracker.failed || tracker.changesOmitted) {
+  if (
+    tracker === undefined ||
+    tracker.failed ||
+    tracker.unverified === true ||
+    tracker.changesOmitted
+  ) {
     return false;
   }
   if (tracker.contentAuthoritative !== true) return false;

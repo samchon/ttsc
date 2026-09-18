@@ -98,6 +98,16 @@ export function matchesCompleteInputSnapshot(
   // list registers it with a watching host from now on, so a root file created
   // in it later is heard (samchon/ttsc#1419).
   cached.projectDirectories = current.projectDirectories;
+  // Every recorded input was just read and still holds, which is exactly what
+  // a gap in a watcher's notifications left unproven, so the watchers' silence
+  // vouches for the state again from here on (samchon/ttsc#1418).
+  for (const tracker of [
+    cached.projectMutationTracker,
+    cached.hostInputMutationTracker,
+    cached.candidateMutationTracker,
+  ]) {
+    if (tracker !== undefined) tracker.unverified = false;
+  }
   return true;
 }
 

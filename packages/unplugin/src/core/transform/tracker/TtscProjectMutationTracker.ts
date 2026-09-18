@@ -42,6 +42,14 @@ export interface TtscProjectMutationTracker {
    * tracker opened.
    */
   membershipChanged: boolean;
+  /**
+   * Whether the backend may have dropped events since the state was last
+   * proven, as a macOS watch does while libuv re-creates the FSEventStream it
+   * shares (samchon/ttsc#1418). Unlike {@link failed}, the tracker still hears
+   * everything after the gap, so one delivery that proves the recorded state by
+   * reading it clears the flag, and its silence is proof again.
+   */
+  unverified?: boolean;
   /** Compare event and input paths through this tracker's filesystem identity. */
   overlaps?: (input: string, changed: string) => boolean;
   /**
