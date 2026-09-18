@@ -17,7 +17,8 @@ import { createAliasPaths } from "../../../../../packages/unplugin/lib/core/tran
  * process directory, although Vite resolves them against each importer.
  *
  * 1. Translate root-relative, absolute, and absolute-below-root replacements, and
- *    assert their targets in Vite's resolution order.
+ *    assert their targets in Vite's resolution order, and an alias without a
+ *    Vite root as itself.
  * 2. Translate relative and bare replacements, and assert each is withheld and
  *    reported once.
  */
@@ -52,6 +53,11 @@ export async function test_vite_aliases_translate_with_vite_semantics(): Promise
     translated["~shared"]![translated["~shared"]!.length - 1],
     slash(outside),
     "an absolute replacement keeps its own meaning as the last candidate",
+  );
+  assert.deepEqual(
+    createAliasPaths({ "@rootless": slash(outside) })["@rootless"],
+    [slash(outside)],
+    "without a Vite root, a POSIX absolute replacement means itself",
   );
 
   const original = process.stderr.write.bind(process.stderr);

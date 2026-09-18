@@ -19,7 +19,8 @@ import { normalizeAliases } from "./normalizeAliases";
  *   path. Both targets are listed in that order, since `paths` tries its
  *   targets in order too. Reading it as absolute alone sent every `@/...`
  *   import to the filesystem root, or on Windows to the drive root, and the
- *   overlay then overrode the project's own correct `paths` entry.
+ *   overlay then overrode the project's own correct `paths` entry. Only an
+ *   alias carrying its Vite root is read this way.
  * - Any other absolute replacement means itself.
  * - A relative replacement is resolved against each importing module, and a bare
  *   one as a package. `paths` can express neither, so each is reported once and
@@ -71,9 +72,16 @@ export function createAliasPaths(aliases: unknown): Record<string, string[]> {
     const replacement = alias.replacement;
     let targets: string[];
     // Vite's root-relative test is a leading `/`, exactly as `vite:resolve`
-    // checks `id[0] === "/"`; a `//` prefix is a UNC-style absolute path.
-    if (replacement.startsWith("/") && !replacement.startsWith("//")) {
-      const root = path.resolve(alias.root ?? process.cwd());
+    // checks `id[0] === "/"`; a `//` prefix is a UNC-style absolute path. Only
+    // an alias that carries its Vite root has that meaning: every other host
+    // resolves a POSIX absolute replacement as itself, and guessing a root
+    // would put a wrong first target ahead of the one the caller wrote.
+    if (
+      alias.root !== undefined &&
+      replacement.startsWith("/") &&
+      !replacement.startsWith("//")
+    ) {
+      const root = path.resolve(alias.root);
       const absolute = path.resolve(replacement);
       targets = pathIsWithin(absolute, root)
         ? [absolute]
