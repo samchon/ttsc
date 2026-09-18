@@ -144,6 +144,15 @@ export async function nextContract(bundler) {
       project.runs() > initial,
       "the changed compiler input must produce a new generation",
     );
+    // Turbopack's loader workers share each compile through the session
+    // `withTtsc` opened, so the edit compiles once for the whole pool
+    // (samchon/ttsc#1390).
+    if (bundler === "turbopack")
+      assert.equal(
+        project.runs() - initial,
+        1,
+        "Next turbopack recompiles an edit once across its workers",
+      );
     const changed = project.runs();
     assert.ok(hasValues(await read(), "SECOND"));
     assert.equal(project.runs(), changed);

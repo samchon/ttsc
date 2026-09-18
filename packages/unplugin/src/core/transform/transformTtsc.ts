@@ -21,6 +21,7 @@ import { envelopeDerivation } from "./envelope/envelopeDerivation";
 import { isVolatileFile } from "./envelope/isVolatileFile";
 import { TtscMissingProgramOutputError } from "./errors/TtscMissingProgramOutputError";
 import { transformProject } from "./generation/transformProject";
+import { TRANSFORM_CACHE_SESSIONS } from "./session/TRANSFORM_CACHE_SESSIONS";
 import { settleProjectMutationEvents } from "./tracker/settleProjectMutationEvents";
 import { resolveProjectSelection } from "./tsconfig/resolveProjectSelection";
 import { createTransformResult } from "./utils/createTransformResult";
@@ -213,6 +214,9 @@ export async function transformTtsc(
         retainProjectMembership: cache !== undefined && epoch === undefined,
         // Under declared polling, silence from a native watcher proves nothing.
         retainNotifications: transformCacheTrustsNotifications(cache),
+        // A pooled worker compiles through its session (samchon/ttsc#1390).
+        session:
+          cache === undefined ? undefined : TRANSFORM_CACHE_SESSIONS.get(cache),
         trackProjectMembership: cache !== undefined,
         tsconfig,
       });

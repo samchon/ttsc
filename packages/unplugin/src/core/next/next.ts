@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import type { TtscUnpluginOptions } from "../options/TtscUnpluginOptions";
 import { TYPESCRIPT_TURBOPACK_RULE_GLOBS } from "../source/TYPESCRIPT_TURBOPACK_RULE_GLOBS";
+import { openTtscTransformSession } from "../transform/session/openTtscTransformSession";
 import { unplugin } from "../unplugin";
 import type { NextLikeConfig } from "./NextLikeConfig";
 import { TURBOPACK_PROJECT_WIDE_GLOB_COVERAGE } from "./TURBOPACK_PROJECT_WIDE_GLOB_COVERAGE";
@@ -36,7 +37,8 @@ const TURBOPACK_RULE_GLOBS = TYPESCRIPT_TURBOPACK_RULE_GLOBS;
  *
  * Both halves are additive. An existing `webpack` hook is preserved and called
  * after the plugin is injected, and an existing `turbopack` block keeps every
- * setting and every rule it already had.
+ * setting and every rule it already had. It also opens the transform session
+ * Turbopack's loader workers share, so the pool compiles each generation once.
  *
  * @param nextConfig - The caller's existing Next.js config (spread into the
  *   returned object unchanged, except for `webpack` and `turbopack`).
@@ -47,6 +49,10 @@ export function next(
   options?: TtscUnpluginOptions,
 ): NextLikeConfig {
   warnAboutSuppressedWebpackConfig(nextConfig);
+  // Turbopack forks its loader workers from this process after the config is
+  // read, so they inherit the session and compile each generation once
+  // between them (samchon/ttsc#1390).
+  openTtscTransformSession();
   return {
     ...nextConfig,
     turbopack: withTtscTurbopackRules(nextConfig.turbopack, options),

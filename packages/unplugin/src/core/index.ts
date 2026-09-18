@@ -30,6 +30,9 @@ export type { TtscWatchInputEvidence } from "./transform/watch/TtscWatchInputEvi
 export type { TtscWatchInputFileBaseline } from "./transform/watch/TtscWatchInputFileBaseline";
 export type { TtscWatchInputKeyBaseline } from "./transform/watch/TtscWatchInputKeyBaseline";
 export type { TtscWatchInputState } from "./transform/watch/TtscWatchInputState";
+export { openTtscTransformSession } from "./transform/session/openTtscTransformSession";
+export { readTtscTransformSession } from "./transform/session/readTtscTransformSession";
+export { shareTtscTransformCache } from "./transform/session/shareTtscTransformCache";
 export { watchInputEvidenceMatchesBaseline } from "./transform/watch/watchInputEvidenceMatchesBaseline";
 export type { ITsconfigSourceSnapshotEntry } from "./tsconfig/ITsconfigSourceSnapshotEntry";
 export type { ITtscProjectMembershipPolicy } from "./tsconfig/ITtscProjectMembershipPolicy";

@@ -182,6 +182,8 @@ export default {
 
 Options go through the rule's `options` object: `{ loader: "@ttsc/unplugin/turbopack", options: { project: "tsconfig.build.json" } }`. The loader applies the same filter the unplugin adapters apply, so a rule glob wider than the four above still passes declaration files, `node_modules` paths, non-TypeScript sources, and virtual ids through untouched.
 
+Turbopack runs the loader in a pool of worker processes, and each one keeps its own cache. Under `withTtsc` they share each compile: the wrapper opens a session in the process that reads the Next config, and the workers inherit it. The first worker to need a project state compiles it while the others wait, and they adopt it only after proving it against their own filesystem, including every file outside the project that a plugin reported reading. A cold `next build` and each edit therefore compile the project once, not once per worker. The session's store lives under the system temporary directory, never in the project, and is removed when the process exits. A crashed worker never blocks the others, which take over its compile. With hand-written `turbopack.rules` and no `withTtsc`, each worker compiles for itself.
+
 ## Farm
 
 ```ts

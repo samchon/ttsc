@@ -27,6 +27,7 @@
  *   module.exports = withTtsc(getDefaultConfig(__dirname));
  *   ```
  */
+import { openTtscTransformSession } from "@ttsc/unplugin/api";
 import { readFileSync, realpathSync } from "node:fs";
 import { createRequire } from "node:module";
 import { basename, dirname, join, resolve } from "node:path";
@@ -90,6 +91,9 @@ export function withTtsc<T extends MetroConfigLike>(
     inheritConfiguredTransformer(config, options),
     snapshotRunId,
   );
+  // The workers Metro forks next inherit the session, so the pool compiles
+  // each generation once between them (samchon/ttsc#1390).
+  openTtscTransformSession();
   return {
     ...config,
     transformer: {

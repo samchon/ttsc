@@ -11,6 +11,34 @@ import { pathToFileURL } from "node:url";
  * `@ttsc/unplugin` suite uses for its adapters.
  */
 export namespace TestMetroRuntime {
+  /** Environment variable `withTtsc` sets to its workers' transform session. */
+  const SESSION_ENV = "TTSC_UNPLUGIN_TRANSFORM_SESSION";
+
+  /**
+   * Run `body`, then close any transform session a `withTtsc` call inside it
+   * opened (samchon/ttsc#1390).
+   *
+   * `withTtsc` opens the session Metro's workers inherit by setting a
+   * process-wide variable. This suite shares one process among every case, so a
+   * session left open would make later cases share compiles they expect to make
+   * themselves. The store is removed and the variable restored.
+   */
+  export async function confineSession<T>(
+    body: () => T | Promise<T>,
+  ): Promise<T> {
+    const previous = process.env[SESSION_ENV];
+    try {
+      return await body();
+    } finally {
+      const opened = process.env[SESSION_ENV];
+      if (opened !== undefined && opened !== previous) {
+        fs.rmSync(opened, { force: true, recursive: true });
+      }
+      if (previous === undefined) delete process.env[SESSION_ENV];
+      else process.env[SESSION_ENV] = previous;
+    }
+  }
+
   /** Resolve a built entrypoint under `packages/metro/lib`. */
   export function libPath(entry: string, extension: "js" | "mjs"): string {
     return path.resolve(

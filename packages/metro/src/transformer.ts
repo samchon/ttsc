@@ -18,7 +18,9 @@
 import {
   createTtscTransformCache,
   isTransformTarget,
+  readTtscTransformSession,
   resolveOptions,
+  shareTtscTransformCache,
   transformTtsc,
 } from "@ttsc/unplugin/api";
 import { createHash } from "node:crypto";
@@ -47,6 +49,9 @@ const nodeRequire = createRequire(import.meta.url);
 let resolved: ResolvedTtscMetroOptions | undefined;
 let unpluginOptions: ReturnType<typeof resolveOptions> | undefined;
 const cache = createTtscTransformCache();
+// Metro's workers share each compile through the session `withTtsc` opened
+// (samchon/ttsc#1390).
+shareTtscTransformCache(cache, readTtscTransformSession());
 let snapshotRecorder: ReturnType<typeof createSnapshotRecorder> | undefined;
 
 /** Lazily resolve the worker-side options (from {@link resolveOptionsFromEnv}). */

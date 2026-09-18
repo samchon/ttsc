@@ -115,5 +115,5 @@ The granularity is project-level because Metro's contract admits nothing finer: 
 
 ## Caveats (v1)
 
-- **Cost model.** The transform core type-checks the whole project and caches the result per process. Metro runs a multi-process worker pool, so the project compiles once per worker, on that worker's first file. A resident incremental compiler shared across workers is the planned fix, tracked in [#255](https://github.com/samchon/ttsc/issues/255).
+- **Cost model.** The transform core type-checks the whole project. Metro runs a multi-process worker pool, and the workers share each compile through the session `withTtsc` opens: the first worker to need a project state compiles it, and the others adopt it once they have proven that state themselves. A cold build and each edit therefore compile the project once, not once per worker. A resident incremental compiler is the next step, tracked in [#255](https://github.com/samchon/ttsc/issues/255).
 - **Type errors fail the build.** The pass type-checks, and a project type error surfaces as a Metro build error, matching every other `ttsc` integration.

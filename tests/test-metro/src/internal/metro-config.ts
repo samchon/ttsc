@@ -23,7 +23,7 @@ async function withCleanEnv(body: () => Promise<void>): Promise<void> {
   const previous = process.env[ENV_KEY];
   delete process.env[ENV_KEY];
   try {
-    await body();
+    await TestMetroRuntime.confineSession(body);
   } finally {
     if (previous === undefined) {
       delete process.env[ENV_KEY];

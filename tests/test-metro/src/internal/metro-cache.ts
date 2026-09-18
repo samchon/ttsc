@@ -1351,7 +1351,9 @@ export async function assertWithTtscPreparesTheSnapshot(): Promise<void> {
   const { withTtsc } = await TestMetroRuntime.loadIndex();
   const previous = process.env[ENV_KEY];
   try {
-    const config = withTtsc({ projectRoot: root, transformer: {} });
+    const config = await TestMetroRuntime.confineSession(() =>
+      withTtsc({ projectRoot: root, transformer: {} }),
+    );
     assert.equal(typeof config.transformer.babelTransformerPath, "string");
   } finally {
     if (previous === undefined) {

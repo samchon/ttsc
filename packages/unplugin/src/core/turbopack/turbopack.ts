@@ -5,6 +5,8 @@ import { registerBuildWatchInputs } from "../bridge/registerBuildWatchInputs";
 import { isTransformTarget } from "../isTransformTarget";
 import { resolveOptions } from "../options/resolveOptions";
 import { createTtscTransformCache } from "../transform/cache/createTtscTransformCache";
+import { readTtscTransformSession } from "../transform/session/readTtscTransformSession";
+import { shareTtscTransformCache } from "../transform/session/shareTtscTransformCache";
 import { transformTtsc } from "../transform/transformTtsc";
 import { stripQuery } from "../transform/utils/stripQuery";
 import type { TtscTransformHooks } from "../transform/watch/TtscTransformHooks";
@@ -16,9 +18,12 @@ import type { TtscTurbopackLoaderContext } from "./TtscTurbopackLoaderContext";
  * never signals build boundaries to a loader, so the cache lives for the
  * worker's lifetime. Because no build-start boundary exists, every cache hit
  * validates all project and graph inputs before selecting output (see
- * `transformTtsc`).
+ * `transformTtsc`). When `withTtsc` opened a session for the pool, the workers
+ * share each compile through it instead of compiling the project once each
+ * (samchon/ttsc#1390).
  */
 const transformCache = createTtscTransformCache();
+shareTtscTransformCache(transformCache, readTtscTransformSession());
 
 /**
  * The worker's watch bridge for directory listings during `next dev`, opened by

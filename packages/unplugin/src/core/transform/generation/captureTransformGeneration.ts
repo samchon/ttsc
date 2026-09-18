@@ -17,6 +17,12 @@ import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransf
 import { createHostPathIdentityContext } from "../filesystem/createHostPathIdentityContext";
 import { collectProjectInputSnapshot } from "../project/collectProjectInputSnapshot";
 import { toProjectKey } from "../project/toProjectKey";
+import { TRANSFORM_ADOPTED_RESULTS } from "../session/TRANSFORM_ADOPTED_RESULTS";
+import type { TtscSharedCompileClaim } from "../session/TtscSharedCompileClaim";
+import { adoptedExternalInputMismatch } from "../session/adoptedExternalInputMismatch";
+import { claimSharedCompile } from "../session/claimSharedCompile";
+import { sharedCompileIdentity } from "../session/sharedCompileIdentity";
+import { sharedCompileState } from "../session/sharedCompileState";
 import type { TtscProjectMutationTracker } from "../tracker/TtscProjectMutationTracker";
 import { createHostInputMutationTracker } from "../tracker/createHostInputMutationTracker";
 import { createProjectMutationTracker } from "../tracker/createProjectMutationTracker";
@@ -66,6 +72,18 @@ export async function captureTransformGeneration(props: {
    * against its recorded state.
    */
   retainNotifications: boolean;
+  /**
+   * The pooled host session's shared compile store, when the cache shares its
+   * compiles (samchon/ttsc#1390). The attempt then takes another worker's
+   * compile of the same project state, or compiles under the session's lock and
+   * publishes its compile once proven.
+   */
+  session?: string;
+  /**
+   * Whether an existing publication may be adopted. False on the retry of an
+   * attempt whose adopted compile failed its proof here.
+   */
+  adopt?: boolean;
   trackProjectMembership: boolean;
   tsconfig: string;
 }): Promise<TtscCachedProjectTransform> {
@@ -82,6 +100,9 @@ export async function captureTransformGeneration(props: {
   let candidateTracker: TtscProjectMutationTracker | undefined;
   let retainHostInputTracker = false;
   let retainCandidateTracker = false;
+  let sharedClaim:
+    | Extract<TtscSharedCompileClaim, { kind: "compile" }>
+    | undefined;
   let captured: TtscCachedProjectTransform | undefined;
   try {
     if (props.retainProjectMembership) {
@@ -144,26 +165,59 @@ export async function captureTransformGeneration(props: {
           membershipPolicy,
         )
       : undefined;
+    // A pooled worker takes another worker's compile of exactly this project
+    // state instead of compiling the whole project again (samchon/ttsc#1390).
+    // Only a complete snapshot names a state. The adopted envelope is then
+    // proven below like one compiled here, against this worker's own
+    // filesystem and inside the window its tracker already watches.
+    const claim =
+      props.session !== undefined && before.complete
+        ? await claimSharedCompile(
+            props.session,
+            sharedCompileIdentity(props),
+            sharedCompileState({
+              directories: before.projectDirectories,
+              hashes: before.hashes,
+              tsconfigSignature: tsconfigState.signature,
+            }),
+            { adopt: props.adopt !== false },
+          )
+        : undefined;
+    if (claim?.kind === "compile") {
+      sharedClaim = claim;
+    }
+    const adopted = claim?.kind === "adopt" ? claim.publication : undefined;
+    // The envelope names paths in the scratch directory of whoever compiled
+    // it, and those are what the input selectors below must exclude.
+    const envelopeScratchDirectory =
+      adopted?.scratchDirectory ?? scratchDirectory;
+    const envelopeTemporaryTsconfig =
+      adopted === undefined ? temporaryTsconfig : adopted.temporaryTsconfig;
     // The compile runs on a worker thread that adopts the environment as it is
     // at the call, so the scratch scope covers the whole compile yet ends as
     // soon as the call returns, and the host keeps serving other work while it
     // runs (samchon/ttsc#1391).
-    const result = await withTransformScratchEnvironment(scratchDirectory, () =>
-      new TtscCompiler({
-        cwd: projectRoot,
-        // The generated tsconfig (if any) lives outside the project directory,
-        // so declare the real project as the plugin config anchor: utility
-        // plugin config discovery (banner.config.*, strip.config.*,
-        // lint.config.*) and relative configFile resolution walk the project,
-        // never the temp tree. In the passthrough case this equals the
-        // tsconfig's own directory, the default anchor.
-        pluginConfigDir: projectRoot,
-        plugins: props.plugins,
-        projectRoot,
-        tsconfig: configured.path,
-        env: compilerEnvironment,
-      }).transformAsync(),
-    );
+    const result =
+      adopted?.result ??
+      (await withTransformScratchEnvironment(scratchDirectory, () =>
+        new TtscCompiler({
+          cwd: projectRoot,
+          // The generated tsconfig (if any) lives outside the project directory,
+          // so declare the real project as the plugin config anchor: utility
+          // plugin config discovery (banner.config.*, strip.config.*,
+          // lint.config.*) and relative configFile resolution walk the project,
+          // never the temp tree. In the passthrough case this equals the
+          // tsconfig's own directory, the default anchor.
+          pluginConfigDir: projectRoot,
+          plugins: props.plugins,
+          projectRoot,
+          tsconfig: configured.path,
+          env: compilerEnvironment,
+        }).transformAsync(),
+      ));
+    if (adopted !== undefined) {
+      TRANSFORM_ADOPTED_RESULTS.add(result);
+    }
     TRANSFORM_RESULT_FILESYSTEM.set(result, props.filesystem);
     const configStable =
       tsconfigState.signature === undefined ||
@@ -180,16 +234,16 @@ export async function captureTransformGeneration(props: {
       filesystem: props.filesystem,
       projectRoot,
       result,
-      scratchDirectory,
-      temporaryTsconfig,
+      scratchDirectory: envelopeScratchDirectory,
+      temporaryTsconfig: envelopeTemporaryTsconfig,
     });
     const externalInputPaths = selectExternalInputPaths({
       filesystem: props.filesystem,
       membershipPolicy,
       projectRoot,
       result,
-      scratchDirectory,
-      temporaryTsconfig,
+      scratchDirectory: envelopeScratchDirectory,
+      temporaryTsconfig: envelopeTemporaryTsconfig,
     });
     const persistentValidationInputs = [
       ...new Set([...persistentHostInputs, ...externalInputPaths]),
@@ -208,8 +262,8 @@ export async function captureTransformGeneration(props: {
             filesystem: props.filesystem,
             projectRoot,
             result,
-            scratchDirectory,
-            temporaryTsconfig,
+            scratchDirectory: envelopeScratchDirectory,
+            temporaryTsconfig: envelopeTemporaryTsconfig,
           })
         : { candidates: [], watched: [] };
     hostInputTracker =
@@ -281,7 +335,7 @@ export async function captureTransformGeneration(props: {
       projectInputHashes: inputSnapshot.hashes,
       projectRoot,
       result,
-      scratchDirectory,
+      scratchDirectory: envelopeScratchDirectory,
     });
     // The before/after snapshots prove bytes and metadata. Drain the watcher
     // opened before compilation as the independent A-B-A witness: a producer
@@ -365,12 +419,14 @@ export async function captureTransformGeneration(props: {
       projectSnapshotComplete: false,
       projectRoot,
       result,
-      scratchDirectory,
+      scratchDirectory: envelopeScratchDirectory,
       servedFiles: new Set(),
       // Remember the generated temp-dir tsconfig (disposed below) so watch
       // derivation can drop it from the envelope's config chain; a registered
       // but deleted file would invalidate every persistent-cache snapshot.
-      ...(temporaryTsconfig === undefined ? {} : { temporaryTsconfig }),
+      ...(envelopeTemporaryTsconfig === undefined
+        ? {}
+        : { temporaryTsconfig: envelopeTemporaryTsconfig }),
     };
     cached.sourceHashes = captureTransformSourceHashes(
       cached,
@@ -388,6 +444,33 @@ export async function captureTransformGeneration(props: {
     cached.externalInputObservations = externalInputSnapshot.observations;
     cached.externalInputRealpaths = externalInputSnapshot.realpaths;
     cached.externalInputSignatures = externalInputSnapshot.signatures;
+    // Publish only a successful compile whose snapshot held for the whole
+    // compile, so the state it is published under is the state it read. A
+    // failed envelope stays local: it may come from a transient plugin crash,
+    // which each worker must be free to attempt again, as without sharing.
+    // The external inputs a plugin reports carry no compile-time proof, only
+    // the state recorded right after the compile, so that state travels with
+    // the publication for every adopter to match (samchon/ttsc#1390).
+    // Releasing the lock without publishing lets the next waiter compile.
+    if (sharedClaim !== undefined) {
+      if (walkStable && result.type === "success") {
+        await sharedClaim.publish({
+          externalInputHashes: externalInputSnapshot.hashes,
+          externalInputRealpaths: externalInputSnapshot.realpaths,
+          result,
+          scratchDirectory,
+          ...(temporaryTsconfig === undefined ? {} : { temporaryTsconfig }),
+        });
+      }
+      sharedClaim.release();
+    }
+    // An adopted compile holds only while every external input still has the
+    // state its publisher recorded after compiling. Recording this worker's
+    // own reading instead would claim the compile saw inputs it never read.
+    const adoptionFailure =
+      adopted === undefined
+        ? undefined
+        : adoptedExternalInputMismatch(adopted, externalInputSnapshot);
     // Evaluate every half, rather than short-circuiting, so a generation that
     // cannot be reused can say which evidence it lacked. The extra work runs
     // only on the failing path, where the alternative is recompiling the whole
@@ -410,6 +493,13 @@ export async function captureTransformGeneration(props: {
         tracker,
       });
     }
+    if (adoptionFailure !== undefined) {
+      recordGenerationProofFailure(failures, {
+        domain: "external",
+        kind: "adopted-state-changed",
+        path: adoptionFailure,
+      });
+    }
     const graphFailures = compilerGraphInputProofFailures(cached);
     mergeGenerationProofFailures(failures, graphFailures);
     mergeGenerationProofFailures(failures, externalInputSnapshot.failures);
@@ -430,6 +520,7 @@ export async function captureTransformGeneration(props: {
       walkStable &&
       graphProofs &&
       externalInputSnapshot.complete &&
+      adoptionFailure === undefined &&
       universalInputs;
     if (!stableProjectSnapshot) {
       TRANSFORM_GENERATION_FAILURES.set(result, failures);
@@ -480,6 +571,8 @@ export async function captureTransformGeneration(props: {
     }
     captured = cached;
   } finally {
+    // Waiters must never block on a lock whose holder threw.
+    sharedClaim?.release();
     let cleanupFailed = false;
     let cleanupFailure: unknown;
     try {

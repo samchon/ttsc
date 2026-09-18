@@ -4,6 +4,7 @@ import type { ResolvedTtscUnpluginOptions } from "../../options/ResolvedTtscUnpl
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { disposeCachedTransform } from "../cache/disposeCachedTransform";
 import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransformFilesystemOperations";
+import { TRANSFORM_ADOPTED_RESULTS } from "../session/TRANSFORM_ADOPTED_RESULTS";
 import { TRANSFORM_FAILED_GENERATION_VALIDATIONS } from "./TRANSFORM_FAILED_GENERATION_VALIDATIONS";
 import { TRANSFORM_GENERATION_FAILURES } from "./TRANSFORM_GENERATION_FAILURES";
 import type { TtscGenerationProofFailures } from "./TtscGenerationProofFailures";
@@ -47,12 +48,18 @@ export async function transformProject(props: {
    * against its recorded state.
    */
   retainNotifications: boolean;
+  /**
+   * The pooled host session's shared compile store, when the cache shares its
+   * compiles (samchon/ttsc#1390).
+   */
+  session?: string;
   trackProjectMembership: boolean;
   tsconfig: string;
 }): Promise<TtscCachedProjectTransform> {
   const attempts: TtscGenerationProofFailures[] = [];
+  let adopt = true;
   for (let attempt = 0; attempt < TRANSFORM_GENERATION_ATTEMPTS; attempt += 1) {
-    const cached = await captureTransformGeneration(props);
+    const cached = await captureTransformGeneration({ ...props, adopt });
     if (
       cached.configStateComplete !== false &&
       (cached.result.type !== "success" ||
@@ -64,6 +71,9 @@ export async function transformProject(props: {
       TRANSFORM_GENERATION_FAILURES.get(cached.result) ??
         createGenerationProofFailures(),
     );
+    // Another worker's compile that failed its proof here would be found again
+    // by the retry, so the retry compiles, and replaces the publication.
+    if (TRANSFORM_ADOPTED_RESULTS.has(cached.result)) adopt = false;
     if (attempt + 1 === TRANSFORM_GENERATION_ATTEMPTS) {
       const validation = TRANSFORM_FAILED_GENERATION_VALIDATIONS.get(
         cached.result,

@@ -142,7 +142,7 @@ const nextConfig = {
 export default nextConfig;
 ```
 
-Pass options through the rule's `options` object: `{ loader: "@ttsc/unplugin/turbopack", options: { project: "tsconfig.build.json" } }`. The loader keeps a per-worker compiler cache (Turbopack runs loaders in a worker pool) and returns the source unchanged for everything the adapters' shared filter excludes (declaration files, `node_modules` paths, non-TypeScript sources, and virtual ids) and for transforms that produce no change.
+Pass options through the rule's `options` object: `{ loader: "@ttsc/unplugin/turbopack", options: { project: "tsconfig.build.json" } }`. The loader keeps a per-worker compiler cache (Turbopack runs loaders in a worker pool); under `withTtsc` the workers share each compile through a session, so the pool compiles a project state once rather than once per worker. It returns the source unchanged for everything the adapters' shared filter excludes (declaration files, `node_modules` paths, non-TypeScript sources, and virtual ids) and for transforms that produce no change.
 
 ### Farm
 
