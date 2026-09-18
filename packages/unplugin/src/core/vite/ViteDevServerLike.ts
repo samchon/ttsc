@@ -10,8 +10,15 @@ import type { ViteModuleGraphLike } from "./ViteModuleGraphLike";
  * carries.
  */
 export interface ViteDevServerLike {
-  /** Resolved config; only `root` is read, to anchor the project scope. */
-  config?: { root?: string };
+  /**
+   * Resolved config. `root` anchors the project scope, and
+   * `server.watch.usePolling` declares that native notifications cannot be
+   * trusted on this filesystem.
+   */
+  config?: {
+    root?: string;
+    server?: { watch?: { usePolling?: boolean } | null };
+  };
   /** Per-environment graphs and channels under the environment API (Vite 6+). */
   environments?: Record<string, ViteEnvironmentLike>;
   /** The server-level channel; in Vite 6+ an alias of the client environment's. */

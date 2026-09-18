@@ -40,6 +40,13 @@ export async function transformProject(props: {
   filesystem: TtscTransformFilesystemOperations;
   plugins?: ResolvedTtscUnpluginOptions["plugins"];
   retainProjectMembership: boolean;
+  /**
+   * Whether the generation may keep watchers whose silence stands in for
+   * re-reading its inputs. False once the host or the environment declares
+   * polling (samchon/ttsc#1395); the generation then validates every delivery
+   * against its recorded state.
+   */
+  retainNotifications: boolean;
   trackProjectMembership: boolean;
   tsconfig: string;
 }): Promise<TtscCachedProjectTransform> {

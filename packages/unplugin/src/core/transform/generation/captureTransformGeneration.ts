@@ -58,6 +58,13 @@ export async function captureTransformGeneration(props: {
   filesystem: TtscTransformFilesystemOperations;
   plugins?: ResolvedTtscUnpluginOptions["plugins"];
   retainProjectMembership: boolean;
+  /**
+   * Whether the generation may keep watchers whose silence stands in for
+   * re-reading its inputs. False once the host or the environment declares
+   * polling (samchon/ttsc#1395); the generation then validates every delivery
+   * against its recorded state.
+   */
+  retainNotifications: boolean;
   trackProjectMembership: boolean;
   tsconfig: string;
 }): Promise<TtscCachedProjectTransform> {
@@ -190,35 +197,37 @@ export async function captureTransformGeneration(props: {
     // Derived only where a retained tracker could carry it: a build-scoped
     // adapter keeps only the compile-time project observer, so probing every
     // candidate here would be work whose answer nothing can later read.
-    const notifiableAbsence = props.retainProjectMembership
-      ? selectNotifiableAbsentInputs({
-          filesystem: props.filesystem,
-          projectRoot,
-          result,
-          scratchDirectory,
-          temporaryTsconfig,
-        })
-      : { candidates: [], watched: [] };
-    hostInputTracker = props.retainProjectMembership
-      ? await createHostInputMutationTracker(
-          persistentValidationInputs,
-          props.filesystem,
-          // A universal input never reaches the per-input loop that consults a
-          // coverage claim: an absent one is proven by its directory listing
-          // instead, which re-resolves the spelling every delivery.
-          new Set(
-            persistentValidationInputs.map((input) => path.resolve(input)),
-          ),
-          "all",
-          projectRoot,
-          trackedInputScopes({
+    const notifiableAbsence =
+      props.retainProjectMembership && props.retainNotifications
+        ? selectNotifiableAbsentInputs({
             filesystem: props.filesystem,
-            inputs: persistentValidationInputs,
             projectRoot,
             result,
-          }),
-        )
-      : undefined;
+            scratchDirectory,
+            temporaryTsconfig,
+          })
+        : { candidates: [], watched: [] };
+    hostInputTracker =
+      props.retainProjectMembership && props.retainNotifications
+        ? await createHostInputMutationTracker(
+            persistentValidationInputs,
+            props.filesystem,
+            // A universal input never reaches the per-input loop that consults a
+            // coverage claim: an absent one is proven by its directory listing
+            // instead, which re-resolves the spelling every delivery.
+            new Set(
+              persistentValidationInputs.map((input) => path.resolve(input)),
+            ),
+            "all",
+            projectRoot,
+            trackedInputScopes({
+              filesystem: props.filesystem,
+              inputs: persistentValidationInputs,
+              projectRoot,
+              result,
+            }),
+          )
+        : undefined;
     // The candidates and the directories carrying them get their own tracker,
     // listening for renames alone. Every event that can make one of these
     // paths appear is a rename — the file itself, or a component of the path
@@ -437,6 +446,7 @@ export async function captureTransformGeneration(props: {
     // and validates through it, rather than losing the cache entirely.
     const notifying =
       props.retainProjectMembership &&
+      props.retainNotifications &&
       stableProjectSnapshot &&
       notificationsAvailable;
     if (notifying && tracker !== undefined) {

@@ -10,7 +10,9 @@ import type { TtscUnpluginOptions } from "./options/TtscUnpluginOptions";
 import { resolveOptions } from "./options/resolveOptions";
 import { beginTtscTransformBuild } from "./transform/cache/beginTtscTransformBuild";
 import { createTtscTransformCache } from "./transform/cache/createTtscTransformCache";
+import { declareTtscTransformPolling } from "./transform/cache/declareTtscTransformPolling";
 import { resetTtscTransformCache } from "./transform/cache/resetTtscTransformCache";
+import { hostDeclaresPolling } from "./transform/tracker/hostDeclaresPolling";
 import { transformTtsc } from "./transform/transformTtsc";
 import { stripQuery } from "./transform/utils/stripQuery";
 import { createViteServeInputWatch } from "./vite/createViteServeInputWatch";
@@ -85,6 +87,21 @@ const unpluginFactory: UnpluginFactory<
         // `build.watch` is absent or `null` unless `--watch` supplies one.
         viteBuildWatching =
           (config as { build?: { watch?: unknown } }).build?.watch != null;
+        // A server told to poll has said native notifications do not work on
+        // its filesystem, so no generation may take a watcher's silence as
+        // proof there (samchon/ttsc#1395). Vite's chokidar reads the same
+        // environment override `hostDeclaresPolling` does.
+        declareTtscTransformPolling(
+          transformCache,
+          hostDeclaresPolling(
+            process.env,
+            (
+              config as {
+                server?: { watch?: { usePolling?: boolean } | null };
+              }
+            ).server?.watch?.usePolling === true,
+          ),
+        );
       },
       // Compiler dependencies belong to the filesystem watch graph. Vite's
       // transform-context addWatchFile also inserts runtime imports, so none

@@ -4,6 +4,7 @@ import { createFilesystemPathIdentityContext } from "ttsc/path-identity";
 
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import { validateGraphInputObservation } from "../transform/inputs/validateGraphInputObservation";
+import { hostDeclaresPolling } from "../transform/tracker/hostDeclaresPolling";
 import { watchLocationIdentity } from "../transform/tracker/watchLocationIdentity";
 import type { TtscWatchInputBaseline } from "../transform/watch/TtscWatchInputBaseline";
 import { captureWatchInputBaseline } from "../transform/watch/captureWatchInputBaseline";
@@ -55,6 +56,10 @@ export function createViteServeInputWatch(
   const changes = new Map<string, number>();
   let server: ViteDevServerLike | undefined;
   let projectRoot: string | undefined;
+  // Whether the server declared polling, which leaves native notifications
+  // unproven on its filesystem, so every entry goes to the bounded poll
+  // (samchon/ttsc#1395).
+  let polling = false;
   let changeSequence = 0;
   let historyFloor = 0;
   let linkIterator: MapIterator<[string, LinkedPath]> | undefined;
@@ -413,6 +418,7 @@ export function createViteServeInputWatch(
     external: boolean,
     file: string,
   ): boolean => {
+    if (polling) return false;
     // An ancestor of the project root belongs to the machine, not to the
     // project: TypeScript-Go probes `node_modules` in every ancestor, so a
     // missing probe there would otherwise open a recursive observer on a home
@@ -632,7 +638,11 @@ export function createViteServeInputWatch(
     attach(next) {
       server = next;
       projectRoot = path.resolve(next.config?.root ?? process.cwd());
-      ensureScope(projectRoot, false, true);
+      polling = hostDeclaresPolling(
+        process.env,
+        next.config?.server?.watch?.usePolling === true,
+      );
+      if (!polling) ensureScope(projectRoot, false, true);
     },
     begin() {
       return changeSequence;

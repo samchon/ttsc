@@ -12,6 +12,7 @@ import { evictGeneration } from "./cache/evictGeneration";
 import { replaysTerminalGeneration } from "./cache/replaysTerminalGeneration";
 import { selectOrEvict } from "./cache/selectOrEvict";
 import { transformCacheEpoch } from "./cache/transformCacheEpoch";
+import { transformCacheTrustsNotifications } from "./cache/transformCacheTrustsNotifications";
 import { transformFilesystem } from "./cache/transformFilesystem";
 import { reportMissingProgramOutput } from "./diagnostics/reportMissingProgramOutput";
 import { reportSuccessDiagnostics } from "./diagnostics/reportSuccessDiagnostics";
@@ -196,6 +197,8 @@ export async function transformTtsc(
         // attempt; persistent adapters retain it to make later validations
         // constant-cost while the generation remains live.
         retainProjectMembership: cache !== undefined && epoch === undefined,
+        // Under declared polling, silence from a native watcher proves nothing.
+        retainNotifications: transformCacheTrustsNotifications(cache),
         trackProjectMembership: cache !== undefined,
         tsconfig,
       });

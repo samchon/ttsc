@@ -332,6 +332,14 @@ A candidate whose watch could not be opened, whose watcher has since failed, or 
 
 What none of that covers is a filesystem that accepts a watch and then reports nothing, which some network mounts do. That is the same assumption the project-membership proof beside it already rests on, though a wider one here, since the project walk skips `node_modules` and a candidate under it was never covered by that proof. A project on such a mount should be treated as one where notifications do not work rather than one where they merely have not fired.
 
+Declare that the way your tools already expect, and ttsc honors the same declaration. A generation then keeps no watcher, and every delivery validates against the recorded snapshot. Each declaration is read exactly as the tool that owns it reads it:
+
+- Vite's `server.watch.usePolling`. With it, the dev server's compiler-input watcher opens no native observer either, and every compiler input goes to the bounded poll, which checks at most 64 inputs every 500 ms.
+- `CHOKIDAR_USEPOLLING`, which overrides `usePolling` inside Vite: `false` and `0` turn polling off, and any other non-empty value turns it on.
+- `WATCHPACK_POLLING`, which webpack and Next.js read: a number polls unless it is `0`, and any other value polls unless it is empty or `false`.
+
+Without a declaration, native observers keep their bounded cost, and an unchanged generation still costs one metadata check per delivery.
+
 The barrier that lets a synchronous edit reach those watchers before a delivery reads their verdict is the watcher's own acknowledgement rather than a fixed wait. An in-process watcher answers on the next turn of the loop its callbacks are queued on, and the Windows broker answers by an ordered round-trip, so a delivery waits for the crossing instead of guessing at it.
 
 ### Narrowing by declared completeness
