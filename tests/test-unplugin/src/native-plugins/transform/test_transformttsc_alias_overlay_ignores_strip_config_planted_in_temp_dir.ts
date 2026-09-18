@@ -13,9 +13,17 @@ import { aliasFor } from "../../internal/transform-utility-plugin-config/aliasFo
 import { createUtilityPluginProject } from "../../internal/transform-utility-plugin-config/createUtilityPluginProject";
 
 /**
- * Verifies the temp-walk hazard guard: a `strip.config.json` planted in the
- * directory that holds the generated tsconfig's temp tree must NOT be honored —
- * the project's own config wins.
+ * Verifies a `strip.config.json` planted in the system temp directory is never
+ * honored.
+ *
+ * The generated tsconfig lives under the temp directory. A plugin that
+ * discovered its config by walking up from there would read whatever another
+ * process left behind instead of the project's own file.
+ *
+ * 1. Create a strip project, and plant a conflicting `strip.config.json` in a temp
+ *    directory.
+ * 2. Point `TMPDIR`, `TEMP`, and `TMP` at it and transform with a bundler alias.
+ * 3. Assert the project's config wins, then restore the environment.
  */
 export async function test_transformttsc_alias_overlay_ignores_strip_config_planted_in_temp_dir(): Promise<void> {
   const { resolveOptions, transformTtsc } =

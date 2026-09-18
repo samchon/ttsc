@@ -11,9 +11,15 @@ import { cacheEntry } from "../../internal/transform-external/cacheEntry";
 import { emitGraphPlugins } from "../../internal/transform-graph/emitGraphPlugins";
 
 /**
- * Verifies invalidation flows through a reference-graph edge alone: the plugin
- * never reads the external file, only the host graph names it, so a content
- * edit is observable purely as a replaced cache generation.
+ * Verifies invalidation flows through a reference-graph edge alone.
+ *
+ * The plugin never reads the external file; only the host graph names it. A
+ * content edit is then observable purely as a replaced generation, which proves
+ * the graph edge by itself is enough to invalidate.
+ *
+ * 1. Transform an entry whose graph edges to an external declaration.
+ * 2. Change the external declaration.
+ * 3. Transform again and assert the generation was replaced.
  */
 export async function test_transformttsc_invalidates_project_cache_through_an_external_graph_edge(): Promise<void> {
   const { resolveOptions, transformTtsc, createTtscTransformCache } =

@@ -5,12 +5,18 @@ import type { BunRegister } from "../../internal/adapter-bun-register/BunRegiste
 import type { CapturedPlugin } from "../../internal/adapter-bun-register/CapturedPlugin";
 
 /**
- * Verifies the `bun-register` runtime entry: importing it off Bun is a harmless
- * no-op, an explicit `register()` off Bun throws a clear error, and under a
- * Bun-like global it forwards the `ttsc-unplugin` adapter to `Bun.plugin`.
+ * Verifies the `bun-register` runtime entry registers the adapter with
+ * `Bun.plugin` and refuses to run off Bun.
  *
- * Stubs `globalThis.Bun` so no real Bun runtime is required, and imports the
- * built ESM entrypoint so the published module, not its source, is exercised.
+ * Importing the entry off Bun must stay a harmless no-op, but an explicit
+ * `register()` off Bun is a configuration mistake and must say so. The built
+ * ESM entry is exercised, not its source, with a stubbed `Bun` global.
+ *
+ * 1. Call `register()` without a `Bun` global and assert it throws a Bun runtime
+ *    error.
+ * 2. Install a `Bun` stub and call `register()`.
+ * 3. Assert exactly one `ttsc-unplugin` plugin with a `setup` function reached
+ *    `Bun.plugin`.
  */
 export async function test_bun_register_preloads_the_runtime_transform_plugin(): Promise<void> {
   const register = registerBunRuntime as unknown as BunRegister;

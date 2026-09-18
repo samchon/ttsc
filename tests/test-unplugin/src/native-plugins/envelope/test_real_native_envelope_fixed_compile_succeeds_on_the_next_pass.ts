@@ -6,10 +6,13 @@ import { startFailingCompile } from "../../internal/transform-terminal-verdict/s
 /**
  * Verifies a corrected project compiles again on the next pass.
  *
- * The property the per-delivery eviction was protecting: retention must never
- * become a dead end. Recovery arrives at the pass boundary rather than through
- * a special case, and the corrected delivery has to produce real output rather
- * than merely a different verdict.
+ * Retention must never become a dead end. Recovery arrives at the pass boundary
+ * rather than through a special case, and the corrected delivery has to produce
+ * real output rather than merely a different verdict.
+ *
+ * 1. Open a pass and deliver a module of a failing project.
+ * 2. Fix the broken file and open a new pass.
+ * 3. Deliver the module again and assert it transforms.
  */
 export async function test_real_native_envelope_fixed_compile_succeeds_on_the_next_pass(): Promise<void> {
   const { api, brokenFile, cache, deliver, modules } =

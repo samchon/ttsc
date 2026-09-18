@@ -4,8 +4,19 @@ import assert from "node:assert/strict";
 import { primeSuccessfulTransform } from "../../internal/transform-project-cache/primeSuccessfulTransform";
 
 /**
- * Verifies a caller awaiting an old but otherwise matching generation retries
- * when a sibling caller replaces that generation.
+ * Verifies a caller awaiting an old but matching generation retries when a
+ * sibling caller replaces it.
+ *
+ * Concurrent callers share one in-flight generation. If a sibling replaced it
+ * while this caller was waiting, the old one may still match this caller's
+ * source, yet it is no longer the cache's answer, and serving it would return
+ * output the cache itself has already discarded.
+ *
+ * 1. Prime a successful generation, and install a stale but matching one under the
+ *    same key.
+ * 2. Start a delivery, then let a mismatching caller replace the generation while
+ *    it waits.
+ * 3. Assert the waiting delivery does not return the superseded output.
  */
 export async function test_transformttsc_does_not_serve_a_superseded_matching_generation(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.

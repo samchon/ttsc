@@ -6,15 +6,19 @@ import { createLinkedPluginProject } from "../../internal/transform-linked-compl
 import { watchesTypeSibling } from "../../internal/transform-linked-completeness/watchesTypeSibling";
 
 /**
- * Verifies the declaration survives a compile through the generated tsconfig.
+ * Verifies the completeness declaration survives a compile through the
+ * generated tsconfig.
  *
- * Any bundler alias makes the adapter compile through a wrapper tsconfig in the
- * system temp directory, so the host's cwd is no longer the project root and
- * every envelope section — `typescript`, `graph`, and now
- * `dependenciesComplete` — is keyed as an absolute path instead of a
- * project-relative one. A declaration the consumer cannot join back to the file
- * it names would silently stop narrowing, which is invisible except as the cost
- * it was supposed to remove.
+ * A bundler alias makes the adapter compile through a wrapper tsconfig in the
+ * system temp directory, so the host's working directory is no longer the
+ * project root and every envelope section, `dependenciesComplete` included, is
+ * keyed by absolute path instead of project-relative path. A declaration the
+ * adapter cannot join back to its file would silently stop narrowing, which is
+ * invisible except as the cost it was meant to remove.
+ *
+ * 1. Create a project whose only plugin is `@ttsc/banner`.
+ * 2. Collect the entry module's watch inputs with a bundler alias.
+ * 3. Assert the type-only sibling is absent.
  */
 export async function test_transformttsc_banner_narrows_through_the_alias_overlay(): Promise<void> {
   const project = createLinkedPluginProject(["banner"]);

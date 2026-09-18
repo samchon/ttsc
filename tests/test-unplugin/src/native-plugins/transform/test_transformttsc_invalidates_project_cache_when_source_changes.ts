@@ -3,8 +3,15 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 /**
- * Verifies that modifying the file being transformed causes the next
- * `transformTtsc` call to produce fresh output rather than a stale cache hit.
+ * Verifies editing the module being transformed produces fresh output instead
+ * of a stale cache hit.
+ *
+ * The module's own source is the input the bundler supplies. A cache keyed only
+ * by path would hand back the first output after the file changed.
+ *
+ * 1. Transform the entry through a cache.
+ * 2. Rewrite the entry with different content.
+ * 3. Transform again and assert the output reflects the new content.
  */
 export async function test_transformttsc_invalidates_project_cache_when_source_changes(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =

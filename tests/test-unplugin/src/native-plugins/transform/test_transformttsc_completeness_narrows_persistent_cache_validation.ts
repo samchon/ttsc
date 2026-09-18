@@ -12,10 +12,17 @@ import { cacheEntry } from "../../internal/transform-external/cacheEntry";
 import { emitGraphPlugins } from "../../internal/transform-graph/emitGraphPlugins";
 
 /**
- * Verifies a completeness declaration narrows persistent transform validation
- * as well as bundler watch registration. The plugin has transferred ownership
- * of the file's complete dependency set, so an undeclared graph member cannot
- * keep imposing whole-envelope reads on every delivery.
+ * Verifies a completeness declaration narrows persistent cache validation as
+ * well as watch registration.
+ *
+ * A plugin that declares a file's dependency list complete takes ownership of
+ * that set. An undeclared graph member must then stop imposing whole-envelope
+ * reads on every delivery, just as it stops being registered for watching.
+ *
+ * 1. Transform an entry whose graph edges to an external declaration, with the
+ *    entry declared complete and no dependencies reported.
+ * 2. Change the external declaration.
+ * 3. Transform again and assert the same cached generation is served.
  */
 export async function test_transformttsc_completeness_narrows_persistent_cache_validation(): Promise<void> {
   const { resolveOptions, transformTtsc, createTtscTransformCache } =

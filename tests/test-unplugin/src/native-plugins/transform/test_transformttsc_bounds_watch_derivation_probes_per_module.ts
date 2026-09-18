@@ -7,15 +7,20 @@ import { createCacheProject } from "../../internal/transform-project-cache/creat
 import { projectModules } from "../../internal/transform-project-cache/projectModules";
 
 /**
- * Verifies samchon/ttsc#1007: cache-hit sibling deliveries of one graph-bearing
- * generation do not re-probe the filesystem per module.
+ * Verifies cache-hit sibling deliveries of one graph-bearing generation do not
+ * re-probe the filesystem per module (samchon/ttsc#1007).
  *
  * Watch-input derivation must pay the graph's identity computations once per
- * generation; after that a delivery costs only its own memoized lookups. The
+ * generation; after that a delivery costs only its own memoized lookups. Before
+ * the fix every delivery re-walked the whole edge set with filesystem work per
+ * path, which scaled O(modules x edges) into the samchon/ttsc#970 stall. The
  * probe counter observes the shared path-identity resolver's physical-path
- * lookup on every host, so the bound holds identically across CI platforms.
- * Before the fix every delivery re-walked the whole edge set with filesystem
- * work per path, which scaled O(modules x edges) into the #970 residual stall.
+ * lookup on every host, so the bound holds identically across platforms.
+ *
+ * 1. Open a pass over a project whose graph fans out to 24 externals, counting
+ *    `realpath` probes.
+ * 2. Deliver every module and record its watch inputs.
+ * 3. Assert the probes per cache-hit delivery stay within the fan-out bound.
  */
 export async function test_transformttsc_bounds_watch_derivation_probes_per_module(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.

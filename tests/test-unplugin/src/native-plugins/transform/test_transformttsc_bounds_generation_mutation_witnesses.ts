@@ -5,7 +5,20 @@ import path from "node:path";
 
 import { createCacheProject } from "../../internal/transform-project-cache/createCacheProject";
 
-/** A generation retains only bounded diagnostic paths from a mutation burst. */
+/**
+ * Verifies a generation keeps only a bounded number of paths from a burst of
+ * mutation events.
+ *
+ * A retained generation records the paths its project watch reports, as
+ * witnesses for later diagnostics. An unbounded record would grow with every
+ * event a busy directory produces for the life of the generation, so extra
+ * paths must collapse into one omission flag.
+ *
+ * 1. Compile a project through a cache whose watch hands out its listeners, and
+ *    assert the generation retains its project watch.
+ * 2. Fire 32 rename events.
+ * 3. Assert eight paths are kept and the omission flag is set.
+ */
 export async function test_transformttsc_bounds_generation_mutation_witnesses(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.
   TestUnpluginProject.ensureSharedCacheDir();

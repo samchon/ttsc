@@ -11,9 +11,10 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  * candidate that appears must still replace the generation.
  *
  * The recorded `missing` marker is state, not the absence of state, so the
- * negative twin of `assertUnprovenCandidatesKeepOneCompile` is that creating
- * the higher-priority spelling changes resolution and therefore must recompile
- * the project.
+ * negative twin of
+ * `test_transformttsc_caches_one_compile_with_unproven_resolution_candidates`
+ * is that creating the higher-priority spelling changes resolution and
+ * therefore must recompile the project.
  *
  * 1. Deliver one module from a generation that recorded three missing candidates.
  * 2. Create the first candidate on disk.

@@ -6,7 +6,20 @@ import path from "node:path";
 import { createCacheProject } from "../../internal/transform-project-cache/createCacheProject";
 import { projectModules } from "../../internal/transform-project-cache/projectModules";
 
-/** Assert concurrent caches neither share counters nor propagate one fault. */
+/**
+ * Verifies concurrent caches neither share filesystem operations nor propagate
+ * each other's faults.
+ *
+ * Filesystem operations are injected per cache. If one cache's operations
+ * leaked into module-level state, a second project would be read through the
+ * first project's hooks and fail with its injected fault.
+ *
+ * 1. Create two projects, each with a cache whose operations count reads and the
+ *    first of which injects a directory-listing failure.
+ * 2. Transform both concurrently.
+ * 3. Assert only the first rejects, each cache read its own project, and the first
+ *    cache's fault never observed the second project.
+ */
 export async function test_transformttsc_filesystem_operations_are_cache_local(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.
   TestUnpluginProject.ensureSharedCacheDir();

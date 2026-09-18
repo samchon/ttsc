@@ -5,7 +5,21 @@ import path from "node:path";
 
 import { createCacheProject } from "../../internal/transform-project-cache/createCacheProject";
 
-/** Independent graph leaves must retain the same compiler-proof invariant. */
+/**
+ * Verifies an A-B-A race on an independent graph leaf is discarded like any
+ * other project input.
+ *
+ * A leaf with no graph edges is still a compiler input, so the proof that
+ * discards a transiently changed and restored input must cover it too. Without
+ * that, a leaf nothing else depends on would be the one place transient output
+ * could settle.
+ *
+ * 1. Create a project whose independent leaf is rewritten and restored during the
+ *    first compile.
+ * 2. Deliver the entry, then the leaf.
+ * 3. Assert the output carries no transient text, and the stable generation came
+ *    from a second compile.
+ */
 export async function test_transformttsc_independent_graph_leaf_compile_snapshot_aba_race_cannot_authorize_stale_output(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.
   TestUnpluginProject.ensureSharedCacheDir();

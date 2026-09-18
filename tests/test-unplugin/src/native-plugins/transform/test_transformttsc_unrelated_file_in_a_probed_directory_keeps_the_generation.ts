@@ -6,13 +6,17 @@ import path from "node:path";
 import { createNestedUtilityPluginProject } from "../../internal/transform-utility-plugin-config/createNestedUtilityPluginProject";
 
 /**
- * Verifies an unrelated file in a probed directory does not invalidate
- * anything.
+ * Verifies an unrelated file in a directory discovery probed does not
+ * invalidate anything.
  *
- * The twin of the supersession case. The probes make a set of paths matter that
- * did not before, and a generation that woke for any neighbour of them would
- * trade one defect for a worse one: the config directories are ordinary
- * directories with ordinary traffic.
+ * This is the twin of the supersession case. The probes make a set of paths
+ * matter, and a generation that woke for any neighbour of them would trade one
+ * defect for a worse one, since config directories carry ordinary traffic.
+ *
+ * 1. Transform a project whose banner config was found above a probed middle
+ *    directory.
+ * 2. Create an unrelated file in the probed directory.
+ * 3. Transform again and assert the generation is kept.
  */
 export async function test_transformttsc_unrelated_file_in_a_probed_directory_keeps_the_generation(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =

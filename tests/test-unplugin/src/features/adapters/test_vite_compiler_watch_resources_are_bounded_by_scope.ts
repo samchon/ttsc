@@ -6,7 +6,19 @@ import { performance } from "node:perf_hooks";
 
 import { createViteServeInputWatch } from "../../../../../packages/unplugin/lib/core/vite/createViteServeInputWatch.js";
 
-/** Prove native watch resources stay constant as the compiler graph grows. */
+/**
+ * Verifies native watch resources stay constant as the compiler graph grows.
+ *
+ * A dev server can register tens of thousands of compiler inputs. Opening a
+ * native watcher per input would exhaust descriptors, so every input below the
+ * project root must share the one pinned recursive observer, which lives as
+ * long as the attached server.
+ *
+ * 1. Attach a watcher and register 12,000 generated inputs below the project root.
+ * 2. Assert only the pinned project observer is open, and removing inputs does not
+ *    reopen it.
+ * 3. Dispose and assert no observer remains and none is closed twice.
+ */
 export async function test_vite_compiler_watch_resources_are_bounded_by_scope(): Promise<void> {
   const root = fs.realpathSync.native(
     TestProject.tmpdir("ttsc-vite-watch-cardinality-"),

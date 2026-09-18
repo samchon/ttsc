@@ -14,7 +14,24 @@ import { programRuns } from "../../internal/real-native-envelope/programRuns";
 import { resetRunLog } from "../../internal/real-native-envelope/resetRunLog";
 import { waitFor } from "../../internal/real-native-envelope/waitFor";
 
-/** Assert persistent and build-scoped core delivery plus Vite wiring. */
+/**
+ * Verifies the real native host serves every sibling module from one compile,
+ * in the core cache and through Vite serve.
+ *
+ * The production envelope, not a synthetic one, is what persistent and
+ * build-scoped delivery must reuse. Vite adds its own module graph and
+ * file-change channel on top, so the adapter's wiring has to keep one host
+ * invocation across siblings, preserve cached transforms across unchanged
+ * polls, and invalidate only the importers a changed predicate owns.
+ *
+ * 1. Deliver every module through the core cache, persistent and build-scoped, and
+ *    assert one host invocation each.
+ * 2. Serve the fixture through Vite and assert sibling requests share one
+ *    invocation, and unchanged polls keep every cached transform.
+ * 3. Turn a candidate directory into a file and assert only its importer is
+ *    invalidated, a full reload is announced, and nothing recompiles until Vite
+ *    requests it again.
+ */
 export async function test_real_native_envelope_serves_sibling_modules_from_one_compile(): Promise<void> {
   const fixture = createRealNativeEnvelopeFixture();
   const api = await loadApi();

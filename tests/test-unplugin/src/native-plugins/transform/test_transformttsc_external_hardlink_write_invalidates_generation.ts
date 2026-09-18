@@ -11,14 +11,19 @@ import { createCacheProject } from "../../internal/transform-project-cache/creat
 import { projectModules } from "../../internal/transform-project-cache/projectModules";
 
 /**
- * Verifies an existing project hardlink never inherits watcher authority.
+ * Verifies a project input with a hard link outside the project never inherits
+ * watcher authority.
  *
  * Directory notification backends report the path used for a write. Writing
- * through an alias outside the project therefore mutates the same inode without
- * an event below the watched project root (and Windows does not notify a
- * watcher opened on the original file either). The generation must keep this
- * input on metadata validation so a sibling delivery cannot replay stale
- * program output.
+ * through a link outside the project mutates the same inode without an event
+ * below the watched root, and Windows does not notify a watcher opened on the
+ * original file either. The generation must keep this input on metadata
+ * validation, so a sibling delivery cannot replay stale output.
+ *
+ * 1. Hard-link a project module to a path outside the project and deliver the
+ *    entry.
+ * 2. Write new content through the external link.
+ * 3. Deliver a sibling and assert exactly one whole-project recompile.
  */
 export async function test_transformttsc_external_hardlink_write_invalidates_generation(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.

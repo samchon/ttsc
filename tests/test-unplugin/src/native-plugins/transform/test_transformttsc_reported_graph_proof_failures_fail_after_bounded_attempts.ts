@@ -8,22 +8,23 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
 
 /**
  * Verifies reported graph proof failures fail one shared, bounded generation
- * instead of recompiling once per delivered module.
+ * instead of recompiling per delivered module.
  *
- * A wholly unobserved candidate remains admissible, but an observed candidate
- * carrying `file-exists-changed` is evidence of a compile race and must refuse
- * reuse just like a realized edge target whose content proof failed.
+ * A wholly unobserved candidate remains admissible, but a realized edge target
+ * whose content proof failed, or an observed candidate carrying
+ * `file-exists-changed`, is evidence of a compile race and must refuse reuse.
+ * The refusal has to stay one bounded verdict shared by every waiter, replayed
+ * until real evidence of change arrives.
  *
- * 1. Build a four-file project whose envelope drops one edge target's proof.
- * 2. Request all modules concurrently through one persistent cache.
- * 3. Assert two attempts, one shared terminal error, bounded witnesses, and the
- *    exact producer path.
- * 4. Request later waves with the first module's in-memory overlay intact and
- *    prove they replay that verdict without compiling.
- * 5. Prove a real disk edit and an explicit lifecycle reset each authorize one new
+ * 1. Request all modules of a four-file project with dropped edge proofs
+ *    concurrently, and assert two attempts, one shared terminal error, bounded
+ *    witnesses, and the exact producer path.
+ * 2. Request later waves with the first module's in-memory overlay intact, and
+ *    assert they replay the verdict without compiling.
+ * 3. Assert a real disk edit and an explicit cache reset each authorize one new
  *    bounded wave.
- * 6. Report an observed candidate predicate failure and prove it also terminates
- *    after two attempts with the exact producer reason and path.
+ * 4. Report an observed candidate predicate failure and assert it also ends after
+ *    two attempts with the exact producer reason and path.
  */
 export async function test_transformttsc_reported_graph_proof_failures_fail_after_bounded_attempts(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.

@@ -7,14 +7,20 @@ import { createCacheProject } from "../../internal/transform-project-cache/creat
 import { projectModules } from "../../internal/transform-project-cache/projectModules";
 
 /**
- * Verifies a graph member with no readable content never acquires a proof.
+ * Verifies a graph member with no readable content never acquires a signature.
  *
- * A signature stands for the bytes a read proved, so an input that has none
- * cannot have one. A member the compiler recorded without a content hash, and
- * that the host can stat but not read, matches its recorded `missing` state
- * exactly while unreadable; if it were handed a signature at capture, becoming
- * readable without a metadata change would leave the narrow path skipping it
- * forever and replaying output computed from nothing.
+ * A signature stands for the bytes a read proved. A member the compiler
+ * recorded without a content hash, which the host can stat but not read,
+ * matches its recorded missing state exactly while unreadable. Handed a
+ * signature at capture, it could become readable without a metadata change and
+ * the narrow path would skip it forever, replaying output computed from
+ * nothing.
+ *
+ * 1. Compile a project whose graph records one member without a content hash,
+ *    readable by nothing.
+ * 2. Assert deliveries hit the cache while the member stays unreadable.
+ * 3. Make its content readable without moving its metadata, and assert the
+ *    contradiction ends after one bounded retry wave.
  */
 export async function test_transformttsc_unreadable_graph_input_keeps_the_content_comparison(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.

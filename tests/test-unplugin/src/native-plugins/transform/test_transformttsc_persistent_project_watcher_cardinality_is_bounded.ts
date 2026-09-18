@@ -6,7 +6,22 @@ import path from "node:path";
 import { createCacheProject } from "../../internal/transform-project-cache/createCacheProject";
 import { projectModules } from "../../internal/transform-project-cache/projectModules";
 
-/** Prove persistent project observers stay constant at any tree size. */
+/**
+ * Verifies persistent project observers stay constant regardless of the tree's
+ * size.
+ *
+ * A per-directory watcher would exhaust descriptors on a large tree. Project
+ * membership and host inputs may own at most one observer each, sharing the one
+ * physical project root, and a build-scoped generation may keep none once its
+ * bounded compile-race observer closes.
+ *
+ * 1. Compile a project with 250 unrelated directories through a persistent cache
+ *    that records each opened watch.
+ * 2. Assert at most two observers on the project root, and a cache reset closes
+ *    them all.
+ * 3. Compile through a build-scoped cache and assert one compile-race observer
+ *    that is released before delivery.
+ */
 export async function test_transformttsc_persistent_project_watcher_cardinality_is_bounded(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.
   TestUnpluginProject.ensureSharedCacheDir();

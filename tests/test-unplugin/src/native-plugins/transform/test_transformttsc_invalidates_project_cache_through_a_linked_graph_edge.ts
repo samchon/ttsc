@@ -7,8 +7,21 @@ import path from "node:path";
 import { emitGraphPlugins } from "../../internal/transform-graph/emitGraphPlugins";
 
 /**
- * Verifies an in-root filesystem link remains outside the project-walk hash
- * universe and a same-content target retarget invalidates a cached generation.
+ * Verifies an in-root link stays outside the project walk, and a same-content
+ * retarget invalidates the generation.
+ *
+ * A link inside the project root is an out-of-walk input: the walk never
+ * follows it, so it must be proven through the graph under its lexical
+ * spelling. Retargeting it to a byte-identical file still changes what the
+ * compiler read, because the physical identity moved, even though no content
+ * comparison would see it.
+ *
+ * 1. Assert the walk predicate excludes the link and a missing path, and includes
+ *    the real entry.
+ * 2. Transform through a graph edge to the link, and assert watch registration
+ *    keeps the lexical spelling and the host published a content proof.
+ * 3. Assert an unchanged retransform reuses the generation, and a retarget to
+ *    identical content replaces it.
  */
 export async function test_transformttsc_invalidates_project_cache_through_a_linked_graph_edge(): Promise<void> {
   const {

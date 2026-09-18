@@ -47,8 +47,8 @@ const REFUSED_GLOBS = [
 ];
 
 /**
- * Asserts the wrapper does not register the loader a second time under a glob
- * the caller spelled differently.
+ * Verifies the Next.js wrapper never registers its loader a second time under a
+ * glob the caller spelled differently.
  *
  * The dedupe guard read only the rule stored under the exact key the wrapper
  * writes, so a caller who had wired `"*.{ts,tsx}"` by hand, which is a natural
@@ -60,6 +60,17 @@ const REFUSED_GLOBS = [
  * The wrapper still completes a partial hand wiring, since `"*.ts"` alone
  * leaves `.tsx` unrouted, and still adds its own rules beside a glob carrying
  * somebody else's loader, because that is not this loader running twice.
+ * Recognition is an exact measured set rather than a predicate: `{src/,}*.ts`
+ * looks project-wide, yet Turbopack matches nothing with it
+ * (samchon/ttsc#1319).
+ *
+ * 1. Assert the measured allowlist covers every single- and multi-extension
+ *    spelling it claims, without duplicates.
+ * 2. Wrap configs that already route the loader under brace, recursive, partial,
+ *    path-scoped, conditional, and foreign-loader globs.
+ * 3. Assert the wrapper adds exactly the globs each one leaves unrouted, for every
+ *    loader spelling.
+ * 4. Assert every unmeasured spelling suppresses nothing.
  */
 export async function test_next_adapter_does_not_double_register_across_globs(): Promise<void> {
   const nextModule = await loadNextModule();

@@ -8,9 +8,18 @@ import { createTypeEdgeProject } from "../../internal/adapter-webpack/createType
 import { createWebpackConfig } from "../../internal/adapter-webpack/createWebpackConfig";
 
 /**
- * Verifies watch-mode invalidation: a running webpack watcher re-runs the
- * consumer's loader when a file reachable only through a type-only graph edge
- * changes. Polling watch keeps the scenario deterministic across platforms.
+ * Verifies a running webpack watcher re-runs the consumer's loader when a
+ * type-only graph input changes.
+ *
+ * Watch mode learns what to watch from the dependencies the loader registered,
+ * not from a cache. A type file reachable only through a type-only edge must
+ * therefore be registered, or editing it would never trigger a rebuild. Polling
+ * watch keeps the scenario deterministic across platforms.
+ *
+ * 1. Start a polling webpack watcher over the type-edge project with a graph
+ *    producer.
+ * 2. After the first build, rewrite the type file with a new interface.
+ * 3. Assert a rebuild embeds the new interface within the timeout.
  */
 export async function test_webpack_watch_rebuilds_through_a_type_only_edge(): Promise<void> {
   const root = createTypeEdgeProject(true);

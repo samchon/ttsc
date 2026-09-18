@@ -6,7 +6,21 @@ import path from "node:path";
 import { createCacheProject } from "../../internal/transform-project-cache/createCacheProject";
 import { externalSourceModules } from "../../internal/transform-project-cache/externalSourceModules";
 
-/** A raced out-of-walk source must stabilize before any output is delivered. */
+/**
+ * Verifies an out-of-walk source that changes after the compiler read it is
+ * discarded before any output is delivered.
+ *
+ * An out-of-walk source is proven through its own snapshot, not the walk. A
+ * change after the compiler read it means the output may not match the recorded
+ * bytes, so the raced attempt must be discarded and every delivery must share
+ * its stable retry.
+ *
+ * 1. Create a project whose first external source changes after its compiler read
+ *    on the first attempt.
+ * 2. Deliver the entry.
+ * 3. Assert the raced attempt was discarded and its stable retry is the shared
+ *    generation.
+ */
 export async function test_transformttsc_out_of_walk_source_change_stabilizes_within_generation(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.
   TestUnpluginProject.ensureSharedCacheDir();

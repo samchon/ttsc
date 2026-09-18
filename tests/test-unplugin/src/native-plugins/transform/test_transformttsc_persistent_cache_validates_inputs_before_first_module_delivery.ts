@@ -4,8 +4,17 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
- * Verifies a cache with no build-start lifecycle validates every generation
- * hit, including a module that generation has not served before.
+ * Verifies a cache with no build lifecycle validates a generation hit even for
+ * a module it never served.
+ *
+ * The constant-time first-delivery shortcut exists only inside a pass. Without
+ * one, the first delivery of a module is just another request against a
+ * generation that may be stale, so an input changed since the compile must
+ * replace it.
+ *
+ * 1. Transform the entry through a persistent cache.
+ * 2. Change the plugin descriptor.
+ * 3. Deliver a module not served before and assert the generation was replaced.
  */
 export async function test_transformttsc_persistent_cache_validates_inputs_before_first_module_delivery(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.

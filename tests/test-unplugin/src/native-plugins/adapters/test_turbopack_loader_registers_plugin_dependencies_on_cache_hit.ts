@@ -9,11 +9,14 @@ import { universalHostInputs } from "../../internal/adapter-turbopack/universalH
 /**
  * Verifies a cache-served transform still registers the dependency list.
  *
- * The Turbopack loader shares one transform cache for the worker lifetime
- * across requests, but Turbopack rebuilds its `fileDependencies` set per loader
+ * The loader shares one transform cache across requests for the worker's
+ * lifetime, but Turbopack rebuilds its `fileDependencies` set per loader
  * invocation. A cache hit that skipped re-registration would drop invalidation
- * for the second and later requests, so the loader must replay the dependencies
- * on every call, not only the fresh compile.
+ * for every later request.
+ *
+ * 1. Configure a plugin that reports `src/types.d.ts`.
+ * 2. Run the loader twice on the entry module, a fresh compile and a cache hit.
+ * 3. Assert both runs register the same dependencies.
  */
 export async function test_turbopack_loader_registers_plugin_dependencies_on_cache_hit(): Promise<void> {
   const root = TestUnpluginProject.createProject({ plugins: [] });

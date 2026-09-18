@@ -73,17 +73,21 @@ function createManifestPresetProject(): string {
 }
 
 /**
- * Asserts the alias overlay preserves `paths` inherited from a bare preset
+ * Verifies the alias overlay preserves `paths` inherited from a bare preset
  * selected through `package.json#tsconfig`.
  *
- * The transform overlay re-states the project's effective `paths` (walking the
- * `extends` chain) whenever a bundler alias is forwarded. If the unplugin
- * reader cannot resolve a bare manifest-selected preset, its inherited
- * `#preset/*` alias disappears from the overlay and the aliased import
- * collapses to `any` — no diagnostic surfaces. The probe is a deliberate type
- * error through the inherited alias: it can only be reported when `PresetModel`
- * resolved to the real interface. The negative twin (well-typed source) pins
- * that the overlay introduces no diagnostics of its own.
+ * The overlay re-states the project's effective `paths` whenever a bundler
+ * alias is forwarded. If the reader cannot resolve a bare manifest-selected
+ * preset, its inherited `#preset/*` alias disappears and the import collapses
+ * to `any` with no diagnostic. The probe is a deliberate type error that can
+ * only be reported when the alias resolved to the real interface, and its
+ * well-typed twin pins that the overlay introduces no diagnostics of its own.
+ *
+ * 1. Create a project that extends a preset selected through a package's
+ *    `tsconfig` field.
+ * 2. Transform a source that misuses a type imported through the inherited alias,
+ *    and assert it rejects.
+ * 3. Transform a well-typed twin and assert it passes unchanged.
  */
 export async function test_transformttsc_alias_overlay_resolves_package_tsconfig_preset_paths(): Promise<void> {
   const root = createManifestPresetProject();

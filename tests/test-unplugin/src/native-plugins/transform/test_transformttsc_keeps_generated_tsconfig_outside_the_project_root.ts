@@ -2,9 +2,17 @@ import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
 /**
- * Verifies that the synthetic tsconfig written by `transformTtsc` is placed
- * outside the project root, verified by the fixture plugin's
- * `assert-temp-tsconfig-outside-project` operation.
+ * Verifies the generated tsconfig is written outside the project root.
+ *
+ * A file written into the project would appear in the walk, change the
+ * membership digest, and invalidate the generation it belongs to, as well as
+ * clutter the user's tree.
+ *
+ * 1. Create a project with no configured plugins.
+ * 2. Transform through the fixture's `assert-temp-tsconfig-outside-project`
+ *    operation.
+ * 3. Assert the transform succeeds, which the operation allows only when the
+ *    config lives outside the root.
  */
 export async function test_transformttsc_keeps_generated_tsconfig_outside_the_project_root(): Promise<void> {
   const { resolveOptions, transformTtsc } =

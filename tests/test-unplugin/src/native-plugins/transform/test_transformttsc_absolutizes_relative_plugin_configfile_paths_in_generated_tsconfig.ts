@@ -4,11 +4,20 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
- * Verifies that `transformTtsc` resolves a relative `configFile` path on a
- * plugin descriptor to an absolute path before writing the temp tsconfig,
- * verified by the fixture plugin's `assert-config-file-path` operation.
- * `configFile` is the config-file override the shipped utility plugins accept,
- * so leaving it relative would resolve against the temp dir.
+ * Verifies a relative plugin `configFile` is absolutized in the generated
+ * tsconfig and proven as a generation input.
+ *
+ * `configFile` is the override the shipped utility plugins accept. The
+ * generated tsconfig lives in a temp directory, so a relative path left as
+ * written would resolve there and read nothing. The file is also a compiler
+ * input, so editing it must replace the generation, while a forwarded file the
+ * native host reports no evidence for must stay uncacheable.
+ *
+ * 1. Transform with a relative `configFile`, and assert the fixture plugin
+ *    received its absolute path.
+ * 2. Edit the config file and assert the next transform replaces the generation.
+ * 3. Forward a `configFile` without native evidence and assert the result is not
+ *    cached.
  */
 export async function test_transformttsc_absolutizes_relative_plugin_configfile_paths_in_generated_tsconfig(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =

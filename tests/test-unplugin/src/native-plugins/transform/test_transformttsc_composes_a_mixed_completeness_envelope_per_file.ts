@@ -11,9 +11,18 @@ import { reportDependencies } from "../../internal/transform-complete/reportDepe
 import { emitGraphPlugins } from "../../internal/transform-graph/emitGraphPlugins";
 
 /**
- * Verifies a mixed envelope composes per file: one transform declares
- * `src/main.ts` complete and says nothing about `src/other.ts`, and each file's
- * derivation follows its own status against that single envelope.
+ * Verifies a mixed completeness envelope composes per file.
+ *
+ * One transform can declare `src/main.ts` complete and say nothing about
+ * `src/other.ts`. Each file's watch derivation must follow its own status
+ * against that single envelope: the declared file narrows to its reported
+ * dependencies, and the silent one keeps its graph reach.
+ *
+ * 1. Transform with a plugin that reports a dependency, a graph, and a
+ *    completeness declaration for `src/main.ts` only.
+ * 2. Assert `src/main.ts` registers only its reported dependency and the universal
+ *    inputs.
+ * 3. Assert `src/other.ts` registers its graph reach and the universal inputs.
  */
 export async function test_transformttsc_composes_a_mixed_completeness_envelope_per_file(): Promise<void> {
   const { resolveOptions, transformTtsc, createTtscTransformCache } =

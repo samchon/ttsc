@@ -3,30 +3,23 @@ import assert from "node:assert/strict";
 import path from "node:path";
 
 /**
- * Verifies an alias form a tsconfig `paths` map cannot express is reported
- * rather than silently dropped, and costs the forwardable aliases nothing.
+ * Verifies a wildcard alias that `paths` cannot express is reported once,
+ * without costing the forwardable aliases.
  *
- * Vite's array form accepts a `RegExp` `find`, and `{ find: /^~/ }` is a common
- * way to spell a prefix alias. `paths` has no regular-expression form, so such
- * an alias cannot be translated at all; a `find` containing `*` cannot either,
- * because a `paths` key already reads `*` as its own wildcard. Both used to be
- * dropped in silence while both documents said the adapter "reads the resolved
- * `resolve.alias` and layers it onto the generated config" without qualifying
- * it, so a user whose aliases were ignored had nothing to read that explained
- * why (samchon/ttsc#1315).
+ * A `find` containing `*` cannot be translated, because a `paths` key already
+ * reads `*` as its own wildcard. It used to be dropped in silence, so a user
+ * whose alias was ignored had nothing explaining why (samchon/ttsc#1315); the
+ * out-of-program report names the module, not the alias. `resolve.alias` is
+ * resolved once and consulted per module, so the report is once per process.
+ * The `RegExp` form is documented and deliberately not reported, because Vite
+ * merges its own `RegExp` aliases into every config and a report would fire for
+ * aliases the user never wrote.
  *
- * The consequence was never wrong output — the compile falls back to the
- * tsconfig's own `paths`, and a specifier that resolves for the bundler but not
- * the compiler surfaces as the out-of-program report (samchon/ttsc#1308). But
- * that report names the module, not the alias, so it cannot tell the user that
- * a configuration they wrote was ignored.
- *
- * The string entry sharing the array is the control: a report must not cost the
- * aliases that do forward, and `assert-paths` fails the compile unless `@lib`
- * reached the generated config. The second delivery pins the once-per-process
- * rule, since `resolve.alias` is resolved once and consulted per module, so
- * reporting per delivery would repeat one statement about the config for every
- * file in the bundle.
+ * 1. Transform twice with a `RegExp` alias, a wildcard alias, and a forwardable
+ *    `@lib` alias, capturing stderr.
+ * 2. Assert `@lib` still reached the compile.
+ * 3. Assert the wildcard is reported exactly once, and the `RegExp` form not at
+ *    all.
  */
 export async function test_transformttsc_reports_untranslatable_vite_aliases(): Promise<void> {
   const { resolveOptions, transformTtsc } =

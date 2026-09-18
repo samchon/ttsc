@@ -10,12 +10,17 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
 
 /**
  * Verifies a same-tick, same-length rewrite of a derived input still replaces
- * the generation on the narrow validation path.
+ * the generation on the narrow path.
  *
  * With every stamp pinned to one tick, no signature may be recorded: the clock
  * never provably leaves the tick, so a later write is not guaranteed to move
- * any stamp. A recorded signature here would make the rewrite invisible — the
- * pre-fix state — while the retained content comparison must see it.
+ * any stamp. A recorded signature would make the rewrite invisible, while the
+ * retained content comparison must see it.
+ *
+ * 1. Compile through a filesystem whose stamps are pinned to one tick, and assert
+ *    steady deliveries do not recompile.
+ * 2. Rewrite a global declaration in place with the same length.
+ * 3. Assert the next delivery replaces the generation with one recompile.
  */
 export async function test_transformttsc_same_tick_derived_rewrite_replaces_the_generation(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.

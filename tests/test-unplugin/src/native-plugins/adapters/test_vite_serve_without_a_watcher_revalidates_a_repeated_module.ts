@@ -6,10 +6,13 @@ import { touchUnrelatedInput } from "../../internal/adapter-vite-lifecycle/touch
 /**
  * Verifies the build-scoped shortcut still stops at a module's second delivery.
  *
- * `beginTtscTransformBuild` settles only a module's _first_ delivery in the
- * session from the supplied source; a repeated request revalidates, because the
- * bundler asking again is the one signal a session without a watcher still
- * has.
+ * `beginTtscTransformBuild` settles only a module's first delivery in a session
+ * from the supplied source. A repeated request revalidates, because the bundler
+ * asking again is the one signal a session without a watcher still has.
+ *
+ * 1. Start a watcherless serve session and deliver a module.
+ * 2. Change a project input that every module's validation covers.
+ * 3. Deliver the same module again and assert it compiles again.
  */
 export async function test_vite_serve_without_a_watcher_revalidates_a_repeated_module(): Promise<void> {
   const session = await startViteAdapterSession({ watching: false });

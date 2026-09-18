@@ -6,12 +6,15 @@ import path from "node:path";
 import { createCacheProject } from "../../internal/transform-project-cache/createCacheProject";
 
 /**
- * Verifies concurrent transforms of one module still compile the project once.
+ * Verifies concurrent transforms of one module compile the project once.
  *
- * The eviction fix must not weaken the single-flight guarantee: two callers
+ * Eviction on failure must not weaken the single-flight guarantee: two callers
  * racing for the same key share the one in-flight generation stored in the
- * cache. The run-log fixture counts whole-project compiles, so two concurrent
- * `transformTtsc` calls must produce exactly one.
+ * cache.
+ *
+ * 1. Create a single-module project that counts its compiles.
+ * 2. Transform the module twice concurrently through one cache.
+ * 3. Assert both succeed and the project compiled once.
  */
 export async function test_transformttsc_shares_one_compile_across_concurrent_callers(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.

@@ -2,12 +2,16 @@ import { TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
 /**
- * Verifies that `resolveOptions` returns an object with exactly the three
- * public keys (`compilerOptions`, `plugins`, `project`) and that each value is
- * preserved verbatim.
+ * Verifies `resolveOptions` returns exactly the three public keys and preserves
+ * each value.
  *
- * Guards against accidental key additions or removals that would widen or
- * narrow the public adapter contract.
+ * The resolved options are the adapter contract every host passes to the
+ * transform. Adding or dropping a key would widen or narrow that contract
+ * without anyone noticing.
+ *
+ * 1. Resolve options carrying `compilerOptions`, `plugins`, and `project`.
+ * 2. Assert exactly those three keys are returned.
+ * 3. Assert each value is preserved verbatim.
  */
 export async function test_resolveoptions_keeps_only_the_public_ttsc_adapter_contract(): Promise<void> {
   const { resolveOptions } = await TestUnpluginRuntime.loadUnpluginApi();

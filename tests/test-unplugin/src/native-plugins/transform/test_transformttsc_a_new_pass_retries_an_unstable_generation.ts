@@ -9,18 +9,18 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
 /**
  * Verifies a new pass grants an unstable generation one fresh attempt.
  *
- * The two terminal verdict kinds part company across a pass boundary, and this
- * is the half that is easy to lose. A failed _compile_ is the host's answer
- * about inputs it read, so a new pass replays it. An unstable generation is the
- * adapter failing to obtain a coherent snapshot, which is a race it lost and a
- * later attempt may well win, so a new pass has to try again. That fresh
- * attempt is exactly what the per-pass cache clear used to provide for free,
- * and removing the branch that grants it would leave every existing case
- * green.
+ * The two terminal verdict kinds part company across a pass boundary. A failed
+ * compile is the host's answer about inputs it read, so a new pass replays it.
+ * An unstable generation is the adapter losing a race for a coherent snapshot,
+ * which a later attempt may win, so a new pass must try again, the fresh
+ * attempt the per-pass cache clear used to provide. The run log counts
+ * attempts: the compile succeeds and only the walk around it is torn.
  *
- * The run log counts attempts rather than deliveries: the compile itself
- * succeeds here, and only the project-walk snapshot around it is torn, so each
- * bounded wave appends two entries.
+ * 1. Fail the project walk during a pass and assert the pass spends its bounded
+ *    attempts.
+ * 2. Deliver again in the same pass and assert no new attempt starts.
+ * 3. Open a new pass with the walk recovered and assert it produces a real
+ *    generation.
  */
 export async function test_transformttsc_a_new_pass_retries_an_unstable_generation(): Promise<void> {
   const api = await TestUnpluginRuntime.loadUnpluginApi();

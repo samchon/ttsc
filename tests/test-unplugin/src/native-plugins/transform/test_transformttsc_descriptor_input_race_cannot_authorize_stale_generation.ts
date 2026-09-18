@@ -10,8 +10,21 @@ import path from "node:path";
 import { createCacheProject } from "../../internal/transform-project-cache/createCacheProject";
 
 /**
- * Verifies a module candidate created after descriptor resolution cannot bless
- * the earlier descriptor result with the later filesystem state.
+ * Verifies a module candidate that appears after descriptor resolution cannot
+ * bless the earlier descriptor result.
+ *
+ * A plugin descriptor can resolve its source through Node's module resolution,
+ * which prefers `.js` over `.json`. If the `.js` candidate appears after the
+ * descriptor was resolved, pairing the earlier result with the later filesystem
+ * state would authorize a generation built from a descriptor that no longer
+ * resolves that way.
+ *
+ * 1. Create a descriptor that requires an extensionless selection resolving to a
+ *    `.json` file.
+ * 2. Have the descriptor create the superseding `.js` candidate when the first
+ *    delivery evaluates it.
+ * 3. Assert the first delivery stabilizes the change, and the settled generation
+ *    stays reusable.
  */
 export async function test_transformttsc_descriptor_input_race_cannot_authorize_stale_generation(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.

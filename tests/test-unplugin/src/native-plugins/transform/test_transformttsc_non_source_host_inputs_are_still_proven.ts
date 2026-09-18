@@ -5,19 +5,20 @@ import path from "node:path";
 import { startMembershipSession } from "../../internal/transform-program-membership/startMembershipSession";
 
 /**
- * Verifies the files the compiler reads that are not sources are still proven
- * after the walk stopped hashing them.
+ * Verifies the compiler's non-source inputs are still proven after the walk
+ * stopped hashing them.
  *
- * The walk now collects only files that could enter the program, which is what
- * keeps a tree of emitted output from costing a read per file. That is safe
- * only because the compiler's own non-source inputs are proven somewhere else:
- * the tsconfig, the package manifest and the plugin descriptor are universal
- * host inputs, validated by identity and content on every delivery rather than
- * by the project walk. If that were not so, narrowing the walk would have
- * silently stopped a tsconfig edit from invalidating anything, which is the
- * worst outcome this cycle could have produced (samchon/ttsc#1307).
+ * The walk now collects only files that could enter the program, which keeps an
+ * emitted tree from costing a read per file. That is safe only because the
+ * tsconfig, the package manifest, and the plugin descriptor are universal host
+ * inputs, validated by identity and content on every delivery. Otherwise
+ * narrowing the walk would have silently stopped a tsconfig edit from
+ * invalidating anything (samchon/ttsc#1307).
  *
- * Each edit is its own pass, and each must cost exactly one compile.
+ * 1. Run passes until the generation settles.
+ * 2. Edit the tsconfig, then the package manifest, then the plugin descriptor,
+ *    each in its own pass.
+ * 3. Assert each edit costs exactly one compile.
  */
 export async function test_transformttsc_non_source_host_inputs_are_still_proven(): Promise<void> {
   const session = await startMembershipSession({ fileCount: 2 });

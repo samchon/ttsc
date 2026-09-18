@@ -5,7 +5,23 @@ import path from "node:path";
 
 import { createViteServeInputWatch } from "../../../../../packages/unplugin/lib/core/vite/createViteServeInputWatch.js";
 
-/** Prove a failed native watcher never turns fallback into a full-graph scan. */
+/**
+ * Verifies a failed native watcher moves its inputs to a bounded fallback
+ * instead of a full-graph scan.
+ *
+ * When a native observer fails, its inputs have to be checked by polling, and
+ * on a large compiler graph a poll that inspected every input on every tick
+ * would itself become the cost the watcher exists to avoid. The fallback must
+ * share one scheduler, release the failed handle at once, and inspect a
+ * fixed-size slice per tick.
+ *
+ * 1. Attach a watcher whose native observers fail on open, and register 65 inputs.
+ * 2. Assert one shared scheduler starts and the failed watcher is released
+ *    immediately.
+ * 3. Drive ticks and assert each inspects one fair, fixed-size slice, and the
+ *    scheduler stops when no work remains.
+ * 4. Dispose and assert the detached watcher is not closed again.
+ */
 export async function test_vite_compiler_watch_fallback_work_is_bounded(): Promise<void> {
   const root = fs.realpathSync.native(
     TestProject.tmpdir("ttsc-vite-watch-fallback-budget-"),

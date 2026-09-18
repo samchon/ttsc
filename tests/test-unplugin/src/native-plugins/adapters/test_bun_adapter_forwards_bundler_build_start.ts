@@ -17,11 +17,15 @@ import type { BunLoader } from "../../internal/adapter-bun/BunLoader";
  * corrupting `main.ts`, the unchanged second module would still be a valid
  * first-use cache hit unless `onStart` opened a new delivery pass: the pass's
  * first delivery re-proves the whole generation, sees the changed input, and
- * compiles again. Ignoring the hook would leave the second module settled
- * against a generation that no longer describes the project. The completed
- * build then closes its generation: another unchanged build must compile once
- * more instead of retaining the old generation and its filesystem trackers past
- * `onEnd`.
+ * compiles again. The completed build then closes its generation, so another
+ * unchanged build must compile once more instead of retaining the old
+ * generation and its filesystem trackers past `onEnd`.
+ *
+ * 1. Capture the adapter's `onStart`, `onEnd`, and loader, and deliver `main.ts`
+ *    in a first build.
+ * 2. Corrupt `main.ts`, start a new build, and assert delivering the second module
+ *    compiles again.
+ * 3. End the build and assert an unchanged next build compiles once more.
  */
 export async function test_bun_adapter_forwards_bundler_build_start(): Promise<void> {
   const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");

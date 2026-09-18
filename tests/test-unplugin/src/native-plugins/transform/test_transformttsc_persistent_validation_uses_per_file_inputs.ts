@@ -11,8 +11,21 @@ import { createCacheProject } from "../../internal/transform-project-cache/creat
 import { projectModules } from "../../internal/transform-project-cache/projectModules";
 
 /**
- * Verifies persistent validation reads only each file's graph inputs while
- * retaining freshness for relevant edits and project-membership changes.
+ * Verifies persistent validation reads only each file's own graph inputs while
+ * keeping every relevant invalidation.
+ *
+ * Reading the whole envelope on every delivery would cost O(modules x inputs)
+ * per build. Narrowing to each file's reachable inputs must not lose freshness:
+ * a reachable edit, a membership change, an appearing remote link target, and
+ * an out-of-project descriptor dependency must all still replace the
+ * generation.
+ *
+ * 1. Deliver twelve modules over a partitioned graph and assert reads, stats, and
+ *    metadata checks per module stay within their bounds.
+ * 2. Edit an unreachable external and an unclassified asset, and assert neither
+ *    replaces the generation.
+ * 3. Edit a reachable external, include a new source, retarget a broken host-input
+ *    link, and edit a descriptor dependency, and assert each replaces it.
  */
 export async function test_transformttsc_persistent_validation_uses_per_file_inputs(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.

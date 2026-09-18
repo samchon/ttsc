@@ -8,13 +8,17 @@ import { createTickPinnedFilesystem } from "../../internal/transform-project-cac
 import { projectModules } from "../../internal/transform-project-cache/projectModules";
 
 /**
- * Verifies a same-tick, same-length rewrite of a universal descriptor/config
- * input still replaces the generation.
+ * Verifies a same-tick, same-length rewrite of a universal input still replaces
+ * the generation.
  *
- * The universal manifest is the more exposed half in practice — its inputs are
- * `tsconfig.json`, plugin descriptors, and package manifests, which tooling
- * rewrites in place. A capture-time signature for a stamp whose tick the clock
- * has not provably left would let this rewrite replay stale output.
+ * The universal inputs, `tsconfig.json`, plugin descriptors, and package
+ * manifests, are the ones tooling rewrites in place. A capture-time signature
+ * for a stamp whose tick the clock has not provably left would let such a
+ * rewrite replay stale output.
+ *
+ * 1. Compile through a tick-pinned filesystem with silent watches.
+ * 2. Rewrite a universal input in place with the same length.
+ * 3. Assert the next delivery replaces the generation.
  */
 export async function test_transformttsc_same_tick_universal_rewrite_replaces_the_generation(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.

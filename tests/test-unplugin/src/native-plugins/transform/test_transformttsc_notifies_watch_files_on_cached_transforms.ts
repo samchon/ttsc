@@ -6,9 +6,15 @@ import { emitDependenciesPlugins } from "../../internal/transform-dependencies/e
 import { fixtureHostInputs } from "../../internal/transform-dependencies/fixtureHostInputs";
 
 /**
- * Verifies a cache-served transform still notifies the watch hook: watch
- * registrations are per build/module request, while the compiler result is
- * shared, so a cache hit must replay the dependency list.
+ * Verifies a cache-served transform still notifies the watch hook.
+ *
+ * Watch registration belongs to each build or module request, while the
+ * compiler result is shared. A cache hit that skipped the replay would leave
+ * every later request without its dependencies registered.
+ *
+ * 1. Configure a plugin that reports `src/types.d.ts`.
+ * 2. Transform the entry twice through one cache, recording registrations.
+ * 3. Assert both registered the same dependency list.
  */
 export async function test_transformttsc_notifies_watch_files_on_cached_transforms(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =

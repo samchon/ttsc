@@ -6,11 +6,16 @@ import { createLinkedPluginProject } from "../../internal/transform-linked-compl
 import { watchesTypeSibling } from "../../internal/transform-linked-completeness/watchesTypeSibling";
 
 /**
- * Verifies a program plugin can make the same declaration.
+ * Verifies a program plugin can declare completeness too.
  *
  * `@ttsc/strip` removes statements matching configured patterns and reads
- * nothing else, so it declares from `ApplyProgram`. Pairing this with the
- * banner case pins both hooks the host counts as contributors.
+ * nothing else, so it declares from `ApplyProgram`. Paired with the banner
+ * case, this pins both hooks the host counts as contributors.
+ *
+ * 1. Create a project whose only plugin is `@ttsc/strip`.
+ * 2. Collect the entry module's watch inputs.
+ * 3. Assert the type-only sibling is absent while `tsconfig.json` and
+ *    `strip.config.json` are present.
  */
 export async function test_transformttsc_strip_narrows_the_entry_watch_inputs(): Promise<void> {
   const project = createLinkedPluginProject(["strip"]);

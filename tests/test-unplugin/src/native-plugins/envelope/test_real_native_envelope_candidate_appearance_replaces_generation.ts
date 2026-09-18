@@ -9,7 +9,22 @@ import { loadApi } from "../../internal/real-native-envelope/loadApi";
 import { programRuns } from "../../internal/real-native-envelope/programRuns";
 import { resetRunLog } from "../../internal/real-native-envelope/resetRunLog";
 
-/** Assert a newly available superseding candidate replaces one generation. */
+/**
+ * Verifies a superseding resolution candidate that appears replaces the
+ * generation before its next importer is delivered.
+ *
+ * The real native host reports the absent candidates its resolver probed. When
+ * one appears, the program resolves differently, so the next delivery must
+ * replace the generation rather than serve a module compiled against the old
+ * resolution. Siblings must then reuse the replacement.
+ *
+ * 1. Deliver the first module of the resolution fixture and assert the production
+ *    envelope.
+ * 2. Create the superseding package candidate and assert the next delivery
+ *    recompiles, while siblings reuse the replacement.
+ * 3. Replace a failed candidate directory with a file, and add an automatic type
+ *    package, and assert each replaces the generation.
+ */
 export async function test_real_native_envelope_candidate_appearance_replaces_generation(): Promise<void> {
   const fixture = createRealNativeEnvelopeFixture({ resolutionCorpus: true });
   const api = await loadApi();

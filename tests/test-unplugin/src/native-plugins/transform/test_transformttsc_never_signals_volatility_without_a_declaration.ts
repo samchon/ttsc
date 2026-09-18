@@ -2,9 +2,17 @@ import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
 /**
- * Verifies the negative twin: a transform without a `volatile` declaration
- * never signals `markVolatile` and keeps serving the unchanged project from the
- * cache.
+ * Verifies a transform without a `volatile` declaration never calls
+ * `markVolatile` and keeps serving from the cache.
+ *
+ * `markVolatile` makes a host exclude a module from caching. Signaling it
+ * without a declaration would disable caching for every module, so an ordinary
+ * transform must never call it.
+ *
+ * 1. Transform the entry twice through one cache with a plain plugin and a
+ *    `markVolatile` counter.
+ * 2. Assert both outputs are identical.
+ * 3. Assert `markVolatile` was never called.
  */
 export async function test_transformttsc_never_signals_volatility_without_a_declaration(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =

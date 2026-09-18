@@ -8,21 +8,23 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
 import { cachedGeneration } from "../../internal/transform-terminal-verdict/cachedGeneration";
 
 /**
- * Verifies a module the compile has no output for does not fail the whole pass.
+ * Verifies a module the compile has no output for does not fail the pass or
+ * evict its generation.
  *
  * `selectTransformedSource` throws from three places, and only two of them say
- * anything about the generation. The third says one file has no output, which
- * is an ordinary condition for a module the bundle reaches but the tsconfig
- * program does not contain: `@ttsc/metro` treats it as "pass this file
- * through", and a bundler reaching one is a configuration, not a fault.
+ * anything about the generation. The third says one file has no output, an
+ * ordinary condition for a module the bundle reaches but the tsconfig program
+ * does not contain. Retaining that as a pass verdict would reject every later
+ * module with an error about a file none of them asked for, and evicting the
+ * generation would make each recompile the whole project to reach the same
+ * answer (samchon/ttsc#1303). The generation compiled fine, so it is left where
+ * it is.
  *
- * Retaining that as a pass verdict would reject every later module of the pass
- * with an error naming a file none of them asked about. Evicting the generation
- * instead, which is what happened before any of this, makes every later module
- * recompile the whole project to reach the same answer, which is the cost
- * samchon/ttsc#1303 is about. Neither is right: the generation compiled fine
- * and simply has nothing for this one file, so it is left exactly where it is.
- * This is the boundary of what a pass verdict may cover.
+ * 1. Open a pass and deliver a project module.
+ * 2. Deliver a file outside the program and assert it is left to the host while
+ *    the generation survives.
+ * 3. Deliver the remaining modules and assert they are served from that
+ *    generation.
  */
 export async function test_transformttsc_an_out_of_program_module_does_not_fail_the_pass(): Promise<void> {
   const api = await TestUnpluginRuntime.loadUnpluginApi();

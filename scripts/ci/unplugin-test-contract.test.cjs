@@ -36,6 +36,7 @@ test("unplugin scenarios follow the repository test layout", () => {
         [`export async function ${name}(): Promise<void> {`],
         `${relative} must export exactly the one async test its file is named after`,
       );
+      assertScenarioDoc(relative, text, name);
       return name;
     });
     assert.equal(
@@ -428,6 +429,39 @@ function readTree(directory) {
     .sort()
     .map((file) => fs.readFileSync(file, "utf8"))
     .join(String.fromCharCode(10));
+}
+
+/**
+ * The development skill's scenario doc: a one-line `Verifies …` headline, at
+ * least one paragraph stating why, and a closing list of two to four numbered
+ * steps, directly above the exported test.
+ */
+function assertScenarioDoc(relative, text, name) {
+  const declaration = text.indexOf(`export async function ${name}(`);
+  const end = text.lastIndexOf("*/", declaration);
+  const start = text.lastIndexOf("\n/**", end) + 1;
+  assert.ok(
+    start > 0 && text.slice(end + 2, declaration).trim() === "",
+    `${relative} must open with a doc comment directly above its test`,
+  );
+  const blocks = text
+    .slice(start + 3, end)
+    .split("\n")
+    .map((line) => line.replace(/^\s*\*\s?/, ""))
+    .join("\n")
+    .trim()
+    .split(/\n\s*\n/);
+  const steps = blocks.at(-1).match(/^\d+\. /gm) ?? [];
+  assert.match(
+    blocks[0],
+    /^Verifies /,
+    `${relative} must open with "Verifies"`,
+  );
+  assert.ok(blocks.length >= 3, `${relative} must say why it exists`);
+  assert.ok(
+    /^1\. /.test(blocks.at(-1)) && steps.length >= 2 && steps.length <= 4,
+    `${relative} must close with two to four numbered steps`,
+  );
 }
 
 function collectFiles(directory) {

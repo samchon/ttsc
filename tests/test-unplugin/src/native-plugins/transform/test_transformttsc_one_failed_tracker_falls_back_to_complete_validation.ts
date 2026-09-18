@@ -7,13 +7,18 @@ import { createCacheProject } from "../../internal/transform-project-cache/creat
 import { projectModules } from "../../internal/transform-project-cache/projectModules";
 
 /**
- * Verifies one failed tracker is enough to leave the narrow path.
+ * Verifies one failed tracker is enough to leave the narrow validation path.
  *
- * Membership has two halves — the project walk and the universal inputs — and a
+ * Membership has two halves, the project walk and the universal inputs, and a
  * generation may take the narrow path only while both are still proven by
- * notification. The neighbouring cases refuse or fail every watcher at once, so
- * a regression that consulted a single tracker would keep them green while
- * serving a module whose universal inputs nothing is watching.
+ * notification. The neighbouring cases fail every watcher at once, so a
+ * regression that consulted a single tracker would keep them green while
+ * serving a module whose universal inputs nothing watches.
+ *
+ * 1. Let the mutation witness open, then refuse every later watch registration.
+ * 2. Deliver modules and assert the generation survives with neither tracker
+ *    attached.
+ * 3. Edit an input and assert the fallback still invalidates.
  */
 export async function test_transformttsc_one_failed_tracker_falls_back_to_complete_validation(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.

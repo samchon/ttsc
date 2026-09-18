@@ -7,18 +7,18 @@ import { startMembershipSession } from "../../internal/transform-program-members
  * Verifies content-hashed bundle output costs no compile, in a directory no
  * configuration names.
  *
- * The sharpest form of samchon/ttsc#1307. Rewriting one output file in place is
- * already free, because content is compared over the generation's declared
- * inputs alone. Content-hashed filenames are not: every rebuild removes a name
- * and adds another, which is a directory membership change, and the digest used
- * to record every entry regardless of whether it could ever enter the program.
- * That made a bundler's own output invalidate the generation that produced it,
- * once per rebuild, for the whole life of the session.
+ * Rewriting one output file in place is already free, because content is
+ * compared over declared inputs alone. Content-hashed filenames are not: every
+ * rebuild removes a name and adds another, which is a directory membership
+ * change, and the digest used to record every entry, so a bundler's own output
+ * invalidated the generation that produced it once per rebuild
+ * (samchon/ttsc#1307). `lib` is neither the `outDir` nor a name the walk
+ * refuses, so only the input-extension rule can make this pass: a project that
+ * admits no JavaScript cannot gain a `.js` input.
  *
- * `lib` is deliberately not the project's `outDir` and not one of the three
- * names the walk still refuses, so nothing but the input-extension rule can
- * make this pass: the project admits no JavaScript, so a `.js` bundle is not a
- * membership change wherever it lands.
+ * 1. Start a membership session over a project that admits no JavaScript.
+ * 2. Emit a content-hashed bundle into `lib` and run a pass, four times.
+ * 3. Assert the project compiled once.
  */
 export async function test_transformttsc_hashed_bundle_output_keeps_the_generation(): Promise<void> {
   const session = await startMembershipSession();

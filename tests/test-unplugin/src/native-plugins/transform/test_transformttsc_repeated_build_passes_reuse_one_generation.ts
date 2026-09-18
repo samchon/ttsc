@@ -4,14 +4,18 @@ import { deliverPass } from "../../internal/transform-delivery-epoch/deliverPass
 import { startDeliveryPassSession } from "../../internal/transform-delivery-epoch/startDeliveryPassSession";
 
 /**
- * Verifies samchon/ttsc#1300: repeated passes over an unchanged project reuse
- * the one generation instead of recompiling per pass.
+ * Verifies repeated passes over an unchanged project reuse one generation
+ * (samchon/ttsc#1300).
  *
- * This is the whole defect in one measurement. A pass boundary states that each
- * module is requested at most once inside it; it says nothing about whether the
- * compiled program is still correct, which the generation's own recorded
- * snapshot answers. Destroying the generation to assert the first fact cost a
- * whole-project transform on every rebuild of every watching host.
+ * A pass boundary states that each module is requested at most once inside it;
+ * it says nothing about whether the compiled program is still correct, which
+ * the generation's recorded snapshot answers. Destroying the generation at
+ * every boundary cost a whole-project transform on every rebuild of every
+ * watching host.
+ *
+ * 1. Run a cold pass and assert one compile.
+ * 2. Run two more passes without changing an input.
+ * 3. Assert the project still compiled once.
  */
 export async function test_transformttsc_repeated_build_passes_reuse_one_generation(): Promise<void> {
   const session = await startDeliveryPassSession();

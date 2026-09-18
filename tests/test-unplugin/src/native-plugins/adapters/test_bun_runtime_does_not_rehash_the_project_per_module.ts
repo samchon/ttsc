@@ -6,12 +6,17 @@ import path from "node:path";
 import { captureBunLoader } from "../../internal/adapter-bun/captureBunLoader";
 
 /**
- * Verifies Bun's runtime-only plugin shape keeps one immutable generation for
- * the process-scoped module-loading session.
+ * Verifies Bun's runtime plugin keeps one immutable generation for its
+ * module-loading session.
  *
  * `Bun.plugin()` exposes `onLoad` but no `onStart`. One setup invocation is one
  * process-scoped module-loading session, so the adapter must start a build
- * scope during setup rather than leave the shared cache in persistent mode.
+ * scope during setup rather than leave the shared cache in persistent mode,
+ * where every module would re-prove the whole project.
+ *
+ * 1. Capture the runtime loader and load the entry module.
+ * 2. Rewrite the entry module on disk.
+ * 3. Load the second module and assert it is served from the same generation.
  */
 export async function test_bun_runtime_does_not_rehash_the_project_per_module(): Promise<void> {
   const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");

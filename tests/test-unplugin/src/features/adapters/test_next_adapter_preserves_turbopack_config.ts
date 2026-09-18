@@ -20,6 +20,15 @@ import { loadersOf } from "../../internal/adapter-next/loadersOf";
  * adopting the wrapper afterwards would carry both. Registering the loader
  * twice would transform every module twice, which is worse than the silence it
  * replaces, and discarding the caller's own rules would break their build.
+ *
+ * 1. Wrap configs carrying unrelated Turbopack settings, the README's manual
+ *    rules, and other loaders on the same glob in object, array, empty,
+ *    conditional, and mixed forms.
+ * 2. Assert unrelated settings and rules survive, and ttsc runs last in every
+ *    shared chain, where it sees the original source.
+ * 3. Assert a spelling of ttsc's own loader (package name, path, file URL, or case
+ *    variant) suppresses a second registration only while the filesystem proves
+ *    the path is this package's regular loader file.
  */
 export async function test_next_adapter_preserves_turbopack_config(): Promise<void> {
   const next = await loadNext();

@@ -6,14 +6,19 @@ import { startMembershipSession } from "../../internal/transform-program-members
 
 /**
  * Verifies a new source file is detected wherever it lands, including a
- * directory whose bare name the old ignore list happened to carry.
+ * directory the old ignore list named.
  *
- * The other half of samchon/ttsc#1307, and the half that was a correctness
- * defect rather than a cost. The ignore list matched a bare entry name at every
- * depth, so `src/build/` was dropped from the walk entirely and a program input
- * created there was never seen: the adapter kept serving output from a compile
- * that had never read the file. The control and the subject are the same file
- * under two directory names, and before the fix they answered differently.
+ * This is the correctness half of samchon/ttsc#1307. The ignore list matched a
+ * bare entry name at every depth, so `src/build/` was dropped from the walk and
+ * a program input created there was never seen: the adapter kept serving output
+ * from a compile that had never read the file. The control and the subject are
+ * the same file under two directory names, and before the fix they answered
+ * differently.
+ *
+ * 1. Run passes until the generation settles.
+ * 2. Add a source under `src/feature/` and assert the next pass recompiles.
+ * 3. Add a source under `src/build/` and assert the next pass recompiles, then
+ *    settles again.
  */
 export async function test_transformttsc_a_new_source_is_detected_in_any_directory(): Promise<void> {
   const session = await startMembershipSession();

@@ -7,14 +7,20 @@ import { createCacheProject } from "../../internal/transform-project-cache/creat
 import { projectModules } from "../../internal/transform-project-cache/projectModules";
 
 /**
- * Verifies the whole-snapshot path proves each input once per generation.
+ * Verifies the complete-snapshot path proves each input once per generation.
  *
- * With notifications unavailable every delivery re-proves the recorded snapshot
- * from disk, so a metadata-only change to any input would cost a re-read for
- * the rest of the generation's life unless the walk that proved the snapshot
- * hands its signatures back. The delivered file is the one input that must not
- * receive one: its recorded hash is the source the bundler supplied, so the
- * bytes this walk read for it were compared against nothing.
+ * With notifications unavailable, every delivery re-proves the recorded
+ * snapshot from disk, so a metadata-only change to any input would cost a
+ * re-read for the rest of the generation's life unless the walk that proved the
+ * snapshot hands its signatures back. The delivered file is the one input that
+ * must not receive one: its recorded hash is the source the bundler supplied,
+ * so the bytes this walk read for it were compared against nothing.
+ *
+ * 1. Compile through a cache whose watches are refused, counting file reads.
+ * 2. Touch an input and assert no recompile, with the changed signature re-proven
+ *    once and then not reread.
+ * 3. Drift the delivered file on disk and assert the bundler's source stays
+ *    authoritative for it while a sibling delivery sees the drift.
  */
 export async function test_transformttsc_complete_validation_proves_each_input_once(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.

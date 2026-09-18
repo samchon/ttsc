@@ -2,9 +2,15 @@ import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
 /**
- * Verifies that three chained fixture plugins supplied via the `plugins` option
- * are applied in the declared order: prefix (`"A:"`), upper-case, suffix
- * (`":Z"`), producing `"A:PLUGIN:Z"` in the output.
+ * Verifies plugins passed through the `plugins` option apply in their declared
+ * order.
+ *
+ * Plugin transforms compose, so order changes the output. Three chained fixture
+ * plugins make any reordering visible in the result.
+ *
+ * 1. Create a project with no configured plugins.
+ * 2. Transform with a prefix, an upper-case, and a suffix plugin, in that order.
+ * 3. Assert the output reads `"A:PLUGIN:Z"`.
  */
 export async function test_transformttsc_applies_top_level_plugin_overrides_in_order(): Promise<void> {
   const { resolveOptions, transformTtsc } =

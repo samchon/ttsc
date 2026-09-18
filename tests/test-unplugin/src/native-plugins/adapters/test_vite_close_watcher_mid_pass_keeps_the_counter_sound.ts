@@ -7,17 +7,17 @@ import { startViteBuildSession } from "../../internal/adapter-vite-lifecycle/sta
  *
  * `closeWatcher` has to replace the container owner set, not merely zero the
  * count beside it. A watcher closed while a build phase is open leaves that
- * container still registered, so its later `buildEnd` takes the delete branch
- * and decrements a counter that is already zero. Stranded below zero the count
- * can never reach zero again, and the `buildEnd` disposal is dead for the rest
- * of that plugin instance's life.
+ * container registered, so its later `buildEnd` decrements a counter that is
+ * already zero, and a count below zero can never reach zero again, which kills
+ * `buildEnd` disposal for the rest of the plugin's life. That only shows once a
+ * non-watching session follows, the shape a host reusing one plugin across
+ * configurations produces, and a pass left open at teardown is what Ctrl+C
+ * during a rebuild leaves behind.
  *
- * The consequence only becomes observable once a _non-watching_ session
- * follows, because `buildEnd` deliberately never disposes for a watching build.
- * So the instance is resolved again as an ordinary build, which is also the
- * shape a host that reuses one plugin across configurations produces. A pass
- * opened and never closed before teardown is what Ctrl+C during a rebuild
- * leaves behind.
+ * 1. Deliver a module in a watching pass, then close the watcher before ending the
+ *    pass.
+ * 2. Resolve the same plugin as an ordinary build and run a pass.
+ * 3. Assert the following pass compiles again, so `buildEnd` disposal still works.
  */
 export async function test_vite_close_watcher_mid_pass_keeps_the_counter_sound(): Promise<void> {
   const session = await startViteBuildSession(true);

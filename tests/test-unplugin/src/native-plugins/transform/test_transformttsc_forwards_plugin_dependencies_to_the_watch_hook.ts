@@ -7,11 +7,20 @@ import { emitDependenciesPlugins } from "../../internal/transform-dependencies/e
 import { fixtureHostInputs } from "../../internal/transform-dependencies/fixtureHostInputs";
 
 /**
- * Verifies the transform forwards plugin-reported dependencies to the
- * `addWatchFile` hook: project-relative entries absolutized against the project
- * root, absolute entries kept, exact duplicates collapsed, and only the exact
- * transformed-module spelling excluded. Distinct lexical aliases survive even
- * when they currently resolve to the transformed module itself.
+ * Verifies plugin-reported dependencies reach `addWatchFile` normalized, with
+ * only the exact module spelling excluded.
+ *
+ * Project-relative entries must be absolutized against the project root,
+ * absolute ones kept, and exact duplicates collapsed. Only the spelling being
+ * transformed is dropped: a distinct lexical alias of the same file can be
+ * retargeted independently, so it survives even while it currently resolves to
+ * the module itself.
+ *
+ * 1. Create two directory links to `src` and report relative, absolute, duplicate,
+ *    self, and aliased dependencies.
+ * 2. Transform through the first alias and assert the registered set keeps the
+ *    canonical spelling and the second alias.
+ * 3. Transform the canonical module and assert it keeps both aliases instead.
  */
 export async function test_transformttsc_forwards_plugin_dependencies_to_the_watch_hook(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =

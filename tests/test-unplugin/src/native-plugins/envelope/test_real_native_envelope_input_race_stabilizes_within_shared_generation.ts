@@ -10,8 +10,20 @@ import { programRuns } from "../../internal/real-native-envelope/programRuns";
 import { resetRunLog } from "../../internal/real-native-envelope/resetRunLog";
 
 /**
- * Assert wrapper-state and compiler-input races stabilize in bounded
- * lifecycles.
+ * Verifies wrapper-state and compiler-input races stabilize within bounded
+ * attempts and one shared generation.
+ *
+ * A config inherited by the generated wrapper can change after the wrapper is
+ * written, and a compiler input can change between attempts. A delivery must
+ * discard the mixed wrapper state and retry once, and concurrent modules must
+ * share that failed attempt and its stable retry rather than each starting
+ * their own.
+ *
+ * 1. Race a replacement of the inherited config after wrapper materialization, and
+ *    an input change across attempts.
+ * 2. Assert a delivery discards the mixed state and retries once.
+ * 3. Deliver modules concurrently and assert they share the failed attempt and the
+ *    stable retry, and later modules reuse that generation.
  */
 export async function test_real_native_envelope_input_race_stabilizes_within_shared_generation(): Promise<void> {
   const fixture = createRealNativeEnvelopeFixture({

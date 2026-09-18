@@ -14,10 +14,14 @@ import { loadersOf } from "../../internal/adapter-next/loadersOf";
  * Turbopack got no transform at all and no error: the build succeeded and every
  * plugin-driven construct in it survived untransformed into a runtime failure
  * (samchon/ttsc#1310). Turbopack is the default bundler in the Next majors this
- * repository pins, so the covered path was the one fewer users are on.
+ * repository pins, so the covered path was the one fewer users are on. Options
+ * must reach both halves identically, since a wrapper that wires two bundlers
+ * differently is its own defect.
  *
- * Options must reach both halves identically, since a wrapper that wires two
- * bundlers differently is its own defect.
+ * 1. Wrap an empty config with a `project` option.
+ * 2. Assert every automatic Turbopack glob routes through the ttsc loader with
+ *    those exact options.
+ * 3. Assert the webpack hook still injects one plugin.
  */
 export async function test_next_adapter_wires_both_bundlers(): Promise<void> {
   const next = await loadNext();

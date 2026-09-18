@@ -6,18 +6,20 @@ import { startMembershipSession } from "../../internal/transform-program-members
 
 /**
  * Verifies emptying and recreating the configured output directory costs
- * nothing, on a host with no build boundary.
+ * nothing on a host with no build boundary.
  *
  * `emptyOutDir` and `output.clean` do exactly this on every build, so the event
- * arrives on the project root's own watch: the directory disappears and
- * reappears. The walk never descends into a configured `outDir`, so the
- * membership digest cannot see anything there, and a tracker that reported the
- * directory anyway would be the one side reacting to it, voiding the generation
- * once per build for the whole session.
+ * arrives on the project root's own watch. The walk never descends into a
+ * configured `outDir`, so a tracker that reported it anyway would be the one
+ * side reacting, voiding the generation once per build. A plain `exclude` entry
+ * naming a file is the boundary in the other direction: that file is still
+ * walked and hashed, so its events must keep counting.
  *
- * A plain `exclude` entry naming a _file_ is the boundary case in the other
- * direction: that file is still walked and still hashed, so its events must
- * keep counting.
+ * 1. Deliver persistently with `outDir: "artifacts"`, then empty and recreate the
+ *    directory three times.
+ * 2. Assert no further compile.
+ * 3. Exclude a file by name, create it, and assert its membership event still
+ *    counts.
  */
 export async function test_transformttsc_recreating_the_output_directory_costs_nothing(): Promise<void> {
   const session = await startMembershipSession({

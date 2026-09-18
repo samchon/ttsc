@@ -5,13 +5,19 @@ import path from "node:path";
 import { startMembershipSession } from "../../internal/transform-program-membership/startMembershipSession";
 
 /**
- * Verifies `allowJs` decides whether emitted JavaScript is a membership change.
+ * Verifies `allowJs` decides whether a new JavaScript file is a membership
+ * change.
  *
- * The rule the fix replaced a name list with. A project that admits no
- * JavaScript cannot gain a program input when a `.js` file appears, so the
- * appearance is not membership. A project that admits JavaScript can, so it is,
- * and refusing to invalidate there would be the correctness half of the same
- * defect in the other direction.
+ * The configuration, not a directory-name list, decides what can enter the
+ * program. A project that admits no JavaScript cannot gain a program input when
+ * a `.js` file appears, so the appearance is not membership. A project that
+ * admits JavaScript can, and refusing to invalidate there would be the
+ * correctness half of the same defect in the other direction.
+ *
+ * 1. Run a pass over a project without `allowJs`, add a `.js` file, and assert the
+ *    next pass reuses the generation.
+ * 2. Run a pass over the same project with `allowJs`.
+ * 3. Add a `.js` file and assert the next pass recompiles.
  */
 export async function test_transformttsc_allowjs_decides_javascript_membership(): Promise<void> {
   const strict = await startMembershipSession();

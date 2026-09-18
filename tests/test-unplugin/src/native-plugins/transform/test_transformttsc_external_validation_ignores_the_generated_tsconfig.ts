@@ -8,14 +8,22 @@ import { cacheEntry } from "../../internal/transform-external/cacheEntry";
 import { emitGraphPlugins } from "../../internal/transform-graph/emitGraphPlugins";
 
 /**
- * Verifies the disposed temp-dir tsconfig never joins the external validation
- * universe. A `compilerOptions` overlay compiles through a generated tsconfig
- * that the host's config chain reports and that is deleted right after the
- * compile; hashing it would flip to `missing` on the first revalidation and
- * turn every subsequent transform into a recompile. All compiler scratch must
- * stay outside the project when the operating-system temp root is configured
- * inside it, directly or through a filesystem alias, without masking a real
- * descriptor/config edit. The rule also applies without a generated overlay.
+ * Verifies compiler scratch never joins the validation universe, even when the
+ * temp root sits inside the project.
+ *
+ * A `compilerOptions` overlay compiles through a generated tsconfig that the
+ * host's config chain reports and that is deleted right after the compile.
+ * Hashing it would flip to missing on the first revalidation and turn every
+ * later transform into a recompile. That must hold when the operating-system
+ * temp root is inside the project, directly or through an alias, and without
+ * masking a real descriptor or config edit.
+ *
+ * 1. Point `TEMP`, `TMP`, and `TMPDIR` at a directory inside the project through a
+ *    junction, and transform with an overlay.
+ * 2. Assert the generation is complete and records its temporary tsconfig, and an
+ *    unchanged retransform reuses it while a real edit replaces it.
+ * 3. Repeat without an overlay and with a canonical temp alias, and assert the
+ *    same reuse.
  */
 export async function test_transformttsc_external_validation_ignores_the_generated_tsconfig(): Promise<void> {
   const { resolveOptions, transformTtsc, createTtscTransformCache } =

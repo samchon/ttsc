@@ -9,16 +9,17 @@ import { startDeliveryPassSession } from "../../internal/transform-delivery-epoc
  * Verifies a pass keeps the generation when a project file the compile never
  * consumed changes.
  *
- * A project root is a working directory: logs, coverage reports and generated
- * artifacts are written there constantly. Only a file the generation declares
- * as an input can change an output, so re-proving against the whole walk
- * instead of the declared set would hand back the per-pass recompile this
- * change removes, for a file nothing compiled.
+ * A project root is a working directory where logs, coverage reports, and
+ * generated artifacts are written constantly. Only a file the generation
+ * declares as an input can change an output, so re-proving against the whole
+ * walk instead of the declared set would bring back the per-pass recompile for
+ * a file nothing compiled. This pins the declared-input filter, not the
+ * membership digest, whose twin is
+ * `test_transformttsc_a_build_pass_ignores_an_appearing_output_directory`.
  *
- * This pins the declared-input filter rather than the membership digest, and it
- * held before that digest existed too: rewriting a file in place moves neither
- * the directory's stamp nor its entry list. The digest's own twin is
- * `assertAPassIgnoresAnAppearingOutputDirectory`.
+ * 1. Plant a text file in `src` and run a pass.
+ * 2. Rewrite the text file.
+ * 3. Run another pass and assert it reuses the generation.
  */
 export async function test_transformttsc_a_build_pass_ignores_an_undeclared_project_file_edit(): Promise<void> {
   const session = await startDeliveryPassSession();

@@ -6,8 +6,20 @@ import path from "node:path";
 import { createCacheProject } from "../../internal/transform-project-cache/createCacheProject";
 
 /**
- * Verifies a graph-free build-scoped project input changed and restored during
- * native compilation cannot pair transient output with identical snapshots.
+ * Verifies a graph-free input changed and restored during a build-scoped
+ * compile cannot authorize the transient output.
+ *
+ * The snapshot taken before the compile and the one after it are byte-identical
+ * when an input is changed and then restored during the compile, yet the output
+ * may have read the transient bytes. Only the mutation witness opened before
+ * the compile can tell, and the generation must be discarded before it
+ * resolves.
+ *
+ * 1. Open a pass over a graph-free project that rewrites and restores `mod1.ts`
+ *    during its first compile.
+ * 2. Deliver the entry, then the restored module.
+ * 3. Assert the output carries no transient text, and the stable generation came
+ *    from a second compile.
  */
 export async function test_transformttsc_compile_snapshot_aba_race_cannot_authorize_stale_output(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.

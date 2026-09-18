@@ -7,20 +7,22 @@ import { createRealNativeEnvelopeFixture } from "../../internal/real-native-enve
 
 /**
  * Verifies a failing compile still registers the inputs a fix would touch, and
- * reports without terminal escapes.
+ * reports without terminal escapes (samchon/ttsc#1312).
  *
- * Two properties of the same moment (samchon/ttsc#1312). A successful delivery
- * registers derived watch inputs, which is how a type-only file no bundler
- * graph contains still invalidates its dependants. A failing one registered
- * nothing at all: `selectWatchInputs` returns an empty list for an exception
- * envelope, and the throw happened before the registration was reached. When
- * the failing compile is a watching session's first, that leaves no channel
- * through which the fix can arrive.
+ * A successful delivery registers derived watch inputs, which is how a
+ * type-only file no bundler graph contains still invalidates its dependants. A
+ * failing one registered nothing, because the throw came before the
+ * registration, so a watching session whose first compile failed had no channel
+ * through which the fix could arrive. Its message also carried the host's raw
+ * colour escapes, which obscure the file and line in an overlay or CI
+ * annotation.
  *
- * The same delivery's message used to carry the host's raw colour escapes.
- * Native type errors now retain structured diagnostics and recovery graphs;
- * opaque exceptions must also reach an overlay or CI annotation without
- * terminal escapes obscuring the file and line the reader needs.
+ * 1. Deliver a healthy module and assert one batch of watch inputs carrying the
+ *    generation's evidence.
+ * 2. Break a declaration and deliver again, and assert the type error reaches the
+ *    caller with one batch that includes the file the diagnostic names and
+ *    claims no evidence.
+ * 3. Assert the message carries no terminal escapes and still names that file.
  */
 export async function test_transformttsc_a_failed_compile_watches_and_reports_plainly(): Promise<void> {
   const fixture = createRealNativeEnvelopeFixture();

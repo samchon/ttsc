@@ -5,29 +5,21 @@ import path from "node:path";
 import { runTurbopackLoader } from "../../internal/adapter-turbopack/runTurbopackLoader";
 
 /**
- * Verifies the loader applies the shared transform-target filter, not a subset
- * of it (samchon/ttsc#1305).
+ * Verifies the Turbopack loader applies the shared transform-target filter, not
+ * a subset of it (samchon/ttsc#1305).
  *
- * The loader used to re-implement two of `isTransformTarget`'s four conditions
- * while its docstring, the README and the website all claimed parity, so a rule
- * glob wider than `*.ts`/`*.tsx` — the natural thing to write for a project
- * with mixed sources, and the reason a loader needs a filter at all — routed
- * JavaScript and virtual ids into the whole-project transform every other
- * adapter excludes. A project without `allowJs` has no program entry for such a
- * file, so the delivery reached `selectTransformedSource` with nothing to
- * return, and under the per-delivery eviction each one cost a whole-project
- * compile first. That condition no longer fails a build (samchon/ttsc#1308),
- * but routing a file into a whole-project transform that can never produce
- * output for it is still work the filter exists to avoid.
+ * The loader used to re-implement two of `isTransformTarget`'s four conditions,
+ * so a rule glob wider than `*.ts`/`*.tsx` routed JavaScript and virtual ids
+ * into the whole-project transform every other adapter excludes. A project
+ * without `allowJs` has no program entry for such a file, so each delivery cost
+ * a whole-project compile that could never produce output. The virtual row is
+ * defence in depth: `transformTtsc` short-circuits a NUL id itself, and the row
+ * pins that the loader no longer depends on a guard inside the transform.
  *
- * The four JavaScript rows are the regression guard: before the fix each of
- * them reached `selectTransformedSource` without output. The virtual row is
- * defence in depth rather than a second regression, because `transformTtsc`
- * short-circuits a NUL id itself, so the old loader also returned that source
- * untouched; what it pins is that the loader stops depending on a guard living
- * inside the transform. The declaration and `node_modules` rows both filters
- * already agreed on stay pinned by
- * `assertTurbopackLoaderPassesThroughFilteredPaths`.
+ * 1. Run the loader on `.js`, `.mjs`, `.cjs`, and `.jsx` siblings of a project
+ *    source.
+ * 2. Run it on a `\0` virtual id.
+ * 3. Assert every source is returned unchanged.
  */
 export async function test_turbopack_loader_passes_through_non_source_ids(): Promise<void> {
   const root = TestUnpluginProject.createProject();

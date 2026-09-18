@@ -6,20 +6,21 @@ import path from "node:path";
 import { createCacheProject } from "../../internal/transform-project-cache/createCacheProject";
 
 /**
- * Verifies the walk and `isProjectWalkPath` answer the same question.
+ * Verifies the walk and `isProjectWalkPath` give the same answer.
  *
- * `selectExternalInputPaths` uses that predicate as the sole test for "the walk
- * already covers this", and records everything else as an out-of-walk input to
- * be proven by content and physical identity. So the two must agree exactly.
- * Making the walk configuration-aware while the predicate stayed permissive
- * would put a graph input the compiler really read into neither snapshot:
- * absent from `inputHashes` because the walk skipped its directory, and absent
- * from the out-of-walk snapshot because the predicate claimed the walk had it.
- * On a pass-based host that is silent staleness, and on a persistent one it is
- * a whole-project recompile per delivery, forever.
+ * `selectExternalInputPaths` uses that predicate as the only test for "the walk
+ * already covers this", and records everything else as an out-of-walk input. If
+ * the walk became configuration-aware while the predicate stayed permissive, a
+ * graph input the compiler read would land in neither snapshot, which is silent
+ * staleness on a pass-based host and a whole-project recompile per delivery on
+ * a persistent one. The check targets the predicate directly, because the
+ * disagreement is between two functions.
  *
- * Asserted against the predicate directly, because the disagreement is between
- * two functions rather than in either one's own behaviour.
+ * 1. Build a project whose inherited output and declaration directories, retained
+ *    directories, owner directories, and `node_modules` cover every exclusion
+ *    origin.
+ * 2. Walk it, and ask the predicate about every file in each location.
+ * 3. Assert the predicate answers yes exactly for the files the walk hashed.
  */
 export async function test_transformttsc_the_walk_predicate_matches_the_walk(): Promise<void> {
   const api = await TestUnpluginRuntime.loadUnpluginApi();

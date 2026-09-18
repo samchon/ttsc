@@ -7,9 +7,16 @@ import { aliasFor } from "../../internal/transform-utility-plugin-config/aliasFo
 import { createUtilityPluginProject } from "../../internal/transform-utility-plugin-config/createUtilityPluginProject";
 
 /**
- * Verifies the positive twin: with and without the alias, the strip output is
- * byte-identical, so the generated-tsconfig lane and the passthrough lane agree
- * on the project's strip config.
+ * Verifies the strip output is byte-identical with and without a bundler alias.
+ *
+ * The alias lane compiles through a generated tsconfig and the plain lane
+ * through the project's own. Both must read the same strip config, or the same
+ * source would bundle differently depending on whether an alias was
+ * configured.
+ *
+ * 1. Create a strip project with a `strip.config.json`.
+ * 2. Transform its entry with and without a bundler alias.
+ * 3. Assert the configured call is removed and the two outputs are identical.
  */
 export async function test_transformttsc_alias_overlay_matches_no_alias_strip_output(): Promise<void> {
   const { resolveOptions, transformTtsc } =

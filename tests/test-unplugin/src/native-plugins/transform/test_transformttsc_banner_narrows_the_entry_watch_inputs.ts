@@ -6,13 +6,20 @@ import { createLinkedPluginProject } from "../../internal/transform-linked-compl
 import { watchesTypeSibling } from "../../internal/transform-linked-completeness/watchesTypeSibling";
 
 /**
- * Verifies a preamble plugin's declaration narrows the entry's watch inputs.
+ * Verifies a preamble plugin's completeness declaration narrows the entry's
+ * watch inputs.
  *
  * `@ttsc/banner` prepends one text derived from `banner.config.*` to every
- * file, so nothing in a sibling's content can reach the output. Its declaration
- * (through `SourcePreamble`, the hook that never sees the Program) plus the
- * host's own syntactic printing is what lets the adapter drop the reference
- * closure — while the config file, being a host input, stays universal.
+ * file, so nothing in a sibling's content can reach the output. Its
+ * declaration, made through `SourcePreamble`, the hook that never sees the
+ * Program, plus the host's own syntactic printing, lets the adapter drop the
+ * reference closure, while the config file, being a host input, stays
+ * universal.
+ *
+ * 1. Create a project whose only plugin is `@ttsc/banner`.
+ * 2. Collect the entry module's watch inputs.
+ * 3. Assert the type-only sibling is absent while `tsconfig.json` and
+ *    `banner.config.json` are present.
  */
 export async function test_transformttsc_banner_narrows_the_entry_watch_inputs(): Promise<void> {
   const project = createLinkedPluginProject(["banner"]);

@@ -3,17 +3,20 @@ import assert from "node:assert/strict";
 import path from "node:path";
 
 /**
- * Verifies that a bundler alias map passed as the fourth argument to
- * `transformTtsc` is forwarded to the ttsc transform as
- * `compilerOptions.paths`, verified by the fixture plugin's `assert-paths`
- * operation. The expected target is the absolute alias replacement: the
- * generated tsconfig lives in a temp directory where TypeScript-Go rejects bare
- * relative targets (TS5090), so the overlay writes absolute ones.
+ * Verifies a bundler alias map is forwarded to the compile as absolute
+ * `compilerOptions.paths` targets.
  *
- * Plugin options sit at the entry top level — the protocol forwards the whole
- * `compilerOptions.plugins[i]` entry as the plugin's config object, so a nested
- * `config: {...}` object would make the fixture fall back to its default
- * operation and the assertion would never run.
+ * The generated tsconfig lives in the temp directory, where TypeScript-Go
+ * rejects bare relative targets (TS5090), so the overlay writes absolute ones.
+ * Plugin options sit at the entry's top level, because the protocol forwards
+ * the whole `compilerOptions.plugins[i]` entry as the plugin's config; a nested
+ * `config` object would make the fixture fall back to its default operation and
+ * never assert.
+ *
+ * 1. Create a project with no configured plugins.
+ * 2. Transform with an alias map through the fixture's `assert-paths` operation,
+ *    naming the expected absolute target.
+ * 3. Assert the transform succeeds.
  */
 export async function test_transformttsc_passes_bundler_aliases_through_compileroptions_paths(): Promise<void> {
   const { resolveOptions, transformTtsc } =

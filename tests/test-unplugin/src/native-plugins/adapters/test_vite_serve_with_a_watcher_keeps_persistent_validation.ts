@@ -10,6 +10,10 @@ import { touchUnrelatedInput } from "../../internal/adapter-vite-lifecycle/touch
  * would serve a module compiled before an edit the server can observe and is
  * expected to hot-update. This is the negative twin of the watcherless case:
  * the same fixture, the same edit, the opposite verdict.
+ *
+ * 1. Start a watching serve session and deliver one module.
+ * 2. Change a project input that every module's validation covers.
+ * 3. Deliver every remaining module and assert exactly one replacement compile.
  */
 export async function test_vite_serve_with_a_watcher_keeps_persistent_validation(): Promise<void> {
   const session = await startViteAdapterSession({ watching: true });

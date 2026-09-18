@@ -7,14 +7,18 @@ import { createCacheProject } from "../../internal/transform-project-cache/creat
 import { projectModules } from "../../internal/transform-project-cache/projectModules";
 
 /**
- * Verifies the first delivery of each module does not re-read the entire
- * project.
+ * Verifies the first delivery of each module in a pass does not re-read the
+ * whole project.
  *
  * A project transform already returns output and an input snapshot for every
  * module. Re-hashing all P project files before selecting each of N outputs
- * makes the first build O(N x P), even though no generation has crossed a build
- * boundary. The cache can compare each supplied module source with its snapshot
- * entry and reserve complete validation for a repeated module request.
+ * makes the first build O(N x P), although no generation has crossed a build
+ * boundary. The cache compares each supplied module source with its snapshot
+ * entry instead, and keeps complete validation for a repeated request.
+ *
+ * 1. Open a pass over a 24-module project and deliver the first module.
+ * 2. Change an input that complete validation would see.
+ * 3. Deliver every other module once and assert the project compiled once.
  */
 export async function test_transformttsc_avoids_rehashing_the_project_for_each_first_module_delivery(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.

@@ -7,19 +7,21 @@ import { createCacheProject } from "../../internal/transform-project-cache/creat
 import { projectModules } from "../../internal/transform-project-cache/projectModules";
 
 /**
- * Verifies a universal host input with no readable content never acquires one.
+ * Verifies a universal host input with no readable content never acquires a
+ * signature.
  *
  * Descriptor and config inputs are validated through their own manifest, which
  * skips an entry whose metadata still matches. An input the host could see but
- * not read records a missing state on both sides, so its comparison succeeds
- * while nothing reads it and its metadata never moves. A signature for it would
- * be skipped for the generation's life, and the per-module loop skips the same
- * spelling, so bytes appearing later would never be compared at all.
+ * not read records a missing state on both sides, so a signature for it would
+ * be skipped for the generation's life. The input is a link with no target, the
+ * one shape both the host and the adapter fail to read for the same reason, and
+ * its content then appears through the cache's own read alone, so only a
+ * retained content comparison can see it.
  *
- * The input is a link with no target, the one shape both the host's own
- * filesystem and the adapter's fail to read for the same reason. Its content
- * then appears through the cache-owned read alone, so no metadata moves and
- * only a retained content comparison can see it.
+ * 1. Compile a project with a dangling-link universal input.
+ * 2. Assert deliveries hit the cache while it stays unreadable.
+ * 3. Make its content appear through the cache's read without moving metadata, and
+ *    assert the contradiction ends after one bounded retry wave.
  */
 export async function test_transformttsc_unreadable_host_input_keeps_the_content_comparison(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.

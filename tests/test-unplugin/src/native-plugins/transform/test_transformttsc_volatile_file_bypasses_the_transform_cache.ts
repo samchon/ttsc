@@ -4,10 +4,18 @@ import assert from "node:assert/strict";
 import { emitVolatilePlugins } from "../../internal/transform-volatile/emitVolatilePlugins";
 
 /**
- * Verifies a file the plugin declared volatile bypasses the project transform
- * cache: two consecutive transforms of an unchanged project must invoke the
- * compiler twice (observable through the embedded per-run timestamp) and signal
- * `markVolatile` on every request.
+ * Verifies a file declared volatile bypasses the transform cache on every
+ * request.
+ *
+ * A volatile output depends on something no file snapshot can represent, so
+ * replaying the cache would serve stale output. Two transforms of an unchanged
+ * project must compile twice, which the fixture's per-run timestamp makes
+ * visible, and signal `markVolatile` each time.
+ *
+ * 1. Transform with a plugin that declares `src/main.ts` volatile, counting
+ *    `markVolatile` calls.
+ * 2. Transform again without changing anything.
+ * 3. Assert the outputs differ and `markVolatile` was called for both.
  */
 export async function test_transformttsc_volatile_file_bypasses_the_transform_cache(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =

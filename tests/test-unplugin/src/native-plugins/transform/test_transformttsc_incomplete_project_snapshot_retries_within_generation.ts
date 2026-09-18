@@ -6,8 +6,17 @@ import path from "node:path";
 import { createCacheProject } from "../../internal/transform-project-cache/createCacheProject";
 
 /**
- * Verifies one generation-time walk failure is recovered inside the same shared
- * transform generation.
+ * Verifies one project-walk failure during capture is recovered inside the same
+ * shared generation.
+ *
+ * A directory that fails to list while the generation is captured leaves an
+ * incomplete snapshot, which may never authorize reuse. One transient failure
+ * should cost exactly one retry, and only the retry's complete generation may
+ * settle in the cache.
+ *
+ * 1. Fail one directory listing once, after the compile has started.
+ * 2. Deliver a module and assert the walk exercised the failure.
+ * 3. Assert exactly one retry ran and the cached generation is the complete one.
  */
 export async function test_transformttsc_incomplete_project_snapshot_retries_within_generation(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.

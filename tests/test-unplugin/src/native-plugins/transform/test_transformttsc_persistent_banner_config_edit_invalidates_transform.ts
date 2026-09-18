@@ -5,7 +5,19 @@ import path from "node:path";
 
 import { createUtilityPluginProject } from "../../internal/transform-utility-plugin-config/createUtilityPluginProject";
 
-/** Assert a persistent generation reloads an implicitly discovered config. */
+/**
+ * Verifies a persistent generation reloads a config the plugin discovered
+ * implicitly.
+ *
+ * `@ttsc/banner` finds `banner.config.json` itself; the tsconfig never names
+ * it. The discovered file is still a host input, so editing it must replace a
+ * persistent generation rather than keep serving the old banner.
+ *
+ * 1. Transform a banner project whose config says `OLD BANNER`.
+ * 2. Rewrite the config to `NEW BANNER`.
+ * 3. Transform again through the same cache and assert only the new banner
+ *    appears.
+ */
 export async function test_transformttsc_persistent_banner_config_edit_invalidates_transform(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =
     await TestUnpluginRuntime.loadUnpluginApi();

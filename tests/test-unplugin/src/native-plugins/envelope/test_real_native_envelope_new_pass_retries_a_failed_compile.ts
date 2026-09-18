@@ -10,9 +10,13 @@ import { startFailingCompile } from "../../internal/transform-terminal-verdict/s
  * proven against a recorded environment: project diagnostics and opaque host
  * exceptions both settle the attempt without claiming permanent failure. A new
  * pass is the first boundary at which the host itself claims something may have
- * changed, so the attempt is repeated there — which is what keeps a genuinely
- * transient failure from becoming permanent, at a bounded cost of one compile
+ * changed, so the attempt is repeated there, at a bounded cost of one compile
  * per pass.
+ *
+ * 1. Open a pass and deliver a module of a failing project.
+ * 2. Open a new pass and deliver it again, and assert a new generation was
+ *    attempted.
+ * 3. Deliver the remaining modules and assert they replay that pass's verdict.
  */
 export async function test_real_native_envelope_new_pass_retries_a_failed_compile(): Promise<void> {
   const { api, cache, deliver, modules } = await startFailingCompile();

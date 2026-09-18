@@ -5,12 +5,16 @@ import type { BunLoadOptions } from "../../internal/adapter-bun/BunLoadOptions";
 import type { BunLoader } from "../../internal/adapter-bun/BunLoader";
 
 /**
- * Verifies that the Bun adapter registers an `onLoad` transformer whose filter
- * matches `.ts` source files and whose loader returns plugin-transformed
- * output.
+ * Verifies the Bun adapter registers an `onLoad` transformer that returns
+ * plugin-transformed TypeScript.
  *
- * Stubs the Bun `setup` API so no real Bun runtime is required; loads the
- * adapter via `TestUnpluginRuntime.loadUnpluginAdapter("bun")`.
+ * This is the adapter's basic contract: without a registered loader whose
+ * filter matches a `.ts` source, Bun would compile the file untransformed. The
+ * Bun `setup` API is stubbed, so no Bun runtime is required.
+ *
+ * 1. Run the adapter's `setup` against a stub that records `onLoad` registrations.
+ * 2. Assert the registered filter matches the project's entry module.
+ * 3. Load the entry and assert transformed contents with the `ts` parser.
  */
 export async function test_bun_adapter_registers_an_onload_transformer_for_typescript_sources(): Promise<void> {
   const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");

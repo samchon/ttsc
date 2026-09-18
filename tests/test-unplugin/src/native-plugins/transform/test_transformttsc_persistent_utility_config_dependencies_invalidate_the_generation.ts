@@ -11,15 +11,20 @@ import { STRIP_SOURCE } from "../../internal/transform-utility-plugin-config/STR
 import { createUtilityPluginProject } from "../../internal/transform-utility-plugin-config/createUtilityPluginProject";
 
 /**
- * Assert persistent generations include modules evaluated by native utility
- * config loaders, even when those modules live outside the project walk.
+ * Verifies persistent generations include the modules native utility config
+ * loaders evaluate, even outside the project walk.
  *
- * 1. Configure banner and strip through `.cjs` and `.ts` files that exercise
- *    external, extensionless, package-main, ancestor, and NODE_PATH
- *    resolution.
- * 2. Edit only a helper or create a superseding module-resolution candidate,
- *    leaving descriptors, configs, and TypeScript project files untouched.
- * 3. Assert every candidate replaces the generation and selects new output.
+ * A `.cjs` or `.ts` banner or strip config can require helpers through
+ * external, extensionless, package-main, ancestor, and `NODE_PATH` resolution.
+ * Each module it evaluated is an input of the generation, and each superseding
+ * resolution candidate can change which module it evaluates, although no
+ * descriptor, config, or project source changed.
+ *
+ * 1. Configure banner and strip through `.cjs` and `.ts` configs that exercise
+ *    every resolution path.
+ * 2. Edit only a helper, or create a superseding resolution candidate, leaving
+ *    descriptors, configs, and sources untouched.
+ * 3. Assert every case replaces the generation and selects the new output.
  */
 export async function test_transformttsc_persistent_utility_config_dependencies_invalidate_the_generation(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =

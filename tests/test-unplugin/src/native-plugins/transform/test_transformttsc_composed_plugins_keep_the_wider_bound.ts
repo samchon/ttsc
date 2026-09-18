@@ -5,12 +5,18 @@ import { createLinkedPluginProject } from "../../internal/transform-linked-compl
 import { watchesTypeSibling } from "../../internal/transform-linked-completeness/watchesTypeSibling";
 
 /**
- * Verifies the aggregation rule over a composed plugin set.
+ * Verifies a completeness declaration beside a silent plugin keeps the wider
+ * watch bound.
  *
- * Completeness is per (plugin, file) and a consumer cannot attribute one
+ * Completeness is per plugin and per file, and a consumer cannot attribute one
  * plugin's reported inputs back to it, so a file is complete only when every
  * contributing plugin declared it. A declaring plugin beside a silent one
- * therefore keeps the wider bound, not the narrower one.
+ * therefore keeps the union bound, not the narrower one.
+ *
+ * 1. Create a project with `@ttsc/banner`, which declares completeness, and
+ *    `@ttsc/paths`, which does not.
+ * 2. Collect the entry module's watch inputs.
+ * 3. Assert the type-only sibling is still registered.
  */
 export async function test_transformttsc_composed_plugins_keep_the_wider_bound(): Promise<void> {
   const project = createLinkedPluginProject(["banner", "paths"]);

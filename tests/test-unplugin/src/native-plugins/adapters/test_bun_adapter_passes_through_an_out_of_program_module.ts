@@ -9,26 +9,18 @@ import { captureBunLoader } from "../../internal/adapter-bun/captureBunLoader";
  * Verifies a module the compiled program does not contain falls through the Bun
  * bundler adapter instead of failing the build.
  *
- * The Bun half of what samchon/ttsc#1308 asked to be proven per adapter and
- * samchon/ttsc#1317 records was never proven. Its pass-through spelling is
- * Bun's own: the bundler loader returns `undefined` to hand the module to the
- * next loader, exactly as it does for a transform that changed nothing, so the
- * source Bun compiles is the source on disk.
+ * The Bun half of what samchon/ttsc#1308 asked to be proven per adapter had
+ * never been proven (samchon/ttsc#1317). Its pass-through spelling is Bun's
+ * own: the loader returns `undefined` to hand the module to the next loader, so
+ * the source Bun compiles is the source on disk. The `undefined` alone would be
+ * weak, because the loader returns it for an excluded path too. The stderr
+ * report tells the two apart: only a delivery that reached the compile and
+ * found no output for this file can emit it.
  *
- * The discriminator is the absence of a throw rather than the `undefined`
- * itself. This file is a genuine transform target — a real `.ts` under the
- * project root, outside `node_modules` — and is absent from the program only
- * because the fixture's tsconfig includes `src` alone. Before #1308 that threw
- * and Bun turned it into a build failure.
- *
- * The `undefined` alone would be a weak assertion, because the loader returns
- * it for an excluded path too: `options.filter` is only the coarse pattern
- * `onLoad` is registered with, and the real gate is `isTransformTarget` inside
- * the loader, so a case resting on the return value would keep passing if the
- * module stopped reaching the transform at all and would decay into
- * `assertBunAdapterFallsThroughWhenItDoesNotTransform`'s excluded-path row. The
- * report is what tells the two apart: only a delivery that reached the compile
- * and found no output for this file can emit it.
+ * 1. Create a real `.ts` file outside the tsconfig's `include`.
+ * 2. Load it through the bundler-mode loader while capturing stderr.
+ * 3. Assert the result is `undefined` and the report names both the module and the
+ *    project's tsconfig.
  */
 export async function test_bun_adapter_passes_through_an_out_of_program_module(): Promise<void> {
   const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");

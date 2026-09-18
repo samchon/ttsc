@@ -6,7 +6,19 @@ import path from "node:path";
 import { createCacheProject } from "../../internal/transform-project-cache/createCacheProject";
 import { externalSourceModules } from "../../internal/transform-project-cache/externalSourceModules";
 
-/** A proved source output remains usable when a legacy graph omits its node. */
+/**
+ * Verifies a proven out-of-walk source output stays usable when a legacy graph
+ * omits its node.
+ *
+ * Older hosts do not list every emitted source as a graph node. The output's
+ * own compiler proof is still valid evidence, so the generation must keep
+ * serving it instead of treating the missing node as an unproven input.
+ *
+ * 1. Create a project that emits an external source output without a graph node
+ *    for it.
+ * 2. Deliver the entry and the external source.
+ * 3. Assert both are served from one generation.
+ */
 export async function test_transformttsc_proven_out_of_walk_source_without_graph_node_keeps_generation(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.
   TestUnpluginProject.ensureSharedCacheDir();

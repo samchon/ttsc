@@ -6,9 +6,15 @@ import { createProjectWithExternalInput } from "../../internal/transform-externa
 
 /**
  * Verifies a persistent cache invalidates when a reported out-of-walk input
- * changes: the plugin reads a file outside the project root and reports it as a
- * dependency; editing only that file must produce regenerated output from the
- * same cache instance (no `buildStart` clear in between).
+ * changes.
+ *
+ * The plugin reads a file outside the project root and reports it as a
+ * dependency. No `buildStart` clear happens between transforms, so only
+ * external-input validation can notice the edit.
+ *
+ * 1. Transform with a plugin that reads and reports a file outside the project.
+ * 2. Edit only that file.
+ * 3. Transform again through the same cache and assert the output is regenerated.
  */
 export async function test_transformttsc_invalidates_project_cache_when_an_external_input_changes(): Promise<void> {
   const { resolveOptions, transformTtsc, createTtscTransformCache } =

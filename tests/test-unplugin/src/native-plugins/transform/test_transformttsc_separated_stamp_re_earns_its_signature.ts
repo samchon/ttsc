@@ -9,9 +9,21 @@ import { createTickPinnedFilesystem } from "../../internal/transform-project-cac
 import { projectModules } from "../../internal/transform-project-cache/projectModules";
 
 /**
- * Verifies an input re-earns its signature once the observed filesystem's clock
- * provably leaves its stamp's tick, and that until then the content comparison
- * keeps running without costing the generation.
+ * Verifies an input re-earns its metadata signature once the clock provably
+ * leaves its stamp's tick.
+ *
+ * Until then the content comparison must keep running without costing the
+ * generation. Anything that makes the clock untrustworthy, a rollback, a failed
+ * probe, or a reference from another device, must restore content validation,
+ * so a hidden rewrite during it is still caught.
+ *
+ * 1. Compile with a stamp at the reference tick and assert it keeps the content
+ *    comparison, then re-earns its signature without recompiling once the clock
+ *    moves on.
+ * 2. Roll the clock back, fail the probe, and use a reference from another device,
+ *    in turn.
+ * 3. Assert each restores content validation, and a hidden rewrite during it
+ *    replaces the generation.
  */
 export async function test_transformttsc_separated_stamp_re_earns_its_signature(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.

@@ -7,13 +7,17 @@ import { createCacheProject } from "../../internal/transform-project-cache/creat
 import { projectModules } from "../../internal/transform-project-cache/projectModules";
 
 /**
- * Verifies a watcher that fails after generation falls back instead of
- * evicting.
+ * Verifies a watcher that fails after generation falls back to complete
+ * validation instead of evicting.
  *
  * A failed notification is the absence of a membership proof, never evidence of
  * a change. The generation must keep serving through complete-snapshot
- * validation, while a real membership event — which is evidence — still
- * replaces it.
+ * validation, while a real edit, which is evidence, still replaces it.
+ *
+ * 1. Compile through a cache whose watchers can be failed on demand, and assert a
+ *    healthy watcher was attached.
+ * 2. Fail every watcher and assert the next delivery keeps the same generation.
+ * 3. Edit an input and assert the next delivery replaces it.
  */
 export async function test_transformttsc_failed_notifications_fall_back_to_complete_validation(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.

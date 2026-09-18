@@ -4,16 +4,21 @@ import { createAliasProject } from "../../internal/transform-alias-resolution/cr
 import { transformMain } from "../../internal/transform-alias-resolution/transformMain";
 
 /**
- * Verifies the #205 regression: a type imported through an alias present in
- * BOTH tsconfig `paths` and the forwarded bundler aliases must still resolve.
+ * Verifies a type imported through an alias present in both tsconfig `paths`
+ * and the bundler aliases still resolves (samchon/ttsc#205).
  *
- * The probe is a deliberate type error through the aliased import: it can only
- * be reported when `Foo` resolved to the real interface. Before the fix the
- * generated overlay broke resolution (`baseUrl` is TS5102-removed and bare
- * relative targets are TS5090-rejected in the temp dir), the type collapsed to
- * `any`, and no error surfaced — the silent-no-op failure mode. The negative
- * twin (well-typed source passes cleanly) pins that the overlay introduces no
- * new diagnostics of its own.
+ * Before the fix the generated overlay broke resolution, since `baseUrl` is
+ * removed (TS5102) and bare relative targets are rejected in the temp directory
+ * (TS5090), so the type collapsed to `any` and no error surfaced. The probe is
+ * a deliberate type error that can only be reported when the alias resolved to
+ * the real interface, and its well-typed twin pins that the overlay adds no
+ * diagnostics of its own.
+ *
+ * 1. Create a project whose `@/*` alias is declared in both tsconfig `paths` and
+ *    the bundler aliases.
+ * 2. Transform a source that misuses a type imported through it, and assert it
+ *    rejects.
+ * 3. Transform a well-typed twin and assert it passes.
  */
 export async function test_transformttsc_resolves_types_through_alias_overlapping_tsconfig_paths(): Promise<void> {
   const root = createAliasProject();

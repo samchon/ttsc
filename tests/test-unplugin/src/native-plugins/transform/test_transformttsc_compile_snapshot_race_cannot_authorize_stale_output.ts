@@ -6,8 +6,17 @@ import path from "node:path";
 import { createCacheProject } from "../../internal/transform-project-cache/createCacheProject";
 
 /**
- * Verifies a project edit between native compilation and snapshot publication
+ * Verifies a project edit between the native compile and the snapshot capture
  * cannot become an authoritative stale generation.
+ *
+ * The compile reads the old bytes, and the walk that follows sees the new ones.
+ * Publishing that pair would serve output that no longer matches its recorded
+ * snapshot, so the first delivery has to stabilize the project before it
+ * resolves.
+ *
+ * 1. Rewrite a sibling module while the post-compile walk lists its directory.
+ * 2. Deliver the entry and assert the first delivery stabilized the raced project.
+ * 3. Deliver the sibling and assert it reuses that stabilized generation.
  */
 export async function test_transformttsc_compile_snapshot_race_cannot_authorize_stale_output(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.

@@ -5,14 +5,21 @@ import path from "node:path";
 import { startMembershipSession } from "../../internal/transform-program-membership/startMembershipSession";
 
 /**
- * Verifies an overlay `outDir` replaces the inherited directory exclusion and
- * that validation reads only what it compares.
+ * Verifies an overlay `outDir` replaces the inherited exclusion, and validation
+ * reads only what it compares.
  *
- * Two properties in one session, because both are about the effective program.
- * The replacement directory must remain outside the walk while the inherited
- * one becomes eligible again. A directory the walk enters must still not cost a
- * read per irrelevant file: validation compares content over the generation's
- * declared inputs alone, so reading anything else is wasted work.
+ * Both properties are about the effective program. The overlay's directory must
+ * stay outside the walk while the inherited one becomes eligible again. A
+ * directory the walk enters must still not cost a read per irrelevant file,
+ * because validation compares content over the generation's declared inputs
+ * alone.
+ *
+ * 1. Run passes over a project whose inherited `outDir` is `src`, overlaid with
+ *    `generated`, and fill `generated` with emitted files.
+ * 2. Assert the overlay directory voids nothing and validation reads no file it
+ *    never compares.
+ * 3. Add, edit, and remove a source under the inherited `outDir`, and assert each
+ *    is detected.
  */
 export async function test_transformttsc_the_walk_avoids_work_it_cannot_use(): Promise<void> {
   const session = await startMembershipSession(

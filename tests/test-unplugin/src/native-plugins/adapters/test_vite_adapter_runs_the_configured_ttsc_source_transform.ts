@@ -4,12 +4,15 @@ import path from "node:path";
 const viteBuild = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("vite").build;
 
 /**
- * Verifies that running a real Vite build with the unplugin vite adapter
- * produces plugin-transformed output.
+ * Verifies a real Vite build transforms through the adapter.
  *
- * Runs Vite with `write: false` and `logLevel: "silent"` so no files are
- * written and console output is suppressed; collects all chunk code via the
- * shared helper.
+ * This is the Vite adapter's end-to-end contract. The build runs with `write:
+ * false` and a silent log level, so it touches nothing on disk and every chunk
+ * can be inspected in memory.
+ *
+ * 1. Build the project's entry with the Vite adapter.
+ * 2. Collect the code of every output chunk.
+ * 3. Assert the chunks carry the transformed marker.
  */
 export async function test_vite_adapter_runs_the_configured_ttsc_source_transform(): Promise<void> {
   const unpluginVite = await TestUnpluginRuntime.loadUnpluginAdapter("vite");

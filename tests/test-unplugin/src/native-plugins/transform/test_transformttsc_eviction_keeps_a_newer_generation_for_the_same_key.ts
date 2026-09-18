@@ -5,12 +5,15 @@ import { primeSuccessfulTransform } from "../../internal/transform-project-cache
 
 /**
  * Verifies a failed generation's cleanup cannot remove a newer generation
- * another caller installed under the same key.
+ * installed under the same key.
  *
- * Eviction is identity-guarded: it deletes the entry only when the cache still
- * holds the exact failed generation. This pins that guard by replacing the
- * failed generation with a fresh one after the failing call has begun awaiting
- * but before its rejection eviction runs; the newer generation must survive.
+ * Eviction is identity-guarded: it deletes the entry only while the cache still
+ * holds the exact failed generation. Replacing the failed generation after the
+ * failing call began waiting, but before its eviction ran, pins that guard.
+ *
+ * 1. Prime a successful transform and install a rejected generation under its key.
+ * 2. Start a delivery, then install a newer generation under the same key.
+ * 3. Assert the delivery rejects and the newer generation survives.
  */
 export async function test_transformttsc_eviction_keeps_a_newer_generation_for_the_same_key(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.

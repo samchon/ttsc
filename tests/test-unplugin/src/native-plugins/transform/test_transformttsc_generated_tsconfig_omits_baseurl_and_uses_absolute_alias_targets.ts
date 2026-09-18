@@ -3,11 +3,19 @@ import assert from "node:assert/strict";
 import path from "node:path";
 
 /**
- * Verifies the generated transform tsconfig's alias encoding through the
- * fixture plugin's `assert-absolute-alias-paths` operation: the forwarded alias
- * must appear as an absolute `paths` target (TS5090 rejects bare relative
- * targets from the temp directory) and no `baseUrl` may be declared (TS5102 —
- * the option was removed in TypeScript-Go).
+ * Verifies the generated tsconfig encodes aliases as absolute `paths` targets
+ * and declares no `baseUrl`.
+ *
+ * The generated tsconfig lives in the temp directory, where TypeScript-Go
+ * rejects bare relative `paths` targets (TS5090). `baseUrl` was removed in
+ * TypeScript-Go (TS5102), so declaring it would fail every compile that
+ * forwards an alias.
+ *
+ * 1. Create a project with no configured plugins.
+ * 2. Transform with a bundler alias through the fixture's
+ *    `assert-absolute-alias-paths` operation.
+ * 3. Assert the transform succeeds, which the operation allows only for an
+ *    absolute target without `baseUrl`.
  */
 export async function test_transformttsc_generated_tsconfig_omits_baseurl_and_uses_absolute_alias_targets(): Promise<void> {
   const { resolveOptions, transformTtsc } =

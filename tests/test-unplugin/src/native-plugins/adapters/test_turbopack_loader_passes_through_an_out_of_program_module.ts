@@ -9,26 +9,18 @@ import { runTurbopackLoader } from "../../internal/adapter-turbopack/runTurbopac
  * Verifies a module the compiled program does not contain passes through the
  * loader instead of failing the Turbopack build.
  *
- * Samchon/ttsc#1308 moved that decision into the shared core so every adapter
- * answers it once, and asked for it to be proven per adapter rather than for
- * the core alone; samchon/ttsc#1317 records that it never was. The core case
- * pins the report and the once-per-pass rule, and this pins the outcome at the
- * boundary that actually reaches a bundler.
+ * Samchon/ttsc#1308 moved that decision into the shared core and asked for it
+ * to be proven per adapter, which samchon/ttsc#1317 records never happened. The
+ * file is a genuine transform target that the fixture's `include` leaves out,
+ * and before #1308 the adapter threw on it. Returning the source unchanged is
+ * also what the loader does for a filtered path, so the stderr report is what
+ * proves the delivery reached the compile, and it is half the contract, since a
+ * pass-through must not be silent.
  *
- * The discriminator is the absence of a throw. This file is a genuine transform
- * target — a real `.ts` under the project root, outside `node_modules`, not a
- * declaration — so no filter turns it away; it is simply absent from the
- * program, because the fixture's tsconfig includes `src` alone. Before #1308
- * the adapter threw here and Turbopack turned that into a build failure.
- *
- * Returning the source unchanged is on its own a weak assertion, because it is
- * also what the loader does for a path its filter rejects — so a case resting
- * on it alone would keep passing if the module stopped reaching the transform
- * at all, and would then prove nothing about the program. The report is what
- * distinguishes them: only a delivery that reached the compile and found no
- * output for this file can emit it, so asserting it pins that the pass-through
- * happened for the stated reason. It is also half the contract, since passing
- * through must not be silent.
+ * 1. Create a real `.ts` file outside the tsconfig's `include`.
+ * 2. Run the loader on it while capturing stderr.
+ * 3. Assert the source is unchanged and the report names both the module and the
+ *    project's tsconfig.
  */
 export async function test_turbopack_loader_passes_through_an_out_of_program_module(): Promise<void> {
   const root = TestUnpluginProject.createProject();

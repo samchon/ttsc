@@ -5,7 +5,19 @@ import fs from "node:fs";
 import { createCacheProject } from "../../internal/transform-project-cache/createCacheProject";
 import { projectModules } from "../../internal/transform-project-cache/projectModules";
 
-/** Prove the complete transform survives Darwin's high-descriptor spawn edge. */
+/**
+ * Verifies the complete transform survives Darwin's high-descriptor spawn edge.
+ *
+ * On macOS, a process holding descriptors above a system threshold can fail to
+ * spawn children or open watchers in ways a low-descriptor test never reaches.
+ * Runtime probes, descriptor evaluation, the Go build, and the native execution
+ * all spawn or open files, so each must survive it.
+ *
+ * 1. Skip unless the host is macOS.
+ * 2. Open descriptors until the next one exceeds 10,500.
+ * 3. Run a build-scoped transform and assert it succeeds, then close every
+ *    descriptor.
+ */
 export async function test_transformttsc_survives_high_darwin_descriptors(): Promise<void> {
   if (process.platform !== "darwin") return;
   const api = await TestUnpluginRuntime.loadUnpluginApi();

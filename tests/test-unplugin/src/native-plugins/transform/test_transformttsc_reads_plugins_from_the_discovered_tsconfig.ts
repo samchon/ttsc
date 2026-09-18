@@ -4,10 +4,17 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
- * Verifies that `transformTtsc` skips a child directory named `tsconfig.json`,
- * discovers the nearest ancestor config file, applies the plugins it declares,
- * and does not create a `dist/` directory (single-file mode, not a full
- * build).
+ * Verifies discovery skips a directory named `tsconfig.json` and applies the
+ * nearest real config's plugins.
+ *
+ * Discovery walks up from the module. A directory spelled `tsconfig.json` is
+ * not a config, so accepting it would stop the walk at nothing. The transform
+ * also runs in single-file mode and must not emit a build.
+ *
+ * 1. Create a directory named `tsconfig.json` beside the entry module.
+ * 2. Transform the entry.
+ * 3. Assert the ancestor config's plugin applied and no `dist` directory was
+ *    created.
  */
 export async function test_transformttsc_reads_plugins_from_the_discovered_tsconfig(): Promise<void> {
   const { resolveOptions, transformTtsc } =

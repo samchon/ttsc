@@ -3,12 +3,15 @@ import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
 const rollup = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("rollup").rollup;
 
 /**
- * Verifies that running a real rollup build with the unplugin rollup adapter
- * produces plugin-transformed output.
+ * Verifies a real Rollup build transforms through the adapter.
  *
- * Generates in-memory ESM output, collects all chunk code via the shared
- * helper, and checks for the expected plugin marker. Always closes the bundle
- * to release file watchers.
+ * This is the Rollup adapter's end-to-end contract: a bundle whose output lacks
+ * the plugin's rewrite means the transform never reached the module. The bundle
+ * is always closed so its watchers do not leak into later scenarios.
+ *
+ * 1. Bundle the project's entry with the Rollup adapter.
+ * 2. Generate in-memory ESM output.
+ * 3. Assert the chunks carry the transformed marker, then close the bundle.
  */
 export async function test_rollup_adapter_runs_the_configured_ttsc_source_transform(): Promise<void> {
   const unpluginRollup =

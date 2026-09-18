@@ -10,9 +10,18 @@ import { watchInputs } from "../../internal/transform-complete/watchInputs";
 import { emitGraphPlugins } from "../../internal/transform-graph/emitGraphPlugins";
 
 /**
- * Verifies a file declared both complete and volatile keeps the baseline union.
- * The two declarations contradict (an exact file-input set versus an input no
- * file can represent), so the conservative one wins over the narrower one.
+ * Verifies a file declared both complete and volatile keeps the baseline union
+ * of watch inputs.
+ *
+ * The two declarations contradict: an exact file-input set against an input no
+ * file can represent. The conservative one has to win, since narrowing to the
+ * declared set would drop inputs the volatile output might still depend on.
+ *
+ * 1. Transform with a reported dependency, a graph, a completeness declaration,
+ *    and a volatility declaration for `src/main.ts`.
+ * 2. Collect its watch inputs.
+ * 3. Assert they are the full union of the reported dependency, the graph reach,
+ *    and the universal inputs.
  */
 export async function test_transformttsc_ignores_completeness_for_a_volatile_file(): Promise<void> {
   const root = TestUnpluginProject.createProject({ plugins: [] });

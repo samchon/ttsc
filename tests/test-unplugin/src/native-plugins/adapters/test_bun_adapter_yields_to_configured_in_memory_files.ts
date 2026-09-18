@@ -10,6 +10,14 @@ import { captureBunLoader } from "../../internal/adapter-bun/captureBunLoader";
  * `BuildConfig.files` can introduce a path with no disk entry or override an
  * existing one. Reading either through the filesystem violates Bun's stated
  * priority and can produce an `ENOENT` or transform stale disk contents.
+ * Ownership has to follow Bun's own path equivalence, neither wider (a
+ * differently cased key must not suppress a disk transform) nor narrower
+ * (Windows drive-letter case and separators must not escape it).
+ *
+ * 1. Capture the bundler loader with relative and absolute `files` entries.
+ * 2. Assert both are left to Bun, across separator and working-directory changes.
+ * 3. Assert differently cased, relative, and dot-segment keys do not claim a disk
+ *    path, while Windows-equivalent spellings stay owned by Bun.
  */
 export async function test_bun_adapter_yields_to_configured_in_memory_files(): Promise<void> {
   const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");

@@ -5,9 +5,17 @@ import { aliasFor } from "../../internal/transform-utility-plugin-config/aliasFo
 import { createUtilityPluginProject } from "../../internal/transform-utility-plugin-config/createUtilityPluginProject";
 
 /**
- * Verifies that a bundler alias does not make `@ttsc/banner` fail with "no
- * banner.config found": the project's config file is discovered and its banner
- * text lands in the transformed source.
+ * Verifies a bundler alias does not stop `@ttsc/banner` from discovering the
+ * project's config.
+ *
+ * A bundler alias makes the transform compile through a generated tsconfig in a
+ * temp directory. `@ttsc/banner` discovers `banner.config.json` from the
+ * project, so if discovery followed the generated config, it would fail with
+ * "no banner.config found".
+ *
+ * 1. Create a banner project with a `banner.config.json`.
+ * 2. Transform its entry with a bundler alias.
+ * 3. Assert the configured banner text is in the output.
  */
 export async function test_transformttsc_alias_overlay_discovers_project_banner_config(): Promise<void> {
   const { resolveOptions, transformTtsc } =

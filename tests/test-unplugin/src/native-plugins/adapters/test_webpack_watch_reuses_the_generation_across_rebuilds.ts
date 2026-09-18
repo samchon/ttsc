@@ -8,27 +8,22 @@ import { createTypeEdgeProject } from "../../internal/adapter-webpack/createType
 import { createWebpackConfig } from "../../internal/adapter-webpack/createWebpackConfig";
 
 /**
- * Verifies samchon/ttsc#1300 end to end, through a real webpack watch session.
+ * Verifies a real webpack watch session reuses the generation across rebuilds
+ * (samchon/ttsc#1300).
  *
- * The core-level scenarios drive the pass boundary directly; this one proves
- * the wiring from a host's own rebuild signal to that boundary. unplugin maps
- * `buildStart` onto `compiler.hooks.make`, which fires once per compilation, so
- * a watch session opens a pass per rebuild — and the per-pass clear turned each
- * of those into a whole-project transform.
+ * Unplugin maps `buildStart` onto `compiler.hooks.make`, which fires once per
+ * compilation, so a watch session opens a pass per rebuild, and the per-pass
+ * clear turned each of those into a whole-project transform. The rebuild is
+ * triggered by rewriting the type-only input with its own bytes, which moves
+ * its timestamp but not its content, exactly the shape a rebuild must cost
+ * nothing. The compile count alone would prove nothing, because a compilation
+ * that did not re-run the loader costs no compile either, so the scenario waits
+ * for a compilation that actually re-ran it.
  *
- * The rebuild is triggered by rewriting `src/mytype.ts` with its own bytes.
- * That file reaches the entry only through a type-only import, so webpack knows
- * about it solely because the adapter registered it through `addWatchFile`; the
- * rewrite moves its timestamp without moving its content, which is exactly the
- * shape a rebuild must cost nothing. Timestamp snapshots are pinned explicitly
- * so the scenario does not rest on webpack's default snapshot strategy, and the
- * run log lives outside the project so the transform's own input walk never
- * sees the counter.
- *
- * The compile count alone would not prove anything: a compilation that did not
- * rebuild the entry runs no delivery, and so costs no compile under the old
- * code either. The scenario therefore waits for a compilation that actually
- * re-ran the loader before it reads the count.
+ * 1. Start a webpack watcher with timestamp snapshots and a run log outside the
+ *    project, and assert the cold build compiles once.
+ * 2. Rewrite the type-only input with its own bytes.
+ * 3. Wait for a rebuild that re-ran the loader and assert it compiled nothing.
  */
 export async function test_webpack_watch_reuses_the_generation_across_rebuilds(): Promise<void> {
   const runLog = path.join(

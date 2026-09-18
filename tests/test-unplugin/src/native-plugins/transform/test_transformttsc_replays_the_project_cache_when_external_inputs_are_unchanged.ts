@@ -5,10 +5,16 @@ import { cacheEntry } from "../../internal/transform-external/cacheEntry";
 import { createProjectWithExternalInput } from "../../internal/transform-external/createProjectWithExternalInput";
 
 /**
- * Verifies the negative twin: with the external input untouched, the second
- * transform replays the cached generation (same promise identity) instead of
- * recompiling — the external re-hash must not turn the cache into a per-call
- * recompile.
+ * Verifies an untouched external input lets the second transform replay the
+ * cached generation.
+ *
+ * This is the negative twin of external invalidation. Re-hashing the external
+ * input on every call must not turn the cache into a per-call recompile, so the
+ * second transform has to return the same cached promise.
+ *
+ * 1. Transform with a plugin that reads and reports a file outside the project.
+ * 2. Transform again without touching that file.
+ * 3. Assert the same generation was replayed.
  */
 export async function test_transformttsc_replays_the_project_cache_when_external_inputs_are_unchanged(): Promise<void> {
   const { resolveOptions, transformTtsc, createTtscTransformCache } =

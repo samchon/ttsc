@@ -7,20 +7,22 @@ import { createCacheProject } from "../../internal/transform-project-cache/creat
 
 /**
  * Verifies the membership policy reports every config it consulted, including
- * one that is not there yet.
+ * one that does not exist yet.
  *
  * A caller that memoizes a policy has to know when to stop trusting it, and the
  * leaf config alone cannot tell it: `allowJs`, `resolveJsonModule`, `outDir`,
- * `declarationDir` and `exclude` all resolve through the whole `extends` chain,
- * so adding `exclude` to a shared `tsconfig.base.json` changes every answer the
- * policy gives while leaving the leaf's own bytes untouched. `@ttsc/metro`
- * stamps this list in a worker that outlives many runs, and a stamp that missed
- * a config would hold a policy the next run's walk already disagreed with,
- * which is the both-sides-disagree hole the policy exists to close.
+ * `declarationDir`, and `exclude` all resolve through the whole `extends`
+ * chain. `@ttsc/metro` stamps this list in a worker that outlives many runs, so
+ * a missed config would hold a policy the next run's walk already disagrees
+ * with. A base that does not exist yet counts too, since it can be generated
+ * during install or arrive with a branch switch.
  *
- * A base that does not exist yet counts too, since it can be generated during
- * install or arrive with a branch switch, and its creation has to move the
- * stamp.
+ * 1. Extend a missing base, and assert the leaf and the unresolved target are both
+ *    reported.
+ * 2. Assert the resolver's `.json` candidates are reported for extensionless and
+ *    differently cased specifiers.
+ * 3. Create the base with an `exclude` and assert the policy applies it and still
+ *    reports the base.
  */
 export async function test_transformttsc_the_policy_reports_every_config_it_read(): Promise<void> {
   const api = await TestUnpluginRuntime.loadUnpluginApi();

@@ -6,14 +6,18 @@ import path from "node:path";
 import { createNestedUtilityPluginProject } from "../../internal/transform-utility-plugin-config/createNestedUtilityPluginProject";
 
 /**
- * Verifies samchon/ttsc#1271: a banner config appearing nearer the project than
- * the one discovery settled on replaces the generation.
+ * Verifies a banner config appearing nearer the project than the one discovery
+ * chose replaces the generation (samchon/ttsc#1271).
  *
  * Discovery walks upward and stops at the first directory that answers, so
- * every candidate it probed on the way is a path that can change the answer.
- * Reporting only the file it found leaves a cached generation unable to notice
- * a nearer one, and a cold build then disagrees with the warm one about which
- * config the project has.
+ * every candidate it probed on the way can change the answer. Reporting only
+ * the file it found leaves a cached generation unable to notice a nearer one,
+ * and a cold build then disagrees with the warm one about which config the
+ * project has.
+ *
+ * 1. Transform a project whose only banner config sits in an outer directory.
+ * 2. Assert the nearer, still-absent candidate is recorded among the host inputs.
+ * 3. Create the nearer config and assert the next transform uses its banner.
  */
 export async function test_transformttsc_persistent_banner_config_supersession_invalidates_transform(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =

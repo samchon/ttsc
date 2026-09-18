@@ -20,13 +20,17 @@ async function driveCapturedLoader(
 }
 
 /**
- * Asserts the negative twin: a pure preload import with no explicit call
- * registers exactly one default loader that transforms with the project's own
- * tsconfig configuration.
+ * Verifies a pure preload import registers exactly one default loader, which
+ * transforms with the project's tsconfig.
  *
- * The one-line `bunfig.toml` preload convenience must keep working: importing
- * the side-effect entry under Bun registers a single default plugin, and that
- * plugin applies the fixture's tsconfig-declared transform.
+ * The one-line `bunfig.toml` preload convenience must keep working without an
+ * explicit call. Evaluating both package conditions, CommonJS then ESM, must
+ * share one loader, since two would transform every module twice.
+ *
+ * 1. Require the CommonJS entry under a Bun stub, then import the ESM entry.
+ * 2. Assert only one plugin was registered.
+ * 3. Load the entry module through it and assert the tsconfig-declared transform
+ *    applied.
  */
 export async function test_bun_register_preload_only_registers_a_single_default_plugin(): Promise<void> {
   const captured: CapturedPlugin[] = [];

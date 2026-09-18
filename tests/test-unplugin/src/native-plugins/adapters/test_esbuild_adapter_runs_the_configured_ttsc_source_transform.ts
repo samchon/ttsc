@@ -6,13 +6,20 @@ import path from "node:path";
 const esbuild = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("esbuild");
 
 /**
- * Verifies that running a real esbuild build with the unplugin esbuild adapter
- * produces plugin-transformed output.
+ * Verifies a real esbuild build transforms through the adapter, and generation
+ * ownership follows each build's own lifetime.
  *
- * Runs failed setup, overlapping contexts, and overlapping one-shot builds
- * in-process with one adapter instance. It proves that only a build reaching
- * `onStart` acquires ownership and that delayed disposal cannot clear a newer
- * active owner, without another process or test entrypoint.
+ * One adapter instance can serve failed setups, overlapping `context()`
+ * sessions, and overlapping one-shot builds. Only a build that reaches
+ * `onStart` may acquire the generation, and a delayed disposal must never clear
+ * a newer active owner, or a live session would lose its proof mid-build.
+ *
+ * 1. Build once and assert the output is transformed, then fail a build after
+ *    setup and assert it holds no owner.
+ * 2. Open two contexts and assert they share one compile, and disposing one keeps
+ *    the generation for the other.
+ * 3. Overlap one-shot builds and assert an older disposal keeps the active
+ *    replacement's generation, while the final one releases it.
  */
 export async function test_esbuild_adapter_runs_the_configured_ttsc_source_transform(): Promise<void> {
   const unpluginEsbuild =

@@ -9,18 +9,24 @@ import { requireFreshBunRegister } from "../../internal/adapter-bun-register/req
 import { withBunRuntime } from "../../internal/adapter-bun-register/withBunRuntime";
 
 /**
- * Verifies that accessing the explicit `register(options)` API in the real
- * same-runtime order cannot install a shadowing default loader, and that the
- * explicit options are the ones that transform and then remain immutable.
+ * Verifies explicit `register(options)` calls cannot be shadowed by the
+ * auto-registered default loader.
  *
  * Bun uses the first matching `onLoad` hook and does not fall through to a
  * later overlapping plugin (oven-sh/bun#20583). The module auto-registers on
- * import, so a caller importing it to reach `register(options)` would, under
- * the old code, get a default plugin registered first that shadows the explicit
- * one. The entry must register exactly one Bun loader whose effective options
- * are resolved on first load, so calls before that boundary are last-write-wins
- * and calls after it cannot silently change the session. Evaluating the second
- * package condition must not erase options already supplied through the first.
+ * import, so a caller importing it to reach `register(options)` would get a
+ * default plugin registered first that shadows the explicit one. The entry must
+ * register exactly one loader whose effective options are resolved on first
+ * load, so calls before that boundary are last-write-wins and calls after it
+ * cannot change the session. Evaluating the second package condition must not
+ * erase options supplied through the first.
+ *
+ * 1. Import the ESM entry, register explicit options, then require the CommonJS
+ *    entry.
+ * 2. Assert one loader exists and the CommonJS registration preserves the ESM
+ *    options.
+ * 3. Assert the explicit options transform, and a later `register` cannot change
+ *    the running session.
  */
 export async function test_bun_register_explicit_options_are_not_shadowed_in_same_runtime_order(): Promise<void> {
   const preservationCaptured: CapturedPlugin[] = [];

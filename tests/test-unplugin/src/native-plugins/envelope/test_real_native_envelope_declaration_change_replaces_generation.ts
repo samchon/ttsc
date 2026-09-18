@@ -9,7 +9,18 @@ import { loadApi } from "../../internal/real-native-envelope/loadApi";
 import { programRuns } from "../../internal/real-native-envelope/programRuns";
 import { resetRunLog } from "../../internal/real-native-envelope/resetRunLog";
 
-/** Assert a changed selected declaration replaces one persistent generation. */
+/**
+ * Verifies an edit to a selected declaration replaces the persistent generation
+ * before its next importer is delivered.
+ *
+ * A declaration file is a compiler input the native host proves through the
+ * graph. Serving the next importer from the old generation would hand it output
+ * computed against a type that no longer exists.
+ *
+ * 1. Deliver the first module and assert the production envelope.
+ * 2. Edit the selected declaration and assert the next delivery recompiles.
+ * 3. Deliver the remaining modules and assert they reuse the replacement.
+ */
 export async function test_real_native_envelope_declaration_change_replaces_generation(): Promise<void> {
   const fixture = createRealNativeEnvelopeFixture();
   const api = await loadApi();

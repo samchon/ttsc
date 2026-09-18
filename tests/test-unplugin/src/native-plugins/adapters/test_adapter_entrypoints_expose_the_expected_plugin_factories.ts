@@ -4,10 +4,19 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
- * Verifies that the farm, rolldown, rspack, and webpack adapter entrypoints
- * each resolve to a callable factory function. It also fills one raw plugin
- * cache and proves that both webpack-like shutdown hooks clear it before the
- * next delivery, without starting another test process.
+ * Verifies the Farm, Rolldown, Rspack, and webpack entries expose factories,
+ * and both webpack-like shutdown hooks release the generation.
+ *
+ * Webpack and Rspack keep one compiler alive across watch rebuilds and signal
+ * its end only through `hooks.shutdown`. A generation retained past that hook
+ * would keep its filesystem trackers and serve a later compiler from a project
+ * state it never proved.
+ *
+ * 1. Assert each of the four adapter entries is a callable factory.
+ * 2. Wire the raw plugin to fake webpack and Rspack compilers and assert each taps
+ *    `shutdown` under the plugin's name.
+ * 3. Deliver the entry module and assert one compile, then fire each shutdown and
+ *    assert the next delivery compiles again.
  */
 export async function test_adapter_entrypoints_expose_the_expected_plugin_factories(): Promise<void> {
   const unpluginFarm = await TestUnpluginRuntime.loadUnpluginAdapter("farm");

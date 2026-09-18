@@ -10,10 +10,19 @@ import { watchInputs } from "../../internal/transform-complete/watchInputs";
 import { emitGraphPlugins } from "../../internal/transform-graph/emitGraphPlugins";
 
 /**
- * Verifies a file the envelope declares complete is invalidated only by the
- * plugin's own reported inputs plus the universal config chain: the graph's
- * reachability closure from that file and its global-scope files both drop,
- * while a declared input the graph never named still registers.
+ * Verifies a file declared complete is watched only through its reported inputs
+ * and the universal config chain.
+ *
+ * A completeness declaration transfers ownership of the file's dependency set
+ * to the plugin. The graph's reachability closure from that file and its
+ * global-scope files both drop, while an input the plugin reported but the
+ * graph never named still registers.
+ *
+ * 1. Transform with two reported dependencies, one absent from the graph, a graph,
+ *    and a completeness declaration for `src/main.ts`.
+ * 2. Collect its watch inputs.
+ * 3. Assert they are exactly the two reported dependencies and the universal
+ *    inputs.
  */
 export async function test_transformttsc_narrows_watch_inputs_for_a_file_declared_complete(): Promise<void> {
   const root = TestUnpluginProject.createProject({ plugins: [] });

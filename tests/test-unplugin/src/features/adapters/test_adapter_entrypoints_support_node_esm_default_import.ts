@@ -2,9 +2,16 @@ import { TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
 /**
- * Verifies that all ESM entrypoints expose a callable `default` export via
- * dynamic `import()`, covering the root index and every bundler-specific
- * adapter.
+ * Verifies every ESM entrypoint exposes a callable default export through
+ * `import()`.
+ *
+ * The `.mjs` files are emitted separately from the CommonJS ones, so the
+ * default export has to survive in that format as well. The root index must
+ * expose the unified instance, and each adapter entry its own factory.
+ *
+ * 1. Import the root index and assert its default carries the `vite` factory.
+ * 2. Import every adapter entry.
+ * 3. Assert each default export is a function.
  */
 export async function test_adapter_entrypoints_support_node_esm_default_import(): Promise<void> {
   const root = await import(TestUnpluginRuntime.libUrl("index"));

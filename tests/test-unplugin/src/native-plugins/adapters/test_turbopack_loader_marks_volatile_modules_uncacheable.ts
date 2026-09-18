@@ -4,13 +4,17 @@ import assert from "node:assert/strict";
 import { runTurbopackLoaderWithContext } from "../../internal/adapter-turbopack/runTurbopackLoaderWithContext";
 
 /**
- * Verifies the loader marks a plugin-declared volatile module uncacheable
- * through the webpack loader contract's `cacheable(false)`, and its negative
- * twin: an ordinary transform never toggles cacheability.
+ * Verifies the loader marks a plugin-declared volatile module uncacheable, and
+ * never toggles cacheability otherwise.
  *
  * A volatile module's output depends on non-file inputs, which no
- * `fileDependencies` snapshot can represent; `cacheable(false)` is the only
- * loader-level channel that excludes it from caching.
+ * `fileDependencies` snapshot can represent. `cacheable(false)` is the only
+ * loader-level channel that excludes it from caching, and calling it for an
+ * ordinary module would disable caching for no reason.
+ *
+ * 1. Run the loader with a plugin that declares the module volatile.
+ * 2. Assert the output is transformed and `cacheable(false)` was called once.
+ * 3. Run it with an ordinary transform and assert `cacheable` was never called.
  */
 export async function test_turbopack_loader_marks_volatile_modules_uncacheable(): Promise<void> {
   const root = TestUnpluginProject.createProject({ plugins: [] });

@@ -11,8 +11,19 @@ import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
 /**
- * Run Bun itself so Windows IPC and runtime lifetime contracts cannot be
- * simulated away.
+ * Verifies a real Bun process closes each build's generation and gives the
+ * runtime preload a session of its own.
+ *
+ * Bun's IPC, process lifetime, and loader ordering cannot be faithfully
+ * stubbed, and a Windows broker child that kept Bun alive would only show up in
+ * a real process. Each completed `Bun.build` must release its generation, and
+ * the runtime preload must start a new one rather than reuse a build's.
+ *
+ * 1. Configure a plugin that logs each compile, and write a script that runs two
+ *    `Bun.build` passes.
+ * 2. Run it under Bun and assert both passes transform and each compiles once.
+ * 3. Run a module under the `bun-register` preload and assert it is transformed by
+ *    one more compile.
  */
 export async function test_bun_native_host_owns_build_and_runtime_sessions(): Promise<void> {
   const root = fs.realpathSync.native(TestUnpluginProject.createProject());

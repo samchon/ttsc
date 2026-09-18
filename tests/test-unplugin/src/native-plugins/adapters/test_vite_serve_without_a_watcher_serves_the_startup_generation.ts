@@ -7,21 +7,23 @@ const viteCreateServer =
   TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("vite").createServer;
 
 /**
- * Verifies a dev server with no watcher serves one consistent generation.
+ * Verifies a real Vite dev server with no watcher serves one consistent
+ * generation.
  *
  * A `server.watch: null` session has told Vite it will observe no file change,
- * so it has no way to learn of an edit, invalidate what the edit reached, or
- * hot-update a client. What persistent validation buys such a session is not
- * freshness but incoherence: modules delivered before an edit and after it
- * would come from two different compilations of one program. The build-scoped
- * lifecycle it takes instead (samchon/ttsc#1260) settles each module's first
- * delivery against the generation the session started from, the same contract
- * `vite build` already runs under.
+ * so it can neither learn of an edit nor hot-update a client. Persistent
+ * validation would buy such a session incoherence rather than freshness:
+ * modules delivered before and after an edit would come from two compilations
+ * of one program. The build-scoped lifecycle it takes instead
+ * (samchon/ttsc#1260) settles each module's first delivery against the
+ * generation the session started from. The watching twin keeps the opposite
+ * verdict in `test_vite_serve_with_a_watcher_keeps_persistent_validation`.
  *
- * A watching dev server keeps the opposite verdict, because its single
- * `buildStart` really does span later edits it can observe and hot-update. That
- * invariant is pinned by the watching twin of this configuration in
- * `features/adapters/test_vite_serve_with_a_watcher_keeps_persistent_validation`.
+ * 1. Start a middleware-mode dev server with `watch: null` and request the entry
+ *    module.
+ * 2. Break the entry module on disk.
+ * 3. Request a module not yet served and assert it comes from the starting
+ *    generation.
  */
 export async function test_vite_serve_without_a_watcher_serves_the_startup_generation(): Promise<void> {
   const unpluginVite = await TestUnpluginRuntime.loadUnpluginAdapter("vite");

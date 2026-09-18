@@ -6,7 +6,22 @@ import path from "node:path";
 import { createCacheProject } from "../../internal/transform-project-cache/createCacheProject";
 import { externalSourceModules } from "../../internal/transform-project-cache/externalSourceModules";
 
-/** A persistently unreadable project walk terminates after the retry bound. */
+/**
+ * Verifies a persistently unreadable project walk fails after the retry bound
+ * and recovers once the walk does.
+ *
+ * A walk that keeps failing can never produce a coherent snapshot, so retrying
+ * without limit would recompile forever. The failure must end after its bounded
+ * attempts and stay terminal while the environment is unchanged, yet a
+ * confirmed recovery of the walk must still replace it.
+ *
+ * 1. Make one project directory unreadable for every listing after the compile
+ *    starts.
+ * 2. Deliver and assert both attempts exercise the failed walk, and an unchanged
+ *    environment starts no further wave.
+ * 3. Restore the directory and assert the next delivery replaces the failed
+ *    generation.
+ */
 export async function test_transformttsc_persistent_incomplete_project_snapshot_fails_after_bounded_attempts(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.
   TestUnpluginProject.ensureSharedCacheDir();

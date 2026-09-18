@@ -5,13 +5,16 @@ import { deliverPass } from "../../internal/transform-delivery-epoch/deliverPass
 import { startDeliveryPassSession } from "../../internal/transform-delivery-epoch/startDeliveryPassSession";
 
 /**
- * Verifies a pass that edits a delivered module's own source recompiles exactly
- * once, and that the pass after it reuses the replacement.
+ * Verifies a pass that edits a delivered module recompiles once, and the next
+ * pass reuses the replacement.
  *
- * The negative twin of the reuse case: retention must not outlive the state it
- * was proven against, and the module whose bytes changed is the one input the
- * bundler itself supplies, so it is caught by the source comparison before any
- * proof runs.
+ * This is the negative twin of reuse: retention must not outlive the state it
+ * was proven against. The edited module is the one input the bundler itself
+ * supplies, so the source comparison catches it before any proof runs.
+ *
+ * 1. Run a pass and assert one compile.
+ * 2. Edit a module and run a pass, and assert one more compile.
+ * 3. Run another pass and assert it reuses the replacement.
  */
 export async function test_transformttsc_a_build_pass_recompiles_after_a_module_edit(): Promise<void> {
   const session = await startDeliveryPassSession();

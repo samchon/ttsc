@@ -6,12 +6,19 @@ import { emitGraphPlugins } from "../../internal/transform-graph/emitGraphPlugin
 import { fixtureHostInputs } from "../../internal/transform-graph/fixtureHostInputs";
 
 /**
- * Verifies the transform registers the host-owned reference graph's
- * contribution for the transformed file: the reachability closure of `edges`
- * from the file (transitively, through a chain the bundler cannot see), plus
- * `globals` and `configs` — absolutized against the project root, deduplicated,
- * with the module itself excluded even when a cycle or the globals list points
- * back at it, and with unreachable edges ignored.
+ * Verifies the transform registers the graph's reach from the module, plus
+ * `globals` and `configs`.
+ *
+ * The reachability closure must be transitive, through chains the bundler
+ * cannot see, and ignore edges the module cannot reach. Every path is
+ * absolutized against the project root and deduplicated, and the module itself
+ * is excluded even when a cycle or the globals list points back at it.
+ *
+ * 1. Transform with a graph holding a transitive chain, a cycle back to the
+ *    module, an unreachable edge, globals, and configs.
+ * 2. Record every registered watch file.
+ * 3. Assert exactly the reachable closure, globals, configs, and universal inputs,
+ *    without the module itself.
  */
 export async function test_transformttsc_registers_graph_reach_globals_and_configs_as_watch_files(): Promise<void> {
   const { resolveOptions, transformTtsc } =

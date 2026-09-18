@@ -9,8 +9,23 @@ import { loadViteAdapterPlugin } from "../../internal/adapter-vite-serve/loadVit
 import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
 
 /**
- * Exercise subscription races, lexical aliases and predicates on the real
- * watcher.
+ * Verifies the Vite serve watcher observes subscription races, lexical aliases,
+ * and path predicates on the real filesystem.
+ *
+ * A compiler input can change between the compile that recorded it and the
+ * moment the watcher subscribes, and it can be reached through junctions,
+ * symlinks, hard links, and case-folded spellings. Each of those is a way to
+ * miss an invalidation or to fire one for an unchanged spelling, so the watcher
+ * is driven against real filesystem transitions rather than simulated events.
+ *
+ * 1. Register inputs that change before subscription, through retargeted links and
+ *    renamed ancestors, and under another case spelling.
+ * 2. Assert each change invalidates exactly its importers, including file,
+ *    directory, and membership predicates and restored bytes.
+ * 3. Assert hard-linked inputs enter the shared fallback, and a replacement server
+ *    rediscovers the host's case policy.
+ * 4. Delete importers and assert their inputs and fallback work are released while
+ *    another importer's remain.
  */
 export async function test_vite_compiler_watch_tracks_subscription_and_alias_boundaries(): Promise<void> {
   const root = fs.realpathSync.native(

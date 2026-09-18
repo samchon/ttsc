@@ -8,11 +8,19 @@ import { createCacheProject } from "../../internal/transform-project-cache/creat
 import { projectModules } from "../../internal/transform-project-cache/projectModules";
 
 /**
- * Assert overlapping Vite containers retain only their newest live cache.
+ * Verifies overlapping Vite containers dispose only their own cache ownership.
  *
  * Vite constructs a replacement container before ending the old one during a
- * restart. The old buildEnd must not clear the replacement generation, while
- * the replacement's eventual buildEnd must dispose it and its trackers.
+ * restart, and closes even a container that never reached `buildStart`. Neither
+ * the unstarted container's nor the old container's `buildEnd` may clear the
+ * replacement's generation, while the replacement's own `buildEnd` must dispose
+ * it and its trackers.
+ *
+ * 1. Start the old container and deliver a module, then end an unstarted container
+ *    and assert the generation survives a later input change.
+ * 2. Start the replacement, end the old container, and assert the replacement's
+ *    generation survives a later input change.
+ * 3. End the replacement and assert the next delivery compiles again.
  */
 export async function test_vite_build_end_disposes_the_last_overlapping_cache_owner(): Promise<void> {
   const plugin = await loadViteAdapterPlugin();

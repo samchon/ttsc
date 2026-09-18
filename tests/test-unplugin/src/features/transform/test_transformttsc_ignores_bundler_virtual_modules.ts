@@ -2,11 +2,16 @@ import { TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
 /**
- * Verifies that `transformTtsc` returns `undefined` when the file path starts
- * with `\0` (a bundler virtual-module ID), skipping the transform entirely.
+ * Verifies `transformTtsc` returns `undefined` for a `\0`-prefixed virtual
+ * module id.
  *
- * Virtual modules do not correspond to real files and must not reach the ttsc
- * compiler, which would fail trying to read them from disk.
+ * Virtual modules do not correspond to files, and the compiler would fail
+ * trying to read one from disk. The transform must skip them before any project
+ * work starts.
+ *
+ * 1. Resolve default options.
+ * 2. Transform a `\0rolldown/runtime.js` id.
+ * 3. Assert the result is `undefined`.
  */
 export async function test_transformttsc_ignores_bundler_virtual_modules(): Promise<void> {
   const { resolveOptions, transformTtsc } =

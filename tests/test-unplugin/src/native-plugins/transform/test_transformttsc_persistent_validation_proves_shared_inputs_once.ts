@@ -8,16 +8,22 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
 
 /**
  * Verifies a generation proves each shared input once instead of once per
- * delivered module, without loosening any invalidation.
+ * delivered module, without loosening invalidation.
  *
- * `test_transformttsc_persistent_validation_uses_per_file_inputs` partitions
- * the graph so every module owns a disjoint external input, which hides the
- * cost this pins: a real program gives every module the same reachable closure
- * and the same `graph.globals`, so re-reading each delivered file's inputs
- * multiplies one generation's proven bytes by the module count. The bound below
- * is met only when an unchanged metadata signature stands in for the content
- * comparison, and only when one physical file's two spellings each keep their
- * own proof instead of overwriting it.
+ * `test_transformttsc_persistent_validation_uses_per_file_inputs` gives every
+ * module a disjoint external input, which hides this cost: a real program gives
+ * every module the same reachable closure and the same `graph.globals`, so
+ * re-reading each delivery's inputs multiplies one generation's proven bytes by
+ * the module count. The bound is met only when an unchanged metadata signature
+ * stands in for the content comparison, and when one file's two spellings each
+ * keep their own proof.
+ *
+ * 1. Deliver eight modules sharing 24 externals and 24 globals, one of them
+ *    aliased, and assert the read count stays within the bound.
+ * 2. Make a metadata-only change and assert it is proven once, not reread per
+ *    delivery, and keeps the generation.
+ * 3. Edit a global, a reachable external, and project membership, and assert each
+ *    replaces the generation.
  */
 export async function test_transformttsc_persistent_validation_proves_shared_inputs_once(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.

@@ -10,15 +10,22 @@ import path from "node:path";
 import { createUtilityPluginProject } from "../../internal/transform-utility-plugin-config/createUtilityPluginProject";
 
 /**
- * Verifies the same-byte link retarget is rejected with notifications unusable.
+ * Verifies a same-content link retarget is still caught when notifications are
+ * unusable.
  *
- * `assertPersistentUtilityConfigLinkRetargetInvalidatesTransform` closes the
- * exact-input watcher, which leaves the generation on the narrow path and
- * proves that path's metadata manifest. A watcher that _failed_ takes the other
- * branch: validation falls back to the complete snapshot, whose out-of-walk
- * comparison records realpaths for graph members only. A universal host input
- * is not a graph member, so a retarget to a byte-identical file would be
- * invisible there unless the fallback proves the universal manifest too.
+ * `test_transformttsc_persistent_utility_config_link_retarget_invalidates_generation`
+ * closes the exact-input watcher, which keeps the generation on the narrow
+ * path. A watcher that failed takes the other branch: validation falls back to
+ * the complete snapshot, whose out-of-walk comparison records realpaths for
+ * graph members only. A universal host input is not a graph member, so a
+ * retarget to a byte-identical file would be invisible unless the fallback
+ * proves the universal manifest too.
+ *
+ * 1. Configure a banner whose config requires a module through a directory link,
+ *    and compile through a cache whose watchers can be failed.
+ * 2. Fail the watchers.
+ * 3. Retarget the link to a byte-identical file and assert the next delivery
+ *    replaces the generation.
  */
 export async function test_transformttsc_unnotified_utility_config_link_retarget_invalidates_generation(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =

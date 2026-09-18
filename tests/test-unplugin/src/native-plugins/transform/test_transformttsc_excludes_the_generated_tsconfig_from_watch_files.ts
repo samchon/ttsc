@@ -6,13 +6,18 @@ import { emitGraphPlugins } from "../../internal/transform-graph/emitGraphPlugin
 import { fixtureHostInputs } from "../../internal/transform-graph/fixtureHostInputs";
 
 /**
- * Verifies the generated temp-dir tsconfig never registers as a watch input.
+ * Verifies the generated temp-directory tsconfig never registers as a watch
+ * input.
  *
  * A `compilerOptions` overlay makes the adapter compile through a generated
- * tsconfig in the system temp directory; the host's graph lists that file in
- * its config chain (the fixture echoes the `--tsconfig` flag), but the file is
- * disposed right after the compile, so registering it would invalidate every
- * persistent-cache snapshot on the next build.
+ * tsconfig in the system temp directory. The host's graph lists that file in
+ * its config chain, but it is disposed right after the compile, so registering
+ * it would invalidate every persistent snapshot on the next build.
+ *
+ * 1. Transform with a `compilerOptions` overlay and a graph that echoes the
+ *    generated tsconfig.
+ * 2. Record every registered watch file.
+ * 3. Assert only the real type edge and the universal inputs were registered.
  */
 export async function test_transformttsc_excludes_the_generated_tsconfig_from_watch_files(): Promise<void> {
   const { resolveOptions, transformTtsc } =

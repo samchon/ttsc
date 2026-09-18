@@ -7,13 +7,16 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
 
 /**
  * Verifies a host with no delivery pass surfaces a generation's diagnostics
- * once per generation.
+ * once.
  *
- * The guard is two fields rather than one because a persistent host's epoch is
- * `undefined`, which is also the initial value: collapsing them into a single
- * epoch comparison would silently suppress the very first report for Metro, the
- * Turbopack loader and a watching dev server. The rule is the same one the pass
- * uses, with one pass.
+ * The guard is two fields, because a persistent host's epoch is `undefined`,
+ * which is also the initial value. Collapsing them into one epoch comparison
+ * would silently suppress the very first report for Metro, the Turbopack
+ * loader, and a watching dev server.
+ *
+ * 1. Create a project whose plugin emits a warning, and capture stderr.
+ * 2. Deliver every module through a persistent cache.
+ * 3. Assert the warning was written once.
  */
 export async function test_transformttsc_persistent_diagnostics_are_reported_once_per_generation(): Promise<void> {
   const api = await TestUnpluginRuntime.loadUnpluginApi();

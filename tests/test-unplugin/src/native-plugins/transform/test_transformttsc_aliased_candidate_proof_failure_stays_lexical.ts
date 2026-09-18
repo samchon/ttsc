@@ -5,7 +5,21 @@ import fs from "node:fs";
 import { createCacheProject } from "../../internal/transform-project-cache/createCacheProject";
 import { projectModules } from "../../internal/transform-project-cache/projectModules";
 
-/** An aliased candidate proof failure remains bound to its exact spelling. */
+/**
+ * Verifies an aliased candidate's proof failure stays bound to its exact
+ * spelling.
+ *
+ * Two spellings of one candidate can reach the host, one with a proof and one
+ * whose read failed. Folding them into one identity would let the proof hide
+ * the failure, so the failure must stay on its own spelling and end the attempt
+ * after the bounded retry.
+ *
+ * 1. Create a project whose graph reports a proof and a failure under separate
+ *    spellings of one candidate.
+ * 2. Transform its module and assert it rejects after two attempts, naming the
+ *    aliased spelling and the producer's failure.
+ * 3. Assert exactly two compiles ran.
+ */
 export async function test_transformttsc_aliased_candidate_proof_failure_stays_lexical(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.
   TestUnpluginProject.ensureSharedCacheDir();

@@ -8,15 +8,18 @@ import { createTickPinnedFilesystem } from "../../internal/transform-project-cac
 import { projectModules } from "../../internal/transform-project-cache/projectModules";
 
 /**
- * Verifies the whole-snapshot path keeps its content comparison against
- * same-tick rewrites too, on both the project walk and the out-of-walk
- * re-check.
+ * Verifies complete-snapshot validation keeps its content comparison against
+ * same-tick rewrites, in the walk and outside it.
  *
- * A generation whose watchers could not be opened re-proves its recorded
- * snapshot from disk on every delivery. The walk may reuse a recorded hash for
- * a file whose proven signature still holds, so a signature recorded inside an
- * unfinished tick would let a sibling delivery replay output computed from
- * bytes a rewrite already replaced.
+ * A generation whose watchers could not be opened re-proves its snapshot from
+ * disk on every delivery. The walk may reuse a recorded hash while the file's
+ * signature holds, so a signature recorded inside an unfinished tick would let
+ * a sibling replay output computed from bytes a rewrite already replaced.
+ *
+ * 1. Compile through a tick-pinned filesystem that refuses watches.
+ * 2. Rewrite a project file in place and assert the walk re-reads it.
+ * 3. Rewrite an external input in place and assert the out-of-walk check re-reads
+ *    it.
  */
 export async function test_transformttsc_same_tick_rewrite_replaces_the_snapshot_generation(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.

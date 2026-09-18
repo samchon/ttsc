@@ -8,13 +8,18 @@ import { STRIP_SOURCE } from "../../internal/transform-utility-plugin-config/STR
 import { createNestedUtilityPluginProject } from "../../internal/transform-utility-plugin-config/createNestedUtilityPluginProject";
 
 /**
- * Verifies the same rule where the search found nothing at all.
+ * Verifies a strip config that appears where discovery found none replaces the
+ * built-in defaults.
  *
  * `@ttsc/strip` falls back to its built-in defaults when no config exists
  * anywhere up the tree, which is the state a config appearing later changes.
- * The defaults strip `console.log`; the config planted here strips
- * `logger.trace` instead, so each direction of the assertion distinguishes "the
- * new config took effect" from "the defaults kept running".
+ * The defaults strip `console.log` while the planted config strips
+ * `logger.trace` instead, so each direction of the assertion tells "the new
+ * config took effect" apart from "the defaults kept running".
+ *
+ * 1. Transform a strip project with no config and assert the defaults applied.
+ * 2. Create a config in a directory discovery probed.
+ * 3. Transform again and assert the new config applied instead of the defaults.
  */
 export async function test_transformttsc_persistent_strip_defaults_yield_to_an_appearing_config(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =

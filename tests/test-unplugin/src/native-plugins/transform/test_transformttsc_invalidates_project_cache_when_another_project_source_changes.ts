@@ -4,9 +4,15 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
- * Verifies that modifying a sibling source file (`src/helper.ts`) that the
- * plugin reads causes the next `transformTtsc` call to invalidate the cache and
- * produce updated output.
+ * Verifies editing a sibling source the plugin reads invalidates the cache.
+ *
+ * A plugin can read a project source other than the one being transformed. That
+ * file is a project input, so changing it must produce fresh output from the
+ * same cache.
+ *
+ * 1. Transform the entry with a plugin that reads `src/helper.ts`.
+ * 2. Rewrite `src/helper.ts`.
+ * 3. Transform again and assert the output reflects the new content.
  */
 export async function test_transformttsc_invalidates_project_cache_when_another_project_source_changes(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =

@@ -5,7 +5,21 @@ import fs from "node:fs";
 import { createCacheProject } from "../../internal/transform-project-cache/createCacheProject";
 import { projectModules } from "../../internal/transform-project-cache/projectModules";
 
-/** Prove delivery-pass caches retain no native filesystem watchers. */
+/**
+ * Verifies build-scoped caches retain no native filesystem watchers between
+ * deliveries.
+ *
+ * A pass revalidates at its own boundary, so a watcher kept past the compile
+ * would cost descriptors for nothing and outlive the build. Each compile still
+ * needs one bounded watcher as its A-B-A witness, which has to close before
+ * delivery.
+ *
+ * 1. Open a pass through a cache that counts opened and closed watchers, and
+ *    deliver a module.
+ * 2. Assert the compile opened one witness and closed it before delivery.
+ * 3. Edit an input, run another pass, and assert it recompiles and teardown leaves
+ *    no watcher open.
+ */
 export async function test_transformttsc_build_passes_retain_no_filesystem_watchers(): Promise<void> {
   const api = await TestUnpluginRuntime.loadUnpluginApi();
   const project = createCacheProject({ fileCount: 4, graphFanout: 1 });

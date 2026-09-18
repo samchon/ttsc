@@ -9,14 +9,16 @@ import { startMembershipSession } from "../../internal/transform-program-members
  * Verifies a host with no build boundary is not charged for emitted output
  * either.
  *
- * The other half of samchon/ttsc#1307, and the half every pass-based case is
- * blind to. `@ttsc/metro`, the Turbopack loader and a watching Vite dev server
- * never call `beginTtscTransformBuild`, so their deliveries go through the live
- * mutation tracker rather than through the pass gate's whole-generation proof.
- * The tracker has to answer the same question the membership digest does, or
- * the two disagree about one project: a content-hashed bundle fires a rename
- * per rebuild, and treating that as a membership change kept the whole cost on
- * exactly the hosts the narrow path exists for.
+ * `@ttsc/metro`, the Turbopack loader, and a watching Vite dev server never
+ * call `beginTtscTransformBuild`, so their deliveries go through the live
+ * mutation tracker instead of the pass gate (samchon/ttsc#1307). The tracker
+ * has to answer the same question the membership digest does: a content-hashed
+ * bundle fires a rename per rebuild, and treating that as membership kept the
+ * whole cost on exactly the hosts the narrow path exists for.
+ *
+ * 1. Deliver persistently until the generation settles.
+ * 2. Emit four more content-hashed bundles and assert no further compile.
+ * 3. Add a source to the program and assert the next delivery recompiles.
  */
 export async function test_transformttsc_a_persistent_host_ignores_emitted_output(): Promise<void> {
   const session = await startMembershipSession();

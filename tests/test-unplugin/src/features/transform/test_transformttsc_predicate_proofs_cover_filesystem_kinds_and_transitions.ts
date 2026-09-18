@@ -24,7 +24,25 @@ interface IFilesystemState {
   realpath?: string;
 }
 
-/** Assert predicate proofs across path kinds and transitions. */
+/**
+ * Verifies predicate proofs and discovery baselines across every filesystem
+ * kind and transition.
+ *
+ * A watch input's recorded predicate decides whether a later change invalidates
+ * its generation. A proof that answers for the wrong kind (a directory for a
+ * file, a link for its target, a malformed baseline) either misses a change or
+ * claims coverage it does not have, and project discovery must select the same
+ * config TypeScript-Go would through the same observations.
+ *
+ * 1. Capture file baselines for missing, regular, non-regular, directory, linked,
+ *    and malformed entries, and compare them with each evidence codec.
+ * 2. Assert every kind and transition matches only the predicates it satisfies,
+ *    and malformed input fails closed.
+ * 3. Replay TypeScript-Go's realpath fallback and accessible-entry listings under
+ *    POSIX and Windows path semantics.
+ * 4. Assert discovery picks the nearest regular config through links and
+ *    directories, and refuses an unprovable or unreadable project map.
+ */
 export async function test_transformttsc_predicate_proofs_cover_filesystem_kinds_and_transitions(): Promise<void> {
   const root = path.resolve("predicate-proof-root");
   const missingCandidate = path.join(root, "missing", "tsconfig.json");

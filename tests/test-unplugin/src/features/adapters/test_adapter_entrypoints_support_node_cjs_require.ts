@@ -13,11 +13,19 @@ const REQUIRE_FROM_TEST = createRequire(
 );
 
 /**
- * Verifies that all CJS entrypoints are resolvable via `require()` and that the
- * public `api` module exposes `resolveOptions` and `transformTtsc`.
+ * Verifies every CommonJS entrypoint loads through `require()` and exposes its
+ * adapter.
  *
- * Uses a `createRequire` rooted at the test-unplugin package to simulate the
- * resolution context of a CJS consumer.
+ * A CommonJS consumer resolves the package through `require`, so each built
+ * `.js` entry has to load in that context and publish a callable default
+ * export. The public `api` entry must also expose `resolveOptions` and
+ * `transformTtsc`, which direct callers and `@ttsc/metro` use.
+ *
+ * 1. Create a `require` rooted at the test package, the context a CommonJS
+ *    consumer resolves from.
+ * 2. Require the root index and every adapter entry, and assert each default
+ *    export is a function.
+ * 3. Require `api` and assert `resolveOptions` and `transformTtsc` are functions.
  */
 export async function test_adapter_entrypoints_support_node_cjs_require(): Promise<void> {
   const root = REQUIRE_FROM_TEST(TestUnpluginRuntime.libPath("index", "js"));

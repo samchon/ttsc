@@ -8,11 +8,15 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
 /**
  * Verifies the Rollup adapter disposes its generation at the right boundary.
  *
- * The Rollup and Rolldown blocks carry both halves of the same rule the Vite
- * block does, and the gate between them is load-bearing: `buildEnd` disposes
- * only for a one-shot build, because Rollup's watcher repeats a build phase and
- * disposing on that repeat is samchon/ttsc#1301. `this.meta.watchMode` is what
- * separates them, so it is exercised in both positions rather than assumed.
+ * `buildEnd` disposes only for a one-shot build, because Rollup's watcher
+ * repeats a build phase and disposing on that repeat is samchon/ttsc#1301.
+ * `this.meta.watchMode` is what separates them, so it is exercised in both
+ * positions rather than assumed.
+ *
+ * 1. Deliver a module in a first build and assert one compile.
+ * 2. End a watching build, start another, and assert the generation is reused,
+ *    then fire `closeWatcher` and assert it is disposed.
+ * 3. End a one-shot build and assert the next build compiles again.
  */
 export async function test_rollup_disposes_at_the_right_boundary(): Promise<void> {
   const unpluginRollup =

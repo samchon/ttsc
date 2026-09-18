@@ -6,16 +6,19 @@ import { createCacheProject } from "../../internal/transform-project-cache/creat
 import { projectModules } from "../../internal/transform-project-cache/projectModules";
 
 /**
- * Verifies samchon/ttsc#1304: a generation's non-error diagnostics are surfaced
- * once per pass, not once per delivered module.
+ * Verifies a generation's non-error diagnostics are surfaced once per pass, not
+ * once per delivered module (samchon/ttsc#1304).
  *
  * The diagnostics describe one compile of one program, so writing them per
  * delivery printed the same warning once per module and scaled the noise with
- * exactly the reuse the cache exists to provide. The envelope is re-published
- * with a `warning`-category diagnostic attached — the shape
- * `toCompilerTransformation` produces for a compile whose diagnostics carry no
- * `"error"` category, which is what `@ttsc/lint` emits for every rule below
- * error severity — because no fixture plugin produces one on its own.
+ * exactly the reuse the cache provides. No fixture plugin emits a warning, so
+ * the envelope is re-published with a `warning`-category diagnostic, the shape
+ * `toCompilerTransformation` produces for `@ttsc/lint` rules below error
+ * severity.
+ *
+ * 1. Attach a warning to the generation's envelope and capture stderr.
+ * 2. Deliver every module in one pass and assert the warning was written once.
+ * 3. Open a later pass and assert the standing warning is surfaced again, once.
  */
 export async function test_transformttsc_reports_generation_diagnostics_once_per_pass(): Promise<void> {
   const api = await TestUnpluginRuntime.loadUnpluginApi();

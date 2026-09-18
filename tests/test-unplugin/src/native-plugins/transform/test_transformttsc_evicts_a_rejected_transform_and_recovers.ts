@@ -4,15 +4,18 @@ import assert from "node:assert/strict";
 import { primeSuccessfulTransform } from "../../internal/transform-project-cache/primeSuccessfulTransform";
 
 /**
- * Verifies a rejected in-flight transform generation is surfaced to the caller
- * and evicted, so a corrected environment recovers.
+ * Verifies a rejected in-flight generation is surfaced and evicted, so a
+ * corrected environment recovers.
  *
- * The cache stores the transform Promise before it settles so concurrent
+ * The cache stores the transform promise before it settles so concurrent
  * callers share one compile. If a rejected generation stayed cached, a
- * transient toolchain/host failure would become permanent for a long-lived
- * Metro or Turbopack worker: every later request for the unchanged module would
- * replay the old rejection instead of retrying. Replacing the primed success
- * with a rejected Promise reproduces the `await transformed` branch exactly.
+ * transient toolchain or host failure would become permanent for a long-lived
+ * Metro or Turbopack worker, replaying the old rejection instead of retrying.
+ *
+ * 1. Prime a successful transform and replace its generation with a rejected
+ *    promise.
+ * 2. Deliver and assert the rejection surfaces and nothing stays cached.
+ * 3. Deliver again and assert the transform recovers.
  */
 export async function test_transformttsc_evicts_a_rejected_transform_and_recovers(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.

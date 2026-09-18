@@ -7,9 +7,16 @@ import { emitDependenciesPlugins } from "../../internal/transform-dependencies/e
 const rollup = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("rollup").rollup;
 
 /**
- * Verifies the adapter wiring end to end through a real rollup build: the
- * plugin-reported dependency lands in the bundle's `watchFiles`, which is the
- * exact channel watch-mode invalidation consumes.
+ * Verifies a plugin-reported dependency reaches a real Rollup bundle's
+ * `watchFiles`.
+ *
+ * `watchFiles` is the channel Rollup's watch mode reads to decide what triggers
+ * a rebuild. A dependency that reaches the transform but not this list is never
+ * watched, so editing a type-only input would leave the bundle stale.
+ *
+ * 1. Configure a plugin that reports `src/types.d.ts` as a dependency.
+ * 2. Bundle and generate with the Rollup adapter.
+ * 3. Assert the output is transformed and `watchFiles` contains the dependency.
  */
 export async function test_rollup_build_registers_plugin_dependencies_as_watch_files(): Promise<void> {
   const unpluginRollup =

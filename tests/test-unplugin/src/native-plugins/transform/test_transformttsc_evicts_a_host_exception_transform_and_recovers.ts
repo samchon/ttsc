@@ -6,14 +6,22 @@ import path from "node:path";
 import { primeSuccessfulTransform } from "../../internal/transform-project-cache/primeSuccessfulTransform";
 
 /**
- * Verifies a resolved host-`"exception"` envelope is surfaced and evicted.
+ * Verifies a resolved host `exception` envelope is surfaced, evicted, and
+ * recovered from.
  *
- * A generation can also fail by resolving to an `ITtscCompilerTransformation`
- * whose `type` is `"exception"`, which makes `selectTransformedSource` throw.
- * That is a failed generation too and must not be retained, or a long-lived
- * worker replays the exception forever. Reusing the primed generation's project
- * root and input hashes keeps `matchesCachedSource` passing so control reaches
- * the exception path.
+ * A generation can fail by resolving to a transformation whose `type` is
+ * `"exception"`, which makes `selectTransformedSource` throw. Retained, it
+ * would replay the exception forever in a long-lived worker. Reusing the primed
+ * generation's root and hashes keeps source matching passing, so control
+ * reaches the exception path, and the failure's watch registration must keep
+ * every lexical alias of a real input without inventing paths from the message
+ * or registering the disposed scratch tree.
+ *
+ * 1. Install an exception envelope over the primed generation and deliver.
+ * 2. Assert the exception surfaces, and the watch inputs keep every alias of the
+ *    external input while excluding message-derived and scratch paths.
+ * 3. Assert the generation is evicted and a corrected retry runs the transform
+ *    again.
  */
 export async function test_transformttsc_evicts_a_host_exception_transform_and_recovers(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.

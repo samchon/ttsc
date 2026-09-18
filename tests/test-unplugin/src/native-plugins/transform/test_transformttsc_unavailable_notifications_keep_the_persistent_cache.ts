@@ -7,14 +7,20 @@ import { createCacheProject } from "../../internal/transform-project-cache/creat
 import { projectModules } from "../../internal/transform-project-cache/projectModules";
 
 /**
- * Verifies a generation whose watchers cannot be registered still validates.
+ * Verifies a generation whose watchers cannot be registered is still validated
+ * from its snapshot.
  *
- * Folding watcher health into the generation's own completeness flag left an
- * entry that neither validation path would accept, so every delivery evicted it
- * and re-ran a whole-project compile — the state an inotify-exhausted or
- * network-filesystem dev server lands in. Losing notifications must cost the
- * narrow path, not the cache, and the recorded snapshot must keep proving every
- * class of change on its own.
+ * Folding watcher health into the generation's completeness flag left an entry
+ * neither validation path would accept, so every delivery evicted it and
+ * recompiled, the state an inotify-exhausted or network-filesystem dev server
+ * lands in. Losing notifications must cost the narrow path, not the cache, and
+ * the recorded snapshot must keep proving every class of change on its own.
+ *
+ * 1. Compile through a cache whose watch registrations are refused, and assert the
+ *    generation is kept without a watcher.
+ * 2. Edit a source, add an input, edit an out-of-walk graph member, and remove an
+ *    input, and assert each recompiles.
+ * 3. Assert a steady project stops recompiling once its snapshot matches again.
  */
 export async function test_transformttsc_unavailable_notifications_keep_the_persistent_cache(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.

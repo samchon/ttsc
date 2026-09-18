@@ -28,20 +28,21 @@ async function captureStderr(body: () => Promise<void>): Promise<string> {
 }
 
 /**
- * Asserts a module the program does not contain is passed through, reported,
- * and does not fail the build.
+ * Verifies a module the program does not contain is passed through, reported
+ * once per pass, and does not fail the build.
  *
- * One condition had two answers. `@ttsc/metro` caught this case and handed the
- * original source downstream, calling it non-fatal and claiming to match the
- * other integrations, while every unplugin adapter threw and the bundler turned
- * that into a build failure (samchon/ttsc#1308). The core now decides it once,
- * for every adapter and for Metro, and returns `undefined` exactly as it does
- * for a module ttsc leaves unchanged.
+ * `@ttsc/metro` handed such a module downstream while every unplugin adapter
+ * threw and the bundler turned that into a build failure (samchon/ttsc#1308).
+ * The core now decides it once for every host and returns `undefined`, as for a
+ * module ttsc leaves unchanged. Passing through must not be silent, because a
+ * skipped file keeps whatever plugin syntax it carries, and the config that
+ * could later include the module must stay watched so a fix can arrive.
  *
- * Passing through must not be silent, because a file that skips the ttsc pass
- * keeps whatever plugin syntax it carries, so the report is part of the
- * contract rather than a courtesy. It names the file and the program, and it
- * appears once per file per pass rather than once per delivery.
+ * 1. Deliver a file outside the program's `include` and assert it passes through
+ *    with one batch of universal watch inputs, including the config.
+ * 2. Assert the report names the module and the program, and appears once per file
+ *    per pass.
+ * 3. Open a new pass and assert the report appears again.
  */
 export async function test_transformttsc_an_out_of_program_module_is_passed_through_and_reported(): Promise<void> {
   const fixture = createRealNativeEnvelopeFixture();

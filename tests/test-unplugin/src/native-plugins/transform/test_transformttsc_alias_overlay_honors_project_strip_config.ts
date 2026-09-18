@@ -7,9 +7,16 @@ import { aliasFor } from "../../internal/transform-utility-plugin-config/aliasFo
 import { createUtilityPluginProject } from "../../internal/transform-utility-plugin-config/createUtilityPluginProject";
 
 /**
- * Verifies that a bundler alias does not detach `@ttsc/strip` from the
- * project's `strip.config.json`: the configured call list is honored and the
- * built-in defaults are NOT applied.
+ * Verifies a bundler alias does not detach `@ttsc/strip` from the project's
+ * `strip.config.json`.
+ *
+ * Under an alias the compile runs through a generated tsconfig in a temp
+ * directory. If the plugin lost the project's config there, it would silently
+ * fall back to its built-in defaults and strip different calls.
+ *
+ * 1. Create a strip project with a `strip.config.json`.
+ * 2. Transform its entry with a bundler alias.
+ * 3. Assert the configured call is removed and the default-only call is kept.
  */
 export async function test_transformttsc_alias_overlay_honors_project_strip_config(): Promise<void> {
   const { resolveOptions, transformTtsc } =

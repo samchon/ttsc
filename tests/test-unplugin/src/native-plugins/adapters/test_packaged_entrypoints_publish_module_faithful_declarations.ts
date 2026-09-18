@@ -7,9 +7,20 @@ import type { PackedUnpluginPackage } from "../../internal/packaged-host-contrac
 import { packUnpluginPackage } from "../../internal/packaged-host-contract/packUnpluginPackage";
 
 /**
- * Assert that the packed export map and declaration files preserve the module
- * kind of every runtime branch, then compile representative consumers against
- * the extracted package rather than workspace source paths.
+ * Verifies the packed package publishes module-faithful declarations that real
+ * consumers compile against.
+ *
+ * A declaration that claims the wrong module kind for its runtime branch
+ * type-checks in the workspace and fails for a consumer: an ESM condition typed
+ * as CommonJS, or a missing file behind a condition. Only the packed export map
+ * and the extracted files show what a registry install receives, including a
+ * Node10 consumer's `typesVersions` deep import.
+ *
+ * 1. Pack the package, and assert every subpath uses conditional exports whose
+ *    files exist and whose registration entries survive tree shaking.
+ * 2. Install the extracted package into a consumer beside its real dependencies.
+ * 3. Compile NodeNext, Bundler, and Node10 consumers with TypeScript-Go and the
+ *    legacy compiler, and assert every one succeeds.
  */
 export async function test_packaged_entrypoints_publish_module_faithful_declarations(): Promise<void> {
   const packed = packUnpluginPackage();

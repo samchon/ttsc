@@ -8,16 +8,19 @@ import { universalHostInputs } from "../../internal/adapter-turbopack/universalH
 
 /**
  * Verifies the loader registers plugin-reported dependencies through
- * `addDependency`, normalized exactly as the other adapters normalize their
- * watch files: project-relative entries absolutized against the project root,
- * absolute entries kept, duplicates collapsed, and the transformed module
+ * `addDependency`, normalized as every other adapter normalizes them.
+ *
+ * The standalone loader used to call the shared transform without a hooks
+ * argument, so the reported list was dropped and type-only inputs never entered
+ * Turbopack's invalidation graph. Relative entries must be absolutized against
+ * the project root, absolute ones kept, duplicates collapsed, and the module
  * itself excluded.
  *
- * The standalone Turbopack loader used to call the shared transform without a
- * hooks argument, so the reported dependency list was silently dropped and
- * type-only inputs never entered Turbopack's invalidation graph. The dependency
- * list mixes a relative entry, an absolute entry, a duplicate, and the module
- * itself to pin the normalization.
+ * 1. Configure a plugin reporting a relative entry, an absolute entry, a
+ *    duplicate, and the module itself.
+ * 2. Run the loader on the entry module.
+ * 3. Assert the registered dependencies are the two normalized entries followed by
+ *    the universal host inputs.
  */
 export async function test_turbopack_loader_registers_plugin_dependencies_as_file_dependencies(): Promise<void> {
   const root = TestUnpluginProject.createProject({ plugins: [] });

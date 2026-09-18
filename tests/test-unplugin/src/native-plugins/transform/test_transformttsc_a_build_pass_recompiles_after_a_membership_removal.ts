@@ -6,18 +6,18 @@ import { deliverPass } from "../../internal/transform-delivery-epoch/deliverPass
 import { startDeliveryPassSession } from "../../internal/transform-delivery-epoch/startDeliveryPassSession";
 
 /**
- * Verifies a pass recompiles when a source leaves the project, or changes kind,
- * and does not when a file that could never enter the program leaves.
+ * Verifies a pass recompiles when a source leaves the project or changes kind,
+ * and not when a non-program file leaves.
  *
- * A removal has no recorded hash to differ from and a kind swap keeps the name,
- * so both are invisible to the content comparison and the digest is the only
- * thing that answers for them. What the digest answers for is program
- * membership, so the two halves of that sentence are not the same file: a
- * source leaving is a membership change, while a stray `.txt` leaving is not,
- * any more than editing one is (samchon/ttsc#1307). Before that the digest
- * recorded every entry name, which made this pair disagree with its own
- * sibling: the same undeclared file was free to edit and cost a whole-project
- * compile to delete.
+ * A removal has no recorded hash to differ from, and a kind swap keeps the
+ * name, so the membership digest is the only thing that answers for either.
+ * What the digest answers for is program membership: a source leaving is a
+ * membership change, while a stray `.txt` leaving is not, any more than editing
+ * one is (samchon/ttsc#1307).
+ *
+ * 1. Remove a planted text file and assert the next pass reuses the generation.
+ * 2. Add, remove, and re-add a source, and assert each change recompiles.
+ * 3. Replace a source with a directory of the same name and assert it recompiles.
  */
 export async function test_transformttsc_a_build_pass_recompiles_after_a_membership_removal(): Promise<void> {
   const session = await startDeliveryPassSession();

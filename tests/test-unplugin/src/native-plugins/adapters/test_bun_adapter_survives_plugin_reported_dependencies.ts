@@ -5,20 +5,20 @@ import path from "node:path";
 import { captureBunLoader } from "../../internal/adapter-bun/captureBunLoader";
 
 /**
- * Verifies the Bun adapter never crashes when a transform plugin reports
- * dependencies, and keeps producing correct output on both the fresh transform
- * and the subsequent cache hit.
+ * Verifies the Bun adapter keeps producing correct output when a transform
+ * plugin reports dependencies.
  *
  * The shared transform calls `addWatchFile` once per plugin-reported
  * dependency. The Bun adapter used to invoke the raw transform with an empty
- * receiver (`{}`), so `this.addWatchFile` was `undefined` and any reported
- * dependency threw `TypeError: this.addWatchFile is not a function` before the
- * loader could return transformed source. Bun exposes no per-module dependency
- * channel, so the adapter must supply an explicit no-op watch context rather
- * than a missing one. The dependency list deliberately mixes a project-relative
- * entry, an absolute entry, a duplicate, and the module itself — every shape
- * that reaches the watch hook — because a single reported entry is enough to
- * trip the old crash.
+ * receiver, so any reported dependency threw `TypeError: this.addWatchFile is
+ * not a function`. Bun exposes no per-module dependency channel, so the adapter
+ * must supply an explicit no-op watch context. The list mixes a
+ * project-relative entry, an absolute entry, a duplicate, and the module
+ * itself, every shape that reaches the watch hook.
+ *
+ * 1. Configure a plugin that reports those four dependency shapes.
+ * 2. Load the entry module twice, a fresh transform and a cache hit.
+ * 3. Assert both return transformed contents with the `ts` parser.
  */
 export async function test_bun_adapter_survives_plugin_reported_dependencies(): Promise<void> {
   const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");

@@ -6,7 +6,19 @@ import path from "node:path";
 import { createCacheProject } from "../../internal/transform-project-cache/createCacheProject";
 import { externalSourceModules } from "../../internal/transform-project-cache/externalSourceModules";
 
-/** A graph-free out-of-walk source has no compiler-time coherence proof. */
+/**
+ * Verifies a graph-free out-of-walk source output fails after the bounded
+ * attempts.
+ *
+ * Without a graph, the host offers no compile-time proof for a source emitted
+ * outside the walk, so the generation cannot prove its output coherent. Every
+ * sibling must replay one terminal verdict instead of recompiling per
+ * delivery.
+ *
+ * 1. Create a graph-free project that emits two sources under `node_modules`.
+ * 2. Deliver the entry and assert it rejects after the bounded attempts.
+ * 3. Deliver the external sources and assert they replay the same verdict.
+ */
 export async function test_transformttsc_unproven_out_of_walk_source_fails_after_bounded_attempts(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.
   TestUnpluginProject.ensureSharedCacheDir();
