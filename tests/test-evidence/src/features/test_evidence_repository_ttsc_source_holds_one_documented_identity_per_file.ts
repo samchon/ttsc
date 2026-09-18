@@ -103,6 +103,9 @@ export const test_evidence_repository_ttsc_source_holds_one_documented_identity_
               (diagnostic) =>
                 `  ${diagnostic.file.replace(/^src\//, "packages/ttsc/src/")}:${diagnostic.line} ${diagnostic.message}`,
             ),
+            "",
+            "Actual output:",
+            result.output,
           ].join("\n"),
         );
 
@@ -123,7 +126,7 @@ export const test_evidence_repository_ttsc_source_holds_one_documented_identity_
 /** Fixture path of the file seeded with one violation of each rule. */
 const CANARY = "src/__evidence_canary__.ts";
 
-/** One `file:line:column - error TSxxxx: message` diagnostic. */
+/** One `file:line:column - error|warning TSxxxx: message` diagnostic. */
 interface IDiagnostic {
   /** Project-relative path with forward slashes. */
   file: string;
@@ -210,7 +213,7 @@ const linkPackageDependencies = (
  * removed.
  *
  * The summary table ttsc prints after a failing run repeats file names, so only
- * lines of the `file:line:column - error` shape count.
+ * lines of the `file:line:column - error|warning` shape count.
  */
 const parseDiagnostics = (output: string): IDiagnostic[] => {
   const plain: string = stripColors(output);

@@ -11,7 +11,8 @@ export type IJavaScriptRuntimeCapabilities = {
    * The executable is Bun. Bun loads TypeScript descriptors natively, and the
    * descriptor evaluator isolates it from Bun's own config, `.env` loading, and
    * network auto-install. The ttsx runtime-hook preload is gated separately, on
-   * {@link registerHooks}, which Bun does not report.
+   * the measured {@link registerHooks}, so Bun receives it only if it ever
+   * reports that hook.
    */
   bun: boolean;
 
