@@ -257,8 +257,8 @@ function spawnNodeWorker(opts: {
   });
 }
 
-/** Absolute path to the built source-plugin implementation used by workers. */
-function sourceBuildLibraryPath(): string {
+/** Absolute path to one built source-plugin module used by workers. */
+function sourceBuildLibraryPath(module: string): string {
   return path.join(
     TestProject.WORKSPACE_ROOT,
     "packages",
@@ -267,7 +267,7 @@ function sourceBuildLibraryPath(): string {
     "plugin",
     "internal",
     "source",
-    "buildSourcePlugin.js",
+    `${module}.js`,
   );
 }
 
@@ -287,7 +287,7 @@ function createSourcePluginWorkerScript(opts: {
   root: string;
   source: string;
 }): string {
-  const libraryPath = sourceBuildLibraryPath();
+  const libraryPath = sourceBuildLibraryPath("buildSourcePlugin");
   const script = path.join(opts.root, "build-source-plugin-worker.cjs");
   fs.writeFileSync(
     script,

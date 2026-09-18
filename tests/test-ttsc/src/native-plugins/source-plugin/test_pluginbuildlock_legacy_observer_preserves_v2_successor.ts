@@ -27,7 +27,6 @@ export const test_pluginbuildlock_legacy_observer_preserves_v2_successor =
   async () => {
     const root = TestProject.tmpdir("ttsc-lock-legacy-successor-");
     const lockDir = path.join(root, "entry.lock");
-    const libraryPath = sourceBuildLibraryPath();
     const legacyReady = path.join(root, "legacy-ready");
     const legacyRelease = path.join(root, "legacy-release");
     const legacyReleased = path.join(root, "legacy-released");
@@ -42,7 +41,12 @@ export const test_pluginbuildlock_legacy_observer_preserves_v2_successor =
         `const fs = require("node:fs");`,
         `const os = require("node:os");`,
         `const path = require("node:path");`,
-        `const { acquirePluginBuildLock, releasePluginBuildLock } = require(${JSON.stringify(libraryPath)});`,
+        `const { acquirePluginBuildLock } = require(${JSON.stringify(
+          sourceBuildLibraryPath("acquirePluginBuildLock"),
+        )});`,
+        `const { releasePluginBuildLock } = require(${JSON.stringify(
+          sourceBuildLibraryPath("releasePluginBuildLock"),
+        )});`,
         `const lockDir = ${JSON.stringify(lockDir)};`,
         `const mode = process.env.LOCK_WORKER_MODE;`,
         `if (mode === "legacy") {`,
