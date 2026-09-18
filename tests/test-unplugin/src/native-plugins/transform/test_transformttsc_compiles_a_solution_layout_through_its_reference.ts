@@ -40,7 +40,7 @@ export async function test_transformttsc_compiles_a_solution_layout_through_its_
     undefined,
     undefined,
     {
-      addWatchFiles: (inputs) => {
+      addWatchFiles: (inputs: readonly { file: string }[]) => {
         for (const input of inputs) registered.push(path.resolve(input.file));
       },
     },
