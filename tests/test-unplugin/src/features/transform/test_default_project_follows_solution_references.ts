@@ -20,13 +20,16 @@ import { selectReferencedProject } from "../../../../../packages/unplugin/lib/co
  * `references`, the `include` of a project searched earlier, or a referenced
  * config that does not exist yet. A reference is spelled the way TypeScript-Go
  * spells it, by its `.json` suffix rather than by what is on disk, so a missing
- * config is consulted under the name it will appear with.
+ * config is consulted under the name it will appear with. What a config selects
+ * is remembered by its content, since an edit that keeps its size and lands
+ * within the clock tick of the previous write leaves its metadata as it was.
  *
  * 1. Select sources and the Vite config of the create-vite layout, and assert each
  *    reaches its referenced project with every config searched before it as
  *    consulted.
  * 2. Select through a nested solution, a reference cycle, a reference to a missing
- *    directory, and a missing `.json` reference that later appears.
+ *    directory, and a missing `.json` reference that later appears and is then
+ *    rewritten with its size and modification time kept.
  * 3. Assert a config that admits the file itself keeps it despite its
  *    `references`, and a file no project admits keeps the nearest config with
  *    every searched config consulted.
@@ -145,11 +148,23 @@ export async function test_default_project_follows_solution_references(): Promis
     { consulted: [later], tsconfig: late },
     "a missing .json reference is consulted under its own spelling",
   );
+  // A pinned modification time lets the rewrite below restore it exactly.
+  const pinned = 1_700_000_000;
   config("late/tsconfig.later.json", { include: ["src"] });
+  fs.utimesSync(later, pinned, pinned);
+  for (let round = 0; round < 2; ++round) {
+    assert.deepEqual(
+      selectReferencedProject(lateFile, late),
+      { consulted: [late], tsconfig: later },
+      "the reference selects the file once it appears",
+    );
+  }
+  config("late/tsconfig.later.json", { include: ["lib"] });
+  fs.utimesSync(later, pinned, pinned);
   assert.deepEqual(
     selectReferencedProject(lateFile, late),
-    { consulted: [late], tsconfig: later },
-    "the reference selects the file once it appears",
+    { consulted: [later], tsconfig: late },
+    "an edit that keeps the size and modification time still re-routes",
   );
   assert.deepEqual(
     selectReferencedProject(

@@ -15,7 +15,11 @@ export const PROJECT_SELECTION_ENTRIES = new Map<
     policy: ITtscProjectMembershipPolicy;
     /** The configs its `references` name, in declaration order. */
     references: readonly string[];
-    /** Size and modification time of every file the entry read. */
-    stamp: string;
+    /**
+     * SHA-256 of every file the entry read, or `undefined` while no read has
+     * yet proven that the files held still across it, so the entry is read
+     * again.
+     */
+    stamp: string | undefined;
   }
 >();
