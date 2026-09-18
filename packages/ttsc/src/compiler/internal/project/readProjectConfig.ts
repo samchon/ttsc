@@ -95,9 +95,18 @@ function resolveRealPath(location: string): string {
   }
 }
 
-/** Resolve `target` against `cwd` when it is not already absolute. */
+/**
+ * Resolve `target` against `cwd`, normalized to native separators.
+ *
+ * An absolute `target` is normalized too, not returned as given. Every path
+ * option is resolved once in the config that declares it and again in each
+ * config that inherits it, after its separators were folded to `/` for the
+ * `${configDir}` check, so returning an absolute value verbatim handed an
+ * inherited `rootDir` back as `C:/…/src` on Windows while a declared one came
+ * back as `C:\…\src`.
+ */
 function resolveAbsolutePath(cwd: string, target: string): string {
-  return path.isAbsolute(target) ? target : path.resolve(cwd, target);
+  return path.resolve(cwd, target);
 }
 
 /**

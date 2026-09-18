@@ -7,8 +7,8 @@ import fs from "node:fs";
  * reparse points but leaves a Windows 8.3 component alone — and `TEMP` is
  * `C:\Users\RUNNER~1\...` on a GitHub Windows runner. The launcher resolves the
  * entry through `fs.realpathSync.native`, so answering here with the short name
- * would put a `..` in `path.relative(rootDir, real)`, drop the exact-mirror
- * lane, and leave the entry to whatever the trailing-stem matcher picks.
+ * would name one file two ways between the launcher and the hooks, and every
+ * memo keyed by this answer would miss.
  */
 export function realPath(target: string): string {
   try {

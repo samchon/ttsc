@@ -11,13 +11,13 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
-import { resolveEmittedJavaScript } from "../../../compiler/internal/resolveEmittedJavaScript";
+import { EmitOwnershipIndex } from "../../../compiler/internal/EmitOwnershipIndex";
 import { resolveTsgo } from "../../../compiler/internal/resolveTsgo";
 import { runBuild } from "../../../compiler/internal/build/runBuild";
-import { outputText } from "../../../compiler/internal/outputText";
 import { spawnNative } from "../../../compiler/internal/spawnNative";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
 import { parseCommonJsExports } from "../parseCommonJsExports";
+import { buildSingleRootProject } from "../buildSingleRootProject";
 import { runtimeCompilerArgs } from "../runtimeCompilerArgs";
 import { inlineServedSourceMap } from "../inlineServedSourceMap";
 import type { RuntimeHookOptions } from "./RuntimeHookOptions";
@@ -1027,10 +1027,21 @@ function recordPluginDescriptorProjectInputs(
 }
 
 /**
- * Resolve the JavaScript to run for a TypeScript source file, in priority
- * order: the entry project's pre-built emit (transform plugins applied), a
- * built raw `.ts` dependency, or an isolated emit when no tsconfig owns it.
- * Shared by the ESM `load` hook and the CommonJS `require` handler.
+ * Resolve the JavaScript to run for a TypeScript source file. Shared by the ESM
+ * `load` hook and the CommonJS `require` handler.
+ *
+ * A file runs only from JavaScript a build provably compiled from that very
+ * file, never from another file's output that shares its name
+ * (samchon/ttsc#1382). The lanes, in order:
+ *
+ * 1. A checked entry build that compiled it (`ttsx`'s entry project, or a root
+ *    `ttsc/register` prepared).
+ * 2. At a JavaScript-to-TypeScript boundary under `ttsc/register`, a newly
+ *    prepared checked root.
+ * 3. The build of its nearest `tsconfig.json`, when that build compiled it, or
+ *    else the file compiled alone through that project's options — see
+ *    {@link serveProjectEmit}.
+ * 4. An isolated emit, when no tsconfig owns it at all.
  */
 function resolveServedSource(
   filename: string,
@@ -1038,21 +1049,13 @@ function resolveServedSource(
   prepareAsEntry: boolean = false,
 ): ServedSource {
   const real = realPath(filename);
-  // Only the public preload can prepare a newly discovered root. Direct ttsx
-  // has one pre-built manifest and historically relies on trailing-stem
-  // recovery when Windows presents the same source through its short and long
-  // temp-path spellings (the lint TypeScript-config loader is one such case).
-  // Treating that boundary as prepare-only would discard the existing emit and
-  // feed ESM source into CommonJS interop, producing ERR_REQUIRE_CYCLE_MODULE.
-  const prepareEntry = prepareAsEntry ? prepareRuntimeEntry : undefined;
-  // A JavaScript-to-TypeScript boundary is a new checked root unless an
-  // existing manifest proves exact ownership. Trailing-stem recovery is not
-  // ownership evidence: two out-of-include `index.ts` roots can otherwise map
-  // to the first manifest's `index.js`, skipping the second root's diagnostics.
-  let served = serveEntryEmit(real, prepareEntry === undefined);
+  let served = serveEntryEmit(real);
   if (served !== null) {
     return withInlineSourceMap(served);
   }
+  // Only the public preload can prepare a newly discovered root; direct ttsx
+  // prepared its one entry before the child started.
+  const prepareEntry = prepareAsEntry ? prepareRuntimeEntry : undefined;
   if (prepareEntry !== undefined) {
     RuntimeManifestRegistry.registeredManifests.push(prepareEntry(real));
     served = serveEntryEmit(real);
@@ -1061,7 +1064,7 @@ function resolveServedSource(
     }
     return withInlineSourceMap(served);
   }
-  const built = serveDependencyEmit(real);
+  const built = serveProjectEmit(real);
   if (built !== null) {
     return withInlineSourceMap(built);
   }
@@ -1142,7 +1145,7 @@ function emitOrphanSource(
   }
   const outDir = createCanonicalTempDirectory("ttsx-orphan-");
   try {
-    const res = spawnNative(
+    spawnNative(
       tsgo,
       [
         filename,
@@ -1153,14 +1156,10 @@ function emitOrphanSource(
         "--inlineSources",
         "--outDir",
         outDir,
-        "--listEmittedFiles",
       ],
       { cwd: path.dirname(filename), encoding: "utf8" },
     );
-    const emitted = pickEmittedJavaScript(
-      filename,
-      parseEmittedFiles(outputText(res.stdout)),
-    );
+    const emitted = isolatedEmitOf(filename, outDir);
     const source = emitted === null ? null : readFileOrNull(emitted);
     const lowered =
       source === null
@@ -1194,7 +1193,16 @@ function emitCommonJsForNameScan(filename: string): string | null {
   if (cached !== undefined) {
     return cached;
   }
-  const served = serveEntryEmit(real) ?? serveDependencyEmit(real);
+  // The owned lanes can fail loudly: a root the program reaches outside every
+  // checked build stops the run when its check fails. A name scan only looks
+  // ahead of that load, so it falls back to the isolated emit and leaves the
+  // load itself to report the failure where it happens.
+  let served: ServedSource | null;
+  try {
+    served = serveEntryEmit(real) ?? serveProjectEmit(real);
+  } catch {
+    served = null;
+  }
   if (
     served !== null &&
     RuntimeModuleFormat.moduleFormat(real, served.moduleOptions) === "commonjs"
@@ -1215,7 +1223,7 @@ function emitCommonJsForNameScan(filename: string): string | null {
     // may already have erased or transformed declarations. No source executes.
     const input = served === null ? real : path.join(outDir, "source.cts");
     if (served !== null) fs.writeFileSync(input, served.source);
-    const res = spawnNative(
+    spawnNative(
       tsgo,
       [
         input,
@@ -1224,14 +1232,10 @@ function emitCommonJsForNameScan(filename: string): string | null {
         ...ISOLATED_EMIT_ARGS,
         "--outDir",
         outDir,
-        "--listEmittedFiles",
       ],
       { cwd: path.dirname(real), encoding: "utf8" },
     );
-    const emitted = pickEmittedJavaScript(
-      input,
-      parseEmittedFiles(outputText(res.stdout)),
-    );
+    const emitted = isolatedEmitOf(input, outDir);
     const lowered = emitted === null ? null : readFileOrNull(emitted);
     commonJsNameScanSources.set(real, lowered);
     return lowered;
@@ -1300,37 +1304,18 @@ function writeOrphanCache(cacheFile: string, lowered: string): void {
   }
 }
 
-/** `TSFILE:` paths tsgo printed under `--listEmittedFiles`. */
-function parseEmittedFiles(stdout: string): string[] {
-  const files: string[] = [];
-  for (const line of stdout.split(/\r?\n/)) {
-    const match = line.match(/^TSFILE:\s*(.+)$/);
-    if (match?.[1]) {
-      files.push(match[1].trim());
-    }
-  }
-  return files;
-}
-
-/** Pick the emitted JavaScript corresponding to the source file requested. */
-function pickEmittedJavaScript(
-  filename: string,
-  emittedFiles: readonly string[],
-): string | null {
-  const stem = path
-    .basename(filename)
-    .replace(/\.[cm]?tsx?$/i, "")
-    .toLowerCase();
-  const candidates = emittedFiles.filter((file) => {
-    const parsed = path.parse(file);
-    return (
-      parsed.name.toLowerCase() === stem && /\.(?:[cm]?js)$/i.test(parsed.base)
-    );
-  });
-  if (candidates.length === 1) {
-    return candidates[0]!;
-  }
-  return emittedFiles.find((file) => /\.(?:[cm]?js)$/i.test(file)) ?? null;
+/**
+ * The JavaScript an isolated single-file emit wrote for `input`, or `null`.
+ *
+ * With one input and no config, the compiler's source root is the input's own
+ * directory, so the output sits at the input's name inside `outDir`. That is
+ * the one file looked for; nothing else in the directory is an answer.
+ */
+function isolatedEmitOf(input: string, outDir: string): string | null {
+  return new EmitOwnershipIndex({
+    emitDir: outDir,
+    rootDir: path.dirname(input),
+  }).find(input);
 }
 
 /**
@@ -1506,44 +1491,46 @@ function resolveSourceSpecifier(
 }
 
 /**
- * Serve the entry project's pre-built JavaScript for a source file the build
- * emitted, or `null` when the file is outside the build or its emit is
- * missing.
+ * Serve the JavaScript a checked entry build emitted from `real`, or `null`
+ * when no such build compiled it.
  *
- * The bound is the project's `rootDir` (the source root the emit mirrors), not
- * its tsconfig directory: a project can pull in a file from elsewhere via
- * `files` with a wider `rootDir` (e.g. the lint config loader compiles a
- * `*.config.ts` from any directory under `rootDir: "/"`). Anything outside
- * `rootDir` cannot have a mirrored emit, so it falls through to the dependency
- * paths.
+ * The answer comes from the builds' ownership indexes, never from a shared
+ * name. Once a build is proven to own the file its output must be there, so
+ * an unreadable one is an error naming both files rather than a reason to try
+ * the next lane and run something else.
  */
-function serveEntryEmit(
-  real: string,
-  allowStemFallback: boolean = true,
-): ServedSource | null {
-  const owner = RuntimeManifestRegistry.findEntryEmit(real, allowStemFallback);
+function serveEntryEmit(real: string): ServedSource | null {
+  const owner = RuntimeManifestRegistry.findEntryEmit(real);
   if (owner === null) {
     return null;
   }
-  const source = readFileOrNull(owner.emittedFile);
-  return source === null
-    ? null
-    : {
-        emittedFile: owner.emittedFile,
-        moduleOptions: owner.manifest.moduleOptions ?? {},
-        source,
-        sourceFile: real,
-      };
+  return {
+    emittedFile: owner.emittedFile,
+    moduleOptions: owner.manifest.moduleOptions ?? {},
+    source: readOwnedEmit(owner.emittedFile, real),
+    sourceFile: real,
+  };
 }
 
 /**
- * Build the project that owns `real` (nearest `tsconfig.json` above its real
- * path) and return its emitted JavaScript, or `null` when no tsconfig owns it
- * or the project does not emit it. The build honours the dependency's own
- * tsconfig (transform plugins included), so a source-shipping package that
- * needs a transform behaves correctly at runtime.
+ * Serve `real` through the project of its nearest `tsconfig.json`, or `null`
+ * when no tsconfig owns it or that project's build produced nothing at all.
+ *
+ * The project is built once per run, honouring its own tsconfig (transform
+ * plugins included), so a source-shipping package that needs a transform
+ * behaves correctly at runtime. That build serves the file when it compiled
+ * it. When it did not — the file sits outside the project's `include` or
+ * `files` — the file is a root no build covered, and it is compiled alone
+ * through the same project's options rather than handed another file's output
+ * or stripped of them.
+ *
+ * Whether that root is type-checked follows who wrote it. A file of the user's
+ * own tree is checked, the same gate `ttsc/register` applies to every root it
+ * prepares, so a type error stops the run before the file executes. A file
+ * inside an installed package is emit-only, like every other file of that
+ * package the project build already serves.
  */
-function serveDependencyEmit(real: string): ServedSource | null {
+function serveProjectEmit(real: string): ServedSource | null {
   const tsconfig = nearestTsconfig(real);
   if (tsconfig === null) {
     return null;
@@ -1560,31 +1547,191 @@ function serveDependencyEmit(real: string): ServedSource | null {
   if (served !== null) {
     return served;
   }
-  return null;
+  const root = ensureRootBuilt(tsconfig, real);
+  const emitted = serveBuiltDependency(root, real);
+  if (emitted === null) {
+    throw new Error(
+      `ttsx: the build of ${real} through ${tsconfig} emitted no JavaScript for it`,
+    );
+  }
+  return emitted;
 }
 
 function serveBuiltDependency(
   built: DependencyBuildGeneration.BuiltProject,
   real: string,
 ): ServedSource | null {
-  const emitted = resolveEmittedJavaScript({
-    emittedFiles: built.emittedFiles,
-    outDir: built.emitDir,
-    projectRoot: built.rootDir,
-    sourceFile: real,
-  });
+  const emitted = builtProjectIndex(built).find(real);
   if (emitted === null) {
     return null;
   }
-  const source = readFileOrNull(emitted);
-  return source === null
-    ? null
-    : {
-        emittedFile: emitted,
-        moduleOptions: built.moduleOptions,
-        source,
-        sourceFile: real,
-      };
+  return {
+    emittedFile: emitted,
+    moduleOptions: built.moduleOptions,
+    source: readOwnedEmit(emitted, real),
+    sourceFile: real,
+  };
+}
+
+/** The ownership index of one dependency or root build, created on first use. */
+function builtProjectIndex(
+  built: DependencyBuildGeneration.BuiltProject,
+): EmitOwnershipIndex {
+  let index = builtProjectIndexes.get(built);
+  if (index === undefined) {
+    index = new EmitOwnershipIndex({
+      emitDir: built.emitDir,
+      outputs: built.outputs,
+      rootDir: built.rootDir,
+    });
+    builtProjectIndexes.set(built, index);
+  }
+  return index;
+}
+
+const builtProjectIndexes = new WeakMap<
+  DependencyBuildGeneration.BuiltProject,
+  EmitOwnershipIndex
+>();
+
+/** Read an output a build is proven to have emitted from `source`. */
+function readOwnedEmit(emittedFile: string, source: string): string {
+  const text = readFileOrNull(emittedFile);
+  if (text === null) {
+    throw new Error(
+      `ttsx: the JavaScript emitted for ${source} is missing: ${emittedFile}`,
+    );
+  }
+  return text;
+}
+
+/**
+ * Compile one root its owning project's file set does not contain, once per
+ * run for each content of the root, and share the result across every process
+ * of the run exactly like a project build. A failed check publishes nothing,
+ * so every process that reaches the root reports the same diagnostics instead
+ * of reusing a build.
+ *
+ * The root's own bytes are part of the key. A root is often a file the program
+ * wrote itself, and one that rewrites it and loads it again, in this process
+ * or another, must get the new code rather than the build of the old.
+ */
+function ensureRootBuilt(
+  tsconfig: string,
+  source: string,
+): DependencyBuildGeneration.BuiltProject {
+  const identity = `${source}\0${contentDigest(source)}`;
+  const memo = `${tsconfig}\0${identity}`;
+  const cached = builtRoots.get(memo);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const { cacheDir, lockDir, metaPath, root } = dependencyCachePaths(
+    tsconfig,
+    identity,
+  );
+  const reuse = readDependencyCache(cacheDir, metaPath);
+  if (reuse !== null) {
+    builtRoots.set(memo, reuse);
+    return reuse;
+  }
+  fs.mkdirSync(root, { recursive: true });
+  const built = withBuildLock(cacheDir, metaPath, lockDir, () =>
+    buildRoot(tsconfig, source, cacheDir, metaPath),
+  );
+  builtRoots.set(memo, built);
+  return built;
+}
+
+const builtRoots = new Map<string, DependencyBuildGeneration.BuiltProject>();
+
+/** SHA-256 of a file's bytes, or of nothing when it cannot be read. */
+function contentDigest(file: string): string {
+  const hash = crypto.createHash("sha256");
+  try {
+    hash.update(fs.readFileSync(file));
+  } catch {
+    // The build reports the unreadable file itself; the key only has to exist.
+  }
+  return hash.digest("hex");
+}
+
+/**
+ * Compile `source` alone through the options of `tsconfig` into a fresh
+ * generation directory, then publish its completion marker. The generation
+ * and marker protocol is the project build's, so a reader never sees a
+ * partial emit.
+ */
+function buildRoot(
+  tsconfig: string,
+  source: string,
+  cacheDir: string,
+  metaPath: string,
+): DependencyBuildGeneration.BuiltProject {
+  // Read through the descriptor-input recorder, so a plugin descriptor that
+  // reaches this root reports the config chain it was compiled under.
+  const project = readPluginDescriptorProjectConfig(tsconfig);
+  const generation = DependencyBuildGeneration.newDependencyGeneration();
+  const emitDir = DependencyBuildGeneration.dependencyGenerationDir(
+    cacheDir,
+    generation,
+  );
+  fs.rmSync(emitDir, { force: true, recursive: true });
+  let built: ReturnType<typeof buildSingleRootProject>;
+  try {
+    built = buildSingleRootProject({
+      checked: !isInstalledPackageSource(source),
+      emitDir,
+      key: `${process.pid}-${generation}`,
+      options: { plugins: rootPluginPolicy() },
+      projectRoot: project.root,
+      role: "root",
+      source,
+      tsconfig,
+    });
+  } catch (error) {
+    fs.rmSync(emitDir, { force: true, recursive: true });
+    throw error;
+  }
+  const rootDir = DependencyBuildGeneration.resolvePhysicalPath(built.rootDir);
+  const moduleOptions = projectModuleOptions(built.project.compilerOptions);
+  const outputs = EmitOwnershipIndex.listOutputs(emitDir);
+  publishDependencyMeta(metaPath, {
+    generation,
+    moduleOptions,
+    outputs,
+    rootDir,
+  });
+  return { emitDir, moduleOptions, outputs, rootDir };
+}
+
+/**
+ * The plugin policy a root compiled at run time inherits: none while a plugin
+ * descriptor is being loaded, because its own transform would re-enter plugin
+ * loading, and none when the run itself disabled them (`ttsx --no-plugins`).
+ */
+function rootPluginPolicy(): false | undefined {
+  if (process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1") return false;
+  return RuntimeManifestRegistry.runtimeManifests().some(
+    (manifest) => manifest.plugins === false,
+  )
+    ? false
+    : undefined;
+}
+
+/**
+ * Whether `real` belongs to an installed package: its physical path passes
+ * through a `node_modules` directory. A workspace package linked into
+ * `node_modules` is not one, because its physical path is its own directory.
+ */
+function isInstalledPackageSource(real: string): boolean {
+  return real
+    .split(/[\\/]/)
+    .some((segment) =>
+      process.platform === "win32"
+        ? segment.toLowerCase() === "node_modules"
+        : segment === "node_modules",
+    );
 }
 
 /**
@@ -1630,8 +1777,11 @@ interface DependencyCachePaths {
   root: string;
 }
 
-function dependencyCachePaths(tsconfig: string): DependencyCachePaths {
-  const key = dependencyCacheKey(tsconfig);
+function dependencyCachePaths(
+  tsconfig: string,
+  rootSource?: string,
+): DependencyCachePaths {
+  const key = dependencyCacheKey(tsconfig, { root: rootSource });
   const root = dependencyCacheRoot();
   return {
     cacheDir: path.join(root, key),
@@ -1728,7 +1878,6 @@ function buildDependency(
     cwd: project.root,
     passthrough: runtimeCompilerArgs(project),
     emit: true,
-    forceListEmittedFiles: true,
     outDir: emitDir,
     // The generation directory is an `outDir` this lane injected, not one the
     // dependency declared, and tsgo demands an explicit `rootDir` (TS5011) as
@@ -1766,11 +1915,11 @@ function buildDependency(
     skipDiagnosticsCheck: true,
     tsconfig,
   });
-  // Success is "the project wrote JavaScript", not "the build reported a file
-  // list": a native transform host (typia, @ttsc/banner, …) emits without
-  // printing the `--listEmittedFiles` lines, so `result.emittedFiles` is empty
-  // even on a clean build. A genuinely empty output directory is the real
-  // failure; the caller then falls back to isolated emit of the one file.
+  // Success is "the project wrote JavaScript", not the exit status: the build is
+  // emit-only, so diagnostics do not fail it, and a native transform host
+  // (typia, @ttsc/banner, …) writes its output on its own. A genuinely empty
+  // output directory is the real failure; the caller then falls back to
+  // isolated emit of the one file.
   if (!DependencyBuildGeneration.emittedAnything(emitDir)) {
     // Drop the failed generation so its partial directory can never be mistaken
     // for a reusable build.
@@ -1786,8 +1935,14 @@ function buildDependency(
   }
   const rootDir = resolveDependencySourceRoot(project);
   const moduleOptions = projectModuleOptions(project.compilerOptions);
-  publishDependencyMeta(metaPath, { generation, moduleOptions, rootDir });
-  return { emitDir, emittedFiles: undefined, moduleOptions, rootDir };
+  const outputs = EmitOwnershipIndex.listOutputs(emitDir);
+  publishDependencyMeta(metaPath, {
+    generation,
+    moduleOptions,
+    outputs,
+    rootDir,
+  });
+  return { emitDir, moduleOptions, outputs, rootDir };
 }
 
 /**
@@ -1999,19 +2154,17 @@ function readFileOrNull(file: string | null): string | null {
 }
 
 /**
- * The source-tree root a dependency's emit mirrors, in the spelling
- * `resolveEmittedJavaScript` compares a served source against.
+ * The source-tree root a dependency's emit mirrors, in physical spelling.
  *
  * Both branches need the pass, for different reasons. A declared `rootDir`
  * arrives from `readProjectConfig` joined against the config that declared it
  * but never resolved, so a `rootDir` that is itself a symlinked directory stays
  * unresolved. `project.root` arrives through plain `fs.realpathSync`, which
  * follows reparse points but leaves a Windows 8.3 component alone — and
- * {@link realPath} uses `fs.realpathSync.native`, which expands it. Either way
- * `path.relative` puts a `..` in front of an in-project source,
- * `resolveExactEmittedFiles` returns nothing, and every served file of that
- * dependency falls to the trailing-stem matcher, which rescans the whole emit
- * tree per file because a dependency build publishes no emitted-file list.
+ * {@link realPath} uses `fs.realpathSync.native`, which expands it. The
+ * ownership index resolves both sides itself, so a stale spelling cannot make
+ * it answer wrongly, but a physical one keeps every lookup on its cheap forward
+ * mirror instead of the inverse scan.
  *
  * This is the pass the entry lane settled on for the same mixed pair; the two
  * lanes now read alike, `path.isAbsolute` guard included. `readProjectConfig`

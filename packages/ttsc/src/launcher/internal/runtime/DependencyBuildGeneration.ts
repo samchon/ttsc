@@ -20,8 +20,8 @@ export interface BuiltProject {
   emitDir: string;
   /** Physical source root the emit mirrors below `emitDir`. */
   rootDir: string;
-  /** Emitted files when the build listed them; a dependency build does not. */
-  emittedFiles?: readonly string[];
+  /** The build's record of its outputs, relative to `emitDir`. */
+  outputs: readonly string[];
   /** The project's `module` and `target`, deciding each file's format. */
   moduleOptions: OwningModuleOptions;
 }
@@ -47,6 +47,12 @@ export interface DependencyCacheMeta {
    * predates the field and is rebuilt rather than guessed.
    */
   moduleOptions?: OwningModuleOptions;
+  /**
+   * The build's record of the JavaScript it emitted, relative to the
+   * generation directory. Always written; a marker without it predates the
+   * field and is rebuilt, because ownership is decided against it.
+   */
+  outputs?: readonly string[];
 }
 
 /** The immutable emit directory of one build generation under `cacheDir`. */

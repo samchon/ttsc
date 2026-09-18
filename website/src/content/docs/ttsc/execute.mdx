@@ -47,11 +47,22 @@ tsconfig.json
 
 So `npx ttsx clear.ts` works even though `npx ttsc` ignores that file. The entry is compiled through a project that inherits the discovered `tsconfig.json` — `strict`, `target`, `types`, `paths`, and the module format — and declares only that entry, widening `rootDir` just enough to contain it, so your `outDir` never gains a file. `paths` applies to the type-check exactly as it does for `src`; like anywhere else in TypeScript it is not a runtime resolver, so a path alias still needs a real module resolution at run time. The entry is still type-checked: a type error in `clear.ts` stops the run exactly as one in `src` would. The project itself is built first either way, so a type error anywhere in `src` stops the run too.
 
-A project that keeps its sources under the directory holding its `tsconfig.json` needs no `rootDir` of its own. `ttsx` compiles into a cache directory of its own and pins the source root the compiler would otherwise infer — that same config directory — so a check-only project with `noEmit: true` and its sources under `src/` runs unchanged, with no `.js` left beside them. Positional `ttsc <file.ts>` resolves it the same way, and a `rootDir` you do declare is always used as written. A project that pulls in sources from _above_ its config directory is the one case that still has to say so: declare the `rootDir` that contains them, or the compiler reports the file it cannot place.
+A project that keeps its sources under the directory holding its `tsconfig.json` needs no `rootDir` of its own. `ttsx` compiles into a cache directory of its own and pins the source root the compiler would otherwise infer — that same config directory — so a check-only project with `noEmit: true` and its sources under `src/` runs unchanged, with no `.js` left beside them. Positional `ttsc <file.ts>` resolves it the same way, and a `rootDir` you do declare is always used as written. Unlike `ttsx`, positional `ttsc` compiles only a file its project includes: for any other file it stops with an error that names the file and the tsconfig, rather than writing some other file's JavaScript under its name. A project that pulls in sources from _above_ its config directory is the one case that still has to say so: declare the `rootDir` that contains them, or the compiler reports the file it cannot place.
 
 The module format follows the same rule everywhere, because it is the rule the compiler itself applies when it emits. An explicit `.cts`/`.mts` extension wins. A package under `node_modules` that declares a `"type"` decides for its own files whatever the compiling project asked for, which is how a dependency that ships CommonJS source stays CommonJS. Otherwise the project's `module` option decides, and only the `node16`/`node18`/`node20`/`nodenext` family — plus a file no project compiles at all — takes its answer from the nearest `package.json` `"type"`. With no `module` option set, the format is derived from `target`.
 
 Projects that enable `allowImportingTsExtensions` are supported. During the runtime emit, `ttsx` rewrites relative `.ts`, `.tsx`, `.mts`, and `.cts` import specifiers to the matching JavaScript extensions so Node can execute the output. The emitted JavaScript lives in a per-run cache directory and is removed after the script exits.
+
+## Files the program reaches at run time
+
+The up-front build covers what the compiler can see: the entry and everything it imports. A program can also reach TypeScript the compiler never saw. It can `require()` a file by path, load a file outside `include`, or write a `.ts` file and then import it. `ttsx` serves such a file through its own project, the nearest `tsconfig.json` above it. That project is built once per run, emit-only like any dependency, and serves every file it compiled. A file that build did not compile either is a root of its own. It is compiled alone through the project's options and plugins before it runs:
+
+- In your own tree, the root is type-checked. A type error stops the run before any of that file's statements execute, just like a type error in the entry.
+- Inside `node_modules`, the root is emitted without the type gate, the same way the rest of that package is served. A workspace package linked into `node_modules` is your own tree, because its files live outside it.
+
+A file that no `tsconfig.json` owns gets an isolated emit in its runtime module format. That covers a file with no config above it, and a file inside `node_modules` whose own package has none.
+
+A file only ever runs from JavaScript compiled from that same file. `ttsx` identifies files by their filesystem identity, so a Windows short path, a symlink, or a different letter case still names the same file. Another file that shares its name, such as a project's `src/index.ts` for a package's `index.ts`, never stands in for it.
 
 ## Decorators
 
@@ -69,7 +80,7 @@ The type-check covers your whole program, but at runtime your dependencies are l
 `ttsx` installs Node module hooks in the run, the same approach `tsx` uses, so both cases just work without touching the dependency's `exports`, sources, or `tsconfig`:
 
 - a `resolve` hook probes the candidate extensions (and directory `index` files) for an extensionless relative import anywhere in the graph, and maps a relative `.js` specifier — the spelling TypeScript asks authors to write — back to the TypeScript source it names when nothing emitted that JavaScript;
-- a `load` hook transpiles raw `.ts` files under `node_modules`, scoped so workspace neighbours keep Node's native type-stripping path.
+- a `load` hook serves every TypeScript file from JavaScript compiled from that file. A file the up-front build compiled comes from that build. Any other file comes from a build of its own project: a workspace neighbour or published package that has a `tsconfig.json` is built once per run and shared by every process of the run. A file with no project gets an isolated emit. [Files the program reaches at run time](#files-the-program-reaches-at-run-time) describes each lane.
 
 Both reaches cover the CommonJS `require` graph as well as the ESM one, and that is not something the runtime can be left to do. Node routes a `require()` made from inside a CommonJS module the ESM loader evaluated — which is how a plugin loads a config file it discovered — around `module.registerHooks` on the oldest release `ttsx` supports, and through the hooks on the current one. `ttsx` therefore installs the same probes on the CommonJS resolver itself, so a graph behaves the same way on every supported Node.
 
@@ -102,7 +113,7 @@ npx ttsx -r ./preload.cjs src/index.ts
 npx ttsx -r dotenv/config src/index.ts
 ```
 
-Repeatable: `-r a -r b` preloads `a` then `b`. These modules are passed to Node's raw `--require` loader; `ttsx` does not compile preload files for you.
+Repeatable: `-r a -r b` preloads `a` then `b`. These modules are passed to Node's `--require` loader after the runtime hooks are installed, so a TypeScript preload is compiled like any other file the program reaches. Its own project builds it, and when that project does not include it, it is compiled alone and type-checked in your tree. See [Files the program reaches at run time](#files-the-program-reaches-at-run-time).
 
 ## Pick a tsconfig
 

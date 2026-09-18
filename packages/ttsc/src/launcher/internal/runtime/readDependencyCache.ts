@@ -35,7 +35,9 @@ export function readDependencyCache(
     // the object, empty or not.
     typeof meta.moduleOptions !== "object" ||
     meta.moduleOptions === null ||
-    Array.isArray(meta.moduleOptions)
+    Array.isArray(meta.moduleOptions) ||
+    !Array.isArray(meta.outputs) ||
+    !meta.outputs.every((output) => typeof output === "string")
   ) {
     return null;
   }
@@ -45,15 +47,15 @@ export function readDependencyCache(
   }
   return {
     emitDir,
-    emittedFiles: undefined,
+    outputs: meta.outputs,
     moduleOptions: projectModuleOptions(
       meta.moduleOptions as Record<string, unknown>,
     ),
     // Resolved on the way out, not trusted as written. `rootDir` never gated
     // reuse — the marker's generation, module options, and a non-empty emit do
     // — so a marker carrying an unresolved spelling was already being reused,
-    // and then served every file of that dependency through the whole-tree stem
-    // rescan. The pass is idempotent and runs only on a hit, which
+    // and every file of that dependency then missed the ownership index's
+    // cheap forward mirror. The pass is idempotent and runs only on a hit, which
     // `ensureProjectBuilt` memoizes per tsconfig. A marker from an earlier ttsc
     // survives only under the shared `os.tmpdir()/ttsx-dep` fallback root; the
     // manifest's own `depCacheDir` is per-process and removed with the run.

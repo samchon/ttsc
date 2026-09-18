@@ -1,11 +1,22 @@
 import crypto from "node:crypto";
 
-/** Derive one dependency cache key; exported for isolation regressions. */
+/**
+ * Derive one dependency cache key; exported for isolation regressions.
+ *
+ * A key names one build: a dependency project's whole file set, or with
+ * `options.root` one TypeScript root that project's file set does not contain,
+ * compiled alone through its options. The two never share a generation.
+ */
 export function dependencyCacheKey(
   tsconfig: string,
   options: {
     descriptorLoad?: boolean;
     descriptorNonce?: string;
+    /**
+     * The single root a root build compiles, with the digest of its content;
+     * absent for a project build.
+     */
+    root?: string;
   } = {},
 ): string {
   const descriptorLoad =
@@ -15,6 +26,7 @@ export function dependencyCacheKey(
       .createHash("sha256")
       .update(tsconfig)
       .update("\0runtime-es2025")
+      .update(options.root === undefined ? "" : `\0root:${options.root}`)
       // Descriptor evaluation promises a result bound to this process's exact
       // input observations. Reusing an emit another evaluator built can pair
       // that process's old source/config bytes with this process's later hashes.

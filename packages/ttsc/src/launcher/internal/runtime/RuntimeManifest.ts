@@ -11,12 +11,16 @@ export interface RuntimeManifest {
   rootDir: string;
   /** Directory holding the entry project's emitted JavaScript. */
   emitDir: string;
-  /** Emitted file list from the entry build, for source→output matching. */
-  emittedFiles?: readonly string[];
   /** Physical TypeScript root whose checked preparation created this manifest. */
   entrySource?: string;
   /** Exact JavaScript emitted for `entrySource`. */
   entryFile?: string;
+  /**
+   * The build's record of the JavaScript it emitted, relative to `emitDir`
+   * with `/` separators. Ownership is decided against it, so every process of
+   * the run agrees on what the build compiled without listing the directory.
+   */
+  outputs?: readonly string[];
   /**
    * The entry tsconfig's `module` and `target`, deciding emit CJS/ESM per file.
    * `target` is not decoration: an absent `module` makes tsgo derive the module
@@ -25,4 +29,10 @@ export interface RuntimeManifest {
   moduleOptions?: OwningModuleOptions;
   /** Root directory for per-dependency build output. */
   depCacheDir: string;
+  /**
+   * `false` when the run disabled transform plugins (`ttsx --no-plugins`). A
+   * TypeScript root the program reaches outside every checked build is part of
+   * the same run, so it is compiled under the same plugin policy as the entry.
+   */
+  plugins?: false;
 }

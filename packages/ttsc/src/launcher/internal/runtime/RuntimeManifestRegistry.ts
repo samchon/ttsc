@@ -1,8 +1,7 @@
 import fs from "node:fs";
-import { resolveEmittedJavaScript } from "../../../compiler/internal/resolveEmittedJavaScript";
+import { EmitOwnershipIndex } from "../../../compiler/internal/EmitOwnershipIndex";
 import type { RuntimeManifest } from "./RuntimeManifest";
 import { realPath } from "./realPath";
-import { isWithin } from "./isWithin";
 
 /**
  * Every checked entry emit this runtime may serve from, and the lookup that
@@ -49,14 +48,17 @@ export function runtimeManifests(): readonly RuntimeManifest[] {
 }
 
 /**
- * Find the manifest that owns `real`. Explicit prepared roots win, followed by
- * exact mirrored paths across every manifest. Only then may legacy stem
- * recovery run, so one manifest's approximate match cannot shadow another's
- * exact emit.
+ * Find the manifest whose checked build emitted `real`, and that emit.
+ *
+ * A manifest's prepared root is matched first, by its recorded source, so a
+ * root keeps the exact emit its own preparation located. Every other file is
+ * owned only by a build that provably compiled it: the ownership index maps
+ * outputs back through the build's pinned `rootDir` and compares filesystem
+ * identities. A file no manifest compiled gets `null` and belongs to another
+ * lane, however many emitted files share its name (samchon/ttsc#1382).
  */
 export function findEntryEmit(
   real: string,
-  allowStemFallback: boolean = true,
 ): { emittedFile: string; manifest: RuntimeManifest } | null {
   const manifests = runtimeManifests();
   for (const candidate of manifests) {
@@ -70,16 +72,7 @@ export function findEntryEmit(
     }
   }
   for (const candidate of manifests) {
-    const emitted = entryEmitPath(candidate, real, false);
-    if (emitted !== null) {
-      return { emittedFile: emitted, manifest: candidate };
-    }
-  }
-  if (!allowStemFallback) {
-    return null;
-  }
-  for (const candidate of manifests) {
-    const emitted = entryEmitPath(candidate, real, true);
+    const emitted = ownershipIndex(candidate).find(real);
     if (emitted !== null) {
       return { emittedFile: emitted, manifest: candidate };
     }
@@ -88,54 +81,23 @@ export function findEntryEmit(
 }
 
 /**
- * The entry project's emitted JavaScript for `real`, or `null` when that
- * project did not emit it. Shared with `owningModuleOptions` so "the entry
- * project owns this file" means exactly one thing in both places.
+ * The ownership index of one manifest's build, created on first use. The entry
+ * emit is written once before the run starts and never changes under it, and
+ * the index memoizes every answer, which matters because the `resolve` hook
+ * asks through `owningModuleOptions` once per import specifier.
  */
-function entryEmitPath(
-  m: RuntimeManifest,
-  real: string,
-  allowStemFallback: boolean = true,
-): string | null {
-  const cache = allowStemFallback
-    ? entryEmitPathCache
-    : exactEntryEmitPathCache;
-  let manifestCache = cache.get(m);
-  if (manifestCache === undefined) {
-    manifestCache = new Map<string, string | null>();
-    cache.set(m, manifestCache);
+function ownershipIndex(manifest: RuntimeManifest): EmitOwnershipIndex {
+  let index = ownershipIndexes.get(manifest);
+  if (index === undefined) {
+    index = new EmitOwnershipIndex({
+      emitDir: manifest.emitDir,
+      outputs: manifest.outputs,
+      rootDir: manifest.rootDir,
+    });
+    ownershipIndexes.set(manifest, index);
   }
-  if (manifestCache.has(real)) {
-    return manifestCache.get(real) ?? null;
-  }
-  const resolved = isWithin(real, m.rootDir)
-    ? resolveEmittedJavaScript({
-        allowStemFallback,
-        emittedFiles: m.emittedFiles,
-        outDir: m.emitDir,
-        projectRoot: m.rootDir,
-        sourceFile: real,
-      })
-    : null;
-  manifestCache.set(real, resolved);
-  return resolved;
+  return index;
 }
 
-/**
- * Memo for `entryEmitPath`, because it is now on the `resolve` hook's path
- * through `owningModuleOptions` — once per import specifier — and a miss inside
- * `resolveEmittedJavaScript` walks the whole emit tree. The entry emit is
- * written once before the run starts and never changes under it. Registration
- * can add several independent entry emits, so the manifest is part of the cache
- * identity as well as the source path.
- */
-const entryEmitPathCache = new WeakMap<
-  RuntimeManifest,
-  Map<string, string | null>
->();
-
-const exactEntryEmitPathCache = new WeakMap<
-  RuntimeManifest,
-  Map<string, string | null>
->();
+const ownershipIndexes = new WeakMap<RuntimeManifest, EmitOwnershipIndex>();
 }

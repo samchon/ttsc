@@ -1,17 +1,19 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
+import type { FilesystemPathIdentityContext } from "../../../../../packages/ttsc/lib/internal/pathIdentity/FilesystemPathIdentityContext.js";
 import { createFilesystemPathIdentityContext } from "../../../../../packages/ttsc/lib/internal/pathIdentity/createFilesystemPathIdentityContext.js";
-import { isWithin } from "../../../../../packages/ttsc/lib/launcher/internal/runtime/isWithin.js";
 
 /**
- * Verifies `isWithin` matches root directories and slash-normalized `rootDir`s.
+ * Verifies filesystem-identity containment matches root directories and
+ * slash-normalized `rootDir`s.
  *
- * The runtime hooks bound emit serving by the manifest `rootDir`, which the
- * loader tsconfig emits slash-normalized (`C:/` on Windows) while `real` paths
- * are native — and a volume root must match without producing a `//` prefix
- * (#304). A raw string comparison silently serves nothing, degrading every
- * lookup to the fallback paths.
+ * ttsx asks this predicate where a directory contains a file: the single-root
+ * build widens `rootDir` to the nearest ancestor holding both the project and
+ * the root, and the watch rules bound project inputs by it. A `rootDir` arrives
+ * slash-normalized from a synthesized tsconfig (`C:/` on Windows) while real
+ * paths are native, and a volume root must match without producing a `//`
+ * prefix (#304). A raw string comparison silently answers "outside".
  *
  * 1. Assert containment, identity, and the sibling-prefix counter-example with
  *    native separators.
@@ -20,7 +22,8 @@ import { isWithin } from "../../../../../packages/ttsc/lib/launcher/internal/run
  *    native real paths.
  * 4. Inject both Windows directory semantics and reject a case-distinct sibling.
  */
-export const test_iswithin_matches_roots_and_slash_normalized_rootdirs = () => {
+export const test_filesystem_identity_within_matches_roots_and_slash_normalized_rootdirs =
+  () => {
   const base = path.resolve(path.sep, "a", "b");
   assert.equal(isWithin(path.join(base, "c.ts"), base), true);
   assert.equal(isWithin(base, base), true);
@@ -82,4 +85,13 @@ export const test_iswithin_matches_roots_and_slash_normalized_rootdirs = () => {
     ),
     false,
   );
-};
+  };
+
+/** Whether `directory` contains `real`, through one identity context. */
+const isWithin = (
+  real: string,
+  directory: string,
+  identities: FilesystemPathIdentityContext = createFilesystemPathIdentityContext(
+    { throwOnRealpathError: false },
+  ),
+): boolean => identities.isWithin(directory, real);
