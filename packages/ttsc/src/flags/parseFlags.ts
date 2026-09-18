@@ -59,15 +59,18 @@ export function parseFlags(opts: ParseOptions): ParseResult {
   ];
 
   let forwardingTail = false;
+  let entryJustRead = false;
   while (head.length !== 0) {
     const current = head.shift()!;
+    const directlyAfterEntry = entryJustRead;
+    entryJustRead = false;
     if (separatorInOrder && current === "--") {
       if (!forwardingTail) {
         // Before the entry, `--` ends the launcher's options as it always has.
         remainder = head.splice(0);
         break;
       }
-      if (tail.length === 0) continue;
+      if (directlyAfterEntry) continue;
     }
     if (forwardingTail) {
       // Post-sentinel tokens belong to the user's program (e.g. the typia.ts
@@ -148,6 +151,7 @@ export function parseFlags(opts: ParseOptions): ParseResult {
     positional.push(current);
     if (opts.forwardAfterFirstPositional === true && positional.length === 1) {
       forwardingTail = true;
+      entryJustRead = true;
     }
   }
 
