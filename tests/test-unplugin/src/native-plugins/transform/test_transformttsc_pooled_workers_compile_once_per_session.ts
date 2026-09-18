@@ -1,6 +1,7 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import path from "node:path";
 
 import { runPooledWorker } from "../../internal/pooled-session/runPooledWorker";
 import { createCacheProject } from "../../internal/transform-project-cache/createCacheProject";
@@ -19,7 +20,8 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  * 1. Start one worker per module at once in a session, and assert every module is
  *    transformed by one compile.
  * 2. Edit a module and repeat, and assert one more compile, whose output carries
- *    the edit.
+ *    the edit. Edit only the tsconfig and repeat, and assert one more compile,
+ *    since the config is part of the state the workers share.
  * 3. Repeat with different compiler options, and assert those workers compile for
  *    themselves once, never sharing across options.
  */
@@ -48,6 +50,13 @@ export async function test_transformttsc_pooled_workers_compile_once_per_session
   assert.equal(compiles(), 2, "an edit recompiles once across the pool");
   assert.match(edited[0]!.code ?? "", /edited/);
 
+  const tsconfig = path.join(project.root, "tsconfig.json");
+  const config = JSON.parse(fs.readFileSync(tsconfig, "utf8"));
+  config.compilerOptions.removeComments = true;
+  fs.writeFileSync(tsconfig, JSON.stringify(config, null, 2));
+  await wave();
+  assert.equal(compiles(), 3, "a config edit recompiles once across the pool");
+
   await wave({ compilerOptions: { noUnusedLocals: true } });
-  assert.equal(compiles(), 3, "other options compile, once, for themselves");
+  assert.equal(compiles(), 4, "other options compile, once, for themselves");
 }

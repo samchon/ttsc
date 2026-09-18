@@ -21,10 +21,10 @@ import type { TtscProjectDirectorySnapshot } from "../project/TtscProjectDirecto
 export function sharedCompileState(props: {
   directories: readonly TtscProjectDirectorySnapshot[];
   hashes: Readonly<Record<string, string>>;
-  tsconfigSignature: string | undefined;
+  tsconfigSignature: string;
 }): string {
   const hash = crypto.createHash("sha256");
-  hash.update(`${props.tsconfigSignature ?? ""}\n`);
+  hash.update(`${props.tsconfigSignature}\n`);
   for (const key of Object.keys(props.hashes).sort()) {
     hash.update(`f\0${key}\0${props.hashes[key]}\n`);
   }

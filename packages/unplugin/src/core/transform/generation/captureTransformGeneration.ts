@@ -4,6 +4,7 @@ import { TtscCompiler } from "ttsc";
 
 import type { ResolvedTtscUnpluginOptions } from "../../options/ResolvedTtscUnpluginOptions";
 import { mergeMembershipPolicyOverlay } from "../../tsconfig/mergeMembershipPolicyOverlay";
+import { readTsconfigSourceSnapshot } from "../../tsconfig/readTsconfigSourceSnapshot";
 import { TRANSFORM_RESULT_FILESYSTEM } from "../cache/TRANSFORM_RESULT_FILESYSTEM";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { TRANSFORM_CLOCK_REFERENCE_DIRECTORIES } from "../clock/TRANSFORM_CLOCK_REFERENCE_DIRECTORIES";
@@ -178,7 +179,13 @@ export async function captureTransformGeneration(props: {
             sharedCompileState({
               directories: before.projectDirectories,
               hashes: before.hashes,
-              tsconfigSignature: tsconfigState.signature,
+              // The chain's own text when no wrapper derived a signature
+              // from it, since the walk hashes no config file.
+              tsconfigSignature:
+                tsconfigState.signature ??
+                hashText(
+                  JSON.stringify(readTsconfigSourceSnapshot(props.tsconfig)),
+                ),
             }),
             { adopt: props.adopt !== false },
           )
