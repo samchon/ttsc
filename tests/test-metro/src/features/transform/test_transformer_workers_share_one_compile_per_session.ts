@@ -19,57 +19,58 @@ import { TestMetroRuntime } from "../../internal/metro-runtime";
  *    the entry through the built transformer at the same time.
  * 2. Assert both received the plugin-transformed source from one compile.
  */
-export async function test_transformer_workers_share_one_compile_per_session(): Promise<void> {
-  const root = TestUnpluginProject.createProject();
-  const runLog = path.join(root, "compiles.bin");
-  const tsconfig = path.join(root, "tsconfig.json");
-  const config = JSON.parse(fs.readFileSync(tsconfig, "utf8"));
-  config.compilerOptions.plugins = [
-    { transform: "./plugin.cjs", name: "fixture", operation: "go-uppercase" },
-    {
-      transform: "./plugin.cjs",
-      name: "runs",
-      operation: "count-runs",
-      runLog,
-    },
-  ];
-  fs.writeFileSync(tsconfig, JSON.stringify(config, null, 2), "utf8");
+export const test_transformer_workers_share_one_compile_per_session =
+  async () => {
+    const root = TestUnpluginProject.createProject();
+    const runLog = path.join(root, "compiles.bin");
+    const tsconfig = path.join(root, "tsconfig.json");
+    const config = JSON.parse(fs.readFileSync(tsconfig, "utf8"));
+    config.compilerOptions.plugins = [
+      { transform: "./plugin.cjs", name: "fixture", operation: "go-uppercase" },
+      {
+        transform: "./plugin.cjs",
+        name: "runs",
+        operation: "count-runs",
+        runLog,
+      },
+    ];
+    fs.writeFileSync(tsconfig, JSON.stringify(config, null, 2), "utf8");
 
-  const worker = [
-    `const transformer = await import(${JSON.stringify(TestMetroRuntime.libUrl("transformer"))});`,
-    "const [src, projectRoot] = JSON.parse(process.argv[1]);",
-    'const result = await transformer.transform({ src, filename: "src/main.ts", options: { projectRoot } });',
-    "process.stdout.write(result.ast.src);",
-  ].join("\n");
-  const metro = [
-    `const { withTtsc } = await import(${JSON.stringify(TestMetroRuntime.libUrl("index"))});`,
-    'const { execFile } = await import("node:child_process");',
-    "const [worker, src, projectRoot, upstream] = JSON.parse(process.argv[1]);",
-    "withTtsc({ projectRoot }, { upstreamTransformer: upstream });",
-    'const run = () => new Promise((resolve, reject) => execFile(process.execPath, ["--input-type=module", "-e", worker, JSON.stringify([src, projectRoot])], (error, stdout, stderr) => (error ? reject(new Error(stderr)) : resolve(stdout))));',
-    "process.stdout.write(JSON.stringify(await Promise.all([run(), run()])));",
-  ].join("\n");
-  const outputs = JSON.parse(
-    execFileSync(
-      process.execPath,
-      [
-        "--input-type=module",
-        "-e",
-        metro,
-        JSON.stringify([
-          worker,
-          TestUnpluginProject.mainSource(root),
-          root,
-          TestMetroRuntime.fakeUpstreamPathOnDisk(),
-        ]),
-      ],
-      { cwd: root, windowsHide: true },
-    ).toString(),
-  ) as string[];
+    const worker = [
+      `const transformer = await import(${JSON.stringify(TestMetroRuntime.libUrl("transformer"))});`,
+      "const [src, projectRoot] = JSON.parse(process.argv[1]);",
+      'const result = await transformer.transform({ src, filename: "src/main.ts", options: { projectRoot } });',
+      "process.stdout.write(result.ast.src);",
+    ].join("\n");
+    const metro = [
+      `const { withTtsc } = await import(${JSON.stringify(TestMetroRuntime.libUrl("index"))});`,
+      'const { execFile } = await import("node:child_process");',
+      "const [worker, src, projectRoot, upstream] = JSON.parse(process.argv[1]);",
+      "withTtsc({ projectRoot }, { upstreamTransformer: upstream });",
+      'const run = () => new Promise((resolve, reject) => execFile(process.execPath, ["--input-type=module", "-e", worker, JSON.stringify([src, projectRoot])], (error, stdout, stderr) => (error ? reject(new Error(stderr)) : resolve(stdout))));',
+      "process.stdout.write(JSON.stringify(await Promise.all([run(), run()])));",
+    ].join("\n");
+    const outputs = JSON.parse(
+      execFileSync(
+        process.execPath,
+        [
+          "--input-type=module",
+          "-e",
+          metro,
+          JSON.stringify([
+            worker,
+            TestUnpluginProject.mainSource(root),
+            root,
+            TestMetroRuntime.fakeUpstreamPathOnDisk(),
+          ]),
+        ],
+        { cwd: root, windowsHide: true },
+      ).toString(),
+    ) as string[];
 
-  assert.equal(outputs.length, 2);
-  for (const output of outputs) {
-    TestUnpluginProject.assertTransformedToPlugin(output);
-  }
-  assert.equal(fs.statSync(runLog).size, 1, "the workers compiled once");
-}
+    assert.equal(outputs.length, 2);
+    for (const output of outputs) {
+      TestUnpluginProject.assertTransformedToPlugin(output);
+    }
+    assert.equal(fs.statSync(runLog).size, 1, "the workers compiled once");
+  };
