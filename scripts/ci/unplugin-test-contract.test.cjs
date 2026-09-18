@@ -10,43 +10,57 @@ const root = path.resolve(__dirname, "..", "..");
 
 test("unplugin scenarios follow the repository test layout", () => {
   const packageRoot = path.join(root, "tests", "test-unplugin");
-  const runner = fs.readFileSync(
-    path.join(packageRoot, "src", "index.ts"),
-    "utf8",
-  );
+  const source = path.join(packageRoot, "src");
+  const runner = fs.readFileSync(path.join(source, "index.ts"), "utf8");
   const manifest = JSON.parse(
     fs.readFileSync(path.join(packageRoot, "package.json"), "utf8"),
   );
   // One scenario per file, discovered by the shared runner: `features` needs
-  // neither a Go host nor a bundler process, `native-plugins` does.
-  const scenarios = ["features", "native-plugins"].flatMap((tree) =>
-    collectFiles(path.join(packageRoot, "src", tree)).map((file) => {
+  // neither a Go host nor a bundler process, `native-plugins` does. The split
+  // is pinned per tree because a scenario moved across it changes which CI
+  // lane runs it.
+  const trees = { features: 19, "native-plugins": 197 };
+  const scenarios = [];
+  for (const [tree, count] of Object.entries(trees)) {
+    const names = collectFiles(path.join(source, tree)).map((file) => {
+      const relative = path.relative(packageRoot, file);
       const name = path.basename(file, ".ts");
-      const exported = [
-        ...fs
-          .readFileSync(file, "utf8")
-          .matchAll(/^export (?:const|(?:async )?function) ([A-Za-z0-9_]+)/gm),
-      ].map((match) => match[1]);
-      assert.ok(file.endsWith(".ts"), `${file} must be a TypeScript scenario`);
+      const text = fs.readFileSync(file, "utf8");
+      assert.ok(
+        file.endsWith(".ts"),
+        `${relative} must be a TypeScript scenario`,
+      );
       assert.match(name, /^test_[a-z0-9_]+$/);
       assert.deepEqual(
-        exported,
-        [name],
-        `${path.relative(packageRoot, file)} must export exactly the one test its file is named after`,
+        [...text.matchAll(/^export\b.*$/gm)].map((match) => match[0]),
+        [`export async function ${name}(): Promise<void> {`],
+        `${relative} must export exactly the one async test its file is named after`,
       );
       return name;
-    }),
-  );
-  assert.equal(
-    scenarios.length,
-    216,
-    "the scenario inventory must stay explicit",
-  );
+    });
+    assert.equal(
+      names.length,
+      count,
+      `the ${tree} inventory must stay explicit`,
+    );
+    scenarios.push(...names);
+  }
   assert.equal(new Set(scenarios).size, scenarios.length);
+  // A scenario outside the discovered trees would never run.
+  const strays = collectFiles(source).filter(
+    (file) =>
+      !Object.keys(trees).some((tree) =>
+        file.startsWith(path.join(source, tree) + path.sep),
+      ) &&
+      /^export\s+(?:async\s+function|const)\s+test_/m.test(
+        fs.readFileSync(file, "utf8"),
+      ),
+  );
+  assert.deepEqual(strays, [], "every scenario must live in a discovered tree");
   assert.match(runner, /TestExecutor\.main\(/);
   assert.match(runner, /TTSC_TEST_DIRS/);
   assert.deepEqual(Object.keys(manifest.scripts), ["start"]);
-  const leftovers = collectFiles(path.join(packageRoot, "src")).filter((file) =>
+  const leftovers = collectFiles(source).filter((file) =>
     /\bcase_[a-z0-9_]+/.test(fs.readFileSync(file, "utf8")),
   );
   assert.deepEqual(
@@ -149,12 +163,7 @@ test("native fixtures publish one immutable content-addressed source identity", 
     ),
     "utf8",
   );
-  const cacheFixture = readTree(
-    path.join(root, "tests", "test-unplugin", "src"),
-  );
-  const realFixture = readTree(
-    path.join(root, "tests", "test-unplugin", "src"),
-  );
+  const suite = readTree(path.join(root, "tests", "test-unplugin", "src"));
   assert.match(defaultFixture, /return publishSharedSource\(/);
   assert.match(publisher, /crypto\.createHash\("sha256"\)/);
   assert.match(publisher, /fs\.mkdtempSync/);
@@ -165,31 +174,31 @@ test("native fixtures publish one immutable content-addressed source identity", 
     /materializeSharedSource\(\s*"default-go-plugin",\s*writeGoPlugin/,
   );
   assert.match(
-    cacheFixture,
+    suite,
     /materializeSharedSource\(\s*"cache-go-plugin",\s*writeGoPlugin/,
   );
-  assert.match(cacheFixture, /isolatedPluginSource: true/g);
+  assert.match(suite, /isolatedPluginSource: true/g);
   assert.equal(
-    (cacheFixture.match(/isolatedPluginSource: true/g) ?? []).length,
+    (suite.match(/isolatedPluginSource: true/g) ?? []).length,
     2,
     "only descriptor-mutation scenarios may fork the cache plugin source",
   );
   assert.match(
-    realFixture,
+    suite,
     /materializeSharedSource\(\s*"real-native-envelope-module"/,
   );
   assert.match(
-    realFixture,
+    suite,
     /path\.join\(moduleRoot, "go\.mod"\)/,
     "the published fixture must own the contributor's Go module",
   );
   assert.match(
-    realFixture,
+    suite,
     /const contributor = path\.join\(moduleRoot, "compile-probe"\)/,
     "the linked contributor must remain below the published Go module",
   );
-  assert.match(realFixture, /path\.join\(contributor, "probe\.go"\)/);
-  assert.match(realFixture, /source: \$\{JSON\.stringify\(contributorRoot\)\}/);
+  assert.match(suite, /path\.join\(contributor, "probe\.go"\)/);
+  assert.match(suite, /source: \$\{JSON\.stringify\(contributorRoot\)\}/);
 });
 
 test("shared native fixture publication is content-addressed and atomic", async (context) => {

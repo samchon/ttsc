@@ -1,4 +1,8 @@
-import { TestProject, TestUnpluginProject } from "@ttsc/testing";
+import {
+  TestProject,
+  TestUnpluginProject,
+  TestUnpluginRuntime,
+} from "@ttsc/testing";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import fs from "node:fs";
@@ -27,10 +31,7 @@ export async function test_bun_native_host_owns_build_and_runtime_sessions(): Pr
     path.join(root, "tsconfig.json"),
     JSON.stringify(configuration),
   );
-  const library = path.resolve(
-    import.meta.dirname,
-    "../../../../packages/unplugin/lib",
-  );
+  const library = path.dirname(TestUnpluginRuntime.libPath("bun", "mjs"));
   TestProject.writeFiles(root, {
     "build.mjs": [
       'import assert from "node:assert/strict";',
