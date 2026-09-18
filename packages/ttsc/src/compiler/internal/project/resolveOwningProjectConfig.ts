@@ -54,10 +54,19 @@ export function resolveOwningProjectConfig(props: {
     throwOnRealpathError: false,
   });
   const target = identities.resolve(path.resolve(props.file)).key;
-  const contains = (config: string): boolean =>
-    rootFiles(config, props.binary).some(
-      (root) => identities.resolve(root).key === target,
+  const listed = (roots: RootFiles): boolean =>
+    roots.files.some((root) => identities.resolve(root).key === target);
+  const contains = (config: string): boolean => {
+    const roots = rootFiles(config, props.binary);
+    if (listed(roots)) return true;
+    // A file created after the list was taken cannot be in it, and a running
+    // program does write the sources it then loads. Only such a file asks the
+    // compiler again, so a file that simply belongs elsewhere costs nothing.
+    return (
+      createdSince(props.file, roots.takenAt) &&
+      listed(rootFiles(config, props.binary, true))
     );
+  };
   if (contains(discovered)) {
     return discovered;
   }
@@ -107,13 +116,28 @@ function readReferences(
   return out;
 }
 
+/** The root files of one config, and when the compiler was asked for them. */
+interface RootFiles {
+  /** Absolute paths, as the compiler listed them. */
+  files: readonly string[];
+  /** `Date.now()` just before the compiler was asked. */
+  takenAt: number;
+}
+
 /**
  * The root files `config` expands to, as the compiler reports them. An empty
  * list when the compiler cannot load the config, which then owns nothing.
+ *
+ * @param refresh - Ask the compiler again instead of answering from the cache.
  */
-function rootFiles(config: string, binary: string | undefined): string[] {
+function rootFiles(
+  config: string,
+  binary: string | undefined,
+  refresh: boolean = false,
+): RootFiles {
   const cached = rootFilesCache.get(config);
-  if (cached !== undefined) return cached;
+  if (cached !== undefined && !refresh) return cached;
+  const takenAt = Date.now();
   let files: string[] = [];
   try {
     const directory = path.dirname(config);
@@ -135,8 +159,9 @@ function rootFiles(config: string, binary: string | undefined): string[] {
   } catch {
     files = [];
   }
-  rootFilesCache.set(config, files);
-  return files;
+  const roots = { files, takenAt };
+  rootFilesCache.set(config, roots);
+  return roots;
 }
 
 /**
@@ -144,7 +169,20 @@ function rootFiles(config: string, binary: string | undefined): string[] {
  * owner of many files under one solution, and each question would otherwise
  * spawn the compiler again for the same answer.
  */
-const rootFilesCache = new Map<string, string[]>();
+const rootFilesCache = new Map<string, RootFiles>();
+
+/**
+ * Whether `file` was created or changed at or after `time`. The change time is
+ * the one timestamp a program cannot set, so a file copied in with a preserved,
+ * older modification time still counts.
+ */
+function createdSince(file: string, time: number): boolean {
+  try {
+    return fs.statSync(file).ctimeMs >= time;
+  } catch {
+    return false;
+  }
+}
 
 function isDirectory(location: string): boolean {
   try {
