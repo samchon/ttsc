@@ -11,9 +11,12 @@ const compiled = new WeakMap<ITtscProjectMembershipPolicy, IRootPattern[]>();
  *
  * This is discovery, not dependency membership: imports outside these specs
  * remain compiler inputs and are proven by the external-input snapshot.
- * TypeScript's include grammar has only *, ?, ** and implicit directory globs.
- * Unknown policies stay permissive; no filesystem existence probe is needed, so
- * a newly created directory receives the same answer as an existing one.
+ * TypeScript's include grammar has only *, ?, ** and implicit directory globs;
+ * wildcards never enter package folders or hidden paths, a `.min.js` file needs
+ * a wildcard that spells `.min.`, and a JSON file needs a literal entry or a
+ * spec ending in `.json`. A policy whose configuration could not be read stays
+ * permissive. No filesystem existence probe is needed, so a newly created
+ * directory receives the same answer as an existing one.
  */
 export function matchesProjectRootFile(
   location: string,
@@ -29,8 +32,17 @@ export function matchesProjectRootFile(
     ].filter((pattern): pattern is IRootPattern => pattern !== undefined);
     compiled.set(policy, patterns);
   }
+  // A JSON file enters the program only through a literal entry or an include
+  // spec that itself ends in `.json`; TypeScript-Go matches every other spec
+  // against it and then discards the match. A directory can still hold one, so
+  // it keeps every pattern.
+  const json = !directory && location.toLowerCase().endsWith(".json");
+  const candidates = json
+    ? patterns.filter((pattern) => pattern.json)
+    : patterns;
+  if (candidates.length === 0) return false;
   return rootSpellings(location, policy).some((spelling) => {
     const parts = spelling.replace(/\\/g, "/").split("/");
-    return patterns.some((pattern) => matches(parts, pattern, directory));
+    return candidates.some((pattern) => matches(parts, pattern, directory));
   });
 }

@@ -10,7 +10,25 @@ export interface IRootPattern {
    * One matcher per path segment: a literal, the recursive `**` marker, or a
    * compiled expression.
    */
-  components: readonly (string | { expression: RegExp; wildcard: boolean })[];
+  components: readonly (
+    | string
+    | {
+        expression: RegExp;
+        /**
+         * Whether the segment spells `.min.`, which lets a wildcard file match
+         * admit a `.min.js` file TypeScript-Go otherwise leaves out.
+         */
+        mentionsMin: boolean;
+        wildcard: boolean;
+      }
+  )[];
+  /**
+   * Whether the spec can admit a `.json` root file: a `files` entry, or an
+   * `include` spec that itself ends in `.json`. TypeScript-Go matches every
+   * other include against JSON files and then discards them
+   * (`getFileNamesFromConfigSpecs`).
+   */
+  json: boolean;
   /**
    * Whether this is a `files` entry, which matches one exact path and never a
    * directory prefix.

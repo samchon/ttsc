@@ -63,6 +63,7 @@ export async function createProjectMutationTracker(
     return (
       knownDirectories.has(path.resolve(changed)) ||
       reportsProgramMembership(
+        root,
         changed,
         path.basename(filename),
         policy,

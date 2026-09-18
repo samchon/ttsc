@@ -9,7 +9,9 @@ import type { IRootPattern } from "./IRootPattern";
  * TypeScript's wildcard grammar: `*` and `?` within one component, and `**` for
  * any number of directories, with a trailing directory spec expanded to `**`
  * followed by `*`. Components are compared case-insensitively except on Linux,
- * and a trailing bare `**` is rejected, as TypeScript rejects it.
+ * and a trailing bare `**` is rejected, as TypeScript rejects it. Only a
+ * literal entry, or an include spec that itself ends in `.json`, can admit a
+ * JSON root file.
  */
 export function compile(
   spec: string,
@@ -22,6 +24,7 @@ export function compile(
     if (!/[.*?]/.test(last)) parts.push("**", "*");
   }
   return {
+    json: literal || spec.endsWith(".json"),
     literal,
     components: parts.map((part) => {
       if (!literal && part === "**") return part;
@@ -40,6 +43,10 @@ export function compile(
       // Unicode simple folding also belongs to literal components: lowercasing
       // alone misses equivalences such as Greek sigma/final sigma in Go.
       return {
+        mentionsMin: (process.platform === "linux"
+          ? part
+          : part.toLowerCase()
+        ).includes(".min."),
         expression: new RegExp(
           `^${wildcard && (part.startsWith("*") || part.startsWith("?")) ? "(?!\\.)" : ""}${expression}$`,
           process.platform === "linux" ? "u" : "iu",

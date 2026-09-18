@@ -10,7 +10,14 @@
  * dropped from the walk entirely (samchon/ttsc#1307).
  */
 export interface ITtscProjectMembershipPolicy {
-  /** Absolute root-file specifications; absent means conservative discovery. */
+  /**
+   * Absolute root-file specifications, with TypeScript-Go's default include,
+   * every file below the config directory, materialized when neither list is
+   * declared.
+   *
+   * Absent only when the configuration could not be read, in which case every
+   * path is a possible root and only the walk's ignored names bound it.
+   */
   rootFileSpecs?: Readonly<{
     files: readonly string[];
     include: readonly string[];

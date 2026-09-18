@@ -24,7 +24,11 @@ export function matches(
         if (!part.startsWith(".") && !isPackageDirectory(part)) next.add(state);
       } else if (typeof component !== "string") {
         if (
-          (!component.wildcard || !isPackageDirectory(part)) &&
+          (!component.wildcard ||
+            (!isPackageDirectory(part) &&
+              // TypeScript-Go's file matcher leaves a `.min.js` name out of
+              // every wildcard that does not spell `.min.` itself.
+              (directory || component.mentionsMin || !hasMinJsSuffix(part)))) &&
           component.expression.test(part)
         )
           next.add(state + 1);
@@ -42,4 +46,11 @@ export function matches(
   return directory
     ? [...states].some((state) => state < components.length)
     : states.has(components.length);
+}
+
+/** `hasMinJsSuffix`, with the same case rule the compiled components use. */
+function hasMinJsSuffix(part: string): boolean {
+  return (process.platform === "linux" ? part : part.toLowerCase()).endsWith(
+    ".min.js",
+  );
 }

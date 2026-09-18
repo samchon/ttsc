@@ -5,6 +5,7 @@ import type { ITtscProjectMembershipPolicy } from "./ITtscProjectMembershipPolic
 import { JAVASCRIPT_INPUT_EXTENSIONS } from "./JAVASCRIPT_INPUT_EXTENSIONS";
 import { OUTPUT_DIRECTORY_OPTIONS } from "./OUTPUT_DIRECTORY_OPTIONS";
 import { absolutizePathsTarget } from "./absolutizePathsTarget";
+import { findDeclaredFileSpecs } from "./findDeclaredFileSpecs";
 import { findDeclaredValue } from "./findDeclaredValue";
 import { flattenDirectoryExclusionOrigins } from "./flattenDirectoryExclusionOrigins";
 import { normalizeTypeScriptPathSeparators } from "./normalizeTypeScriptPathSeparators";
@@ -12,9 +13,18 @@ import { resolveConfigDirTemplatePath } from "./resolveConfigDirTemplatePath";
 import { resolveNativeRootPath } from "./resolveNativeRootPath";
 import { resolveRealPath } from "./resolveRealPath";
 
+/** TypeScript-Go's `defaultIncludeSpec`, used when neither list is declared. */
+const DEFAULT_INCLUDE_SPEC = "**/*";
+
 /**
  * Read the membership policy the resolved tsconfig implies, following its
  * `extends` chain for every option the answer depends on.
+ *
+ * Root files follow TypeScript-Go's selection. `files` and `include` merge
+ * across `extends` as {@link findDeclaredFileSpecs} resolves them, and a config
+ * that declares neither gets the default include, every file below its own
+ * directory, so tool output in package folders and hidden directories is never
+ * mistaken for a program input (samchon/ttsc#1385).
  *
  * `allowJs` and `resolveJsonModule` decide which extensions can enter the
  * program at all, so a `bundle.a1b2c3.js` emitted beside the sources is not a
@@ -35,48 +45,35 @@ export function readProjectMembershipPolicy(
   // when it has gone stale. `findDeclaredValue` walks `extends` for each option
   // independently, and each walk records what it read.
   const sources = new Set<string>();
-  const fileSpec = (key: "files" | "include") =>
-    findDeclaredValue(
-      resolved,
-      (parsed) =>
-        Object.prototype.hasOwnProperty.call(parsed, key)
-          ? { value: (parsed as Record<string, unknown>)[key] }
-          : undefined,
-      new Set(),
-      sources,
+  const files = findDeclaredFileSpecs(resolved, "files", sources);
+  const include = findDeclaredFileSpecs(resolved, "include", sources);
+  const configDir = path.dirname(resolved);
+  const absolutize = (
+    declared: { baseDir: string; specs: string[] } | undefined,
+  ): string[] | undefined =>
+    declared?.specs.map((entry) =>
+      absolutizePathsTarget(declared.baseDir, entry, configDir),
     );
-  const files = fileSpec("files");
-  const include = fileSpec("include");
-  const resolveSpecs = (
-    declared: ReturnType<typeof fileSpec>,
-  ): string[] | undefined => {
-    if (declared === null || declared.value.value == null) return undefined;
-    const value = declared.value.value;
-    if (
-      !Array.isArray(value) ||
-      !value.every((entry) => typeof entry === "string")
-    )
-      return undefined;
-    return value.map((entry) =>
-      absolutizePathsTarget(declared.baseDir, entry, path.dirname(resolved)),
-    );
-  };
-  const explicitFiles = resolveSpecs(files);
-  const includes = resolveSpecs(include);
-  const root = {
-    path: path.dirname(resolved),
-    realpath: resolveRealPath(path.dirname(resolved)),
-    nativepath: resolveNativeRootPath(path.dirname(resolved)),
-  };
-  // Missing/invalid specs keep the wide fallback. A files-only project has no
-  // implicit include, whereas include and files together form a union.
+  // TypeScript-Go substitutes `include: ["**/*"]` exactly when neither list
+  // resolves to an array, so the permissive answer is kept only for a config
+  // that cannot be read at all. A files-only project has no implicit include,
+  // whereas include and files together form a union.
   const rootFileSpecs =
-    includes !== undefined
-      ? { files: explicitFiles ?? [], include: includes, root }
-      : explicitFiles !== undefined &&
-          (include === null || include.value.value == null)
-        ? { files: explicitFiles, include: [], root }
-        : undefined;
+    files === null || include === null
+      ? undefined
+      : {
+          files: absolutize(files) ?? [],
+          include:
+            absolutize(include) ??
+            (files === undefined
+              ? [absolutizePathsTarget(configDir, DEFAULT_INCLUDE_SPEC)]
+              : []),
+          root: {
+            path: configDir,
+            realpath: resolveRealPath(configDir),
+            nativepath: resolveNativeRootPath(configDir),
+          },
+        };
   const flag = (key: string): boolean =>
     findDeclaredValue(
       resolved,

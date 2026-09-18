@@ -1,7 +1,6 @@
 import type fs from "node:fs";
 import path from "node:path";
 
-import { isIgnoredProjectDirectory } from "../../discovery/isIgnoredProjectDirectory";
 import type { ITtscProjectMembershipPolicy } from "../../tsconfig/ITtscProjectMembershipPolicy";
 import { PERMISSIVE_PROJECT_MEMBERSHIP_POLICY } from "../../tsconfig/PERMISSIVE_PROJECT_MEMBERSHIP_POLICY";
 import { matchesProjectRootFile } from "../../tsconfig/matchesProjectRootFile";
@@ -11,12 +10,14 @@ import { hashText } from "../utils/hashText";
 import type { TtscProjectDirectorySnapshot } from "./TtscProjectDirectorySnapshot";
 import type { TtscProjectWalkFailure } from "./TtscProjectWalkFailure";
 import { isExcludedProjectDirectory } from "./isExcludedProjectDirectory";
+import { isIgnoredProjectEntry } from "./isIgnoredProjectEntry";
 import { isPossibleProgramEntry } from "./isPossibleProgramEntry";
 
 /**
- * Enumerate every regular file under `root`, skipping the directories no
- * configuration can name ({@link isIgnoredProjectDirectory}) and the ones the
- * resolved configuration excludes ({@link isExcludedProjectDirectory}).
+ * Enumerate every regular file under `root` that the resolved configuration can
+ * admit, skipping the directories it excludes
+ * ({@link isExcludedProjectDirectory}) and, for a configuration that could not
+ * be read, the names no configuration needs ({@link isIgnoredProjectEntry}).
  *
  * Uses an iterative DFS instead of `fs.readdirSync` recursion to avoid
  * unbounded call-stack depth on deep project trees. The result is sorted so
@@ -90,7 +91,7 @@ export function walkProjectInputs(
           : `unstable:${before}:${after ?? "missing"}`,
     };
     for (const entry of entries) {
-      if (isIgnoredProjectDirectory(entry.name)) {
+      if (isIgnoredProjectEntry(entry.name, policy)) {
         continue;
       }
       const file = path.join(current, entry.name);

@@ -1,7 +1,10 @@
+import path from "node:path";
+
 import type { ITtscProjectMembershipPolicy } from "../../tsconfig/ITtscProjectMembershipPolicy";
 import { matchesProjectRootFile } from "../../tsconfig/matchesProjectRootFile";
 import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransformFilesystemOperations";
 import { insideExcludedProjectDirectory } from "./insideExcludedProjectDirectory";
+import { isIgnoredProjectEntry } from "./isIgnoredProjectEntry";
 import { isPossibleProgramFileName } from "./isPossibleProgramFileName";
 
 /**
@@ -20,15 +23,25 @@ import { isPossibleProgramFileName } from "./isPossibleProgramFileName";
  * created since is not watched and the sources that may appear in it would
  * otherwise be invisible. A directory the configuration excludes is the
  * exception: the walk cannot see inside it, so the tracker must not either, or
- * emptying and recreating an `outDir` costs a compile per build. An event whose
- * name the host did not report is unattributable and always counts.
+ * emptying and recreating an `outDir` costs a compile per build. A path below a
+ * name the walk skips never counts for the same reason. An event whose name the
+ * host did not report is unattributable and always counts.
  */
 export function reportsProgramMembership(
+  root: string,
   location: string,
   filename: string,
   policy: ITtscProjectMembershipPolicy,
   filesystem: TtscTransformFilesystemOperations,
 ): boolean {
+  if (
+    path
+      .relative(root, location)
+      .split(path.sep)
+      .some((segment) => isIgnoredProjectEntry(segment, policy))
+  ) {
+    return false;
+  }
   if (
     !matchesProjectRootFile(location, policy, false) &&
     !matchesProjectRootFile(location, policy, true)

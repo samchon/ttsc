@@ -2,7 +2,6 @@ import type fs from "node:fs";
 import path from "node:path";
 import type { FilesystemPathIdentityContext } from "ttsc/path-identity";
 
-import { isIgnoredProjectDirectory } from "../../discovery/isIgnoredProjectDirectory";
 import type { ITtscProjectMembershipPolicy } from "../../tsconfig/ITtscProjectMembershipPolicy";
 import { PERMISSIVE_PROJECT_MEMBERSHIP_POLICY } from "../../tsconfig/PERMISSIVE_PROJECT_MEMBERSHIP_POLICY";
 import { matchesProjectRootFile } from "../../tsconfig/matchesProjectRootFile";
@@ -10,6 +9,7 @@ import { DEFAULT_FILESYSTEM_OPERATIONS } from "../filesystem/DEFAULT_FILESYSTEM_
 import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransformFilesystemOperations";
 import { createHostPathIdentityContext } from "../filesystem/createHostPathIdentityContext";
 import { isExcludedProjectDirectory } from "./isExcludedProjectDirectory";
+import { isIgnoredProjectEntry } from "./isIgnoredProjectEntry";
 import { isPossibleProgramFileName } from "./isPossibleProgramFileName";
 
 /**
@@ -45,7 +45,11 @@ export function isProjectWalkPath(
   const segments = relative.split(path.sep);
   // The last segment is the file itself, which the walk names rather than
   // descends into, so only the directory components decide walk membership.
-  if (segments.slice(0, -1).some(isIgnoredProjectDirectory)) {
+  if (
+    segments
+      .slice(0, -1)
+      .some((segment) => isIgnoredProjectEntry(segment, policy))
+  ) {
     return false;
   }
   if (isExcludedProjectDirectory(path.dirname(path.resolve(file)), policy)) {

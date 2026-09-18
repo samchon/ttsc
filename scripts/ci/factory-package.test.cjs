@@ -52,12 +52,11 @@ test("the canonical full plans cover every publishable package build", () => {
 });
 
 /**
- * `pnpm package:tgz` is the release rehearsal for
- * `pnpm run package:latest:publish`, so a published package missing from its
- * plan reaches the registry with its `files`, `exports`, and `prepack` never
- * exercised by a real `pnpm pack`. The plan is a hand-written list, so it can
- * only stay complete if a check compares it with the packages that actually
- * publish.
+ * `pnpm package:tgz` is the release rehearsal for `pnpm run
+ * package:latest:publish`, so a published package missing from its plan reaches
+ * the registry with its `files`, `exports`, and `prepack` never exercised by a
+ * real `pnpm pack`. The plan is a hand-written list, so it can only stay
+ * complete if a check compares it with the packages that actually publish.
  */
 test("the release rehearsal plans every publishable package it does not exclude", () => {
   const publishable = publishablePackages();
@@ -292,9 +291,9 @@ test("the factory publication entry points load from built artifacts", async () 
 });
 
 /**
- * Every non-private, non-platform `packages/*` manifest: exactly the set
- * `pnpm run package:latest:publish` pushes to the registry. Platform packages
- * are discovered from disk by their own plans and asserted by
+ * Every non-private, non-platform `packages/*` manifest: exactly the set `pnpm
+ * run package:latest:publish` pushes to the registry. Platform packages are
+ * discovered from disk by their own plans and asserted by
  * `scripts/assert-platform-package.cjs`, so they never enter these gates.
  */
 function publishablePackages() {
