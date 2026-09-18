@@ -260,6 +260,12 @@ In every unforwarded case the compile resolves that specifier through the tsconf
 
 A `find` containing `*`, and a relative or bare replacement, is also reported once on stderr, naming the alias and the reason. A `RegExp` `find` is not, and the asymmetry is deliberate: Vite merges two `RegExp` aliases of its own into every resolved config, for `@vite/env` and `@vite/client`, so a report on that form would fire in every build of every project and name aliases you never wrote.
 
+## Source maps
+
+Every transformed module comes with a source map back to the text you wrote, so stack traces, breakpoints, the error overlay, and a production build's maps point at your own lines. That holds even though the compiler reprints the file and a plugin such as `@ttsc/banner` or typia inserts code above it. Vite, Rollup, Rolldown, webpack, Rspack, Farm, and Turbopack receive the map with the transformed code. esbuild and Bun take it as an inline `sourceMappingURL` in the loaded contents. Under Metro, whose transformer returns an AST rather than a map, `@ttsc/metro` moves the upstream transformer's AST locations back to your lines, and Metro builds its map from them.
+
+A module gets a map only when the compile read exactly the text the bundler delivered. When an earlier plugin already changed that text, the module is still transformed, but without a map, because a map of the file on disk would point at the wrong lines. An executable plugin host that writes no maps keeps working the same way.
+
 ## Cache and watch invalidation
 
 The compiler replays each resident module, type-reference, and triple-slash path resolution through the pinned TypeScript-Go resolver and reports the exact filesystem inputs it consulted. `@ttsc/unplugin` registers importer-owned inputs from a transformed file's reference closure, plus universal automatic type-root discovery inputs, so changing a package manifest, failed probe, selected lexical link, unresolved search, or `@types` directory membership invalidates the transform even when neither an importer nor its tsconfig changed.

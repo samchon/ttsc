@@ -9,6 +9,7 @@ import { beginTtscTransformBuild } from "../transform/cache/beginTtscTransformBu
 import { createTtscTransformCache } from "../transform/cache/createTtscTransformCache";
 import { resetTtscTransformCache } from "../transform/cache/resetTtscTransformCache";
 import { transformTtsc } from "../transform/transformTtsc";
+import { inlineSourceMap } from "../transform/utils/inlineSourceMap";
 import type { BunLikeBuild } from "./BunLikeBuild";
 import type { BunLikePlugin } from "./BunLikePlugin";
 import type { BunLoader } from "./BunLoader";
@@ -94,7 +95,7 @@ export function bun(options?: TtscBunOptions): BunLikePlugin {
             cache,
           );
           if (result !== undefined) {
-            return { contents: result.code, loader };
+            return { contents: inlineSourceMap(result), loader };
           }
           return runtime ? { contents: source, loader } : undefined;
         },

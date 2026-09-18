@@ -142,7 +142,10 @@ export function turbopack(
     transformCache,
     Object.keys(hooks).length === 0 ? undefined : hooks,
   ).then(
-    (result) => callback(undefined, result?.code ?? source),
+    (result) =>
+      result === undefined
+        ? callback(undefined, source)
+        : callback(undefined, result.code, result.map),
     (error) => callback(error),
   );
 }

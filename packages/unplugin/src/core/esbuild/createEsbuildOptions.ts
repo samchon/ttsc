@@ -8,6 +8,7 @@ import { beginTtscTransformBuild } from "../transform/cache/beginTtscTransformBu
 import { createTtscTransformCache } from "../transform/cache/createTtscTransformCache";
 import { resetTtscTransformCache } from "../transform/cache/resetTtscTransformCache";
 import { transformTtsc } from "../transform/transformTtsc";
+import { inlineSourceMap } from "../transform/utils/inlineSourceMap";
 import type { TtscWatchInput } from "../transform/watch/TtscWatchInput";
 import { classifyWatchInput } from "../transform/watch/classifyWatchInput";
 
@@ -79,7 +80,8 @@ export function createEsbuildOptions(
                 cache,
                 { addWatchFiles: register },
               );
-              contents = result?.code ?? source;
+              contents =
+                result === undefined ? source : inlineSourceMap(result);
             } catch (error) {
               for (const input of previous.get(file)?.watchFiles ?? [])
                 watchFiles.add(input);

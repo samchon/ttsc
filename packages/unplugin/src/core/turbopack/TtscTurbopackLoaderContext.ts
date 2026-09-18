@@ -8,8 +8,11 @@ import type { TtscUnpluginOptions } from "../options/TtscUnpluginOptions";
  * `options` object.
  */
 export interface TtscTurbopackLoaderContext {
-  /** Marks the loader asynchronous and returns the completion callback. */
-  async(): (error?: unknown, content?: string) => void;
+  /**
+   * Marks the loader asynchronous and returns the completion callback, which
+   * takes the transformed content and its source map in webpack's loader form.
+   */
+  async(): (error?: unknown, content?: string, sourceMap?: object) => void;
   /** Absolute path of the module being loaded. */
   resourcePath: string;
   /**

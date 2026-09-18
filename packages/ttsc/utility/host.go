@@ -44,20 +44,23 @@ type hostOptions struct {
 // Graph carries the host-owned reference graph (direct resolved reference
 // edges, global-scope files, tsconfig extends chain) keyed like TypeScript,
 // so cache layers can register every file whose content can influence a
-// transformed module without per-plugin reporting.
+// transformed module without per-plugin reporting. SourceMaps carries, keyed
+// like TypeScript, a version 3 source map from each printed file whose text
+// differs from its source back to that source (samchon/ttsc#1392).
 type transformResult struct {
   // Dependencies and DependenciesComplete carry what the linked plugins
   // declared about their own contribution to each file; the host prints the
   // parsed AST syntactically, so it adds nothing of its own to either. See
   // driver.Program.TransformDependenciesFor.
-  Dependencies         map[string][]string    `json:"dependencies,omitempty"`
-  DependenciesComplete []string               `json:"dependenciesComplete,omitempty"`
-  Diagnostics          []transformDiagnostic  `json:"diagnostics,omitempty"`
-  Graph                *driver.TransformGraph `json:"graph,omitempty"`
-  HostInputs           []string               `json:"hostInputs,omitempty"`
-  HostInputHashes      map[string]*string     `json:"hostInputHashes,omitempty"`
-  HostInputRealpaths   map[string]*string     `json:"hostInputRealpaths,omitempty"`
-  TypeScript           map[string]string      `json:"typescript"`
+  Dependencies         map[string][]string        `json:"dependencies,omitempty"`
+  DependenciesComplete []string                   `json:"dependenciesComplete,omitempty"`
+  Diagnostics          []transformDiagnostic      `json:"diagnostics,omitempty"`
+  Graph                *driver.TransformGraph     `json:"graph,omitempty"`
+  HostInputs           []string                   `json:"hostInputs,omitempty"`
+  HostInputHashes      map[string]*string         `json:"hostInputHashes,omitempty"`
+  HostInputRealpaths   map[string]*string         `json:"hostInputRealpaths,omitempty"`
+  SourceMaps           map[string]json.RawMessage `json:"sourceMaps,omitempty"`
+  TypeScript           map[string]string          `json:"typescript"`
 }
 
 // transformDiagnostic matches the public JavaScript compiler diagnostic shape.
@@ -168,10 +171,24 @@ func RunTransformWithIO(args []string, stdout, stderr io.Writer) int {
       fmt.Fprintln(opts.stderr, err)
       diags = append(diags, driver.Diagnostic{Message: err.Error()})
     } else {
-      printer := shimprinter.NewPrinter(shimprinter.PrinterOptions{}, shimprinter.PrintHandlers{}, nil)
+      out.SourceMaps = map[string]json.RawMessage{}
       for _, file := range prog.SourceFiles() {
-        text := shimprinter.EmitSourceFile(printer, file)
-        out.TypeScript[apiOutputKey(opts.cwd, file.FileName())] = text
+        // The map carries the source text it was generated from, so a
+        // consumer can tell whether it describes the text it was handed.
+        text, sourceMap := shimprinter.EmitSourceFileWithSourceMap(
+          shimprinter.PrinterOptions{InlineSources: true},
+          shimprinter.PrintHandlers{},
+          nil,
+          file,
+        )
+        key := apiOutputKey(opts.cwd, file.FileName())
+        out.TypeScript[key] = text
+        // A source preamble sits in the parsed text, not in the author's
+        // file, so both the comparison and the map use the authored text.
+        authored, corrected, ok := prog.AuthoredSourceMap(file, sourceMap)
+        if ok && text != authored {
+          out.SourceMaps[key] = json.RawMessage(corrected)
+        }
       }
       dependencies := prog.TransformDependenciesFor(opts.cwd)
       out.Dependencies = dependencies.Dependencies

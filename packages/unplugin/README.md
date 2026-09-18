@@ -349,6 +349,10 @@ In every unforwarded case the compile resolves that specifier through the tsconf
 
 A `find` containing `*`, and a relative or bare replacement, is also reported once on stderr, naming the alias and the reason. A `RegExp` `find` is not, and the asymmetry is deliberate: Vite merges two `RegExp` aliases of its own into every resolved config, for `@vite/env` and `@vite/client`, so a report on that form would fire in every build of every project and name aliases you never wrote.
 
+### Source Maps
+
+Every transformed module comes with a source map back to the text you wrote, so stack traces, breakpoints, and build maps point at your own lines even after the compiler reprints the file or a plugin inserts code above it. esbuild and Bun receive it as an inline `sourceMappingURL`; every other host receives it with the code. A module whose delivered text differs from what the compile read, such as the output of an earlier plugin, is transformed without a map rather than with one that points at the wrong lines.
+
 ### Cache and Watch Invalidation
 
 Editing a type that only a generated validator depends on invalidates the module, in watch mode, in webpack's filesystem cache and in Turbopack's `fileDependencies`, even though the bundler erased the type-only import from its own graph. The adapter registers each transformed file's reference closure, the global-scope files, the configs, the importer resolution inputs and the universal automatic-type inputs with the bundler, plus whatever the plugins themselves report. The [setup guide](https://ttsc.dev/docs/setup/unplugin) describes how that set is derived and proven.

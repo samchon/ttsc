@@ -79,6 +79,10 @@ module.exports = withTtsc(getDefaultConfig(__dirname), {
 
 Options travel from the Metro config process to its worker processes through an environment variable, so they must stay JSON-serialisable: substring patterns, not `RegExp`.
 
+## Source maps
+
+Metro builds each module's source map from the AST the Babel transformer returns, and that transformer parsed the `ttsc` output, not your file. The `ttsc` pass returns a map back to your text, and `@ttsc/metro` moves the AST's locations through it before Metro sees them, so stack traces, breakpoints, and the red box point at the lines you wrote. Code a plugin generated has no line of yours, so it takes the location of the code around it.
+
 ## Files outside the program
 
 Metro resolves its own module graph, and that graph is not the set of files your `tsconfig` describes. A file Metro delivers that the compiled program does not contain is passed to the upstream transformer untransformed, and reported naming the file and the `tsconfig` it is missing from, once per file per compile in each Metro worker, since a Metro worker has no build boundary to reset the report at:

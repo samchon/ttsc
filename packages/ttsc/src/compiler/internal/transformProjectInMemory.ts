@@ -53,6 +53,7 @@ export function transformProjectInMemory(options: ITtscCompilerContext): {
   hostInputRealpaths?: Record<string, string | null>;
   hostInputs?: string[];
   result: TtscBuildResult;
+  sourceMaps?: Record<string, ITtscCompilerTransformation.ISourceMap>;
   typescript: Record<string, string>;
   volatile?: string[];
 } {
@@ -94,6 +95,7 @@ function transformProjectWithNativeHost(
   hostInputRealpaths?: Record<string, string | null>;
   hostInputs?: string[];
   result: TtscBuildResult;
+  sourceMaps?: Record<string, ITtscCompilerTransformation.ISourceMap>;
   typescript: Record<string, string>;
   volatile?: string[];
 } {
@@ -197,6 +199,7 @@ function transformProjectWithPlugins(
   hostInputRealpaths?: Record<string, string | null>;
   hostInputs?: string[];
   result: TtscBuildResult;
+  sourceMaps?: Record<string, ITtscCompilerTransformation.ISourceMap>;
   typescript: Record<string, string>;
   volatile?: string[];
 } {
@@ -372,19 +375,21 @@ function revalidateHostInputRealpaths(
 
 /**
  * Collect the optional advisory envelope fields (`dependencies`,
- * `dependenciesComplete`, `graph`, `volatile`) into a spreadable object,
- * omitting absent fields so downstream result shapes stay free of `undefined`
- * keys.
+ * `dependenciesComplete`, `graph`, `sourceMaps`, `volatile`) into a spreadable
+ * object, omitting absent fields so downstream result shapes stay free of
+ * `undefined` keys.
  */
 function envelopeSideChannels(output: {
   dependencies?: Record<string, string[]>;
   dependenciesComplete?: string[];
   graph?: ITtscCompilerTransformation.IReferenceGraph;
+  sourceMaps?: Record<string, ITtscCompilerTransformation.ISourceMap>;
   volatile?: string[];
 }): {
   dependencies?: Record<string, string[]>;
   dependenciesComplete?: string[];
   graph?: ITtscCompilerTransformation.IReferenceGraph;
+  sourceMaps?: Record<string, ITtscCompilerTransformation.ISourceMap>;
   volatile?: string[];
 } {
   return {
@@ -395,6 +400,9 @@ function envelopeSideChannels(output: {
       ? {}
       : { dependenciesComplete: output.dependenciesComplete }),
     ...(output.graph === undefined ? {} : { graph: output.graph }),
+    ...(output.sourceMaps === undefined
+      ? {}
+      : { sourceMaps: output.sourceMaps }),
     ...(output.volatile === undefined ? {} : { volatile: output.volatile }),
   };
 }
@@ -650,10 +658,11 @@ function nativePluginEnv(
  * treated as a protocol error and throws with the stderr/stdout context. JSON
  * parse errors are also wrapped with the same context message.
  *
- * The optional `dependencies`, `dependenciesComplete`, `graph`, and `volatile`
- * fields (see `ITtscCompilerTransformation`) are forwarded when well-formed;
- * entries that do not match the expected shape are dropped rather than failing
- * the transform — the fields are advisory invalidation metadata, not output.
+ * The optional `dependencies`, `dependenciesComplete`, `graph`, `sourceMaps`,
+ * and `volatile` fields (see `ITtscCompilerTransformation`) are forwarded when
+ * well-formed; entries that do not match the expected shape are dropped rather
+ * than failing the transform — the fields are advisory invalidation metadata,
+ * not output.
  *
  * Dropping a malformed `dependenciesComplete` member is the safe direction on
  * purpose: an unlisted file keeps the sound host-owned bound, so a garbled
@@ -670,6 +679,7 @@ function parseNativeTransformOutput(
   hostInputHashes?: Record<string, string | null>;
   hostInputRealpaths?: Record<string, string | null>;
   hostInputs?: string[];
+  sourceMaps?: Record<string, ITtscCompilerTransformation.ISourceMap>;
   typescript: Record<string, string>;
   volatile?: string[];
 } {
@@ -682,6 +692,7 @@ function parseNativeTransformOutput(
       hostInputHashes?: Record<string, string | null>;
       hostInputRealpaths?: Record<string, string | null>;
       hostInputs?: string[];
+      sourceMaps?: unknown;
       typescript?: Record<string, string>;
       volatile?: string[];
     };
@@ -698,6 +709,7 @@ function parseNativeTransformOutput(
       parsed.hostInputRealpaths,
     );
     const hostInputs = parseFileList(parsed.hostInputs);
+    const sourceMaps = parseSourceMaps(parsed.sourceMaps, parsed.typescript);
     const volatile = parseFileList(parsed.volatile);
     return {
       ...(dependencies === undefined ? {} : { dependencies }),
@@ -706,6 +718,7 @@ function parseNativeTransformOutput(
       ...(hostInputHashes === undefined ? {} : { hostInputHashes }),
       ...(hostInputRealpaths === undefined ? {} : { hostInputRealpaths }),
       ...(hostInputs === undefined ? {} : { hostInputs }),
+      ...(sourceMaps === undefined ? {} : { sourceMaps }),
       ...(volatile === undefined ? {} : { volatile }),
       diagnostics: Array.isArray(parsed.diagnostics) ? parsed.diagnostics : [],
       typescript: parsed.typescript,
@@ -719,6 +732,57 @@ function parseNativeTransformOutput(
         "ttsc: native transform host returned no output",
     );
   }
+}
+
+/**
+ * Parse the envelope's per-file source maps (samchon/ttsc#1392).
+ *
+ * An entry survives only when it is a version 3 map with string `mappings`,
+ * string `sources` and `names`, and a `sourcesContent` of strings or nulls, for
+ * a file the envelope also carries text for. Anything else is dropped: a map a
+ * consumer cannot read is no better than none.
+ */
+function parseSourceMaps(
+  value: unknown,
+  typescript: Record<string, string>,
+): Record<string, ITtscCompilerTransformation.ISourceMap> | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+  const isStrings = (list: unknown): list is string[] =>
+    Array.isArray(list) && list.every((entry) => typeof entry === "string");
+  const output: Record<string, ITtscCompilerTransformation.ISourceMap> = {};
+  for (const [file, map] of Object.entries(value)) {
+    if (
+      !Object.prototype.hasOwnProperty.call(typescript, file) ||
+      typeof map !== "object" ||
+      map === null
+    ) {
+      continue;
+    }
+    const candidate = map as Record<string, unknown>;
+    if (
+      candidate.version !== 3 ||
+      typeof candidate.mappings !== "string" ||
+      !isStrings(candidate.sources) ||
+      !isStrings(candidate.names) ||
+      (candidate.file !== undefined && typeof candidate.file !== "string") ||
+      (candidate.sourceRoot !== undefined &&
+        typeof candidate.sourceRoot !== "string") ||
+      (candidate.sourcesContent !== undefined &&
+        !(
+          Array.isArray(candidate.sourcesContent) &&
+          candidate.sourcesContent.every(
+            (entry) => entry === null || typeof entry === "string",
+          )
+        ))
+    ) {
+      continue;
+    }
+    output[file] =
+      candidate as unknown as ITtscCompilerTransformation.ISourceMap;
+  }
+  return Object.keys(output).length === 0 ? undefined : output;
 }
 
 /** Parse native evaluation-time SHA-256/null host-input fingerprints. */

@@ -466,6 +466,16 @@ Project-wide source transform used by `TtscCompiler.transform()` and in-memory c
   "typescript": {
     "src/main.ts": "export const value = 1;\n"
   },
+  "sourceMaps": {
+    "src/main.ts": {
+      "version": 3,
+      "file": "main.ts",
+      "sources": ["main.ts"],
+      "sourcesContent": ["export const value = 1\n"],
+      "names": [],
+      "mappings": "AAAA,MAAM,CAAC,KAAK,GAAG,CAAC"
+    }
+  },
   "dependencies": {
     "src/main.ts": ["src/types.ts"]
   },
@@ -486,6 +496,8 @@ Project-wide source transform used by `TtscCompiler.transform()` and in-memory c
 ```
 
 Each value in `typescript` is written to disk **verbatim**. The host does not re-parse or re-render. If your plugin mutated the AST, you must run a printer over the file before placing its text in the map; the canonical path is `shimprinter.NewPrinter(...)` → `shimprinter.EmitSourceFile(printer, file)`. Returning `file.Text()` after AST mutation will silently round-trip the original source. See `packages/ttsc/utility/host.go::RunTransform` for the reference implementation.
+
+`sourceMaps` is optional: per file keyed like `typescript`, a version 3 source map from that text back to the text the file was transformed from. `sources` are relative to the file's directory, and `sourcesContent` must carry the text each source was transformed from. `@ttsc/unplugin` hands a module's map to the bundler only when that entry equals the text the bundler delivered, because a map of any other text would point at the wrong lines. Without an entry, a bundler reports positions in the transformed text, and Rollup warns `SOURCEMAP_BROKEN`. The built-in hosts supply a map for every file whose text differs from its source. The printer records it while printing: `shimprinter.EmitSourceFileWithSourceMap(shimprinter.PrinterOptions{InlineSources: true}, shimprinter.PrintHandlers{}, nil, file)` returns the text and the map together. It builds its own printer for each file, because a printer's source-map state carries across files. A host that inserts a source preamble, as the utility host does for `@ttsc/banner`, must also move the map back to the author's text, as `driver.Program.AuthoredSourceMap` does. Malformed entries are dropped, and a file without an entry keeps working without a map.
 
 `dependencies` is optional advisory metadata: per transformed file (same keys as `typescript`), the source files whose content influenced that output beyond the file itself — for a type-driven generator, the declaration files it read through the Checker. Paths may be project-relative or absolute; the host passes them through verbatim on `TtscCompiler.transform()` results, and `@ttsc/unplugin` registers them as bundler watch files so type-only inputs invalidate the module in HMR. Dev-mode bundlers erase type-only imports from their module graph, so without this field an edit to a consulted type serves stale generated code until a cold restart. Omit the field (or a file's entry) when there is nothing to report; malformed entries are dropped, never fatal. A producer whose list is exhaustive for a file can additionally declare it [complete](#dependency-completeness), which narrows invalidation instead of widening it.
 

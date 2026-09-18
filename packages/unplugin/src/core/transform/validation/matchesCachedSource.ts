@@ -51,7 +51,9 @@ export function matchesCachedSource(
     const outputs = (state.outputIndex ??= createEnvelopeKeyIndex(
       state,
       cached.projectRoot,
-      cached.result.typescript,
+      Object.fromEntries(
+        Object.keys(cached.result.typescript).map((entry) => [entry, entry]),
+      ),
     ));
     if (!outputs.has(identity)) {
       // While the watchers prove the program unchanged, the module is still

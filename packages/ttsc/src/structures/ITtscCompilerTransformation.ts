@@ -132,6 +132,38 @@ export namespace ITtscCompilerTransformation {
     stat?: "directory" | "file" | "missing";
   }
 
+  /**
+   * Version 3 source map from one transformed file's text back to the text it
+   * was transformed from (samchon/ttsc#1392).
+   *
+   * `sources` are relative to the transformed file's directory, joined to
+   * {@link sourceRoot} when one is set. `sourcesContent` carries the text each
+   * source was transformed from, so a consumer can confirm the map describes
+   * the text it holds before handing it on.
+   */
+  export interface ISourceMap {
+    /** Always `3`. */
+    version: 3;
+
+    /** Base name of the transformed file. */
+    file?: string;
+
+    /** Prefix joined to every entry of {@link sources}. */
+    sourceRoot?: string;
+
+    /** Files the mappings point into. */
+    sources: string[];
+
+    /** Text of each source the transform read, or `null` when not supplied. */
+    sourcesContent?: (string | null)[];
+
+    /** Symbol names referenced by the mappings. */
+    names: string[];
+
+    /** Base64 VLQ mappings. */
+    mappings: string;
+  }
+
   /** Successful source-to-source transformation result. */
   export interface ISuccess {
     /** Indicates that transformation completed without diagnostics. */
@@ -149,6 +181,17 @@ export namespace ITtscCompilerTransformation {
      * Program.
      */
     typescript: Record<string, string>;
+
+    /**
+     * Source maps keyed like {@link typescript}, from each transformed file's
+     * text back to the text it was transformed from.
+     *
+     * Optional: ttsc's own hosts supply one for every file whose text differs
+     * from its source, and an executable sidecar may supply its own. A file
+     * without an entry has no map, so a consumer that re-emits it cannot claim
+     * one. Malformed entries are dropped.
+     */
+    sourceMaps?: Record<string, ISourceMap>;
 
     /**
      * Source files the transform consulted per transformed file, keyed the same
@@ -254,6 +297,12 @@ export namespace ITtscCompilerTransformation {
      * source from completing its pass.
      */
     typescript: Record<string, string>;
+
+    /**
+     * Source maps of the transformed files. Same shape and semantics as
+     * {@link ISuccess.sourceMaps}.
+     */
+    sourceMaps?: Record<string, ISourceMap>;
 
     /** Diagnostics reported during transformation. */
     diagnostics: ITtscCompilerDiagnostic[];

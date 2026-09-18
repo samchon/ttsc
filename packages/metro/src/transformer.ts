@@ -33,6 +33,7 @@ import {
 } from "./core/fingerprint";
 import type { ResolvedTtscMetroOptions } from "./core/options";
 import { resolveOptionsFromEnv } from "./core/options";
+import { remapAstLocations } from "./core/remapAstLocations";
 import { resolveUpstreamTransformer } from "./core/upstream";
 
 const nodeRequire = createRequire(import.meta.url);
@@ -92,7 +93,10 @@ export function resolveAbsoluteFilename(
  * Expo/React-Native Babel transformer to produce the AST Metro expects. The
  * upstream call receives Metro's original params (notably the project-relative
  * `filename`, which Babel expects); only `src` is replaced with the
- * ttsc-transformed source.
+ * ttsc-transformed source. When the adapter returns a source map for that
+ * source, the upstream AST's locations are moved back through it to the
+ * author's lines, because Metro maps the AST against the file it read
+ * (samchon/ttsc#1392).
  */
 export async function transform(params: {
   src: string;
@@ -112,6 +116,8 @@ export async function transform(params: {
   }
 
   let transformedSrc = params.src;
+  let transformedMap: { mappings: string; sources: string[] } | undefined;
+  let absoluteFilename = params.filename;
   {
     unpluginOptions ??= resolveOptions(opts.ttsc);
     const projectRoot =
@@ -121,6 +127,7 @@ export async function transform(params: {
     const explicitProject =
       typeof opts.ttsc.project === "string" ? opts.ttsc.project : undefined;
     const filename = resolveAbsoluteFilename(params.filename, params.options);
+    absoluteFilename = filename;
     const project = resolveProjectView({
       compilerOptions: opts.ttsc.compilerOptions,
       explicitProject,
@@ -174,10 +181,17 @@ export async function transform(params: {
     // Genuine compile and type failures still propagate so Metro surfaces them.
     if (result !== undefined && typeof result.code === "string") {
       transformedSrc = result.code;
+      transformedMap = result.map;
     }
   }
 
-  return upstream.transform({ ...params, src: transformedSrc });
+  const output = await upstream.transform({ ...params, src: transformedSrc });
+  // Metro maps the returned AST against the file it read, so the upstream's
+  // positions in the transformed text are moved back to the author's lines.
+  if (transformedMap !== undefined) {
+    remapAstLocations(output.ast, transformedMap, absoluteFilename);
+  }
+  return output;
 }
 
 /**

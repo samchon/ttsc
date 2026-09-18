@@ -1,13 +1,20 @@
-import type { TransformResult } from "unplugin";
+import type { ITtscCompilerTransformation } from "ttsc";
 
 /**
- * The normalised transform result type that this module produces.
+ * What the adapter's transform returns for a module it changed.
  *
- * Excludes the shorthand `string`, `null`, and `undefined` variants of
- * unplugin's `TransformResult` so callers always receive an object or
- * `undefined`.
+ * A subset of unplugin's `TransformResult` object form, so every host adapter
+ * can return it as is. It never takes the shorthand `string`, `null`, or `void`
+ * forms, so callers always receive an object or `undefined`.
  */
-export type TtscTransformResult = Exclude<
-  TransformResult,
-  string | null | undefined
->;
+export interface TtscTransformResult {
+  /** Transformed TypeScript text of the module. */
+  code: string;
+
+  /**
+   * Source map from {@link code} back to the text the bundler delivered, with
+   * absolute `sources`. Absent when the envelope carried no map that describes
+   * the delivered text (samchon/ttsc#1392).
+   */
+  map?: ITtscCompilerTransformation.ISourceMap;
+}

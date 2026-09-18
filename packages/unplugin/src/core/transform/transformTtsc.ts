@@ -16,6 +16,7 @@ import { transformCacheTrustsNotifications } from "./cache/transformCacheTrustsN
 import { transformFilesystem } from "./cache/transformFilesystem";
 import { reportMissingProgramOutput } from "./diagnostics/reportMissingProgramOutput";
 import { reportSuccessDiagnostics } from "./diagnostics/reportSuccessDiagnostics";
+import type { TtscTransformedOutput } from "./envelope/TtscTransformedOutput";
 import { envelopeDerivation } from "./envelope/envelopeDerivation";
 import { isVolatileFile } from "./envelope/isVolatileFile";
 import { TtscMissingProgramOutputError } from "./errors/TtscMissingProgramOutputError";
@@ -156,9 +157,9 @@ export async function transformTtsc(
         // A resolved `"exception"` / `"failure"` envelope makes this throw;
         // that is a failed generation too, so it is retained for this pass or
         // evicted outside one before being surfaced.
-        let code: string;
+        let output: TtscTransformedOutput;
         try {
-          code = selectOrEvict(cache, key, transformed, epoch, {
+          output = selectOrEvict(cache, key, transformed, epoch, {
             file,
             projectRoot: cached.projectRoot,
             result: cached.result,
@@ -181,7 +182,7 @@ export async function transformTtsc(
         }
         notifyWatchInputs(hooks, cached, file);
         markCachedSourceServed(cached, file);
-        return createTransformResult(source, code);
+        return createTransformResult(file, source, output);
       }
       evictGeneration(cache, key, transformed);
       // Another caller may have replaced the generation while this caller was
@@ -224,9 +225,9 @@ export async function transformTtsc(
     }
     const { projectRoot, result } = cached;
     reportSuccessDiagnostics(cached, epoch);
-    let code: string;
+    let output: TtscTransformedOutput;
     try {
-      code = selectOrEvict(cache, key, generation, epoch, {
+      output = selectOrEvict(cache, key, generation, epoch, {
         file,
         projectRoot,
         result,
@@ -249,6 +250,6 @@ export async function transformTtsc(
     ) {
       hooks?.markVolatile?.();
     }
-    return createTransformResult(source, code);
+    return createTransformResult(file, source, output);
   }
 }

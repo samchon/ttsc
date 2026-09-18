@@ -1,5 +1,6 @@
 import type { ITtscCompilerTransformation } from "ttsc";
 
+import type { TtscTransformedOutput } from "../envelope/TtscTransformedOutput";
 import { selectTransformedSource } from "../envelope/selectTransformedSource";
 import type { TtscCachedProjectTransform } from "./TtscCachedProjectTransform";
 import type { TtscTransformCache } from "./TtscTransformCache";
@@ -34,7 +35,7 @@ export function selectOrEvict(
     result: ITtscCompilerTransformation;
     tsconfig: string;
   },
-): string {
+): TtscTransformedOutput {
   try {
     return selectTransformedSource(props);
   } catch (error) {

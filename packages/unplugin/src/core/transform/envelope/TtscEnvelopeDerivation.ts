@@ -47,7 +47,7 @@ export interface TtscEnvelopeDerivation {
    */
   dependenciesComplete?: Set<string>;
   /**
-   * Lazily built identity -> output source index of the `typescript` map (first
+   * Lazily built identity -> envelope key index of the `typescript` map (first
    * match wins, mirroring the historical scan). `undefined` until the first
    * project-relative key miss.
    */
