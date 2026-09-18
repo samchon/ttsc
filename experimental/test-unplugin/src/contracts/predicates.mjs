@@ -195,12 +195,26 @@ export async function predicateContract(name, start) {
     );
     await settle(`${name} missing-path rebuild settles`);
 
+    const listed = builds;
+    const signaled = session.signals?.();
     write(project.root, "src/contract-extra.d.ts", "declare const extra: 1;\n");
+    // A timeout names the stalled side: an unchanged sentinel means the bridge
+    // never heard the entry, a changed one without a build means the host
+    // missed the signal, and a build without a compile means the generation
+    // was judged unchanged.
     await eventually(
       runs,
       (count) => count === 3,
       `${name}: a new entry in a listed directory recompiles`,
-    );
+    ).catch((error) => {
+      const sentinels =
+        signaled === undefined
+          ? ""
+          : `, sentinels ${JSON.stringify(signaled)} -> ${JSON.stringify(session.signals())}`;
+      throw new Error(
+        `${error.message} (${builds - listed} build(s) since the entry appeared${sentinels})`,
+      );
+    });
   } finally {
     await deadline(Promise.resolve(session.close()), `${name} predicate close`);
   }
@@ -210,6 +224,8 @@ export async function predicateContract(name, start) {
 export function watchRollupLike(bundlerName) {
   return async (project, plugin, built) => {
     const bundler = await import(bundlerName);
+    // The bridge's sentinels the last build watched, for a timeout to report.
+    let sentinels = [];
     const watcher = bundler.watch({
       input: project.entry,
       plugins: [plugin],
@@ -229,12 +245,26 @@ export function watchRollupLike(bundlerName) {
             "Rollup must watch no compiler input below node_modules",
           );
         }
+        sentinels =
+          event.result?.watchFiles?.filter((file) =>
+            file.endsWith(".signal"),
+          ) ?? sentinels;
         await event.result?.close();
         built();
       }
       if (event.code === "ERROR") built();
     });
-    return { close: () => watcher.close() };
+    return {
+      close: () => watcher.close(),
+      signals: () =>
+        sentinels.map((file) => {
+          try {
+            return fs.readFileSync(file, "utf8");
+          } catch {
+            return null;
+          }
+        }),
+    };
   };
 }
 
