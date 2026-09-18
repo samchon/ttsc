@@ -224,7 +224,7 @@ export const TRANSFORM_CASES = {
     const path: typeof import("node:path") = (await import("node:path"))
       .default;
     const { readEffectiveTsconfigPaths } =
-      await import("../../../../packages/unplugin/lib/core/tsconfigPaths.js");
+      await import("../../../../packages/unplugin/lib/core/tsconfig/readEffectiveTsconfigPaths.js");
     const execute = () => {
       const root = TestProject.tmpdir("ttsc-unplugin-extends-");
       const configDirectory = path.join(root, "config");
@@ -472,7 +472,7 @@ export const TRANSFORM_CASES = {
       const assert: typeof import("node:assert") = (await import("node:assert"))
         .default;
       const { isDeclarationFile } =
-        await import("../../../../packages/unplugin/lib/core/transform.js");
+        await import("../../../../packages/unplugin/lib/core/transform/utils/isDeclarationFile.js");
       const execute = () => {
         assert.equal(
           isDeclarationFile("C:\\repo.d.cache\\src\\main.ts"),

@@ -5,20 +5,16 @@ import os from "node:os";
 import path from "node:path";
 
 import { createFilesystemPathIdentityContext } from "../../../../packages/ttsc/lib/internal/projectInputPathIdentity.js";
-import {
-  discoverNearestProjectTsconfig,
-  findNearestProjectTsconfig,
-  findProjectTsconfigs,
-} from "../../../../packages/unplugin/lib/core/projectDiscovery.js";
-import {
-  type TtscTransformFilesystemOperations,
-  type TtscWatchInputKeyBaseline,
-  captureWatchInputBaseline,
-  captureWatchInputFileBaseline,
-  isWatchInputKeyBaseline,
-  validateGraphInputObservation,
-  watchInputEvidenceMatchesBaseline,
-} from "../../../../packages/unplugin/lib/core/transform.js";
+import { discoverNearestProjectTsconfig } from "../../../../packages/unplugin/lib/core/discovery/discoverNearestProjectTsconfig.js";
+import { findNearestProjectTsconfig } from "../../../../packages/unplugin/lib/core/discovery/findNearestProjectTsconfig.js";
+import { findProjectTsconfigs } from "../../../../packages/unplugin/lib/core/discovery/findProjectTsconfigs.js";
+import type { TtscTransformFilesystemOperations } from "../../../../packages/unplugin/lib/core/transform/filesystem/TtscTransformFilesystemOperations.js";
+import { validateGraphInputObservation } from "../../../../packages/unplugin/lib/core/transform/inputs/validateGraphInputObservation.js";
+import type { TtscWatchInputKeyBaseline } from "../../../../packages/unplugin/lib/core/transform/watch/TtscWatchInputKeyBaseline.js";
+import { captureWatchInputBaseline } from "../../../../packages/unplugin/lib/core/transform/watch/captureWatchInputBaseline.js";
+import { captureWatchInputFileBaseline } from "../../../../packages/unplugin/lib/core/transform/watch/captureWatchInputFileBaseline.js";
+import { isWatchInputKeyBaseline } from "../../../../packages/unplugin/lib/core/transform/watch/isWatchInputKeyBaseline.js";
+import { watchInputEvidenceMatchesBaseline } from "../../../../packages/unplugin/lib/core/transform/watch/watchInputEvidenceMatchesBaseline.js";
 
 interface IFilesystemState {
   contents?: Buffer;

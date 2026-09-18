@@ -26,7 +26,20 @@ import { createFilesystemPathIdentityContext } from "../../../../packages/ttsc/l
  */
 export const case_transformttsc_uses_filesystem_path_identity = async () => {
   const api = await TestUnpluginRuntime.loadUnpluginApi();
-  const core = await import(TestUnpluginRuntime.libUrl("core/transform"));
+  const core = {
+    normalizeHostInputName: (
+      await import(
+        TestUnpluginRuntime.libUrl(
+          "core/transform/filesystem/normalizeHostInputName",
+        )
+      )
+    ).normalizeHostInputName,
+    pathIdentityKey: (
+      await import(
+        TestUnpluginRuntime.libUrl("core/transform/filesystem/pathIdentityKey")
+      )
+    ).pathIdentityKey,
+  };
   const root = TestUnpluginProject.createProject();
   const file = TestUnpluginProject.mainFile(root);
   const alternate = alternateBasenameCase(file);

@@ -4,8 +4,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 
-import { captureWatchInputBaseline } from "../../../../packages/unplugin/lib/core/transform.js";
-import { createViteServeInputWatch } from "../../../../packages/unplugin/lib/core/viteServe.js";
+import { captureWatchInputBaseline } from "../../../../packages/unplugin/lib/core/transform/watch/captureWatchInputBaseline.js";
+import { createViteServeInputWatch } from "../../../../packages/unplugin/lib/core/vite/createViteServeInputWatch.js";
 import { loadViteAdapterPlugin, waitFor } from "./adapter-vite-serve";
 
 /**

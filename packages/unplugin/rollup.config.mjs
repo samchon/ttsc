@@ -1,5 +1,6 @@
 import commonjs from "@rollup/plugin-commonjs";
 import nodeResolve from "@rollup/plugin-node-resolve";
+import { readFileSync } from "node:fs";
 import { builtinModules, createRequire } from "node:module";
 import { globSync } from "tinyglobby";
 // `@rollup/plugin-typescript` is re-exported from the build-config package so
@@ -7,8 +8,31 @@ import { globSync } from "tinyglobby";
 // TypeScript 7 drops the classic JS API the plugin needs.
 import typescript from "../../config/typescript-plugin.mjs";
 
-const manifest = createRequire(import.meta.url)("./package.json");
-const inputs = globSync("./src/**/*.ts");
+const require = createRequire(import.meta.url);
+const manifest = require("./package.json");
+const ts = require("ts-legacy");
+// One public identity per source file means an interface or a type alias is a
+// module of its own. Such a module has no runtime code, and bundling it would
+// publish an empty chunk beside its declaration, so only modules that emit
+// something are inputs. Their declarations still come from `tsc`.
+const inputs = globSync("./src/**/*.ts").filter(emitsRuntimeCode);
+
+function emitsRuntimeCode(file) {
+  const source = ts.createSourceFile(
+    file,
+    readFileSync(file, "utf8"),
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  return source.statements.some(
+    (statement) =>
+      !ts.isInterfaceDeclaration(statement) &&
+      !ts.isTypeAliasDeclaration(statement) &&
+      !(ts.isImportDeclaration(statement) && statement.importClause?.isTypeOnly) &&
+      !(ts.isExportDeclaration(statement) && statement.isTypeOnly),
+  );
+}
 
 // Externalise Node builtins, the host `ttsc` (supplied by the consuming project,
 // never bundled), and every declared dependency so the published package never

@@ -7,8 +7,8 @@
  * entry points (`@ttsc/unplugin/vite`, `/webpack`, …) each re-export the
  * matching adapter directly to keep bundler-specific builds lean.
  */
-import unplugin from "./core/index";
+import { unplugin } from "./core/unplugin";
 
-export type { TtscUnpluginOptions } from "./core/options";
+export type { TtscUnpluginOptions } from "./core/options/TtscUnpluginOptions";
 
 export default unplugin;

@@ -191,11 +191,21 @@ function assertAdapterEntrypointsSupportCjsRequire() {
  */
 function assertPackageBuildKeepsRuntimeDependenciesExternal() {
   assert.equal(
-    fs.existsSync(TestUnpluginRuntime.libPath("core/transform", "js")),
+    fs.existsSync(
+      TestUnpluginRuntime.libPath(
+        "core/transform/generation/captureTransformGeneration",
+        "js",
+      ),
+    ),
     true,
   );
   assert.equal(
-    fs.existsSync(TestUnpluginRuntime.libPath("core/transform", "mjs")),
+    fs.existsSync(
+      TestUnpluginRuntime.libPath(
+        "core/transform/generation/captureTransformGeneration",
+        "mjs",
+      ),
+    ),
     true,
   );
   assert.equal(
@@ -208,19 +218,25 @@ function assertPackageBuildKeepsRuntimeDependenciesExternal() {
   );
 
   const cjs = fs.readFileSync(
-    TestUnpluginRuntime.libPath("core/transform", "js"),
+    TestUnpluginRuntime.libPath(
+      "core/transform/generation/captureTransformGeneration",
+      "js",
+    ),
     "utf8",
   );
   const esm = fs.readFileSync(
-    TestUnpluginRuntime.libPath("core/transform", "mjs"),
+    TestUnpluginRuntime.libPath(
+      "core/transform/generation/captureTransformGeneration",
+      "mjs",
+    ),
     "utf8",
   );
   const cjsCore = fs.readFileSync(
-    TestUnpluginRuntime.libPath("core/index", "js"),
+    TestUnpluginRuntime.libPath("core/unplugin", "js"),
     "utf8",
   );
   const esmCore = fs.readFileSync(
-    TestUnpluginRuntime.libPath("core/index", "mjs"),
+    TestUnpluginRuntime.libPath("core/unplugin", "mjs"),
     "utf8",
   );
   const rollupConfig = fs.readFileSync(

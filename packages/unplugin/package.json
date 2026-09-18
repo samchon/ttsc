@@ -230,7 +230,9 @@
   "homepage": "https://ttsc.dev",
   "sideEffects": [
     "./lib/bun-register.js",
-    "./lib/bun-register.mjs"
+    "./lib/bun-register.mjs",
+    "./lib/core/bun/register.js",
+    "./lib/core/bun/register.mjs"
   ],
   "packageManager": "pnpm@10.6.4"
 }

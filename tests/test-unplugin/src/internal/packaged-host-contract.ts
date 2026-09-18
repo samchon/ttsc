@@ -182,7 +182,7 @@ function assertPackedEntrypointsProvideModuleFaithfulDeclarations(): void {
     "consumer.cts": commonJsConsumerSource(),
     "consumer.ts": esmConsumerSource(),
     "consumer.node10.ts": `${esmConsumerSource()}
-import type { TtscUnpluginOptions } from "@ttsc/unplugin/lib/core/options";
+import type { TtscUnpluginOptions } from "@ttsc/unplugin/lib/core/options/TtscUnpluginOptions";
 const options: TtscUnpluginOptions = {};
 void options;
 `,
@@ -221,7 +221,12 @@ function assertModuleFaithfulExportMap({
 }: PackedUnpluginPackage): void {
   assert.deepEqual(
     manifest.sideEffects,
-    ["./lib/bun-register.js", "./lib/bun-register.mjs"],
+    [
+      "./lib/bun-register.js",
+      "./lib/bun-register.mjs",
+      "./lib/core/bun/register.js",
+      "./lib/core/bun/register.mjs",
+    ],
     "the published runtime registration entries must survive bare-import tree shaking",
   );
   assert.deepEqual(manifest.typesVersions, {

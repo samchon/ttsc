@@ -66,7 +66,8 @@ const LANES = [
       "scripts/ci/dependency-audit.test.cjs " +
       "scripts/ci/config-loader-copies.test.cjs " +
       "scripts/ci/gofmt-wrapper.test.cjs && " +
-      "node --test scripts/ci/unplugin-test-contract.test.cjs && " +
+      "node --test scripts/ci/unplugin-test-contract.test.cjs " +
+      "scripts/ci/unplugin-structure.test.cjs && " +
       "node scripts/ci/format-check.cjs && " +
       "pnpm --filter @ttsc/test-unplugin unit && " +
       "pnpm run test:typecheck",
@@ -729,6 +730,7 @@ function planForPaths(files) {
         "scripts/ci/plugin-cache-persistence.mjs",
         "scripts/ci/test-owners.cjs",
         "scripts/ci/test-owners.test.cjs",
+        "scripts/ci/unplugin-structure.test.cjs",
         "scripts/ci/unplugin-test-contract.test.cjs",
       ].includes(file)
     ) {
