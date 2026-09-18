@@ -124,12 +124,7 @@ function assertModuleFaithfulExportMap({
 }: PackedUnpluginPackage): void {
   assert.deepEqual(
     manifest.sideEffects,
-    [
-      "./lib/bun-register.js",
-      "./lib/bun-register.mjs",
-      "./lib/core/bun/register.js",
-      "./lib/core/bun/register.mjs",
-    ],
+    ["./lib/bun-register.js", "./lib/bun-register.mjs"],
     "the published runtime registration entries must survive bare-import tree shaking",
   );
   assert.deepEqual(manifest.typesVersions, {
