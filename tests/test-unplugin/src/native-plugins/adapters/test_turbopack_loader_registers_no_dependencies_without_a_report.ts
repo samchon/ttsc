@@ -14,15 +14,18 @@ import { universalHostInputs } from "../../internal/adapter-turbopack/universalH
  *
  * 1. Create a project whose plugin reports no dependencies.
  * 2. Run the loader on its entry module.
- * 3. Assert the output is transformed and the registered dependencies are exactly
- *    the universal host inputs.
+ * 3. Assert the output is transformed, the registered dependencies are exactly the
+ *    universal host inputs, and the development session's bridge, which
+ *    observes the project's root files (samchon/ttsc#1419), adds one sentinel.
  */
 export async function test_turbopack_loader_registers_no_dependencies_without_a_report(): Promise<void> {
   const root = TestUnpluginProject.createProject();
-  const { content, dependencies } = await runTurbopackLoaderWithContext({
-    resourcePath: TestUnpluginProject.mainFile(root),
-    source: TestUnpluginProject.mainSource(root),
-  });
+  const { content, dependencies, sentinels } =
+    await runTurbopackLoaderWithContext({
+      resourcePath: TestUnpluginProject.mainFile(root),
+      source: TestUnpluginProject.mainSource(root),
+    });
   TestUnpluginProject.assertTransformedToPlugin(content);
   assert.deepEqual(dependencies, universalHostInputs(root));
+  assert.equal(sentinels.length, 1, "one bridge sentinel per module");
 }
