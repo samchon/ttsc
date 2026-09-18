@@ -16,6 +16,11 @@ import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscPa
  *   implied library or module kind.
  * - `jsx: preserve` and `jsx: react-native` keep JSX. The build compiles it with
  *   the JSX runtime the type-check already reads (samchon/ttsc#1408).
+ *
+ * A forwarded `--noEmit` or `--emitDeclarationOnly` is switched back off as
+ * well. ttsx forwards the flags before the entry to its type-check, and the
+ * check is unchanged by them, but the runtime build is that check's emit, and
+ * without JavaScript there is nothing to run.
  */
 export function runtimeCompilerArgs(
   project: ITtscParsedProjectConfig,
@@ -67,6 +72,9 @@ export function runtimeCompilerArgs(
       }
     }
   }
+  // Unconditional, after every forwarded token: a response file can carry the
+  // flag too, and a bare boolean flag reads as whatever token follows it.
+  args.push("--noEmit", "false", "--emitDeclarationOnly", "false");
   return args;
 }
 

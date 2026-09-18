@@ -504,6 +504,10 @@ export namespace BuildExecution {
   /**
    * Run `tsgo -p <tsconfig> [extraArgs]` and return the normalized result. Used
    * for the no-emit type-check pass that precedes file emission.
+   *
+   * `extraArgs` follow the forwarded flags: they are this pass's own contract
+   * (`--noEmit`), and a runtime build that re-enables emit after the user's
+   * flags must not turn its check pass into a second emit.
    */
   export function runTsgo(
     execution: ReturnType<typeof resolveExecutionContext>,
@@ -515,10 +519,10 @@ export namespace BuildExecution {
       [
         "-p",
         execution.tsconfig,
-        ...extraArgs,
         ...TsgoArguments.createTsgoDiagnosticArgs(options),
         ...TsgoArguments.createTsgoThreadingArgs(options),
         ...(options.passthrough ?? []),
+        ...extraArgs,
         ...TsgoArguments.isolatedTsgoOutputArgs(options),
       ],
       {
