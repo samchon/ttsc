@@ -7,6 +7,7 @@ import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/
 import type { TtscTrackedInputScope } from "../../../../../packages/unplugin/lib/core/transform/tracker/TtscTrackedInputScope.mjs";
 import { createHostInputMutationTracker } from "../../../../../packages/unplugin/lib/core/transform/tracker/createHostInputMutationTracker.mjs";
 import { settleMutationTrackers } from "../../../../../packages/unplugin/lib/core/transform/tracker/settleMutationTrackers.mjs";
+import { settleFilesystemNotifications } from "../../internal/filesystem-notifications/settleFilesystemNotifications";
 
 /**
  * Verifies the host's own watch backend records the same witnesses the shared
@@ -37,6 +38,8 @@ export async function test_host_input_tracker_real_backends_agree(): Promise<voi
     "node_modules/pkg/index.d.ts": "export {};\n",
     "types/existing/index.d.ts": "export {};\n",
   });
+  // The fixture's own creation must not reach the new watches as events.
+  await settleFilesystemNotifications();
   const at = (...segments: string[]): string => path.join(root, ...segments);
   const scopes = new Map<string, TtscTrackedInputScope>([
     [at("node_modules"), "presence"],
@@ -90,7 +93,7 @@ export async function test_host_input_tracker_real_backends_agree(): Promise<voi
         .filter((changed) => changed.startsWith("node_modules"))
         .sort(),
       [],
-      "writes below a presence-only directory must record nothing",
+      `writes below a presence-only directory must record nothing, but ${JSON.stringify(recorded())} were recorded`,
     );
 
     if (process.platform !== "win32") {

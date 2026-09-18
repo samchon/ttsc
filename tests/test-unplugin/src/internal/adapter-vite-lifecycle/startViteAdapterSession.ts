@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { invokeVitePluginHook } from "../adapter-vite-serve/invokeVitePluginHook";
 import { loadViteAdapterPlugin } from "../adapter-vite-serve/loadViteAdapterPlugin";
+import { settleFilesystemNotifications } from "../filesystem-notifications/settleFilesystemNotifications";
 import { createCacheProject } from "../transform-project-cache/createCacheProject";
 import { projectModules } from "../transform-project-cache/projectModules";
 import type { IViteAdapterSession } from "./IViteAdapterSession";
@@ -21,6 +22,7 @@ export async function startViteAdapterSession(options: {
   const plugin = await loadViteAdapterPlugin();
   const lifecycle = {};
   const project = createCacheProject({ fileCount: options.fileCount ?? 4 });
+  await settleFilesystemNotifications();
   invokeVitePluginHook(
     plugin.configResolved,
     {},

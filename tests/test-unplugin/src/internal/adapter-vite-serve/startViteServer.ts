@@ -1,6 +1,7 @@
 import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
 import fs from "node:fs";
 
+import { settleFilesystemNotifications } from "../filesystem-notifications/settleFilesystemNotifications";
 import type { IViteServeCandidateFixture } from "./IViteServeCandidateFixture";
 
 const viteCreateServer: (config: object) => Promise<any> =
@@ -10,6 +11,7 @@ const viteCreateServer: (config: object) => Promise<any> =
 export async function startViteServer(
   fixture: IViteServeCandidateFixture,
 ): Promise<any> {
+  await settleFilesystemNotifications();
   const unpluginVite = await TestUnpluginRuntime.loadUnpluginAdapter("vite");
   // Vite 7 cannot load a URL beneath the 8.3 spelling Windows may return from
   // os.tmpdir(), even though Node can stat that alias. Give Vite the same long
