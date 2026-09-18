@@ -7,19 +7,19 @@ import path from "node:path";
  * Verifies ttsx runs the entry as Node's own main module, with the process
  * semantics `node <entry>` gives it.
  *
- * Pins samchon/ttsc#1402. ttsx used to start a bootstrap as the main module
- * and load the entry from it, so in the entry `require.main === module` was
- * false, `import.meta.main` was false, an error thrown while the entry
- * evaluated was caught by the bootstrap before `process.on("uncaughtException")`
- * could see it, and a `main()` guarded by `require.main === module` silently
- * never ran. The entry is now what Node runs.
+ * Pins samchon/ttsc#1402. ttsx used to start a bootstrap as the main module and
+ * load the entry from it, so in the entry `require.main === module` was false,
+ * `import.meta.main` was false, an error thrown while the entry evaluated was
+ * caught by the bootstrap before `process.on("uncaughtException")` could see
+ * it, and a `main()` guarded by `require.main === module` silently never ran.
+ * The entry is now what Node runs.
  *
  * 1. Create a CommonJS entry, an ES module entry that imports a helper, an entry
- *    that handles its own uncaught error, and entries that exit with a code or
- *    throw.
+ *    that handles its own uncaught error, and entries that exit with a code,
+ *    throw, or reject a top-level await.
  * 2. Run each through ttsx.
- * 3. Assert the main-module answers, `process.argv[1]`, the handled error, and
- *    the exit codes match what `node` gives.
+ * 3. Assert the main-module answers, `process.argv[1]`, the handled error, and the
+ *    exit codes match what `node` gives.
  */
 export const test_ttsx_runs_the_entry_as_the_main_module = () => {
   const root = TestProject.createProject({
@@ -61,6 +61,7 @@ export const test_ttsx_runs_the_entry_as_the_main_module = () => {
     ].join("\n"),
     "src/exit.ts": `declare const process: { exit(code: number): never };\nprocess.exit(7);\nexport {};\n`,
     "src/throws.ts": `throw new Error("unhandled");\nexport {};\n`,
+    "src/rejects.mts": `await Promise.reject(new Error("rejected"));\nexport {};\n`,
   });
   const run = (entry: string) =>
     TestProject.spawn(TestProject.TTSX_BIN, ["--cwd", root, entry], {
@@ -103,4 +104,7 @@ export const test_ttsx_runs_the_entry_as_the_main_module = () => {
   const thrown = run("src/throws.ts");
   assert.equal(thrown.status, 1, thrown.stdout);
   assert.match(thrown.stderr, /unhandled/);
+  const rejected = run("src/rejects.mts");
+  assert.equal(rejected.status, 1, rejected.stdout);
+  assert.match(rejected.stderr, /rejected/);
 };
