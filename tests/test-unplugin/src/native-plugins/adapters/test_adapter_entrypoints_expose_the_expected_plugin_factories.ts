@@ -5,18 +5,23 @@ import path from "node:path";
 
 /**
  * Verifies the Farm, Rolldown, Rspack, and webpack entries expose factories,
- * and both webpack-like shutdown hooks release the generation.
+ * and the webpack and Rspack shutdown hooks release the generation they share
+ * (samchon/ttsc#1396).
  *
  * Webpack and Rspack keep one compiler alive across watch rebuilds and signal
- * its end only through `hooks.shutdown`. A generation retained past that hook
- * would keep its filesystem trackers and serve a later compiler from a project
- * state it never proved.
+ * its end only through `hooks.shutdown`. Compilers with equal options share one
+ * generation, which outlives a compiler that shuts down while another still
+ * holds it, and is released a short grace after the last one does. A generation
+ * retained past that would serve a later build from a project state nothing
+ * proved it against.
  *
  * 1. Assert each of the four adapter entries is a callable factory.
- * 2. Wire the raw plugin to fake webpack and Rspack compilers and assert each taps
- *    `shutdown` under the plugin's name and gains the source-map rule.
- * 3. Deliver the entry module and assert one compile, then fire each shutdown and
- *    assert the next delivery compiles again.
+ * 2. Wire one plugin instance to a fake webpack compiler and one to a fake Rspack
+ *    compiler, and assert each taps `shutdown` under the plugin's name and
+ *    gains the source-map rule.
+ * 3. Deliver the entry module and assert one compile. Shut the webpack compiler
+ *    down, let the grace pass, and assert the Rspack compiler keeps the
+ *    generation. Shut it down too and assert the next delivery compiles again.
  */
 export async function test_adapter_entrypoints_expose_the_expected_plugin_factories(): Promise<void> {
   const unpluginFarm = await TestUnpluginRuntime.loadUnpluginAdapter("farm");
@@ -49,15 +54,20 @@ export async function test_adapter_entrypoints_expose_the_expected_plugin_factor
   for (const framework of ["webpack", "rspack"] as const) {
     assert.equal(typeof unplugin[framework], "function");
   }
-  const raw = unplugin.raw(undefined, {
-    framework: "webpack",
-    webpack: { compiler: {} },
-  } as never);
+  // Options of this project alone, so no other test's compiler shares the
+  // generation.
+  const options = { project: tsconfig };
   const disposals = new Map<"webpack" | "rspack", () => void>();
+  let raw: any;
   for (const framework of ["webpack", "rspack"] as const) {
+    const plugin = unplugin.raw(options, {
+      framework,
+      [framework]: { compiler: {} },
+    } as never);
+    raw ??= plugin;
     let registeredName: string | undefined;
     const rules: unknown[] = [];
-    raw[framework]?.({
+    plugin[framework]?.({
       options: { module: { rules } },
       hooks: {
         shutdown: {
@@ -86,23 +96,16 @@ export async function test_adapter_entrypoints_expose_the_expected_plugin_factor
     assert.ok(typeof code === "string");
     TestUnpluginProject.assertTransformedToPlugin(code);
   };
-  try {
-    await deliver();
-    assert.equal(
-      fs.statSync(runLog).size,
-      1,
-      "the cold delivery compiles once",
-    );
-    for (const framework of ["webpack", "rspack"] as const) {
-      disposals.get(framework)?.();
-      await deliver();
-      assert.equal(
-        fs.statSync(runLog).size,
-        framework === "webpack" ? 2 : 3,
-        `${framework} shutdown must clear the generation`,
-      );
-    }
-  } finally {
-    for (const dispose of disposals.values()) dispose();
-  }
+  const grace = () => new Promise((resolve) => setTimeout(resolve, 2_500));
+  const compiles = () => fs.statSync(runLog).size;
+  await deliver();
+  assert.equal(compiles(), 1, "the cold delivery compiles once");
+  disposals.get("webpack")!();
+  await grace();
+  await deliver();
+  assert.equal(compiles(), 1, "the Rspack compiler still holds the generation");
+  disposals.get("rspack")!();
+  await grace();
+  await deliver();
+  assert.equal(compiles(), 2, "the last shutdown releases the generation");
 }
