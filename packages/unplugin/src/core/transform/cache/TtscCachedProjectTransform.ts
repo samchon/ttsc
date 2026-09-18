@@ -28,11 +28,13 @@ export interface TtscCachedProjectTransform {
    * The project walk cannot see files outside the project root or under ignored
    * directories (`node_modules` declarations, monorepo sibling sources,
    * out-of-root tsconfig `extends` ancestry), yet the host-owned reference
-   * graph proves they are transform inputs. Long-lived hosts that never clear
-   * the cache between builds (Metro workers and the Turbopack loader) would
-   * otherwise replay a project transform computed against a stale out-of-walk
-   * input for the whole process lifetime; per-build hosts clear the cache on
-   * `buildStart` and never replay across edits.
+   * graph proves they are transform inputs. Every host keeps its generation
+   * across builds, so without these hashes it would replay a project transform
+   * computed against a stale out-of-walk input: Metro workers and the Turbopack
+   * loader for the whole process lifetime, and a host with a build boundary on
+   * every rebuild. A host with a boundary proves them once per pass, at the
+   * pass's first delivery (samchon/ttsc#1300); one without proves them on every
+   * delivery its notifications cannot vouch for.
    */
   externalInputHashes?: Record<string, string>;
   /**
