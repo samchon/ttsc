@@ -67,6 +67,9 @@ export const test_plugin_corpus_ttsx_register_executes_source_plugin_output_end_
 function makeFixtureReadSyntheticEntry(root: string): void {
   const source = path.join(root, "go-plugin", "main.go");
   const original = fs.readFileSync(source, "utf8");
+  // The synthetic entry config lists one file and pins `rootDir`; like the
+  // compiler, the host writes that file's output mirrored below `rootDir`,
+  // which is the only place ttsx looks for a source's output.
   const modified = original
     .replace(
       `_ = fs.String("tsconfig", "", "")`,
@@ -76,20 +79,38 @@ function makeFixtureReadSyntheticEntry(root: string): void {
       `source := filepath.Join(root, "src", "main.ts")`,
       [
         `source := filepath.Join(root, "src", "main.ts")`,
+        `  outName := "main.js"`,
         `  if strings.Contains(filepath.Base(*tsconfig), ".ttsx-entry.") {`,
         `    raw, readErr := os.ReadFile(*tsconfig)`,
         `    if readErr != nil {`,
         `      fmt.Fprintln(os.Stderr, readErr)`,
         `      return 2`,
         `    }`,
-        `    var config struct { Files []string }`,
+        `    var config struct {`,
+        `      Files           []string`,
+        `      CompilerOptions struct{ RootDir string } \`json:"compilerOptions"\``,
+        `    }`,
         `    if jsonErr := json.Unmarshal(raw, &config); jsonErr != nil || len(config.Files) != 1 {`,
         `      fmt.Fprintln(os.Stderr, "go-source-plugin: invalid entry config")`,
         `      return 2`,
         `    }`,
-        `    source = config.Files[0]`,
+        `    source = filepath.FromSlash(config.Files[0])`,
+        `    rel, relErr := filepath.Rel(filepath.FromSlash(config.CompilerOptions.RootDir), source)`,
+        `    if relErr != nil {`,
+        `      fmt.Fprintln(os.Stderr, relErr)`,
+        `      return 2`,
+        `    }`,
+        `    outName = strings.TrimSuffix(rel, filepath.Ext(rel)) + ".js"`,
         `  }`,
       ].join("\n"),
+    )
+    .replace(
+      `out := filepath.Join(root, *outDir, "main.js")`,
+      `out := filepath.Join(root, *outDir, outName)`,
+    )
+    .replace(
+      `out = filepath.Join(*outDir, "main.js")`,
+      `out = filepath.Join(*outDir, outName)`,
     );
   assert.notEqual(modified, original);
   fs.writeFileSync(source, modified, "utf8");
