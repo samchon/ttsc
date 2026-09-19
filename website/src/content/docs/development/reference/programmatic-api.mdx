@@ -213,6 +213,16 @@ console.log(config.path); // canonical physical spelling
 console.log(identities.isWithin(workspace.path, config.path)); // true
 ```
 
+## Platform binary
+
+Tool hosts that run one of the platform binary's helper commands find the binary the way ttsc does through the `ttsc/binary` subpath: an absolute `TTSC_BINARY`, then the `@ttsc/<platform>-<arch>` package, then the repository's own dev layout. `@ttsc/unplugin` starts its Linux watch helper this way, so the helper always comes from the binary ttsc itself uses.
+
+```ts
+import { resolveBinary } from "ttsc/binary";
+
+const binary = resolveBinary(); // absolute path, or null when none is installed
+```
+
 Create one context per filesystem transaction and reuse it for every comparison in that transaction. The context memoizes normalized input identities, each realpath prefix at its first probe, and each directory case decision when missing-suffix resolution or `caseSensitive()` first needs it. Resolving a descendant can therefore populate an ancestor's realpath cache before that ancestor is resolved directly, while resolving an existing directory need not probe its case behavior. This keeps repeated comparisons consistent and avoids repeated filesystem probes, but it is not an atomic filesystem snapshot: a probe first reached later can observe a newer filesystem state.
 
 Existing path segments use their physical spelling. For a prospective path whose nearest existing prefix is a directory, missing suffixes preserve spelling when that directory is proven case-sensitive and fold it when that directory is proven case-insensitive. Windows drive and UNC roots are always matched case-insensitively. If the directory behavior cannot be proven, Windows and macOS use their case-insensitive platform default while other platforms assume case-sensitive behavior. An empty, unreadable, or otherwise unprovable NTFS/APFS directory that was explicitly configured as case-sensitive can therefore merge case-only missing suffixes until a probe can establish its behavior.
@@ -280,4 +290,4 @@ Pair this with caching `TTSC_CACHE_DIR` between CI runs to skip the rebuild on s
 
 ## Stability
 
-`TtscCompiler`, `TtscService`, the result types, `ITtscCompilerContext`, and the `ttsc/path-identity` subpath are the public programmatic surface. CLI launchers, binary resolution helpers, project config parsing utilities, and native build helpers stay internal, depending on them will break. The package `exports` field enforces this.
+`TtscCompiler`, `TtscService`, the result types, `ITtscCompilerContext`, and the `ttsc/path-identity` and `ttsc/binary` subpaths are the public programmatic surface. CLI launchers, project config parsing utilities, and native build helpers stay internal, depending on them will break. The package `exports` field enforces this.
