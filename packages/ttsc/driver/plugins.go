@@ -67,6 +67,40 @@ func TsgoArgsFromEnv() ([]string, error) {
   return args, nil
 }
 
+// RootFilesEnv is the environment variable through which the ttsc launcher
+// replaces the root files of the program a native host builds. The value is a
+// JSON array of file paths; an empty or absent value leaves the config's own
+// file list in place.
+//
+// `ttsx` runs files its owning project does not list: an entry beside the
+// tsconfig while `include` names only `src`, or a TypeScript file inside an
+// installed package. Such a file must compile with every option of that
+// project, yet the project's file set must not change, so the config is parsed
+// where it lives and only its file list is replaced. TypeScript-Go's command
+// line cannot combine a project with a file list, and a config file written to
+// carry the list would land in the user's tree for the length of the build.
+//
+// It rides the environment for the reason TsgoArgsEnv does: every host built
+// against this driver honors it without declaring a flag, and an unknown
+// variable is inert to a host that predates it. A host that builds its
+// Program without LoadProgram reads it through RootFilesFromEnv.
+const RootFilesEnv = "TTSC_ROOT_FILES"
+
+// RootFilesFromEnv decodes the root files the launcher published in
+// RootFilesEnv. An absent or whitespace-only value yields a nil slice and no
+// error, so a host can call this unconditionally.
+func RootFilesFromEnv() ([]string, error) {
+  raw := strings.TrimSpace(os.Getenv(RootFilesEnv))
+  if raw == "" {
+    return nil, nil
+  }
+  var files []string
+  if err := json.Unmarshal([]byte(raw), &files); err != nil {
+    return nil, fmt.Errorf("ttsc driver: invalid %s: %w", RootFilesEnv, err)
+  }
+  return files, nil
+}
+
 // PluginConfigBaseDir returns the directory where a plugin anchors its
 // config-file discovery walk and resolves relative "configFile" paths.
 // The explicit PluginConfigDirEnv channel wins when set; otherwise the

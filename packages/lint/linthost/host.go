@@ -11,6 +11,7 @@ package linthost
 
 import (
   "context"
+  "encoding/json"
   "errors"
   "fmt"
   "os"
@@ -37,6 +38,49 @@ var programLifecycleSequence atomic.Uint64
 // channel that identifies the user-authored config behind a generated wrapper.
 // This module cannot import the ttsc driver; see the package boundary above.
 const semanticConfigPathEnv = "TTSC_SEMANTIC_CONFIG_PATH"
+
+// rootFilesEnv mirrors `driver.RootFilesEnv`: the channel through which the
+// ttsc launcher replaces the root files of the program. `ttsx` publishes it to
+// lint exactly the file it runs, which the project's own file list does not
+// name, with every option of that project. This module cannot import the ttsc
+// driver; see the package boundary above.
+const rootFilesEnv = "TTSC_ROOT_FILES"
+
+// The config diagnostics that describe only the config's own file list, which
+// the published root files replace: an empty `files` (TS18002) and an
+// `include` that matches nothing (TS18003).
+const (
+  emptyFilesListCode int32 = 18002
+  noInputsFoundCode  int32 = 18003
+)
+
+// rootFilesFromEnv decodes the root files the launcher published in
+// rootFilesEnv. An absent or whitespace-only value yields a nil slice, which
+// leaves the config's own file list in place.
+func rootFilesFromEnv() ([]string, error) {
+  raw := strings.TrimSpace(os.Getenv(rootFilesEnv))
+  if raw == "" {
+    return nil, nil
+  }
+  var files []string
+  if err := json.Unmarshal([]byte(raw), &files); err != nil {
+    return nil, fmt.Errorf("@ttsc/lint: invalid %s: %w", rootFilesEnv, err)
+  }
+  return files, nil
+}
+
+// withoutFileListDiagnostics drops the diagnostics that describe only the
+// config's own file list.
+func withoutFileListDiagnostics(diags []*shimast.Diagnostic) []*shimast.Diagnostic {
+  kept := make([]*shimast.Diagnostic, 0, len(diags))
+  for _, diag := range diags {
+    if code := diag.Code(); code == noInputsFoundCode || code == emptyFilesListCode {
+      continue
+    }
+    kept = append(kept, diag)
+  }
+  return kept
+}
 
 // program bundles the tsgo Program with the parsed config and the standalone
 // checker used only by type-aware lint rules.
@@ -107,6 +151,10 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
   if len(cliDiags) > 0 {
     return nil, cliDiags, nil
   }
+  rootFiles, err := rootFilesFromEnv()
+  if err != nil {
+    return nil, nil, err
+  }
 
   parsed, parseDiags := tsoptions.GetParsedCommandLineOfConfigFile(
     resolved,
@@ -118,11 +166,27 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
   if parsed == nil {
     return nil, nil, fmt.Errorf("tsoptions: parsed command line was nil for %s", resolved)
   }
+  configErrors := parsed.Errors
+  if len(rootFiles) != 0 {
+    parseDiags = withoutFileListDiagnostics(parseDiags)
+    configErrors = withoutFileListDiagnostics(configErrors)
+  }
   if len(parseDiags) > 0 {
     return nil, parseDiags, nil
   }
-  if len(parsed.Errors) > 0 {
-    return nil, parsed.Errors, nil
+  if len(configErrors) > 0 {
+    return nil, configErrors, nil
+  }
+  if len(rootFiles) != 0 {
+    // Only the file list is replaced, so every option keeps the meaning the
+    // config gives it where it lives. References go with the list, as they do
+    // in `driver.LoadProgram`: the roots are named outright.
+    files := make([]string, 0, len(rootFiles))
+    for _, file := range rootFiles {
+      files = append(files, shimtspath.ResolvePath(cwd, file))
+    }
+    parsed.ParsedConfig.FileNames = files
+    parsed.ParsedConfig.ProjectReferences = nil
   }
   if err := applySemanticConfigPath(parsed, options.semanticConfigPath); err != nil {
     return nil, nil, err

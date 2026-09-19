@@ -250,6 +250,11 @@ type LoadProgramOptions struct {
   // is used. A resident Session passes an overlay FS so in-memory edits stay
   // visible to the program and to incremental UpdateProgram calls.
   FS vfs.FS
+  // RootFiles replaces the file list of the parsed config: the program is
+  // built from exactly these files, with every compiler option of the config
+  // left as parsed. When nil, the launcher's RootFilesEnv applies, and when
+  // that is absent too the config's own list stands. See RootFilesEnv.
+  RootFiles []string
 }
 
 // Close releases the checker pool lease acquired by LoadProgram.
@@ -272,6 +277,15 @@ func (p *Program) Close() error {
 // TypeScript-Go merges its non-zero fields over the tsconfig so the CLI wins,
 // the same precedence tsgo's own command line uses. Pass nil for none.
 func ParseTSConfig(fs vfs.FS, cwd, tsconfigPath string, host shimcompiler.CompilerHost, cliOptions *core.CompilerOptions) (*tsoptions.ParsedCommandLine, []Diagnostic, error) {
+  return parseTSConfig(fs, cwd, tsconfigPath, host, cliOptions, false)
+}
+
+// parseTSConfig is ParseTSConfig for a caller that may replace the config's
+// file list. When `rootsReplaceFiles` is set, the diagnostics about that list
+// alone are dropped: an `include` that matches nothing (TS18003) or an empty
+// `files` (TS18002) says nothing about a program that is built from other
+// roots.
+func parseTSConfig(fs vfs.FS, cwd, tsconfigPath string, host shimcompiler.CompilerHost, cliOptions *core.CompilerOptions, rootsReplaceFiles bool) (*tsoptions.ParsedCommandLine, []Diagnostic, error) {
   resolved := tspath.ResolvePath(cwd, tsconfigPath)
   if !fs.FileExists(resolved) {
     return nil, nil, fmt.Errorf("tsconfig not found: %s", resolved)
@@ -281,10 +295,45 @@ func ParseTSConfig(fs vfs.FS, cwd, tsconfigPath string, host shimcompiler.Compil
   }
   parsed, diags := tsoptions.GetParsedCommandLineOfConfigFile(resolved, cliOptions, nil, host, nil)
   allDiags := append(diags, parsed.Errors...)
+  if rootsReplaceFiles {
+    kept := allDiags[:0]
+    for _, diag := range allDiags {
+      if code := diag.Code(); code == noInputsFoundCode || code == emptyFilesListCode {
+        continue
+      }
+      kept = append(kept, diag)
+    }
+    allDiags = kept
+  }
   if len(allDiags) > 0 {
     return nil, convertDiagnostics(allDiags), nil
   }
   return parsed, nil, nil
+}
+
+// The config diagnostics that describe only the config's own file list.
+const (
+  // TS18002: The 'files' list in config file '{0}' is empty.
+  emptyFilesListCode int32 = 18002
+  // TS18003: No inputs were found in config file '{0}'.
+  noInputsFoundCode int32 = 18003
+)
+
+// replaceRootFiles builds the program from `rootFiles` instead of the
+// config's file list. Each file resolves against cwd and is otherwise kept in
+// the spelling given, because TypeScript-Go takes root file names verbatim.
+//
+// Project references go with the list. A reference exists so a build can list
+// what another project owns without compiling it; here the roots are named
+// outright, and TypeScript never inherits `references` through `extends`
+// either, so a config that only extends this one would have none.
+func replaceRootFiles(cwd string, parsed *tsoptions.ParsedCommandLine, rootFiles []string) {
+  files := make([]string, 0, len(rootFiles))
+  for _, file := range rootFiles {
+    files = append(files, tspath.ResolvePath(cwd, file))
+  }
+  parsed.ParsedConfig.FileNames = files
+  parsed.ParsedConfig.ProjectReferences = nil
 }
 
 // resolveTsgoArgs picks the forwarded tsgo argv for this load: the caller's
@@ -420,12 +469,23 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
     return nil, cliDiags, nil
   }
 
-  parsed, diags, err := ParseTSConfig(fs, cwd, tsconfigPath, host, cliOptions)
+  rootFiles := options.RootFiles
+  if rootFiles == nil {
+    rootFiles, err = RootFilesFromEnv()
+    if err != nil {
+      return nil, nil, err
+    }
+  }
+
+  parsed, diags, err := parseTSConfig(fs, cwd, tsconfigPath, host, cliOptions, len(rootFiles) != 0)
   if err != nil {
     return nil, nil, err
   }
   if len(diags) > 0 {
     return nil, diags, nil
+  }
+  if len(rootFiles) != 0 {
+    replaceRootFiles(cwd, parsed, rootFiles)
   }
   if err := applySemanticConfigPath(parsed, options.SemanticConfigPath); err != nil {
     return nil, nil, err
