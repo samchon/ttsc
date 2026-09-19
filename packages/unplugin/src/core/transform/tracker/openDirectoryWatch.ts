@@ -2,6 +2,7 @@ import fs from "node:fs";
 
 import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransformFilesystemOperations";
 import { openLinuxDirectoryObserver } from "./linux/openLinuxDirectoryObserver";
+import { subscribeLinuxDirectoryWatch } from "./linux/subscribeLinuxDirectoryWatch";
 
 /**
  * Open one directory's change notification through the cache-owned watch seam,
@@ -15,6 +16,12 @@ import { openLinuxDirectoryObserver } from "./linux/openLinuxDirectoryObserver";
  * watching only the directories `admit` accepts (samchon/ttsc#1389); without
  * `admit`, every directory below the root is admitted, which only callers whose
  * tree is already bounded may rely on.
+ *
+ * On Linux every watch, recursive or not, lives in the Linux watch helper,
+ * since `fs.watch` there can lose events without notice (samchon/ttsc#1426).
+ * Its watches go live asynchronously, so the handle carries `ready`, which
+ * resolves whether every watch it opened is live; nothing before that is
+ * heard.
  */
 export function openDirectoryWatch(
   filesystem: TtscTransformFilesystemOperations,
@@ -23,21 +30,19 @@ export function openDirectoryWatch(
   onError: () => void,
   recursive = false,
   admit?: (directory: string) => boolean,
-): { close: () => void } {
+): { close: () => void; ready?: Promise<boolean> } {
   if (filesystem.watch !== undefined) {
     return filesystem.watch(directory, listener, onError, recursive);
   }
-  if (
-    recursive &&
-    process.platform !== "darwin" &&
-    process.platform !== "win32"
-  ) {
-    return openLinuxDirectoryObserver(
-      directory,
-      admit ?? (() => true),
-      listener,
-      onError,
-    );
+  if (process.platform !== "darwin" && process.platform !== "win32") {
+    return recursive
+      ? openLinuxDirectoryObserver(
+          directory,
+          admit ?? (() => true),
+          listener,
+          onError,
+        )
+      : subscribeLinuxDirectoryWatch(directory, listener, onError);
   }
   const watcher = fs.watch(
     directory,

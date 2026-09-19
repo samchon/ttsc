@@ -15,7 +15,10 @@ import { openLinuxDirectoryObserver } from "../transform/tracker/linux/openLinux
  * the whole tree and watches every file, `node_modules` included. There the
  * scope opens the directory-level observer instead, which watches only the
  * directories `admit` accepts and those its handle's `track` names
- * (samchon/ttsc#1389).
+ * (samchon/ttsc#1389). Its watches live in the Linux watch helper and go live
+ * asynchronously (samchon/ttsc#1426), so once they are, the scope re-checks
+ * every entry it covers, as an unattributed event makes it do: an entry could
+ * have changed before any watch heard it.
  */
 export function openRecursiveWatch(
   root: string,
@@ -24,7 +27,11 @@ export function openRecursiveWatch(
   admit: (directory: string) => boolean = () => true,
 ): { close(): void; track?(file: string, subtree?: boolean): void } {
   if (process.platform !== "darwin" && process.platform !== "win32") {
-    return openLinuxDirectoryObserver(root, admit, listener, onError);
+    const observer = openLinuxDirectoryObserver(root, admit, listener, onError);
+    void observer.ready.then((live) => {
+      if (live) listener("rename", null);
+    });
+    return observer;
   }
   const watcher = fs.watch(
     root,

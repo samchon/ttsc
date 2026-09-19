@@ -15,6 +15,8 @@ import (
   "os"
   "runtime"
   "strings"
+
+  "github.com/samchon/ttsc/packages/ttsc/internal/watchhelper"
 )
 
 // These are overridden via `-ldflags "-X main.version=... -X main.commit=..."`
@@ -54,6 +56,10 @@ func run(args []string) int {
     return runAPICompile(args[1:])
   case "api-transform":
     return runAPITransform(args[1:])
+  case "__watch":
+    // The Linux directory notification helper the unplugin adapter runs
+    // (samchon/ttsc#1426). Hidden: it speaks a JSON protocol, not a CLI.
+    return watchhelper.Run(os.Stdin, stdout, stderr)
   case "check":
     // `ttsc check` runs the analyze pipeline without emitting JS — useful
     // in CI and pre-commit checks that only need schema validation.

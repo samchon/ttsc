@@ -14,14 +14,14 @@ import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
  *
  * Node emulates a recursive watch on Linux by walking the whole tree
  * synchronously and opening one inotify watch per file, so every capture paid
- * for all of `node_modules`. The observer replaces that emulation. It only uses
- * non-recursive watches, so the scenario runs on every POSIX platform. Windows
- * keeps every watch in its isolated broker, because an in-process watch there
- * can abort the whole process, so the scenario never opens one there.
+ * for all of `node_modules`. The observer replaces that emulation. Its watches
+ * live in the Linux watch helper of the native binary (samchon/ttsc#1426), and
+ * Windows and macOS watch in the isolated broker instead, so the scenario runs
+ * on Linux.
  *
- * 1. Open two observers on one tree whose admission rejects `node_modules`, and
- *    assert only the admitted directories are watched, once each, and no file
- *    is.
+ * 1. Open two observers on one tree whose admission rejects `node_modules`, wait
+ *    until both are live, and assert only the admitted directories are watched,
+ *    once each, and no file is.
  * 2. Create a directory, then a file inside it, and assert the new directory is
  *    watched and the file reported relative to the root, while a new package
  *    directory stays unwatched.
@@ -33,7 +33,7 @@ import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
  * 4. Close both observers and assert every shared watch is released.
  */
 export async function test_directory_observer_watches_only_admitted_directories(): Promise<void> {
-  if (process.platform === "win32") return;
+  if (process.platform !== "linux") return;
   const root = fs.realpathSync(
     TestProject.tmpdir("ttsc-unplugin-directory-observer-"),
   );
@@ -78,6 +78,11 @@ export async function test_directory_observer_watches_only_admitted_directories(
     () => failures.push("second"),
   );
   try {
+    assert.deepEqual(
+      [await first.ready, await second.ready],
+      [true, true],
+      "both observers go live",
+    );
     assert.deepEqual(
       watchedBelowRoot(),
       ["", "src", "src/feature"],

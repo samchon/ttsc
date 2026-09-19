@@ -22,6 +22,10 @@ const packages = [
   // when a warm Program is reused versus a spawn falls back. Exporting either to
   // test it would put an internal decision on the public surface.
   "./internal/lspserver",
+  // The Linux directory notification helper behind `ttsc __watch`
+  // (samchon/ttsc#1426). Its tests drive a real inotify instance, and build on
+  // Linux only.
+  "./internal/watchhelper",
   "./test/cli",
   "./test/ttscserver",
   "./test/platform",

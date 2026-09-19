@@ -16,6 +16,7 @@ import { openDirectoryWatch } from "./openDirectoryWatch";
 import { pathTraversesSymbolicLink } from "./pathTraversesSymbolicLink";
 import { recordProjectChange } from "./recordProjectChange";
 import { recordProjectMutation } from "./recordProjectMutation";
+import { settleOpenedDirectoryWatches } from "./settleOpenedDirectoryWatches";
 import { trackedInputScope } from "./trackedInputScope";
 import { watchLocationIdentity } from "./watchLocationIdentity";
 
@@ -304,7 +305,7 @@ export async function createHostInputMutationTracker(
     );
     return tracker;
   }
-  const watchers: { close: () => void }[] = [];
+  const watchers: { close: () => void; ready?: Promise<boolean> }[] = [];
   tracker.close = () => {
     tracker.failed = true;
     closeDirectoryWatches(watchers);
@@ -340,5 +341,6 @@ export async function createHostInputMutationTracker(
       tracker.failed = true;
     }
   }
+  await settleOpenedDirectoryWatches(tracker, watchers, filesystem);
   return tracker;
 }

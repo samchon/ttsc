@@ -20,7 +20,8 @@ import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
  * with every installed package, up to the per-user limit, past which the
  * generation silently lost its notification proof. macOS and Windows notify
  * recursively in the kernel and never take this path, so the scenario asserts
- * on Linux only.
+ * on Linux only, where every watch lives in the native binary's watch helper
+ * (samchon/ttsc#1426).
  *
  * 1. Open the project tracker over a project with 5 packages, and again with 500,
  *    and assert both open the same watches, none below `node_modules`.
