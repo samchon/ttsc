@@ -3,14 +3,14 @@ import { createRequire } from "node:module";
 import path from "node:path";
 
 /**
- * The ttsc native binary the compile runs, or `undefined` when there is none
+ * The ttsc platform binary, or `undefined` when there is none
  * (samchon/ttsc#1426).
  *
  * Resolved the way `ttsc` resolves its own: an absolute `TTSC_BINARY`, then the
  * platform package `@ttsc/<platform>-<arch>` beside the `ttsc` package this
  * adapter resolves, then the `ttsc-native` binary of the repository's own
- * layout. The Linux watch helper is a command of that binary, so the helper and
- * the compile always come from one build.
+ * layout. The Linux watch helper is a command of that binary, so the helper
+ * always comes from the build the compile resolved.
  */
 export function ttscNativeBinary(
   env: NodeJS.ProcessEnv = process.env,
