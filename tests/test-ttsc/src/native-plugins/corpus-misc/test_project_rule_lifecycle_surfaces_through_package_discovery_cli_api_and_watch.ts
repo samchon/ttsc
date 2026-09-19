@@ -340,10 +340,7 @@ module.exports = {
         },
       });
       const failedParams = await failedPublication;
-      // The server names the config itself, since no client opened it, so the
-      // URI is compared as the file it names: an unreserved `~` in a Windows
-      // short path may be spelled `~` or `%7E` (RFC 3986 section 6.2.2.2).
-      assert.equal(fileURLToPath(failedParams.uri), logicalConfig);
+      assert.equal(namesFile(failedParams.uri, logicalConfig), true);
       assert.equal(
         failedParams.diagnostics?.filter(
           (diagnostic) => diagnostic.code === "guard/project",
@@ -379,7 +376,7 @@ module.exports = {
         client.waitForNotification<PublishDiagnosticsParams>(
           "textDocument/publishDiagnostics",
           (params) =>
-            fileURLToPath(params.uri) === logicalConfig &&
+            namesFile(params.uri, logicalConfig) &&
             (params.diagnostics ?? []).length === 0,
           60_000,
         );
@@ -462,3 +459,15 @@ module.exports = {
     );
     assert.equal(new Set(lifecycleIDs).size, 2, output);
   };
+
+/**
+ * Whether a URI the server published names `file`.
+ *
+ * The server names the project's config itself, since no client opened it, so
+ * its URI is compared as the file it names rather than as text: an unreserved
+ * `~` in a Windows short path may be spelled `~` or `%7E` (RFC 3986 section
+ * 6.2.2.2). A URI of another scheme names no file.
+ */
+function namesFile(uri: string, file: string): boolean {
+  return uri.startsWith("file:") && fileURLToPath(uri) === file;
+}
