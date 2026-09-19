@@ -10,13 +10,6 @@ import type { TtscWatchInput } from "../transform/watch/TtscWatchInput";
  */
 export interface HostWatchBridge {
   /**
-   * Tell the bridge the host is running an importer again, which answers every
-   * signal still pending for it (samchon/ttsc#1423). A bridge that confirms
-   * delivery also records the run where the bridges of the host's other workers
-   * see it, so theirs are answered as well.
-   */
-  acknowledge(importer: string): void;
-  /**
    * The current change sequence, taken before a compile so registration can
    * tell what changed during it.
    */
@@ -25,7 +18,9 @@ export interface HostWatchBridge {
   close(): Promise<void>;
   /**
    * Replace one importer's compiler inputs with a delivery's, as the Vite serve
-   * watcher does.
+   * watcher does. The registration answers every signal still owed to the
+   * importer, and signals again at once when the delivery read a state a change
+   * since `startedAt` has left (samchon/ttsc#1423).
    *
    * @returns The importer's sentinel, which the caller registers through the
    *   host's own file channel, or `undefined` when the bridge observes nothing

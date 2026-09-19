@@ -7,21 +7,24 @@ import { openHostWatchBridge } from "../../../../../packages/unplugin/lib/core/b
 
 /**
  * Verifies a bridge opened to confirm delivery keeps rewriting a stale module's
- * sentinel until the module runs again, and stops then (samchon/ttsc#1423).
+ * sentinel until a registration proves the module delivered the current state,
+ * and stops then (samchon/ttsc#1423).
  *
  * Turbopack takes a loader dependency's state as its baseline only when the
  * loader returns. A sentinel rewritten before then is part of that baseline, so
  * a change landing between the compile's read and the baseline never re-ran the
- * module, and the page kept the older output.
+ * module, and the page kept the older output. A run that merely started proves
+ * nothing either: measured on real `next dev`, a run that began before the
+ * change read the old state, and stopping the rewrites for it left one module
+ * of four on the old value.
  *
  * 1. Register a module whose recorded input no longer holds on a bridge that does
  *    not confirm, and assert the sentinel is rewritten at once.
  * 2. Do the same on a confirming bridge, and assert the sentinel is rewritten
- *    after a delay, again later, and never after the module is acknowledged.
- * 3. Acknowledge a stale module before its first rewrite, on the same bridge and
- *    on another sharing its runs directory as another worker would, and assert
- *    no rewrite follows; then acknowledge it on a bridge of another host, with
- *    its own directory, and assert the rewrites go on.
+ *    after a delay, and again later.
+ * 3. Register the module again with the same stale state, as a run that read the
+ *    old state does, and assert the rewrites go on; then register it with the
+ *    input's current state and assert they stop.
  * 4. Close a bridge with rewrites still owed, and assert it writes nothing more.
  */
 export async function test_watch_bridge_repeats_a_signal_until_the_module_runs_again(): Promise<void> {
@@ -33,24 +36,25 @@ export async function test_watch_bridge_repeats_a_signal_until_the_module_runs_a
     poll: () => ({ close: () => undefined }),
     watch: () => ({ close: () => undefined }),
   };
-  // The directory a host's workers share, as the Turbopack pool shares its
-  // transform session.
-  const runs = path.join(root, "session", "watch-runs");
   const importer = path.join(root, "src", "main.ts");
-  // The compile saw this declaration, which no longer exists.
-  const stale = [
+  const declaration = path.join(root, "src", "types.d.ts");
+  // What a delivery recorded of the declaration: read, or found missing.
+  const recorded = (exists: boolean) => [
     {
       evidence: {
-        identity: path.join(root, "src", "types.d.ts"),
-        missing: false,
+        identity: declaration,
+        missing: !exists,
         state: {
           codec: "predicates" as const,
-          observation: { fileExists: true },
+          observation: { fileExists: exists },
         },
       },
-      file: path.join(root, "src", "types.d.ts"),
+      file: declaration,
     },
   ];
+  // The declaration does not exist, so a delivery that read it is stale.
+  const stale = recorded(true);
+  const current = recorded(false);
   const wait = (milliseconds: number) =>
     new Promise((resolve) => setTimeout(resolve, milliseconds));
 
@@ -63,7 +67,7 @@ export async function test_watch_bridge_repeats_a_signal_until_the_module_runs_a
   );
   await immediate.close();
 
-  const confirming = openHostWatchBridge(root, quiet, cache, { runs });
+  const confirming = openHostWatchBridge(root, quiet, cache, true);
   const sentinel = confirming.register(importer, stale)!;
   const contents = () => fs.readFileSync(sentinel, "utf8");
   assert.equal(contents(), "0", "the first rewrite waits");
@@ -72,30 +76,23 @@ export async function test_watch_bridge_repeats_a_signal_until_the_module_runs_a
   assert.notEqual(first, "0", "the first rewrite lands");
   await wait(250);
   const second = contents();
-  assert.notEqual(second, first, "the signal repeats until acknowledged");
-  confirming.acknowledge(importer);
-  await wait(900);
-  assert.equal(contents(), second, "an acknowledged module stops the rewrites");
+  assert.notEqual(second, first, "the signal repeats");
 
   confirming.register(importer, stale);
-  confirming.acknowledge(importer);
-  await wait(400);
-  assert.equal(contents(), second, "an early acknowledgement writes nothing");
-  const worker = openHostWatchBridge(root, quiet, cache, { runs });
-  confirming.register(importer, stale);
-  worker.acknowledge(importer);
-  await wait(400);
-  assert.equal(contents(), second, "a run in another worker answers it too");
-  await worker.close();
-  const stranger = openHostWatchBridge(root, quiet, cache, {
-    runs: path.join(root, "other-session", "watch-runs"),
-  });
-  confirming.register(importer, stale);
-  stranger.acknowledge(importer);
-  await wait(400);
-  assert.notEqual(contents(), second, "another host's run answers nothing");
-  confirming.acknowledge(importer);
-  await stranger.close();
+  await wait(150);
+  const third = contents();
+  assert.notEqual(
+    third,
+    second,
+    "a registration that read the old state is signalled again at once",
+  );
+  confirming.register(importer, current);
+  await wait(1_200);
+  assert.equal(
+    contents(),
+    third,
+    "a registration that read the current state stops the rewrites",
+  );
 
   confirming.register(path.join(root, "src", "other.ts"), stale);
   const directory = path.dirname(sentinel);

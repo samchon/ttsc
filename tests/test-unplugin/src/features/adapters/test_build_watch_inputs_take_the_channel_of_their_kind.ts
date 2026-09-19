@@ -110,7 +110,6 @@ export async function test_build_watch_inputs_take_the_channel_of_their_kind(): 
 
   const bridged: string[] = [];
   const bridge: HostWatchBridge = {
-    acknowledge: () => undefined,
     begin: () => 0,
     close: async () => undefined,
     register: (_importer, registered) => {

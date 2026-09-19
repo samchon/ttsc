@@ -71,7 +71,6 @@ export async function test_turbopack_dependencies_stay_inside_its_root(): Promis
     const bridged: string[] = [];
     let untracked = 0;
     const instance: HostWatchBridge = {
-      acknowledge: () => undefined,
       begin: () => 0,
       close: async () => undefined,
       register: (_importer, handed) => {

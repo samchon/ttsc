@@ -20,7 +20,8 @@ import { runTurbopackLoaderWithContext } from "../../internal/adapter-turbopack/
  * 2. Edit the declaration at once, as Turbopack would still hold the result.
  * 3. Assert the sentinel is rewritten, and rewritten again later, so one rewrite
  *    lands after any baseline Turbopack takes.
- * 4. Run the loader again and assert the rewrites stop.
+ * 4. Run the loader again, which delivers the changed state, and assert the
+ *    rewrites stop.
  */
 export async function test_turbopack_loader_signals_a_change_before_turbopacks_baseline(): Promise<void> {
   const root = TestUnpluginProject.createProject({ plugins: [] });
@@ -57,7 +58,11 @@ export async function test_turbopack_loader_signals_a_change_before_turbopacks_b
 
   const second = await run();
   TestUnpluginProject.assertTransformedToPlugin(second.content);
-  const acknowledged = contents();
+  const delivered = contents();
   await new Promise((resolve) => setTimeout(resolve, 5_000));
-  assert.equal(contents(), acknowledged, "running the module stops them");
+  assert.equal(
+    contents(),
+    delivered,
+    "a run that delivered the changed state stops them",
+  );
 }

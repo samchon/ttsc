@@ -122,19 +122,11 @@ export function turbopack(
   // Turbopack takes a dependency's state as its baseline only when the loader
   // returns, so a change landing before then never re-runs the module
   // (samchon/ttsc#1423). The bridge observes every input as well, from the
-  // compile on, and rewrites a stale module's sentinel until the module runs
-  // again, which this delivery acknowledges.
+  // compile on, and rewrites a stale module's sentinel until a registration
+  // proves the module delivered the changed state.
   let bridgeStartedAt: number | undefined;
   if (watching && addDependency !== undefined) {
-    // The session `withTtsc` opened is what the pool's workers share, so a
-    // run in any of them acknowledges a signal another one owes.
-    const session = readTtscTransformSession();
-    bridge ??= openHostWatchBridge(projectRoot, {}, toolCache, {
-      ...(session === undefined
-        ? {}
-        : { runs: path.join(session, "watch-runs") }),
-    });
-    bridge.acknowledge(file);
+    bridge ??= openHostWatchBridge(projectRoot, {}, toolCache, true);
     bridgeStartedAt = bridge.begin();
   }
   const hooks: TtscTransformHooks = {
