@@ -180,7 +180,15 @@ export async function webpackContract(name) {
     plugins: [plugin],
   };
   const compiler = bundler(options);
+  // The modules each build rebuilt, so a bundle mixing two states names the
+  // module the host did not rebuild.
+  const builds = [];
   const watcher = compiler.watch({}, (error, stats) => {
+    builds.push(
+      (stats?.toJson({ all: false, modules: true }).modules ?? [])
+        .filter((module) => module.built === true)
+        .map((module) => module.name),
+    );
     if (error || stats?.hasErrors())
       events.push(error ?? new Error(stats.toString({ errors: true })));
     else events.push(fs.readFileSync(project.output, "utf8"));
@@ -194,11 +202,36 @@ export async function webpackContract(name) {
     expectOutput(await events.next(`${name} first build`), "FIRST", 4);
     assert.equal(project.runs(), 1);
     project.change("SECOND");
-    expectOutput(
-      await changedOutput(events, `${name} type-only edit`, "SECOND"),
+    const second = await changedOutput(
+      events,
+      `${name} type-only edit`,
       "SECOND",
-      4,
     );
+    try {
+      expectOutput(second, "SECOND", 4);
+    } catch (error) {
+      // Record whether a later build corrects the mixed one, and what every
+      // build rebuilt, before failing.
+      const later = [];
+      const until = Date.now() + 5_000;
+      while (Date.now() < until) {
+        const code = await Promise.race([
+          events.next(`${name} later build`).catch((failure) => failure),
+          new Promise((resolve) =>
+            setTimeout(resolve, Math.max(0, until - Date.now())),
+          ),
+        ]);
+        if (code === undefined) break;
+        later.push(
+          typeof code === "string"
+            ? [...code.matchAll(/"(FIRST|SECOND)"/g)].map((match) => match[1])
+            : String(code),
+        );
+      }
+      throw new Error(
+        `${error.message}\nmodules each build rebuilt: ${JSON.stringify(builds)}\nlater builds: ${JSON.stringify(later)}`,
+      );
+    }
     assert.equal(project.runs(), 2);
     project.break();
     await assert.rejects(
