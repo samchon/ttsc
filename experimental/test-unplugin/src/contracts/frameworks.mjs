@@ -175,6 +175,7 @@ export async function nextContract(bundler) {
     const changed = project.runs();
     assert.ok(hasValues(await read(), "SECOND"));
     assert.equal(project.runs(), changed);
+    const sentinelsBeforeBreak = sentinelStates(project.root);
     project.break();
     await eventually(
       request,
@@ -198,7 +199,8 @@ export async function nextContract(bundler) {
       throw new Error(
         `${error.message}
 compiles before repair ${runsBeforeRepair}, after ${project.runs()}
-sentinels before ${JSON.stringify(sentinelsBeforeRepair)}
+sentinels before break ${JSON.stringify(sentinelsBeforeBreak)}
+sentinels before repair ${JSON.stringify(sentinelsBeforeRepair)}
 sentinels after ${JSON.stringify(sentinelStates(project.root))}`,
       );
     }
