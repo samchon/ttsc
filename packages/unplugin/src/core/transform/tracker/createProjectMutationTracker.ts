@@ -120,17 +120,20 @@ export async function createProjectMutationTracker(
         filesystem,
         root,
         (eventType, filename) => {
-          const changed = filename === null ? root : path.join(root, filename);
-          const membership =
-            filename === null || reportsMembership(root, filename);
+          // An unattributed event may stand for lost events of any kind below
+          // the root, a membership change among them (samchon/ttsc#1424).
+          if (filename === null) {
+            recordProjectMutation(tracker, root);
+            return;
+          }
+          const changed = path.join(root, filename);
+          const membership = reportsMembership(root, filename);
           if (
             membership &&
-            (eventType === "rename" ||
-              reportsNewMembership(root, filename ?? ""))
+            (eventType === "rename" || reportsNewMembership(root, filename))
           ) {
             recordProjectMutation(tracker, changed);
           } else if (
-            filename === null ||
             isPossibleProgramFileName(path.basename(filename), policy)
           ) {
             recordProjectChange(tracker, changed);

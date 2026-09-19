@@ -338,6 +338,7 @@ Notifications about inputs outside the project walk count only the events that c
 - A missing path counts anything that appears at or below its first missing component.
 - An absent resolution candidate that exists as a directory counts anything below it, because only replacing that directory can turn it into the file the compiler looked for, and a recursive delete reports the directory's contents before the directory itself.
 - Every input also counts a rename of any of its ancestors, because moving or replacing a directory moves its contents without an event on each of them.
+- An event the backend cannot attribute to a name counts for every input below the watched directory, whatever its type. On Windows that is how a watch reports that its buffer overflowed and events were lost.
 
 Every platform applies these rules through the same decision, so the isolated notification broker, which hosts the Windows and macOS watches, and the in-process Linux watcher agree. On Linux and macOS, a watch keeps following the directory it opened on after that directory is replaced. Every delivery therefore re-checks each watched directory's identity and stops trusting notifications from one that changed; the Vite dev server's external observers are re-checked by the same bounded poll. The Vite dev server never observes the project root's ancestors: TypeScript-Go probes `node_modules` in each of them, and an input whose nearest existing directory is such an ancestor is polled instead, so no watch ever covers a home or `AppData` directory.
 

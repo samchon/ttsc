@@ -23,8 +23,9 @@ import { createHostInputMutationTracker } from "../../../../../packages/unplugin
  * 1. Track a presence-only directory, a listed directory, a read file, and a
  *    missing candidate, outside a project and inside one, through a watch
  *    seam.
- * 2. Deliver each row's event and assert the witness it records, if any, and that
- *    a rename-only tracker drops content changes.
+ * 2. Deliver each row's event and assert the witness it records, if any, that a
+ *    rename-only tracker drops content changes, and that an event without a
+ *    name is a mutation for every tracker.
  * 3. Verify two trackers of one project through one shared read and assert the
  *    root they both watch is read once, then replace a watched directory and
  *    assert the tracker withdraws its authority.
@@ -80,7 +81,7 @@ export async function test_host_input_tracker_relevance_follows_observed_scopes(
     const fire = (
       directory: string,
       eventType: string,
-      filename: string,
+      filename: string | null,
     ): "change" | "mutation" | undefined => {
       tracker.changes.clear();
       tracker.membershipChanged = false;
@@ -140,6 +141,20 @@ export async function test_host_input_tracker_relevance_follows_observed_scopes(
     "a rename-only tracker drops content changes before classifying them",
   );
   assert.equal(renameOnly.fire(at("project"), "rename", "missing"), "mutation");
+  // An event without a name is a backend's notice that events were lost below
+  // the directory, as a Windows buffer overflow reports, so every tracker
+  // counts it as a mutation of any kind (samchon/ttsc#1424).
+  for (const tracker of [renameOnly, internal, external]) {
+    assert.equal(
+      tracker.fire(
+        tracker === external ? at("external") : at("project"),
+        "change",
+        null,
+      ),
+      "mutation",
+      "an unattributed change is a mutation",
+    );
+  }
 
   // A delivery verifies all of a generation's trackers with one shared read,
   // so the project root they both watch costs one metadata call.

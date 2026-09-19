@@ -82,7 +82,10 @@ function subscriber(message, location) {
   const names = location.names === undefined ? undefined : new Set(location.names.map((name) => name.toLowerCase()));
   return (event, filename) => {
     const matches = names === undefined || filename === null || names.has(String(filename).toLowerCase());
-    if (matches && (message.allEvents || event === "rename" || location.recursive === true)) {
+    // An event without a name is a backend's notice that anything below the
+    // directory may have changed, such as a Windows buffer overflow, so every
+    // registration hears it, whichever events it asked for.
+    if (matches && (message.allEvents || event === "rename" || filename === null || location.recursive === true)) {
       process.send?.({ directory: location.directory, eventType: event, filename: filename === null ? null : String(filename), id: message.id });
     }
   };
