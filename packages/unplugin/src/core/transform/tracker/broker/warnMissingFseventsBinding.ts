@@ -2,8 +2,8 @@
 let warned = false;
 
 /**
- * Tell the user, once per process, that macOS notifications are off because
- * the `fsevents` binding is not installed (samchon/ttsc#1425).
+ * Tell the user, once per process, that macOS notifications are off because the
+ * `fsevents` binding is not installed (samchon/ttsc#1425).
  *
  * The watch broker watches macOS through that binding, since `fs.watch` there
  * can lose events without notice. Without it, every macOS registration is

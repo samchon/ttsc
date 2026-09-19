@@ -12,9 +12,9 @@ const WARNED = new Set<string>();
  * module, through the development bridge and the per-process marker, but a
  * module that read one is re-run in every new process instead of reusing
  * Turbopack's cache. In a monorepo that is usually every module importing a
- * workspace package, so the cost is made visible, with the setting that
- * removes it, rather than left to be noticed as slowness. It is a Node process
- * warning, code `TTSC_TURBOPACK_UNTRACKED_INPUTS`.
+ * workspace package, so the cost is made visible, with the setting that removes
+ * it, rather than left to be noticed as slowness. It is a Node process warning,
+ * code `TTSC_TURBOPACK_UNTRACKED_INPUTS`.
  *
  * @param projectRoot The Next project directory.
  * @param configured The roots the configuration names.
