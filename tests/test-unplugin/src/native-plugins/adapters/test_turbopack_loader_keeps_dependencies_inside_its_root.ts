@@ -33,7 +33,7 @@ export async function test_turbopack_loader_keeps_dependencies_inside_its_root()
     source: TestUnpluginProject.mainSource(root),
     options: {
       plugins: emitDependenciesPlugins(["src/types.d.ts", outside]),
-      turbopackRoot: root,
+      turbopackRoots: [root],
     },
   });
   TestUnpluginProject.assertTransformedToPlugin(content);

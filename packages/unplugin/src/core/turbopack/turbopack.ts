@@ -37,12 +37,6 @@ shareTtscTransformCache(transformCache, readTtscTransformSession());
 let bridge: HostWatchBridge | undefined;
 
 /**
- * Turbopack roots already resolved by this worker, by project and configured
- * root, since resolving one searches the filesystem for lock files.
- */
-const TURBOPACK_ROOTS = new Map<string, string>();
-
-/**
  * Standalone webpack-loader entrypoint for Turbopack.
  *
  * Turbopack cannot load unplugin-based plugins (no JS plugin API), but its
@@ -120,16 +114,10 @@ export function turbopack(
   // Turbopack fails the whole module on a dependency outside its project
   // filesystem root, so only the inputs inside it reach Turbopack
   // (samchon/ttsc#1422).
-  const rootKey = `${projectRoot}\0${String(loaderOptions.turbopackRoot)}`;
-  let turbopackRoot = TURBOPACK_ROOTS.get(rootKey);
-  if (turbopackRoot === undefined) {
-    turbopackRoot = resolveTurbopackRoot(
-      projectRoot,
-      loaderOptions.turbopackRoot,
-    );
-    TURBOPACK_ROOTS.set(rootKey, turbopackRoot);
-  }
-  const resolvedRoot = turbopackRoot;
+  const turbopackRoot = resolveTurbopackRoot(
+    projectRoot,
+    loaderOptions.turbopackRoots,
+  );
   // Turbopack takes a dependency's state as its baseline only when the loader
   // returns, so a change landing before then never re-runs the module
   // (samchon/ttsc#1423). The bridge observes every input as well, from the
@@ -137,7 +125,14 @@ export function turbopack(
   // again, which this delivery acknowledges.
   let bridgeStartedAt: number | undefined;
   if (watching && addDependency !== undefined) {
-    bridge ??= openHostWatchBridge(projectRoot, {}, toolCache, true);
+    // The session `withTtsc` opened is what the pool's workers share, so a
+    // run in any of them acknowledges a signal another one owes.
+    const session = readTtscTransformSession();
+    bridge ??= openHostWatchBridge(projectRoot, {}, toolCache, {
+      ...(session === undefined
+        ? {}
+        : { runs: path.join(session, "watch-runs") }),
+    });
     bridge.acknowledge(file);
     bridgeStartedAt = bridge.begin();
   }
@@ -169,7 +164,7 @@ export function turbopack(
               inputs,
               loader: {
                 accepts: (input) =>
-                  pathIsWithin(path.resolve(input), resolvedRoot),
+                  pathIsWithin(path.resolve(input), turbopackRoot),
                 addContextDependency: addContextDependency ?? addDependency,
                 addDependency,
                 addMissingDependency: addDependency,

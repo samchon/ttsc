@@ -1,53 +1,38 @@
-import { createRequire } from "node:module";
 import path from "node:path";
 
+import { pathIsWithin } from "../transform/filesystem/pathIsWithin";
+
 /**
- * Resolve the project filesystem root Turbopack was created with, the directory
- * no loader dependency may leave (samchon/ttsc#1422).
+ * The directory the loader keeps every dependency inside, so that none leaves
+ * the project filesystem root Turbopack was created with (samchon/ttsc#1422).
  *
- * Next 16 creates the Turbopack project with `outputFileTracingRoot ||
- * turbopack.root`. Without either, it uses `NEXT_PRIVATE_OUTPUT_TRACE_ROOT`,
- * then `findRootDirAndLockFiles(dir).rootDir` (`dist/server/config.js`). The
- * configured root reaches the loader through its options. The rest is read here
- * the same way, and through the project's own `next`, so the answer is the one
- * Next computed.
- *
- * Every Turbopack root contains the project directory, so the project directory
- * stands in whenever the answer cannot be known: when the rule does not say
- * whether the configuration set a root, or when Next's function cannot be
- * loaded. A root narrower than Turbopack's never hands Turbopack a path it
- * rejects.
+ * Turbopack fails a whole module whose dependency lies outside that root. The
+ * root is one the configuration names, `turbopack.root` or
+ * `outputFileTracingRoot`, or, when it names none, one Next detects. Both kinds
+ * contain the project directory, so every candidate is an ancestor of it, and
+ * the deepest candidate lies inside whichever of them Turbopack uses. The
+ * project directory stands in when the configuration names none: it lies inside
+ * every root Turbopack can have. An input between it and a wider root then
+ * reaches the bridge instead of Turbopack, and the module is re-run in a later
+ * process rather than reused, so a wider root costs caching, never correctness.
+ * Naming the root in the configuration lets Turbopack track those inputs
+ * itself.
  *
  * @param projectRoot The Next project directory, the loader's `rootContext`.
- * @param configured The rule's `turbopackRoot`: the configured root, `null` for
- *   none, or `undefined` when the rule does not say.
- * @param env The environment Next read.
+ * @param configured The roots the configuration names.
  */
 export function resolveTurbopackRoot(
   projectRoot: string,
-  configured: string | null | undefined,
-  env: NodeJS.ProcessEnv = process.env,
+  configured: readonly string[] = [],
 ): string {
-  if (typeof configured === "string" && configured.length !== 0) {
-    return path.resolve(configured);
-  }
-  if (configured === undefined) return path.resolve(projectRoot);
-  const traced = env.NEXT_PRIVATE_OUTPUT_TRACE_ROOT;
-  if (typeof traced === "string" && traced.length !== 0) {
-    return path.resolve(traced);
-  }
-  try {
-    const findRoot = createRequire(path.join(projectRoot, "package.json"))(
-      "next/dist/lib/find-root",
-    ) as {
-      findRootDirAndLockFiles?(directory: string): { rootDir?: unknown };
-    };
-    const found = findRoot.findRootDirAndLockFiles?.(projectRoot)?.rootDir;
-    if (typeof found === "string" && found.length !== 0) {
-      return path.resolve(found);
+  const project = path.resolve(projectRoot);
+  let deepest: string | undefined;
+  for (const candidate of configured) {
+    const absolute = path.resolve(candidate);
+    if (!pathIsWithin(project, absolute)) continue;
+    if (deepest === undefined || pathIsWithin(absolute, deepest)) {
+      deepest = absolute;
     }
-  } catch {
-    // Next's own function is unavailable, so its answer cannot be known.
   }
-  return path.resolve(projectRoot);
+  return deepest ?? project;
 }

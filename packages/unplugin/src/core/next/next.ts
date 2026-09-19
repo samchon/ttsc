@@ -59,7 +59,7 @@ export function next(
     turbopack: withTtscTurbopackRules(
       nextConfig.turbopack,
       options,
-      configuredTurbopackRoot(nextConfig),
+      configuredTurbopackRoots(nextConfig),
     ),
     webpack(config: WebpackLikeConfig, webpackOptions: unknown) {
       config.plugins = Array.isArray(config.plugins) ? config.plugins : [];
@@ -130,7 +130,7 @@ function warnAboutSuppressedWebpackConfig(nextConfig: NextLikeConfig): void {
 function withTtscTurbopackRules(
   existing: TurbopackLikeConfig | undefined,
   options: TtscUnpluginOptions | undefined,
-  turbopackRoot: string | null,
+  turbopackRoots: readonly string[],
 ): TurbopackLikeConfig {
   const rules: Record<string, unknown> = { ...(existing?.rules ?? {}) };
   // Package ownership is stable only for this configuration snapshot. A later
@@ -152,7 +152,7 @@ function withTtscTurbopackRules(
     }
     const entry = {
       loader: TURBOPACK_LOADER,
-      options: { ...(options ?? {}), turbopackRoot },
+      options: { ...(options ?? {}), turbopackRoots },
     };
     // Loader shorthand runs right to left, so ttsc is appended there to see
     // the original source. Rule collections run matching items in order, so
@@ -381,23 +381,22 @@ function isResolvedTtscLoader(
 }
 
 /**
- * The Turbopack root the configuration sets, or `null` when it sets none
- * (samchon/ttsc#1422).
+ * The project filesystem roots the configuration names, `turbopack.root` and
+ * `outputFileTracingRoot`, resolved against the working directory as Next
+ * resolves them (samchon/ttsc#1422).
  *
- * Next takes `outputFileTracingRoot` first, then `turbopack.root`, and resolves
- * a relative one against the working directory. The loader registers only the
- * inputs inside this root, since Turbopack fails a module whose dependency lies
- * outside it. With `null`, it resolves the root the way Next does when neither
- * is set.
+ * The loader keeps every dependency inside the deepest of them, since Turbopack
+ * fails a module whose dependency lies outside its root.
  */
-function configuredTurbopackRoot(nextConfig: NextLikeConfig): string | null {
+function configuredTurbopackRoots(nextConfig: NextLikeConfig): string[] {
+  const roots: string[] = [];
   for (const root of [
-    nextConfig.outputFileTracingRoot,
     nextConfig.turbopack?.root,
+    nextConfig.outputFileTracingRoot,
   ]) {
     if (typeof root === "string" && root.length !== 0) {
-      return path.resolve(root);
+      roots.push(path.resolve(root));
     }
   }
-  return null;
+  return roots;
 }

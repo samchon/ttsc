@@ -36,20 +36,22 @@ import { sweepAbandonedWatchBridges } from "./sweepAbandonedWatchBridges";
  *   which Farm's watcher requires of an extra watch file. Turbopack instead
  *   rejects a dependency outside its project filesystem root, so its loader
  *   passes a directory inside the project.
- * @param confirmDelivery Whether a signal repeats until the importer is
+ * @param confirm Present when a signal repeats until the importer is
  *   acknowledged. Turbopack takes a dependency's state only when the loader
  *   returns, as its baseline, so a sentinel rewritten before then is part of
  *   that baseline and signals nothing (samchon/ttsc#1423). Repeating with a
  *   growing delay, until the importer is acknowledged, lands a rewrite after
  *   the baseline however late the host takes it. A host that compares
  *   timestamps, as webpack does, or that watches the sentinel from before the
- *   rewrite hears the first one, and a second would only rebuild again.
+ *   rewrite hears the first one, and a second would only rebuild again. Its
+ *   `runs` is a directory every worker of one host shares, where each run of an
+ *   importer is recorded, so a run in any of them acknowledges the signal.
  */
 export function openHostWatchBridge(
   root: string,
   operations: Partial<ViteServeWatchOperations> = {},
   sentinelParent: string = os.tmpdir(),
-  confirmDelivery = false,
+  confirm?: { runs?: string },
 ): HostWatchBridge {
   const watch = createViteServeInputWatch(operations);
   const nodes = new Map<string, ViteModuleNodeLike & { file: string }>();
@@ -91,43 +93,47 @@ export function openHostWatchBridge(
     clearTimeout(pending.get(importer));
     pending.delete(importer);
   };
-  // Each importer's latest run, recorded where every worker the same host
-  // process started can read it: a host pool may run the importer again in a
+  // Each importer's latest run. A host pool may run the importer again in a
   // worker other than the one owing the rewrites, and a rewrite landing while
-  // that run is under way could make the host run it once more. The directory
-  // carries the host process's id, so a later bridge removes it once that
-  // process is gone. Only the rewrites' efficiency depends on it; a record
-  // that cannot be read or written leaves every rewrite in place.
-  const runs = path.join(
-    sentinelParent,
-    `${WATCH_BRIDGE_DIRECTORY_PREFIX}${process.ppid}-runs`,
-  );
-  const runOf = (importer: string): string =>
-    path.join(runs, `${nameOf(importer)}.run`);
+  // that run is under way could make the host run it once more, so a host
+  // whose workers share a directory records each run there, where every one
+  // of them reads it. Only the rewrites' efficiency depends on it: a record
+  // that cannot be read or written leaves every rewrite in place, and without
+  // a shared directory each worker answers only its own signals.
+  const localRuns = new Map<string, string>();
+  const runOf = (importer: string): string | undefined =>
+    confirm?.runs === undefined
+      ? undefined
+      : path.join(confirm.runs, `${nameOf(importer)}.run`);
   const readRun = (importer: string): string | undefined => {
+    const file = runOf(importer);
+    if (file === undefined) return localRuns.get(importer);
     try {
-      return fs.readFileSync(runOf(importer), "utf8");
+      return fs.readFileSync(file, "utf8");
     } catch {
       return undefined;
     }
   };
   const acknowledge = (importer: string): void => {
     settle(importer);
-    if (!confirmDelivery) return;
+    if (confirm === undefined) return;
     const run = crypto.randomUUID();
+    localRuns.set(importer, run);
+    const file = runOf(importer);
+    if (file === undefined) return;
     try {
-      fs.writeFileSync(runOf(importer), run);
+      fs.writeFileSync(file, run);
     } catch {
       try {
-        fs.mkdirSync(runs, { recursive: true });
-        fs.writeFileSync(runOf(importer), run);
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, run);
       } catch {
         // Every rewrite still owed elsewhere stays in place.
       }
     }
   };
   const signal = (importer: string): void => {
-    if (!confirmDelivery) {
+    if (confirm === undefined) {
       writeSentinel(importer);
       return;
     }

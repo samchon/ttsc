@@ -19,9 +19,10 @@ import { openHostWatchBridge } from "../../../../../packages/unplugin/lib/core/b
  * 2. Do the same on a confirming bridge, and assert the sentinel is rewritten
  *    after a delay, again later, and never after the module is acknowledged.
  * 3. Acknowledge a stale module before its first rewrite, on the same bridge and
- *    on another one sharing the directory, as another worker of the host would,
- *    and close a bridge with rewrites still owed, and assert none of them
- *    writes anything more.
+ *    on another sharing its runs directory as another worker would, and assert
+ *    no rewrite follows; then acknowledge it on a bridge of another host, with
+ *    its own directory, and assert the rewrites go on.
+ * 4. Close a bridge with rewrites still owed, and assert it writes nothing more.
  */
 export async function test_watch_bridge_repeats_a_signal_until_the_module_runs_again(): Promise<void> {
   const root = fs.realpathSync.native(
@@ -32,6 +33,9 @@ export async function test_watch_bridge_repeats_a_signal_until_the_module_runs_a
     poll: () => ({ close: () => undefined }),
     watch: () => ({ close: () => undefined }),
   };
+  // The directory a host's workers share, as the Turbopack pool shares its
+  // transform session.
+  const runs = path.join(root, "session", "watch-runs");
   const importer = path.join(root, "src", "main.ts");
   // The compile saw this declaration, which no longer exists.
   const stale = [
@@ -59,7 +63,7 @@ export async function test_watch_bridge_repeats_a_signal_until_the_module_runs_a
   );
   await immediate.close();
 
-  const confirming = openHostWatchBridge(root, quiet, cache, true);
+  const confirming = openHostWatchBridge(root, quiet, cache, { runs });
   const sentinel = confirming.register(importer, stale)!;
   const contents = () => fs.readFileSync(sentinel, "utf8");
   assert.equal(contents(), "0", "the first rewrite waits");
@@ -77,12 +81,21 @@ export async function test_watch_bridge_repeats_a_signal_until_the_module_runs_a
   confirming.acknowledge(importer);
   await wait(400);
   assert.equal(contents(), second, "an early acknowledgement writes nothing");
-  const worker = openHostWatchBridge(root, quiet, cache, true);
+  const worker = openHostWatchBridge(root, quiet, cache, { runs });
   confirming.register(importer, stale);
   worker.acknowledge(importer);
   await wait(400);
   assert.equal(contents(), second, "a run in another worker answers it too");
   await worker.close();
+  const stranger = openHostWatchBridge(root, quiet, cache, {
+    runs: path.join(root, "other-session", "watch-runs"),
+  });
+  confirming.register(importer, stale);
+  stranger.acknowledge(importer);
+  await wait(400);
+  assert.notEqual(contents(), second, "another host's run answers nothing");
+  confirming.acknowledge(importer);
+  await stranger.close();
 
   confirming.register(path.join(root, "src", "other.ts"), stale);
   const directory = path.dirname(sentinel);

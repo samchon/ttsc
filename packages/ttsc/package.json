@@ -14,6 +14,10 @@
       "types": "./src/index.ts",
       "default": "./lib/index.js"
     },
+    "./binary": {
+      "types": "./src/internal/nativeBinary.ts",
+      "default": "./lib/internal/nativeBinary.js"
+    },
     "./path-identity": {
       "types": "./src/internal/projectInputPathIdentity.ts",
       "default": "./lib/internal/projectInputPathIdentity.js"
@@ -31,6 +35,10 @@
       ".": {
         "types": "./lib/index.d.ts",
         "default": "./lib/index.js"
+      },
+      "./binary": {
+        "types": "./lib/internal/nativeBinary.d.ts",
+        "default": "./lib/internal/nativeBinary.js"
       },
       "./path-identity": {
         "types": "./lib/internal/projectInputPathIdentity.d.ts",

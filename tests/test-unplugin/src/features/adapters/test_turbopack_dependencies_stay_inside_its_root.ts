@@ -9,18 +9,18 @@ import { resolveTurbopackRoot } from "../../../../../packages/unplugin/lib/core/
 import { turbopackProcessMarker } from "../../../../../packages/unplugin/lib/core/turbopack/turbopackProcessMarker.js";
 
 /**
- * Verifies the Turbopack loader resolves Turbopack's root the way Next does,
- * hands Turbopack only the inputs inside it, and marks a module with inputs it
- * cannot track (samchon/ttsc#1422).
+ * Verifies the Turbopack loader keeps every dependency inside the roots the
+ * configuration names, hands Turbopack only the inputs inside them, and marks a
+ * module with inputs it cannot track (samchon/ttsc#1422).
  *
  * Turbopack fails a whole module whose dependency climbs above its project
  * filesystem root. The loader registered every compiler input, so an input
  * outside the root, such as a `typeRoots` entry beyond the workspace, answered
  * the page with an error.
  *
- * 1. Resolve the root from a configured one, from `null` through the environment
- *    and through Next's own `findRootDirAndLockFiles`, and from a rule that
- *    does not say.
+ * 1. Resolve the root from no named root, one, two in either order, a relative
+ *    one, and one that does not contain the project, and assert the deepest
+ *    named ancestor of the project, or the project itself.
  * 2. Register inputs inside and outside a root, with and without a bridge, and
  *    assert only the inside ones reach the channels, the bridge takes the rest,
  *    and `untracked` is called once, and never when every input is inside.
@@ -32,39 +32,22 @@ export async function test_turbopack_dependencies_stay_inside_its_root(): Promis
     TestProject.tmpdir("ttsc-unplugin-turbopack-root-"),
   );
   const project = path.join(workspace, "apps", "web");
-  TestProject.writeFiles(workspace, {
-    "apps/web/package.json": "{}\n",
-    "apps/web/node_modules/next/dist/lib/find-root.js":
-      "exports.findRootDirAndLockFiles = (dir) => ({ rootDir: require('node:path').resolve(dir, '..', '..'), lockFiles: [] });\n",
-  });
-  const bare = fs.realpathSync.native(
-    TestProject.tmpdir("ttsc-unplugin-turbopack-bare-"),
-  );
-  const rows: [
-    string,
-    string,
-    string | null | undefined,
-    NodeJS.ProcessEnv,
-    string,
-  ][] = [
-    ["a configured root", project, workspace, {}, workspace],
-    ["no rule's word", project, undefined, {}, project],
+  const apps = path.join(workspace, "apps");
+  const rows: [string, readonly string[] | undefined, string][] = [
+    ["a rule that names none", undefined, project],
+    ["a configuration that names none", [], project],
+    ["one named root", [workspace], workspace],
+    ["the deepest of two named roots", [workspace, apps], apps],
+    ["the same, in the other order", [apps, workspace], apps],
+    ["a relative root", [path.relative(process.cwd(), apps)], apps],
     [
-      "the environment",
+      "a named root that does not contain the project",
+      [path.join(workspace, "elsewhere")],
       project,
-      null,
-      { NEXT_PRIVATE_OUTPUT_TRACE_ROOT: path.join(workspace, "apps") },
-      path.join(workspace, "apps"),
     ],
-    ["Next's own lock-file search", project, null, {}, workspace],
-    ["no Next to ask", bare, null, {}, bare],
   ];
-  for (const [label, directory, configured, env, expected] of rows) {
-    assert.equal(
-      resolveTurbopackRoot(directory, configured, env),
-      expected,
-      label,
-    );
+  for (const [label, configured, expected] of rows) {
+    assert.equal(resolveTurbopackRoot(project, configured), expected, label);
   }
 
   const inside = path.join(project, "src", "types.d.ts");
