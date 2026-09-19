@@ -104,12 +104,19 @@ export function createViteServeInputWatch(
   let caseIdentities = createCaseIdentities();
   const directoryCaseSensitivity = new Map<string, boolean>();
   let pathIdentityMemosDirty = false;
+  // Whether a rename has been heard since the memos were last reset. Only a
+  // rename can make a remembered path fact wrong, so only a removal that
+  // follows one resets them; a removal for a registration that replaced its
+  // inputs keeps them, which on Windows spares one `fsutil` query per
+  // directory (samchon/ttsc#1443).
+  let topologyChanged = false;
 
   /** Drop path facts after topology or ownership changes make them stale. */
   const resetPathIdentityMemos = (): void => {
     caseIdentities = createCaseIdentities();
     directoryCaseSensitivity.clear();
     pathIdentityMemosDirty = false;
+    topologyChanged = false;
   };
 
   /** Lexical event key under the nearest existing directory's case policy. */
@@ -210,6 +217,7 @@ export function createViteServeInputWatch(
       // an entry, while unrelated renames leave still-valid indexes intact.
       componentLinks.clear();
       missingComponents.clear();
+      topologyChanged = true;
     }
     changeSequence += 1;
     direct.add(watchPathKey(absolute));
@@ -258,7 +266,7 @@ export function createViteServeInputWatch(
     missingComponents.clear();
     if (links.size === 0) linkIterator = undefined;
     if (polled.size === 0) pollIterator = undefined;
-    pathIdentityMemosDirty = true;
+    if (topologyChanged) pathIdentityMemosDirty = true;
   };
 
   const check = (selected: Iterable<InputEntry>): void => {

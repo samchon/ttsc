@@ -23,7 +23,8 @@ import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
  * 2. Assert each change invalidates exactly its importers, including file,
  *    directory, and membership predicates and restored bytes.
  * 3. Assert hard-linked inputs enter the shared fallback, and a replacement server
- *    rediscovers the host's case policy.
+ *    rediscovers the host's case policy, which a replaced registration keeps
+ *    and a removal after a rename re-probes.
  * 4. Delete importers and assert their inputs and fallback work are released while
  *    another importer's remain.
  */
@@ -415,6 +416,18 @@ async function assertViteCaseIdentityMemosReset(root: string): Promise<void> {
   register();
   const firstSessionProbes = caseProbes;
   assert.ok(firstSessionProbes > 0, "the simulated Darwin host must be probed");
+  // A registration that replaces its inputs removes the old entry, which is
+  // not a topology change, so the remembered policy stands
+  // (samchon/ttsc#1443).
+  const other = path.join(root, "case-memo", "other.txt");
+  fs.writeFileSync(other, "value");
+  watch.replace(importer, [{ file: other }]);
+  register();
+  assert.equal(
+    caseProbes,
+    firstSessionProbes,
+    "replacing an importer's inputs must not re-probe the case policy",
+  );
   caseSensitive = false;
   emit?.("rename", file);
   assert.equal(
@@ -422,11 +435,20 @@ async function assertViteCaseIdentityMemosReset(root: string): Promise<void> {
     firstSessionProbes,
     "a topology event must not switch the identity context underneath live path indexes",
   );
+  // The rename can have changed the policy of what it moved, so the removal
+  // it causes is what re-probes.
+  watch.replace(importer, [{ file: other }]);
+  register();
+  const afterRename = caseProbes;
+  assert.ok(
+    afterRename > firstSessionProbes,
+    "a removal after a rename must rediscover the case policy",
+  );
   await watch.dispose();
   register();
   try {
     assert.ok(
-      caseProbes > firstSessionProbes,
+      caseProbes > afterRename,
       "a replacement server must rediscover case policy instead of retaining the old session's path cache",
     );
   } finally {
