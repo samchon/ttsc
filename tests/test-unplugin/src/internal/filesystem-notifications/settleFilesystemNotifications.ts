@@ -19,7 +19,7 @@ import path from "node:path";
  * Elsewhere this returns at once: inotify and Windows never report a write made
  * before the watch was added.
  *
- * @throws When no marker is heard within five seconds.
+ * @throws When the watch fails, or no marker is heard within five seconds.
  */
 export async function settleFilesystemNotifications(): Promise<void> {
   if (process.platform !== "darwin") return;
@@ -36,6 +36,10 @@ export async function settleFilesystemNotifications(): Promise<void> {
         clearTimeout(timer);
         watcher.close();
         resolve();
+      });
+      watcher.on("error", (error) => {
+        clearTimeout(timer);
+        reject(error);
       });
       const write = (): void => {
         attempts += 1;
