@@ -14,10 +14,9 @@ import { getWatchBroker } from "./getWatchBroker";
  * On Windows, Node's fs-event backend can assert in native code when a watched
  * temporary tree is deleted. Isolation turns that unrecoverable process abort
  * into an ordinary broker exit and a conservative cache miss in the host. On
- * macOS, the child's loop holds only the adapter's own watches, and the child
- * reports ready only once the FSEventStream they share is proven live
- * (samchon/ttsc#1418). A read made after this resolves can therefore never race
- * the watch's start.
+ * macOS, each watch is its own FSEventStream, started before the child reports
+ * ready, and a dropped event reaches the tracker as a gap (samchon/ttsc#1425).
+ * A read made after this resolves can therefore never race the watch's start.
  */
 export async function registerBrokeredMutationTracker(
   tracker: TtscProjectMutationTracker,

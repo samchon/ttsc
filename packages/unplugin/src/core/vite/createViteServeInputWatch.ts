@@ -83,9 +83,9 @@ export function createViteServeInputWatch(
 
   // Windows and macOS run every native observer in the isolated watch broker:
   // Windows so an abort in Node's fs-event backend cannot take the dev server
-  // down with it (samchon/ttsc#1411), and macOS so no watch opened or closed
-  // elsewhere in the dev server can re-create the FSEventStream the scopes
-  // share and lose their events (samchon/ttsc#1418).
+  // down with it (samchon/ttsc#1411), and macOS so each scope is its own
+  // FSEventStream, whose dropped events are reported instead of lost
+  // (samchon/ttsc#1418, samchon/ttsc#1425).
   const open =
     operations.watch ??
     (process.platform === "win32" || process.platform === "darwin"

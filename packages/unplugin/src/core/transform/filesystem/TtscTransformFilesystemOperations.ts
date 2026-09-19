@@ -34,8 +34,9 @@ export interface TtscTransformFilesystemOperations {
    * Supplying one replaces the broker as well, so an embedder that wraps Node's
    * own `fs.watch` gives up what the broker provides: on Windows, containing
    * the native abort Node's fs-event backend can raise when a watched temporary
-   * tree is deleted, and on macOS, the proof that no event was lost while libuv
-   * re-created the FSEventStream its watches share (samchon/ttsc#1418).
+   * tree is deleted, and on macOS, one FSEventStream per watch whose dropped
+   * events are reported rather than lost silently (samchon/ttsc#1418,
+   * samchon/ttsc#1425).
    */
   watch?(
     directory: string,

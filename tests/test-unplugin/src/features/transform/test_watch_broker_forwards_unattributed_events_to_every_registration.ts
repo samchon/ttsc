@@ -22,7 +22,7 @@ import { runWatchBrokerProgram } from "../../internal/watch-broker/runWatchBroke
 export async function test_watch_broker_forwards_unattributed_events_to_every_registration(): Promise<void> {
   const directory = path.resolve("/project/src");
   const listeners: ((event: string, filename: string | null) => void)[] = [];
-  const broker = runWatchBrokerProgram(watchBrokerSource(false), {
+  const broker = runWatchBrokerProgram(watchBrokerSource(), {
     "node:fs": {
       watch: (
         _directory: string,

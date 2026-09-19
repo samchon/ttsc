@@ -13,14 +13,14 @@ import { registerBrokeredMutationTracker } from "../transform/tracker/broker/reg
  * `src\win\fs-event.c` (samchon/ttsc#1411). On macOS, libuv serves every
  * directory watch of a loop through one FSEventStream and re-creates it
  * whenever any watch opens or closes, losing the events in between
- * (samchon/ttsc#1418). The transform core already runs those platforms' watches
- * in a child process; this gives the Vite serve watcher the same isolation.
- * Every event reaches `listener` with an absolute path, and a watch the broker
- * reports failed reaches `onError`, which hands the scope's entries to the
- * bounded poll.
+ * (samchon/ttsc#1418), where the broker opens one stream per watch. The
+ * transform core already runs those platforms' watches in a child process; this
+ * gives the Vite serve watcher the same isolation. Every event reaches
+ * `listener` with an absolute path, and a watch the broker reports failed
+ * reaches `onError`, which hands the scope's entries to the bounded poll.
  *
- * Registration completes asynchronously, and a later swap of the child's stream
- * can lose events again. Until the broker confirms the watch, and whenever it
+ * Registration completes asynchronously, and FSEvents can later drop events
+ * (samchon/ttsc#1425). Until the broker confirms the watch, and whenever it
  * reports such a gap, an event can have gone unheard, so each is delivered as
  * one unattributed event, which makes the watcher re-check every entry the
  * scope covers against its recorded state.

@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 
 import { WATCH_BROKER } from "./WATCH_BROKER";
 import type { WatchBroker } from "./WatchBroker";
+import { fseventsBindingPath } from "./fseventsBindingPath";
 import { routeWatchBrokerMessage } from "./routeWatchBrokerMessage";
 import { watchBrokerSource } from "./watchBrokerSource";
 
@@ -18,9 +19,11 @@ import { watchBrokerSource } from "./watchBrokerSource";
  *   taking the host down.
  * - On macOS, libuv serves every directory watch of one event loop through a
  *   single FSEventStream and re-creates it whenever any watch in that loop
- *   opens or closes, losing the events in between (samchon/ttsc#1418). In the
- *   child the stream holds only the adapter's own watches, which the child
- *   shares and whose every swap it proves; see {@link watchBrokerSource}.
+ *   opens or closes, losing the events in between (samchon/ttsc#1418), and it
+ *   discards the notice FSEvents gives when events were dropped. The child
+ *   watches through the `fsevents` binding instead, one stream per watch, and
+ *   passes each drop on as a gap (samchon/ttsc#1425); see
+ *   {@link watchBrokerSource}.
  *
  * The child is unreferenced between requests, so it never keeps a host alive.
  */
@@ -30,7 +33,12 @@ export function getWatchBroker(): WatchBroker {
   }
   const child = spawn(
     process.execPath,
-    ["-e", watchBrokerSource(process.platform === "darwin")],
+    [
+      "-e",
+      watchBrokerSource(
+        process.platform === "darwin" ? fseventsBindingPath() : undefined,
+      ),
+    ],
     {
       stdio: ["ignore", "ignore", "ignore", "ipc"],
       windowsHide: true,

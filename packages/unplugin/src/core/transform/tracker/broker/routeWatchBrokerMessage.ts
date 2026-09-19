@@ -17,11 +17,11 @@ import type { WatchBroker } from "./WatchBroker";
  *   ordered, so every event the child sent before it has already been applied.
  * - A message for an id with no live registration is ignored. It is the late
  *   event of a tracker already closed.
- * - `gap` says the child's native watches were re-created while the registration
- *   was live, so its events may have been lost (samchon/ttsc#1418). The
- *   registration's own `gap` answers it; without one, the tracker is marked
- *   unverified, and its silence proves nothing until a delivery proves the
- *   recorded state again.
+ * - `gap` says a native watch of the registration reported that events were
+ *   dropped, so some may have been lost (samchon/ttsc#1425). The registration's
+ *   own `gap` answers it; without one, the tracker is marked unverified, and
+ *   its silence proves nothing until a delivery proves the recorded state
+ *   again.
  * - `failed` fails the tracker, and `ready` resolves its registration. One
  *   message can carry both, when some of the watches could not be opened.
  * - An event without a directory is a membership change the child could not

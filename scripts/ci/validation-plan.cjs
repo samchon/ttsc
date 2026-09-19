@@ -228,10 +228,10 @@ const LANES = [
       // The host-input tracker scenario runs FSEvents itself: a watched
       // directory replaced on macOS reports nothing, which only the location
       // identity check can notice (samchon/ttsc#1384). Every macOS watch runs
-      // in the shared-mode watch broker, whose proof that a re-created
-      // FSEventStream is live only FSEvents can exercise: the broker protocol,
-      // the dev server's watcher, and the build bridge run here through it
-      // (samchon/ttsc#1418).
+      // in the watch broker through the `fsevents` binding, one FSEventStream
+      // per watch, which only macOS can exercise: the broker protocol, the dev
+      // server's watcher, and the build bridge run here through it
+      // (samchon/ttsc#1418, samchon/ttsc#1425).
       "pnpm --filter @ttsc/test-unplugin start -- --include=high_darwin_descriptors " +
       "--include=host_input_tracker --include=watch_broker " +
       "--include=vite_serve --include=each_predicate",

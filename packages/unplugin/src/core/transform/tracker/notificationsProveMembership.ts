@@ -5,7 +5,7 @@ import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTrans
  * that failed to register, or that errored after the generation was produced,
  * proves nothing either way — it never proves the generation stale. Neither
  * does one whose events may have been dropped since the state was last proven
- * (samchon/ttsc#1418), until a delivery proves it again.
+ * (samchon/ttsc#1425), until a delivery proves it again.
  */
 export function notificationsProveMembership(
   cached: TtscCachedProjectTransform,

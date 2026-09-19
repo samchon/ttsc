@@ -201,6 +201,9 @@
   "dependencies": {
     "unplugin": "^2.3.11"
   },
+  "optionalDependencies": {
+    "fsevents": "^2.3.3"
+  },
   "peerDependencies": {
     "ttsc": "workspace:^"
   },

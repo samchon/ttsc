@@ -100,7 +100,7 @@ export function matchesCompleteInputSnapshot(
   cached.projectDirectories = current.projectDirectories;
   // Every recorded input was just read and still holds, which is exactly what
   // a gap in a watcher's notifications left unproven, so the watchers' silence
-  // vouches for the state again from here on (samchon/ttsc#1418).
+  // vouches for the state again from here on (samchon/ttsc#1425).
   for (const tracker of [
     cached.projectMutationTracker,
     cached.hostInputMutationTracker,
