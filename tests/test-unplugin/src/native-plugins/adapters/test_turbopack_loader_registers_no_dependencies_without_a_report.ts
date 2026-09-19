@@ -1,5 +1,6 @@
 import { TestUnpluginProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
+import path from "node:path";
 
 import { runTurbopackLoaderWithContext } from "../../internal/adapter-turbopack/runTurbopackLoaderWithContext";
 import { universalHostInputs } from "../../internal/adapter-turbopack/universalHostInputs";
@@ -16,7 +17,9 @@ import { universalHostInputs } from "../../internal/adapter-turbopack/universalH
  * 2. Run the loader on its entry module.
  * 3. Assert the output is transformed, the registered dependencies are exactly the
  *    universal host inputs, and the development session's bridge, which
- *    observes the project's root files (samchon/ttsc#1419), adds one sentinel.
+ *    observes the project's root files (samchon/ttsc#1419), adds one sentinel
+ *    inside the project, since Turbopack fails a module whose dependency leaves
+ *    its project filesystem root.
  */
 export async function test_turbopack_loader_registers_no_dependencies_without_a_report(): Promise<void> {
   const root = TestUnpluginProject.createProject();
@@ -28,4 +31,11 @@ export async function test_turbopack_loader_registers_no_dependencies_without_a_
   TestUnpluginProject.assertTransformedToPlugin(content);
   assert.deepEqual(dependencies, universalHostInputs(root));
   assert.equal(sentinels.length, 1, "one bridge sentinel per module");
+  // The worker's bridge is opened by its first delivery, whichever project
+  // that was, so the tool cache is the first project's.
+  assert.match(
+    path.dirname(path.dirname(sentinels[0]!)),
+    /[\\/]node_modules[\\/]\.cache[\\/]ttsc$/,
+    "the sentinel lives in a project's own tool cache",
+  );
 }

@@ -175,6 +175,20 @@ export async function nextContract(bundler) {
     assert.ok(recovered > changed);
     assert.ok(hasValues(await read(), "THIRD"));
     assert.equal(project.runs(), recovered);
+    // A new root file changes no compiler input, so only the development
+    // session's bridge hears it, through the sentinel each module registered
+    // (samchon/ttsc#1419). Turbopack accepts that sentinel only inside its
+    // project filesystem root.
+    write(project.root, "src/contract-extra.d.ts", "declare const extra: 1;\n");
+    await eventually(
+      async () => {
+        await request();
+        return project.runs();
+      },
+      (runs) => runs > recovered,
+      `Next ${bundler} new root file recompiles`,
+    );
+    assert.ok(hasValues(await read(), "THIRD"));
   } catch (error) {
     throw new Error(`Next ${bundler}: ${error.stack ?? error}\n${output}`);
   } finally {

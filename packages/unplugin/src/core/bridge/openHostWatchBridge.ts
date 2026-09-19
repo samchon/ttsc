@@ -7,6 +7,8 @@ import type { ViteModuleNodeLike } from "../vite/ViteModuleNodeLike";
 import type { ViteServeWatchOperations } from "../vite/ViteServeWatchOperations";
 import { createViteServeInputWatch } from "../vite/createViteServeInputWatch";
 import type { HostWatchBridge } from "./HostWatchBridge";
+import { WATCH_BRIDGE_DIRECTORY_PREFIX } from "./WATCH_BRIDGE_DIRECTORY_PREFIX";
+import { sweepAbandonedWatchBridges } from "./sweepAbandonedWatchBridges";
 
 /**
  * Open the watch bridge for one watching build session (samchon/ttsc#1388).
@@ -23,16 +25,22 @@ import type { HostWatchBridge } from "./HostWatchBridge";
  *
  * The observer is reused through its structural server view: each importer is
  * its own module node, and invalidating that node rewrites the importer's
- * sentinel. Sentinels live in an owned directory below the system temp
- * directory, outside the project and any `node_modules`, which Farm's watcher
- * requires of an extra watch file.
+ * sentinel. Sentinels live in an owned directory the host must be able to
+ * watch, named after this process so a later bridge can remove it if this
+ * process dies without cleaning up.
  *
  * @param root The directory whose pinned scope observes the project.
  * @param operations Native watch seams, replaceable for tests.
+ * @param sentinelParent Where the sentinel directory is created. The system
+ *   temp directory by default, outside the project and any `node_modules`,
+ *   which Farm's watcher requires of an extra watch file. Turbopack instead
+ *   rejects a dependency outside its project filesystem root, so its loader
+ *   passes a directory inside the project.
  */
 export function openHostWatchBridge(
   root: string,
   operations: Partial<ViteServeWatchOperations> = {},
+  sentinelParent: string = os.tmpdir(),
 ): HostWatchBridge {
   const watch = createViteServeInputWatch(operations);
   const nodes = new Map<string, ViteModuleNodeLike & { file: string }>();
@@ -47,7 +55,14 @@ export function openHostWatchBridge(
   };
   const sentinelOf = (importer: string): string => {
     if (directory === undefined) {
-      directory = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-watch-bridge-"));
+      fs.mkdirSync(sentinelParent, { recursive: true });
+      sweepAbandonedWatchBridges(sentinelParent);
+      directory = fs.mkdtempSync(
+        path.join(
+          sentinelParent,
+          `${WATCH_BRIDGE_DIRECTORY_PREFIX}${process.pid}-`,
+        ),
+      );
       process.once("exit", removeDirectory);
     }
     const name = crypto.createHash("sha256").update(importer).digest("hex");

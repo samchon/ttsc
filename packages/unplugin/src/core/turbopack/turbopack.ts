@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { BRIDGED_WATCH_INPUT_KINDS } from "../bridge/BRIDGED_WATCH_INPUT_KINDS";
 import type { HostWatchBridge } from "../bridge/HostWatchBridge";
 import { openHostWatchBridge } from "../bridge/openHostWatchBridge";
@@ -99,10 +101,17 @@ export function turbopack(
   const addContextDependency = this.addContextDependency?.bind(this);
   const cacheable = this.cacheable?.bind(this);
   const watching = process.env.NODE_ENV !== "production";
+  // Turbopack rejects a dependency outside its project filesystem root, which
+  // failed every module with "leaves the filesystem root" while the bridge's
+  // sentinels lived in the system temp directory. They live in the project's
+  // own tool cache instead, where Turbopack's watcher hears them.
+  const projectRoot = this.rootContext ?? process.cwd();
   const bridgeStartedAt =
     watching && addDependency !== undefined
       ? (bridge ??= openHostWatchBridge(
-          this.rootContext ?? process.cwd(),
+          projectRoot,
+          {},
+          path.join(projectRoot, "node_modules", ".cache", "ttsc"),
         )).begin()
       : undefined;
   const hooks: TtscTransformHooks = {

@@ -1,5 +1,6 @@
 import { TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import path from "node:path";
 
 /**
@@ -9,9 +10,11 @@ import path from "node:path";
  * Turbopack's `fileDependencies` invalidation set. A development session's
  * bridge sentinel, which every module registers because the bridge observes the
  * project's root files (samchon/ttsc#1419), is reported apart in `sentinels`,
- * so `dependencies` holds exactly the compiler inputs. Setting
- * `omitAddDependency` models a minimal/older loader context that does not
- * expose the method at all, proving the loader stays optional about it.
+ * so `dependencies` holds exactly the compiler inputs. The context's
+ * `rootContext` is the project directory, the nearest ancestor of the module
+ * holding a `tsconfig.json`, as Turbopack gives it. Setting `omitAddDependency`
+ * models a minimal/older loader context that does not expose the method at all,
+ * proving the loader stays optional about it.
  */
 export async function runTurbopackLoaderWithContext(props: {
   resourcePath: string;
@@ -38,6 +41,7 @@ export async function runTurbopackLoaderWithContext(props: {
   }>((resolve, reject) => {
     const context: Record<string, unknown> = {
       resourcePath: props.resourcePath,
+      rootContext: projectDirectory(props.resourcePath),
       getOptions: () => props.options,
       cacheable: function (this: unknown, flag: boolean): void {
         // Capture `this` binding: the loader must call cacheable bound to the
@@ -74,4 +78,14 @@ export async function runTurbopackLoaderWithContext(props: {
     }
     loader.call(context, props.source);
   });
+}
+
+/** The nearest ancestor of `file` that holds a `tsconfig.json`. */
+function projectDirectory(file: string): string {
+  for (let directory = path.dirname(file); ; ) {
+    if (fs.existsSync(path.join(directory, "tsconfig.json"))) return directory;
+    const parent = path.dirname(directory);
+    if (parent === directory) return path.dirname(file);
+    directory = parent;
+  }
 }
