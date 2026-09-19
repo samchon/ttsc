@@ -153,6 +153,15 @@ export interface TtscCachedProjectTransform {
   /** Whether a generated wrapper and its source config graph stayed coherent. */
   configStateComplete?: boolean;
   /**
+   * Whether the project and its configuration held still across the compile, as
+   * `projectWalkStable` decides from the walks before and after it and the
+   * tracker opened before it.
+   *
+   * A failed compile whose project moved is a verdict about a state already
+   * gone, so it is compiled again like a success whose proof was lost.
+   */
+  projectHeldStill?: boolean;
+  /**
    * Whether the generation-time project walk observed every directory and file
    * it attempted to snapshot. An incomplete walk may never authorize narrow
    * validation; a later complete walk must be allowed to replace it.

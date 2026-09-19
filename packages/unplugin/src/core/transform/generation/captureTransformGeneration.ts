@@ -393,6 +393,7 @@ export async function captureTransformGeneration(props: {
       externalInputRealpaths: {},
       externalInputPaths,
       configStateComplete: configStable,
+      projectHeldStill: walkStable,
       inputHashes: inputSnapshot.hashes,
       inputSignatures: inputSnapshot.provenSignatures,
       membershipPolicy,

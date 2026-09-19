@@ -23,10 +23,15 @@ const TRANSFORM_GENERATION_ATTEMPTS = 2;
  * again. A second failure becomes a terminal `TtscUnstableGenerationError` that
  * carries the failed environment, so later deliveries replay the verdict until
  * that environment provably changes instead of each repeating a whole-project
- * compile. A failed compile (a `failure` or `exception` envelope) is returned
- * as is once its config state stayed coherent, because its proof is about its
- * diagnostics, not about a stable snapshot; a config that moved during the
- * compile is retried like any other lost race.
+ * compile.
+ *
+ * A failed compile (a `failure` or `exception` envelope) needs no proven
+ * snapshot, since its verdict is its diagnostics, but it does need the project
+ * to have held still across it. One that read a source repaired while it ran
+ * reports a state already gone, and a host that takes its dependencies when the
+ * transform returns, as Turbopack does, records the repair as the baseline and
+ * never re-runs the module. It is compiled again, and when the project moves
+ * under the retry too, the retry's own failure is returned.
  */
 export async function transformProject(props: {
   aliasPaths: Record<string, string[]>;
@@ -62,8 +67,9 @@ export async function transformProject(props: {
     const cached = await captureTransformGeneration({ ...props, adopt });
     if (
       cached.configStateComplete !== false &&
-      (cached.result.type !== "success" ||
-        cached.projectSnapshotComplete === true)
+      (cached.result.type === "success"
+        ? cached.projectSnapshotComplete === true
+        : cached.projectHeldStill !== false)
     ) {
       return cached;
     }
@@ -74,6 +80,15 @@ export async function transformProject(props: {
     // Another worker's compile that failed its proof here would be found again
     // by the retry, so the retry compiles, and replaces the publication.
     if (TRANSFORM_ADOPTED_RESULTS.has(cached.result)) adopt = false;
+    // A failed compile the project moved under twice still names its own
+    // diagnostics, which say more than an unstable-generation error.
+    if (
+      attempt + 1 === TRANSFORM_GENERATION_ATTEMPTS &&
+      cached.result.type !== "success" &&
+      cached.configStateComplete !== false
+    ) {
+      return cached;
+    }
     if (attempt + 1 === TRANSFORM_GENERATION_ATTEMPTS) {
       const validation = TRANSFORM_FAILED_GENERATION_VALIDATIONS.get(
         cached.result,

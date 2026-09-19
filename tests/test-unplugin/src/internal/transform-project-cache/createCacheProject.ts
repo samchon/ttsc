@@ -120,6 +120,13 @@ export function createCacheProject(options: ICacheProjectOptions): {
               outOfProjectCandidate: options.outOfProjectCandidate ?? "",
               nonInputRaceFile: options.nonInputRaceFile ?? "",
               transformDelayMs: options.transformDelayMs ?? 0,
+              ...(options.failingSource === undefined
+                ? {}
+                : {
+                    failDelayMs: options.failingSource.delayMs,
+                    failOnMarker: options.failingSource.marker,
+                    failReadStamp: options.failingSource.readStamp,
+                  }),
               unhashedGraphInput: options.unhashedGraphInput === true,
               unprovenGraphInput: options.unprovenGraphInput === true,
               unprovenGraphInputs: options.unprovenGraphInputs ?? 0,
@@ -471,6 +478,19 @@ function writeGoPlugin(dir: string): void {
       "  }",
       '  if boolValue(cfg, "emitExternal") {',
       '    ts["node_modules/dep/types.d.css.ts"] = "export {};\\n"',
+      "  }",
+      "",
+      // Fail on a marked source, after stamping that it was read and holding
+      // the verdict, so a test can repair the source while the compile that
+      // read it still runs.
+      '  if marker := stringValue(cfg, "failOnMarker"); marker != "" {',
+      "    for _, text := range observedInputs {",
+      "      if !strings.Contains(text, marker) { continue }",
+      '      os.WriteFile(stringValue(cfg, "failReadStamp"), []byte("1"), 0o644)',
+      '      time.Sleep(time.Duration(numberValue(cfg, "failDelayMs")) * time.Millisecond)',
+      '      fmt.Fprintln(os.Stderr, "cache-probe: a source is marked failing")',
+      "      return 1",
+      "    }",
       "  }",
       "",
       "  result := transformResult{TypeScript: ts}",

@@ -167,6 +167,12 @@ export interface ICacheProjectOptions {
    */
   unreadableHostInput?: boolean;
   /**
+   * Fail the compile whose sources contain `marker`. The transform stamps
+   * `readStamp` once it has read them and holds the failure for `delayMs`, so a
+   * test can repair the source while the compile that read it still runs.
+   */
+  failingSource?: { delayMs: number; marker: string; readStamp: string };
+  /**
    * Project-relative module that edges to nothing, while every other module
    * edges to the external declarations only.
    */
