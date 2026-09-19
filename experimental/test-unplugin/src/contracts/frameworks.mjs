@@ -193,6 +193,29 @@ export async function nextContract(bundler) {
       `Next ${bundler} new root file recompiles`,
     );
     assert.ok(hasValues(await read(), "THIRD"));
+    // An edit landing after the compile read an input, but before the host
+    // took the module's dependencies, still reaches the page
+    // (samchon/ttsc#1423). The fixture plugin makes it land there: it rewrites
+    // a `RACE_` value without the prefix right after reading it. The input is
+    // one the module already depended on, then one it depends on for the
+    // first time.
+    project.change("RACE_FOURTH");
+    await eventually(
+      read,
+      (html) => hasValues(html, "FOURTH"),
+      `Next ${bundler} edit racing a tracked input`,
+    );
+    write(
+      project.root,
+      "src/late-input.server.ts",
+      'export type ContractInput = "RACE_FIFTH";\n',
+    );
+    project.change("FROM_LATE");
+    await eventually(
+      read,
+      (html) => hasValues(html, "FIFTH"),
+      `Next ${bundler} edit racing a new input`,
+    );
   } catch (error) {
     throw new Error(`Next ${bundler}: ${error.stack ?? error}\n${output}`);
   } finally {

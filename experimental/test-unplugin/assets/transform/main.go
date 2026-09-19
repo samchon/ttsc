@@ -75,16 +75,12 @@ func run(args []string) int {
     }
     key := filepath.ToSlash(relative)
     if strings.Contains(code, "watchValue()") {
-      input, err := os.ReadFile(dependency)
+      value, dependencies, err := contractValue(root, dependency)
       if err != nil {
         return err
       }
-      match := typeValue.FindStringSubmatch(string(input))
-      if len(match) != 2 {
-        return fmt.Errorf("invalid contract type in %s", dependency)
-      }
-      code = strings.ReplaceAll(code, "watchValue()", fmt.Sprintf("%q", match[1]))
-      output.Dependencies[key] = []string{dependency}
+      code = strings.ReplaceAll(code, "watchValue()", fmt.Sprintf("%q", value))
+      output.Dependencies[key] = dependencies
       counted = true
     }
     output.TypeScript[key] = code
@@ -117,4 +113,47 @@ func run(args []string) int {
   }
   fmt.Fprintln(os.Stdout, string(data))
   return 0
+}
+
+// contractValue reads the value the contract input names, and the files it read
+// for it.
+//
+// Two values drive the race scenarios (samchon/ttsc#1423). `FROM_LATE` takes
+// the value from `src/late-input.server.ts`, a file the module depends on
+// for the first time. A value prefixed `RACE_` is rewritten without the prefix
+// in the file that held it, right after this compile read it: an edit landing
+// between the compile's read and the host taking the module's dependencies.
+func contractValue(root string, dependency string) (string, []string, error) {
+  files := []string{dependency}
+  value, err := readContractValue(dependency)
+  if err != nil {
+    return "", nil, err
+  }
+  source := dependency
+  if value == "FROM_LATE" {
+    source = filepath.Join(root, "src", "late-input.server.ts")
+    files = append(files, source)
+    if value, err = readContractValue(source); err != nil {
+      return "", nil, err
+    }
+  }
+  if strings.HasPrefix(value, "RACE_") {
+    edited := fmt.Sprintf("export type ContractInput = %q;\n", strings.TrimPrefix(value, "RACE_"))
+    if err := os.WriteFile(source, []byte(edited), 0o644); err != nil {
+      return "", nil, err
+    }
+  }
+  return value, files, nil
+}
+
+func readContractValue(file string) (string, error) {
+  input, err := os.ReadFile(file)
+  if err != nil {
+    return "", err
+  }
+  match := typeValue.FindStringSubmatch(string(input))
+  if len(match) != 2 {
+    return "", fmt.Errorf("invalid contract type in %s", file)
+  }
+  return match[1], nil
 }
