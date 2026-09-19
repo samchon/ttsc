@@ -74,7 +74,9 @@ export function write(root, file, contents) {
 
 export function expectOutput(code, value, consumers = 1) {
   const values = [
-    ...code.matchAll(/(["'`])(FIRST|SECOND|THIRD|FOURTH)\1/g),
+    ...code.matchAll(
+      /(["'`])(FIRST|SECOND|THIRD|FOURTH|FIFTH|SIXTH|SEVENTH)\1/g,
+    ),
   ].map((match) => match[2]);
   assert.equal(
     values.length,
