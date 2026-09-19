@@ -1633,9 +1633,9 @@ function serveProjectEmit(real: string): ServedSource | null {
     root = ensureRootBuilt(tsconfig, real);
   } catch (error) {
     // A checked root's failure is the run's type gate and stops it. An
-    // emit-only root has no gate to report: its build failing (a read-only
-    // install that refuses the synthesized config, say) leaves the file where
-    // it stood before any project was consulted, the isolated emit.
+    // emit-only root has no gate to report: its build failing (a package whose
+    // config the compiler rejects, say) leaves the file where it stood before
+    // any project was consulted, the isolated emit.
     if (rootIsChecked(real)) throw error;
     return null;
   }
@@ -1791,7 +1791,6 @@ function buildRoot(
     built = buildSingleRootProject({
       checked: rootIsChecked(source),
       emitDir,
-      key: `${process.pid}-${generation}`,
       options: { plugins: rootPluginPolicy() },
       projectRoot: project.root,
       role: "root",

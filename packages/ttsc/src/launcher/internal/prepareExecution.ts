@@ -129,7 +129,6 @@ function buildEntryProject(
   const { rootDir } = buildSingleRootProject({
     checked: true,
     emitDir,
-    key: context.runtimeCacheKey,
     options: { ...options, cacheDir: context.pluginCacheDir },
     projectRoot: context.root,
     role: "entry",
@@ -139,10 +138,8 @@ function buildEntryProject(
   context.emitDir = emitDir;
   context.outputs = EmitOwnershipIndex.listOutputs(emitDir);
   context.runtimeRootDir = rootDir;
-  // Classified by the project itself: the synthesized config only extends it
-  // with overrides that do not touch the module format, and it is already
-  // removed, so a response file expanded through `--showConfig` could not read
-  // it again.
+  // Classified by the project itself: the root build overrides nothing that
+  // touches the module format.
   context.moduleOptions = runtimeEmitProfile(
     context.project,
     options.passthrough,
@@ -234,7 +231,6 @@ function createProjectContext(
     tsconfig,
     root,
     cacheDir,
-    runtimeCacheKey,
     processDir,
     pluginCacheDir: explicitCacheDir === undefined ? undefined : cacheDir,
     virtualRoot,

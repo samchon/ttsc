@@ -25,7 +25,7 @@ import path from "node:path";
  *    `rootDir`/`include` of `src`.
  * 2. Run ttsc, then run ttsx against each out-of-`include` entry.
  * 3. Assert every entry ran, that `lib` still holds only the `src` emit, and that
- *    no synthesized tsconfig was left behind.
+ *    nothing was written beside the tsconfig.
  */
 export const test_ttsx_runs_an_entry_the_project_include_excludes = () => {
   const root = TestProject.createProject({
@@ -63,6 +63,7 @@ export const test_ttsx_runs_an_entry_the_project_include_excludes = () => {
     "index.js",
     "release.js",
   ]);
+  const beside = projectEntries(root);
 
   for (const [entry, expected] of [
     ["clear.ts", "cleared"],
@@ -81,8 +82,15 @@ export const test_ttsx_runs_an_entry_the_project_include_excludes = () => {
     "index.js",
     "release.js",
   ]);
-  assert.deepEqual(
-    fs.readdirSync(root).filter((name) => name.startsWith(".ttsx-entry")),
-    [],
-  );
+  // The config is parsed where it lives and only its file list is replaced,
+  // so nothing appears beside it, not even for the length of a build.
+  assert.deepEqual(projectEntries(root), beside);
 };
+
+/** The project directory's entries, apart from ttsx's own cache. */
+function projectEntries(root: string): string[] {
+  return fs
+    .readdirSync(root)
+    .filter((name) => name !== "node_modules")
+    .sort();
+}

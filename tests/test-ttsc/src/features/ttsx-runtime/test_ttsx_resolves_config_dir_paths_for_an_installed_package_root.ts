@@ -5,14 +5,13 @@ import assert from "node:assert/strict";
  * Verifies ttsx resolves an installed package root's `${configDir}` path
  * mapping from the package's own tsconfig directory.
  *
- * An emit-only root build writes its synthesized tsconfig into ttsx's private
- * directory, which is sound only while nothing it emits depends on where that
- * tsconfig sits. `${configDir}` is the exception: tsgo substitutes the
+ * An emit-only root build compiles the package's own tsconfig with only its
+ * file list replaced, so what it emits cannot depend on where some other config
+ * sits. `${configDir}` is where that would show first: tsgo substitutes the
  * directory of the config it was given, and inside `paths` that decides which
  * module an import resolves to. Here it decides whether `export { Shape }` is a
  * type-only re-export the emit drops, or a runtime import of a specifier Node
- * cannot resolve. A chain that uses `${configDir}` therefore keeps the
- * synthesized tsconfig beside the real one.
+ * cannot resolve.
  *
  * 1. Install a package whose tsconfig maps `@shapes/*` through `${configDir}`,
  *    with a `main` outside its `include` that re-exports a type through the

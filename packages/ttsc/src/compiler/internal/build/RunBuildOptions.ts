@@ -25,6 +25,20 @@ export type RunBuildOptions = TtscBuildOptions & {
   /** Keep every compiler-owned side product inside this private directory. */
   isolateOutputsTo?: string;
   /**
+   * Compile exactly these files with every option of the project, whose own
+   * file list they replace.
+   *
+   * `ttsx` runs files the owning project does not list: an entry beside the
+   * tsconfig while `include` names only `src`, or a TypeScript file inside an
+   * installed package. The config is parsed where it lives, so `${configDir}`,
+   * the default `typeRoots`, and every `types` lookup keep their meaning, and
+   * nothing is written beside it. TypeScript-Go's command line cannot combine a
+   * project with a file list, so every compiler pass of such a build runs
+   * through the platform binary's `compile-roots` command, and each native
+   * plugin host receives the list through `TTSC_ROOT_FILES`.
+   */
+  rootFiles?: readonly string[];
+  /**
    * Hand tsgo the `rootDir` it would otherwise infer, for a build whose
    * `outDir` this process injected rather than the project declaring it.
    *

@@ -20,8 +20,8 @@ import { TTSX_REGISTER, linkTtscPackage } from "../../internal/ttsx-register";
  * 1. Create a project whose `files` names `entry/index.ts`, which requires the
  *    unlisted `other/index.ts`.
  * 2. Run the entry through ttsx and through the `ttsc/register` preload.
- * 3. Assert both run `other/index.ts` itself, and that no synthesized tsconfig is
- *    left beside the project's own.
+ * 3. Assert both run `other/index.ts` itself, and that nothing was written beside
+ *    the project's tsconfig.
  */
 export const test_ttsx_runs_a_required_source_outside_the_checked_file_set_from_its_own_code =
   () => {
@@ -48,6 +48,7 @@ export const test_ttsx_runs_a_required_source_outside_the_checked_file_set_from_
       "other/index.ts": `export const identity: string = "other";\n`,
     });
     linkTtscPackage(root);
+    const beside = projectEntries(root);
 
     const direct = TestProject.spawn(
       TestProject.TTSX_BIN,
@@ -65,8 +66,13 @@ export const test_ttsx_runs_a_required_source_outside_the_checked_file_set_from_
     assert.equal(registered.status, 0, registered.stderr);
     assert.equal(registered.stdout.trim(), "other=other");
 
-    assert.deepEqual(
-      fs.readdirSync(root).filter((name) => name.startsWith(".ttsx-")),
-      [],
-    );
+    assert.deepEqual(projectEntries(root), beside);
   };
+
+/** The project directory's entries, apart from the linked `node_modules`. */
+function projectEntries(root: string): string[] {
+  return fs
+    .readdirSync(root)
+    .filter((name) => name !== "node_modules")
+    .sort();
+}

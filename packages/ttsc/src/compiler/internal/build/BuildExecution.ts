@@ -14,8 +14,10 @@ import { outputText } from "../outputText";
 import { readProjectConfig } from "../project/readProjectConfig";
 import { resolveBinary } from "../resolveBinary";
 import { resolveTsgo } from "../resolveTsgo";
+import { ROOT_FILES_ENV } from "../sharedHost/ROOT_FILES_ENV";
 import { TSGO_ARGS_ENV } from "../sharedHost/TSGO_ARGS_ENV";
 import { assertSharedHostCompatibility } from "../sharedHost/assertSharedHostCompatibility";
+import { clearInheritedRootFiles } from "../sharedHost/clearInheritedRootFiles";
 import { clearInheritedSemanticConfigPath } from "../sharedHost/clearInheritedSemanticConfigPath";
 import { clearInheritedTsgoArgs } from "../sharedHost/clearInheritedTsgoArgs";
 import { inheritedSidecarEnv } from "../sharedHost/inheritedSidecarEnv";
@@ -49,7 +51,8 @@ export namespace BuildExecution {
   /**
    * Merge extra environment variables over `process.env`, always injecting
    * `TTSC_NODE_BINARY` so child processes can re-invoke the same Node.js binary
-   * without searching `PATH`.
+   * without searching `PATH`. Root files an ancestor ttsc process published are
+   * dropped: a build that replaces its roots publishes its own.
    */
   function mergeEnv(
     extra?: NodeJS.ProcessEnv,
@@ -59,6 +62,7 @@ export namespace BuildExecution {
       ...process.env,
       ...extra,
     };
+    clearInheritedRootFiles(env, extra);
     const node = resolveNodeBinary(env, cwd);
     if (node === undefined) delete env.TTSC_NODE_BINARY;
     else env.TTSC_NODE_BINARY = node;
@@ -103,6 +107,11 @@ export namespace BuildExecution {
       clearInheritedTsgoArgs(env, extra);
     }
     clearInheritedSemanticConfigPath(env, extra);
+    // A build whose roots replace the project's file list hands the list to
+    // every host, which builds its Program through `driver.LoadProgram`.
+    if (execution.rootFiles !== undefined) {
+      env[ROOT_FILES_ENV] = JSON.stringify(execution.rootFiles);
+    }
     // The anchor is per-invocation state owned by this host: when this run
     // declared none (and the caller's env does not name one), drop any value
     // inherited from an ancestor ttsc process so a nested build never
@@ -514,29 +523,18 @@ export namespace BuildExecution {
     extraArgs: readonly string[],
     options: RunBuildOptions,
   ): TtscBuildResult {
-    const res = spawnNative(
-      execution.tsgo.binary,
-      [
-        "-p",
-        execution.tsconfig,
-        ...TsgoArguments.createTsgoDiagnosticArgs(options),
-        ...TsgoArguments.createTsgoThreadingArgs(options),
-        ...(options.passthrough ?? []),
-        ...extraArgs,
-        ...TsgoArguments.isolatedTsgoOutputArgs(options),
-      ],
-      {
-        cwd: execution.projectRoot,
-        env: mergeEnv(options.env, execution.projectRoot),
-        encoding: "utf8",
-      },
-    );
+    const { binary, res } = spawnCompiler(execution, options, [
+      "-p",
+      execution.tsconfig,
+      ...TsgoArguments.createTsgoDiagnosticArgs(options),
+      ...TsgoArguments.createTsgoThreadingArgs(options),
+      ...(options.passthrough ?? []),
+      ...extraArgs,
+      ...TsgoArguments.isolatedTsgoOutputArgs(options),
+    ]);
     if (res.error) {
       throw new Error(
-        "ttsc: failed to spawn " +
-          execution.tsgo.binary +
-          ": " +
-          res.error.message,
+        "ttsc: failed to spawn " + binary + ": " + res.error.message,
       );
     }
     return normalizeBuildOutput(
@@ -550,6 +548,57 @@ export namespace BuildExecution {
   }
 
   /**
+   * Run the compiler with a TypeScript-Go argument list that starts with `-p
+   * <tsconfig>`.
+   *
+   * That is the consuming project's `tsgo`, except for a build whose root files
+   * replace the project's own list. TypeScript-Go's command line cannot combine
+   * a project with a file list, so such a build runs the platform binary's
+   * `compile-roots`, which takes the same arguments, parses the config where it
+   * lives, and reports, lists emitted files, and exits the way the compiler
+   * does. The roots travel in `TTSC_ROOT_FILES`, as they do to a plugin host.
+   */
+  function spawnCompiler(
+    execution: ReturnType<typeof resolveExecutionContext>,
+    options: RunBuildOptions,
+    args: readonly string[],
+  ): { binary: string; res: ReturnType<typeof spawnNative> } {
+    const env = mergeEnv(options.env, execution.projectRoot);
+    if (execution.rootFiles === undefined) {
+      return {
+        binary: execution.tsgo.binary,
+        res: spawnNative(execution.tsgo.binary, args, {
+          cwd: execution.projectRoot,
+          env,
+          encoding: "utf8",
+        }),
+      };
+    }
+    const binary = resolveBinary(options);
+    if (binary === null) {
+      throw new Error(
+        [
+          `ttsc: cannot compile ${execution.rootFiles.join(", ")} with the options of ${execution.tsconfig}: the @ttsc/${process.platform}-${process.arch} package is not installed.`,
+          "The file is outside that project's file set, and the platform package's ttsc binary compiles it through the project's own config.",
+          "Reinstall ttsc with optional dependencies enabled.",
+        ].join("\n"),
+      );
+    }
+    env[ROOT_FILES_ENV] = JSON.stringify(execution.rootFiles);
+    // The platform binary links no plugin, so a linked-plugin manifest an
+    // ancestor sidecar left behind names plugins it could never run.
+    delete env.TTSC_LINKED_PLUGINS_JSON;
+    return {
+      binary,
+      res: spawnNative(binary, ["compile-roots", ...args], {
+        cwd: execution.projectRoot,
+        env,
+        encoding: "utf8",
+      }),
+    };
+  }
+
+  /**
    * Run `tsgo` with the full emit arguments and parse `TSFILE:` lines from
    * stdout into `emittedFiles`. The TSFILE lines are stripped before the result
    * is returned so they do not appear in the user-facing output.
@@ -559,17 +608,10 @@ export namespace BuildExecution {
     options: RunBuildOptions,
     args: readonly string[],
   ): TtscBuildResult {
-    const res = spawnNative(execution.tsgo.binary, args, {
-      cwd: execution.projectRoot,
-      env: mergeEnv(options.env, execution.projectRoot),
-      encoding: "utf8",
-    });
+    const { binary, res } = spawnCompiler(execution, options, args);
     if (res.error) {
       throw new Error(
-        "ttsc.build: failed to spawn " +
-          execution.tsgo.binary +
-          ": " +
-          res.error.message,
+        "ttsc.build: failed to spawn " + binary + ": " + res.error.message,
       );
     }
     const result = {
@@ -758,6 +800,7 @@ export namespace BuildExecution {
       emit?: boolean;
       onWatchInputs?: (inputs: readonly string[]) => void;
       resolvedProject?: ITtscParsedProjectConfig;
+      rootFiles?: readonly string[];
       tsconfig?: string;
     },
   ) {
@@ -812,6 +855,7 @@ export namespace BuildExecution {
       rewriteRelativeImportExtensionsForEmit:
         options.emit === true &&
         project.compilerOptions.allowImportingTsExtensions === true,
+      rootFiles: options.rootFiles,
       tsgo,
       tsconfig,
     };

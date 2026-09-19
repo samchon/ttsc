@@ -20,6 +20,7 @@ import { createNativeProjectContextArgs } from "./project/createNativeProjectCon
 import { resolveBinary } from "./resolveBinary";
 import { resolveTsgo } from "./resolveTsgo";
 import { assertSharedHostCompatibility } from "./sharedHost/assertSharedHostCompatibility";
+import { clearInheritedRootFiles } from "./sharedHost/clearInheritedRootFiles";
 import { clearInheritedSemanticConfigPath } from "./sharedHost/clearInheritedSemanticConfigPath";
 import { clearInheritedTsgoArgs } from "./sharedHost/clearInheritedTsgoArgs";
 import { inheritedSidecarEnv } from "./sharedHost/inheritedSidecarEnv";
@@ -628,9 +629,10 @@ function nativePluginEnv(
   ) {
     delete env.TTSC_PLUGIN_CONFIG_DIR;
   }
-  // This lane forwards no tsgo argv of its own, so anything inherited belongs
-  // to an outer ttsc run and must not reach these sidecars.
+  // This lane forwards no tsgo argv or root files of its own, so anything
+  // inherited belongs to an outer ttsc run and must not reach these sidecars.
   clearInheritedTsgoArgs(env, options.env);
+  clearInheritedRootFiles(env, options.env);
   clearInheritedSemanticConfigPath(env, options.env);
   if (plugin?.stage === "transform") {
     const linked = linkedTransformPlugins(nativePlugins ?? []);

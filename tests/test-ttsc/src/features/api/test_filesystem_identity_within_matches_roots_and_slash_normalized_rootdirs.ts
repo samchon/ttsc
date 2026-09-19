@@ -11,7 +11,7 @@ import { createFilesystemPathIdentityContext } from "../../../../../packages/tts
  * Ttsx asks this predicate where a directory contains a file: the single-root
  * build widens `rootDir` to the nearest ancestor holding both the project and
  * the root, and the watch rules bound project inputs by it. A `rootDir` arrives
- * slash-normalized from a synthesized tsconfig (`C:/` on Windows) while real
+ * slash-normalized from the root build's `--rootDir` (`C:/` on Windows) while real
  * paths are native, and a volume root must match without producing a `//`
  * prefix (#304). A raw string comparison silently answers "outside".
  *
@@ -34,7 +34,7 @@ export const test_filesystem_identity_within_matches_roots_and_slash_normalized_
     assert.equal(isWithin(path.join(root, "anything.ts"), root), true);
 
     if (process.platform === "win32") {
-      // Slash-form rootDir from the synthesized tsconfig vs native real path.
+      // Slash-form rootDir from the root build vs native real path.
       assert.equal(isWithin("C:\\a\\b\\c.ts", "C:/a/b"), true);
       assert.equal(isWithin("C:\\a\\b\\c.ts", "C:/"), true);
       // Drive-letter and path casing differ between a lowercase TEMP env and

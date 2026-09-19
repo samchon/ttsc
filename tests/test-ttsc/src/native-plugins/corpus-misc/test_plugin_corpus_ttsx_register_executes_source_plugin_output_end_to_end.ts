@@ -40,7 +40,7 @@ export const test_plugin_corpus_ttsx_register_executes_source_plugin_output_end_
       ].join("\n"),
       "utf8",
     );
-    makeFixtureReadSyntheticEntry(root);
+    makeFixtureReadPublishedRoot(root);
     const result = spawn(
       process.execPath,
       [
@@ -63,39 +63,43 @@ export const test_plugin_corpus_ttsx_register_executes_source_plugin_output_end_
     assert.match(result.stdout, /^PLUGIN$/m);
   };
 
-/** Make the fixture host honor the synthetic entry config used by ttsx. */
-function makeFixtureReadSyntheticEntry(root: string): void {
+/**
+ * Make the fixture host honor the root files ttsx publishes.
+ *
+ * The fixture reads its source itself instead of building a Program through
+ * `driver.LoadProgram`, so it takes the root the way any such host must: from
+ * `TTSC_ROOT_FILES`, with the `rootDir` ttsx forwards in `TTSC_TSGO_ARGS`. Like
+ * the compiler, it writes that file's output mirrored below `rootDir`, which is
+ * the only place ttsx looks for a source's output.
+ */
+function makeFixtureReadPublishedRoot(root: string): void {
   const source = path.join(root, "go-plugin", "main.go");
   const original = fs.readFileSync(source, "utf8");
-  // The synthetic entry config lists one file and pins `rootDir`; like the
-  // compiler, the host writes that file's output mirrored below `rootDir`,
-  // which is the only place ttsx looks for a source's output.
   const modified = original
-    .replace(
-      `_ = fs.String("tsconfig", "", "")`,
-      `tsconfig := fs.String("tsconfig", "", "")`,
-    )
     .replace(
       `source := filepath.Join(root, "src", "main.ts")`,
       [
         `source := filepath.Join(root, "src", "main.ts")`,
         `  outName := "main.js"`,
-        `  if strings.Contains(filepath.Base(*tsconfig), ".ttsx-entry.") {`,
-        `    raw, readErr := os.ReadFile(*tsconfig)`,
-        `    if readErr != nil {`,
-        `      fmt.Fprintln(os.Stderr, readErr)`,
+        `  if rawRoots := os.Getenv("TTSC_ROOT_FILES"); rawRoots != "" {`,
+        `    var roots []string`,
+        `    if jsonErr := json.Unmarshal([]byte(rawRoots), &roots); jsonErr != nil || len(roots) != 1 {`,
+        `      fmt.Fprintln(os.Stderr, "go-source-plugin: invalid TTSC_ROOT_FILES")`,
         `      return 2`,
         `    }`,
-        `    var config struct {`,
-        `      Files           []string`,
-        `      CompilerOptions struct{ RootDir string } \`json:"compilerOptions"\``,
-        `    }`,
-        `    if jsonErr := json.Unmarshal(raw, &config); jsonErr != nil || len(config.Files) != 1 {`,
-        `      fmt.Fprintln(os.Stderr, "go-source-plugin: invalid entry config")`,
+        `    var forwarded []string`,
+        `    if jsonErr := json.Unmarshal([]byte(os.Getenv("TTSC_TSGO_ARGS")), &forwarded); jsonErr != nil {`,
+        `      fmt.Fprintln(os.Stderr, "go-source-plugin: invalid TTSC_TSGO_ARGS")`,
         `      return 2`,
         `    }`,
-        `    source = filepath.FromSlash(config.Files[0])`,
-        `    rel, relErr := filepath.Rel(filepath.FromSlash(config.CompilerOptions.RootDir), source)`,
+        `    rootDir := ""`,
+        `    for i := 0; i+1 < len(forwarded); i++ {`,
+        `      if strings.EqualFold(forwarded[i], "--rootDir") {`,
+        `        rootDir = forwarded[i+1]`,
+        `      }`,
+        `    }`,
+        `    source = filepath.FromSlash(roots[0])`,
+        `    rel, relErr := filepath.Rel(filepath.FromSlash(rootDir), source)`,
         `    if relErr != nil {`,
         `      fmt.Fprintln(os.Stderr, relErr)`,
         `      return 2`,

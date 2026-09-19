@@ -21,7 +21,7 @@ import { TTSX_REGISTER, linkTtscPackage } from "../../internal/ttsx-register";
  *    `tools/effect.ts`, a file with a type error and a filesystem side effect.
  * 2. Run the entry through ttsx and through the `ttsc/register` preload.
  * 3. Assert both runs fail naming the file and the diagnostic, that the side
- *    effect never happened, and that no synthesized tsconfig was left behind.
+ *    effect never happened, and that nothing was written beside the tsconfig.
  */
 export const test_ttsx_stops_on_a_type_error_in_a_required_source_no_checked_build_covered =
   () => {
@@ -57,6 +57,7 @@ export const test_ttsx_stops_on_a_type_error_in_a_required_source_no_checked_bui
     });
     linkTtscPackage(root);
     const marker = path.join(root, "effect-ran.txt");
+    const beside = projectEntries(root);
 
     for (const [lane, command, args] of [
       ["ttsx", TestProject.TTSX_BIN, ["--cwd", root, "src/main.ts"]],
@@ -79,8 +80,13 @@ export const test_ttsx_stops_on_a_type_error_in_a_required_source_no_checked_bui
       assert.equal(fs.existsSync(marker), false, `${lane} ran the root`);
     }
 
-    assert.deepEqual(
-      fs.readdirSync(root).filter((name) => name.startsWith(".ttsx-")),
-      [],
-    );
+    assert.deepEqual(projectEntries(root), beside);
   };
+
+/** The project directory's entries, apart from the linked `node_modules`. */
+function projectEntries(root: string): string[] {
+  return fs
+    .readdirSync(root)
+    .filter((name) => name !== "node_modules")
+    .sort();
+}
