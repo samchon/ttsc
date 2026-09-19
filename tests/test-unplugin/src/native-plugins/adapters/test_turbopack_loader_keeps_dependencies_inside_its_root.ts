@@ -19,7 +19,10 @@ import { universalHostInputs } from "../../internal/adapter-turbopack/universalH
  *    it, and a rule whose Turbopack root is the project.
  * 2. Run the loader on the entry module.
  * 3. Assert the output is transformed, the dependencies are the inside one and the
- *    universal host inputs, and the per-process marker is registered.
+ *    universal host inputs, the per-process marker is registered, and no
+ *    warning is printed, since the configuration names the root.
+ * 4. Run it on a project whose configuration names no root, twice, and assert one
+ *    warning names that project and the setting that removes the cost.
  */
 export async function test_turbopack_loader_keeps_dependencies_inside_its_root(): Promise<void> {
   const root = TestUnpluginProject.createProject({ plugins: [] });
@@ -28,14 +31,40 @@ export async function test_turbopack_loader_keeps_dependencies_inside_its_root()
     `${path.basename(root)}-sibling`,
     "types.d.ts",
   );
-  const { content, dependencies } = await runTurbopackLoaderWithContext({
-    resourcePath: TestUnpluginProject.mainFile(root),
-    source: TestUnpluginProject.mainSource(root),
-    options: {
-      plugins: emitDependenciesPlugins(["src/types.d.ts", outside]),
-      turbopackRoots: [root],
-    },
-  });
+  const warnings: string[] = [];
+  const listen = (warning: Error & { code?: string }): void => {
+    if (warning.code === "TTSC_TURBOPACK_UNTRACKED_INPUTS") {
+      warnings.push(warning.message);
+    }
+  };
+  // Node dispatches a process warning on a later tick.
+  const settle = () => new Promise((resolve) => setImmediate(resolve));
+  process.on("warning", listen);
+  const run = (project: string, turbopackRoots?: string[]) =>
+    runTurbopackLoaderWithContext({
+      resourcePath: TestUnpluginProject.mainFile(project),
+      source: TestUnpluginProject.mainSource(project),
+      options: {
+        plugins: emitDependenciesPlugins(["src/types.d.ts", outside]),
+        ...(turbopackRoots === undefined ? {} : { turbopackRoots }),
+      },
+    });
+  let result: Awaited<ReturnType<typeof run>>;
+  try {
+    result = await run(root, [root]);
+    await settle();
+    assert.equal(warnings.length, 0, "a named root leaves nothing to warn of");
+    const unnamed = TestUnpluginProject.createProject({ plugins: [] });
+    await run(unnamed);
+    await run(unnamed);
+    await settle();
+    assert.equal(warnings.length, 1, "one warning per project");
+    assert.ok(warnings[0]!.includes(unnamed));
+    assert.ok(warnings[0]!.includes("`turbopack.root`"));
+  } finally {
+    process.off("warning", listen);
+  }
+  const { content, dependencies } = result;
   TestUnpluginProject.assertTransformedToPlugin(content);
   const markers = dependencies.filter(
     (file) => path.basename(file) === "untracked-inputs",
