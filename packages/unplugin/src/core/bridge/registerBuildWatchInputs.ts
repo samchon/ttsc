@@ -31,6 +31,11 @@ import type { HostWatchBridge } from "./HostWatchBridge";
  * - Rollup: everything, since it opens one watcher per registered path, and
  *   watches a directory recursively.
  *
+ * A webpack or Rspack watcher can also be configured to skip paths, and Rspack
+ * skips `node_modules` by default. An input the host skips keeps its channel,
+ * so the host's cache snapshots still record it, and goes to the bridge as
+ * well, which is what observes it.
+ *
  * A directory observed only to exist is never registered. The compiler consults
  * it to gate descendant probes, and each of those is registered in its own
  * right. The project's root-file membership is registered only with a bridge
@@ -44,6 +49,11 @@ export function registerBuildWatchInputs(props: {
    * watching.
    */
   bridge?: {
+    /**
+     * Whether the host's own watcher skips a path. An input there is handed to
+     * the bridge as well as to the host's channel. See `hostWatchIgnores`.
+     */
+    ignores?: (file: string) => boolean;
     instance: HostWatchBridge;
     kinds: ReadonlySet<TtscWatchInputKind>;
     startedAt: number;
@@ -67,12 +77,18 @@ export function registerBuildWatchInputs(props: {
   for (const input of props.inputs) {
     const kind = classifyWatchInput(input);
     if (kind === "presence") continue;
-    if (props.bridge?.kinds.has(kind) === true) bridged.push(input);
+    if (props.bridge?.kinds.has(kind) === true) {
+      bridged.push(input);
+      continue;
+    }
     // Only a bridge observes the project's root files. A one-shot host's
     // directory channel is recursive, so handing it the project's directories
     // would invalidate every module on any edit below them.
-    else if (kind === "membership") continue;
-    else if (props.loader === undefined) props.addWatchFile(input.file);
+    if (kind === "membership") continue;
+    // A path the host's watcher skips still goes to its channel, which keeps
+    // it in the host's cache snapshots, and to the bridge, which observes it.
+    if (props.bridge?.ignores?.(input.file) === true) bridged.push(input);
+    if (props.loader === undefined) props.addWatchFile(input.file);
     else if (kind === "file") props.loader.addDependency(input.file);
     else if (kind === "missing") props.loader.addMissingDependency(input.file);
     else props.loader.addContextDependency(input.file);

@@ -6,6 +6,7 @@ import {
 
 import { BRIDGED_WATCH_INPUT_KINDS } from "./bridge/BRIDGED_WATCH_INPUT_KINDS";
 import type { HostWatchBridge } from "./bridge/HostWatchBridge";
+import { hostWatchIgnores } from "./bridge/hostWatchIgnores";
 import { openHostWatchBridge } from "./bridge/openHostWatchBridge";
 import { registerBuildWatchInputs } from "./bridge/registerBuildWatchInputs";
 import { createEsbuildOptions } from "./esbuild/createEsbuildOptions";
@@ -397,6 +398,25 @@ const unpluginFactory: UnpluginFactory<
                       bridgeStartedAt !== undefined
                         ? {
                             bridge: {
+                              // The paths the watching compiler skips, Rspack's
+                              // default `node_modules` among them, read where
+                              // its `Watching` keeps them.
+                              ...(native?.framework === "webpack" ||
+                              native?.framework === "rspack"
+                                ? {
+                                    ignores: hostWatchIgnores(
+                                      (
+                                        native.compiler as {
+                                          watching?: {
+                                            watchOptions?: {
+                                              ignored?: unknown;
+                                            };
+                                          };
+                                        }
+                                      ).watching?.watchOptions?.ignored,
+                                    ),
+                                  }
+                                : {}),
                               instance: bridge,
                               kinds: bridgedKinds,
                               startedAt: bridgeStartedAt,
