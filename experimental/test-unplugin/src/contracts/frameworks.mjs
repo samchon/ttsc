@@ -106,7 +106,11 @@ export async function nextContract(bundler) {
     };
     const read = async () => {
       const { status, html } = await request();
-      assert.equal(status, 200, html.slice(0, 2000));
+      assert.equal(
+        status,
+        200,
+        `${pageError(html) ?? html.slice(0, 2000)} (${project.runs()} compile(s))`,
+      );
       return html;
     };
     const initialFailure = await request();
@@ -246,5 +250,24 @@ export async function bunContract() {
       timeout: 120_000,
     });
     assert.equal(stdout.trim(), [value, value, value, value].join(" "));
+  }
+}
+
+/**
+ * The error a Next development page rendered, read from its `__NEXT_DATA__`, or
+ * `undefined` when the page carries none. The markup before that script is
+ * longer than any message worth printing, so the error is read from there.
+ */
+function pageError(html) {
+  const data =
+    /<script id="__NEXT_DATA__" type="application\/json">([^<]*)<\/script>/.exec(
+      html,
+    )?.[1];
+  if (data === undefined) return undefined;
+  try {
+    const err = JSON.parse(data).err;
+    return err === undefined ? undefined : String(err.message ?? err);
+  } catch {
+    return undefined;
   }
 }
