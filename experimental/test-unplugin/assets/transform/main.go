@@ -118,11 +118,11 @@ func run(args []string) int {
 // contractValue reads the value the contract input names, and the files it read
 // for it.
 //
-// Two values drive the race scenarios (samchon/ttsc#1423). `FROM_LATE` takes
-// the value from `src/late-input.server.ts`, a file the module depends on
-// for the first time. A value prefixed `RACE_` is rewritten without the prefix
-// in the file that held it, right after this compile read it: an edit landing
-// between the compile's read and the host taking the module's dependencies.
+// Values drive the race scenarios (samchon/ttsc#1423). `FROM_<NAME>` takes the
+// value from `src/<name>-input.server.ts`, a file the module depends on for the
+// first time. A value prefixed `RACE_` is rewritten without the prefix in the
+// file that held it, right after this compile read it: an edit landing between
+// the compile's read and the host taking the module's dependencies.
 func contractValue(root string, dependency string) (string, []string, error) {
   files := []string{dependency}
   value, err := readContractValue(dependency)
@@ -130,8 +130,8 @@ func contractValue(root string, dependency string) (string, []string, error) {
     return "", nil, err
   }
   source := dependency
-  if value == "FROM_LATE" {
-    source = filepath.Join(root, "src", "late-input.server.ts")
+  if name, found := strings.CutPrefix(value, "FROM_"); found {
+    source = filepath.Join(root, "src", strings.ToLower(name)+"-input.server.ts")
     files = append(files, source)
     if value, err = readContractValue(source); err != nil {
       return "", nil, err

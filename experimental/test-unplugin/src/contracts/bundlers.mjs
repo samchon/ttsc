@@ -9,6 +9,9 @@ import {
   eventQueue,
   expectOutput,
   fixture,
+  settledOutput,
+  write,
+  writeRaceLoader,
 } from "./common.mjs";
 
 /** Rollup and Rolldown must follow the real watcher dependency graph. */
@@ -165,7 +168,14 @@ export async function webpackContract(name) {
     devtool: false,
     entry: project.entry,
     output: { path: path.dirname(project.output), filename: "bundle.js" },
-    module: { rules: [{ test: /\.ts$/, type: "javascript/auto" }] },
+    module: {
+      rules: [
+        { test: /\.ts$/, type: "javascript/auto" },
+        // Runs after ttsc's pre-enforced loader, so its edit lands between
+        // ttsc returning a module and the host recording the module's inputs.
+        { test: /\.ts$/, use: [{ loader: writeRaceLoader(project.root) }] },
+      ],
+    },
     resolve: { extensions: [".ts", ".js"] },
     plugins: [plugin],
   };
@@ -201,6 +211,22 @@ export async function webpackContract(name) {
     watcher.invalidate();
     expectOutput(await events.next(`${name} unchanged rebuild`), "THIRD", 4);
     assert.equal(project.runs(), 3);
+    // An edit landing after ttsc returned a module, before the host recorded
+    // its inputs (samchon/ttsc#1423): once to an input the module already
+    // depended on, once to one it depends on for the first time.
+    project.change("LATE_RACE_FOURTH");
+    await settledOutput(events, `${name} edit after ttsc returned`, "FOURTH");
+    write(
+      project.root,
+      "src/newer-input.server.ts",
+      'export type ContractInput = "LATE_RACE_FIFTH";\n',
+    );
+    project.change("FROM_NEWER");
+    await settledOutput(
+      events,
+      `${name} edit after ttsc returned, to a new input`,
+      "FIFTH",
+    );
   } finally {
     await deadline(
       new Promise((resolve, reject) =>

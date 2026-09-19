@@ -164,3 +164,53 @@ export async function eventually(read, predicate, label) {
 export async function adapter(name, options) {
   return (await import(`@ttsc/unplugin/${name}`)).default(options);
 }
+
+/**
+ * Write a loader that runs after ttsc in a host's loader chain: the one place a
+ * public API reaches between ttsc returning a module and the host taking its
+ * dependencies (samchon/ttsc#1423). When the module it receives carries a
+ * `LATE_RACE_<VALUE>` value, it rewrites the contract input holding that value
+ * with `<VALUE>`, so the edit lands after ttsc registered the input and before
+ * the host records its state.
+ */
+export function writeRaceLoader(root) {
+  const loader = path.join(root, "race-loader.cjs");
+  fs.writeFileSync(
+    loader,
+    [
+      'const fs = require("node:fs");',
+      'const path = require("node:path");',
+      "module.exports = function raceLoader(source) {",
+      '  const match = /"LATE_RACE_([A-Z]+)"/.exec(source);',
+      "  if (match === null) return source;",
+      '  const directory = path.join(this.rootContext, "src");',
+      "  for (const name of fs.readdirSync(directory)) {",
+      '    if (!name.endsWith("-input.server.ts")) continue;',
+      "    const file = path.join(directory, name);",
+      '    if (!fs.readFileSync(file, "utf8").includes(match[0])) continue;',
+      '    fs.writeFileSync(file, "export type ContractInput = " + JSON.stringify(match[1]) + ";" + String.fromCharCode(10));',
+      "  }",
+      "  return source;",
+      "};",
+    ].join("\n"),
+  );
+  return loader;
+}
+
+/**
+ * Wait for a build whose every consumer carries exactly `value`, skipping the
+ * builds a host emits on the way there.
+ */
+export async function settledOutput(events, label, value, consumers = 4) {
+  // The fixture plugin quotes every value it writes with double quotes.
+  const exact = new RegExp(`"${value}"`, "g");
+  return deadline(
+    (async () => {
+      for (;;) {
+        const code = await events.next(label);
+        if ((code.match(exact) ?? []).length === consumers) return code;
+      }
+    })(),
+    label,
+  );
+}

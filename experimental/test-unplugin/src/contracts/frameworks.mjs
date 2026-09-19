@@ -4,7 +4,14 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
-import { deadline, eventually, fixture, workspace, write } from "./common.mjs";
+import {
+  deadline,
+  eventually,
+  fixture,
+  workspace,
+  write,
+  writeRaceLoader,
+} from "./common.mjs";
 
 /** Drive both of Next's real development compilers through HTTP requests. */
 export async function nextContract(bundler) {
@@ -21,30 +28,10 @@ export async function nextContract(bundler) {
       'export default function Page() { return <p data-contract="value">{[value, value1, value2, value3].join("|")}</p>; }',
     ].join("\n"),
   );
-  // A loader that runs after ttsc in the rule's chain, the one place a public
-  // API reaches between ttsc returning a module and Turbopack taking its
-  // dependencies (samchon/ttsc#1423). It rewrites the contract input when the
-  // module it receives carries a `LATE_RACE_` value.
-  write(
-    project.root,
-    "race-loader.cjs",
-    [
-      'const fs = require("node:fs");',
-      'const path = require("node:path");',
-      "module.exports = function raceLoader(source) {",
-      '  const match = /"LATE_RACE_([A-Z]+)"/.exec(source);',
-      "  if (match !== null) {",
-      '    const input = path.join(this.rootContext, "src", "contract-input.server.ts");',
-      '    const edited = "export type ContractInput = " + JSON.stringify(match[1]) + ";" + String.fromCharCode(10);',
-      '    if (fs.readFileSync(input, "utf8") !== edited) fs.writeFileSync(input, edited);',
-      "  }",
-      "  return source;",
-      "};",
-    ].join("\n"),
-  );
+  // The race loader runs after ttsc in the rule's chain (samchon/ttsc#1423).
   const rules = {
     "*.ts": {
-      loaders: [{ loader: `${project.root}/race-loader.cjs`, options: {} }],
+      loaders: [{ loader: writeRaceLoader(project.root), options: {} }],
     },
   };
   write(
@@ -252,6 +239,19 @@ export async function nextContract(bundler) {
         read,
         (html) => hasValues(html, "SIXTH"),
         "Next turbopack edit landing after the loader returned",
+      );
+      // The same window, for an input the module depends on for the first
+      // time, which Turbopack has never watched before.
+      write(
+        project.root,
+        "src/newer-input.server.ts",
+        'export type ContractInput = "LATE_RACE_SEVENTH";\n',
+      );
+      project.change("FROM_NEWER");
+      await eventually(
+        read,
+        (html) => hasValues(html, "SEVENTH"),
+        "Next turbopack edit landing after the loader returned, to a new input",
       );
     }
   } catch (error) {
