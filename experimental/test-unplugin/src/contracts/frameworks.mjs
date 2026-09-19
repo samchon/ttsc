@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
+import fs from "node:fs";
 import { createRequire } from "node:module";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
@@ -181,12 +183,25 @@ export async function nextContract(bundler) {
       `Next ${bundler} failed rebuild`,
     );
     beforeUpdate = completedBuilds.length;
+    const runsBeforeRepair = project.runs();
+    const sentinelsBeforeRepair = sentinelStates(project.root);
     project.change("THIRD");
-    await eventually(
-      read,
-      (html) => hasValues(html, "THIRD"),
-      `Next ${bundler} recovered rebuild`,
-    );
+    try {
+      await eventually(
+        read,
+        (html) => hasValues(html, "THIRD"),
+        `Next ${bundler} recovered rebuild`,
+      );
+    } catch (error) {
+      // Name what moved after the repair: whether the compile ran again, and
+      // whether the bridge rewrote each module's sentinel (samchon/ttsc#1442).
+      throw new Error(
+        `${error.message}
+compiles before repair ${runsBeforeRepair}, after ${project.runs()}
+sentinels before ${JSON.stringify(sentinelsBeforeRepair)}
+sentinels after ${JSON.stringify(sentinelStates(project.root))}`,
+      );
+    }
     await completed(beforeUpdate);
     const recovered = project.runs();
     assert.ok(recovered > changed);
@@ -331,4 +346,29 @@ function pageError(html) {
   } catch {
     return undefined;
   }
+}
+
+/** Each bridge sentinel below the project's tool cache, with its contents. */
+function sentinelStates(root) {
+  const cache = path.join(root, "node_modules", ".cache", "ttsc");
+  const states = {};
+  let directories = [];
+  try {
+    directories = fs.readdirSync(cache);
+  } catch {
+    return states;
+  }
+  for (const directory of directories) {
+    if (!directory.startsWith("ttsc-watch-bridge-")) continue;
+    const full = path.join(cache, directory);
+    for (const name of fs.readdirSync(full)) {
+      if (!name.endsWith(".signal")) continue;
+      const file = path.join(full, name);
+      states[`${directory}/${name}`] = {
+        contents: fs.readFileSync(file, "utf8"),
+        mtime: fs.statSync(file).mtimeMs,
+      };
+    }
+  }
+  return states;
 }
