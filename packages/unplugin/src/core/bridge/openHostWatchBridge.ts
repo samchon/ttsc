@@ -40,7 +40,8 @@ import { sweepAbandonedWatchBridges } from "./sweepAbandonedWatchBridges";
  *   acknowledged. Turbopack takes a dependency's state only when the loader
  *   returns, as its baseline, so a sentinel rewritten before then is part of
  *   that baseline and signals nothing (samchon/ttsc#1423). Repeating with a
- *   growing delay lands one rewrite after the baseline. A host that compares
+ *   growing delay, until the importer is acknowledged, lands a rewrite after
+ *   the baseline however late the host takes it. A host that compares
  *   timestamps, as webpack does, or that watches the sentinel from before the
  *   rewrite hears the first one, and a second would only rebuild again.
  */
@@ -84,10 +85,10 @@ export function openHostWatchBridge(
       // pass still re-proves the generation against the filesystem.
     }
   };
-  // The rewrites still owed to each importer, until it is acknowledged.
-  const pending = new Map<string, NodeJS.Timeout[]>();
+  // The next rewrite owed to each importer, until it is acknowledged.
+  const pending = new Map<string, NodeJS.Timeout>();
   const settle = (importer: string): void => {
-    for (const timer of pending.get(importer) ?? []) clearTimeout(timer);
+    clearTimeout(pending.get(importer));
     pending.delete(importer);
   };
   // Each importer's latest run, recorded where every worker the same host
@@ -135,18 +136,23 @@ export function openHostWatchBridge(
     if (pending.has(importer)) return;
     // A run that starts after this read reads the change being signalled.
     const run = readRun(importer);
-    const timers = SIGNAL_DELAYS_MS.map((delay, index) =>
-      setTimeout(() => {
-        if (pending.get(importer) !== timers) return;
+    // Each rewrite waits four times as long as the one before, without end:
+    // however late the host takes its baseline, a later rewrite lands after
+    // it, and an importer the host never runs again costs a number of rewrites
+    // that grows only with the logarithm of the time it stays stale.
+    const rewriteAfter = (delay: number): void => {
+      const timer = setTimeout(() => {
+        if (pending.get(importer) !== timer) return;
         if (readRun(importer) !== run) {
           settle(importer);
           return;
         }
         writeSentinel(importer);
-        if (index === SIGNAL_DELAYS_MS.length - 1) pending.delete(importer);
-      }, delay).unref(),
-    );
-    pending.set(importer, timers);
+        rewriteAfter(Math.min(delay * 4, MAX_TIMER_DELAY_MS));
+      }, delay).unref();
+      pending.set(importer, timer);
+    };
+    rewriteAfter(FIRST_SIGNAL_DELAY_MS);
   };
   watch.attach({
     config: { root },
@@ -193,9 +199,11 @@ function nameOf(importer: string): string {
 }
 
 /**
- * When a confirmed signal rewrites the sentinel, in milliseconds after the
- * signal. The first waits long enough for a host whose own watcher heard the
- * same change to acknowledge the importer, and the last long after any host has
- * taken the baseline of a loader that has returned.
+ * How long a confirmed signal waits before its first rewrite, in milliseconds:
+ * long enough for a host whose own watcher heard the same change to start the
+ * importer again, which acknowledges it before any rewrite.
  */
-const SIGNAL_DELAYS_MS = [50, 250, 1_000, 4_000, 16_000];
+const FIRST_SIGNAL_DELAY_MS = 50;
+
+/** The longest delay a Node timer takes as given, in milliseconds. */
+const MAX_TIMER_DELAY_MS = 2 ** 31 - 1;
