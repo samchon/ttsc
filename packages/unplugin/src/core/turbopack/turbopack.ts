@@ -17,6 +17,7 @@ import type { TtscWatchInput } from "../transform/watch/TtscWatchInput";
 import type { TtscTurbopackLoaderContext } from "./TtscTurbopackLoaderContext";
 import { resolveTurbopackRoot } from "./resolveTurbopackRoot";
 import { turbopackProcessMarker } from "./turbopackProcessMarker";
+import { warnUntrackedTurbopackInputs } from "./warnUntrackedTurbopackInputs";
 
 /**
  * Per-process transform cache. Turbopack runs loaders in a worker pool and
@@ -171,7 +172,13 @@ export function turbopack(
               },
               // A result Turbopack persists cannot be proven without the inputs
               // it could not track, so a later process re-runs the module.
-              untracked: () => addDependency(turbopackProcessMarker(toolCache)),
+              untracked: () => {
+                addDependency(turbopackProcessMarker(toolCache));
+                warnUntrackedTurbopackInputs(
+                  projectRoot,
+                  loaderOptions.turbopackRoots,
+                );
+              },
             }),
           // Only a development session's bridge observes the root files; a
           // one-shot build has no channel for them (samchon/ttsc#1419).
