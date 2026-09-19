@@ -11,6 +11,8 @@ import (
   "io"
   "os"
   "path/filepath"
+  "strconv"
+  "strings"
   "testing"
   "time"
 
@@ -306,5 +308,59 @@ func TestDispatchMapsEventsAsLibuvDoes(t *testing.T) {
   }
   if len(h.watches) != 0 || len(h.descriptors) != 0 {
     t.Fatalf("an ended watch is forgotten: %v %v", h.watches, h.descriptors)
+  }
+}
+
+// A real kernel overflow: an instance nobody reads fills past
+// fs.inotify.max_queued_events, the kernel drops the rest and queues one
+// IN_Q_OVERFLOW event, and the helper's own read and decode report it.
+func TestReportsARealKernelOverflow(t *testing.T) {
+  setting, err := os.ReadFile("/proc/sys/fs/inotify/max_queued_events")
+  if err != nil {
+    t.Fatalf("read the queue limit: %v", err)
+  }
+  limit, err := strconv.Atoi(strings.TrimSpace(string(setting)))
+  if err != nil {
+    t.Fatalf("parse the queue limit %q: %v", setting, err)
+  }
+  if limit > 1<<20 {
+    t.Skipf("fs.inotify.max_queued_events is %d; filling it would take too long", limit)
+  }
+  fd, err := unix.InotifyInit1(unix.IN_NONBLOCK | unix.IN_CLOEXEC)
+  if err != nil {
+    t.Fatal(err)
+  }
+  defer unix.Close(fd)
+  root := t.TempDir()
+  wd, err := unix.InotifyAddWatch(fd, root, watchMask)
+  if err != nil {
+    t.Fatal(err)
+  }
+  var out bytes.Buffer
+  h := newHelper(fd, &out)
+  h.watches[int32(wd)] = map[int64]struct{}{1: {}}
+  h.descriptors[1] = int32(wd)
+  // Each creation queues one event under its own name, so none coalesce.
+  for index := 0; index <= limit; index++ {
+    file, err := os.Create(filepath.Join(root, fmt.Sprintf("f%06d", index)))
+    if err != nil {
+      t.Fatal(err)
+    }
+    file.Close()
+  }
+  if err := h.drain(); err != nil {
+    t.Fatal(err)
+  }
+  h.out.Flush()
+  overflowed := false
+  for _, line := range bytes.Split(bytes.TrimSpace(out.Bytes()), []byte("\n")) {
+    var response Response
+    if err := json.Unmarshal(line, &response); err != nil {
+      t.Fatal(err)
+    }
+    overflowed = overflowed || response.Overflow
+  }
+  if !overflowed {
+    t.Fatalf("no overflow reported after %d creations", limit+1)
   }
 }
