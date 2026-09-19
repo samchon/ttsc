@@ -92,6 +92,9 @@ export async function test_linux_watch_helper_keeps_every_watch_honest(): Promis
       "an overflow is a mutation for every tracker",
     );
 
+    // An idle helper is unreferenced so it never keeps a host alive; the
+    // scenario holds it while it waits for the exit it caused.
+    helper.child.ref();
     const exited = new Promise((resolve) => helper.child.once("exit", resolve));
     helper.child.kill();
     await exited;
