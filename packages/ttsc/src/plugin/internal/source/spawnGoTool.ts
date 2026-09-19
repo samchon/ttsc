@@ -7,6 +7,7 @@ import {
 import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import util from "node:util";
 
 import { captureProcessOutput } from "../../../compiler/internal/captureProcessOutput";
 import { spawnSyncResilient } from "../../../internal/spawnSyncResilient";
@@ -79,8 +80,11 @@ function spawnGoToolProcess(
   }
   // Preserve the native spawn ENOENT contract before cmd.exe becomes the
   // actual child process. The callers use that code for the install guidance.
+  // The wrapper is known to be missing, so nothing is spawned: Node refuses to
+  // launch a `.cmd` or `.bat` without a shell (CVE-2024-27980) and answers
+  // EINVAL, which would hide that the file does not exist.
   if (resolved.location === null) {
-    return spawnSync(goBinary, [...args], options);
+    return missingGoTool(goBinary, args);
   }
   const shim = createWindowsGoCommandShim([resolved.location, ...args]);
   return spawnSync(
@@ -96,6 +100,41 @@ function spawnGoToolProcess(
       windowsVerbatimArguments: true,
     },
   );
+}
+
+/**
+ * The result Node's `spawnSync` returns for an executable that does not exist:
+ * no process, and an ENOENT error carrying the platform's own errno, syscall,
+ * path, and arguments.
+ */
+function missingGoTool(
+  goBinary: string,
+  args: readonly string[],
+): ReturnType<typeof spawnSync> {
+  const error = Object.assign(new Error(`spawnSync ${goBinary} ENOENT`), {
+    code: "ENOENT",
+    errno: systemErrno("ENOENT"),
+    path: goBinary,
+    spawnargs: [...args],
+    syscall: `spawnSync ${goBinary}`,
+  });
+  return {
+    error,
+    output: [null, "", ""],
+    pid: 0,
+    signal: null,
+    status: null,
+    stderr: "",
+    stdout: "",
+  };
+}
+
+/** The platform errno Node reports for the named system error. */
+function systemErrno(name: string): number | undefined {
+  for (const [errno, [errorName]] of util.getSystemErrorMap()) {
+    if (errorName === name) return errno;
+  }
+  return undefined;
 }
 
 function spawnWorkingDirectory(
