@@ -14,10 +14,13 @@ import type { TtscProjectMutationTracker } from "../TtscProjectMutationTracker";
 export interface WatchBroker {
   /** The isolated watch process; unreferenced whenever no reply is outstanding. */
   child: ChildProcess;
-  /** Round-trips awaiting the child's reply, by request id. */
-  drains: Map<number, () => void>;
+  /**
+   * Round-trips awaiting the child's reply, by request id, each released with
+   * whether the child answered it.
+   */
+  drains: Map<number, (answered: boolean) => void>;
   /** The acknowledgement currently in flight, shared by every waiter. */
-  draining?: Promise<void>;
+  draining?: Promise<boolean>;
   /** Next request id, shared by registrations and drains. */
   nextId: number;
   /**

@@ -61,7 +61,7 @@ export function getWatchBroker(): WatchBroker {
     // A broker that died answers no round-trip. Release every waiter instead of
     // stalling the deliveries behind them; their trackers are failed now, so
     // validation falls back to proving the generation from its own state.
-    for (const release of broker.drains.values()) release();
+    for (const release of broker.drains.values()) release(false);
     broker.drains.clear();
     if (WATCH_BROKER.current === broker) {
       WATCH_BROKER.current = undefined;

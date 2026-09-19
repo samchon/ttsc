@@ -56,7 +56,7 @@ export function routeWatchBrokerMessage(
   if (record.drained === true) {
     const release = broker.drains.get(record.id);
     broker.drains.delete(record.id);
-    release?.();
+    release?.(true);
     return;
   }
   const registration = broker.trackers.get(record.id);
