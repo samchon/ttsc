@@ -34,7 +34,10 @@ import type { HostWatchBridge } from "./HostWatchBridge";
  * A webpack or Rspack watcher can also be configured to skip paths, and Rspack
  * skips `node_modules` by default. An input the host skips keeps its channel,
  * so the host's cache snapshots still record it, and goes to the bridge as
- * well, which is what observes it.
+ * well, which is what observes it. The Turbopack loader hands the bridge every
+ * input this way, since Turbopack takes an input's state as its baseline only
+ * when it processes the loader's result, and a change before then is part of
+ * that baseline (samchon/ttsc#1423).
  *
  * A directory observed only to exist is never registered. The compiler consults
  * it to gate descendant probes, and each of those is registered in its own

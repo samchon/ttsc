@@ -130,10 +130,17 @@ export function turbopack(
     TURBOPACK_ROOTS.set(rootKey, turbopackRoot);
   }
   const resolvedRoot = turbopackRoot;
-  const bridgeStartedAt =
-    watching && addDependency !== undefined
-      ? (bridge ??= openHostWatchBridge(projectRoot, {}, toolCache)).begin()
-      : undefined;
+  // Turbopack takes a dependency's state as its baseline only when the loader
+  // returns, so a change landing before then never re-runs the module
+  // (samchon/ttsc#1423). The bridge observes every input as well, from the
+  // compile on, and rewrites a stale module's sentinel until the module runs
+  // again, which this delivery acknowledges.
+  let bridgeStartedAt: number | undefined;
+  if (watching && addDependency !== undefined) {
+    bridge ??= openHostWatchBridge(projectRoot, {}, toolCache, true);
+    bridge.acknowledge(file);
+    bridgeStartedAt = bridge.begin();
+  }
   const hooks: TtscTransformHooks = {
     ...(addDependency === undefined
       ? {}
@@ -147,6 +154,9 @@ export function turbopack(
               ...(bridge !== undefined && bridgeStartedAt !== undefined
                 ? {
                     bridge: {
+                      // Every input, since Turbopack's own channel misses a
+                      // change made before its baseline.
+                      ignores: () => true,
                       instance: bridge,
                       kinds:
                         BRIDGED_WATCH_INPUT_KINDS.recursiveDirectoryChannel,
