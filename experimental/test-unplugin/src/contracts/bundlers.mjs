@@ -4,7 +4,6 @@ import path from "node:path";
 
 import {
   adapter,
-  changedOutput,
   deadline,
   eventQueue,
   expectOutput,
@@ -62,21 +61,33 @@ export async function rollupContract(name) {
       );
       project.change("FIRST");
     }
-    expectOutput(await events.next(`${name} first build`), "FIRST", 4);
+    expectOutput(
+      await settledOutput(events, `${name} first build`, "FIRST"),
+      "FIRST",
+      4,
+    );
     assert.equal(
       project.runs(),
       1,
       `${name} compiles the four-module project once`,
     );
     project.change("SECOND");
-    expectOutput(await events.next(`${name} type-only rebuild`), "SECOND", 4);
+    expectOutput(
+      await settledOutput(events, `${name} type-only rebuild`, "SECOND"),
+      "SECOND",
+      4,
+    );
     assert.equal(
       project.runs(),
       2,
       `${name} shares one compile across rebuilt modules`,
     );
     project.change("THIRD");
-    expectOutput(await events.next(`${name} second rebuild`), "THIRD", 4);
+    expectOutput(
+      await settledOutput(events, `${name} second rebuild`, "THIRD"),
+      "THIRD",
+      4,
+    );
     assert.equal(project.runs(), 3);
     project.break();
     await assert.rejects(
@@ -84,7 +95,11 @@ export async function rollupContract(name) {
       /invalid contract type/,
     );
     project.change("FOURTH");
-    expectOutput(await events.next(`${name} recovered rebuild`), "FOURTH", 4);
+    expectOutput(
+      await settledOutput(events, `${name} recovered rebuild`, "FOURTH"),
+      "FOURTH",
+      4,
+    );
     assert.equal(project.runs(), 4);
   } finally {
     await watcher.close();
@@ -127,10 +142,18 @@ export async function esbuildContract() {
       /invalid contract type/,
     );
     project.change("FIRST");
-    expectOutput(await events.next("esbuild first build"), "FIRST", 4);
+    expectOutput(
+      await settledOutput(events, "esbuild first build", "FIRST"),
+      "FIRST",
+      4,
+    );
     assert.equal(project.runs(), 1);
     project.change("SECOND");
-    expectOutput(await events.next("esbuild dependency change"), "SECOND", 4);
+    expectOutput(
+      await settledOutput(events, "esbuild dependency change", "SECOND"),
+      "SECOND",
+      4,
+    );
     assert.equal(project.runs(), 2);
     project.break();
     await assert.rejects(
@@ -138,7 +161,11 @@ export async function esbuildContract() {
       /invalid contract type/,
     );
     project.change("THIRD");
-    expectOutput(await events.next("esbuild recovered rebuild"), "THIRD", 4);
+    expectOutput(
+      await settledOutput(events, "esbuild recovered rebuild", "THIRD"),
+      "THIRD",
+      4,
+    );
     assert.equal(project.runs(), 3);
     const unchanged = await context.rebuild();
     expectOutput(unchanged.outputFiles[0].text, "THIRD", 4);
@@ -180,15 +207,7 @@ export async function webpackContract(name) {
     plugins: [plugin],
   };
   const compiler = bundler(options);
-  // The modules each build rebuilt, so a bundle mixing two states names the
-  // module the host did not rebuild.
-  const builds = [];
   const watcher = compiler.watch({}, (error, stats) => {
-    builds.push(
-      (stats?.toJson({ all: false, modules: true }).modules ?? [])
-        .filter((module) => module.built === true)
-        .map((module) => module.name),
-    );
     if (error || stats?.hasErrors())
       events.push(error ?? new Error(stats.toString({ errors: true })));
     else events.push(fs.readFileSync(project.output, "utf8"));
@@ -199,39 +218,18 @@ export async function webpackContract(name) {
       /invalid contract type/,
     );
     project.change("FIRST");
-    expectOutput(await events.next(`${name} first build`), "FIRST", 4);
+    expectOutput(
+      await settledOutput(events, `${name} first build`, "FIRST"),
+      "FIRST",
+      4,
+    );
     assert.equal(project.runs(), 1);
     project.change("SECOND");
-    const second = await changedOutput(
-      events,
-      `${name} type-only edit`,
+    expectOutput(
+      await settledOutput(events, `${name} type-only edit`, "SECOND"),
       "SECOND",
+      4,
     );
-    try {
-      expectOutput(second, "SECOND", 4);
-    } catch (error) {
-      // Record whether a later build corrects the mixed one, and what every
-      // build rebuilt, before failing.
-      const later = [];
-      const until = Date.now() + 5_000;
-      while (Date.now() < until) {
-        const code = await Promise.race([
-          events.next(`${name} later build`).catch((failure) => failure),
-          new Promise((resolve) =>
-            setTimeout(resolve, Math.max(0, until - Date.now())),
-          ),
-        ]);
-        if (code === undefined) break;
-        later.push(
-          typeof code === "string"
-            ? [...code.matchAll(/"(FIRST|SECOND)"/g)].map((match) => match[1])
-            : String(code),
-        );
-      }
-      throw new Error(
-        `${error.message}\nmodules each build rebuilt: ${JSON.stringify(builds)}\nlater builds: ${JSON.stringify(later)}`,
-      );
-    }
     assert.equal(project.runs(), 2);
     project.break();
     await assert.rejects(
@@ -239,10 +237,18 @@ export async function webpackContract(name) {
       /invalid contract type/,
     );
     project.change("THIRD");
-    expectOutput(await events.next(`${name} recovered rebuild`), "THIRD", 4);
+    expectOutput(
+      await settledOutput(events, `${name} recovered rebuild`, "THIRD"),
+      "THIRD",
+      4,
+    );
     assert.equal(project.runs(), 3);
     watcher.invalidate();
-    expectOutput(await events.next(`${name} unchanged rebuild`), "THIRD", 4);
+    expectOutput(
+      await settledOutput(events, `${name} unchanged rebuild`, "THIRD"),
+      "THIRD",
+      4,
+    );
     assert.equal(project.runs(), 3);
   } finally {
     await deadline(

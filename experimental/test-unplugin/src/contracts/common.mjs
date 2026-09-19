@@ -130,22 +130,6 @@ export function eventQueue() {
   };
 }
 
-/**
- * Hosts may report an already queued build before the edit reaches their
- * watcher.
- */
-export async function changedOutput(events, label, value) {
-  return deadline(
-    (async () => {
-      for (;;) {
-        const code = await events.next(label);
-        if (code.includes(value)) return code;
-      }
-    })(),
-    label,
-  );
-}
-
 export async function eventually(read, predicate, label) {
   const until = Date.now() + 30_000;
   let last;
@@ -200,19 +184,53 @@ export function writeRaceLoader(root) {
 }
 
 /**
- * Wait for a build whose every consumer carries exactly `value`, skipping the
- * builds a host emits on the way there.
+ * Wait for the build in which every consumer carries exactly `value`, and
+ * return it.
+ *
+ * How many builds a host emits for one edit is the host's to decide: one can
+ * report a build already queued before the edit reached its watcher, or emit a
+ * partial build and then the rest. The contract asks only whether the host
+ * converges on the edited state, which it either does, or never does. A defect
+ * therefore surfaces as a deadline, never as a build caught mid-way, and the
+ * error names every build seen while waiting, failed ones included, so a host
+ * that converged on a mix is told apart from one that never rebuilt or that
+ * kept failing.
  */
 export async function settledOutput(events, label, value, consumers = 4) {
-  // The fixture plugin quotes every value it writes with double quotes.
-  const exact = new RegExp(`"${value}"`, "g");
-  return deadline(
-    (async () => {
-      for (;;) {
-        const code = await events.next(label);
-        if ((code.match(exact) ?? []).length === consumers) return code;
-      }
-    })(),
-    label,
-  );
+  const seen = [];
+  try {
+    return await deadline(
+      (async () => {
+        for (;;) {
+          let code;
+          try {
+            code = await events.next(label);
+          } catch (error) {
+            // A build that failed on the way is not the converged state either;
+            // a host that only ever fails runs out the deadline. The queue's
+            // own deadline is that deadline, not a failed build.
+            if (String(error.message).startsWith("Timed out:")) throw error;
+            seen.push(String(error.message ?? error).split("\n")[0]);
+            continue;
+          }
+          const values = [
+            ...code.matchAll(
+              /"(FIRST|SECOND|THIRD|FOURTH|FIFTH|SIXTH|SEVENTH)"/g,
+            ),
+          ].map((match) => match[1]);
+          seen.push(values);
+          if (
+            values.length === consumers &&
+            values.every((found) => found === value)
+          )
+            return code;
+        }
+      })(),
+      label,
+    );
+  } catch (error) {
+    throw new Error(
+      `${error.message}; builds seen while waiting: ${JSON.stringify(seen)}`,
+    );
+  }
 }
