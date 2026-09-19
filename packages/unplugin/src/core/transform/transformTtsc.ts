@@ -33,6 +33,7 @@ import { markCachedSourceServed } from "./validation/markCachedSourceServed";
 import { matchesCachedSource } from "./validation/matchesCachedSource";
 import type { TtscTransformHooks } from "./watch/TtscTransformHooks";
 import { notifyFailedGenerationInputs } from "./watch/notifyFailedGenerationInputs";
+import { notifyRejectedGenerationInputs } from "./watch/notifyRejectedGenerationInputs";
 import { notifyWatchInputs } from "./watch/notifyWatchInputs";
 import { withSelectionInputs } from "./watch/withSelectionInputs";
 
@@ -121,6 +122,7 @@ export async function transformTtsc(
             filesystem,
           })
         ) {
+          notifyRejectedGenerationInputs(hooks, terminal);
           throw terminal;
         }
         evictGeneration(cache, key, transformed);
@@ -131,7 +133,12 @@ export async function transformTtsc(
       }
     }
     if (transformed !== undefined) {
-      const cached = await awaitOrEvict(cache, key, transformed);
+      const cached = await awaitOrEvict(cache, key, transformed).catch(
+        (rejection: unknown) => {
+          notifyRejectedGenerationInputs(hooks, rejection);
+          throw rejection;
+        },
+      );
       TRANSFORM_RESULT_FILESYSTEM.set(cached.result, filesystem);
       // While this caller awaited the old Promise, another caller may have
       // invalidated it and installed a newer authoritative generation.
@@ -224,7 +231,12 @@ export async function transformTtsc(
       cache?.set(key, transformed);
     }
     const generation = transformed;
-    const cached = await awaitOrEvict(cache, key, generation);
+    const cached = await awaitOrEvict(cache, key, generation).catch(
+      (rejection: unknown) => {
+        notifyRejectedGenerationInputs(hooks, rejection);
+        throw rejection;
+      },
+    );
     if (cache !== undefined && cache.get(key) !== generation) {
       continue;
     }
