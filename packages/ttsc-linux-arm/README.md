@@ -8,7 +8,7 @@ This package is normally installed as an optional dependency of `ttsc`. Applicat
 
 Every artifact in this package targets the **ARMv6** baseline. The three executables (`bin/ttsc`, `bin/ttscserver`, `bin/ttscgraph`) are cross-compiled with `GOARM=6`, and the bundled Go SDK is the `linux-armv6l` distribution, so the executables and the SDK share one minimum ARM generation. ARMv6 code runs on later ARM generations (ARMv7, ARMv8/`arm64` in 32-bit mode), so this package supports the broad npm `arm` CPU contract rather than an ARMv7-only subset.
 
-It contains the `ttsc` platform helper, the `ttscserver` LSP wrapper, the `ttscgraph` MCP code-graph server, and the Go SDK used when `ttsc` builds Go source plugins. If your package manager skipped optional dependencies, reinstall `ttsc` with optional dependencies enabled.
+It contains the `ttsc` platform helper (which also compiles a file `ttsx` runs outside its project's file set), the `ttscserver` LSP wrapper, the `ttscgraph` MCP code-graph server, and the Go SDK used when `ttsc` builds Go source plugins. If your package manager skipped optional dependencies, reinstall `ttsc` with optional dependencies enabled.
 
 ## Package contents
 

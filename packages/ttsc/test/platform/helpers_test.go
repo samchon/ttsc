@@ -72,3 +72,30 @@ func goRunExitStatus(stderr string) (int, bool) {
   }
   return 0, false
 }
+
+// writePlatformProjectFile writes one project file below root, creating its
+// directories.
+func writePlatformProjectFile(t *testing.T, root, name, content string) {
+  t.Helper()
+  file := filepath.Join(root, filepath.FromSlash(name))
+  if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+    t.Fatal(err)
+  }
+  if err := os.WriteFile(file, []byte(content), 0o644); err != nil {
+    t.Fatal(err)
+  }
+}
+
+// directoryNames lists the entries directly inside dir.
+func directoryNames(t *testing.T, dir string) []string {
+  t.Helper()
+  entries, err := os.ReadDir(dir)
+  if err != nil {
+    t.Fatal(err)
+  }
+  names := make([]string, 0, len(entries))
+  for _, entry := range entries {
+    names = append(names, entry.Name())
+  }
+  return names
+}

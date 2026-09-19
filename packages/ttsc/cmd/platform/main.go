@@ -2,7 +2,9 @@
 //
 // The real compiler and runner commands live in the JavaScript launchers so
 // they can resolve the consuming project's `typescript` and
-// plugin descriptors. This binary only supplies version/platform metadata.
+// plugin descriptors. This binary supplies version/platform metadata and one
+// internal command, `compile-roots`, through which `ttsx` compiles a file its
+// owning project does not list (see compile_roots.go).
 package main
 
 import (
@@ -26,6 +28,7 @@ var (
   // os.Stderr patching.
   stdout io.Writer = os.Stdout
   stderr io.Writer = os.Stderr
+  getwd            = os.Getwd
 )
 
 func main() {
@@ -34,7 +37,8 @@ func main() {
 
 // run dispatches CLI arguments for the platform helper binary. With no
 // arguments it prints the help text. build/check print an explanatory error
-// directing users to the JavaScript launcher instead of failing silently.
+// directing users to the JavaScript launcher instead of failing silently, and
+// compile-roots runs ttsx's root-file compilation.
 func run(args []string) int {
   if len(args) == 0 {
     printHelp(stdout)
@@ -48,6 +52,8 @@ func run(args []string) int {
   case "-v", "--version", "version":
     printVersion(stdout)
     return 0
+  case "compile-roots":
+    return runCompileRoots(args[1:])
   case "build", "check":
     fmt.Fprintf(
       stderr,
@@ -79,12 +85,15 @@ func printHelp(w io.Writer) {
   fmt.Fprintln(w, strings.TrimSpace(`
 ttsc platform helper.
 
-This binary is a small compatibility helper shipped by @ttsc platform packages.
+This binary is a compatibility helper shipped by @ttsc platform packages.
 Compiler and runner commands are provided by the JavaScript ttsc/ttsx launchers,
 which resolve the consuming project's typescript binary and any
 plugin-selected native sidecar.
 
 Usage:
   ttsc --version
+  ttsc compile-roots -p <tsconfig> [compiler options]
+      Internal to ttsx: compile the files named in TTSC_ROOT_FILES with every
+      option of <tsconfig>, whose own file list they replace.
 `))
 }

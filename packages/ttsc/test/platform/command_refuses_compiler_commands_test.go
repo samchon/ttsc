@@ -7,9 +7,10 @@ import (
 
 // TestCommandRefusesCompilerCommands verifies build and check stay outside the helper.
 //
-// The platform package is a metadata and smoke-test binary, not the compiler
-// host. Build and check must tell callers to use the JavaScript ttsc CLI or a
-// plugin-selected sidecar instead of trying to inspect a consumer project here.
+// The platform package is not the compiler front door: its one compiling
+// command, compile-roots, serves ttsx's out-of-project files. Build and check
+// must tell callers to use the JavaScript ttsc CLI or a plugin-selected sidecar
+// instead of trying to inspect a consumer project here.
 //
 // This scenario covers both labels in the shared build/check refusal branch.
 // The diagnostic mentions typescript because that boundary is the reason these
