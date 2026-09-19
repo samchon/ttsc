@@ -1,4 +1,4 @@
-import type { TtscUnpluginOptions } from "../options/TtscUnpluginOptions";
+import type { TtscTurbopackLoaderOptions } from "./TtscTurbopackLoaderOptions";
 
 /**
  * Subset of the webpack loader context Turbopack provides to loaders wired
@@ -21,7 +21,7 @@ export interface TtscTurbopackLoaderContext {
    */
   rootContext?: string;
   /** The rule's `options` object, when one was configured. */
-  getOptions?(): TtscUnpluginOptions | undefined;
+  getOptions?(): TtscTurbopackLoaderOptions | undefined;
   /**
    * Register an additional file the transformed module depends on. Part of the
    * webpack loader context contract Turbopack implements; a registered file

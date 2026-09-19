@@ -40,6 +40,13 @@ import type { HostWatchBridge } from "./HostWatchBridge";
  * it to gate descendant probes, and each of those is registered in its own
  * right. The project's root-file membership is registered only with a bridge
  * (samchon/ttsc#1419).
+ *
+ * A host's channel can also refuse a path outright: Turbopack fails a module
+ * whose dependency lies outside its project filesystem root
+ * (samchon/ttsc#1422). Such an input never reaches the channel. A watching
+ * session's bridge observes it instead, and `untracked` tells the caller the
+ * host is now missing an input, so the caller can make the host re-run the
+ * module in a later process instead of reusing a result it cannot prove.
  */
 export function registerBuildWatchInputs(props: {
   /** The host's own file channel. */
@@ -66,12 +73,23 @@ export function registerBuildWatchInputs(props: {
   inputs: readonly TtscWatchInput[];
   /** A webpack, Rspack, or Turbopack loader's typed channels. */
   loader?: {
+    /**
+     * Whether the channels accept a path at all. Absent, they accept every
+     * path.
+     */
+    accepts?(input: string): boolean;
     addContextDependency(input: string): void;
     addDependency(input: string): void;
     addMissingDependency(input: string): void;
   };
+  /**
+   * Called once when an input the channels refuse was left out of them, after
+   * every accepted input is registered.
+   */
+  untracked?: () => void;
 }): void {
   const bridged: TtscWatchInput[] = [];
+  let untracked = false;
   const addFile =
     props.loader?.addDependency.bind(props.loader) ?? props.addWatchFile;
   for (const input of props.inputs) {
@@ -85,6 +103,11 @@ export function registerBuildWatchInputs(props: {
     // directory channel is recursive, so handing it the project's directories
     // would invalidate every module on any edit below them.
     if (kind === "membership") continue;
+    if (props.loader?.accepts?.(input.file) === false) {
+      if (props.bridge !== undefined) bridged.push(input);
+      untracked = true;
+      continue;
+    }
     // A path the host's watcher skips still goes to its channel, which keeps
     // it in the host's cache snapshots, and to the bridge, which observes it.
     if (props.bridge?.ignores?.(input.file) === true) bridged.push(input);
@@ -102,4 +125,5 @@ export function registerBuildWatchInputs(props: {
     props.bridge.startedAt,
   );
   if (sentinel !== undefined) addFile(sentinel);
+  if (untracked) props.untracked?.();
 }
