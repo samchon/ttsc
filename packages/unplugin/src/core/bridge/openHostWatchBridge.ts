@@ -180,7 +180,6 @@ export function openHostWatchBridge(
       if (!fs.existsSync(sentinel)) fs.writeFileSync(sentinel, "0");
       return sentinel;
     },
-    signal,
   };
 }
 

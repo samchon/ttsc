@@ -95,7 +95,6 @@ export async function test_turbopack_dependencies_stay_inside_its_root(): Promis
         bridged.push(...handed.map((input) => input.file));
         return path.join(project, "node_modules", ".cache", "main.signal");
       },
-      signal: () => undefined,
     };
     registerBuildWatchInputs({
       addWatchFile: (file) => channel.push(file),

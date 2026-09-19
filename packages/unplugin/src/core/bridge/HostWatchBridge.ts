@@ -37,10 +37,4 @@ export interface HostWatchBridge {
     failed?: boolean,
     startedAt?: number,
   ): string | undefined;
-  /**
-   * Tell the host an importer's delivered output is stale by rewriting its
-   * sentinel. A bridge opened to confirm delivery keeps rewriting it, with a
-   * growing delay, until the importer is acknowledged.
-   */
-  signal(importer: string): void;
 }

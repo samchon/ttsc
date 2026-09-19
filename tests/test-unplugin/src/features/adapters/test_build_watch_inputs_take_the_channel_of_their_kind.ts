@@ -117,7 +117,6 @@ export async function test_build_watch_inputs_take_the_channel_of_their_kind(): 
       bridged.push(...registered.map((input) => input.file));
       return "/tmp/bridge/main.signal";
     },
-    signal: () => undefined,
   };
   const watching = loaderChannels();
   registerBuildWatchInputs({
