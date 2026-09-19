@@ -146,7 +146,10 @@ func TestSharedDescriptorsAndRemoval(t *testing.T) {
     t.Fatalf("modification: %+v", modified)
   }
 
+  // Requests are served in order, so once this sync is answered the removal
+  // has been applied, and the deletion below reaches only subscription 2.
   s.send(Request{Op: "remove", ID: 1})
+  s.sync(150)
   if err := os.Remove(file); err != nil {
     t.Fatal(err)
   }
