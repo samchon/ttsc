@@ -270,8 +270,23 @@ func (p *Program) Close() error {
 //
 // cliOptions is a CompilerOptions overlay (from forwarded `tsgo` CLI flags);
 // TypeScript-Go merges its non-zero fields over the tsconfig so the CLI wins,
-// the same precedence tsgo's own command line uses. Pass nil for none.
+// the same precedence tsgo's own command line uses. Pass nil for none. A
+// struct cannot carry a reset such as `--declarationDir null`; LoadProgram
+// parses forwarded flags itself and merges them with their raw options.
 func ParseTSConfig(fs vfs.FS, cwd, tsconfigPath string, host shimcompiler.CompilerHost, cliOptions *core.CompilerOptions) (*tsoptions.ParsedCommandLine, []Diagnostic, error) {
+  return parseTSConfig(fs, cwd, tsconfigPath, host, cliOptions, nil)
+}
+
+// parseTSConfig is ParseTSConfig with the parsed forwarded command line, when
+// there is one, beside its merged options.
+//
+// TypeScript-Go's own command line hands the config merge both the parsed
+// CompilerOptions and the options the command line spelled out. The raw half
+// is what carries a reset: `--declarationDir null` leaves the parsed field at
+// its zero value, which the merge reads as "not given", so without it the
+// config's own location survives. ttsc forwards exactly these resets to keep a
+// private build's outputs in one directory (`isolatedTsgoOutputArgs`).
+func parseTSConfig(fs vfs.FS, cwd, tsconfigPath string, host shimcompiler.CompilerHost, cliOptions *core.CompilerOptions, commandLine *tsoptions.ParsedCommandLine) (*tsoptions.ParsedCommandLine, []Diagnostic, error) {
   resolved := tspath.ResolvePath(cwd, tsconfigPath)
   if !fs.FileExists(resolved) {
     return nil, nil, fmt.Errorf("tsconfig not found: %s", resolved)
@@ -279,7 +294,7 @@ func ParseTSConfig(fs vfs.FS, cwd, tsconfigPath string, host shimcompiler.Compil
   if cliOptions == nil {
     cliOptions = &core.CompilerOptions{}
   }
-  parsed, diags := tsoptions.GetParsedCommandLineOfConfigFile(resolved, cliOptions, nil, host, nil)
+  parsed, diags := tsoptions.GetParsedCommandLineOfConfigFile(resolved, cliOptions, tsoptions.CommandLineRawOptions(commandLine), host, nil)
   allDiags := append(diags, parsed.Errors...)
   if len(allDiags) > 0 {
     return nil, convertDiagnostics(allDiags), nil
@@ -305,11 +320,12 @@ func resolveTsgoArgs(explicit []string) ([]string, error) {
 }
 
 // parseTsgoArgs runs forwarded tsgo CLI flags through TypeScript-Go's own
-// command-line parser, yielding a CompilerOptions overlay ParseTSConfig merges
-// over the tsconfig. This is how a plugin build — which constructs its Program
-// in-process rather than shelling out to `tsgo` — still honors flags like
-// `ttsc --strict`. Returns (nil, nil, nil) when there are no forwarded flags.
-func parseTsgoArgs(args []string, host shimcompiler.CompilerHost) (*core.CompilerOptions, []Diagnostic, error) {
+// command-line parser, yielding the parsed command line whose options
+// parseTSConfig merges over the tsconfig. This is how a plugin build — which
+// constructs its Program in-process rather than shelling out to `tsgo` — still
+// honors flags like `ttsc --strict`. Returns (nil, nil, nil) when there are no
+// forwarded flags.
+func parseTsgoArgs(args []string, host shimcompiler.CompilerHost) (*tsoptions.ParsedCommandLine, []Diagnostic, error) {
   if len(args) == 0 {
     return nil, nil, nil
   }
@@ -320,7 +336,7 @@ func parseTsgoArgs(args []string, host shimcompiler.CompilerHost) (*core.Compile
   if len(cli.Errors) > 0 {
     return nil, convertDiagnostics(cli.Errors), nil
   }
-  return cli.CompilerOptions(), nil, nil
+  return cli, nil, nil
 }
 
 // CreateProgramFromConfig builds a tsgo Program from the parsed config.
@@ -412,7 +428,7 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
   if err != nil {
     return nil, nil, err
   }
-  cliOptions, cliDiags, err := parseTsgoArgs(tsgoArgs, host)
+  commandLine, cliDiags, err := parseTsgoArgs(tsgoArgs, host)
   if err != nil {
     return nil, nil, err
   }
@@ -420,7 +436,7 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
     return nil, cliDiags, nil
   }
 
-  parsed, diags, err := ParseTSConfig(fs, cwd, tsconfigPath, host, cliOptions)
+  parsed, diags, err := parseTSConfig(fs, cwd, tsconfigPath, host, commandLine.CompilerOptions(), commandLine)
   if err != nil {
     return nil, nil, err
   }

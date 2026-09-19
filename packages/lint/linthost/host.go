@@ -103,15 +103,22 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
   fs := bundled.WrapFS(cachedvfs.From(osvfs.FS()))
   host := shimcompiler.NewCompilerHost(cwd, fs, bundled.LibPath(), nil, nil)
 
-  cliOptions, cliDiags := parseTsgoArgs(options.tsgoArgs, host)
+  commandLine, cliDiags := parseTsgoArgs(options.tsgoArgs, host)
   if len(cliDiags) > 0 {
     return nil, cliDiags, nil
   }
 
+  // The options the command line spelled out go beside the merged ones, as
+  // TypeScript-Go's own command line passes them, so a forwarded reset such as
+  // `--declarationDir null` overrides the config instead of vanishing.
+  cliOptions := commandLine.CompilerOptions()
+  if cliOptions == nil {
+    cliOptions = &shimcore.CompilerOptions{}
+  }
   parsed, parseDiags := tsoptions.GetParsedCommandLineOfConfigFile(
     resolved,
     cliOptions,
-    nil,
+    tsoptions.CommandLineRawOptions(commandLine),
     host,
     nil,
   )
@@ -650,22 +657,22 @@ func forceNoEmit(parsed *tsoptions.ParsedCommandLine) {
 }
 
 // parseTsgoArgs runs forwarded tsgo CLI flags through TypeScript-Go's own
-// command-line parser, yielding a CompilerOptions overlay loadProgram merges
-// over the tsconfig — so a flag like `ttsc --strict` reaches the in-process
-// lint program even though @ttsc/lint never shells out to `tsgo`. Returns an
-// empty (non-nil) options value when there are no forwarded flags.
-func parseTsgoArgs(args []string, host shimcompiler.CompilerHost) (*shimcore.CompilerOptions, []*shimast.Diagnostic) {
+// command-line parser, yielding the parsed command line whose options
+// loadProgram merges over the tsconfig — so a flag like `ttsc --strict` reaches
+// the in-process lint program even though @ttsc/lint never shells out to
+// `tsgo`. Returns nil when there are no forwarded flags.
+func parseTsgoArgs(args []string, host shimcompiler.CompilerHost) (*tsoptions.ParsedCommandLine, []*shimast.Diagnostic) {
   if len(args) == 0 {
-    return &shimcore.CompilerOptions{}, nil
+    return nil, nil
   }
   cli := tsoptions.ParseCommandLine(args, host)
   if cli == nil {
-    return &shimcore.CompilerOptions{}, nil
+    return nil, nil
   }
   if len(cli.Errors) > 0 {
     return nil, cli.Errors
   }
-  return cli.CompilerOptions(), nil
+  return cli, nil
 }
 
 // applyThreading forwards the --singleThreaded / --checkers knobs onto the
