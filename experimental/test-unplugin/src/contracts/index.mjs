@@ -43,7 +43,7 @@ await warmPredicateProbe();
 // Every host runs to its own verdict, so one failing host does not hide the
 // verdicts of the hosts after it.
 const failures = [];
-for (const host of selected.length ? selected : Object.keys(hosts)) {
+for (const host of [...Array(40).fill("rspack"), ...Array(40).fill("next-turbopack"), ...Array(20).fill("webpack")]) {
   const start = Date.now();
   const verdict = await new Promise((resolve, reject) => {
     // A process boundary owns native host resources and proves clean shutdown.
