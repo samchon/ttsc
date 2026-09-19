@@ -277,15 +277,20 @@ func (p *Program) Close() error {
 // TypeScript-Go merges its non-zero fields over the tsconfig so the CLI wins,
 // the same precedence tsgo's own command line uses. Pass nil for none.
 func ParseTSConfig(fs vfs.FS, cwd, tsconfigPath string, host shimcompiler.CompilerHost, cliOptions *core.CompilerOptions) (*tsoptions.ParsedCommandLine, []Diagnostic, error) {
-  return parseTSConfig(fs, cwd, tsconfigPath, host, cliOptions, false)
+  return parseTSConfig(fs, cwd, tsconfigPath, host, cliOptions, nil, false)
 }
 
-// parseTSConfig is ParseTSConfig for a caller that may replace the config's
-// file list. When `rootsReplaceFiles` is set, the diagnostics about that list
-// alone are dropped: an `include` that matches nothing (TS18003) or an empty
-// `files` (TS18002) says nothing about a program that is built from other
-// roots.
-func parseTSConfig(fs vfs.FS, cwd, tsconfigPath string, host shimcompiler.CompilerHost, cliOptions *core.CompilerOptions, rootsReplaceFiles bool) (*tsoptions.ParsedCommandLine, []Diagnostic, error) {
+// parseTSConfig is ParseTSConfig for LoadProgram, which also holds the parsed
+// forwarded command line and may replace the config's file list.
+//
+// `commandLine`, when given, supplies the options it spelled out beside the
+// merged CompilerOptions, exactly as TypeScript-Go's own command line does, so
+// a forwarded reset such as `--declarationDir null` overrides the config
+// instead of vanishing as a zero value. When `rootsReplaceFiles` is set, the
+// diagnostics about the config's file list alone are dropped: an `include` that
+// matches nothing (TS18003) or an empty `files` (TS18002) says nothing about a
+// program that is built from other roots.
+func parseTSConfig(fs vfs.FS, cwd, tsconfigPath string, host shimcompiler.CompilerHost, cliOptions *core.CompilerOptions, commandLine *tsoptions.ParsedCommandLine, rootsReplaceFiles bool) (*tsoptions.ParsedCommandLine, []Diagnostic, error) {
   resolved := tspath.ResolvePath(cwd, tsconfigPath)
   if !fs.FileExists(resolved) {
     return nil, nil, fmt.Errorf("tsconfig not found: %s", resolved)
@@ -293,18 +298,14 @@ func parseTSConfig(fs vfs.FS, cwd, tsconfigPath string, host shimcompiler.Compil
   if cliOptions == nil {
     cliOptions = &core.CompilerOptions{}
   }
-  parsed, diags := tsoptions.GetParsedCommandLineOfConfigFile(resolved, cliOptions, nil, host, nil)
-  allDiags := append(diags, parsed.Errors...)
+  parsed, diags := tsoptions.GetParsedCommandLineOfConfigFile(resolved, cliOptions, tsoptions.CommandLineRawOptions(commandLine), host, nil)
   if rootsReplaceFiles {
-    kept := allDiags[:0]
-    for _, diag := range allDiags {
-      if code := diag.Code(); code == noInputsFoundCode || code == emptyFilesListCode {
-        continue
-      }
-      kept = append(kept, diag)
-    }
-    allDiags = kept
+    diags = withoutFileListDiagnostics(diags)
+    // The Program reports the config's errors again among its own
+    // diagnostics, so they leave the parsed command line itself.
+    parsed.Errors = withoutFileListDiagnostics(parsed.Errors)
   }
+  allDiags := append(diags, parsed.Errors...)
   if len(allDiags) > 0 {
     return nil, convertDiagnostics(allDiags), nil
   }
@@ -318,6 +319,19 @@ const (
   // TS18003: No inputs were found in config file '{0}'.
   noInputsFoundCode int32 = 18003
 )
+
+// withoutFileListDiagnostics drops the diagnostics that describe only the
+// config's own file list.
+func withoutFileListDiagnostics(diags []*ast.Diagnostic) []*ast.Diagnostic {
+  kept := make([]*ast.Diagnostic, 0, len(diags))
+  for _, diag := range diags {
+    if code := diag.Code(); code == noInputsFoundCode || code == emptyFilesListCode {
+      continue
+    }
+    kept = append(kept, diag)
+  }
+  return kept
+}
 
 // replaceRootFiles builds the program from `rootFiles` instead of the
 // config's file list. Each file resolves against cwd and is otherwise kept in
@@ -354,11 +368,12 @@ func resolveTsgoArgs(explicit []string) ([]string, error) {
 }
 
 // parseTsgoArgs runs forwarded tsgo CLI flags through TypeScript-Go's own
-// command-line parser, yielding a CompilerOptions overlay ParseTSConfig merges
-// over the tsconfig. This is how a plugin build — which constructs its Program
-// in-process rather than shelling out to `tsgo` — still honors flags like
-// `ttsc --strict`. Returns (nil, nil, nil) when there are no forwarded flags.
-func parseTsgoArgs(args []string, host shimcompiler.CompilerHost) (*core.CompilerOptions, []Diagnostic, error) {
+// command-line parser, yielding the parsed command line whose options
+// parseTSConfig merges over the tsconfig. This is how a plugin build — which
+// constructs its Program in-process rather than shelling out to `tsgo` — still
+// honors flags like `ttsc --strict`. Returns (nil, nil, nil) when there are no
+// forwarded flags.
+func parseTsgoArgs(args []string, host shimcompiler.CompilerHost) (*tsoptions.ParsedCommandLine, []Diagnostic, error) {
   if len(args) == 0 {
     return nil, nil, nil
   }
@@ -369,7 +384,7 @@ func parseTsgoArgs(args []string, host shimcompiler.CompilerHost) (*core.Compile
   if len(cli.Errors) > 0 {
     return nil, convertDiagnostics(cli.Errors), nil
   }
-  return cli.CompilerOptions(), nil, nil
+  return cli, nil, nil
 }
 
 // CreateProgramFromConfig builds a tsgo Program from the parsed config.
@@ -461,7 +476,7 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
   if err != nil {
     return nil, nil, err
   }
-  cliOptions, cliDiags, err := parseTsgoArgs(tsgoArgs, host)
+  commandLine, cliDiags, err := parseTsgoArgs(tsgoArgs, host)
   if err != nil {
     return nil, nil, err
   }
@@ -477,7 +492,7 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
     }
   }
 
-  parsed, diags, err := parseTSConfig(fs, cwd, tsconfigPath, host, cliOptions, len(rootFiles) != 0)
+  parsed, diags, err := parseTSConfig(fs, cwd, tsconfigPath, host, commandLine.CompilerOptions(), commandLine, len(rootFiles) != 0)
   if err != nil {
     return nil, nil, err
   }

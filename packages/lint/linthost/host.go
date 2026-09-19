@@ -147,7 +147,7 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
   fs := bundled.WrapFS(cachedvfs.From(osvfs.FS()))
   host := shimcompiler.NewCompilerHost(cwd, fs, bundled.LibPath(), nil, nil)
 
-  cliOptions, cliDiags := parseTsgoArgs(options.tsgoArgs, host)
+  commandLine, cliDiags := parseTsgoArgs(options.tsgoArgs, host)
   if len(cliDiags) > 0 {
     return nil, cliDiags, nil
   }
@@ -156,26 +156,34 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
     return nil, nil, err
   }
 
+  // The options the command line spelled out go beside the merged ones, as
+  // TypeScript-Go's own command line passes them, so a forwarded reset such as
+  // `--declarationDir null` overrides the config instead of vanishing.
+  cliOptions := commandLine.CompilerOptions()
+  if cliOptions == nil {
+    cliOptions = &shimcore.CompilerOptions{}
+  }
   parsed, parseDiags := tsoptions.GetParsedCommandLineOfConfigFile(
     resolved,
     cliOptions,
-    nil,
+    tsoptions.CommandLineRawOptions(commandLine),
     host,
     nil,
   )
   if parsed == nil {
     return nil, nil, fmt.Errorf("tsoptions: parsed command line was nil for %s", resolved)
   }
-  configErrors := parsed.Errors
   if len(rootFiles) != 0 {
     parseDiags = withoutFileListDiagnostics(parseDiags)
-    configErrors = withoutFileListDiagnostics(configErrors)
+    // The Program reports the config's errors again among its own
+    // diagnostics, so they leave the parsed command line itself.
+    parsed.Errors = withoutFileListDiagnostics(parsed.Errors)
   }
   if len(parseDiags) > 0 {
     return nil, parseDiags, nil
   }
-  if len(configErrors) > 0 {
-    return nil, configErrors, nil
+  if len(parsed.Errors) > 0 {
+    return nil, parsed.Errors, nil
   }
   if len(rootFiles) != 0 {
     // Only the file list is replaced, so every option keeps the meaning the
@@ -714,22 +722,22 @@ func forceNoEmit(parsed *tsoptions.ParsedCommandLine) {
 }
 
 // parseTsgoArgs runs forwarded tsgo CLI flags through TypeScript-Go's own
-// command-line parser, yielding a CompilerOptions overlay loadProgram merges
-// over the tsconfig — so a flag like `ttsc --strict` reaches the in-process
-// lint program even though @ttsc/lint never shells out to `tsgo`. Returns an
-// empty (non-nil) options value when there are no forwarded flags.
-func parseTsgoArgs(args []string, host shimcompiler.CompilerHost) (*shimcore.CompilerOptions, []*shimast.Diagnostic) {
+// command-line parser, yielding the parsed command line whose options
+// loadProgram merges over the tsconfig — so a flag like `ttsc --strict` reaches
+// the in-process lint program even though @ttsc/lint never shells out to
+// `tsgo`. Returns nil when there are no forwarded flags.
+func parseTsgoArgs(args []string, host shimcompiler.CompilerHost) (*tsoptions.ParsedCommandLine, []*shimast.Diagnostic) {
   if len(args) == 0 {
-    return &shimcore.CompilerOptions{}, nil
+    return nil, nil
   }
   cli := tsoptions.ParseCommandLine(args, host)
   if cli == nil {
-    return &shimcore.CompilerOptions{}, nil
+    return nil, nil
   }
   if len(cli.Errors) > 0 {
     return nil, cli.Errors
   }
-  return cli.CompilerOptions(), nil
+  return cli, nil
 }
 
 // applyThreading forwards the --singleThreaded / --checkers knobs onto the

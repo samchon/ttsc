@@ -21,8 +21,8 @@ import (
 // 1. Build a config whose `include` matches nothing, and one whose `files` is
 //    empty, each beside a root file.
 // 2. Load each with and without the root, and load an invalid option with it.
-// 3. Assert no diagnostics with the root, the matching code without it, and
-//    the invalid option still reported.
+// 3. Assert no load or Program diagnostics with the root, the matching code
+//    without it, and the invalid option still reported.
 func TestLoadProgramRootFilesAcceptAConfigThatListsNoFiles(t *testing.T) {
   cases := []struct {
     name   string
@@ -54,6 +54,11 @@ func TestLoadProgramRootFilesAcceptAConfigThatListsNoFiles(t *testing.T) {
       }
       if len(diags) != 0 {
         t.Fatalf("a diagnostic about the replaced list stopped the load: %#v", diags)
+      }
+      // The Program reports the config's parse errors again among its own, so
+      // the replaced list must leave them as well.
+      if diags := prog.Diagnostics(); len(diags) != 0 {
+        t.Fatalf("the Program reported the replaced list: %#v", diags)
       }
       prog.Close()
 
