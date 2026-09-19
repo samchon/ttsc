@@ -46,6 +46,7 @@ const OWNERSHIP = {
   "go:packages/ttsc/test/ttscserver": "scripts/test-go-ttsc.cjs",
   "go:packages/ttsc/test/platform": "scripts/test-go-ttsc.cjs",
   "go:packages/ttsc/test/utility": "scripts/test-go-ttsc.cjs",
+  "go:packages/ttsc/cmd/platform": "scripts/test-go-ttsc.cjs",
   "go:packages/ttsc/cmd/ttsc": "scripts/test-go-ttsc.cjs",
   "go:packages/ttsc/cmd/ttscserver": "scripts/test-go-ttsc.cjs",
   "go:packages/ttsc/internal/graph": "scripts/test-go-graph.cjs",

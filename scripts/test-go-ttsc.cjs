@@ -26,6 +26,7 @@ const packages = [
   "./test/ttscserver",
   "./test/platform",
   "./test/utility",
+  "./cmd/platform",
   "./cmd/ttsc",
   "./cmd/ttscserver",
 ];
