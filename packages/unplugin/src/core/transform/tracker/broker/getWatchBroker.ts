@@ -4,6 +4,7 @@ import { WATCH_BROKER } from "./WATCH_BROKER";
 import type { WatchBroker } from "./WatchBroker";
 import { fseventsBindingPath } from "./fseventsBindingPath";
 import { routeWatchBrokerMessage } from "./routeWatchBrokerMessage";
+import { warnMissingFseventsBinding } from "./warnMissingFseventsBinding";
 import { watchBrokerSource } from "./watchBrokerSource";
 
 /**
@@ -31,19 +32,13 @@ export function getWatchBroker(): WatchBroker {
   if (WATCH_BROKER.current !== undefined) {
     return WATCH_BROKER.current;
   }
-  const child = spawn(
-    process.execPath,
-    [
-      "-e",
-      watchBrokerSource(
-        process.platform === "darwin" ? fseventsBindingPath() : undefined,
-      ),
-    ],
-    {
-      stdio: ["ignore", "ignore", "ignore", "ipc"],
-      windowsHide: true,
-    },
-  );
+  const fsevents =
+    process.platform === "darwin" ? fseventsBindingPath() : undefined;
+  if (fsevents === null) warnMissingFseventsBinding();
+  const child = spawn(process.execPath, ["-e", watchBrokerSource(fsevents)], {
+    stdio: ["ignore", "ignore", "ignore", "ipc"],
+    windowsHide: true,
+  });
   const broker: WatchBroker = {
     child,
     drains: new Map(),
