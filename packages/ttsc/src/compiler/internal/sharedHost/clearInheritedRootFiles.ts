@@ -7,8 +7,8 @@ import { ROOT_FILES_ENV } from "./ROOT_FILES_ENV";
  * start another ttsc run in turn: `@ttsc/lint` evaluating a config file through
  * `ttsx`, for instance. That run compiles its own projects, and an inherited
  * list would replace their files with the outer run's root. The list is
- * per-invocation state the spawning host owns, the same rule the forwarded
- * tsgo argv follows. A caller that named the variable explicitly keeps it.
+ * per-invocation state the spawning host owns, the same rule the forwarded tsgo
+ * argv follows. A caller that named the variable explicitly keeps it.
  */
 export function clearInheritedRootFiles(
   env: NodeJS.ProcessEnv,

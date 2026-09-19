@@ -21,8 +21,8 @@ import { denyWrites, runsAsRoot } from "../../internal/read-only-directory";
  *
  * Root ignores directory permissions, so the case cannot hold there.
  *
- * 1. Create a project that includes `src`, with an entry beside the tsconfig
- *    that imports a type from `src` through a `${configDir}` path alias.
+ * 1. Create a project that includes `src`, with an entry beside the tsconfig that
+ *    imports a type from `src` through a `${configDir}` path alias.
  * 2. Deny writes to the project directory, keeping the runtime cache elsewhere.
  * 3. Assert the out-of-include entry and the included entry both run, and the
  *    directory holds what it held before.

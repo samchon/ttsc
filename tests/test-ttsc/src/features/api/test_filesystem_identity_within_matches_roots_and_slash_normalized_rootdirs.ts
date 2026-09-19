@@ -11,8 +11,8 @@ import { createFilesystemPathIdentityContext } from "../../../../../packages/tts
  * Ttsx asks this predicate where a directory contains a file: the single-root
  * build widens `rootDir` to the nearest ancestor holding both the project and
  * the root, and the watch rules bound project inputs by it. A `rootDir` arrives
- * slash-normalized from the root build's `--rootDir` (`C:/` on Windows) while real
- * paths are native, and a volume root must match without producing a `//`
+ * slash-normalized from the root build's `--rootDir` (`C:/` on Windows) while
+ * real paths are native, and a volume root must match without producing a `//`
  * prefix (#304). A raw string comparison silently answers "outside".
  *
  * 1. Assert containment, identity, and the sibling-prefix counter-example with
