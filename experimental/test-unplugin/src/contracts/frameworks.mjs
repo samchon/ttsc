@@ -21,12 +21,38 @@ export async function nextContract(bundler) {
       'export default function Page() { return <p data-contract="value">{[value, value1, value2, value3].join("|")}</p>; }',
     ].join("\n"),
   );
+  // A loader that runs after ttsc in the rule's chain, the one place a public
+  // API reaches between ttsc returning a module and Turbopack taking its
+  // dependencies (samchon/ttsc#1423). It rewrites the contract input when the
+  // module it receives carries a `LATE_RACE_` value.
+  write(
+    project.root,
+    "race-loader.cjs",
+    [
+      'const fs = require("node:fs");',
+      'const path = require("node:path");',
+      "module.exports = function raceLoader(source) {",
+      '  const match = /"LATE_RACE_([A-Z]+)"/.exec(source);',
+      "  if (match !== null) {",
+      '    const input = path.join(this.rootContext, "src", "contract-input.server.ts");',
+      '    const edited = "export type ContractInput = " + JSON.stringify(match[1]) + ";" + String.fromCharCode(10);',
+      '    if (fs.readFileSync(input, "utf8") !== edited) fs.writeFileSync(input, edited);',
+      "  }",
+      "  return source;",
+      "};",
+    ].join("\n"),
+  );
+  const rules = {
+    "*.ts": {
+      loaders: [{ loader: `${project.root}/race-loader.cjs`, options: {} }],
+    },
+  };
   write(
     project.root,
     "next.config.mjs",
     [
       'import withTtsc from "@ttsc/unplugin/next";',
-      `export default withTtsc({ devIndicators: false, turbopack: { root: ${JSON.stringify(workspace)} } }, ${JSON.stringify(project.options)});`,
+      `export default withTtsc({ devIndicators: false, turbopack: { root: ${JSON.stringify(workspace)}, rules: ${JSON.stringify(rules)} } }, ${JSON.stringify(project.options)});`,
     ].join("\n"),
   );
   const require = createRequire(import.meta.url);
@@ -216,6 +242,18 @@ export async function nextContract(bundler) {
       (html) => hasValues(html, "FIFTH"),
       `Next ${bundler} edit racing a new input`,
     );
+    // The window #1423 closes: the race loader rewrites the input after ttsc
+    // registered the module's dependencies and returned, before Turbopack
+    // takes them as its baseline. The plugin's races above land during the
+    // compile, which the capture's own stability proof already re-runs.
+    if (bundler === "turbopack") {
+      project.change("LATE_RACE_SIXTH");
+      await eventually(
+        read,
+        (html) => hasValues(html, "SIXTH"),
+        "Next turbopack edit landing after the loader returned",
+      );
+    }
   } catch (error) {
     throw new Error(`Next ${bundler}: ${error.stack ?? error}\n${output}`);
   } finally {
