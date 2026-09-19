@@ -19,12 +19,12 @@ import (
 // own list is untouched otherwise, and the dropped reference pins that a
 // replaced list no longer asks the program to build another project's files.
 //
-// 1. Build a project whose `include` names `src`, with a script outside it that
-//    imports from `src` through a `${configDir}` path alias, and a project
-//    reference.
-// 2. Load it with the script as the only root, and again with no roots.
-// 3. Assert the roots, the imported file, the preserved options, and the
-//    dropped reference, then the unchanged list of the twin.
+//  1. Build a project whose `include` names `src`, with a script outside it that
+//     imports from `src` through a `${configDir}` path alias, and a project
+//     reference.
+//  2. Load it with the script as the only root, and again with no roots.
+//  3. Assert the roots, the imported file, the preserved options, and the
+//     dropped reference, then the unchanged list of the twin.
 func TestLoadProgramRootFilesReplaceTheConfigFileList(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

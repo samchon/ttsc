@@ -19,12 +19,12 @@ import (
 // null, and TypeScript-Go's command line hands them to the merge; the twin
 // without the reset pins that the config's value is otherwise kept.
 //
-// 1. Build a project whose config declares `declarationDir` and a
-//    `tsBuildInfoFile`.
-// 2. Load it with `--declaration false` and both locations reset to `null`,
-//    then with `--declaration false` alone.
-// 3. Assert the reset clears both options and the Program reports nothing, and
-//    that without it the config's `declarationDir` stays and TS5069 follows.
+//  1. Build a project whose config declares `declarationDir` and a
+//     `tsBuildInfoFile`.
+//  2. Load it with `--declaration false` and both locations reset to `null`,
+//     then with `--declaration false` alone.
+//  3. Assert the reset clears both options and the Program reports nothing, and
+//     that without it the config's `declarationDir` stays and TS5069 follows.
 func TestLoadProgramAppliesAForwardedNullReset(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

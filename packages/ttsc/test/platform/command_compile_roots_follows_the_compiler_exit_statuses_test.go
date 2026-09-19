@@ -21,11 +21,11 @@ import (
 // outputs exit 2, and the diagnostic itself is printed. A request with no roots
 // is refused rather than compiling the whole project.
 //
-// 1. Build a project whose root outside `include` has a type error.
-// 2. Run compile-roots plainly, with `--noEmitOnError`, with `--noEmit`, and
-//    with no roots named.
-// 3. Assert the status, the printed diagnostic, and whether JavaScript was
-//    written for each.
+//  1. Build a project whose root outside `include` has a type error.
+//  2. Run compile-roots plainly, with `--noEmitOnError`, with `--noEmit`, and
+//     with no roots named.
+//  3. Assert the status, the printed diagnostic, and whether JavaScript was
+//     written for each.
 func TestCommandCompileRootsFollowsTheCompilerExitStatuses(t *testing.T) {
   root := t.TempDir()
   writePlatformProjectFile(t, root, "tsconfig.json", `{

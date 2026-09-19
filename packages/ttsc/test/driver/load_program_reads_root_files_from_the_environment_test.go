@@ -22,10 +22,10 @@ import (
 // variable changes nothing, and a malformed value is an error rather than a
 // silent whole-project build.
 //
-// 1. Build a project whose `include` names `src`, beside scripts outside it.
-// 2. Load it with a script in the environment, with an explicit conflicting
-//    list, with nothing set, and with an unparsable value.
-// 3. Assert the program's roots, or the error naming the channel.
+//  1. Build a project whose `include` names `src`, beside scripts outside it.
+//  2. Load it with a script in the environment, with an explicit conflicting
+//     list, with nothing set, and with an unparsable value.
+//  3. Assert the program's roots, or the error naming the channel.
 func TestLoadProgramReadsRootFilesFromTheEnvironment(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

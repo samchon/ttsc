@@ -27,11 +27,11 @@ func (compileRootsApplyErrorPlugin) ApplyProgram(*driver.Program, driver.PluginC
 // environment names plugins this binary never links, and a plugin that fails
 // to apply fails the emit rather than emitting an untransformed program.
 //
-// 1. Exercise malformed roots, a failed cwd, a command-line file list, a missing
-//    project, an unknown option, a missing and an invalid config, a stray
-//    linked-plugin manifest, and a linked plugin that fails to apply.
-// 2. Assert status 2 and the reason each case reports.
-// 3. Assert no case wrote output.
+//  1. Exercise malformed roots, a failed cwd, a command-line file list, a missing
+//     project, an unknown option, a missing and an invalid config, a stray
+//     linked-plugin manifest, and a linked plugin that fails to apply.
+//  2. Assert status 2 and the reason each case reports.
+//  3. Assert no case wrote output.
 func TestCompileRootsBranches(t *testing.T) {
   root := t.TempDir()
   writeCommandProjectFile(t, root, "tsconfig.json", `{

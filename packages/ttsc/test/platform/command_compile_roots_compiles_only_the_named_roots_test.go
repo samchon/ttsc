@@ -21,11 +21,11 @@ import (
 // The listed outputs are what the launcher parses, and the directory holds no
 // config file afterwards.
 //
-// 1. Build a project whose `include` names `src`, with a script outside it that
-//    imports through a `${configDir}` alias and uses a legacy decorator.
-// 2. Run compile-roots with the script in TTSC_ROOT_FILES and a private outDir.
-// 3. Assert success, the emitted script and its import, the absent file, the
-//    listed outputs, and no new file beside the tsconfig.
+//  1. Build a project whose `include` names `src`, with a script outside it that
+//     imports through a `${configDir}` alias and uses a legacy decorator.
+//  2. Run compile-roots with the script in TTSC_ROOT_FILES and a private outDir.
+//  3. Assert success, the emitted script and its import, the absent file, the
+//     listed outputs, and no new file beside the tsconfig.
 func TestCommandCompileRootsCompilesOnlyTheNamedRoots(t *testing.T) {
   root := t.TempDir()
   writePlatformProjectFile(t, root, "tsconfig.json", `{

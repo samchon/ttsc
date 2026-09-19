@@ -18,11 +18,11 @@ import (
 // and without roots the two must stay errors, or a broken project would build
 // silently.
 //
-// 1. Build a config whose `include` matches nothing, and one whose `files` is
-//    empty, each beside a root file.
-// 2. Load each with and without the root, and load an invalid option with it.
-// 3. Assert no load or Program diagnostics with the root, the matching code
-//    without it, and the invalid option still reported.
+//  1. Build a config whose `include` matches nothing, and one whose `files` is
+//     empty, each beside a root file.
+//  2. Load each with and without the root, and load an invalid option with it.
+//  3. Assert no load or Program diagnostics with the root, the matching code
+//     without it, and the invalid option still reported.
 func TestLoadProgramRootFilesAcceptAConfigThatListsNoFiles(t *testing.T) {
   cases := []struct {
     name   string

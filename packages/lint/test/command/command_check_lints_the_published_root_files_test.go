@@ -19,10 +19,10 @@ import (
 // never reaches and missing the one it does. The twin run without the variable
 // pins that an ordinary check still lints the config's own list.
 //
-// 1. Create a project whose `include` names `src`, with a no-var violation in
-//    `src/main.ts` and another in a script outside it.
-// 2. Run check with the script in TTSC_ROOT_FILES, then without it.
-// 3. Assert each run reports exactly its own file.
+//  1. Create a project whose `include` names `src`, with a no-var violation in
+//     `src/main.ts` and another in a script outside it.
+//  2. Run check with the script in TTSC_ROOT_FILES, then without it.
+//  3. Assert each run reports exactly its own file.
 func TestCommandCheckLintsThePublishedRootFiles(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{
