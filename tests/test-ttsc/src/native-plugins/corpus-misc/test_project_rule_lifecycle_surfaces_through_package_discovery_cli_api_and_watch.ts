@@ -1,4 +1,4 @@
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { TtscCompiler } from "ttsc";
 
 import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
@@ -314,7 +314,6 @@ module.exports = {
       path.join(logicalRoot, "src", "second.ts"),
     ).href;
     fs.writeFileSync(secondFile, "export const second = 2;\n");
-    const configURI = pathToFileURL(logicalConfig).href;
     const client = TtscserverClient.startLauncher(logicalRoot, {
       env: {
         TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
@@ -341,7 +340,10 @@ module.exports = {
         },
       });
       const failedParams = await failedPublication;
-      assert.equal(failedParams.uri, configURI);
+      // The server names the config itself, since no client opened it, so the
+      // URI is compared as the file it names: an unreserved `~` in a Windows
+      // short path may be spelled `~` or `%7E` (RFC 3986 section 6.2.2.2).
+      assert.equal(fileURLToPath(failedParams.uri), logicalConfig);
       assert.equal(
         failedParams.diagnostics?.filter(
           (diagnostic) => diagnostic.code === "guard/project",
@@ -377,7 +379,8 @@ module.exports = {
         client.waitForNotification<PublishDiagnosticsParams>(
           "textDocument/publishDiagnostics",
           (params) =>
-            params.uri === configURI && (params.diagnostics ?? []).length === 0,
+            fileURLToPath(params.uri) === logicalConfig &&
+            (params.diagnostics ?? []).length === 0,
           60_000,
         );
       client.notify("textDocument/didOpen", {

@@ -40,7 +40,15 @@ export const test_ttsx_virtual_layout_mirrors_a_file_symlink_project_entry =
     );
     fs.writeFileSync(linkedFile, "linked", "utf8");
     const entry = path.join(root, "linked.txt");
-    fs.symlinkSync(linkedFile, entry);
+    try {
+      fs.symlinkSync(linkedFile, entry, "file");
+    } catch {
+      // Creating the fixture needs the symlink privilege this contract is
+      // about, so without it there is no file-symlink entry to mirror. The
+      // fallback taken when the mirror itself is refused is pinned by
+      // test_linkvirtualentry_copies_a_file_symlink_entry_when_symlink_creation_fails.
+      return;
+    }
     assert.equal(fs.lstatSync(entry).isSymbolicLink(), true);
 
     const result = TestProject.spawn(
