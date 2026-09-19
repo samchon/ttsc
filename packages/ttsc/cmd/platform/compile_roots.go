@@ -13,7 +13,9 @@
 // `paths` and `rootDirs` that exist only in a config file. This command stands
 // in for it in exactly that case. It takes the compiler's own argument list,
 // reports diagnostics, lists emitted files, and exits with the compiler's
-// statuses, so the launcher reads it as it reads the compiler.
+// statuses, so the launcher reads it as it reads the compiler. A request it
+// cannot compile at all, including a config the compiler rejects, exits with
+// "outputs skipped", since nothing was written.
 package main
 
 import (
