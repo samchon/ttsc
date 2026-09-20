@@ -24,11 +24,12 @@ export interface WatchBrokerLocation {
   recursive?: boolean;
   /**
    * Where the broker may write a probe to prove this location's stream has
-   * delivered everything before a drain, on a backend that delivers with a
+   * delivered everything before a moment, on a backend that delivers with a
    * latency (samchon/ttsc#1453): a directory the adapter owns, below `root`,
-   * which contains the location. The stream is then opened at `root`. Absent,
-   * the location's stream cannot be proven, and a drain names its registration
-   * unproven.
+   * which contains the location. The stream is then opened at `root`, reports
+   * ready once its opening probe came back, and answers each drain once that
+   * drain's probe did. Absent, the location's stream cannot be proven, and a
+   * drain names this location unproven.
    */
   probe?: { directory: string; root: string };
 }

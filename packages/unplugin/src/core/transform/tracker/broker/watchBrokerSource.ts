@@ -1,3 +1,5 @@
+import { WATCH_PROBE_TIMEOUT_MS } from "./WATCH_PROBE_TIMEOUT_MS";
+
 /**
  * The program the isolated watch process runs.
  *
@@ -19,7 +21,6 @@
  * every event that carries a dropped-events flag. The binding starts each
  * stream inside `watch()` and passes every flag through, so the child:
  *
- * - Reports `ready` once `watch()` has returned for every location;
  * - Maps each event's flags to the event type libuv would report, and drops what
  *   a non-recursive watch would not hear;
  * - Sends `gap` to the registration whose stream reports a drop, a wrapped event
@@ -27,14 +28,21 @@
  *   events of that stream may have been lost.
  *
  * FSEvents delivers with a latency (the binding creates each stream with 0.1
- * s), so turns of the loop prove nothing there (samchon/ttsc#1453). FSEvents
- * does preserve order within one stream, so a location that names a probe
- * directory, one the parent owns below the stream's root, is proven on `drain`
- * by writing a probe there and hearing it on that stream: every earlier event
- * of the stream has arrived by then. Such a stream is opened at the probe's
- * root, not at the location, and its events are placed against the location; a
- * stream with no probe cannot be proven, and the drain names its registration
- * as unproven.
+ * s), so turns of the loop prove nothing there, and a stream created now still
+ * delivers events of writes made just before, which the service had not yet
+ * logged (samchon/ttsc#1453, samchon/ttsc#1454). FSEvents does preserve order
+ * within one stream, so a location that names a probe directory, one the parent
+ * owns below the stream's root, is proven by writing a probe there and hearing
+ * it on that stream: every earlier event of the stream has arrived by then, and
+ * nothing heard before it belongs to the time after the probe was written. Such
+ * a stream is opened at the probe's root, not at the location, and its events
+ * are placed against the location. The child writes one probe when the stream
+ * opens, and reports `ready` only once it is heard, discarding what arrived
+ * before it as the past; and one per `drain`, answering once it is heard. A
+ * probe that is not heard within the probe timeout says the stream does not
+ * deliver, so the child closes it and reports the registration failed. A stream
+ * with no probe cannot be proven, and the drain names its location as
+ * unproven.
  *
  * Without the binding, a macOS watch can lose events silently, so the child
  * reports every registration failed instead.
@@ -43,7 +51,7 @@
  *   cannot be loaded there, and `undefined` on every other platform.
  */
 export function watchBrokerSource(fsevents?: string | null): string {
-  return `const fseventsPath = ${fsevents === undefined ? "undefined" : JSON.stringify(fsevents)};\n${WATCH_BROKER_PROGRAM}`;
+  return `const fseventsPath = ${fsevents === undefined ? "undefined" : JSON.stringify(fsevents)};\nconst probeTimeoutMs = ${WATCH_PROBE_TIMEOUT_MS};\n${WATCH_BROKER_PROGRAM}`;
 }
 
 /**
@@ -53,7 +61,7 @@ export function watchBrokerSource(fsevents?: string | null): string {
 const WATCH_BROKER_PROGRAM = String.raw`const fs = require("node:fs");
 const path = require("node:path");
 
-// Registration id -> { closers, streams }.
+// Registration id -> { closers, opening, streams }.
 const registrations = new Map();
 // The fsevents flags (CoreServices' kFSEventStreamEventFlag* values). A stream
 // that reports any of DROPPED may have lost events. libuv reports CHANGE for an
@@ -104,7 +112,7 @@ function subscriber(message, location) {
 }
 
 function add(message) {
-  const registration = { closers: [], streams: [] };
+  const registration = { closers: [], id: message.id, opening: 0, streams: [] };
   registrations.set(message.id, registration);
   // A macOS watch without the binding can lose events silently.
   let failed = fseventsPath === null || (typeof fseventsPath === "string" && fsevents === undefined);
@@ -115,7 +123,7 @@ function add(message) {
       if (fsevents === undefined) {
         registration.closers.push(watch(location, deliver, message.id));
       } else {
-        const opened = stream(location, deliver, message.id);
+        const opened = stream(location, deliver, registration);
         registration.closers.push(opened.close);
         registration.streams.push(opened);
       }
@@ -123,7 +131,8 @@ function add(message) {
       failed = true;
     }
   }
-  process.send?.({ failed, id: message.id, ready: true });
+  // A probed stream reports ready once its opening probe is heard.
+  if (failed || registration.opening === 0) process.send?.({ failed, id: message.id, ready: true });
 }
 
 function watch(location, deliver, id) {
@@ -135,7 +144,8 @@ function watch(location, deliver, id) {
 // FSEvents reports the real path of what changed, so events are placed below
 // the real path of the location, and the stream is opened at the real path of
 // the probe's root when the location has one.
-function stream(location, deliver, id) {
+function stream(location, deliver, registration) {
+  const id = registration.id;
   const directory = fs.realpathSync.native(location.directory);
   // The probe directory need not exist yet; it is placed below the root's real
   // path by the same relative path.
@@ -145,22 +155,23 @@ function stream(location, deliver, id) {
   })();
   const root = probe === undefined ? directory : probe.root;
   const within = (parent, file) => file === parent || file.startsWith(parent.endsWith("/") ? parent : parent + "/");
-  const opened = { close: undefined, pending: new Map(), probe };
+  const opened = { close: undefined, location: location.directory, pending: new Map(), probe, proven: probe === undefined };
   const stop = fsevents.watch(root, (file, flags) => {
-    if ((flags & DROPPED) !== 0) {
-      process.send?.({ gap: true, id });
-      return;
-    }
-    // A probe of a drain in flight: the stream has delivered everything
-    // before it.
+    // A probe of this stream: everything before it has been delivered.
     if (probe !== undefined && within(probe.directory, file)) {
       const waiting = opened.pending.get(path.basename(file));
       if (waiting !== undefined) {
         opened.pending.delete(path.basename(file));
-        waiting();
+        waiting.heard();
       }
       return;
     }
+    if ((flags & DROPPED) !== 0) {
+      process.send?.({ gap: true, id });
+      return;
+    }
+    // Before the opening probe, the stream still delivers the past.
+    if (!opened.proven) return;
     // The watched directory's own events say nothing about its entries, and
     // its replacement arrives as a changed root.
     if (file === directory) return;
@@ -176,41 +187,92 @@ function stream(location, deliver, id) {
     deliver((flags & MODIFIED) !== 0 && (flags & RENAMED) === 0 ? "change" : "rename", filename);
   });
   opened.close = () => {
+    const pending = [...opened.pending.values()];
+    opened.pending.clear();
+    for (const entry of pending) entry.abandon();
     Promise.resolve(stop()).catch(() => undefined);
   };
+  if (probe !== undefined) {
+    registration.opening += 1;
+    const written = writeProbe(opened, registration, () => {
+      opened.proven = true;
+      registration.opening -= 1;
+      if (registration.opening === 0) process.send?.({ failed: false, id, ready: true });
+    }, () => undefined);
+    // A probe that cannot be written leaves the stream unprovable: it opens
+    // all the same, and every drain names it unproven.
+    if (!written) {
+      registration.opening -= 1;
+      opened.probe = undefined;
+      opened.proven = true;
+    }
+  }
   return opened;
 }
 
+// Write one probe for a stream, and call heard() once the stream delivers it
+// or missed() once it will not: the probe timed out, which says the stream does
+// not deliver, so the registration is reported failed and its streams closed;
+// or the stream was closed first.
+function writeProbe(opened, registration, heard, missed) {
+  probeSequence += 1;
+  const name = "probe-" + process.pid + "-" + probeSequence;
+  const file = path.join(opened.probe.directory, name);
+  const entry = {
+    abandon: () => {
+      clearTimeout(entry.timer);
+      fs.rm(file, { force: true }, () => undefined);
+      missed();
+    },
+    heard: () => {
+      clearTimeout(entry.timer);
+      fs.rm(file, { force: true }, () => undefined);
+      heard();
+    },
+    timer: setTimeout(() => {
+      if (opened.pending.get(name) !== entry) return;
+      opened.pending.delete(name);
+      process.send?.({ failed: true, id: registration.id, ready: true });
+      remove(registration.id);
+      entry.abandon();
+    }, probeTimeoutMs),
+  };
+  entry.timer.unref?.();
+  opened.pending.set(name, entry);
+  try {
+    fs.mkdirSync(opened.probe.directory, { recursive: true });
+    fs.writeFileSync(file, String(registration.id));
+    return true;
+  } catch {
+    clearTimeout(entry.timer);
+    opened.pending.delete(name);
+    return false;
+  }
+}
+
 // Answer once every stream that can be proven has delivered a probe written
-// now; name the registrations of the streams that cannot.
+// now; name the locations of the streams that cannot.
 function drain(requestId) {
-  const unproven = new Set();
+  const unproven = [];
   let outstanding = 0;
   const settle = () => {
     outstanding -= 1;
-    if (outstanding === 0) process.send?.({ drained: true, id: requestId, unproven: [...unproven] });
+    if (outstanding === 0) process.send?.({ drained: true, id: requestId, unproven });
   };
   for (const [id, registration] of registrations) {
     for (const opened of registration.streams) {
       if (opened.probe === undefined) {
-        unproven.add(id);
+        unproven.push({ directory: opened.location, id });
         continue;
       }
-      probeSequence += 1;
-      const name = "probe-" + process.pid + "-" + probeSequence;
       outstanding += 1;
-      opened.pending.set(name, () => {
-        fs.rm(path.join(opened.probe.directory, name), { force: true }, () => undefined);
+      const missed = () => {
+        unproven.push({ directory: opened.location, id });
         settle();
-      });
-      try {
-        fs.mkdirSync(opened.probe.directory, { recursive: true });
-        fs.writeFileSync(path.join(opened.probe.directory, name), String(requestId));
-      } catch {
-        // The probe cannot be written, so this stream cannot be proven now.
-        opened.pending.delete(name);
-        unproven.add(id);
-        outstanding -= 1;
+      };
+      if (!writeProbe(opened, registration, settle, missed)) {
+        opened.probe = undefined;
+        missed();
       }
     }
   }

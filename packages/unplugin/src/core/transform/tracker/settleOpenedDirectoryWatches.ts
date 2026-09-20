@@ -1,5 +1,6 @@
 import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransformFilesystemOperations";
 import type { TtscProjectMutationTracker } from "./TtscProjectMutationTracker";
+import { WATCH_PROBE_TIMEOUT_MS } from "./broker/WATCH_PROBE_TIMEOUT_MS";
 import { drainLinuxWatchHelper } from "./linux/drainLinuxWatchHelper";
 import { usesLinuxWatchHelper } from "./linux/usesLinuxWatchHelper";
 
@@ -27,7 +28,7 @@ export async function settleOpenedDirectoryWatches(
       watchers.map((watcher) => watcher.ready ?? Promise.resolve(true)),
     ).then((answers) => !answers.includes(false)),
     new Promise<boolean>((resolve) => {
-      timer = setTimeout(() => resolve(false), WATCH_READY_TIMEOUT_MS);
+      timer = setTimeout(() => resolve(false), WATCH_PROBE_TIMEOUT_MS);
     }),
   ]);
   clearTimeout(timer);
@@ -35,4 +36,3 @@ export async function settleOpenedDirectoryWatches(
 }
 
 /** How long a tracker waits for its watches to go live. */
-const WATCH_READY_TIMEOUT_MS = 10_000;

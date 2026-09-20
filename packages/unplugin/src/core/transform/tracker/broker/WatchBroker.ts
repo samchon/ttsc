@@ -65,6 +65,15 @@ export interface WatchBroker {
        * serve scope re-checks its entries instead.
        */
       gap?: () => void;
+      /**
+       * Whether this registration takes part in drains (samchon/ttsc#1453): a
+       * drain's reply then names the directories of its watches the child could
+       * not prove delivered, which become the tracker's
+       * {@link TtscProjectMutationTracker.unproven} set until the next drain. A
+       * registration that never drains, such as a Vite serve scope, is not
+       * told; its events keep arriving as they do.
+       */
+      drains: boolean;
       ready: () => void;
       /**
        * The walk's own spelling for each canonical directory the child watches,

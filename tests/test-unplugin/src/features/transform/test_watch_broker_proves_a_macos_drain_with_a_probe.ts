@@ -5,25 +5,32 @@ import { watchBrokerSource } from "../../../../../packages/unplugin/lib/core/tra
 import { runWatchBrokerProgram } from "../../internal/watch-broker/runWatchBrokerProgram";
 
 /**
- * Verifies the watch broker's macOS backend answers a drain only once each
- * stream it can prove has delivered a probe written for that drain, and names
- * the registrations of the streams it cannot prove (samchon/ttsc#1453).
+ * Verifies the watch broker's macOS backend proves a stream through probes
+ * written below its root, at its opening and at every drain, and names the
+ * watches of the streams it cannot prove (samchon/ttsc#1453,
+ * samchon/ttsc#1454).
  *
  * FSEvents delivers with a latency, so turns of the child's loop prove nothing
- * there, and a delivery made right after a synchronous edit settled a silent
- * tracker and served the old output. FSEvents preserves order within one
- * stream, so a probe heard on a stream proves every earlier event of it has
- * arrived.
+ * there, and a stream created now still delivers the writes made just before
+ * it: a delivery right after a synchronous edit settled a silent tracker and
+ * served the old output, and a generation opened right after an edit heard that
+ * edit as one of its own and compiled the project again. FSEvents preserves
+ * order within one stream, so a probe heard on a stream proves every earlier
+ * event of it has arrived, and nothing heard before the opening probe belongs
+ * to the stream's own time.
  *
  * 1. Register a location with a probe below its root, and one without, on a
- *    stand-in binding; assert the probed stream opens at the probe's root and
- *    the other at its own directory.
+ *    stand-in binding; assert the probed stream opens at the probe's root, the
+ *    other at its own directory, and that the registration is not ready until
+ *    the opening probe is heard, discarding the events delivered before it.
  * 2. Ask for a drain, and assert the child writes one probe and does not answer
  *    while the probe has not been heard, even across turns of its loop.
  * 3. Deliver the probe's event, and assert the drain is answered naming only the
- *    unprobed registration as unproven, and the probe is removed.
+ *    unprobed watch as unproven, and the probe is removed.
  * 4. Deliver an event of the probed location through its root stream, and assert
- *    it reaches its registration placed against the location.
+ *    it reaches its registration placed against the location; then ask for a
+ *    drain and remove the registration before its probe is heard, and assert
+ *    the drain is answered at once with the closed watch unproven.
  */
 export async function test_watch_broker_proves_a_macos_drain_with_a_probe(): Promise<void> {
   const streams: {
@@ -58,6 +65,12 @@ export async function test_watch_broker_proves_a_macos_drain_with_a_probe(): Pro
       },
     },
   });
+  const ITEM_CREATED = 0x100;
+  const ITEM_IS_FILE = 0x10000;
+  const turns = () =>
+    new Promise((resolve) => setImmediate(() => setImmediate(resolve)));
+  const probes = () => written.filter((file) => file.includes("/probes/"));
+
   broker.receive({
     allEvents: true,
     id: 1,
@@ -72,6 +85,27 @@ export async function test_watch_broker_proves_a_macos_drain_with_a_probe(): Pro
     ],
     op: "add",
   });
+  assert.deepEqual(
+    streams.map((stream) => stream.root),
+    ["/project"],
+  );
+  assert.equal(probes().length, 1, "one opening probe");
+  await turns();
+  assert.deepEqual(
+    broker.sent.filter((message) => message.id === 1),
+    [],
+    "not ready until the opening probe is heard",
+  );
+  // The past, delivered after the stream opened.
+  streams[0]!.handler("/project/src/old.ts", ITEM_CREATED | ITEM_IS_FILE, 1);
+  streams[0]!.handler(probes()[0]!, ITEM_CREATED | ITEM_IS_FILE, 1);
+  assert.deepEqual(
+    broker.sent.filter((message) => message.id === 1),
+    [{ failed: false, id: 1, ready: true }],
+    "ready once the opening probe is heard, and the past discarded",
+  );
+  assert.deepEqual(removed, [probes()[0]], "the opening probe is removed");
+
   broker.receive({
     allEvents: true,
     id: 2,
@@ -83,14 +117,14 @@ export async function test_watch_broker_proves_a_macos_drain_with_a_probe(): Pro
     ["/project", "/elsewhere/types"],
     "a probed location's stream opens at the probe's root",
   );
+  assert.deepEqual(
+    broker.sent.filter((message) => message.id === 2),
+    [{ failed: false, id: 2, ready: true }],
+    "an unprobed stream is ready at once",
+  );
 
   broker.receive({ id: 100, op: "drain" });
-  assert.equal(written.length, 1, "one probe per provable stream");
-  assert.ok(
-    written[0]!.startsWith("/project/node_modules/.cache/ttsc/probes/"),
-  );
-  const turns = () =>
-    new Promise((resolve) => setImmediate(() => setImmediate(resolve)));
+  assert.equal(probes().length, 2, "one probe per provable stream");
   await turns();
   await turns();
   assert.equal(
@@ -99,13 +133,15 @@ export async function test_watch_broker_proves_a_macos_drain_with_a_probe(): Pro
     "the drain waits for the probe, however many turns pass",
   );
 
-  const ITEM_CREATED = 0x100;
-  const ITEM_IS_FILE = 0x10000;
-  streams[0]!.handler(written[0]!, ITEM_CREATED | ITEM_IS_FILE, 1);
+  streams[0]!.handler(probes()[1]!, ITEM_CREATED | ITEM_IS_FILE, 1);
   await turns();
   const drained = broker.sent.find((message) => message.drained === true);
-  assert.deepEqual(drained, { drained: true, id: 100, unproven: [2] });
-  assert.deepEqual(removed, [written[0]], "the probe is removed once heard");
+  assert.deepEqual(drained, {
+    drained: true,
+    id: 100,
+    unproven: [{ directory: "/elsewhere/types", id: 2 }],
+  });
+  assert.deepEqual(removed, probes(), "the probe is removed once heard");
   assert.equal(
     broker.sent.some((message) => message.id === 1 && message.filename),
     false,
@@ -125,5 +161,24 @@ export async function test_watch_broker_proves_a_macos_drain_with_a_probe(): Pro
       },
     ],
     "only events below the location reach it, placed against the location",
+  );
+
+  broker.receive({ id: 101, op: "drain" });
+  assert.equal(probes().length, 3);
+  broker.receive({ id: 1, op: "remove" });
+  await turns();
+  assert.deepEqual(
+    broker.sent.filter((message) => message.id === 101),
+    [
+      {
+        drained: true,
+        id: 101,
+        unproven: [
+          { directory: "/elsewhere/types", id: 2 },
+          { directory: "/project/src", id: 1 },
+        ],
+      },
+    ],
+    "a watch closed before its probe is heard is unproven, not awaited",
   );
 }

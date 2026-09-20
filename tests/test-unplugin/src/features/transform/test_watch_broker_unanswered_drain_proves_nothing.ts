@@ -18,8 +18,8 @@ import { settleMutationTrackers } from "../../../../../packages/unplugin/lib/cor
  *
  * 1. Drain a broker whose child answers, and one whose child cannot be sent the
  *    request, and assert the first held and the second did not.
- * 2. Drain a broker whose child never answers, and assert the drain gives up
- *    without holding.
+ * 2. Drain a broker whose child never answers, with a short wait, and assert the
+ *    drain gives up without holding once the wait runs out.
  * 3. Settle a tracker whose drain held and one whose drain did not, and assert
  *    only the second is unverified.
  */
@@ -56,8 +56,12 @@ export async function test_watch_broker_unanswered_drain_proves_nothing(): Promi
 
   const silent = openBroker(() => true);
   const started = Date.now();
-  assert.equal(await drainWatchBroker(silent), false, "an unanswered drain");
-  assert.ok(Date.now() - started >= 900, "it waited for a busy child first");
+  assert.equal(
+    await drainWatchBroker(silent, 100),
+    false,
+    "an unanswered drain",
+  );
+  assert.ok(Date.now() - started >= 90, "it waited for a busy child first");
   assert.equal(silent.drains.size, 0);
   assert.equal(silent.pendingDrains, 0);
 

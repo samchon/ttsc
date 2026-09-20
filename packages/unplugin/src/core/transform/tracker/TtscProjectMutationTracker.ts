@@ -55,6 +55,15 @@ export interface TtscProjectMutationTracker {
    * its silence is proof again.
    */
   unverified?: boolean;
+  /**
+   * The watched directories, in the walk's own spelling, whose backend the last
+   * drain could not prove delivered (samchon/ttsc#1453): a macOS stream with no
+   * probe directory below its root, which FSEvents delivers with a latency no
+   * drain can wait out. An input below one is not proven by this tracker's
+   * silence, and is proven by reading instead; every other input keeps its
+   * proof. Replaced by every drain, so a stream proven later proves again.
+   */
+  unproven?: ReadonlySet<string>;
   /** Compare event and input paths through this tracker's filesystem identity. */
   overlaps?: (input: string, changed: string) => boolean;
   /**
