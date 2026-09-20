@@ -74,6 +74,7 @@ export async function test_turbopack_dependencies_stay_inside_its_root(): Promis
     const instance: HostWatchBridge = {
       begin: () => 0,
       close: async () => undefined,
+      owes: () => false,
       register: (_importer, handed) => {
         bridged.push(...handed.map((input) => input.file));
         return path.join(project, ".ttsc", "main.signal");

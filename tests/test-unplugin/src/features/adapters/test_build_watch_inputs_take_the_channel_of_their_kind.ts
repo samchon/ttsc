@@ -120,6 +120,7 @@ export async function test_build_watch_inputs_take_the_channel_of_their_kind(): 
   const bridge: HostWatchBridge = {
     begin: () => 0,
     close: async () => undefined,
+    owes: () => false,
     register: (_importer, registered) => {
       bridged.push(...registered.map((input) => input.file));
       return "/tmp/bridge/main.signal";
