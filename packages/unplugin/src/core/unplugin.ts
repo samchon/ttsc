@@ -426,6 +426,7 @@ const unpluginFactory: UnpluginFactory<
                       failed,
                       file,
                       inputs,
+                      projectRoot: process.cwd(),
                       // Module-level channels, since compilation-level ones
                       // schedule a pass without invalidating the module.
                       ...((native?.framework === "webpack" ||

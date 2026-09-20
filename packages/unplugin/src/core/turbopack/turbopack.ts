@@ -155,6 +155,7 @@ export function turbopack(
               failed,
               file,
               inputs,
+              projectRoot,
               loader: {
                 accepts: (input) =>
                   pathIsWithin(path.resolve(input), turbopackRoot),

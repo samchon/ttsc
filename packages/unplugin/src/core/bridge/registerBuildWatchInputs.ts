@@ -1,6 +1,10 @@
+import path from "node:path";
+
 import type { TtscWatchInput } from "../transform/watch/TtscWatchInput";
 import type { TtscWatchInputKind } from "../transform/watch/TtscWatchInputKind";
 import { classifyWatchInput } from "../transform/watch/classifyWatchInput";
+import { containsPath } from "../vite/containsPath";
+import { nearestExistingDirectory } from "../vite/nearestExistingDirectory";
 import type { HostWatchBridge } from "./HostWatchBridge";
 
 /**
@@ -50,6 +54,15 @@ import type { HostWatchBridge } from "./HostWatchBridge";
  * session's bridge observes it instead, and `untracked` tells the caller the
  * host is now missing an input, so the caller can make the host re-run the
  * module in a later process instead of reusing a result it cannot prove.
+ *
+ * An input whose nearest existing directory contains the project root belongs
+ * to the machine, not to the project: TypeScript-Go probes `node_modules` in
+ * every ancestor, and a host observing such a missing path watches its parent,
+ * up to the drive root, where Watchpack's scan of `pagefile.sys` fails on
+ * Windows (samchon/ttsc#1450). The Vite dev server never observes those
+ * ancestors (samchon/ttsc#1411), and the build hosts' channels now follow the
+ * same rule: the input goes to the bridge, which polls it, and never to the
+ * host.
  */
 export function registerBuildWatchInputs(props: {
   /** The host's own file channel. */
@@ -74,6 +87,8 @@ export function registerBuildWatchInputs(props: {
   file: string;
   /** The module's derived compiler inputs, or a failed delivery's recovery. */
   inputs: readonly TtscWatchInput[];
+  /** The project root, whose ancestors no host channel is asked to observe. */
+  projectRoot: string;
   /** A webpack, Rspack, or Turbopack loader's typed channels. */
   loader?: {
     /**
@@ -111,6 +126,10 @@ export function registerBuildWatchInputs(props: {
       untracked = true;
       continue;
     }
+    if (belongsToTheMachine(input.file, props.projectRoot)) {
+      if (props.bridge !== undefined) bridged.push(input);
+      continue;
+    }
     // A path the host's watcher skips still goes to its channel, which keeps
     // it in the host's cache snapshots, and to the bridge, which observes it.
     if (props.bridge?.ignores?.(input.file) === true) bridged.push(input);
@@ -129,4 +148,18 @@ export function registerBuildWatchInputs(props: {
   );
   if (sentinel !== undefined) addFile(sentinel);
   if (untracked) props.untracked?.();
+}
+
+/**
+ * Whether the nearest existing directory of `file` is a proper ancestor of the
+ * project root, so that observing the path would observe the machine around the
+ * project. The project root itself, and anything below it, is the project's.
+ */
+function belongsToTheMachine(file: string, projectRoot: string): boolean {
+  const nearest = nearestExistingDirectory(file);
+  return (
+    nearest !== undefined &&
+    path.resolve(nearest) !== path.resolve(projectRoot) &&
+    containsPath(nearest, projectRoot)
+  );
 }

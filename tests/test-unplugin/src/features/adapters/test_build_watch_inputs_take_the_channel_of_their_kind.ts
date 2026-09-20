@@ -1,4 +1,7 @@
+import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 
 import { BRIDGED_WATCH_INPUT_KINDS } from "../../../../../packages/unplugin/lib/core/bridge/BRIDGED_WATCH_INPUT_KINDS.js";
 import type { HostWatchBridge } from "../../../../../packages/unplugin/lib/core/bridge/HostWatchBridge.js";
@@ -28,6 +31,9 @@ import type { TtscWatchInput } from "../../../../../packages/unplugin/lib/core/t
  * 3. Decide `watchOptions.ignored` values, Rspack's default among them, and assert
  *    an input the watcher skips keeps its channel and reaches the bridge as
  *    well.
+ * 4. Register a probe in the project's ancestors and one inside it, and assert
+ *    only the inside one reaches the host, while the bridge takes the other and
+ *    a one-shot host is asked for neither.
  */
 export async function test_build_watch_inputs_take_the_channel_of_their_kind(): Promise<void> {
   const observed = (file: string, observation: object): TtscWatchInput => ({
@@ -87,6 +93,7 @@ export async function test_build_watch_inputs_take_the_channel_of_their_kind(): 
     addWatchFile: loader.watch,
     file: "/p/src/main.ts",
     inputs,
+    projectRoot: "/p",
     loader: loader.loader,
   });
   assert.deepEqual(loader.channels, {
@@ -101,6 +108,7 @@ export async function test_build_watch_inputs_take_the_channel_of_their_kind(): 
     addWatchFile: bare.watch,
     file: "/p/src/main.ts",
     inputs,
+    projectRoot: "/p",
   });
   assert.deepEqual(
     bare.channels.watch,
@@ -127,6 +135,7 @@ export async function test_build_watch_inputs_take_the_channel_of_their_kind(): 
     },
     file: "/p/src/main.ts",
     inputs,
+    projectRoot: "/p",
     loader: watching.loader,
   });
   assert.deepEqual(bridged, ["/p/types", "/p"], "listings and membership");
@@ -195,6 +204,7 @@ export async function test_build_watch_inputs_take_the_channel_of_their_kind(): 
       observed("/p/node_modules/@types/dep", { directoryExists: false }),
     ],
     loader: skipping.loader,
+    projectRoot: "/p",
   });
   assert.deepEqual(
     bridged,
@@ -211,4 +221,62 @@ export async function test_build_watch_inputs_take_the_channel_of_their_kind(): 
     missing: ["/p/node_modules/@types/dep"],
     watch: [],
   });
+
+  // An input whose nearest existing directory contains the project belongs to
+  // the machine: the compiler probes `node_modules` in every ancestor, and a
+  // host observing such a missing path watches up to the drive root
+  // (samchon/ttsc#1450). It reaches the bridge, never the host.
+  const project = fs.realpathSync.native(
+    TestProject.tmpdir("ttsc-unplugin-build-inputs-"),
+  );
+  fs.mkdirSync(path.join(project, "src"));
+  // Below a directory that does not exist, so the nearest existing one is the
+  // project's parent, whatever else that parent holds.
+  const ancestorProbe = path.join(
+    path.dirname(project),
+    `${path.basename(project)}-absent`,
+    "node_modules",
+    "x",
+  );
+  const inside = path.join(project, "node_modules", "y");
+  bridged.length = 0;
+  const machine = loaderChannels();
+  registerBuildWatchInputs({
+    addWatchFile: machine.watch,
+    bridge: {
+      instance: bridge,
+      kinds: BRIDGED_WATCH_INPUT_KINDS.recursiveDirectoryChannel,
+      startedAt: 0,
+    },
+    file: path.join(project, "src", "main.ts"),
+    inputs: [
+      observed(ancestorProbe, { fileExists: false }),
+      observed(inside, { fileExists: false }),
+    ],
+    loader: machine.loader,
+    projectRoot: project,
+  });
+  assert.deepEqual(
+    bridged,
+    [ancestorProbe],
+    "a probe in the project's ancestors goes to the bridge alone",
+  );
+  assert.deepEqual(
+    machine.channels.missing,
+    [inside],
+    "a probe inside the project keeps the host's missing channel",
+  );
+  const oneShot = loaderChannels();
+  registerBuildWatchInputs({
+    addWatchFile: oneShot.watch,
+    file: path.join(project, "src", "main.ts"),
+    inputs: [observed(ancestorProbe, { fileExists: false })],
+    loader: oneShot.loader,
+    projectRoot: project,
+  });
+  assert.deepEqual(
+    oneShot.channels.missing,
+    [],
+    "a one-shot host is never asked to observe the machine",
+  );
 }

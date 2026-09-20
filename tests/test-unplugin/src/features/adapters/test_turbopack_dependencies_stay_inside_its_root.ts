@@ -33,6 +33,7 @@ export async function test_turbopack_dependencies_stay_inside_its_root(): Promis
   );
   const project = path.join(workspace, "apps", "web");
   const apps = path.join(workspace, "apps");
+  fs.mkdirSync(project, { recursive: true });
   const rows: [string, readonly string[] | undefined, string][] = [
     ["a rule that names none", undefined, project],
     ["a configuration that names none", [], project],
@@ -85,6 +86,7 @@ export async function test_turbopack_dependencies_stay_inside_its_root(): Promis
         : {}),
       file: path.join(project, "src", "main.ts"),
       inputs: registered,
+      projectRoot: project,
       loader: {
         accepts: (file) => !path.relative(project, file).startsWith(".."),
         addContextDependency: (file) => channel.push(file),
