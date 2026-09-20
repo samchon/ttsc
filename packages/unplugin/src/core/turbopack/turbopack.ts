@@ -16,6 +16,7 @@ import { stripQuery } from "../transform/utils/stripQuery";
 import type { TtscTransformHooks } from "../transform/watch/TtscTransformHooks";
 import type { TtscWatchInput } from "../transform/watch/TtscWatchInput";
 import type { TtscTurbopackLoaderContext } from "./TtscTurbopackLoaderContext";
+import { failedModuleSource } from "./failedModuleSource";
 import { resolveTurbopackRoot } from "./resolveTurbopackRoot";
 import { turbopackProcessMarker } from "./turbopackProcessMarker";
 import { warnUntrackedTurbopackInputs } from "./warnUntrackedTurbopackInputs";
@@ -105,6 +106,7 @@ export function turbopack(
   const addDependency = this.addDependency?.bind(this);
   const addContextDependency = this.addContextDependency?.bind(this);
   const cacheable = this.cacheable?.bind(this);
+  const emitError = this.emitError?.bind(this);
   const watching = process.env.NODE_ENV !== "production";
   // Turbopack rejects a dependency outside its project filesystem root, which
   // failed every module with "leaves the filesystem root" while the bridge's
@@ -194,6 +196,22 @@ export function turbopack(
       result === undefined
         ? callback(undefined, source)
         : callback(undefined, result.code, result.map),
-    (error) => callback(error),
+    (error) => {
+      // Turbopack discards a worker whose loader run failed and starts a fresh
+      // one for the next, so in a development session a compile that failed
+      // once cost every module of the project its own cold worker, and the
+      // page's error outlasted the dev server's patience on a slow machine
+      // (samchon/ttsc#1458). The error is reported through the loader
+      // context's own channel instead, and the module evaluates to that error,
+      // so the worker lives on and the page fails with the same message. A
+      // one-shot build, which runs each module once, fails the run outright.
+      if (!watching || emitError === undefined) {
+        callback(error);
+        return;
+      }
+      const failure = error instanceof Error ? error : new Error(String(error));
+      emitError(failure);
+      callback(undefined, failedModuleSource(failure));
+    },
   );
 }

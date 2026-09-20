@@ -44,4 +44,12 @@ export interface TtscTurbopackLoaderContext {
    * result for it. Optional so a minimal stub context still loads.
    */
   cacheable?(flag: boolean): void;
+  /**
+   * Report an error for the module without failing the loader run. Part of the
+   * webpack loader context contract, which Turbopack's loader runtime provides.
+   * A development session delivers a failed compile through it (see
+   * `turbopack`), since Turbopack discards a worker whose loader run failed.
+   * Optional so a minimal stub context still loads.
+   */
+  emitError?(error: Error): void;
 }

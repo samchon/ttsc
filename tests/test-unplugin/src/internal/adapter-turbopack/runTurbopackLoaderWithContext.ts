@@ -14,28 +14,34 @@ import path from "node:path";
  * `rootContext` is the project directory, the nearest ancestor of the module
  * holding a `tsconfig.json`, as Turbopack gives it. Setting `omitAddDependency`
  * models a minimal/older loader context that does not expose the method at all,
- * proving the loader stays optional about it.
+ * proving the loader stays optional about it. With `emitErrors`, the context
+ * offers `emitError` as Turbopack's loader runtime does, and the errors the
+ * loader emitted come back in `emitted`.
  */
 export async function runTurbopackLoaderWithContext(props: {
   resourcePath: string;
   source: string;
   options?: unknown;
   omitAddDependency?: boolean;
+  emitErrors?: boolean;
 }): Promise<{
   cacheableCalls: boolean[];
   content: string;
   dependencies: string[];
+  emitted: Error[];
   map?: unknown;
   sentinels: string[];
 }> {
   const loader = await TestUnpluginRuntime.loadUnpluginAdapter("turbopack");
   const cacheableCalls: boolean[] = [];
   const dependencies: string[] = [];
+  const emitted: Error[] = [];
   const sentinels: string[] = [];
   return new Promise<{
     cacheableCalls: boolean[];
     content: string;
     dependencies: string[];
+    emitted: Error[];
     map?: unknown;
     sentinels: string[];
   }>((resolve, reject) => {
@@ -60,11 +66,18 @@ export async function runTurbopackLoaderWithContext(props: {
             cacheableCalls,
             content: content ?? "",
             dependencies,
+            emitted,
             ...(map === undefined ? {} : { map }),
             sentinels,
           });
         },
     };
+    if (props.emitErrors === true) {
+      context.emitError = function (this: unknown, error: Error): void {
+        assert.equal(this, context, "emitError lost its context binding");
+        emitted.push(error);
+      };
+    }
     if (props.omitAddDependency !== true) {
       context.addDependency = function (this: unknown, file: string): void {
         // Capture `this` binding: the loader must call addDependency bound to
