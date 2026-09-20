@@ -182,28 +182,15 @@ const LANES = [
     needsGo: true,
     scope: "test-metro",
     build: "pnpm run build:current",
-    // The project-membership family, predicate matrix and real native envelope
-    // cases. The lane owns the Windows-only half of the adapter: the
-    // mutation broker, a child process that watches canonical directory
-    // spellings while everything else speaks the walk's own, and short 8.3
-    // temp paths, which make those two names for one directory share no common
-    // prefix at all. It also proves that a POSIX filesystem supplied to a
-    // Windows host keeps POSIX path semantics. Every other lane runs these
-    // cases on Linux, where those branches are invisible (samchon/ttsc#1307,
-    // samchon/ttsc#1324). Native envelopes also exercise mixed-case automatic
-    // type resolution through the Go host, generated config and adapter;
-    // Linux-only coverage missed that case-insensitive regression in #1353.
+    // The whole adapter suite, on the platform whose watch backend, path
+    // spellings, and process model differ most from Linux: every watch runs in
+    // the isolated broker, temp paths take 8.3 short forms, and a POSIX
+    // filesystem supplied to a Windows host keeps POSIX path semantics. A list
+    // of Windows-relevant cases used to stand here; it named what someone had
+    // already thought of, and a case not on it ran nowhere on Windows
+    // (samchon/ttsc#1307, samchon/ttsc#1324, samchon/ttsc#1353).
     run:
-      "pnpm --filter @ttsc/test-unplugin start -- " +
-      "--include=membership --include=output_directory --include=the_walk " +
-      "--include=new_source " +
-      "--include=persistent_host --include=hashed_bundle --include=allowjs " +
-      "--include=non_source_host_inputs --include=policy_reports " +
-      "--include=compiler_inputs --include=subscription_and_alias " +
-      "--include=bun_native_host --include=host_input_tracker " +
-      "--include=vite_serve --include=machine_directory " +
-      "--include=predicate_proofs --include=real_native_envelope " +
-      "--include=watch_broker --include=registers_new_directories && " +
+      "pnpm --filter @ttsc/test-unplugin start && " +
       // `packages/metro/**` selects this lane, so it has to run metro's own
       // walk-facing cases rather than only the adapter's. There is no
       // Windows-only branch in `@ttsc/metro` itself; what these cases add is
@@ -213,6 +200,7 @@ const LANES = [
       "pnpm --filter @ttsc/test-metro start -- " +
       "--include=cache_key --include=records_implicit_dependency_guards " +
       "--include=records_linked --include=adapters_policy",
+    dirs: ["features", "native-plugins"],
   },
   {
     id: "bundler-defenses-macos",
@@ -221,20 +209,16 @@ const LANES = [
     needsGo: true,
     scope: "test-unplugin",
     build: "pnpm run build:current",
+    // The whole adapter suite, on the platform whose watches run through the
+    // `fsevents` binding in the broker, one FSEventStream each, and whose
+    // descriptor limits the transform must survive (samchon/ttsc#1384,
+    // samchon/ttsc#1418, samchon/ttsc#1425). The limits are raised for the
+    // high-descriptor scenario.
     run:
       "sudo sysctl -w kern.maxfiles=524288 && " +
       "sudo sysctl -w kern.maxfilesperproc=262144 && " +
       "ulimit -n 65536 && " +
-      // The host-input tracker scenario runs FSEvents itself: a watched
-      // directory replaced on macOS reports nothing, which only the location
-      // identity check can notice (samchon/ttsc#1384). Every macOS watch runs
-      // in the watch broker through the `fsevents` binding, one FSEventStream
-      // per watch, which only macOS can exercise: the broker protocol, the dev
-      // server's watcher, and the build bridge run here through it
-      // (samchon/ttsc#1418, samchon/ttsc#1425).
-      "pnpm --filter @ttsc/test-unplugin start -- --include=high_darwin_descriptors " +
-      "--include=host_input_tracker --include=watch_broker " +
-      "--include=vite_serve --include=each_predicate",
+      "pnpm --filter @ttsc/test-unplugin start",
     dirs: ["features", "native-plugins"],
   },
   {
@@ -890,7 +874,10 @@ function createPlatformPlan(tasks) {
         (row.os === "linux" || row.os === "win32");
       const sourceMap =
         tasks.sourceMap && row.representative && row.os === "linux";
-      const unpluginE2e = tasks.unpluginE2e && row.name === "linux-x64";
+      // The real hosts, on every OS the adapter watches differently: the
+      // Linux inotify helper, the Windows and macOS brokers, and each OS's
+      // process model for the dev servers. One OS used to stand for all three.
+      const unpluginE2e = tasks.unpluginE2e && row.representative;
       const vscode = tasks.vscode && row.representative;
       const watch = tasks.watch && row.representative;
       // Linux already runs the runtime suite in the core lane.
