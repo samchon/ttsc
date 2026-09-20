@@ -2,6 +2,8 @@ import path from "node:path";
 
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { formatUnknownError } from "../diagnostics/formatUnknownError";
+import { envelopeDerivation } from "../envelope/envelopeDerivation";
+import { hostSpelling } from "../envelope/hostSpelling";
 import { isTransformScratchInput } from "../tsconfig/isTransformScratchInput";
 import type { TtscTransformHooks } from "./TtscTransformHooks";
 import type { TtscWatchInput } from "./TtscWatchInput";
@@ -50,7 +52,7 @@ export function notifyFailedGenerationInputs(
     // No evidence, deliberately. A failed generation is replayed for the rest
     // of its pass without re-proving its inputs, so the adapter must observe
     // the current availability itself.
-    inputs.push({ file: spelling });
+    inputs.push({ file: hostSpelling(envelopeDerivation(cached), spelling) });
   };
   for (const key of Object.keys(cached.inputHashes)) {
     append(path.resolve(cached.projectRoot, key));

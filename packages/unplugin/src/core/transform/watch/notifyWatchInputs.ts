@@ -3,6 +3,7 @@ import path from "node:path";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { derivationIdentity } from "../envelope/derivationIdentity";
 import { envelopeDerivation } from "../envelope/envelopeDerivation";
+import { hostSpelling } from "../envelope/hostSpelling";
 import { selectWatchInputs } from "../envelope/selectWatchInputs";
 import { toProjectKey } from "../project/toProjectKey";
 import { MISSING_INPUT_STATE } from "../validation/MISSING_INPUT_STATE";
@@ -88,7 +89,9 @@ export function notifyWatchInputs(
               ? { codec: "host", hash: projectHash }
               : undefined;
     return {
-      file: input,
+      // The host is handed its own spelling; every lookup above was by the
+      // compiler's physical one.
+      file: hostSpelling(state, input),
       evidence: {
         identity,
         missing,

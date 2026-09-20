@@ -28,6 +28,17 @@ import type { TtscEnvelopeGraphIndexes } from "./TtscEnvelopeGraphIndexes";
 export interface TtscEnvelopeDerivation {
   /** One filesystem snapshot for every identity comparison in this envelope. */
   readonly identityContext: FilesystemPathIdentityContext;
+  /**
+   * The project root as the host spells it. The compiler reports its inputs
+   * physically, so an input below {@link projectPhysical} is handed back to the
+   * host under this spelling (samchon/ttsc#1451).
+   */
+  readonly projectSpelling: string;
+  /**
+   * The project root's physical spelling, after every link. Equal to
+   * {@link projectSpelling} where the root traverses none.
+   */
+  readonly projectPhysical: string;
   /** Memoized `pathIdentityKey` results, keyed by the exact input. */
   readonly identities: Map<string, string>;
   /**
