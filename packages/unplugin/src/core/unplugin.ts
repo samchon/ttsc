@@ -209,6 +209,13 @@ const unpluginFactory: UnpluginFactory<
         await serveInputs.dispose();
         await closeBridge();
       },
+      // A watching `vite build` bundles through Rollup, which loses a sentinel
+      // rewritten while it is building the way the Rollup block below
+      // describes (samchon/ttsc#1460); Rolldown, behind Vite 8, takes no such
+      // hook and ignores it.
+      shouldTransformCachedModule({ id }: { id: string }) {
+        return bridge?.owes(id) === true ? true : null;
+      },
     },
 
     // Rollup and Rolldown carry none of the Vite block's hooks, so before this
@@ -234,6 +241,16 @@ const unpluginFactory: UnpluginFactory<
       async closeWatcher() {
         resetTtscTransformCache(transformCache);
         await closeBridge();
+      },
+      // A sentinel rewritten while Rollup is building invalidates the cache
+      // that build started from, and the build's own result then replaces it,
+      // so the importer is served from the cache on the rerun and stays on its
+      // old output (samchon/ttsc#1460). Rollup asks here before it serves a
+      // module from its cache, and a module the bridge signalled since it last
+      // registered is transformed instead, which registers it and answers the
+      // signal.
+      shouldTransformCachedModule({ id }: { id: string }) {
+        return bridge?.owes(id) === true ? true : null;
       },
     },
     rolldown: {

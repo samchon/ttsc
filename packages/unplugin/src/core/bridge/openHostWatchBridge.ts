@@ -87,13 +87,17 @@ export function openHostWatchBridge(
       // pass still re-proves the generation against the filesystem.
     }
   };
+  // The importers signalled since they last registered, by resolved path.
+  const owed = new Set<string>();
   // The next rewrite owed to each importer, until it is registered again.
   const pending = new Map<string, NodeJS.Timeout>();
   const settle = (importer: string): void => {
+    owed.delete(path.resolve(importer));
     clearTimeout(pending.get(importer));
     pending.delete(importer);
   };
   const signal = (importer: string): void => {
+    owed.add(path.resolve(importer));
     if (!confirmDelivery) {
       writeSentinel(importer);
       return;
@@ -135,11 +139,13 @@ export function openHostWatchBridge(
     begin: () => watch.begin(),
     close: async () => {
       for (const importer of [...pending.keys()]) settle(importer);
+      owed.clear();
       await watch.dispose();
       nodes.clear();
       process.off("exit", removeDirectory);
       removeDirectory();
     },
+    owes: (importer) => owed.has(path.resolve(importer)),
     register(importer, inputs, failed, startedAt) {
       nodes.set(importer.replace(/\\/g, "/"), { file: importer });
       // The delivery being registered answers every signal owed so far. If it
