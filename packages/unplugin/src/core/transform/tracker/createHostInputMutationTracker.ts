@@ -1,10 +1,11 @@
 import path from "node:path";
 
+import type { TtscProjectSpellings } from "../filesystem/TtscProjectSpellings";
 import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransformFilesystemOperations";
 import { createHostPathIdentityContext } from "../filesystem/createHostPathIdentityContext";
 import { normalizeHostInputName } from "../filesystem/normalizeHostInputName";
 import { pathIdentityKey } from "../filesystem/pathIdentityKey";
-import { pathIsWithin } from "../filesystem/pathIsWithin";
+import { relativeToProject } from "../filesystem/relativeToProject";
 import { hostInputRealpath } from "../inputs/hostInputRealpath";
 import { missingPathProbe } from "../inputs/missingPathProbe";
 import type { TtscProjectMutationTracker } from "./TtscProjectMutationTracker";
@@ -119,8 +120,17 @@ export async function createHostInputMutationTracker(
       recursive?: boolean;
     }
   >();
-  const internalRoot =
-    preferredRoot === undefined ? undefined : path.resolve(preferredRoot);
+  // The project root in both of its spellings: an input the compiler reported
+  // physically is the project's as much as one spelled as the project was
+  // named, and the root's observer is opened once, under the name.
+  const internal: TtscProjectSpellings | undefined =
+    preferredRoot === undefined
+      ? undefined
+      : {
+          physical: identities.resolve(path.resolve(preferredRoot)).path,
+          spelling: path.resolve(preferredRoot),
+        };
+  const internalRoot = internal?.spelling;
   // The directories below `internalRoot` its recursive observer must hear, for
   // a backend that watches directory by directory (samchon/ttsc#1389): every
   // directory leading to a tracked path, a `children` path itself, and all of
@@ -133,9 +143,8 @@ export async function createHostInputMutationTracker(
   ): void => {
     for (
       let directory = path.dirname(probed);
-      internalRoot !== undefined &&
-      directory !== internalRoot &&
-      pathIsWithin(directory, internalRoot);
+      internal !== undefined &&
+      (relativeToProject(directory, internal) ?? "") !== "";
       directory = path.dirname(directory)
     ) {
       const key = pathIdentityKey(directory, identities);
@@ -188,7 +197,11 @@ export async function createHostInputMutationTracker(
         trackedInputScope(absolute, undefined, filesystem))
       : "subtree";
     track(probed, scope);
-    if (internalRoot !== undefined && pathIsWithin(absolute, internalRoot)) {
+    if (
+      internal !== undefined &&
+      internalRoot !== undefined &&
+      relativeToProject(absolute, internal) !== undefined
+    ) {
       watchDirectory(internalRoot, undefined, true);
       admitInternal(probed, scope);
       continue;

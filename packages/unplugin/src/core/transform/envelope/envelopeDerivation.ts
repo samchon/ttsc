@@ -27,12 +27,14 @@ export function envelopeDerivation(props: {
   const identityContext = createHostPathIdentityContext(
     resultFilesystem(props.result),
   );
-  const projectSpelling = path.resolve(props.projectRoot);
+  const spelling = path.resolve(props.projectRoot);
   const created: TtscEnvelopeDerivation = {
     identityContext,
     identities: new Map(),
-    projectPhysical: identityContext.resolve(projectSpelling).path,
-    projectSpelling,
+    project: {
+      physical: identityContext.resolve(spelling).path,
+      spelling,
+    },
     watchInputs: new Map(),
   };
   ENVELOPE_DERIVATIONS.set(props.result, created);

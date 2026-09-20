@@ -3,7 +3,9 @@ import path from "node:path";
 import { createFilesystemPathIdentityContext } from "ttsc/path-identity";
 
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
+import type { TtscProjectSpellings } from "../transform/filesystem/TtscProjectSpellings";
 import { pathIsWithin } from "../transform/filesystem/pathIsWithin";
+import { relativeToProject } from "../transform/filesystem/relativeToProject";
 import { validateGraphInputObservation } from "../transform/inputs/validateGraphInputObservation";
 import { isProjectWalkDirectory } from "../transform/project/isProjectWalkDirectory";
 import { projectMembershipMatches } from "../transform/project/projectMembershipMatches";
@@ -70,6 +72,10 @@ export function createViteServeInputWatch(
   const changes = new Map<string, number>();
   let server: ViteDevServerLike | undefined;
   let projectRoot: string | undefined;
+  // The project root in both of its spellings: the server names it as it was
+  // configured, while an input its resolver arrives at is spelled physically,
+  // and the project scope hears both under the name it was opened on.
+  let project: TtscProjectSpellings | undefined;
   // Whether the server declared polling, which leaves native notifications
   // unproven on its filesystem, so every entry goes to the bounded poll
   // (samchon/ttsc#1395).
@@ -520,8 +526,9 @@ export function createViteServeInputWatch(
     // instead; the project root itself is the pinned scope's.
     if (
       external &&
-      projectRoot !== undefined &&
-      containsPath(root, projectRoot)
+      project !== undefined &&
+      (containsPath(root, project.spelling) ||
+        containsPath(root, project.physical))
     ) {
       return false;
     }
@@ -652,12 +659,25 @@ export function createViteServeInputWatch(
     });
   }
 
+  // The entry under the project root's own name, when the project contains
+  // it: the scope's events name the root as it was opened, so an input spelled
+  // under the physical root is heard under that name, and the scope's
+  // directory-level backend admits the directories leading to it.
+  const namedInProject = (file: string): string | undefined => {
+    if (projectRoot === undefined || project === undefined) return undefined;
+    const below = relativeToProject(file, project);
+    return below === undefined ? undefined : path.join(projectRoot, below);
+  };
+
   const observe = (entry: InputEntry): void => {
     bindAlias(entry, entry.file);
     bindRenameAncestors(entry, entry.file);
     const root = projectRoot;
-    if (root !== undefined && containsPath(root, entry.file)) {
-      if (!bindScope(root, entry, false, entry.file)) requirePolling(entry);
+    const named = namedInProject(entry.file);
+    if (root !== undefined && named !== undefined) {
+      bindAlias(entry, named);
+      bindRenameAncestors(entry, named);
+      if (!bindScope(root, entry, false, named)) requirePolling(entry);
     } else {
       const external = nearestExistingDirectory(entry.file);
       if (
@@ -681,10 +701,14 @@ export function createViteServeInputWatch(
         }
         link.inputs.add(entry);
         entry.links.add(entry.file);
-        if (root !== undefined && containsPath(root, target)) {
+        const namedTarget = namedInProject(target);
+        if (root !== undefined && namedTarget !== undefined) {
           // The project scope hears the target; a directory-level backend
           // needs its spelling as well.
-          if (!bindScope(root, entry, false, target)) requirePolling(entry);
+          bindAlias(entry, namedTarget);
+          bindRenameAncestors(entry, namedTarget);
+          if (!bindScope(root, entry, false, namedTarget))
+            requirePolling(entry);
         } else {
           const targetRoot = nearestExistingDirectory(target);
           if (
@@ -724,8 +748,19 @@ export function createViteServeInputWatch(
         );
         bindAlias(entry, targetFile);
         bindRenameAncestors(entry, targetFile);
-        const inRoot = containsPath(root, link.target);
-        if (!bindScope(inRoot ? root : link.target, entry, !inRoot, targetFile))
+        const namedTargetFile = namedInProject(targetFile);
+        if (namedTargetFile !== undefined) {
+          bindAlias(entry, namedTargetFile);
+          bindRenameAncestors(entry, namedTargetFile);
+        }
+        if (
+          !bindScope(
+            namedTargetFile === undefined ? link.target : root,
+            entry,
+            namedTargetFile === undefined,
+            namedTargetFile ?? targetFile,
+          )
+        )
           requirePolling(entry);
       }
     }
@@ -735,6 +770,10 @@ export function createViteServeInputWatch(
     attach(next) {
       server = next;
       projectRoot = path.resolve(next.config?.root ?? process.cwd());
+      project = {
+        physical: realpath(projectRoot) ?? projectRoot,
+        spelling: projectRoot,
+      };
       polling = hostDeclaresPolling(
         process.env,
         next.config?.server?.watch?.usePolling === true,

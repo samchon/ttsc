@@ -1,5 +1,7 @@
 import path from "node:path";
 
+import type { TtscProjectSpellings } from "../filesystem/TtscProjectSpellings";
+
 /**
  * How a host is handed the compiler's inputs for one delivery: spelled under
  * the project as the host itself spelled the module it delivered
@@ -32,7 +34,7 @@ import path from "node:path";
  * @returns The spelling function for this delivery's inputs.
  */
 export function hostSpelling(
-  project: { physical: string; spelling: string },
+  project: TtscProjectSpellings,
   delivered: string,
 ): (input: string) => string {
   if (project.physical === project.spelling) return (input) => input;

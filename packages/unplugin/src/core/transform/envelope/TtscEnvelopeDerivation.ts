@@ -1,5 +1,6 @@
 import type { FilesystemPathIdentityContext } from "ttsc/path-identity";
 
+import type { TtscProjectSpellings } from "../filesystem/TtscProjectSpellings";
 import type { TtscEnvelopeGraphIndexes } from "./TtscEnvelopeGraphIndexes";
 
 /**
@@ -29,16 +30,12 @@ export interface TtscEnvelopeDerivation {
   /** One filesystem snapshot for every identity comparison in this envelope. */
   readonly identityContext: FilesystemPathIdentityContext;
   /**
-   * The project root as the host spells it. The compiler reports its inputs
-   * physically, so an input below {@link projectPhysical} is handed back to the
-   * host under this spelling (samchon/ttsc#1451).
+   * The project root's two spellings, the one it was named by and the physical
+   * one, resolved once for the envelope: the compiler reports its inputs
+   * physically, and a host is handed each under the spelling it uses
+   * (samchon/ttsc#1451).
    */
-  readonly projectSpelling: string;
-  /**
-   * The project root's physical spelling, after every link. Equal to
-   * {@link projectSpelling} where the root traverses none.
-   */
-  readonly projectPhysical: string;
+  readonly project: TtscProjectSpellings;
   /** Memoized `pathIdentityKey` results, keyed by the exact input. */
   readonly identities: Map<string, string>;
   /**

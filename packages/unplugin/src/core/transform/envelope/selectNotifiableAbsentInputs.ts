@@ -4,6 +4,7 @@ import type { ITtscCompilerTransformation } from "ttsc";
 import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransformFilesystemOperations";
 import { createHostPathIdentityContext } from "../filesystem/createHostPathIdentityContext";
 import { pathIdentityKey } from "../filesystem/pathIdentityKey";
+import { relativeToProject } from "../filesystem/relativeToProject";
 import { isTransformScratchInput } from "../tsconfig/isTransformScratchInput";
 import { envelopeDerivation } from "./envelopeDerivation";
 import { envelopeGraphIndexes } from "./envelopeGraphIndexes";
@@ -53,7 +54,6 @@ export function selectNotifiableAbsentInputs(props: {
     props.temporaryTsconfig === undefined
       ? undefined
       : pathIdentityKey(props.temporaryTsconfig, identities);
-  const resolvedProjectRoot = path.resolve(props.projectRoot);
   const output: string[] = [];
   const watched: string[] = [];
   const directories = new Set<string>();
@@ -111,14 +111,17 @@ export function selectNotifiableAbsentInputs(props: {
         parent !== child;
         child = parent, parent = path.dirname(child)
       ) {
-        if (insideProject(child, resolvedProjectRoot)) {
+        const below = relativeToProject(child, graphState.project);
+        if (below !== undefined && below !== "") {
           components.push(child);
           continue;
         }
         // Compared through `path.relative` rather than by string, so a
         // spelling that differs from the root only in case still counts as
-        // having arrived where the platform says it has.
-        reachedProject = path.relative(child, resolvedProjectRoot).length === 0;
+        // having arrived where the platform says it has; and against both of
+        // the root's spellings, since the compiler names a candidate
+        // physically while the project was named through a link.
+        reachedProject = below === "";
         break;
       }
       if (!reachedProject) {
@@ -147,37 +150,6 @@ export function selectNotifiableAbsentInputs(props: {
   output.sort();
   watched.sort();
   return { candidates: output, watched };
-}
-
-/**
- * Report whether a directory lies strictly below the project root.
- *
- * The boundary of what a generation may watch on a candidate's behalf: what the
- * project contains is its own layout, while the project root and everything
- * above it belongs to the machine, which nobody retargets and which changes for
- * reasons no generation should hear about.
- */
-function insideProject(directory: string, projectRoot: string): boolean {
-  const relative = path.relative(
-    path.resolve(projectRoot),
-    path.resolve(directory),
-  );
-  // An empty result is the platform saying the two name the same directory,
-  // which it answers for spellings that differ only in case where the path
-  // module folds case. The root itself is not below itself, so the walk stops
-  // there rather than one level past it.
-  if (relative.length === 0) {
-    return false;
-  }
-  // `..` alone and `../` climb out, and an absolute answer means another drive
-  // or share entirely; a directory literally named `..x` does neither, which a
-  // plain prefix test would misread. The project walk's own containment check
-  // spells it the same way.
-  return (
-    relative !== ".." &&
-    !relative.startsWith(`..${path.sep}`) &&
-    !path.isAbsolute(relative)
-  );
 }
 
 /**
