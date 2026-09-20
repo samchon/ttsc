@@ -31,7 +31,10 @@ export async function test_webpack_watch_reuses_the_generation_across_rebuilds()
     "compiles.bin",
   );
   const root = createTypeEdgeProject(true, false, runLog);
-  const entry = TestUnpluginProject.mainFile(root);
+  // webpack's resolver spells a module physically, after every link, while the
+  // project is named through its temporary directory, a link on macOS; the
+  // rebuilt entry is therefore recognized by identity.
+  const entry = fs.realpathSync.native(TestUnpluginProject.mainFile(root));
   const typeOnly = path.join(root, "src", "mytype.ts");
   const compiles = () => (fs.existsSync(runLog) ? fs.statSync(runLog).size : 0);
   const config = await createWebpackConfig(root);
@@ -105,7 +108,7 @@ export async function test_webpack_watch_reuses_the_generation_across_rebuilds()
               const resource = (module as { resource?: unknown }).resource;
               return (
                 typeof resource === "string" &&
-                path.resolve(resource) === path.resolve(entry) &&
+                fs.realpathSync.native(resource) === entry &&
                 built.has(module)
               );
             });

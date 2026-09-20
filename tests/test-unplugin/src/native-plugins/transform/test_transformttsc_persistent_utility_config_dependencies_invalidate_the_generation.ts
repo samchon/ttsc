@@ -117,9 +117,18 @@ export async function test_transformttsc_persistent_utility_config_dependencies_
         hostInputs?: string[];
       };
     };
+    // The compiler reports its inputs physically, after every link, such as the
+    // macOS temporary directory's; a candidate it probed may not exist.
+    const physical = (file: string): string => {
+      try {
+        return fs.realpathSync.native(file);
+      } catch {
+        return path.resolve(file);
+      }
+    };
     assert.ok(
       cached.result?.hostInputs?.some(
-        (input) => path.resolve(input) === path.resolve(external),
+        (input) => physical(input) === physical(external),
       ),
       `${plugin}.${format} omitted its evaluated external config dependency: ${JSON.stringify(cached.result?.hostInputs ?? [])}`,
     );
