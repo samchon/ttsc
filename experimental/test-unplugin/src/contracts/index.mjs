@@ -55,7 +55,7 @@ for (const host of selected.length ? selected : Object.keys(hosts)) {
         cwd: workspace,
         stdio: "inherit",
         env: process.env,
-        timeout: 240_000,
+        timeout: 900_000,
         windowsHide: true,
       },
     );

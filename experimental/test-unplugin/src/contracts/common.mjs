@@ -4,12 +4,57 @@ import path from "node:path";
 
 export const workspace = path.resolve(import.meta.dirname, "..");
 
-/** Each host gets mutable inputs of its own and the same immutable Go source. */
-export function fixture(name) {
-  const root = path.join(workspace, ".contracts", name);
-  assert.equal(path.dirname(root), path.join(workspace, ".contracts"));
-  fs.rmSync(root, { recursive: true, force: true });
-  fs.mkdirSync(path.join(root, "src"), { recursive: true });
+/**
+ * The values a contract input can carry, in the order the scenarios use them. A
+ * host's output is read for exactly these words, so a string literal of the
+ * host's own never counts as a consumer's value.
+ */
+export const VALUES = [
+  "FIRST",
+  "SECOND",
+  "THIRD",
+  "FOURTH",
+  "FIFTH",
+  "SIXTH",
+  "SEVENTH",
+  "EIGHTH",
+  "NINTH",
+  "TENTH",
+  "ELEVENTH",
+  "TWELFTH",
+  "THIRTEENTH",
+  "FOURTEENTH",
+  "RUNTIME_FIRST",
+  "RUNTIME_SECOND",
+];
+
+const VALUE_PATTERN = new RegExp(`(["'\`])(${VALUES.join("|")})\\1`, "g");
+
+/**
+ * Each host gets mutable inputs of its own and the same immutable Go source.
+ *
+ * With `linked`, the project's files live in a directory the host never names:
+ * the host is configured through a link to it, a junction on Windows and a
+ * symbolic link elsewhere, the way every macOS temporary directory and every
+ * linked workspace names a project. The compiler then reports the project's
+ * inputs under the physical directory while the host, and the contract, name it
+ * through the link.
+ */
+export function fixture(name, { linked = false } = {}) {
+  const physical = path.join(workspace, ".contracts", name);
+  assert.equal(path.dirname(physical), path.join(workspace, ".contracts"));
+  fs.rmSync(physical, { recursive: true, force: true });
+  const link = path.join(workspace, ".contracts", `${name}-link`);
+  fs.rmSync(link, { recursive: true, force: true });
+  fs.mkdirSync(path.join(physical, "src"), { recursive: true });
+  if (linked) {
+    fs.symlinkSync(
+      physical,
+      link,
+      process.platform === "win32" ? "junction" : "dir",
+    );
+  }
+  const root = linked ? link : physical;
   write(
     root,
     "package.json",
@@ -48,22 +93,62 @@ export function fixture(name) {
   );
   for (const i of [1, 2, 3])
     write(root, `src/mod${i}.ts`, "export const value = watchValue();\n");
+  const project = projectAt(root, { linked, physical });
+  project.change("FIRST");
+  return project;
+}
+
+/**
+ * The accessors of a fixture already on disk at `root`, for a process that did
+ * not create it, such as the Bun worker.
+ */
+export function projectAt(root, { linked = false, physical = root } = {}) {
   const input = path.join(root, "src/contract-input.server.ts");
-  const change = (value) =>
-    fs.writeFileSync(input, `export type ContractInput = "${value}";\n`);
-  change("FIRST");
   return {
     root,
+    physical,
+    linked,
     input,
-    change,
+    change(value) {
+      fs.writeFileSync(input, contractInput(value));
+    },
     break() {
       fs.writeFileSync(input, "export type ContractInput = ;\n");
+    },
+    /** Remove the input outright, as a deleted file does. */
+    remove() {
+      fs.rmSync(input, { force: true });
+    },
+    /**
+     * Save the input the way an editor does: write the whole file beside it and
+     * rename it over the old one, so the watcher hears a creation and a rename,
+     * never a write to the input's own path.
+     */
+    save(value) {
+      const temporary = `${input}.${process.pid}.tmp`;
+      fs.writeFileSync(temporary, contractInput(value));
+      fs.renameSync(temporary, input);
+    },
+    /** A second input the module depends on for the first time. */
+    sibling(name, value) {
+      write(root, `src/${name}-input.server.ts`, contractInput(value));
     },
     entry: path.join(root, "src/main.ts"),
     output: path.join(root, "dist-contract/bundle.js"),
     options: { project: path.join(root, "tsconfig.json") },
-    runs: () => fs.statSync(path.join(root, ".ttsc/contract-runs")).size,
+    runs: () => {
+      try {
+        return fs.statSync(path.join(root, ".ttsc/contract-runs")).size;
+      } catch {
+        return 0;
+      }
+    },
   };
+}
+
+/** The source of a contract input carrying `value`. */
+export function contractInput(value) {
+  return `export type ContractInput = "${value}";\n`;
 }
 
 export function write(root, file, contents) {
@@ -72,12 +157,13 @@ export function write(root, file, contents) {
   fs.writeFileSync(target, contents);
 }
 
+/** The values the consumers in `code` carry, in order. */
+export function valuesIn(code) {
+  return [...code.matchAll(VALUE_PATTERN)].map((match) => match[2]);
+}
+
 export function expectOutput(code, value, consumers = 1) {
-  const values = [
-    ...code.matchAll(
-      /(["'`])(FIRST|SECOND|THIRD|FOURTH|FIFTH|SIXTH|SEVENTH)\1/g,
-    ),
-  ].map((match) => match[2]);
+  const values = valuesIn(code);
   assert.equal(
     values.length,
     consumers,
@@ -130,8 +216,13 @@ export function eventQueue() {
   };
 }
 
-export async function eventually(read, predicate, label) {
-  const until = Date.now() + 30_000;
+export async function eventually(
+  read,
+  predicate,
+  label,
+  milliseconds = 30_000,
+) {
+  const until = Date.now() + milliseconds;
   let last;
   while (Date.now() < until) {
     try {
@@ -152,12 +243,33 @@ export async function adapter(name, options) {
 }
 
 /**
+ * Rewrite the contract input that holds a `LATE_RACE_<VALUE>` value with
+ * `<VALUE>`, when `source` carries one: the edit a host seam placed after ttsc
+ * makes, so it lands after ttsc registered the input and returned the module,
+ * while the host is still building (samchon/ttsc#1423, samchon/ttsc#1460).
+ *
+ * @returns Whether an input was rewritten.
+ */
+export function landLateRace(root, source) {
+  const match = /"LATE_RACE_([A-Z]+)"/.exec(source);
+  if (match === null) return false;
+  const directory = path.join(root, "src");
+  let landed = false;
+  for (const name of fs.readdirSync(directory)) {
+    if (!name.endsWith("-input.server.ts")) continue;
+    const file = path.join(directory, name);
+    if (!fs.readFileSync(file, "utf8").includes(match[0])) continue;
+    fs.writeFileSync(file, contractInput(match[1]));
+    landed = true;
+  }
+  return landed;
+}
+
+/**
  * Write a loader that runs after ttsc in a host's loader chain: the one place a
  * public API reaches between ttsc returning a module and the host taking its
- * dependencies (samchon/ttsc#1423). When the module it receives carries a
- * `LATE_RACE_<VALUE>` value, it rewrites the contract input holding that value
- * with `<VALUE>`, so the edit lands after ttsc registered the input and before
- * the host records its state.
+ * dependencies (samchon/ttsc#1423). It lands a `LATE_RACE_<VALUE>` edit the way
+ * `landLateRace` does.
  */
 export function writeRaceLoader(root) {
   const loader = path.join(root, "race-loader.cjs");
@@ -213,17 +325,42 @@ export async function settledOutput(events, label, value, consumers = 4) {
             seen.push(String(error.message ?? error).split("\n")[0]);
             continue;
           }
-          const values = [
-            ...code.matchAll(
-              /"(FIRST|SECOND|THIRD|FOURTH|FIFTH|SIXTH|SEVENTH)"/g,
-            ),
-          ].map((match) => match[1]);
+          const values = valuesIn(code);
           seen.push(values);
           if (
             values.length === consumers &&
             values.every((found) => found === value)
           )
             return code;
+        }
+      })(),
+      label,
+    );
+  } catch (error) {
+    throw new Error(
+      `${error.message}; builds seen while waiting: ${JSON.stringify(seen)}`,
+    );
+  }
+}
+
+/**
+ * Wait for the next failed build whose error matches `pattern`, and return it.
+ * A successful build seen on the way is not the failure either; the queue's
+ * deadline bounds the wait.
+ */
+export async function failedOutput(events, label, pattern) {
+  const seen = [];
+  try {
+    return await deadline(
+      (async () => {
+        for (;;) {
+          try {
+            seen.push(valuesIn(await events.next(label)));
+          } catch (error) {
+            if (String(error.message).startsWith("Timed out:")) throw error;
+            if (pattern.test(String(error.message ?? error))) return error;
+            seen.push(String(error.message ?? error).split("\n")[0]);
+          }
         }
       })(),
       label,
