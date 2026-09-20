@@ -158,7 +158,9 @@ export interface TtscCachedProjectTransform {
    * tracker opened before it.
    *
    * A failed compile whose project moved is a verdict about a state already
-   * gone, so it is compiled again like a success whose proof was lost.
+   * gone, so it is compiled again like a success whose proof was lost; so is a
+   * compile adopted from the session whose external inputs have moved since its
+   * publisher read them (samchon/ttsc#1458).
    */
   projectHeldStill?: boolean;
   /**

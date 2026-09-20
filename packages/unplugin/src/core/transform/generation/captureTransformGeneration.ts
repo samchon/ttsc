@@ -446,16 +446,21 @@ export async function captureTransformGeneration(props: {
     cached.externalInputObservations = externalInputSnapshot.observations;
     cached.externalInputRealpaths = externalInputSnapshot.realpaths;
     cached.externalInputSignatures = externalInputSnapshot.signatures;
-    // Publish only a successful compile whose snapshot held for the whole
-    // compile, so the state it is published under is the state it read. A
-    // failed envelope stays local: it may come from a transient plugin crash,
-    // which each worker must be free to attempt again, as without sharing.
-    // The external inputs a plugin reports carry no compile-time proof, only
-    // the state recorded right after the compile, so that state travels with
-    // the publication for every adopter to match (samchon/ttsc#1390).
-    // Releasing the lock without publishing lets the next waiter compile.
+    // Publish only a compile whose snapshot held for the whole compile, so the
+    // state it is published under is the state it read. A compile that ended
+    // in diagnostics is such a compile: the diagnostics are a function of the
+    // state, and a pool whose host discards a worker after each failed run,
+    // as Turbopack does, would otherwise compile the same broken state once
+    // per fresh worker and per module, which on a slow machine outlasted the
+    // host's own patience (samchon/ttsc#1458). An exception stays local: it
+    // may come from a transient plugin crash, which each worker must be free
+    // to attempt again, as without sharing. The external inputs a plugin
+    // reports carry no compile-time proof, only the state recorded right after
+    // the compile, so that state travels with the publication for every
+    // adopter to match (samchon/ttsc#1390). Releasing the lock without
+    // publishing lets the next waiter compile.
     if (sharedClaim !== undefined) {
-      if (walkStable && result.type === "success") {
+      if (walkStable && result.type !== "exception") {
         await sharedClaim.publish({
           externalInputHashes: externalInputSnapshot.hashes,
           externalInputRealpaths: externalInputSnapshot.realpaths,
@@ -473,6 +478,17 @@ export async function captureTransformGeneration(props: {
       adopted === undefined
         ? undefined
         : adoptedExternalInputMismatch(adopted, externalInputSnapshot);
+    // An adopted compile whose external inputs have moved since its publisher
+    // read them, or whose graph proofs this worker cannot confirm against its
+    // own disk, is a verdict about a state already gone, whatever the verdict
+    // was: a failure adopted from the session is compiled again like one whose
+    // own project moved (samchon/ttsc#1458).
+    if (
+      adopted !== undefined &&
+      (adoptionFailure !== undefined || !externalInputSnapshot.complete)
+    ) {
+      cached.projectHeldStill = false;
+    }
     // Evaluate every half, rather than short-circuiting, so a generation that
     // cannot be reused can say which evidence it lacked. The extra work runs
     // only on the failing path, where the alternative is recompiling the whole

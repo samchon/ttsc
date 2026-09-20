@@ -225,8 +225,10 @@ async function readPublication(
   try {
     const value = JSON.parse(text) as Partial<TtscSharedCompilePublication>;
     const type = (value.result as { type?: unknown } | undefined)?.type;
+    // A compile that ended in diagnostics is published like one that
+    // succeeded (samchon/ttsc#1458); an exception never is.
     if (
-      type !== "success" ||
+      (type !== "success" && type !== "failure") ||
       typeof value.externalInputHashes !== "object" ||
       value.externalInputHashes === null ||
       typeof value.externalInputRealpaths !== "object" ||

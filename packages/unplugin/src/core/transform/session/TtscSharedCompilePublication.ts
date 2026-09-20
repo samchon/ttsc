@@ -22,8 +22,10 @@ export interface TtscSharedCompilePublication {
   externalInputRealpaths: Record<string, string | null>;
 
   /**
-   * The compile's envelope, always a `success`: a failed envelope may come from
-   * a transient crash, which every worker must be free to attempt again.
+   * The compile's envelope: a `success`, or a `failure` whose diagnostics are
+   * as much a function of the published state as an envelope is
+   * (samchon/ttsc#1458). Never an `exception`, which may come from a transient
+   * crash that every worker must be free to attempt again.
    */
   result: ITtscCompilerTransformation;
 
