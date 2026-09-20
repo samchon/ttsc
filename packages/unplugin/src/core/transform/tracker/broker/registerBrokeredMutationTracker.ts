@@ -4,13 +4,13 @@ import path from "node:path";
 import { WATCH_BRIDGE_DIRECTORY_PREFIX } from "../../../bridge/WATCH_BRIDGE_DIRECTORY_PREFIX";
 import { sweepAbandonedWatchBridges } from "../../../bridge/sweepAbandonedWatchBridges";
 import type { TtscTransformFilesystemOperations } from "../../filesystem/TtscTransformFilesystemOperations";
-import { pathIsWithin } from "../../filesystem/pathIsWithin";
 import type { TtscProjectMutationTracker } from "../TtscProjectMutationTracker";
 import { WATCH_BROKER } from "./WATCH_BROKER";
 import { WATCH_PROBE_TIMEOUT_MS } from "./WATCH_PROBE_TIMEOUT_MS";
 import type { WatchBrokerLocation } from "./WatchBrokerLocation";
 import { drainWatchBroker } from "./drainWatchBroker";
 import { getWatchBroker } from "./getWatchBroker";
+import { probeForLocation } from "./probeForLocation";
 
 /**
  * Register directory watches in the isolated watch process, and resolve once
@@ -85,13 +85,17 @@ export async function registerBrokeredMutationTracker(
       directory = path.resolve(location.directory);
     }
     spellings.set(directory, location.directory);
+    const probe = probeForLocation(
+      directory,
+      probeRoot,
+      probeDirectory,
+      filesystem,
+    );
     return {
       directory,
       ...(location.names === undefined ? {} : { names: location.names }),
       ...(location.recursive === true ? { recursive: true } : {}),
-      ...(probeRoot !== undefined && pathIsWithin(directory, probeRoot)
-        ? { probe: { directory: probeDirectory(probeRoot), root: probeRoot } }
-        : {}),
+      ...(probe === undefined ? {} : { probe }),
     };
   });
   broker.pendingRegistrations += 1;
