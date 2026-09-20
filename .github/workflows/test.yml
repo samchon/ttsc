@@ -226,7 +226,7 @@ jobs:
           version: 10.6.4
 
       - uses: oven-sh/setup-bun@v2
-        if: matrix.id == 'bundler-defenses' || matrix.id == 'bundler-defenses-windows'
+        if: startsWith(matrix.id, 'bundler-defenses')
         with:
           bun-version: 1.4.0
 

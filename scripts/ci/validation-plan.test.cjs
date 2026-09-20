@@ -287,33 +287,28 @@ test("platform integrations reuse only the physical rows they need", () => {
     "the generic artifact rehearsal must not duplicate the package E2E",
   );
 
-  const unplugin = planForPaths(["packages/unplugin/src/index.ts"])
-    .platformMatrix.include;
-  assert.deepEqual(
-    unplugin.map((row) => row.name),
-    ["linux-x64"],
-    "an unplugin-only change belongs to one packed E2E row",
-  );
-  assert.equal(unplugin[0].unplugin_e2e, true);
-  assert.equal(unplugin[0].setup_bun, true);
-  assert.equal(unplugin[0].bun, false);
-  assert.equal(unplugin[0].experimental, false);
-  assert.equal(unplugin[0].source_map, false);
-  assert.equal(unplugin[0].plugin_cache, false);
-
-  const unpluginHarness = planForPaths([
+  // The adapter's real hosts run on every representative OS, since the
+  // adapter watches each one differently: the Linux inotify helper, and the
+  // Windows and macOS brokers.
+  for (const changed of [
+    "packages/unplugin/src/index.ts",
     "experimental/test-unplugin/src/index.ts",
-  ]).platformMatrix.include;
-  assert.deepEqual(
-    unpluginHarness.map((row) => row.name),
-    ["linux-x64"],
-  );
-  assert.equal(unpluginHarness[0].unplugin_e2e, true);
-  assert.equal(unpluginHarness[0].setup_bun, true);
-  assert.equal(unpluginHarness[0].bun, false);
-  assert.equal(unpluginHarness[0].experimental, false);
-  assert.equal(unpluginHarness[0].source_map, false);
-  assert.equal(unpluginHarness[0].plugin_cache, false);
+  ]) {
+    const rows = planForPaths([changed]).platformMatrix.include;
+    assert.deepEqual(
+      rows.map((row) => row.name),
+      ["linux-x64", "darwin-x64", "win32-x64"],
+      `${changed} selects the packed E2E on every representative OS`,
+    );
+    for (const row of rows) {
+      assert.equal(row.unplugin_e2e, true);
+      assert.equal(row.setup_bun, true);
+      assert.equal(row.bun, false);
+      assert.equal(row.experimental, false);
+      assert.equal(row.source_map, false);
+      assert.equal(row.plugin_cache, false);
+    }
+  }
 
   const genericInstallSource = fs.readFileSync(
     path.join(root, "experimental", "install", "src", "index.ts"),
@@ -488,32 +483,26 @@ test("lane identities and workflow matrix names stay unique", () => {
     /build:current/,
     "typecheck prerequisites must not rebuild native binaries",
   );
-  const windowsBundlerRun =
-    LANES.find((lane) => lane.id === "bundler-defenses-windows")?.run ?? "";
-  assert.match(
-    windowsBundlerRun,
-    /@ttsc\/test-unplugin start --/,
-    "the Windows lane must admit its selected unit predicate case",
-  );
-  assert.match(
-    windowsBundlerRun,
-    /--include=predicate_proofs/,
-    "the Windows lane must exercise supplied POSIX path semantics",
-  );
-  const unpluginIncludes = [
-    ...windowsBundlerRun.split(" && ")[0].matchAll(/--include=([^\s]+)/g),
-  ].flatMap((match) => match[1].split(","));
-  const nativeCases = fs
-    .readdirSync(
-      path.join(root, "tests/test-unplugin/src/native-plugins/envelope"),
-    )
-    .filter((file) => file.endsWith(".ts"))
-    .map((file) => file.slice(0, -".ts".length));
-  assert.ok(nativeCases.length > 0, "the native scenario inventory is empty");
-  for (const name of nativeCases) {
-    assert.ok(
-      unpluginIncludes.some((include) => name.includes(include)),
-      `the Windows lane must execute the real native envelope case ${name}`,
+  // The Windows and macOS lanes run the whole adapter suite, both trees, with
+  // no selection. A list of OS-relevant cases used to stand in each lane; it
+  // named what someone had already thought of, and a case not on it ran
+  // nowhere on that OS.
+  for (const id of ["bundler-defenses-windows", "bundler-defenses-macos"]) {
+    const lane = LANES.find((candidate) => candidate.id === id);
+    assert.ok(lane, `${id} exists`);
+    const unpluginRun = lane.run
+      .split(" && ")
+      .find((step) => step.includes("@ttsc/test-unplugin start"));
+    assert.ok(unpluginRun, `${id} runs the adapter suite`);
+    assert.doesNotMatch(
+      unpluginRun,
+      /--include=/,
+      `${id} must run the whole adapter suite, not a selection`,
+    );
+    assert.deepEqual(
+      lane.dirs,
+      ["features", "native-plugins"],
+      `${id} must run both adapter trees`,
     );
   }
   assert.deepEqual(
