@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { samePhysicalPath } from "../../internal/paths/samePhysicalPath";
 import { assertProductionEnvelope } from "../../internal/real-native-envelope/assertProductionEnvelope";
 import { createRealNativeEnvelopeFixture } from "../../internal/real-native-envelope/createRealNativeEnvelopeFixture";
 import { deliver } from "../../internal/real-native-envelope/deliver";
@@ -59,9 +60,12 @@ export async function test_real_native_envelope_input_race_stabilizes_within_sha
       } catch {
         return output;
       }
+      // The wrapper extends the leaf as the compiler spells it, physically
+      // (samchon/ttsc#1456), while the fixture names it through the temporary
+      // directory's link on macOS.
       if (
         typeof extended !== "string" ||
-        path.resolve(extended) !== path.resolve(leafConfig)
+        !samePhysicalPath(extended, leafConfig)
       ) {
         return output;
       }
