@@ -180,15 +180,32 @@ export function createViteServeInputWatch(
     return policies;
   };
 
+  /**
+   * A path below a membership's root, under the root's own name, or `undefined`
+   * when the root does not contain it. The root is matched under both of its
+   * spellings: a backend that reports physical paths names a root reached
+   * through a link by its target, while the policy and the walk spell it as the
+   * host named it (samchon/ttsc#1461).
+   */
+  const namedInMembership = (
+    entry: InputEntry,
+    file: string,
+  ): string | undefined => {
+    const below = relativeToProject(file, {
+      physical: entry.physical ?? entry.file,
+      spelling: entry.file,
+    });
+    return below === undefined ? undefined : path.join(entry.file, below);
+  };
+
   /** Whether a membership in `scope` needs a directory-level watch there. */
   const admitsMembership = (scope: WatchScope, directory: string): boolean => {
     for (const entry of memberships) {
-      if (!entry.scopes.has(scope) || !pathIsWithin(directory, entry.file)) {
-        continue;
-      }
+      const named = namedInMembership(entry, directory);
+      if (!entry.scopes.has(scope) || named === undefined) continue;
       if (
         membershipPolicies(entry).some((policy) =>
-          isProjectWalkDirectory(directory, policy),
+          isProjectWalkDirectory(named, policy),
         )
       ) {
         return true;
@@ -350,15 +367,14 @@ export function createViteServeInputWatch(
     // Only a rename can be one; an edit to an existing file is not.
     if (eventType === "rename") {
       for (const entry of memberships) {
-        if (absolute === entry.file || !pathIsWithin(absolute, entry.file)) {
-          continue;
-        }
+        const named = namedInMembership(entry, absolute);
+        if (named === undefined || named === entry.file) continue;
         if (
           membershipPolicies(entry).some((policy) =>
             reportsProgramMembership(
               entry.file,
-              absolute,
-              path.basename(absolute),
+              named,
+              path.basename(named),
               policy,
               DEFAULT_FILESYSTEM_OPERATIONS,
             ),
@@ -887,6 +903,7 @@ export function createViteServeInputWatch(
           entry.conditions.set(key, condition);
           if (state?.codec === "membership") {
             memberships.add(entry);
+            entry.physical ??= realpath(entry.file) ?? entry.file;
             recorded.add(entry);
             // Its scope now admits the walk's directories, which a
             // directory-level backend passed over before.

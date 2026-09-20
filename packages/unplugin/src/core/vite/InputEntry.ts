@@ -28,6 +28,14 @@ export interface InputEntry {
   fallback: boolean;
   /** Absolute spelling registered by the transform. */
   file: string;
+  /**
+   * The physical spelling of a project root registered for its membership, when
+   * the root is named through a link: a backend that reports the physical path
+   * of what changed, FSEvents on every macOS temporary directory, names the
+   * root this way, and the event is placed under the root's own name before its
+   * policy is asked (samchon/ttsc#1461).
+   */
+  physical?: string;
   /** Linked spellings whose retarget can move this entry without an event on it. */
   links: Set<string>;
   /** Ancestor keys whose rename can move this entry. */
