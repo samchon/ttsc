@@ -53,10 +53,23 @@ export async function test_transformttsc_absolutizes_relative_plugin_configfile_
   assert.match(result.code, /"PLUGIN"/);
   const configFile = path.join(root, "fixture.config.json");
   const firstGeneration = await [...cache.values()][0]!;
-  assert.equal(
+  // The native host reports the input as the compiler handed it, spelled under
+  // the project's physical directory (samchon/ttsc#1456), so it is found by
+  // identity; a candidate the host probed may not exist.
+  const physical = (file: string): string => {
+    try {
+      return fs.realpathSync.native(file);
+    } catch {
+      return path.resolve(file);
+    }
+  };
+  const reported = Object.entries(
     firstGeneration.result.type === "exception"
-      ? undefined
-      : typeof firstGeneration.result.hostInputHashes?.[configFile],
+      ? {}
+      : (firstGeneration.result.hostInputHashes ?? {}),
+  ).find(([input]) => physical(input) === physical(configFile));
+  assert.equal(
+    typeof reported?.[1],
     "string",
     "the native consumer must satisfy the forwarded configFile proof",
   );

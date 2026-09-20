@@ -10,12 +10,15 @@ const CONFIG_DIR_TEMPLATE_FILE_SPECS = ["exclude", "files", "include"] as const;
 /**
  * Materialize inherited file specifications whose `${configDir}` owner would
  * otherwise move to a generated wrapper's scratch directory.
+ *
+ * @param configDir The directory `${configDir}` stands for, as
+ *   `readEffectiveTsconfigTemplateCompilerOptions` takes it.
  */
 export function readEffectiveTsconfigTemplateFileSpecs(
   tsconfig: string,
+  configDir: string = path.dirname(path.resolve(tsconfig)),
 ): Record<string, unknown> {
   const resolved = path.resolve(tsconfig);
-  const configDir = path.dirname(resolved);
   const output: Record<string, unknown> = {};
   for (const key of CONFIG_DIR_TEMPLATE_FILE_SPECS) {
     const declared = findDeclaredValue(

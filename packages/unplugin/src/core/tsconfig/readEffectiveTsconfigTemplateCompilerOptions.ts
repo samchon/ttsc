@@ -15,12 +15,16 @@ import { startsWithConfigDirTemplate } from "./startsWithConfigDirTemplate";
  * Only template-bearing options are returned. Ordinary inherited paths are
  * already made absolute while TypeScript parses their declaring config, while
  * template paths deliberately survive until the final consumer is known.
+ *
+ * @param configDir The directory `${configDir}` stands for: that of the final
+ *   consumer as its reader spells it, which for the compiler is the physical
+ *   one (samchon/ttsc#1456). Defaults to the config's own directory as named.
  */
 export function readEffectiveTsconfigTemplateCompilerOptions(
   tsconfig: string,
+  configDir: string = path.dirname(path.resolve(tsconfig)),
 ): Record<string, unknown> {
   const resolved = path.resolve(tsconfig);
-  const configDir = path.dirname(resolved);
   const output: Record<string, unknown> = {};
   for (const key of CONFIG_DIR_TEMPLATE_SCALAR_OPTIONS) {
     const declared = findDeclaredCompilerOption(resolved, key);

@@ -16,6 +16,15 @@ import { normalizeCompilerOptionsForGeneratedTsconfig } from "./normalizeCompile
  * overlay, the translated aliases re-stated over the effective `paths`, and
  * every inherited `${configDir}` value made absolute so the wrapper does not
  * move it.
+ *
+ * The wrapper is the compiler's, so every path written into it is spelled as
+ * the compiler spells the project: the compiler resolves the project to its
+ * physical directory before it reads a config or hands a plugin its root, and a
+ * relative plugin path or `${configDir}` value it would have resolved against
+ * that directory is re-stated against it here (samchon/ttsc#1456).
+ *
+ * @param compiler The project's config path and directory as the compiler
+ *   spells them.
  */
 export function createTransformTsconfig(
   props: {
@@ -25,13 +34,14 @@ export function createTransformTsconfig(
   },
   scratchDirectory: string,
   state: ITransformTsconfigState,
+  compiler: { configDir: string; tsconfig: string },
 ): { path: string } {
   const overlay = normalizeCompilerOptionsForGeneratedTsconfig(
     {
       ...props.compilerOptions,
       ...createAliasCompilerOptions(props, state.effectivePaths),
     },
-    path.dirname(props.tsconfig),
+    compiler.configDir,
   );
   if (Object.keys(overlay).length === 0) {
     return { path: props.tsconfig };
@@ -50,7 +60,7 @@ export function createTransformTsconfig(
     file,
     JSON.stringify(
       {
-        extends: normalizePath(props.tsconfig),
+        extends: normalizePath(compiler.tsconfig),
         ...state.templateFileSpecs,
         compilerOptions,
       },
