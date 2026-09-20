@@ -1,3 +1,4 @@
+import path from "node:path";
 import {
   type UnpluginFactory,
   type UnpluginInstance,
@@ -98,6 +99,10 @@ const unpluginFactory: UnpluginFactory<
   // that watches: `farm start` and `farm watch` resolve it, `farm build` does
   // not.
   let farmWatching = false;
+  // Farm relates every watch file to its configured root, so its inputs are
+  // spelled under that root, whichever spelling its resolver delivered the
+  // module under (samchon/ttsc#1462).
+  let farmRoot: string | undefined;
   const closeBridge = async (): Promise<void> => {
     const open = bridge;
     bridge = undefined;
@@ -300,10 +305,13 @@ const unpluginFactory: UnpluginFactory<
     farm: {
       configResolved(config: {
         compilation?: { mode?: string; watch?: unknown };
+        root?: string;
       }) {
         farmWatching =
           config.compilation?.mode === "development" ||
           (config.compilation?.watch ?? false) !== false;
+        farmRoot =
+          config.root === undefined ? undefined : path.resolve(config.root);
       },
       // Farm calls buildStart only for the initial compilation. Every update
       // opens a new pass so a failed verdict can recover, while an unchanged
@@ -471,6 +479,9 @@ const unpluginFactory: UnpluginFactory<
           // the project's root files as well; a one-shot build host skips
           // them (samchon/ttsc#1419).
           membership: true,
+          ...(native?.framework === "farm" && farmRoot !== undefined
+            ? { spelling: farmRoot }
+            : {}),
           // A module the plugin declared volatile depends on non-file inputs,
           // which no file-dependency snapshot can represent; mark it
           // uncacheable where the bundler exposes that control.

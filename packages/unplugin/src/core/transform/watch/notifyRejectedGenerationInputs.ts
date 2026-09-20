@@ -61,7 +61,7 @@ export function notifyRejectedGenerationInputs(
       ).path,
       spelling,
     },
-    file,
+    hooks.spelling ?? file,
   );
   handWatchInputs(
     hooks,

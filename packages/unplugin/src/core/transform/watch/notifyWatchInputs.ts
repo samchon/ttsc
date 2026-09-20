@@ -40,7 +40,7 @@ export function notifyWatchInputs(
     return;
   }
   const state = envelopeDerivation(cached);
-  const spell = hostSpelling(state.project, file);
+  const spell = hostSpelling(state.project, hooks?.spelling ?? file);
   const external = cached.externalInputHashes ?? {};
   const inputs = selectWatchInputs({
     file,

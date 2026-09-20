@@ -49,7 +49,7 @@ export function notifyFailedGenerationInputs(
     return;
   }
   const state = envelopeDerivation(cached);
-  const spell = hostSpelling(state.project, file);
+  const spell = hostSpelling(state.project, hooks?.spelling ?? file);
   const inputs: TtscWatchInput[] = [];
   const seen = new Set<string>();
   const append = (input: string): void => {

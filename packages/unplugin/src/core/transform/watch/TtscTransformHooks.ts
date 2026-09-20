@@ -47,4 +47,13 @@ export interface TtscTransformHooks {
    * context's `cacheable(false)`).
    */
   markVolatile?: () => void;
+  /**
+   * A path spelled the way the host's watch channel names the project, when
+   * that channel relates every input to a root of its own rather than to the
+   * module it delivered: Farm relates each watch file to its configured root,
+   * so an input is handed under that root's spelling, whichever spelling Farm's
+   * resolver delivered the module under (samchon/ttsc#1462). Absent, the
+   * delivered module decides the spelling (`hostSpelling`).
+   */
+  spelling?: string;
 }
