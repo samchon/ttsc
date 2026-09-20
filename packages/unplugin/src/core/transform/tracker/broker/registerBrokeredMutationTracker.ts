@@ -1,6 +1,10 @@
+import fs from "node:fs";
 import path from "node:path";
 
+import { WATCH_BRIDGE_DIRECTORY_PREFIX } from "../../../bridge/WATCH_BRIDGE_DIRECTORY_PREFIX";
+import { sweepAbandonedWatchBridges } from "../../../bridge/sweepAbandonedWatchBridges";
 import type { TtscTransformFilesystemOperations } from "../../filesystem/TtscTransformFilesystemOperations";
+import { pathIsWithin } from "../../filesystem/pathIsWithin";
 import type { TtscProjectMutationTracker } from "../TtscProjectMutationTracker";
 import { WATCH_BROKER } from "./WATCH_BROKER";
 import type { WatchBrokerLocation } from "./WatchBrokerLocation";
@@ -46,6 +50,13 @@ export async function registerBrokeredMutationTracker(
    * unverified. See `WatchBroker`.
    */
   gap?: () => void,
+  /**
+   * The project root, below whose tool cache the broker may write probes that
+   * prove a location's stream delivered (samchon/ttsc#1453). A location inside
+   * it is proven through a stream opened there; one outside it cannot be, and
+   * its tracker is left unverified after every drain.
+   */
+  probeRoot?: string,
 ): Promise<void> {
   const broker = getWatchBroker();
   // The child watches canonical directories, and reports its events under that
@@ -67,6 +78,9 @@ export async function registerBrokeredMutationTracker(
       directory,
       ...(location.names === undefined ? {} : { names: location.names }),
       ...(location.recursive === true ? { recursive: true } : {}),
+      ...(probeRoot !== undefined && pathIsWithin(directory, probeRoot)
+        ? { probe: { directory: probeDirectory(probeRoot), root: probeRoot } }
+        : {}),
     };
   });
   broker.pendingRegistrations += 1;
@@ -146,4 +160,30 @@ export async function registerBrokeredMutationTracker(
       broker.child.channel?.unref?.();
     }
   }
+}
+
+/** Probe directories already prepared by this process, by project root. */
+const PROBE_DIRECTORIES = new Map<string, string>();
+
+/**
+ * The directory below `probeRoot`'s tool cache where the broker writes its
+ * probes, named after this process so a later process can remove it once this
+ * one is gone, as the watch bridge names its sentinels. It is removed when this
+ * process exits, and a stale one is swept before it is created.
+ */
+function probeDirectory(probeRoot: string): string {
+  const existing = PROBE_DIRECTORIES.get(probeRoot);
+  if (existing !== undefined) return existing;
+  const parent = path.join(probeRoot, "node_modules", ".cache", "ttsc");
+  fs.mkdirSync(parent, { recursive: true });
+  sweepAbandonedWatchBridges(parent);
+  const directory = path.join(
+    parent,
+    `${WATCH_BRIDGE_DIRECTORY_PREFIX}${process.pid}-probes`,
+  );
+  process.once("exit", () => {
+    fs.rmSync(directory, { force: true, recursive: true });
+  });
+  PROBE_DIRECTORIES.set(probeRoot, directory);
+  return directory;
 }

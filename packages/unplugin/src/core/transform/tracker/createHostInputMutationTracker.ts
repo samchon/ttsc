@@ -302,6 +302,8 @@ export async function createHostInputMutationTracker(
       undefined,
       undefined,
       classify,
+      undefined,
+      preferredRoot,
     );
     return tracker;
   }

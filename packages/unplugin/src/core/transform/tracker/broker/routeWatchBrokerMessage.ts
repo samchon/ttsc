@@ -15,6 +15,8 @@ import type { WatchBroker } from "./WatchBroker";
  * - A malformed message, or one without an id, is ignored.
  * - A `drained` reply releases the drain waiting on that id. The channel is
  *   ordered, so every event the child sent before it has already been applied.
+ *   The registrations it names as unproven, whose streams the child could not
+ *   prove delivered, are treated as after a gap.
  * - A message for an id with no live registration is ignored. It is the late
  *   event of a tracker already closed.
  * - `gap` says a native watch of the registration reported that events were
@@ -45,6 +47,7 @@ export function routeWatchBrokerMessage(
   const record = message as {
     directory?: string;
     drained?: boolean;
+    unproven?: unknown;
     failed?: boolean;
     filename?: string | null;
     gap?: boolean;
@@ -54,6 +57,17 @@ export function routeWatchBrokerMessage(
   };
   if (typeof record.id !== "number") return;
   if (record.drained === true) {
+    // A stream the child could not prove leaves its tracker's silence
+    // unproven, as a dropped-events gap does (samchon/ttsc#1453).
+    if (Array.isArray(record.unproven)) {
+      for (const id of record.unproven) {
+        const registration =
+          typeof id === "number" ? broker.trackers.get(id) : undefined;
+        if (registration === undefined) continue;
+        if (registration.gap !== undefined) registration.gap();
+        else registration.tracker.unverified = true;
+      }
+    }
     const release = broker.drains.get(record.id);
     broker.drains.delete(record.id);
     release?.(true);

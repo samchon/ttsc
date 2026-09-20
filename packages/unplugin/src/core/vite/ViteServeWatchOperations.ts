@@ -21,12 +21,15 @@ export interface ViteServeWatchOperations {
    * recursive backend needs neither (samchon/ttsc#1389). With `subtree`,
    * `track` also watches every directory below the path that `admit` now
    * accepts, since a project's root-file membership widens it there
-   * (samchon/ttsc#1419).
+   * (samchon/ttsc#1419). `probeRoot` is the project root when the scope is the
+   * project's, where a brokered backend may prove its stream delivered through
+   * a probe below the project's tool cache (samchon/ttsc#1453).
    */
   watch(
     root: string,
     listener: (eventType: string, file: string | null) => void,
     onError: () => void,
     admit?: (directory: string) => boolean,
+    probeRoot?: string,
   ): { close(): void; track?(file: string, subtree?: boolean): void };
 }

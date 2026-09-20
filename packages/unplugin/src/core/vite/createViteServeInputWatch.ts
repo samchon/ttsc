@@ -485,6 +485,9 @@ export function createViteServeInputWatch(
           (directory) =>
             owned.directories.has(watchPathKey(directory)) ||
             admitsMembership(owned, directory),
+          // Only the project's own scope may be proven through a probe below
+          // its tool cache; an external one is not the adapter's to write in.
+          external ? undefined : root,
         );
         if (scope.failed) {
           // An injected or platform watcher may report failure synchronously

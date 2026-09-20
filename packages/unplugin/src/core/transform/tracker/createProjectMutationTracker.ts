@@ -107,6 +107,9 @@ export async function createProjectMutationTracker(
       (_location, filename) =>
         isPossibleProgramFileName(path.basename(filename), policy),
       reportsNewMembership,
+      undefined,
+      undefined,
+      root,
     );
     return tracker;
   }

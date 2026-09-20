@@ -29,6 +29,13 @@ export function openIsolatedRecursiveWatch(
   root: string,
   listener: (eventType: string, file: string | null) => void,
   onError: () => void,
+  _admit?: (directory: string) => boolean,
+  /**
+   * The project root, when the scope is the project's: the broker may then
+   * prove the scope's stream delivered, through a probe below the project's
+   * tool cache (samchon/ttsc#1453). An external scope names none.
+   */
+  probeRoot?: string,
 ): { close(): void } {
   let closed = false;
   let failed = false;
@@ -70,6 +77,7 @@ export function openIsolatedRecursiveWatch(
       return undefined;
     },
     recheck,
+    probeRoot,
   ).then(recheck, () => {
     handle.failed = true;
   });
