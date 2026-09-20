@@ -2,6 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import type { UnpluginOptions } from "unplugin";
 
+import { BRIDGED_WATCH_INPUT_KINDS } from "../bridge/BRIDGED_WATCH_INPUT_KINDS";
+import type { HostWatchBridge } from "../bridge/HostWatchBridge";
+import { openHostWatchBridge } from "../bridge/openHostWatchBridge";
+import { registerBuildWatchInputs } from "../bridge/registerBuildWatchInputs";
 import type { ResolvedTtscUnpluginOptions } from "../options/ResolvedTtscUnpluginOptions";
 import { typescriptTransformSourcePattern } from "../source/typescriptTransformSourcePattern";
 import { beginTtscTransformBuild } from "../transform/cache/beginTtscTransformBuild";
@@ -10,10 +14,25 @@ import { resetTtscTransformCache } from "../transform/cache/resetTtscTransformCa
 import { transformTtsc } from "../transform/transformTtsc";
 import { inlineSourceMap } from "../transform/utils/inlineSourceMap";
 import type { TtscWatchInput } from "../transform/watch/TtscWatchInput";
-import { classifyWatchInput } from "../transform/watch/classifyWatchInput";
-import { missingWatchInputShape } from "../transform/watch/missingWatchInputShape";
 
-/** Preserve esbuild's distinct file and directory dependency channels. */
+/**
+ * The esbuild adapter: its native loader owns the transform and the
+ * registration of each module's inputs, independent of unplugin's hook order.
+ *
+ * Esbuild keeps one watch state per path for a whole build, taken from the last
+ * loader result that named the path (evanw/esbuild internal/fs). An edit
+ * landing after one module's loader returned and before another module's did is
+ * therefore the second module's baseline, and the first module's edit is
+ * masked: measured on plain esbuild, with no rebuild ever (samchon/ttsc#1463).
+ * A file read of an absent path likewise overwrote its directory read. Every
+ * compiler input therefore goes to the adapter's bridge, which observes it and
+ * rewrites one sentinel per module, and esbuild watches only the module itself
+ * and that sentinel, a path no other module's result names.
+ *
+ * Esbuild tells a plugin nothing about whether its context watches, so the
+ * bridge opens for a one-shot `build()` as well, and closes when the last
+ * context of this plugin is disposed, which `build()` reports at its end.
+ */
 export function createEsbuildOptions(
   options: ResolvedTtscUnpluginOptions,
   includes: (file: string) => boolean,
@@ -21,93 +40,63 @@ export function createEsbuildOptions(
   const cache = createTtscTransformCache();
   const owners = new WeakSet<object>();
   let lifecycles = 0;
+  let bridge: HostWatchBridge | undefined;
+  // The bridge's change sequence when the current pass opened, which every
+  // delivery of the pass is registered against (samchon/ttsc#1460).
+  let passStartedAt: number | undefined;
   return {
     name: "ttsc-unplugin",
     esbuild: {
       setup(build) {
-        // esbuild keeps one watch state per path for a whole build, and its
-        // file read of an absent path overwrites whatever its directory read
-        // recorded there (evanw/esbuild internal/fs/fs_real.go). A path handed
-        // to both channels therefore loses its directory predicate whenever
-        // another module's result lands after the directory read, so each
-        // path is owned by one channel per build.
-        const channels = new Map<string, "dirs" | "files">();
+        const root = path.resolve(
+          build.initialOptions.absWorkingDir ?? process.cwd(),
+        );
         // Setup can fail validation without receiving onDispose. Acquire only
         // at onStart, and retain a generation while another owner is active.
         build.onStart(() => {
-          channels.clear();
           if (!owners.has(build)) {
             owners.add(build);
             lifecycles += 1;
           }
           beginTtscTransformBuild(cache);
+          passStartedAt = bridge?.begin();
         });
         build.onDispose(() => {
           if (!owners.delete(build)) return;
           lifecycles -= 1;
-          if (lifecycles === 0) resetTtscTransformCache(cache);
+          if (lifecycles !== 0) return;
+          resetTtscTransformCache(cache);
+          const open = bridge;
+          bridge = undefined;
+          passStartedAt = undefined;
+          open?.close().catch(() => undefined);
         });
-        const previous = new Map<
-          string,
-          { watchDirs: string[]; watchFiles: string[] }
-        >();
-        // There is no generic transform hook on this adapter. Its native
-        // loader owns registration, independent of unplugin's hook order.
+        // The sentinel each module's last result named, kept through a failed
+        // load so the repair is observed by the same context.
+        const previous = new Map<string, string[]>();
         build.onLoad(
           { filter: typescriptTransformSourcePattern, namespace: "file" },
           async ({ path: file }) => {
             if (!includes(file)) return;
-            const watchFiles = new Set<string>();
-            const watchDirs = new Set<string>();
-            // A need the path's owner cannot serve is observed through the
-            // nearest ancestor listing the directory channel may take, which
-            // sees the path appear or vanish as either kind.
-            const observe = (input: string, channel: "dirs" | "files") => {
-              for (let target = input; ; ) {
-                const owner = channels.get(target);
-                if (owner === undefined || owner === channel) {
-                  channels.set(target, channel);
-                  (channel === "dirs" ? watchDirs : watchFiles).add(target);
-                  return;
-                }
-                const parent = path.dirname(target);
-                if (parent === target) return;
-                target = parent;
-                channel = "dirs";
-              }
-            };
-            observe(file, "files");
-            // Each input goes to the channel that observes its predicate
-            // (samchon/ttsc#1388): `watchDirs` for a directory's entries or
-            // its creation, and `watchFiles` for a file's content or creation.
-            // An absent path either kind could replace is observed through
-            // its parent's listing, and the project's root files through the
-            // listing of every directory its walk enters. A directory the
-            // compiler only checked exists is not registered, so a tool
-            // writing a new entry below `node_modules` no longer rebuilds;
-            // each descendant the compiler probed is registered in its own
-            // right.
-            const register = (inputs: readonly TtscWatchInput[]) => {
-              for (const input of inputs) {
-                const kind = classifyWatchInput(input);
-                if (kind === "listing") observe(input.file, "dirs");
-                else if (kind === "file") observe(input.file, "files");
-                else if (
-                  kind === "membership" &&
-                  input.evidence?.state?.codec === "membership"
-                ) {
-                  // A root file appears as a new entry of a directory the
-                  // project walk enters (samchon/ttsc#1419).
-                  for (const directory of input.evidence.state.directories)
-                    observe(directory, "dirs");
-                } else if (kind === "missing") {
-                  const shape = missingWatchInputShape(input);
-                  if (shape === "directory") observe(input.file, "dirs");
-                  else if (shape === "file") observe(input.file, "files");
-                  else observe(path.dirname(input.file), "dirs");
-                }
-              }
-            };
+            const watchFiles = new Set<string>([file]);
+            const startedAt = (passStartedAt ??= (bridge ??=
+              openHostWatchBridge(root)).begin());
+            const register = (
+              inputs: readonly TtscWatchInput[],
+              failed?: boolean,
+            ) =>
+              registerBuildWatchInputs({
+                addWatchFile: (input) => watchFiles.add(input),
+                bridge: {
+                  instance: bridge!,
+                  kinds: BRIDGED_WATCH_INPUT_KINDS.watcherPerPath,
+                  startedAt,
+                },
+                failed,
+                file,
+                inputs,
+                projectRoot: root,
+              });
             let contents: string;
             let errors;
             try {
@@ -123,10 +112,8 @@ export function createEsbuildOptions(
               contents =
                 result === undefined ? source : inlineSourceMap(result);
             } catch (error) {
-              for (const input of previous.get(file)?.watchFiles ?? [])
-                observe(input, "files");
-              for (const input of previous.get(file)?.watchDirs ?? [])
-                observe(input, "dirs");
+              for (const input of previous.get(file) ?? [])
+                watchFiles.add(input);
               // Returning errors with dependencies lets an initially failing
               // build observe its repair; throwing discards those channels.
               errors = [
@@ -137,17 +124,14 @@ export function createEsbuildOptions(
               ];
               contents = "";
             }
-            const dependencies = {
-              watchFiles: [...watchFiles],
-              watchDirs: [...watchDirs],
-            };
+            const dependencies = [...watchFiles];
             previous.set(file, dependencies);
             return {
               contents,
               errors,
               loader: file.endsWith(".tsx") ? "tsx" : "ts",
               resolveDir: path.dirname(file),
-              ...dependencies,
+              watchFiles: dependencies,
             };
           },
         );

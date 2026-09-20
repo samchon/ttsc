@@ -14,13 +14,14 @@ import { waitFor } from "../../internal/real-native-envelope/waitFor";
  * envelope must reach watchDirs, while failed loads must retain subscriptions
  * so a repair can reach the same context without manual invalidation.
  *
- * One esbuild build keeps one watch state per path, and its file read of an
- * absent path overwrites its directory read of it. A path the build hands to
- * both channels observes the recreated type root only when the results happen
- * to land in a lucky order, so no build may do that.
+ * One esbuild build keeps one watch state per path, taken from the last loader
+ * result that named it, so a later module's result masks an earlier module's
+ * edit, and a file read of an absent path overwrites its directory read. No
+ * compiler input therefore reaches esbuild at all: each goes to the bridge, and
+ * esbuild watches only the module and its own sentinel (samchon/ttsc#1463).
  *
  * 1. Add and remove automatic type packages and their parent directory, asserting
- *    every build gives each path to one channel.
+ *    every build hands esbuild nothing but each module and its sentinel.
  * 2. Check shared compilation and reuse across an unchanged rebuild.
  * 3. Recover from deleted, initially broken, and initially absent declarations.
  */
@@ -99,6 +100,19 @@ export async function test_real_native_envelope_esbuild_observes_directories_and
     });
     assert.equal(results[count - 1]!.errors.length !== 0, failed);
     assert.deepEqual(collisions, [], "a path reached both watch channels");
+    assert.deepEqual(
+      [...channels.keys()].filter(
+        (file) =>
+          !file.endsWith(".signal") &&
+          !(
+            /\.[cm]?tsx?$/.test(file) &&
+            !file.endsWith(".d.ts") &&
+            !file.includes("node_modules")
+          ),
+      ),
+      [],
+      "esbuild is handed nothing but each module and its sentinel",
+    );
   };
   const observe = async (change: () => void, failed = false) => {
     const count = results.length + 1;
