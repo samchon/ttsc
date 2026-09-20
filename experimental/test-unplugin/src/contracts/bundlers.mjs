@@ -37,7 +37,7 @@ export async function rollupContract(name) {
   const events = eventQueue();
   const watcher = bundler.watch({
     input: project.entry,
-    plugins: [plugin],
+    plugins: [plugin, raceAfterTtsc(project.root)],
     output: { file: project.output, format: "esm" },
     watch: { clearScreen: false },
   });
@@ -101,9 +101,55 @@ export async function rollupContract(name) {
       4,
     );
     assert.equal(project.runs(), 4);
+    // An edit landing while the host is building: once during the compile,
+    // and once after ttsc returned a module and before the build ended. The
+    // host hears the bridge's sentinel mid-build; Rollup applied it to the
+    // cache the build started from and lost it with that build's result
+    // (samchon/ttsc#1460). Each race compiles again, so the compile count is
+    // the host's from here.
+    project.change("RACE_FIFTH");
+    expectOutput(
+      await settledOutput(events, `${name} edit during the compile`, "FIFTH"),
+      "FIFTH",
+      4,
+    );
+    project.change("LATE_RACE_SIXTH");
+    expectOutput(
+      await settledOutput(events, `${name} edit after ttsc returned`, "SIXTH"),
+      "SIXTH",
+      4,
+    );
   } finally {
     await watcher.close();
   }
+}
+
+/**
+ * A plugin after ttsc in a Rollup or Rolldown build: the one place a public API
+ * reaches between ttsc returning a module and the build ending. When the module
+ * it receives carries a `LATE_RACE_<VALUE>` value, it rewrites the contract
+ * input holding that value with `<VALUE>`, so the edit lands after ttsc
+ * registered the input, while the host is still building.
+ */
+function raceAfterTtsc(root) {
+  return {
+    name: "race-after-ttsc",
+    transform(code) {
+      const match = /"LATE_RACE_([A-Z]+)"/.exec(code);
+      if (match === null) return null;
+      const directory = path.join(root, "src");
+      for (const name of fs.readdirSync(directory)) {
+        if (!name.endsWith("-input.server.ts")) continue;
+        const file = path.join(directory, name);
+        if (!fs.readFileSync(file, "utf8").includes(match[0])) continue;
+        fs.writeFileSync(
+          file,
+          `export type ContractInput = ${JSON.stringify(match[1])};\n`,
+        );
+      }
+      return null;
+    },
+  };
 }
 
 /** A real esbuild watch context must re-run loaders for erased dependencies. */

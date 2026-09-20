@@ -86,6 +86,14 @@ const unpluginFactory: UnpluginFactory<
   // channel cannot observe, opened by the session's first watching delivery
   // and closed where the session ends (samchon/ttsc#1388).
   let bridge: HostWatchBridge | undefined;
+  // The bridge's change sequence when the current pass opened. A pass proves
+  // the generation once, at its first delivery, and serves every later module
+  // of the pass from it, so a delivery may carry a state a change since the
+  // pass opened has left, however late its own transform began. Registration
+  // proves each input against changes since this token, not since the
+  // transform, which would have answered the bridge's signal with the stale
+  // delivery itself (samchon/ttsc#1460).
+  let passStartedAt: number | undefined;
   // Farm reports no watch mode to a transform. Its development mode is the one
   // that watches: `farm start` and `farm watch` resolve it, `farm build` does
   // not.
@@ -93,6 +101,7 @@ const unpluginFactory: UnpluginFactory<
   const closeBridge = async (): Promise<void> => {
     const open = bridge;
     bridge = undefined;
+    passStartedAt = undefined;
     await open?.close();
   };
 
@@ -302,6 +311,7 @@ const unpluginFactory: UnpluginFactory<
       updateModules: {
         executor() {
           beginTtscTransformBuild(transformCache);
+          passStartedAt = bridge?.begin();
         },
       },
     },
@@ -340,6 +350,7 @@ const unpluginFactory: UnpluginFactory<
         resetTtscTransformCache(transformCache);
       } else {
         beginTtscTransformBuild(transformCache);
+        passStartedAt = bridge?.begin();
       }
     },
 
@@ -388,7 +399,9 @@ const unpluginFactory: UnpluginFactory<
       const bridgeStartedAt =
         bridgedKinds === undefined
           ? undefined
-          : (bridge ??= openHostWatchBridge(process.cwd())).begin();
+          : (passStartedAt ??= (bridge ??= openHostWatchBridge(
+              process.cwd(),
+            )).begin());
       const result = await transformTtsc(
         file,
         source,
