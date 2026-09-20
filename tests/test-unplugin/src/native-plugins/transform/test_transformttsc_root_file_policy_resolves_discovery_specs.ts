@@ -136,7 +136,11 @@ export async function test_transformttsc_root_file_policy_resolves_discovery_spe
     const policy = api.readProjectMembershipPolicy(
       path.join(alias, "tsconfig.json"),
     );
-    for (const walkRoot of new Set([alias, root, physicalRoot])) {
+    // The spellings a policy read through the link knows: the link itself and
+    // the physical directory. The temporary directory's own spelling is a
+    // third one on macOS, `/var/…` against `/private/var/…`, which no policy
+    // read elsewhere can name.
+    for (const walkRoot of new Set([alias, physicalRoot])) {
       assert.deepEqual(
         Object.keys(
           api.collectProjectInputHashes(walkRoot, undefined, undefined, policy),

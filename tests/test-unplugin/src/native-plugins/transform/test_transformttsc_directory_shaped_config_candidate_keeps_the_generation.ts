@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { samePhysicalPath } from "../../internal/paths/samePhysicalPath";
 import { createNestedUtilityPluginProject } from "../../internal/transform-utility-plugin-config/createNestedUtilityPluginProject";
 
 /**
@@ -65,13 +66,15 @@ export async function test_transformttsc_directory_shaped_config_candidate_keeps
   };
   const absoluteDirectory = path.resolve(directory);
   assert.ok(
-    cached.result?.hostInputs?.some(
-      (input) => path.resolve(input) === path.resolve(directory),
+    cached.result?.hostInputs?.some((input) =>
+      samePhysicalPath(input, directory),
     ),
     `the directory-shaped candidate is missing from the envelope: ${JSON.stringify(cached.result?.hostInputs ?? [])}`,
   );
   assert.equal(
-    cached.result?.hostInputHashes?.[absoluteDirectory],
+    Object.entries(cached.result?.hostInputHashes ?? {}).find(([input]) =>
+      samePhysicalPath(input, absoluteDirectory),
+    )?.[1],
     crypto
       .createHash("sha256")
       .update("ttsc:host-input:directory\0")
@@ -79,7 +82,9 @@ export async function test_transformttsc_directory_shaped_config_candidate_keeps
     "the directory-shaped candidate must carry the directory-kind digest",
   );
   assert.equal(
-    cached.result?.hostInputRealpaths?.[absoluteDirectory],
+    Object.entries(cached.result?.hostInputRealpaths ?? {}).find(([input]) =>
+      samePhysicalPath(input, absoluteDirectory),
+    )?.[1],
     fs.realpathSync.native(directory),
     "descriptor and linked-host observations must agree on the physical directory",
   );

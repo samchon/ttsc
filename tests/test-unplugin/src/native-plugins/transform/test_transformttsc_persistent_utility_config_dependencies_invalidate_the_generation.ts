@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { samePhysicalPath } from "../../internal/paths/samePhysicalPath";
 import { STRIP_SOURCE } from "../../internal/transform-utility-plugin-config/STRIP_SOURCE";
 import { createUtilityPluginProject } from "../../internal/transform-utility-plugin-config/createUtilityPluginProject";
 
@@ -118,50 +119,45 @@ export async function test_transformttsc_persistent_utility_config_dependencies_
       };
     };
     // The compiler reports its inputs physically, after every link, such as the
-    // macOS temporary directory's; a candidate it probed may not exist.
-    const physical = (file: string): string => {
-      try {
-        return fs.realpathSync.native(file);
-      } catch {
-        return path.resolve(file);
-      }
-    };
+    // macOS temporary directory's.
     assert.ok(
-      cached.result?.hostInputs?.some(
-        (input) => physical(input) === physical(external),
+      cached.result?.hostInputs?.some((input) =>
+        samePhysicalPath(input, external),
       ),
       `${plugin}.${format} omitted its evaluated external config dependency: ${JSON.stringify(cached.result?.hostInputs ?? [])}`,
     );
     assert.ok(
-      cached.result?.hostInputs?.some(
-        (input) => path.resolve(input) === path.resolve(externalManifest),
+      cached.result?.hostInputs?.some((input) =>
+        samePhysicalPath(input, externalManifest),
       ),
       `${plugin}.${format} omitted the package boundary used to resolve its config dependency`,
     );
     assert.ok(
-      cached.result?.hostInputs?.some(
-        (input) =>
-          path.resolve(input) === path.resolve(nearerManifestCandidate),
+      cached.result?.hostInputs?.some((input) =>
+        samePhysicalPath(input, nearerManifestCandidate),
       ),
       `${plugin}.${format} stopped at a package.json directory instead of retaining the ancestor manifest`,
     );
     if (format === "ts") {
       assert.ok(
-        cached.result?.hostInputs?.some(
-          (input) =>
-            path.resolve(input) ===
-            path.resolve(external.replace(/\.ts$/, ".js")),
+        cached.result?.hostInputs?.some((input) =>
+          samePhysicalPath(input, external.replace(/\.ts$/, ".js")),
         ),
         `${plugin}.ts omitted a superseding extensionless-import candidate`,
       );
       const missingExplicitTs = path.join(externalDirectory, "explicit.ts");
       assert.ok(
-        cached.result?.hostInputs?.some(
-          (input) => path.resolve(input) === missingExplicitTs,
+        cached.result?.hostInputs?.some((input) =>
+          samePhysicalPath(input, missingExplicitTs),
         ),
         `${plugin}.ts omitted a superseding explicit-JavaScript substitution candidate`,
       );
-      assert.equal(cached.result?.hostInputHashes?.[missingExplicitTs], null);
+      assert.equal(
+        Object.entries(cached.result?.hostInputHashes ?? {}).find(([input]) =>
+          samePhysicalPath(input, missingExplicitTs),
+        )?.[1],
+        null,
+      );
     }
     assert.equal(
       cached.result?.hostInputs?.some((input) =>
@@ -248,26 +244,20 @@ export async function test_transformttsc_persistent_utility_config_dependencies_
     result?: { hostInputs?: string[] };
   };
   assert.ok(
-    cached.result?.hostInputs?.some(
-      (input) =>
-        path.resolve(input) ===
-        path.resolve(path.join(nearerPackage, "package.json")),
+    cached.result?.hostInputs?.some((input) =>
+      samePhysicalPath(input, path.join(nearerPackage, "package.json")),
     ),
     "banner.cjs omitted the nearer unresolved package candidate",
   );
   assert.ok(
-    cached.result?.hostInputs?.some(
-      (input) =>
-        path.resolve(input) ===
-        path.resolve(path.join(rootPackage, "entry.js")),
+    cached.result?.hostInputs?.some((input) =>
+      samePhysicalPath(input, path.join(rootPackage, "entry.js")),
     ),
     "banner.cjs omitted the package main extension candidate",
   );
   assert.ok(
-    cached.result?.hostInputs?.some(
-      (input) =>
-        path.resolve(input) ===
-        path.resolve(path.join(root, "config", "selection.v1.js")),
+    cached.result?.hostInputs?.some((input) =>
+      samePhysicalPath(input, path.join(root, "config", "selection.v1.js")),
     ),
     "banner.cjs omitted the dotted CommonJS extension candidate",
   );
@@ -381,10 +371,11 @@ async function assertNodePathPackageCandidateInvalidatesTransform(): Promise<voi
       result?: { hostInputs?: string[] };
     };
     assert.ok(
-      cached.result?.hostInputs?.some(
-        (input) =>
-          path.resolve(input) ===
-          path.resolve(path.join(firstNodePath, "selection", "package.json")),
+      cached.result?.hostInputs?.some((input) =>
+        samePhysicalPath(
+          input,
+          path.join(firstNodePath, "selection", "package.json"),
+        ),
       ),
       "banner.cjs omitted the preceding NODE_PATH package candidate",
     );

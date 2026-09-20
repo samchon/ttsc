@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { samePhysicalPath } from "../../internal/paths/samePhysicalPath";
 import { createNestedUtilityPluginProject } from "../../internal/transform-utility-plugin-config/createNestedUtilityPluginProject";
 
 /**
@@ -48,9 +49,7 @@ export async function test_transformttsc_persistent_banner_config_supersession_i
   // cannot tell an invalidation apart from a generation that was never
   // reusable.
   assert.ok(
-    cached.result?.hostInputs?.some(
-      (input) => path.resolve(input) === path.resolve(nearer),
-    ),
+    cached.result?.hostInputs?.some((input) => samePhysicalPath(input, nearer)),
     `the superseding candidate is missing from the envelope: ${JSON.stringify(cached.result?.hostInputs ?? [])}`,
   );
 
