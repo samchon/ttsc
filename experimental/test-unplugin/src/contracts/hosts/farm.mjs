@@ -155,15 +155,16 @@ export async function openSession(project) {
       // Farm reports a failed update by rejecting it, or, for a failure
       // inside its update callback, as an unhandled rejection its dev server
       // logs; the session takes either as the failure.
+      let unhandled;
       const failure = await new Promise((resolve) => {
-        const unhandled = (error) => resolve(error);
+        unhandled = (error) => resolve(error);
         process.once("unhandledRejection", unhandled);
         update(changed).then(
           () => resolve(undefined),
           (error) => resolve(error),
         );
         setTimeout(() => resolve(undefined), 30_000).unref();
-      }).finally(() => process.removeAllListeners("unhandledRejection"));
+      }).finally(() => process.off("unhandledRejection", unhandled));
       assert.ok(failure, `farm ${label}: the update fails`);
       assert.match(String(failure.message ?? failure), pattern);
     },

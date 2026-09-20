@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { contractInput, write } from "./common.mjs";
+import { write } from "./common.mjs";
 
 /**
  * The one list of edits every host must converge on, in one watching session,
@@ -223,5 +223,3 @@ export async function runScenarios(project, session) {
     }
   }
 }
-
-export { contractInput };

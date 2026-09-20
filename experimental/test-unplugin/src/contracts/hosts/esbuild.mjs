@@ -44,7 +44,14 @@ export async function openSession(project) {
             for (const resolve of waiting) resolve();
           });
           build.onResolve({ filter: /^\.\/mod\d\.ts$/ }, () => {
-            landLateRace(project.root, fs.readFileSync(project.input, "utf8"));
+            try {
+              landLateRace(
+                project.root,
+                fs.readFileSync(project.input, "utf8"),
+              );
+            } catch {
+              // The input is absent in the deletion scenario.
+            }
             return undefined;
           });
           build.onEnd((result) => {
