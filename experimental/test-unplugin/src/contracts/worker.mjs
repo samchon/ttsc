@@ -40,8 +40,20 @@ const sessions = {
   "next-turbopack": (project) => next.openSession("turbopack", project),
 };
 
+/**
+ * The roots a host is tried on. Farm's resolver cannot resolve the entry from a
+ * root named through a symbolic link ("Can not resolve `./src/main.ts`",
+ * measured on Linux and macOS), so a linked root is Farm's to support first; a
+ * junction on Windows resolves.
+ */
+function roots() {
+  return host === "farm" && process.platform !== "win32"
+    ? [false]
+    : [false, true];
+}
+
 async function matrix(open) {
-  for (const linked of [false, true]) {
+  for (const linked of roots()) {
     const project = fixture(linked ? `${host}-linked` : host, { linked });
     project.break();
     const session = await open(project);
@@ -56,7 +68,7 @@ async function matrix(open) {
 if (host in sessions) {
   await matrix(sessions[host]);
 } else if (host === "bun") {
-  for (const linked of [false, true]) {
+  for (const linked of roots()) {
     const project = fixture(linked ? "bun-linked" : "bun", { linked });
     project.break();
     await promisify(execFile)(

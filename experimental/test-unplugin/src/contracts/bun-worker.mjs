@@ -27,14 +27,7 @@ const build = () =>
         name: "race-after-ttsc",
         setup(build) {
           build.onResolve({ filter: /^\.\/mod\d\.ts$/ }, () => {
-            try {
-              landLateRace(
-                project.root,
-                fs.readFileSync(project.input, "utf8"),
-              );
-            } catch {
-              // The input is absent in the deletion scenario.
-            }
+            landLateRace(project.root);
             return undefined;
           });
         },

@@ -248,17 +248,22 @@ export async function adapter(name, options) {
  * makes, so it lands after ttsc registered the input and returned the module,
  * while the host is still building (samchon/ttsc#1423, samchon/ttsc#1460).
  *
+ * A seam that sees no module code, the resolution of the module's imports under
+ * esbuild and Bun, passes no source, and every input holding such a value is
+ * rewritten: the module ttsc just returned carried it, since the compile read
+ * that input.
+ *
  * @returns Whether an input was rewritten.
  */
 export function landLateRace(root, source) {
-  const match = /"LATE_RACE_([A-Z]+)"/.exec(source);
-  if (match === null) return false;
   const directory = path.join(root, "src");
   let landed = false;
   for (const name of fs.readdirSync(directory)) {
     if (!name.endsWith("-input.server.ts")) continue;
     const file = path.join(directory, name);
-    if (!fs.readFileSync(file, "utf8").includes(match[0])) continue;
+    const text = fs.readFileSync(file, "utf8");
+    const match = /"LATE_RACE_([A-Z]+)"/.exec(source ?? text);
+    if (match === null || !text.includes(match[0])) continue;
     fs.writeFileSync(file, contractInput(match[1]));
     landed = true;
   }

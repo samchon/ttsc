@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import fs from "node:fs";
 
 import {
   adapter,
@@ -44,14 +43,7 @@ export async function openSession(project) {
             for (const resolve of waiting) resolve();
           });
           build.onResolve({ filter: /^\.\/mod\d\.ts$/ }, () => {
-            try {
-              landLateRace(
-                project.root,
-                fs.readFileSync(project.input, "utf8"),
-              );
-            } catch {
-              // The input is absent in the deletion scenario.
-            }
+            landLateRace(project.root);
             return undefined;
           });
           build.onEnd((result) => {
