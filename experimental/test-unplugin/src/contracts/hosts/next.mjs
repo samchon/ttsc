@@ -101,11 +101,12 @@ export async function openSession(bundler, project) {
     // the assertions, then wait for exit before the fixture can be reused.
     if (child.exitCode === null && child.signalCode === null) {
       if (process.platform === "win32")
+        // The tree may have exited between the check and the kill.
         await promisify(execFile)(
           "taskkill",
           ["/PID", String(child.pid), "/T", "/F"],
           { windowsHide: true },
-        );
+        ).catch(() => undefined);
       else child.kill("SIGTERM");
     }
     await deadline(exited, `${name} shutdown`, 15_000);
@@ -154,6 +155,7 @@ export async function openSession(bundler, project) {
         request,
         ({ status, html }) => status === 500 && pattern.test(html),
         describe(label),
+        90_000,
       ),
     // Repeated requests must reuse the generations after an edit; the
     // page's HTML can precede Turbopack's background data and client builds,
