@@ -210,18 +210,15 @@ function stream(location, deliver, registration) {
   return opened;
 }
 
-// Write one probe for a stream, and call heard() once the stream delivers it
+// Expect one probe on a stream, and call heard() once the stream delivers it
 // or missed() once it will not: the probe timed out, which says the stream does
 // not deliver, so the registration is reported failed and its streams closed;
 // or the stream was closed first.
-function writeProbe(opened, registration, heard, missed) {
-  probeSequence += 1;
-  const name = "probe-" + process.pid + "-" + probeSequence;
+function expectProbe(opened, registration, name, heard, missed) {
   const file = path.join(opened.probe.directory, name);
   const entry = {
     abandon: () => {
       clearTimeout(entry.timer);
-      fs.rm(file, { force: true }, () => undefined);
       missed();
     },
     heard: () => {
@@ -232,6 +229,7 @@ function writeProbe(opened, registration, heard, missed) {
     timer: setTimeout(() => {
       if (opened.pending.get(name) !== entry) return;
       opened.pending.delete(name);
+      fs.rm(file, { force: true }, () => undefined);
       process.send?.({ failed: true, id: registration.id, ready: true });
       remove(registration.id);
       entry.abandon();
@@ -239,19 +237,35 @@ function writeProbe(opened, registration, heard, missed) {
   };
   entry.timer.unref?.();
   opened.pending.set(name, entry);
+  return entry;
+}
+
+// Write one probe file below a probe directory, for every stream expecting it.
+function writeProbeFile(directory, name) {
   try {
-    fs.mkdirSync(opened.probe.directory, { recursive: true });
-    fs.writeFileSync(file, String(registration.id));
+    fs.mkdirSync(directory, { recursive: true });
+    fs.writeFileSync(path.join(directory, name), String(process.pid));
     return true;
   } catch {
-    clearTimeout(entry.timer);
-    opened.pending.delete(name);
     return false;
   }
 }
 
+// Write one probe per stream at its opening; call back whether it was written.
+function writeProbe(opened, registration, heard, missed) {
+  probeSequence += 1;
+  const name = "probe-" + process.pid + "-" + probeSequence;
+  const entry = expectProbe(opened, registration, name, heard, missed);
+  if (writeProbeFile(opened.probe.directory, name)) return true;
+  clearTimeout(entry.timer);
+  opened.pending.delete(name);
+  return false;
+}
+
 // Answer once every stream that can be proven has delivered a probe written
-// now; name the locations of the streams that cannot.
+// now; name the locations of the streams that cannot. Streams rooted at one
+// probe directory, every tracker of a project among them, share one probe file,
+// which each of them hears on its own stream.
 function drain(requestId) {
   const unproven = [];
   let outstanding = 0;
@@ -259,6 +273,9 @@ function drain(requestId) {
     outstanding -= 1;
     if (outstanding === 0) process.send?.({ drained: true, id: requestId, unproven });
   };
+  probeSequence += 1;
+  const name = "probe-" + process.pid + "-" + probeSequence;
+  const directories = new Map();
   for (const [id, registration] of registrations) {
     for (const opened of registration.streams) {
       if (opened.probe === undefined) {
@@ -266,14 +283,23 @@ function drain(requestId) {
         continue;
       }
       outstanding += 1;
-      const missed = () => {
+      const entry = expectProbe(opened, registration, name, settle, () => {
         unproven.push({ directory: opened.location, id });
         settle();
-      };
-      if (!writeProbe(opened, registration, settle, missed)) {
-        opened.probe = undefined;
-        missed();
-      }
+      });
+      const expecting = directories.get(opened.probe.directory) ?? [];
+      expecting.push({ entry, name, opened });
+      directories.set(opened.probe.directory, expecting);
+    }
+  }
+  for (const [directory, expecting] of directories) {
+    if (writeProbeFile(directory, name)) continue;
+    // The probe cannot be written there, so these streams cannot be proven.
+    for (const { entry, opened } of expecting) {
+      clearTimeout(entry.timer);
+      opened.pending.delete(name);
+      opened.probe = undefined;
+      entry.abandon();
     }
   }
   // Windows watches, and streams already proven, answer after two turns: the

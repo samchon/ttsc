@@ -19,12 +19,16 @@ import path from "node:path";
  * returned under the one the module carries, and an input elsewhere keeps its
  * own. A module under neither, which no host names by the project, takes the
  * project's configured spelling. Every comparison inside the adapter stays by
- * identity.
+ * identity. The wrapper tsconfig written for the compiler takes the same
+ * function with the compiler's physical root as the delivered path, since the
+ * compiler is the other party the adapter spells paths for
+ * (samchon/ttsc#1456).
  *
  * @param project The project root as configured and as the filesystem resolves
  *   it; equal where the root traverses no link, which makes the answer the
  *   identity.
- * @param delivered The module the host asked to transform, as it spelled it.
+ * @param delivered The module the host asked to transform, as it spelled it, or
+ *   the root the compiler spells.
  * @returns The spelling function for this delivery's inputs.
  */
 export function hostSpelling(

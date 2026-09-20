@@ -26,7 +26,9 @@ import { runWatchBrokerProgram } from "../../internal/watch-broker/runWatchBroke
  * 2. Ask for a drain, and assert the child writes one probe and does not answer
  *    while the probe has not been heard, even across turns of its loop.
  * 3. Deliver the probe's event, and assert the drain is answered naming only the
- *    unprobed watch as unproven, and the probe is removed.
+ *    unprobed watch as unproven, and the probe is removed; then register a
+ *    second location below the same root, and assert one drain writes one probe
+ *    for both streams and is answered once each has heard it.
  * 4. Deliver an event of the probed location through its root stream, and assert
  *    it reaches its registration placed against the location; then ask for a
  *    drain and remove the registration before its probe is heard, and assert
@@ -148,6 +150,42 @@ export async function test_watch_broker_proves_a_macos_drain_with_a_probe(): Pro
     "a probe is not an event of the location",
   );
 
+  broker.receive({
+    allEvents: true,
+    id: 3,
+    locations: [
+      {
+        directory: "/project/lib",
+        probe: {
+          directory: "/project/node_modules/.cache/ttsc/probes",
+          root: "/project",
+        },
+      },
+    ],
+    op: "add",
+  });
+  streams[2]!.handler(probes()[2]!, ITEM_CREATED | ITEM_IS_FILE, 1);
+  broker.receive({ id: 102, op: "drain" });
+  assert.equal(probes().length, 4, "one probe per probe directory");
+  streams[0]!.handler(probes()[3]!, ITEM_CREATED | ITEM_IS_FILE, 1);
+  await turns();
+  assert.equal(
+    broker.sent.some((message) => message.id === 102),
+    false,
+    "answered only once every stream rooted there has heard it",
+  );
+  streams[2]!.handler(probes()[3]!, ITEM_CREATED | ITEM_IS_FILE, 1);
+  await turns();
+  assert.deepEqual(
+    broker.sent.find((message) => message.id === 102),
+    {
+      drained: true,
+      id: 102,
+      unproven: [{ directory: "/elsewhere/types", id: 2 }],
+    },
+  );
+  broker.receive({ id: 3, op: "remove" });
+
   streams[0]!.handler("/project/src/a.ts", ITEM_CREATED | ITEM_IS_FILE, 1);
   streams[0]!.handler("/project/other/b.ts", ITEM_CREATED | ITEM_IS_FILE, 1);
   assert.deepEqual(
@@ -164,7 +202,7 @@ export async function test_watch_broker_proves_a_macos_drain_with_a_probe(): Pro
   );
 
   broker.receive({ id: 101, op: "drain" });
-  assert.equal(probes().length, 3);
+  assert.equal(probes().length, 5);
   broker.receive({ id: 1, op: "remove" });
   await turns();
   assert.deepEqual(

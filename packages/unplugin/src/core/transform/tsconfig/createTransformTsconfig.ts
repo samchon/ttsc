@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { createAliasCompilerOptions } from "../alias/createAliasCompilerOptions";
+import { hostSpelling } from "../envelope/hostSpelling";
 import { normalizePath } from "../filesystem/normalizePath";
 import type { ITransformTsconfigState } from "./ITransformTsconfigState";
 import { normalizeCompilerOptionsForGeneratedTsconfig } from "./normalizeCompilerOptionsForGeneratedTsconfig";
@@ -36,12 +37,19 @@ export function createTransformTsconfig(
   state: ITransformTsconfigState,
   compiler: { configDir: string; tsconfig: string },
 ): { path: string } {
+  // The adapter's own reading, the effective `paths` among it, spelled the
+  // project as named; the wrapper speaks the compiler's spelling throughout.
+  const spell = hostSpelling(
+    { physical: compiler.configDir, spelling: path.dirname(props.tsconfig) },
+    compiler.configDir,
+  );
   const overlay = normalizeCompilerOptionsForGeneratedTsconfig(
     {
       ...props.compilerOptions,
       ...createAliasCompilerOptions(props, state.effectivePaths),
     },
     compiler.configDir,
+    spell,
   );
   if (Object.keys(overlay).length === 0) {
     return { path: props.tsconfig };
