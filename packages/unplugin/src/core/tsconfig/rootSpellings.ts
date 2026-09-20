@@ -3,11 +3,12 @@ import path from "node:path";
 import type { ITtscProjectMembershipPolicy } from "./ITtscProjectMembershipPolicy";
 
 /**
- * Config ancestry is anchored physically, but the walk retains lexical paths.
- * Match each equivalent project-root spelling without following child links.
- * Native Windows watchers expand short names even when regular realpath keeps
- * them. Keep patterns intact: a glob can begin above the root, and configDir
- * can retain the requested spelling even when ancestry uses the physical one.
+ * The policy and the walk both spell the project root as it was named, while a
+ * native Windows watcher expands its short names, and a package `extends`
+ * anchors its specs physically. Match each equivalent project-root spelling
+ * without following child links. Keep patterns intact: a glob can begin above
+ * the root, and configDir can retain the requested spelling even when a base
+ * config uses the physical one.
  */
 export function rootSpellings(
   location: string,

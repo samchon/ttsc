@@ -23,7 +23,9 @@ import { resolveRealPath } from "./resolveRealPath";
  * resolved on its own.
  *
  * Non-string entries are dropped, as `validateSpecs` drops them. The declaring
- * directory travels with the list because relative entries are anchored there.
+ * directory travels with the list because relative entries are anchored there,
+ * in the spelling the config was named by, as `findDeclaredValue` anchors every
+ * path (samchon/ttsc#1455).
  *
  * @returns The list and its declaring directory, `undefined` when no config in
  *   the chain supplies an array, or `null` when `tsconfig` itself cannot be
@@ -34,15 +36,21 @@ export function findDeclaredFileSpecs(
   key: "files" | "include",
   collect?: Set<string>,
 ): { baseDir: string; specs: string[] } | undefined | null {
-  const canonical = resolveRealPath(tsconfig);
-  collect?.add(canonical);
-  const parsed = readConfig(canonical);
+  const resolved = path.resolve(tsconfig);
+  collect?.add(resolved);
+  const parsed = readConfig(resolved);
   if (parsed === undefined) return null;
-  return resolve(canonical, parsed, key, new Set([canonical]), collect);
+  return resolve(
+    resolved,
+    parsed,
+    key,
+    new Set([resolveRealPath(resolved)]),
+    collect,
+  );
 }
 
 function resolve(
-  canonical: string,
+  resolved: string,
   parsed: Record<string, unknown>,
   key: "files" | "include",
   seen: Set<string>,
@@ -52,7 +60,7 @@ function resolve(
     const value = parsed[key];
     return Array.isArray(value)
       ? {
-          baseDir: path.dirname(canonical),
+          baseDir: path.dirname(resolved),
           specs: value.filter(
             (entry): entry is string => typeof entry === "string",
           ),
@@ -62,33 +70,30 @@ function resolve(
   let inherited: { baseDir: string; specs: string[] } | undefined;
   for (const rawSpecifier of extendsSpecifiers(parsed.extends)) {
     const specifier = normalizeTypeScriptPathSeparators(rawSpecifier);
-    const base = resolveExtendsConfig(canonical, specifier);
+    const base = resolveExtendsConfig(resolved, specifier);
     if (base === null) {
       // Record where the base would resolve, so a caller memoizing the policy
       // notices it appearing; see `findDeclaredValue`.
       if (isRelativeSpecifier(specifier) || path.isAbsolute(specifier)) {
-        for (const candidate of missingExtendsCandidates(
-          canonical,
-          specifier,
-        )) {
+        for (const candidate of missingExtendsCandidates(resolved, specifier)) {
           collect?.add(candidate);
         }
       }
       continue;
     }
+    collect?.add(base);
     const baseCanonical = resolveRealPath(base);
-    collect?.add(baseCanonical);
     if (seen.has(baseCanonical)) continue;
-    const baseParsed = readConfig(baseCanonical);
+    const baseParsed = readConfig(base);
     if (baseParsed === undefined) continue;
-    const resolved = resolve(
-      baseCanonical,
+    const declared = resolve(
+      base,
       baseParsed,
       key,
       new Set([...seen, baseCanonical]),
       collect,
     );
-    if (resolved !== undefined) inherited = resolved;
+    if (declared !== undefined) inherited = declared;
   }
   return inherited;
 }

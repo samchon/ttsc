@@ -9,9 +9,11 @@ import { resolveRealPath } from "./resolveRealPath";
 /**
  * Resolve an `extends` specifier to an absolute config path using TypeScript's
  * rules: absolute paths and relative specifiers get an exact-file / `.json`
- * fallback; bare specifiers go through Node's module resolver scoped to the
- * declaring config. Returns `null` instead of throwing; the compiler reports
- * unresolvable `extends` itself.
+ * fallback and keep the spelling they resolve to against the declaring config's
+ * own path; bare specifiers go through Node's module resolver scoped to the
+ * declaring config, which answers with the physical path, as TypeScript's
+ * module resolution does (samchon/ttsc#1455). Returns `null` instead of
+ * throwing; the compiler reports unresolvable `extends` itself.
  */
 export function resolveExtendsConfig(
   tsconfig: string,

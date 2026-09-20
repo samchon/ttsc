@@ -20,6 +20,14 @@ import { resolveRealPath } from "./resolveRealPath";
  * `exclude`) is anchored at the config that wrote it, not at the one that
  * inherited it.
  *
+ * Paths are anchored as TypeScript anchors them: a config is read at the path
+ * it was named by, a relative `extends` resolves against that config's own
+ * directory, and a package `extends` at the path Node resolves it to. A project
+ * reached through a link, the macOS temporary directory among them, therefore
+ * keeps its own spelling in every path derived here, the spelling the walk and
+ * the host compare against (samchon/ttsc#1455). Only the cycle guard compares
+ * physically, so two spellings of one config are read once.
+ *
  * Best-effort by design, like `readEffectiveTsconfigPaths`: a missing or
  * unparsable config in the chain yields `null` here and a real config error
  * from the compiler, which owns config diagnostics.
@@ -36,16 +44,17 @@ export function findDeclaredValue<T>(
    */
   collect?: Set<string>,
 ): { baseDir: string; value: T } | null {
-  const canonical = resolveRealPath(tsconfig);
+  const resolved = path.resolve(tsconfig);
+  const canonical = resolveRealPath(resolved);
   if (seen.has(canonical)) {
     return null;
   }
   seen.add(canonical);
-  collect?.add(canonical);
+  collect?.add(resolved);
 
   let parsed: { extends?: unknown };
   try {
-    parsed = parseJsonc(fs.readFileSync(canonical, "utf8")) as typeof parsed;
+    parsed = parseJsonc(fs.readFileSync(resolved, "utf8")) as typeof parsed;
   } catch {
     return null;
   }
@@ -55,12 +64,12 @@ export function findDeclaredValue<T>(
 
   const own = select(parsed);
   if (own !== undefined) {
-    return { baseDir: path.dirname(canonical), value: own };
+    return { baseDir: path.dirname(resolved), value: own };
   }
 
   for (const rawSpecifier of extendsSpecifiers(parsed.extends).reverse()) {
     const specifier = normalizeTypeScriptPathSeparators(rawSpecifier);
-    const base = resolveExtendsConfig(canonical, specifier);
+    const base = resolveExtendsConfig(resolved, specifier);
     if (base === null) {
       // Record where a relative or absolute specifier *would* have resolved,
       // even though nothing is there. A caller stamping this policy has to
@@ -70,10 +79,7 @@ export function findDeclaredValue<T>(
       // keeps a policy the next run's walk already disagrees with. A bare
       // specifier is skipped, since it has no single candidate path.
       if (isRelativeSpecifier(specifier) || path.isAbsolute(specifier)) {
-        for (const candidate of missingExtendsCandidates(
-          canonical,
-          specifier,
-        )) {
+        for (const candidate of missingExtendsCandidates(resolved, specifier)) {
           collect?.add(candidate);
         }
       }
