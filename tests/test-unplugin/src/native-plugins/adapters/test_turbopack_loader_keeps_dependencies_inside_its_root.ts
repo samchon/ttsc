@@ -77,7 +77,7 @@ export async function test_turbopack_loader_keeps_dependencies_inside_its_root()
   assert.equal(markers.length, 1, "the module depends on the process marker");
   assert.equal(
     path.basename(path.dirname(path.dirname(markers[0]!))),
-    "ttsc",
-    "the marker lives in a project's own tool cache",
+    ".ttsc",
+    "the marker lives in a project's own tool directory",
   );
 }

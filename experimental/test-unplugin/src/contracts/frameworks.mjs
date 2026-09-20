@@ -350,9 +350,9 @@ function pageError(html) {
   }
 }
 
-/** Each bridge sentinel below the project's tool cache, with its contents. */
+/** Each bridge sentinel below the project's tool directory, with its contents. */
 function sentinelStates(root) {
-  const cache = path.join(root, "node_modules", ".cache", "ttsc");
+  const cache = path.join(root, ".ttsc");
   const states = {};
   let directories = [];
   try {

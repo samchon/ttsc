@@ -32,10 +32,10 @@ export async function test_turbopack_loader_registers_no_dependencies_without_a_
   assert.deepEqual(dependencies, universalHostInputs(root));
   assert.equal(sentinels.length, 1, "one bridge sentinel per module");
   // The worker's bridge is opened by its first delivery, whichever project
-  // that was, so the tool cache is the first project's.
+  // that was, so the tool directory is the first project's.
   assert.match(
     path.dirname(path.dirname(sentinels[0]!)),
-    /[\\/]node_modules[\\/]\.cache[\\/]ttsc$/,
-    "the sentinel lives in a project's own tool cache",
+    /[\\/]\.ttsc$/,
+    "the sentinel lives in a project's own tool directory",
   );
 }

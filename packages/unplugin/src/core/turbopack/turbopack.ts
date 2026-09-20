@@ -2,6 +2,7 @@ import path from "node:path";
 
 import { BRIDGED_WATCH_INPUT_KINDS } from "../bridge/BRIDGED_WATCH_INPUT_KINDS";
 import type { HostWatchBridge } from "../bridge/HostWatchBridge";
+import { hostToolDirectory } from "../bridge/hostToolDirectory";
 import { openHostWatchBridge } from "../bridge/openHostWatchBridge";
 import { registerBuildWatchInputs } from "../bridge/registerBuildWatchInputs";
 import { isTransformTarget } from "../isTransformTarget";
@@ -108,9 +109,9 @@ export function turbopack(
   // Turbopack rejects a dependency outside its project filesystem root, which
   // failed every module with "leaves the filesystem root" while the bridge's
   // sentinels lived in the system temp directory. They live in the project's
-  // own tool cache instead, where Turbopack's watcher hears them.
+  // own tool directory instead, where Turbopack's watcher hears them.
   const projectRoot = this.rootContext ?? process.cwd();
-  const toolCache = path.join(projectRoot, "node_modules", ".cache", "ttsc");
+  const toolDirectory = hostToolDirectory(projectRoot);
   const loaderOptions = this.getOptions?.() ?? {};
   // Turbopack fails the whole module on a dependency outside its project
   // filesystem root, so only the inputs inside it reach Turbopack
@@ -126,7 +127,7 @@ export function turbopack(
   // proves the module delivered the changed state.
   let bridgeStartedAt: number | undefined;
   if (watching && addDependency !== undefined) {
-    bridge ??= openHostWatchBridge(projectRoot, {}, toolCache, true);
+    bridge ??= openHostWatchBridge(projectRoot, {}, toolDirectory, true);
     bridgeStartedAt = bridge.begin();
   }
   const hooks: TtscTransformHooks = {
@@ -166,7 +167,7 @@ export function turbopack(
               // A result Turbopack persists cannot be proven without the inputs
               // it could not track, so a later process re-runs the module.
               untracked: () => {
-                addDependency(turbopackProcessMarker(toolCache));
+                addDependency(turbopackProcessMarker(toolDirectory));
                 warnUntrackedTurbopackInputs(
                   projectRoot,
                   loaderOptions.turbopackRoots,

@@ -31,7 +31,7 @@ export async function test_watch_bridge_repeats_a_signal_until_the_module_runs_a
   const root = fs.realpathSync.native(
     TestProject.tmpdir("ttsc-unplugin-watch-bridge-confirm-"),
   );
-  const cache = path.join(root, "node_modules", ".cache", "ttsc");
+  const cache = path.join(root, ".ttsc");
   const quiet = {
     poll: () => ({ close: () => undefined }),
     watch: () => ({ close: () => undefined }),

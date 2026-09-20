@@ -19,7 +19,8 @@ const MARKERS = new Map<string, string>();
  * finds the marker gone and re-runs the module instead of reusing a result it
  * cannot prove.
  *
- * @param parent The project's own tool cache, inside Turbopack's root.
+ * @param parent The project's own tool directory, inside Turbopack's root
+ *   (`hostToolDirectory`).
  */
 export function turbopackProcessMarker(parent: string): string {
   const existing = MARKERS.get(parent);
