@@ -294,7 +294,8 @@ The program's root files are not something the compiler reports, since the adapt
 
 Some host channels cannot observe a predicate precisely, so a watching session hands those inputs to an adapter-owned bridge instead:
 
-- Rolldown and Farm report neither a created path nor a new directory entry, so missing paths and listings go to the bridge.
+- Farm reports neither a created path nor a new directory entry, so missing paths and listings go to the bridge.
+- Rolldown drops a change to a watched file that lands while it is building, so every input goes to the bridge, and the bridge repeats a signal until the module registers again, as it does under Turbopack: a rewrite that lands during a build is lost, and the next lands after it.
 - webpack, Rspack, and Turbopack watch a directory recursively. The compiler lists the project root, so a context dependency there reacted to every write, the build's own output included, and `next dev` re-ran the loader hundreds of times per change. Listings go to the bridge.
 - Rollup opens one watcher per registered path, and a recursive one for a directory, so every input goes to the bridge.
 - esbuild keeps one watch state per path, taken from the last loader result that named it, so a module loaded after an edit masks the edit for a module loaded before it, and nothing rebuilds. Every input goes to the bridge, and esbuild watches only each module and its own sentinel. esbuild tells a plugin nothing about whether its context watches, so the bridge opens for a one-shot build as well and closes when the context is disposed, which a one-shot build reports at its end.

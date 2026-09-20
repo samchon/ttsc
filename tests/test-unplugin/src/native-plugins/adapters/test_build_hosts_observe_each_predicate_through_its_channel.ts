@@ -22,8 +22,10 @@ import { createRealNativeEnvelopeFixture } from "../../internal/real-native-enve
  * 1. Compile a real native envelope through a one-shot webpack context, and
  *    through watching webpack and Rolldown contexts, and assert each input kind
  *    reaches its channel, with no presence-only directory registered.
- * 2. Deliver the same module through a watching Rollup context, and assert only
- *    its sentinel is registered.
+ * 2. Deliver the same module through a watching Rolldown context, and assert only
+ *    its sentinel is registered and that its signal repeats until the module
+ *    runs again; then through a watching Rollup context, and assert only its
+ *    sentinel is registered.
  * 3. Write below a package directory and assert the sentinel is untouched. Then
  *    create the missing resolution candidate, and a declaration the tsconfig's
  *    `include` admits, a new root file (samchon/ttsc#1419), and assert each
@@ -109,16 +111,36 @@ export async function test_build_hosts_observe_each_predicate_through_its_channe
   assert.ok(watching.missing.includes(candidate));
   assert.ok(watching.file.some(isSentinel), "the bridge adds its sentinel");
 
+  // Rolldown drops a change that lands while it is building, so it is handed
+  // one sentinel per module, and the bridge repeats a signal until the module
+  // registers again (samchon/ttsc#1465).
   const rolldown: string[] = [];
   const rolldownPlugin = await deliver({
     addWatchFile: (file: string) => rolldown.push(file),
     meta: { rolldownVersion: "1", watchMode: true },
   });
-  await invoke(rolldownPlugin.closeWatcher, {});
-  assert.ok(rolldown.includes(declaration), "Rolldown watches files itself");
-  assert.ok(!rolldown.includes(candidate), "Rolldown bridges creations");
-  assert.ok(!rolldown.includes(typeRoot), "Rolldown bridges listings");
-  assert.equal(rolldown.filter(isSentinel).length, 1);
+  try {
+    assert.equal(
+      rolldown.length,
+      1,
+      "Rolldown watches one sentinel per module",
+    );
+    assert.ok(isSentinel(rolldown[0]!));
+    const signal = () => fs.readFileSync(rolldown[0]!, "utf8");
+    const initial = signal();
+    fs.appendFileSync(declaration, "// edited\n");
+    await waitFor(
+      () => signal() !== initial,
+      "the sentinel to be rewritten for the edited declaration",
+    );
+    const first = signal();
+    await waitFor(
+      () => signal() !== first,
+      "the signal to repeat while the module has not run again",
+    );
+  } finally {
+    await invoke(rolldownPlugin.closeWatcher, {});
+  }
 
   const rollup: string[] = [];
   const rollupPlugin = await deliver({

@@ -400,15 +400,23 @@ const unpluginFactory: UnpluginFactory<
                 ? BRIDGED_WATCH_INPUT_KINDS.fileChannel
                 : undefined
               : native === undefined && meta?.watchMode === true
-                ? meta.rolldownVersion === undefined
-                  ? BRIDGED_WATCH_INPUT_KINDS.watcherPerPath
-                  : BRIDGED_WATCH_INPUT_KINDS.fileChannel
+                ? BRIDGED_WATCH_INPUT_KINDS.watcherPerPath
                 : undefined;
+      // Rolldown drops a change to a watched file that lands while it is
+      // building, so an edit after ttsc returned a module never rebuilt it:
+      // measured on the host matrix on every OS, intermittently
+      // (samchon/ttsc#1465). Every input therefore goes to the bridge, and
+      // the bridge repeats a signal until the module registers again, as it
+      // does for Turbopack; a rewrite that lands during a build is lost, and
+      // the next lands after it.
       const bridgeStartedAt =
         bridgedKinds === undefined
           ? undefined
           : (passStartedAt ??= (bridge ??= openHostWatchBridge(
               process.cwd(),
+              {},
+              undefined,
+              meta?.rolldownVersion !== undefined,
             )).begin());
       const result = await transformTtsc(
         file,

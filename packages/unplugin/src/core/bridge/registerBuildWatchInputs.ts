@@ -26,14 +26,19 @@ import type { HostWatchBridge } from "./HostWatchBridge";
  * sentinel, registered on the host's file channel. Measured on the pinned
  * hosts, the caller passes:
  *
- * - Rolldown and Farm: missing paths and listings, since their `addWatchFile`
- *   reports neither a creation nor a new entry.
+ * - Farm: missing paths and listings, since its `addWatchFile` reports neither a
+ *   creation nor a new entry.
  * - Webpack, Rspack, and Turbopack: listings, since their directory channel is
  *   recursive. It reacts to any write below the directory, and the compiler
  *   lists the project root, output directory included. Under `next dev`,
  *   Turbopack re-ran the loader hundreds of times per change.
  * - Rollup: everything, since it opens one watcher per registered path, and
  *   watches a directory recursively.
+ * - Rolldown: everything, since it drops a change to a watched file that lands
+ *   while it is building (samchon/ttsc#1465); the bridge repeats the signal
+ *   until the module registers again.
+ * - Esbuild: everything, since it keeps the state of the last loader result that
+ *   named a path (samchon/ttsc#1463).
  *
  * A webpack or Rspack watcher can also be configured to skip paths, and Rspack
  * skips `node_modules` by default. An input the host skips keeps its channel,
