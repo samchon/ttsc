@@ -53,7 +53,17 @@ export async function createHostInputMutationTracker(
     [...covered]
       .map((input) => path.resolve(input))
       .filter((input) => {
-        if (pathTraversesSymbolicLink(input, filesystem, linkedAncestors)) {
+        // A link between the input and the project root, whose observer
+        // follows it; the root and its ancestors are re-checked by identity
+        // on every delivery instead.
+        if (
+          pathTraversesSymbolicLink(
+            input,
+            filesystem,
+            linkedAncestors,
+            preferredRoot,
+          )
+        ) {
           return false;
         }
         try {

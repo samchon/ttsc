@@ -15,7 +15,6 @@ import { registerBrokeredMutationTracker } from "./broker/registerBrokeredMutati
 import { usesWatchBroker } from "./broker/usesWatchBroker";
 import { closeDirectoryWatches } from "./closeDirectoryWatches";
 import { openDirectoryWatch } from "./openDirectoryWatch";
-import { pathTraversesSymbolicLink } from "./pathTraversesSymbolicLink";
 import { recordProjectChange } from "./recordProjectChange";
 import { recordProjectMutation } from "./recordProjectMutation";
 import { settleOpenedDirectoryWatches } from "./settleOpenedDirectoryWatches";
@@ -32,23 +31,16 @@ export async function createProjectMutationTracker(
   const root = commonDirectoryRoot(
     directories.map((directory) => directory.path),
   );
-  const authoritative =
-    root !== undefined &&
-    filesystem.watch === undefined &&
-    pathTraversesSymbolicLink(
-      path.join(root, ".ttsc-notification-authority"),
-      filesystem,
-      new Map(),
-    )
-      ? new Set<string>()
-      : covered;
   const tracker: TtscProjectMutationTracker = {
     changes: new Set(),
     changesOmitted: false,
     close: () => {
       tracker.failed = true;
     },
-    covered: authoritative,
+    // A link at or above the root withdraws the tracker through the root's
+    // identity check on every delivery (`verifyLocations`), so it costs no
+    // coverage here; the walk's inputs are covered as the walk spells them.
+    covered,
     failed: false,
     membershipChanged: false,
     overlaps: (input, changed) =>
