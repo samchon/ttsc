@@ -26,9 +26,10 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  * metadata instead: one read per spelling an input is named under, since a
  * spelling through a link, every macOS temporary path among them, is an input
  * of its own beside the physical one the compiler reports, and a link among
- * them costs a stat of its target. Those reads are bounded the same way, each
- * spelling once per delivery, and in number by the inputs the fixture
- * declares.
+ * them costs a stat of its target. Those reads are bounded the same way: each
+ * spelling once per delivery, or twice for an input whose proof is re-earned on
+ * every delivery, the broken link here, which is read on each side of its
+ * content comparison; and in number by the inputs the fixture declares.
  *
  * 1. Deliver twelve modules over a partitioned graph and assert reads, file stats,
  *    and metadata checks per module stay within their bounds, and that no
@@ -212,10 +213,10 @@ export async function test_transformttsc_persistent_validation_uses_per_file_inp
       directoryStats.length,
       `a delivery reads each watched directory once: ${directoryStats.join(", ")}`,
     );
-    assert.equal(
-      new Set(metadataReads).size,
-      metadataReads.length,
-      `a delivery reads each input spelling's metadata once: ${metadataReads.join(", ")}`,
+    const spellings = new Set(metadataReads);
+    assert.ok(
+      metadataReads.length <= spellings.size + 1,
+      `a delivery reads each input spelling's metadata once, and the broken link on each side of its content comparison: ${metadataReads.join(", ")}`,
     );
   }
   assert.ok(
