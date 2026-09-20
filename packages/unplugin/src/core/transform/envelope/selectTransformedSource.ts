@@ -3,6 +3,7 @@ import type { ITtscCompilerTransformation } from "ttsc";
 import { searchedReferencedProjects } from "../../tsconfig/searchedReferencedProjects";
 import { formatDiagnostics } from "../diagnostics/formatDiagnostics";
 import { formatUnknownError } from "../diagnostics/formatUnknownError";
+import { TtscCompileFailureError } from "../errors/TtscCompileFailureError";
 import { TtscMissingProgramOutputError } from "../errors/TtscMissingProgramOutputError";
 import { toProjectKey } from "../project/toProjectKey";
 import type { TtscTransformedOutput } from "./TtscTransformedOutput";
@@ -29,10 +30,12 @@ export function selectTransformedSource(props: {
   tsconfig: string;
 }): TtscTransformedOutput {
   if (props.result.type === "exception") {
-    throw new Error(formatUnknownError(props.result.error));
+    throw new TtscCompileFailureError(formatUnknownError(props.result.error));
   }
   if (props.result.type === "failure") {
-    throw new Error(formatDiagnostics(props.result.diagnostics));
+    throw new TtscCompileFailureError(
+      formatDiagnostics(props.result.diagnostics),
+    );
   }
 
   // Fast path: the compiler key matches the normalised project-relative path.

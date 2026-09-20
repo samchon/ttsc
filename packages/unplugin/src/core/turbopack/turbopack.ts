@@ -8,6 +8,7 @@ import { registerBuildWatchInputs } from "../bridge/registerBuildWatchInputs";
 import { isTransformTarget } from "../isTransformTarget";
 import { resolveOptions } from "../options/resolveOptions";
 import { createTtscTransformCache } from "../transform/cache/createTtscTransformCache";
+import { TtscCompileFailureError } from "../transform/errors/TtscCompileFailureError";
 import { pathIsWithin } from "../transform/filesystem/pathIsWithin";
 import { readTtscTransformSession } from "../transform/session/readTtscTransformSession";
 import { shareTtscTransformCache } from "../transform/session/shareTtscTransformCache";
@@ -201,17 +202,27 @@ export function turbopack(
       // one for the next, so in a development session a compile that failed
       // once cost every module of the project its own cold worker, and the
       // page's error outlasted the dev server's patience on a slow machine
-      // (samchon/ttsc#1458). The error is reported through the loader
-      // context's own channel instead, and the module evaluates to that error,
-      // so the worker lives on and the page fails with the same message. A
-      // one-shot build, which runs each module once, fails the run outright.
-      if (!watching || emitError === undefined) {
+      // (samchon/ttsc#1458). The compiler's verdict on the project's state, a
+      // compile that ended in diagnostics or in an exception it reported, is
+      // reported through the loader context's own channel instead, and the
+      // module evaluates to that error, so the worker lives on and the page
+      // fails with the same message until an input changes, which is what
+      // the verdict is a function of. Every other failure, an adapter error
+      // before any compile or a generation the adapter could not capture
+      // while its inputs kept changing, says nothing about the state, and a
+      // module kept on it would never run again: the run fails, and Turbopack
+      // runs the module again on its next request. A one-shot build, which
+      // runs each module once, fails the run outright.
+      if (
+        !watching ||
+        emitError === undefined ||
+        !(error instanceof TtscCompileFailureError)
+      ) {
         callback(error);
         return;
       }
-      const failure = error instanceof Error ? error : new Error(String(error));
-      emitError(failure);
-      callback(undefined, failedModuleSource(failure));
+      emitError(error);
+      callback(undefined, failedModuleSource(error));
     },
   );
 }
