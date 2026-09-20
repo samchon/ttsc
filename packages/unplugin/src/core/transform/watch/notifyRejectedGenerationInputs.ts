@@ -1,6 +1,13 @@
+import path from "node:path";
+
+import { hostSpelling } from "../envelope/hostSpelling";
 import { TtscUnstableGenerationError } from "../errors/TtscUnstableGenerationError";
+import { createHostPathIdentityContext } from "../filesystem/createHostPathIdentityContext";
 import type { TtscTransformHooks } from "./TtscTransformHooks";
+import type { TtscWatchSelection } from "./TtscWatchSelection";
+import { handWatchInputs } from "./handWatchInputs";
 import { notifyFailedGenerationInputs } from "./notifyFailedGenerationInputs";
+import { selectionInputs } from "./selectionInputs";
 
 /**
  * Register the recovery inputs of a delivery whose generation was rejected
@@ -24,15 +31,41 @@ import { notifyFailedGenerationInputs } from "./notifyFailedGenerationInputs";
  * module's source covers the rest.
  *
  * @param file The delivered module, as the host spelled it.
+ * @param selection The configs that routed the file to its project, and the
+ *   project's tsconfig, which spells the project for a rejection that has no
+ *   generation to spell it.
  */
 export function notifyRejectedGenerationInputs(
   hooks: TtscTransformHooks | undefined,
   rejection: unknown,
   file: string,
+  selection: TtscWatchSelection,
 ): void {
   if (rejection instanceof TtscUnstableGenerationError) {
-    notifyFailedGenerationInputs(hooks, rejection.validation.cached, file);
+    notifyFailedGenerationInputs(
+      hooks,
+      rejection.validation.cached,
+      file,
+      selection,
+    );
     return;
   }
-  hooks?.addWatchFiles?.([], true);
+  if (hooks?.addWatchFile === undefined && hooks?.addWatchFiles === undefined) {
+    return;
+  }
+  const spelling = path.dirname(selection.tsconfig);
+  const spell = hostSpelling(
+    {
+      physical: createHostPathIdentityContext(selection.filesystem).resolve(
+        spelling,
+      ).path,
+      spelling,
+    },
+    file,
+  );
+  handWatchInputs(
+    hooks,
+    selectionInputs(selection.consulted, selection.filesystem, spell),
+    true,
+  );
 }

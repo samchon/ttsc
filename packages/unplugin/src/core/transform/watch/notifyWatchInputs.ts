@@ -10,8 +10,10 @@ import { MISSING_INPUT_STATE } from "../validation/MISSING_INPUT_STATE";
 import type { TtscTransformHooks } from "./TtscTransformHooks";
 import type { TtscWatchInput } from "./TtscWatchInput";
 import type { TtscWatchInputState } from "./TtscWatchInputState";
+import type { TtscWatchSelection } from "./TtscWatchSelection";
 import { handWatchInputs } from "./handWatchInputs";
 import { projectMembershipInput } from "./projectMembershipInput";
+import { selectionInputs } from "./selectionInputs";
 
 /**
  * Forward every derived watch input for `file` to the adapter's `addWatchFile`
@@ -30,6 +32,7 @@ export function notifyWatchInputs(
   hooks: TtscTransformHooks | undefined,
   cached: TtscCachedProjectTransform,
   file: string,
+  selection: TtscWatchSelection,
 ): void {
   const addWatchFile = hooks?.addWatchFile;
   const addWatchFiles = hooks?.addWatchFiles;
@@ -115,5 +118,8 @@ export function notifyWatchInputs(
   const membership =
     hooks?.membership === true ? projectMembershipInput(cached) : undefined;
   if (membership !== undefined) inputs.push(membership);
+  inputs.push(
+    ...selectionInputs(selection.consulted, selection.filesystem, spell),
+  );
   handWatchInputs(hooks, inputs);
 }

@@ -7,8 +7,10 @@ import { hostSpelling } from "../envelope/hostSpelling";
 import { isTransformScratchInput } from "../tsconfig/isTransformScratchInput";
 import type { TtscTransformHooks } from "./TtscTransformHooks";
 import type { TtscWatchInput } from "./TtscWatchInput";
+import type { TtscWatchSelection } from "./TtscWatchSelection";
 import { handWatchInputs } from "./handWatchInputs";
 import { projectMembershipInput } from "./projectMembershipInput";
+import { selectionInputs } from "./selectionInputs";
 
 /**
  * Register the failed generation's project and external inputs so the host can
@@ -32,11 +34,14 @@ import { projectMembershipInput } from "./projectMembershipInput";
  *
  * @param file The delivered module, as the host spelled it, which decides the
  *   spelling every input is handed under (`hostSpelling`).
+ * @param selection The configs that routed the file to its project, handed
+ *   beside the failed generation's inputs.
  */
 export function notifyFailedGenerationInputs(
   hooks: TtscTransformHooks | undefined,
   cached: TtscCachedProjectTransform,
   file: string,
+  selection: TtscWatchSelection,
 ): void {
   const addWatchFile = hooks?.addWatchFile;
   const addWatchFiles = hooks?.addWatchFiles;
@@ -92,6 +97,9 @@ export function notifyFailedGenerationInputs(
   const membership =
     hooks?.membership === true ? projectMembershipInput(cached) : undefined;
   if (membership !== undefined) inputs.push(membership);
+  inputs.push(
+    ...selectionInputs(selection.consulted, selection.filesystem, spell),
+  );
   handWatchInputs(hooks, inputs, true);
 }
 

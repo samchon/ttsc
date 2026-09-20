@@ -18,10 +18,8 @@ import { reportMissingProgramOutput } from "./diagnostics/reportMissingProgramOu
 import { reportSuccessDiagnostics } from "./diagnostics/reportSuccessDiagnostics";
 import type { TtscTransformedOutput } from "./envelope/TtscTransformedOutput";
 import { envelopeDerivation } from "./envelope/envelopeDerivation";
-import { hostSpelling } from "./envelope/hostSpelling";
 import { isVolatileFile } from "./envelope/isVolatileFile";
 import { TtscMissingProgramOutputError } from "./errors/TtscMissingProgramOutputError";
-import { createHostPathIdentityContext } from "./filesystem/createHostPathIdentityContext";
 import { transformProject } from "./generation/transformProject";
 import { TRANSFORM_CACHE_SESSIONS } from "./session/TRANSFORM_CACHE_SESSIONS";
 import { settleProjectMutationEvents } from "./tracker/settleProjectMutationEvents";
@@ -34,10 +32,10 @@ import { stripQuery } from "./utils/stripQuery";
 import { markCachedSourceServed } from "./validation/markCachedSourceServed";
 import { matchesCachedSource } from "./validation/matchesCachedSource";
 import type { TtscTransformHooks } from "./watch/TtscTransformHooks";
+import type { TtscWatchSelection } from "./watch/TtscWatchSelection";
 import { notifyFailedGenerationInputs } from "./watch/notifyFailedGenerationInputs";
 import { notifyRejectedGenerationInputs } from "./watch/notifyRejectedGenerationInputs";
 import { notifyWatchInputs } from "./watch/notifyWatchInputs";
-import { withSelectionInputs } from "./watch/withSelectionInputs";
 
 /**
  * Apply the ttsc plugin transform to a single source file.
@@ -94,22 +92,14 @@ export async function transformTtsc(
   const tsconfig = selection.tsconfig;
   // Every config the selection read is a watch input too: editing a solution's
   // `references`, or the `include` of a project searched before the selected
-  // one, can move the file (samchon/ttsc#1397). It is handed under the spelling
-  // this delivery's inputs take, so the same config is registered once.
-  hooks = withSelectionInputs(
-    hooks,
-    selection.consulted,
+  // one, can move the file (samchon/ttsc#1397). Each notification hands them
+  // beside its own inputs, under the same spelling, so a config both name is
+  // registered once.
+  const watchSelection: TtscWatchSelection = {
+    consulted: selection.consulted,
     filesystem,
-    hostSpelling(
-      {
-        physical: createHostPathIdentityContext(filesystem).resolve(
-          path.dirname(tsconfig),
-        ).path,
-        spelling: path.dirname(tsconfig),
-      },
-      file,
-    ),
-  );
+    tsconfig,
+  };
   const aliasPaths = createAliasPaths(aliases);
   const key = createTransformCacheKey({
     aliasPaths,
@@ -138,7 +128,7 @@ export async function transformTtsc(
             filesystem,
           })
         ) {
-          notifyRejectedGenerationInputs(hooks, terminal, file);
+          notifyRejectedGenerationInputs(hooks, terminal, file, watchSelection);
           throw terminal;
         }
         evictGeneration(cache, key, transformed);
@@ -151,7 +141,12 @@ export async function transformTtsc(
     if (transformed !== undefined) {
       const cached = await awaitOrEvict(cache, key, transformed).catch(
         (rejection: unknown) => {
-          notifyRejectedGenerationInputs(hooks, rejection, file);
+          notifyRejectedGenerationInputs(
+            hooks,
+            rejection,
+            file,
+            watchSelection,
+          );
           throw rejection;
         },
       );
@@ -192,7 +187,7 @@ export async function transformTtsc(
           });
         } catch (error) {
           if (!(error instanceof TtscMissingProgramOutputError)) {
-            notifyFailedGenerationInputs(hooks, cached, file);
+            notifyFailedGenerationInputs(hooks, cached, file, watchSelection);
             throw error;
           }
           // The compile is fine and simply has nothing for this module, so the
@@ -201,11 +196,11 @@ export async function transformTtsc(
           // still decide whether a later generation will contain this module,
           // so hosts must receive the same universal watch-input batch.
           reportMissingProgramOutput(cached, error, epoch);
-          notifyWatchInputs(hooks, cached, file);
+          notifyWatchInputs(hooks, cached, file, watchSelection);
           markCachedSourceServed(cached, file);
           return undefined;
         }
-        notifyWatchInputs(hooks, cached, file);
+        notifyWatchInputs(hooks, cached, file, watchSelection);
         markCachedSourceServed(cached, file);
         return createTransformResult(file, source, output);
       }
@@ -249,7 +244,7 @@ export async function transformTtsc(
     const generation = transformed;
     const cached = await awaitOrEvict(cache, key, generation).catch(
       (rejection: unknown) => {
-        notifyRejectedGenerationInputs(hooks, rejection, file);
+        notifyRejectedGenerationInputs(hooks, rejection, file, watchSelection);
         throw rejection;
       },
     );
@@ -268,15 +263,15 @@ export async function transformTtsc(
       });
     } catch (error) {
       if (!(error instanceof TtscMissingProgramOutputError)) {
-        notifyFailedGenerationInputs(hooks, cached, file);
+        notifyFailedGenerationInputs(hooks, cached, file, watchSelection);
         throw error;
       }
       reportMissingProgramOutput(cached, error, epoch);
-      notifyWatchInputs(hooks, cached, file);
+      notifyWatchInputs(hooks, cached, file, watchSelection);
       markCachedSourceServed(cached, file);
       return undefined;
     }
-    notifyWatchInputs(hooks, cached, file);
+    notifyWatchInputs(hooks, cached, file, watchSelection);
     markCachedSourceServed(cached, file);
     if (
       isVolatileFile(envelopeDerivation(cached), { file, projectRoot, result })
