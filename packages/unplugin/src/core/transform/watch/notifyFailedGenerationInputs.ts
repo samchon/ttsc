@@ -7,6 +7,7 @@ import { hostSpelling } from "../envelope/hostSpelling";
 import { isTransformScratchInput } from "../tsconfig/isTransformScratchInput";
 import type { TtscTransformHooks } from "./TtscTransformHooks";
 import type { TtscWatchInput } from "./TtscWatchInput";
+import { handWatchInputs } from "./handWatchInputs";
 import { projectMembershipInput } from "./projectMembershipInput";
 
 /**
@@ -28,16 +29,25 @@ import { projectMembershipInput } from "./projectMembershipInput";
  * standard diagnostic lines provide only the paths they actually name. The cost
  * is paid only on a failure, and only until the next compile succeeds and
  * narrows the set back to the derived inputs.
+ *
+ * @param file The delivered module, as the host spelled it, which decides the
+ *   spelling every input is handed under (`hostSpelling`).
  */
 export function notifyFailedGenerationInputs(
   hooks: TtscTransformHooks | undefined,
   cached: TtscCachedProjectTransform,
+  file: string,
 ): void {
   const addWatchFile = hooks?.addWatchFile;
   const addWatchFiles = hooks?.addWatchFiles;
   if (addWatchFile === undefined && addWatchFiles === undefined) {
     return;
   }
+  const state = envelopeDerivation(cached);
+  const spell = hostSpelling(
+    { physical: state.projectPhysical, spelling: state.projectSpelling },
+    file,
+  );
   const inputs: TtscWatchInput[] = [];
   const seen = new Set<string>();
   const append = (input: string): void => {
@@ -52,7 +62,7 @@ export function notifyFailedGenerationInputs(
     // No evidence, deliberately. A failed generation is replayed for the rest
     // of its pass without re-proving its inputs, so the adapter must observe
     // the current availability itself.
-    inputs.push({ file: hostSpelling(envelopeDerivation(cached), spelling) });
+    inputs.push({ file: spell(spelling) });
   };
   for (const key of Object.keys(cached.inputHashes)) {
     append(path.resolve(cached.projectRoot, key));
@@ -82,13 +92,7 @@ export function notifyFailedGenerationInputs(
   const membership =
     hooks?.membership === true ? projectMembershipInput(cached) : undefined;
   if (membership !== undefined) inputs.push(membership);
-  if (addWatchFiles !== undefined) {
-    addWatchFiles(inputs, true);
-    return;
-  }
-  for (const input of inputs) {
-    addWatchFile!(input.file);
-  }
+  handWatchInputs(hooks, inputs, true);
 }
 
 /**

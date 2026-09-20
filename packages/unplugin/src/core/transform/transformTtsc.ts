@@ -18,8 +18,10 @@ import { reportMissingProgramOutput } from "./diagnostics/reportMissingProgramOu
 import { reportSuccessDiagnostics } from "./diagnostics/reportSuccessDiagnostics";
 import type { TtscTransformedOutput } from "./envelope/TtscTransformedOutput";
 import { envelopeDerivation } from "./envelope/envelopeDerivation";
+import { hostSpelling } from "./envelope/hostSpelling";
 import { isVolatileFile } from "./envelope/isVolatileFile";
 import { TtscMissingProgramOutputError } from "./errors/TtscMissingProgramOutputError";
+import { createHostPathIdentityContext } from "./filesystem/createHostPathIdentityContext";
 import { transformProject } from "./generation/transformProject";
 import { TRANSFORM_CACHE_SESSIONS } from "./session/TRANSFORM_CACHE_SESSIONS";
 import { settleProjectMutationEvents } from "./tracker/settleProjectMutationEvents";
@@ -92,8 +94,22 @@ export async function transformTtsc(
   const tsconfig = selection.tsconfig;
   // Every config the selection read is a watch input too: editing a solution's
   // `references`, or the `include` of a project searched before the selected
-  // one, can move the file (samchon/ttsc#1397).
-  hooks = withSelectionInputs(hooks, selection.consulted, filesystem);
+  // one, can move the file (samchon/ttsc#1397). It is handed under the spelling
+  // this delivery's inputs take, so the same config is registered once.
+  hooks = withSelectionInputs(
+    hooks,
+    selection.consulted,
+    filesystem,
+    hostSpelling(
+      {
+        physical: createHostPathIdentityContext(filesystem).resolve(
+          path.dirname(tsconfig),
+        ).path,
+        spelling: path.dirname(tsconfig),
+      },
+      file,
+    ),
+  );
   const aliasPaths = createAliasPaths(aliases);
   const key = createTransformCacheKey({
     aliasPaths,
@@ -122,7 +138,7 @@ export async function transformTtsc(
             filesystem,
           })
         ) {
-          notifyRejectedGenerationInputs(hooks, terminal);
+          notifyRejectedGenerationInputs(hooks, terminal, file);
           throw terminal;
         }
         evictGeneration(cache, key, transformed);
@@ -135,7 +151,7 @@ export async function transformTtsc(
     if (transformed !== undefined) {
       const cached = await awaitOrEvict(cache, key, transformed).catch(
         (rejection: unknown) => {
-          notifyRejectedGenerationInputs(hooks, rejection);
+          notifyRejectedGenerationInputs(hooks, rejection, file);
           throw rejection;
         },
       );
@@ -176,7 +192,7 @@ export async function transformTtsc(
           });
         } catch (error) {
           if (!(error instanceof TtscMissingProgramOutputError)) {
-            notifyFailedGenerationInputs(hooks, cached);
+            notifyFailedGenerationInputs(hooks, cached, file);
             throw error;
           }
           // The compile is fine and simply has nothing for this module, so the
@@ -233,7 +249,7 @@ export async function transformTtsc(
     const generation = transformed;
     const cached = await awaitOrEvict(cache, key, generation).catch(
       (rejection: unknown) => {
-        notifyRejectedGenerationInputs(hooks, rejection);
+        notifyRejectedGenerationInputs(hooks, rejection, file);
         throw rejection;
       },
     );
@@ -252,7 +268,7 @@ export async function transformTtsc(
       });
     } catch (error) {
       if (!(error instanceof TtscMissingProgramOutputError)) {
-        notifyFailedGenerationInputs(hooks, cached);
+        notifyFailedGenerationInputs(hooks, cached, file);
         throw error;
       }
       reportMissingProgramOutput(cached, error, epoch);

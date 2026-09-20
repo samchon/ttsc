@@ -7,6 +7,7 @@ import { hostInputStateHash } from "../inputs/hostInputStateHash";
 import { MISSING_INPUT_STATE } from "../validation/MISSING_INPUT_STATE";
 import type { TtscTransformHooks } from "./TtscTransformHooks";
 import type { TtscWatchInput } from "./TtscWatchInput";
+import { handWatchInputs } from "./handWatchInputs";
 
 /**
  * Extend a delivery's watch inputs with the configs that routed its file to the
@@ -18,11 +19,16 @@ import type { TtscWatchInput } from "./TtscWatchInput";
  * move the file to another project, and so can a referenced config appearing,
  * so each config the selection read is registered with the host as well, with
  * its current content as evidence, or as missing when it does not exist.
+ *
+ * @param spell The spelling every input is handed under for this delivery
+ *   (`hostSpelling`), applied to the configs here and, through the one batch
+ *   the host receives, folded with the generation's own inputs.
  */
 export function withSelectionInputs(
   hooks: TtscTransformHooks | undefined,
   consulted: readonly string[],
   filesystem: TtscTransformFilesystemOperations,
+  spell: (input: string) => string,
 ): TtscTransformHooks | undefined {
   if (consulted.length === 0 || hooks === undefined) return hooks;
   if (hooks.addWatchFile === undefined && hooks.addWatchFiles === undefined) {
@@ -40,21 +46,15 @@ export function withSelectionInputs(
           state: { codec: "host", hash: hash ?? MISSING_INPUT_STATE },
           ...(hash === null ? { unavailable: "missing" as const } : {}),
         },
-        file,
+        file: spell(file),
       };
     });
-  const { addWatchFile, addWatchFiles } = hooks;
   // Batched, so the configs are appended once per delivery even for a host
   // that only takes one input at a time.
   return {
     ...hooks,
     addWatchFiles: (inputs: readonly TtscWatchInput[], failed?: boolean) => {
-      const all = [...inputs, ...extra()];
-      if (addWatchFiles !== undefined) {
-        addWatchFiles(all, failed);
-        return;
-      }
-      for (const input of all) addWatchFile!(input.file, input.evidence);
+      handWatchInputs(hooks, [...inputs, ...extra()], failed);
     },
   };
 }

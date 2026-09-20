@@ -1,36 +1,56 @@
 import path from "node:path";
 
-import type { TtscEnvelopeDerivation } from "./TtscEnvelopeDerivation";
-
 /**
- * The spelling under which a host is handed one of the compiler's inputs
+ * How a host is handed the compiler's inputs for one delivery: spelled under
+ * the project as the host itself spelled the module it delivered
  * (samchon/ttsc#1451).
  *
- * The compiler reports its inputs physically, after every link, while a host
- * names the project by the path it was given: `/var/…` on macOS, where the
- * temporary directory is a link to `/private/var/…`, or a linked workspace
- * anywhere. A build host compares the two lexically. Turbopack refuses a
- * dependency whose physical spelling leaves its lexical root, and webpack's
- * snapshots see the physical file as another file than the one it watches. The
- * adapter therefore speaks the host's spelling at that boundary: an input below
- * the project's physical root returns under the project's own spelling, as the
- * watch broker already translates its events. An input elsewhere, which the
- * host can only know physically, keeps its physical spelling. Every comparison
- * inside the adapter stays by identity.
+ * The compiler reports its inputs physically, after every link. A host names
+ * the project one of two ways, and says which by the module it hands over: one
+ * that resolves its modules through links, as webpack's resolver and Vite's do,
+ * delivers the physical path, and compares every dependency against physical
+ * paths of its own; one that keeps the path it was configured with, as
+ * Turbopack does, delivers that spelling, `/var/…` on macOS where the temporary
+ * directory links to `/private/var/…`, or a linked workspace anywhere, and
+ * refuses or duplicates a dependency spelled the other way. Handing the wrong
+ * spelling made Turbopack track no dependency at all and webpack watch every
+ * project directory twice. The adapter therefore speaks the spelling of the
+ * delivered module: an input below either spelling of the project root is
+ * returned under the one the module carries, and an input elsewhere keeps its
+ * own. A module under neither, which no host names by the project, takes the
+ * project's configured spelling. Every comparison inside the adapter stays by
+ * identity.
+ *
+ * @param project The project root as configured and as the filesystem resolves
+ *   it; equal where the root traverses no link, which makes the answer the
+ *   identity.
+ * @param delivered The module the host asked to transform, as it spelled it.
+ * @returns The spelling function for this delivery's inputs.
  */
 export function hostSpelling(
-  state: TtscEnvelopeDerivation,
-  input: string,
-): string {
-  if (state.projectPhysical === state.projectSpelling) return input;
-  const relative = path.relative(state.projectPhysical, input);
-  if (
-    relative === "" ||
-    relative === ".." ||
-    relative.startsWith(`..${path.sep}`) ||
-    path.isAbsolute(relative)
-  ) {
-    return input;
-  }
-  return path.join(state.projectSpelling, relative);
+  project: { physical: string; spelling: string },
+  delivered: string,
+): (input: string) => string {
+  if (project.physical === project.spelling) return (input) => input;
+  const host =
+    !within(delivered, project.spelling) && within(delivered, project.physical)
+      ? { from: project.spelling, to: project.physical }
+      : { from: project.physical, to: project.spelling };
+  return (input) => {
+    const relative = path.relative(host.from, input);
+    return relative === ".." ||
+      relative.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(relative)
+      ? input
+      : path.join(host.to, relative);
+  };
+}
+
+function within(file: string, root: string): boolean {
+  const relative = path.relative(root, file);
+  return (
+    relative !== ".." &&
+    !relative.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relative)
+  );
 }

@@ -22,13 +22,16 @@ import { notifyFailedGenerationInputs } from "./notifyFailedGenerationInputs";
  * then registers what it can always name, its selection inputs, so at least a
  * configuration edit reaches the module again, and the host's own watch of the
  * module's source covers the rest.
+ *
+ * @param file The delivered module, as the host spelled it.
  */
 export function notifyRejectedGenerationInputs(
   hooks: TtscTransformHooks | undefined,
   rejection: unknown,
+  file: string,
 ): void {
   if (rejection instanceof TtscUnstableGenerationError) {
-    notifyFailedGenerationInputs(hooks, rejection.validation.cached);
+    notifyFailedGenerationInputs(hooks, rejection.validation.cached, file);
     return;
   }
   hooks?.addWatchFiles?.([], true);
