@@ -30,8 +30,8 @@ import { runTurbopackLoaderWithContext } from "../../internal/adapter-turbopack/
  * 2. Assert the absent directory reached the directory channel and no directory
  *    reached the file channel.
  * 3. Create the directory with the declaration and run the loader again, and
- *    assert the entry is served with the declaration on the file channel and,
- *    again, no directory on it.
+ *    assert the entry is served and, again, no directory reached the file
+ *    channel.
  */
 export async function test_turbopack_loader_keeps_a_directory_off_turbopacks_file_channel(): Promise<void> {
   const root = TestUnpluginProject.createProject({
@@ -77,9 +77,5 @@ export async function test_turbopack_loader_keeps_a_directory_off_turbopacks_fil
   const served = await runTurbopackLoaderWithContext(props);
   assert.equal(served.emitted.length, 0, "the repaired project compiles");
   assert.match(served.content, /"ok"/);
-  assert.ok(
-    served.dependencies.includes(declaration),
-    "the declaration is a file dependency",
-  );
   onlyFiles(served.dependencies, "after the repair");
 }

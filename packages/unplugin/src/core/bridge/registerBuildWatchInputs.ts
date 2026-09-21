@@ -41,6 +41,10 @@ import type { HostWatchBridge } from "./HostWatchBridge";
  * - Rolldown: everything, since it drops a change to a watched file that lands
  *   while it is building (samchon/ttsc#1465); the bridge repeats the signal
  *   until the module registers again.
+ * - Rspack: everything as well, through `ignores`, so each input keeps its
+ *   channel for the persistent cache: its watcher drops a change that lands
+ *   between a build's end and the modification time it then records as the
+ *   file's baseline, and the bridge repeats the signal as for Rolldown.
  * - Esbuild: everything, since it keeps the state of the last loader result that
  *   named a path (samchon/ttsc#1463).
  *

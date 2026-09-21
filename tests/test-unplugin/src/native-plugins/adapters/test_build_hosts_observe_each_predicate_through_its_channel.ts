@@ -22,9 +22,11 @@ import { createRealNativeEnvelopeFixture } from "../../internal/real-native-enve
  * 1. Compile a real native envelope through a one-shot webpack context, and
  *    through watching webpack and Rolldown contexts, and assert each input kind
  *    reaches its channel, with no presence-only directory registered.
- * 2. Deliver the same module through a watching Rolldown context, and assert only
- *    its sentinel is registered and that its signal repeats until the module
- *    runs again; then through a watching Rollup context, and assert only its
+ * 2. Deliver the same module through a watching Rspack context, and assert an
+ *    input keeps its channel while an edit to it rewrites the sentinel and the
+ *    signal repeats until the module runs again; through a watching Rolldown
+ *    context, and assert only its sentinel is registered and its signal
+ *    repeats; then through a watching Rollup context, and assert only its
  *    sentinel is registered.
  * 3. Write below a package directory and assert the sentinel is untouched. Then
  *    create the missing resolution candidate, and a declaration the tsconfig's
@@ -65,17 +67,20 @@ export async function test_build_hosts_observe_each_predicate_through_its_channe
   const isSentinel = (file: string) =>
     file.endsWith(".signal") && !pathIsWithin(file, root);
 
-  const webpack = async (watchMode: boolean) => {
+  const loaderHost = async (
+    framework: "rspack" | "webpack",
+    watchMode: boolean,
+  ) => {
     const channels = {
       context: [] as string[],
       file: [] as string[],
       missing: [] as string[],
     };
     const plugin = await deliver({
-      addWatchFile: () => assert.fail("webpack uses its loader channels"),
+      addWatchFile: () => assert.fail(`${framework} uses its loader channels`),
       getNativeBuildContext: () => ({
         compiler: { watchMode },
-        framework: "webpack",
+        framework,
         loaderContext: {
           addContextDependency: (file: string) => channels.context.push(file),
           addDependency: (file: string) => channels.file.push(file),
@@ -83,8 +88,12 @@ export async function test_build_hosts_observe_each_predicate_through_its_channe
         },
       }),
     });
-    await invoke(plugin.closeWatcher, {});
-    return channels;
+    return { channels, close: () => invoke(plugin.closeWatcher, {}) };
+  };
+  const webpack = async (watchMode: boolean) => {
+    const host = await loaderHost("webpack", watchMode);
+    await host.close();
+    return host.channels;
   };
   const oneShot = await webpack(false);
   assert.ok(oneShot.file.includes(declaration), "a read declaration is a file");
@@ -111,6 +120,35 @@ export async function test_build_hosts_observe_each_predicate_through_its_channe
   assert.ok(watching.file.includes(declaration));
   assert.ok(watching.missing.includes(candidate));
   assert.ok(watching.file.some(isSentinel), "the bridge adds its sentinel");
+
+  // Rspack drops a change that lands between a build's end and the
+  // modification time its watcher then records as the file's baseline, so
+  // every input goes to the bridge as well as to its channel, which the
+  // persistent cache still needs, and the bridge repeats a signal until the
+  // module registers again.
+  const rspack = await loaderHost("rspack", true);
+  try {
+    assert.ok(
+      rspack.channels.file.includes(declaration),
+      "an input keeps Rspack's channel",
+    );
+    const sentinel = rspack.channels.file.find(isSentinel);
+    assert.ok(sentinel !== undefined, "the bridge adds its sentinel");
+    const signal = () => fs.readFileSync(sentinel, "utf8");
+    const initial = signal();
+    fs.appendFileSync(declaration, "// edited for rspack\n");
+    await waitFor(
+      () => signal() !== initial,
+      "the sentinel to be rewritten for the declaration Rspack watches itself",
+    );
+    const first = signal();
+    await waitFor(
+      () => signal() !== first,
+      "the signal to repeat while the module has not run again",
+    );
+  } finally {
+    await rspack.close();
+  }
 
   // Rolldown drops a change that lands while it is building, so it is handed
   // one sentinel per module, and the bridge repeats a signal until the module

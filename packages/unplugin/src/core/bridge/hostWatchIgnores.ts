@@ -20,6 +20,11 @@
  * is then treated as possibly ignored, so an input can be observed twice,
  * costing a second rebuild, but is never missed.
  *
+ * A watching Rspack build no longer consults this: its watcher also drops a
+ * change that lands before the baseline it records after a build, so every
+ * input of its goes to the bridge (see `unplugin.ts`). webpack, and the
+ * configuration Next.js builds on it, still do.
+ *
  * @param ignored The watching compiler's `watchOptions.ignored`.
  */
 export function hostWatchIgnores(ignored: unknown): (file: string) => boolean {

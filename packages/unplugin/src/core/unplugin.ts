@@ -411,10 +411,20 @@ const unpluginFactory: UnpluginFactory<
       // Rolldown drops a change to a watched file that lands while it is
       // building, so an edit after ttsc returned a module never rebuilt it:
       // measured on the host matrix on every OS, intermittently
-      // (samchon/ttsc#1465). Every input therefore goes to the bridge, and
-      // the bridge repeats a signal until the module registers again, as it
-      // does for Turbopack; a rewrite that lands during a build is lost, and
-      // the next lands after it.
+      // (samchon/ttsc#1465). Rspack drops a change that lands between the end
+      // of a build and the moment its watcher records the file's modification
+      // time as the baseline for the next: its watcher suppresses an event
+      // whose file still carries the recorded time (`rspack_watcher`,
+      // `Trigger::on_event` against `record_file_mtimes`), and its scan for
+      // changes since the build's start covers only files the build newly
+      // registered. Measured on the host matrix on macOS x64, where an input
+      // repaired right after the failed build never rebuilt. Every input of
+      // either host therefore goes to the bridge as well, and the bridge
+      // repeats a signal until the module registers again, as it does for
+      // Turbopack; a rewrite that lands during a build, or before Rspack's
+      // baseline, is lost, and the next lands after it.
+      const dropsLateChanges =
+        meta?.rolldownVersion !== undefined || native?.framework === "rspack";
       const bridgeStartedAt =
         bridgedKinds === undefined
           ? undefined
@@ -422,7 +432,7 @@ const unpluginFactory: UnpluginFactory<
               process.cwd(),
               {},
               undefined,
-              meta?.rolldownVersion !== undefined,
+              dropsLateChanges,
             )).begin());
       const result = await transformTtsc(
         file,
@@ -452,23 +462,26 @@ const unpluginFactory: UnpluginFactory<
                             bridge: {
                               // The paths the watching compiler skips, Rspack's
                               // default `node_modules` among them, read where
-                              // its `Watching` keeps them.
-                              ...(native?.framework === "webpack" ||
-                              native?.framework === "rspack"
-                                ? {
-                                    ignores: hostWatchIgnores(
-                                      (
-                                        native.compiler as {
-                                          watching?: {
-                                            watchOptions?: {
-                                              ignored?: unknown;
+                              // its `Watching` keeps them; under Rspack every
+                              // input, since its own channel loses a change
+                              // that lands before its baseline.
+                              ...(native?.framework === "rspack"
+                                ? { ignores: () => true }
+                                : native?.framework === "webpack"
+                                  ? {
+                                      ignores: hostWatchIgnores(
+                                        (
+                                          native.compiler as {
+                                            watching?: {
+                                              watchOptions?: {
+                                                ignored?: unknown;
+                                              };
                                             };
-                                          };
-                                        }
-                                      ).watching?.watchOptions?.ignored,
-                                    ),
-                                  }
-                                : {}),
+                                          }
+                                        ).watching?.watchOptions?.ignored,
+                                      ),
+                                    }
+                                  : {}),
                               instance: bridge,
                               kinds: bridgedKinds,
                               startedAt: bridgeStartedAt,
