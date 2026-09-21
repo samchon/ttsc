@@ -24,6 +24,8 @@ export const VALUES = [
   "TWELFTH",
   "THIRTEENTH",
   "FOURTEENTH",
+  "FIFTEENTH",
+  "CONFIGURED",
   "RUNTIME_FIRST",
   "RUNTIME_SECOND",
 ];
@@ -60,25 +62,7 @@ export function fixture(name, { linked = false } = {}) {
     "package.json",
     JSON.stringify({ private: true, type: "module" }),
   );
-  write(
-    root,
-    "tsconfig.json",
-    JSON.stringify({
-      compilerOptions: {
-        target: "ES2022",
-        module: "ESNext",
-        moduleResolution: "Bundler",
-        types: [],
-        jsx: "preserve",
-        outDir: "dist-contract",
-        plugins: [
-          { transform: path.join(workspace, "unplugin-transform.cjs") },
-        ],
-      },
-      include: ["src", "app", "pages"],
-      exclude: ["dist-contract", "node_modules"],
-    }),
-  );
+  writeTsconfig(root);
   write(root, "src/globals.d.ts", "declare function watchValue(): string;\n");
   write(
     root,
@@ -96,6 +80,36 @@ export function fixture(name, { linked = false } = {}) {
   const project = projectAt(root, { linked, physical });
   project.change("FIRST");
   return project;
+}
+
+/**
+ * The project's tsconfig, with the transform plugin entry; `fixed` makes the
+ * plugin replace every consumer's value with it, so an edit to the tsconfig
+ * itself has an observable effect.
+ */
+function writeTsconfig(root, fixed) {
+  write(
+    root,
+    "tsconfig.json",
+    JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "ESNext",
+        moduleResolution: "Bundler",
+        types: [],
+        jsx: "preserve",
+        outDir: "dist-contract",
+        plugins: [
+          {
+            transform: path.join(workspace, "unplugin-transform.cjs"),
+            ...(fixed === undefined ? {} : { fixed }),
+          },
+        ],
+      },
+      include: ["src", "app", "pages"],
+      exclude: ["dist-contract", "node_modules"],
+    }),
+  );
 }
 
 /**
@@ -133,6 +147,15 @@ export function projectAt(root, { linked = false, physical = root } = {}) {
     sibling(name, value) {
       write(root, `src/${name}-input.server.ts`, contractInput(value));
     },
+    /** The path of a second input. */
+    siblingPath(name) {
+      return path.join(root, `src/${name}-input.server.ts`);
+    },
+    /** Rewrite the tsconfig, fixing every consumer's value when given. */
+    configure(fixed) {
+      writeTsconfig(root, fixed);
+    },
+    tsconfig: path.join(root, "tsconfig.json"),
     entry: path.join(root, "src/main.ts"),
     output: path.join(root, "dist-contract/bundle.js"),
     options: { project: path.join(root, "tsconfig.json") },

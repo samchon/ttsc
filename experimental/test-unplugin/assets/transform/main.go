@@ -31,10 +31,13 @@ func run(args []string) int {
   flags := flag.NewFlagSet("transform", flag.ContinueOnError)
   cwd := flags.String("cwd", "", "")
   _ = flags.String("tsconfig", "", "")
-  _ = flags.String("plugins-json", "", "")
+  pluginsJSON := flags.String("plugins-json", "", "")
   if err := flags.Parse(args[1:]); err != nil {
     return 2
   }
+  // A `fixed` value in this plugin's tsconfig entry replaces every consumer's
+  // value, so an edit to the tsconfig itself has an observable effect.
+  fixed := fixedValue(*pluginsJSON)
   root := *cwd
   if root == "" {
     root, _ = os.Getwd()
@@ -78,6 +81,9 @@ func run(args []string) int {
       value, dependencies, err := contractValue(root, dependency)
       if err != nil {
         return err
+      }
+      if fixed != "" {
+        value = fixed
       }
       code = strings.ReplaceAll(code, "watchValue()", fmt.Sprintf("%q", value))
       output.Dependencies[key] = dependencies
@@ -156,4 +162,24 @@ func readContractValue(file string) (string, error) {
     return "", fmt.Errorf("invalid contract type in %s", file)
   }
   return match[1], nil
+}
+
+// fixedValue reads the `fixed` entry of this plugin's config from the plugin
+// list ttsc hands the transform, or "" when none is set.
+func fixedValue(pluginsJSON string) string {
+  if pluginsJSON == "" {
+    return ""
+  }
+  var plugins []struct {
+    Config map[string]any `json:"config"`
+  }
+  if err := json.Unmarshal([]byte(pluginsJSON), &plugins); err != nil {
+    return ""
+  }
+  for _, plugin := range plugins {
+    if fixed, ok := plugin.Config["fixed"].(string); ok && fixed != "" {
+      return fixed
+    }
+  }
+  return ""
 }

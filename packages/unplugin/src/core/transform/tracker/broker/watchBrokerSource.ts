@@ -9,10 +9,15 @@ import { WATCH_PROBE_TIMEOUT_MS } from "./WATCH_PROBE_TIMEOUT_MS";
  * Each registration owns its watches, so opening or closing one disturbs no
  * other.
  *
- * On Windows the watches are `fs.watch`, whose completions the kernel queues,
- * so a drain is answered after two turns of the child's loop: the first lets
- * the loop poll for completions already queued, the second runs after their
- * callbacks.
+ * On Windows the watches are `fs.watch`. The kernel queues a directory change's
+ * completion when the change is recorded, before the write returns, and its
+ * completion port hands completions out in the order they were queued, so the
+ * change's callback runs before the callback of the drain message sent after
+ * the write. A drain is therefore answered after two turns of the child's loop:
+ * the first lets the loop poll for completions already queued, the second runs
+ * after their callbacks. That is a claim about the kernel's ordering, not about
+ * time, and it is measured on the real backend, two hundred writes in a row, by
+ * the scenario that drains a real Windows watch.
  *
  * On macOS the watches go through the `fsevents` binding, one FSEventStream
  * each, instead of `fs.watch` (samchon/ttsc#1425). libuv serves all directory

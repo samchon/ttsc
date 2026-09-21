@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import path from "node:path";
 
 import { write } from "./common.mjs";
@@ -13,7 +14,8 @@ import { write } from "./common.mjs";
  * hears every kind of edit the adapter promises to hear: between builds, during
  * the compile, after ttsc returned a module and before the host's build ended,
  * during the host's own build, saved the way an editor saves, deleted and
- * recreated, and to an input the module depends on for the first time.
+ * recreated, to an input the module depends on for the first time, to the
+ * tsconfig itself, and a dependency renamed away and back.
  *
  * A scenario is `{ name, run }`; `run` receives the session and the project,
  * and `when` says which sessions it applies to. The compile count is asserted
@@ -198,10 +200,50 @@ export const SCENARIOS = [
     },
   },
   {
+    name: "edit to the tsconfig",
+    async run({ project, session }) {
+      // The tsconfig is a compiler input of every module: a plugin entry it
+      // gains changes the output, and the edit is heard through the config
+      // chain the generation registered.
+      project.change("FOURTEENTH");
+      await session.settled("edit before the tsconfig", "FOURTEENTH", [
+        project.input,
+      ]);
+      project.configure("CONFIGURED");
+      await session.settled("edit to the tsconfig", "CONFIGURED", [
+        project.tsconfig,
+      ]);
+      project.configure(undefined);
+      await session.settled("tsconfig restored", "FOURTEENTH", [
+        project.tsconfig,
+      ]);
+    },
+  },
+  {
+    name: "dependency renamed away and back",
+    async run({ project, session }) {
+      // A dependency moved out from under the module is a failure the host
+      // must report, and moved back it must be found again: the watcher hears
+      // a rename, not a write.
+      const late = project.siblingPath("late");
+      const away = `${late}.moved`;
+      project.change("FROM_LATE");
+      await session.settled("dependency in place", "SIXTH", [project.input]);
+      fs.renameSync(late, away);
+      await session.failed(
+        "dependency renamed away",
+        /late-input|ENOENT|not found/i,
+        [late],
+      );
+      fs.renameSync(away, late);
+      await session.settled("dependency renamed back", "SIXTH", [late]);
+    },
+  },
+  {
     name: "final edit",
     async run({ project, session }) {
-      project.change("FOURTEENTH");
-      await session.settled("final edit", "FOURTEENTH", [project.input]);
+      project.change("FIFTEENTH");
+      await session.settled("final edit", "FIFTEENTH", [project.input]);
     },
   },
 ];
