@@ -4,7 +4,6 @@ import path from "node:path";
 
 import {
   adapter,
-  cacheStoredSince,
   eventually,
   expectOutput,
   landLateRace,
@@ -21,7 +20,8 @@ import {
  * A plugin after ttsc lands the `LATE_RACE_` edits in its `transform` hook.
  *
  * With `cache`, the compiler runs over Farm's persistent cache, stored beside
- * the project, and the session reports `stored()` once that cache is on disk.
+ * the project, and the session reports `stored()` once every store of that
+ * cache committed after the session opened.
  */
 export async function openSession(project, { cache = false } = {}) {
   const cacheDir = path.join(project.physical, ".cache", "farm");
@@ -209,8 +209,47 @@ export async function openSession(project, { cache = false } = {}) {
         (runs) => runs > before,
         `farm ${label}`,
       ),
-    stored: (since) => cacheStoredSince(cacheDir, since),
+    stored: (since) => cacheCommitted(cacheDir, since),
     // Farm's Compiler API has no close/dispose method; the process owns it.
     close: () => undefined,
   };
+}
+
+/**
+ * Whether every store of Farm's persistent cache committed after `since`.
+ *
+ * In development Farm writes its cache on a thread of its own after each
+ * compile, one store at a time in parallel: the store's data files first, each
+ * truncated and rewritten in place, and its manifest `farm-cache.json` last.
+ * The next session reads each manifest as it starts and panics on one it cannot
+ * parse, so a process that exits while the thread still writes leaves a cache
+ * no session can open, which the first data file's timestamp had already called
+ * stored. Measured on Farm 1.7: every session rewrites the manifest of each of
+ * its five stores, edited or not, and the manifests land seconds after the
+ * first data file. A store is committed once its manifest is newer than `since`
+ * and parses; a cache is stored once every store is.
+ */
+function cacheCommitted(cacheDir, since) {
+  let entries;
+  try {
+    entries = fs.readdirSync(cacheDir, { recursive: true });
+  } catch {
+    return false;
+  }
+  const manifests = entries
+    .map(String)
+    .filter((entry) => path.basename(entry) === "farm-cache.json");
+  return (
+    manifests.length !== 0 &&
+    manifests.every((manifest) => {
+      const file = path.join(cacheDir, manifest);
+      try {
+        if (fs.statSync(file).mtimeMs < since) return false;
+        JSON.parse(fs.readFileSync(file, "utf8"));
+        return true;
+      } catch {
+        return false;
+      }
+    })
+  );
 }
