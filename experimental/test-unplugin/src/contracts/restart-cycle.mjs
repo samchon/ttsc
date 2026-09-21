@@ -96,8 +96,13 @@ try {
       const moved = Object.keys({ ...previous, ...current }).filter(
         (file) => previous[file] !== current[file],
       );
+      const log = (session.output?.() ?? "")
+        .split(/\r?\n/)
+        .filter((line) => /cache|snapshot|restor|invalid|pack/i.test(line))
+        .slice(-120)
+        .join("\n");
       assert.fail(
-        `a restart over an unchanged project serves every module from the cache: ${compiled} compile(s), at most ${expectation.compiles}; files moved since the stored session: ${JSON.stringify(moved)}`,
+        `a restart over an unchanged project serves every module from the cache: ${compiled} compile(s), at most ${expectation.compiles}; files moved since the stored session: ${JSON.stringify(moved)}\nhost cache log:\n${log}`,
       );
     }
   }

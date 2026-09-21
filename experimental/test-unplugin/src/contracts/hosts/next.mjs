@@ -49,6 +49,9 @@ export async function openSession(bundler, project) {
       "  devIndicators: false,",
       `  turbopack: { root: ${JSON.stringify(workspace)}, rules: ${JSON.stringify(rules)} },`,
       "  webpack(config) {",
+      // webpack's cache says why it restored or rebuilt each module, which a
+      // failure that expected a restore needs to name.
+      '    config.infrastructureLogging = { level: "verbose", debug: /webpack\\.cache|FileSystemInfo/ };',
       `    config.module.rules.push({ test: /\\.ts$/, use: [{ loader: ${JSON.stringify(raceLoader)} }] });`,
       "    return config;",
       "  },",
@@ -126,7 +129,9 @@ export async function openSession(bundler, project) {
       const messages = [...text.matchAll(/"message":"((?:[^"\\]|\\.)*)"/g)].map(
         (match) => match[1],
       );
-      if (messages.length !== 0) hmrErrors = messages.slice(-5);
+      if (messages.length !== 0)
+        hmrErrors.push(`${Date.now()}: ${messages.join(" | ")}`.slice(0, 600));
+      hmrErrors = hmrErrors.slice(-12);
     });
     await deadline(
       new Promise((resolve, reject) => {
@@ -234,6 +239,8 @@ export async function openSession(bundler, project) {
       const commits = cacheCommits(path.join(project.physical, ".next"));
       return commits.length !== 0 && commits.every((mtime) => mtime >= since);
     },
+    /** What the dev server wrote, its cache log among it, for a failure to name. */
+    output: () => output,
     close,
   };
 }
