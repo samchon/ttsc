@@ -155,18 +155,32 @@ export async function openSession(project) {
       // Farm reports a failed update by rejecting it, or, for a failure
       // inside its update callback, as an unhandled rejection its dev server
       // logs; the session takes either as the failure.
-      let unhandled;
-      const failure = await new Promise((resolve) => {
-        unhandled = (error) => resolve(error);
-        process.once("unhandledRejection", unhandled);
-        update(changed).then(
-          () => resolve(undefined),
-          (error) => resolve(error),
-        );
-        setTimeout(() => resolve(undefined), 30_000).unref();
-      }).finally(() => process.off("unhandledRejection", unhandled));
-      assert.ok(failure, `farm ${label}: the update fails`);
-      assert.match(String(failure.message ?? failure), pattern);
+      const attempt = (files) => {
+        let unhandled;
+        return new Promise((resolve) => {
+          unhandled = (error) => resolve(error);
+          process.once("unhandledRejection", unhandled);
+          update(files).then(
+            () => resolve(undefined),
+            (error) => resolve(error),
+          );
+          setTimeout(() => resolve(undefined), 30_000).unref();
+        }).finally(() => process.off("unhandledRejection", unhandled));
+      };
+      // A change to a file Farm holds no module for reaches it through the
+      // importer's sentinel, which the dev server's watcher reports next.
+      let failure = await attempt(changed);
+      await eventually(
+        async () => {
+          if (failure !== undefined) return failure;
+          const signalled = changedWatched();
+          if (signalled.length !== 0) failure = await attempt(signalled);
+          return failure;
+        },
+        (found) =>
+          found !== undefined && pattern.test(String(found.message ?? found)),
+        `farm ${label}`,
+      );
     },
     async rebuild(value) {
       observe();
