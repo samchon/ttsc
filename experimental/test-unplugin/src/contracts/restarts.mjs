@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -18,9 +19,28 @@ import { eventually, write } from "./common.mjs";
  * A session is opened with the host's persistent cache on, through
  * `open(project)`, and reports `stored()` once its cache is on disk, so a step
  * proves the cache was there to be reused before the restart, not merely that
- * the host rebuilt from nothing.
+ * the host rebuilt from nothing. The first step restarts over an unchanged
+ * project and expects no compile at all: a cache the adapter's registrations
+ * invalidate on every restart is correct and useless, and a step that passed
+ * only because everything was rebuilt would prove nothing about the rest.
  */
 export const RESTART_STEPS = [
+  {
+    name: "restart without edits",
+    // The cache is only worth having when it serves: a restart over an
+    // unchanged project must compile nothing, so every module the host
+    // restored carries its recorded inputs, the adapter's among them.
+    edit: () => undefined,
+    async expect(session, project) {
+      const before = project.runs();
+      await session.settled("restart without edits", "FIRST", []);
+      assert.equal(
+        project.runs(),
+        before,
+        "a restart over an unchanged project serves every module from the cache",
+      );
+    },
+  },
   {
     name: "input edited while stopped",
     edit: (project) => project.change("SECOND"),
