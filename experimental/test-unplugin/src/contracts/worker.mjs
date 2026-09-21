@@ -110,23 +110,18 @@ if (host in sessions) {
 }
 
 // A host with a persistent cache is stopped, edited under, and started again
-// over that cache. Next enables both of its compilers' caches by default.
-const restarts = {
-  webpack: (project) =>
-    webpack.openSession("webpack", project, { cache: true }),
-  rspack: (project) => webpack.openSession("rspack", project, { cache: true }),
-  farm: (project) => farm.openSession(project, { cache: true }),
-  "next-webpack": (project) => next.openSession("webpack", project),
-  "next-turbopack": (project) => next.openSession("turbopack", project),
-};
+// over that cache, each session in a process of its own; see restarts.mjs.
 // The linked plugin, so the verdict steps are observable: a source plugin's
 // envelope carries no compiler verdict.
-if (host in restarts) {
-  await restartContract(
-    fixture(`${host}-restart`, { plugin: "linked" }),
-    restarts[host],
-    host,
-  );
+const RESTARTED = [
+  "webpack",
+  "rspack",
+  "farm",
+  "next-webpack",
+  "next-turbopack",
+];
+if (RESTARTED.includes(host)) {
+  await restartContract(fixture(`${host}-restart`, { plugin: "linked" }), host);
 }
 
 // Each watching build host also runs the compiler-predicate matrix through its

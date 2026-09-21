@@ -1,8 +1,10 @@
-import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 
-import { eventually, write } from "./common.mjs";
+import { write } from "./common.mjs";
 
 /**
  * The edits a host must see across a restart over its persistent cache: the
@@ -16,59 +18,51 @@ import { eventually, write } from "./common.mjs";
  * may be served. Every step below changes the compiler's verdict while the host
  * is stopped, then starts the host and reads what it serves.
  *
- * A session is opened with the host's persistent cache on, through
- * `open(project)`, and reports `stored()` once its cache is on disk, so a step
- * proves the cache was there to be reused before the restart, not merely that
- * the host rebuilt from nothing. The first step restarts over an unchanged
- * project and expects no compile at all: a cache the adapter's registrations
- * invalidate on every restart is correct and useless, and a step that passed
- * only because everything was rebuilt would prove nothing about the rest.
+ * Each session runs in a process of its own (`restart-cycle.mjs`), the way a
+ * restarted host does, over the host's persistent cache, and proves that cache
+ * stored before the next starts, so a step never passes by rebuilding from
+ * nothing. A restart over an unchanged project expects no compile at all: a
+ * cache the adapter's registrations invalidate on every restart is correct and
+ * useless. It is repeated, so a cache that serves once and then loses an input
+ * to the session between, a sentinel the next session swept, is told apart from
+ * one that serves.
+ *
+ * A step is `{ name, edit, expect }`: `edit` changes the project while nothing
+ * runs, and `expect` is what the next session must observe, `{ kind: "settled",
+ * value }` or `{ kind: "failed", pattern }`, with `compiles: false` when it
+ * must compile nothing.
  */
-/**
- * A restart over an unchanged project: the cache is only worth having when it
- * serves, so every module the host restored carries its recorded inputs, the
- * adapter's among them, and nothing compiles. Repeated, so a cache that
- * serves once and then loses an input to a session that came between, a
- * sentinel the next session swept, is told apart from one that serves.
- */
-function restartWithoutEdits(name, value) {
-  return {
-    name,
-    edit: () => undefined,
-    async expect(session, project) {
-      const before = project.runs();
-      await session.settled(name, value, []);
-      assert.equal(
-        project.runs(),
-        before,
-        "a restart over an unchanged project serves every module from the cache",
-      );
-    },
-  };
-}
-
 export const RESTART_STEPS = [
-  restartWithoutEdits("restart without edits", "FIRST"),
-  restartWithoutEdits("second restart without edits", "FIRST"),
+  {
+    name: "restart without edits",
+    edit: () => undefined,
+    expect: { kind: "settled", value: "FIRST", compiles: false },
+  },
+  {
+    name: "second restart without edits",
+    edit: () => undefined,
+    expect: { kind: "settled", value: "FIRST", compiles: false },
+  },
   {
     name: "input edited while stopped",
     edit: (project) => project.change("SECOND"),
-    expect: (session) =>
-      session.settled("input edited while stopped", "SECOND", []),
+    expect: { kind: "settled", value: "SECOND" },
   },
   {
     name: "tsconfig edited while stopped",
     edit: (project) => project.configure("CONFIGURED"),
-    expect: (session) =>
-      session.settled("tsconfig edited while stopped", "CONFIGURED", []),
+    expect: { kind: "settled", value: "CONFIGURED" },
   },
   {
     name: "tsconfig restored while stopped",
     edit: (project) => project.configure(undefined),
-    expect: (session) =>
-      session.settled("tsconfig restored while stopped", "SECOND", []),
+    expect: { kind: "settled", value: "SECOND" },
   },
-  restartWithoutEdits("restart without edits after edits", "SECOND"),
+  {
+    name: "restart without edits after edits",
+    edit: () => undefined,
+    expect: { kind: "settled", value: "SECOND", compiles: false },
+  },
   {
     name: "root file added while stopped",
     // A declaration the tsconfig includes appears; it is broken, so the
@@ -76,15 +70,13 @@ export const RESTART_STEPS = [
     // loaded changed.
     edit: (project) =>
       write(project.root, "src/broken.d.ts", "export type Broken = ;\n"),
-    expect: (session) =>
-      session.failed("root file added while stopped", /Type expected/),
+    expect: { kind: "failed", pattern: "Type expected" },
   },
   {
     name: "root file removed while stopped",
     edit: (project) =>
       fs.rmSync(path.join(project.root, "src", "broken.d.ts"), { force: true }),
-    expect: (session) =>
-      session.settled("root file removed while stopped", "SECOND", []),
+    expect: { kind: "settled", value: "SECOND" },
   },
   {
     name: "new dependency while stopped",
@@ -92,8 +84,7 @@ export const RESTART_STEPS = [
       project.sibling("late", "THIRD");
       project.change("FROM_LATE");
     },
-    expect: (session) =>
-      session.settled("new dependency while stopped", "THIRD", []),
+    expect: { kind: "settled", value: "THIRD" },
   },
   {
     name: "dependency renamed away while stopped",
@@ -102,11 +93,7 @@ export const RESTART_STEPS = [
         project.siblingPath("late"),
         `${project.siblingPath("late")}.moved`,
       ),
-    expect: (session) =>
-      session.failed(
-        "dependency renamed away while stopped",
-        /late-input|ENOENT|not found/i,
-      ),
+    expect: { kind: "failed", pattern: "late-input|ENOENT|not found" },
   },
   {
     name: "dependency renamed back while stopped",
@@ -115,58 +102,57 @@ export const RESTART_STEPS = [
         `${project.siblingPath("late")}.moved`,
         project.siblingPath("late"),
       ),
-    expect: (session) =>
-      session.settled("dependency renamed back while stopped", "THIRD", []),
+    expect: { kind: "settled", value: "THIRD" },
   },
   {
     name: "external input broken while stopped",
     edit: (project) => project.shape("broken"),
-    expect: (session) =>
-      session.failed("external input broken while stopped", /not assignable/),
+    expect: { kind: "failed", pattern: "not assignable" },
   },
   {
     name: "external input repaired while stopped",
     edit: (project) => project.shape("ok"),
-    expect: (session) =>
-      session.settled("external input repaired while stopped", "THIRD", []),
+    expect: { kind: "settled", value: "THIRD" },
   },
 ];
 
 /**
- * Run every restart step on one project: open a session over the host's
- * persistent cache, settle it, prove the cache stored, stop it, edit, and open
- * the next.
+ * Run every restart step on one project: a session over the host's persistent
+ * cache in a process of its own, stopped, the edit, and the next.
  *
  * @param project The fixture, on its first value.
- * @param open Opens a session with the host's persistent cache on; the session
- *   reports `stored()` once its cache is on disk.
- * @param name The host, for the failure's name.
+ * @param host The host, one `restart-cycle.mjs` knows.
  */
-export async function restartContract(project, open, name) {
-  const cycle = async (label, expect) => {
-    const session = await open(project);
+export async function restartContract(project, host) {
+  const cycle = async (label, expectation) => {
     try {
-      await expect(session);
-      // Proven while the host runs: a host stopped by a signal stores nothing
-      // more, and a step that rebuilt from nothing would prove nothing.
-      await eventually(
-        () => session.stored(),
-        Boolean,
-        `${name}: ${label}: the persistent cache is stored`,
+      await promisify(execFile)(
+        process.execPath,
+        [
+          fileURLToPath(new URL("./restart-cycle.mjs", import.meta.url)),
+          host,
+          project.root,
+          project.plugin,
+          JSON.stringify({ ...expectation, label }),
+        ],
+        {
+          cwd: project.root,
+          env: process.env,
+          maxBuffer: 64 * 1024 * 1024,
+          timeout: 300_000,
+          windowsHide: true,
+        },
       );
     } catch (error) {
-      throw new Error(`${name}: ${label}: ${error.stack ?? error}`, {
-        cause: error,
-      });
-    } finally {
-      await session.close();
+      throw new Error(
+        `${host}: ${label}: ${error.stderr ?? ""}${error.stdout ?? ""}${error.message}`,
+        { cause: error },
+      );
     }
   };
-  await cycle("first session", (session) =>
-    session.settled("first build", "FIRST", []),
-  );
+  await cycle("first session", { kind: "settled", value: "FIRST" });
   for (const step of RESTART_STEPS) {
     step.edit(project);
-    await cycle(step.name, (session) => step.expect(session, project));
+    await cycle(step.name, step.expect);
   }
 }

@@ -296,8 +296,18 @@ export function contractInput(value) {
   return `export type ContractInput = "${value}";\n`;
 }
 
+/**
+ * Write a file below `root`, leaving one that already holds `contents` alone:
+ * a session opened again over a persistent cache writes its host's files
+ * again, and a write of the same bytes must not move their timestamps.
+ */
 export function write(root, file, contents) {
   const target = path.join(root, file);
+  try {
+    if (fs.readFileSync(target, "utf8") === contents) return;
+  } catch {
+    // Absent, or unreadable: written below.
+  }
   fs.mkdirSync(path.dirname(target), { recursive: true });
   fs.writeFileSync(target, contents);
 }
