@@ -284,22 +284,29 @@ function cacheCommits(output) {
   } catch {
     return [];
   }
-  const commits = [];
+  // Every store that has begun, by its directory: a webpack compiler's below
+  // `cache/webpack`, Turbopack's below `cache/turbopack`. One that only holds
+  // data still being written has not committed, and counts as a store whose
+  // commit is missing.
+  const stores = new Map();
   for (const entry of entries) {
     const name = String(entry);
     const segments = name.split(/[/\\]/);
+    const at = segments.indexOf("cache");
+    if (at === -1 || segments.length < at + 3) continue;
+    const store = segments.slice(0, at + 3).join("/");
     const file = segments.at(-1);
-    if (
-      !segments.includes("cache") ||
-      (file !== "CURRENT" && !/^index\.pack(\.gz)?$/.test(file))
-    ) {
+    let mtime;
+    try {
+      const stats = fs.statSync(path.join(output, name));
+      if (!stats.isFile()) continue;
+      mtime = stats.mtimeMs;
+    } catch {
       continue;
     }
-    try {
-      commits.push(fs.statSync(path.join(output, name)).mtimeMs);
-    } catch {
-      // Replaced between the listing and the stat.
-    }
+    const committed = file === "CURRENT" || /^index\.pack(\.gz)?$/.test(file);
+    const known = stores.get(store);
+    stores.set(store, committed ? mtime : (known ?? -Infinity));
   }
-  return commits;
+  return [...stores.values()];
 }
