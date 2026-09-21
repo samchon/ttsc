@@ -77,6 +77,7 @@ export async function openSession(bundler, project) {
   let output = "";
   let url;
   let socket;
+  let hmrErrors = [];
   let readyResolve;
   let readyReject;
   const ready = new Promise((resolve, reject) => {
@@ -117,6 +118,16 @@ export async function openSession(bundler, project) {
   try {
     await deadline(ready, `${name} ready`, 120_000);
     socket = new WebSocket(`${url.replace("http:", "ws:")}/_next/hmr`);
+    hmrErrors = [];
+    // A development error reaches the browser over this socket, not in the
+    // page: the messages of the last errors seen name a failure.
+    socket.addEventListener("message", (event) => {
+      const text = String(event.data);
+      const messages = [...text.matchAll(/"message":"((?:[^"\\]|\\.)*)"/g)].map(
+        (match) => match[1],
+      );
+      if (messages.length !== 0) hmrErrors = messages.slice(-5);
+    });
     await deadline(
       new Promise((resolve, reject) => {
         socket.addEventListener("open", resolve, { once: true });
@@ -136,14 +147,20 @@ export async function openSession(bundler, project) {
     last = { status: response.status, html: await response.text() };
     return last;
   };
-  const lastPage = () =>
-    last === undefined
-      ? "no page read"
-      : `${last.status}: ${last.html
-          .replace(/<script[^]*?<\/script>/g, " ")
-          .replace(/<[^>]+>/g, " ")
-          .replace(/\s+/g, " ")
-          .slice(0, 1500)}`;
+  // A development 500 page renders its error on the client, from the JSON
+  // Next embeds in the page, so the messages there are what a reader needs.
+  const lastPage = () => {
+    if (last === undefined) return "no page read";
+    const messages = [
+      ...last.html.matchAll(/"message":"((?:[^"\\]|\\.)*)"/g),
+    ].map((match) => match[1]);
+    const text = last.html
+      .replace(/<script[^]*?<\/script>/g, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .slice(0, 600);
+    return `${last.status}: ${JSON.stringify(messages).slice(0, 3000)} ${text}; errors over HMR: ${JSON.stringify(hmrErrors).slice(0, 3000)}`;
+  };
   const hasValues = (html, value) =>
     html.includes(
       `data-contract="value">${Array(4).fill(value).join("|")}</p>`,
