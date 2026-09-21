@@ -24,23 +24,32 @@ import { eventually, write } from "./common.mjs";
  * invalidate on every restart is correct and useless, and a step that passed
  * only because everything was rebuilt would prove nothing about the rest.
  */
-export const RESTART_STEPS = [
-  {
-    name: "restart without edits",
-    // The cache is only worth having when it serves: a restart over an
-    // unchanged project must compile nothing, so every module the host
-    // restored carries its recorded inputs, the adapter's among them.
+/**
+ * A restart over an unchanged project: the cache is only worth having when it
+ * serves, so every module the host restored carries its recorded inputs, the
+ * adapter's among them, and nothing compiles. Repeated, so a cache that
+ * serves once and then loses an input to a session that came between, a
+ * sentinel the next session swept, is told apart from one that serves.
+ */
+function restartWithoutEdits(name, value) {
+  return {
+    name,
     edit: () => undefined,
     async expect(session, project) {
       const before = project.runs();
-      await session.settled("restart without edits", "FIRST", []);
+      await session.settled(name, value, []);
       assert.equal(
         project.runs(),
         before,
         "a restart over an unchanged project serves every module from the cache",
       );
     },
-  },
+  };
+}
+
+export const RESTART_STEPS = [
+  restartWithoutEdits("restart without edits", "FIRST"),
+  restartWithoutEdits("second restart without edits", "FIRST"),
   {
     name: "input edited while stopped",
     edit: (project) => project.change("SECOND"),
@@ -59,6 +68,7 @@ export const RESTART_STEPS = [
     expect: (session) =>
       session.settled("tsconfig restored while stopped", "SECOND", []),
   },
+  restartWithoutEdits("restart without edits after edits", "SECOND"),
   {
     name: "root file added while stopped",
     // A declaration the tsconfig includes appears; it is broken, so the
