@@ -230,17 +230,15 @@ export async function openSession(bundler, project) {
     stored: () => {
       const output = path.join(project.physical, ".next");
       if (!fs.existsSync(output)) return false;
-      return fs
-        .readdirSync(output, { recursive: true })
-        .some((entry) => {
-          const segments = String(entry).split(/[\/]/);
-          if (!segments.includes("cache")) return false;
-          try {
-            return fs.statSync(path.join(output, entry)).isFile();
-          } catch {
-            return false;
-          }
-        });
+      return fs.readdirSync(output, { recursive: true }).some((entry) => {
+        const segments = String(entry).split(/[/\\]/);
+        if (!segments.includes("cache")) return false;
+        try {
+          return fs.statSync(path.join(output, entry)).isFile();
+        } catch {
+          return false;
+        }
+      });
     },
     close,
   };
