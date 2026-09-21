@@ -174,6 +174,10 @@ function writeBaseTsconfig(root, fixed, plugin) {
         types: [],
         jsx: "preserve",
         outDir: "dist-contract",
+        // TypeScript 6 refuses an `outDir` whose `rootDir` it would have to
+        // infer; the external declaration lies outside it, which a
+        // declaration may.
+        rootDir: ".",
         plugins: [pluginEntry(plugin, fixed)],
       },
     }),
