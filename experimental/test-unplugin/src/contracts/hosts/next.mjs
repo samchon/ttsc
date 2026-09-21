@@ -6,7 +6,6 @@ import path from "node:path";
 import { promisify } from "node:util";
 
 import {
-  cacheStoredSince,
   deadline,
   eventually,
   workspace,
@@ -226,19 +225,15 @@ export async function openSession(bundler, project) {
       ),
     // Next stores both compilers' persistent caches below a `cache`
     // directory of its output, `.next/dev` for a development session since
-    // Next 16, and each commits a store by writing one file last: webpack its
-    // `index.pack`, Turbopack its `CURRENT`, as LevelDB does. Only a commit
-    // counts; a session closed between a store's data files and its commit
-    // leaves the next start nothing to restore.
-    stored: (since) =>
-      cacheStoredSince(path.join(project.physical, ".next"), since, (name) => {
-        const segments = name.split(/[/\\]/);
-        const file = segments.at(-1);
-        return (
-          segments.includes("cache") &&
-          (file === "CURRENT" || /^index\.pack(\.gz)?$/.test(file))
-        );
-      }),
+    // Next 16, and each store commits by writing one file last: Turbopack its
+    // `CURRENT`, as LevelDB does, and each of webpack's compilers, client and
+    // server, its own `index.pack`, on its own idle timeout. Only a commit of
+    // every store counts; a session closed while one compiler's store is
+    // pending leaves that compiler nothing to restore.
+    stored: (since) => {
+      const commits = cacheCommits(path.join(project.physical, ".next"));
+      return commits.length !== 0 && commits.every((mtime) => mtime >= since);
+    },
     close,
   };
 }
@@ -268,4 +263,36 @@ function sentinelStates(root) {
     }
   }
   return states;
+}
+
+/**
+ * The commit time of every persistent store below Next's output: Turbopack's
+ * `CURRENT`, and each webpack compiler's `index.pack`, one per directory of
+ * `cache/webpack`.
+ */
+function cacheCommits(output) {
+  let entries;
+  try {
+    entries = fs.readdirSync(output, { recursive: true });
+  } catch {
+    return [];
+  }
+  const commits = [];
+  for (const entry of entries) {
+    const name = String(entry);
+    const segments = name.split(/[/\\]/);
+    const file = segments.at(-1);
+    if (
+      !segments.includes("cache") ||
+      (file !== "CURRENT" && !/^index\.pack(\.gz)?$/.test(file))
+    ) {
+      continue;
+    }
+    try {
+      commits.push(fs.statSync(path.join(output, name)).mtimeMs);
+    } catch {
+      // Replaced between the listing and the stat.
+    }
+  }
+  return commits;
 }
