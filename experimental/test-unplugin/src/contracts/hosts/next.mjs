@@ -128,10 +128,22 @@ export async function openSession(bundler, project) {
     await close().catch(() => undefined);
     throw new Error(`${name}: ${error.stack ?? error}\n${output}`);
   }
+  // The last page read, named by a failure: a 500 page carries the error the
+  // compiler or a loader reported.
+  let last;
   const request = async () => {
     const response = await fetch(url, { signal: AbortSignal.timeout(60_000) });
-    return { status: response.status, html: await response.text() };
+    last = { status: response.status, html: await response.text() };
+    return last;
   };
+  const lastPage = () =>
+    last === undefined
+      ? "no page read"
+      : `${last.status}: ${last.html
+          .replace(/<script[^]*?<\/script>/g, " ")
+          .replace(/<[^>]+>/g, " ")
+          .replace(/\s+/g, " ")
+          .slice(0, 1500)}`;
   const hasValues = (html, value) =>
     html.includes(
       `data-contract="value">${Array(4).fill(value).join("|")}</p>`,
@@ -150,7 +162,7 @@ export async function openSession(bundler, project) {
         90_000,
       ).catch((error) => {
         throw new Error(
-          `${error.message}\nsentinels ${JSON.stringify(sentinelStates(project.root))}\n${output}`,
+          `${error.message}\nlast page ${lastPage()}\nsentinels ${JSON.stringify(sentinelStates(project.root))}\n${output}`,
         );
       }),
     failed: (label, pattern) =>
@@ -159,7 +171,9 @@ export async function openSession(bundler, project) {
         ({ status, html }) => status === 500 && pattern.test(html),
         describe(label),
         90_000,
-      ),
+      ).catch((error) => {
+        throw new Error(`${error.message}\nlast page ${lastPage()}`);
+      }),
     // Repeated requests must reuse the generations after an edit; the
     // page's HTML can precede Turbopack's background data and client builds,
     // whose first compilation is not an unchanged-request cache miss.
