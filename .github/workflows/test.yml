@@ -44,7 +44,9 @@ jobs:
     needs: plan
     if: needs.plan.outputs.platform == 'true'
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 60
+    # The unplugin host matrix runs every host on two roots with two transform
+    # plugins, about thirty minutes of the x64 lanes' time on macOS.
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.platform_matrix) }}
