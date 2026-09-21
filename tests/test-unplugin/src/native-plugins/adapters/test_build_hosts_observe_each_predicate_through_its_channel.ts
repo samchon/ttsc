@@ -30,7 +30,8 @@ import { createRealNativeEnvelopeFixture } from "../../internal/real-native-enve
  *    create the missing resolution candidate, and a declaration the tsconfig's
  *    `include` admits, a new root file (samchon/ttsc#1419), and assert each
  *    rewrites it.
- * 4. Close the watcher and assert the sentinel is gone.
+ * 4. Close the watcher and assert the sentinel stays: a host's persistent cache
+ *    records it, and the next session reuses it (samchon/ttsc#1468).
  */
 export async function test_build_hosts_observe_each_predicate_through_its_channel(): Promise<void> {
   const fixture = createRealNativeEnvelopeFixture();
@@ -177,7 +178,7 @@ export async function test_build_hosts_observe_each_predicate_through_its_channe
     await invoke(rollupPlugin.closeWatcher, {});
   }
   assert.ok(
-    !fs.existsSync(rollup[0]!),
-    "closing the watcher removes the sentinel",
+    fs.existsSync(rollup[0]!),
+    "closing the watcher leaves the sentinel for the next session",
   );
 }

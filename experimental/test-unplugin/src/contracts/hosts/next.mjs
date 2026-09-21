@@ -226,12 +226,19 @@ export async function openSession(bundler, project) {
       ),
     // Next stores both compilers' persistent caches below a `cache`
     // directory of its output, `.next/dev` for a development session since
-    // Next 16: webpack's filesystem cache, on webpack's idle timeout, and
-    // Turbopack's file-system cache for development, on by default.
+    // Next 16, and each commits a store by writing one file last: webpack its
+    // `index.pack`, Turbopack its `CURRENT`, as LevelDB does. Only a commit
+    // counts; a session closed between a store's data files and its commit
+    // leaves the next start nothing to restore.
     stored: (since) =>
-      cacheStoredSince(path.join(project.physical, ".next"), since, (name) =>
-        name.split(/[/\\]/).includes("cache"),
-      ),
+      cacheStoredSince(path.join(project.physical, ".next"), since, (name) => {
+        const segments = name.split(/[/\\]/);
+        const file = segments.at(-1);
+        return (
+          segments.includes("cache") &&
+          (file === "CURRENT" || /^index\.pack(\.gz)?$/.test(file))
+        );
+      }),
     close,
   };
 }
