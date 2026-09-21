@@ -14,7 +14,10 @@ export interface HostWatchBridge {
    * tell what changed during it.
    */
   begin(): number;
-  /** Close every observer and remove every sentinel. */
+  /**
+   * Close every observer and drop every owed signal. The sentinels stay: a
+   * host's persistent cache records them, and the next session reuses them.
+   */
   close(): Promise<void>;
   /**
    * Whether the importer was signalled since it last registered, so the host
