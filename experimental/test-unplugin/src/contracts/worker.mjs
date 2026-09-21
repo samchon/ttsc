@@ -16,6 +16,7 @@ import {
   watchRollupLike,
   watchWebpackLike,
 } from "./predicates.mjs";
+import { restartContract } from "./restarts.mjs";
 import { runScenarios } from "./scenarios.mjs";
 import { reactRouterContract } from "./vite.mjs";
 
@@ -106,6 +107,26 @@ if (host in sessions) {
   await reactRouterContract();
 } else {
   throw new Error(`Unknown host ${host}`);
+}
+
+// A host with a persistent cache is stopped, edited under, and started again
+// over that cache. Next enables both of its compilers' caches by default.
+const restarts = {
+  webpack: (project) =>
+    webpack.openSession("webpack", project, { cache: true }),
+  rspack: (project) => webpack.openSession("rspack", project, { cache: true }),
+  farm: (project) => farm.openSession(project, { cache: true }),
+  "next-webpack": (project) => next.openSession("webpack", project),
+  "next-turbopack": (project) => next.openSession("turbopack", project),
+};
+// The linked plugin, so the verdict steps are observable: a source plugin's
+// envelope carries no compiler verdict.
+if (host in restarts) {
+  await restartContract(
+    fixture(`${host}-restart`, { plugin: "linked" }),
+    restarts[host],
+    host,
+  );
 }
 
 // Each watching build host also runs the compiler-predicate matrix through its

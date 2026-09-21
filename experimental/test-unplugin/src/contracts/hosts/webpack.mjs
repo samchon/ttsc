@@ -20,8 +20,12 @@ import {
  * ttsc returning a module and the host recording the module's inputs, and the
  * loader after that strips the types ttsc leaves, which neither host compiles
  * itself. Normal loaders run from the last rule to the first.
+ *
+ * With `cache`, the compiler runs over the host's persistent cache, stored
+ * beside the project as soon as a build ends, and the session reports
+ * `stored()` once that cache is on disk.
  */
-export async function openSession(name, project) {
+export async function openSession(name, project, { cache = false } = {}) {
   const bundler =
     name === "webpack"
       ? (await import("webpack")).default
@@ -29,11 +33,13 @@ export async function openSession(name, project) {
   const plugin = await adapter(name, project.options);
   const events = eventQueue();
   let starts = [];
+  const cacheDirectory = path.join(project.physical, ".cache", name);
   const compiler = bundler({
     context: project.root,
     mode: "development",
     devtool: false,
     entry: project.entry,
+    ...(cache ? { cache: persistentCache(name, cacheDirectory) } : {}),
     output: { path: path.dirname(project.output), filename: "bundle.js" },
     module: {
       rules: [
@@ -77,6 +83,15 @@ export async function openSession(name, project) {
       watcher.invalidate();
       await settledOutput(events, `${name} unchanged rebuild`, value);
     },
+    stored: () =>
+      fs.existsSync(cacheDirectory) &&
+      fs.readdirSync(cacheDirectory, { recursive: true }).some((entry) => {
+        try {
+          return fs.statSync(path.join(cacheDirectory, entry)).isFile();
+        } catch {
+          return false;
+        }
+      }),
     recompiled: (label, before) =>
       eventually(
         () => project.runs(),
@@ -98,4 +113,19 @@ export async function openSession(name, project) {
       );
     },
   };
+}
+
+/**
+ * The host's persistent cache configuration, stored under `directory` and
+ * written as soon as a build ends rather than after the host's idle timeout.
+ */
+function persistentCache(name, directory) {
+  return name === "webpack"
+    ? {
+        type: "filesystem",
+        cacheDirectory: directory,
+        idleTimeout: 0,
+        idleTimeoutForInitialStore: 0,
+      }
+    : { type: "persistent", storage: { type: "filesystem", directory } };
 }

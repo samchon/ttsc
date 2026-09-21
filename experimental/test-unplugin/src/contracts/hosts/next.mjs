@@ -223,6 +223,22 @@ export async function openSession(bundler, project) {
         (runs) => runs > before,
         describe(label),
       ),
+    // Next stores both compilers' persistent caches below `.next/cache`:
+    // webpack's filesystem cache, and Turbopack's file-system cache for
+    // development, which Next enables by default.
+    stored: () => {
+      const cache = path.join(project.physical, ".next", "cache");
+      return (
+        fs.existsSync(cache) &&
+        fs.readdirSync(cache, { recursive: true }).some((entry) => {
+          try {
+            return fs.statSync(path.join(cache, entry)).isFile();
+          } catch {
+            return false;
+          }
+        })
+      );
+    },
     close,
   };
 }

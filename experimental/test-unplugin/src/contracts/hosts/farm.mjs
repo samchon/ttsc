@@ -18,8 +18,12 @@ import {
  * opens on the broken input by compiling once and reading the failure.
  *
  * A plugin after ttsc lands the `LATE_RACE_` edits in its `transform` hook.
+ *
+ * With `cache`, the compiler runs over Farm's persistent cache, stored beside
+ * the project, and the session reports `stored()` once that cache is on disk.
  */
-export async function openSession(project) {
+export async function openSession(project, { cache = false } = {}) {
+  const cacheDir = path.join(project.physical, ".cache", "farm");
   const farm = await import("@farmfe/core");
   const logger = new farm.Logger({ exit: false });
   // A Farm compiler is created the way `farm start` creates one, from a
@@ -36,7 +40,7 @@ export async function openSession(project) {
           input: { main: "./src/main.ts" },
           output: { path: "./dist-contract", targetEnv: "node", format: "esm" },
           minify: false,
-          persistentCache: false,
+          persistentCache: cache ? { cacheDir } : false,
           lazyCompilation: false,
           progress: false,
         },
@@ -196,6 +200,15 @@ export async function openSession(project) {
         (runs) => runs > before,
         `farm ${label}`,
       ),
+    stored: () =>
+      fs.existsSync(cacheDir) &&
+      fs.readdirSync(cacheDir, { recursive: true }).some((entry) => {
+        try {
+          return fs.statSync(path.join(cacheDir, entry)).isFile();
+        } catch {
+          return false;
+        }
+      }),
     // Farm's Compiler API has no close/dispose method; the process owns it.
     close: () => undefined,
   };
