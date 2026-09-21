@@ -14,6 +14,7 @@ import { readTtscTransformSession } from "../transform/session/readTtscTransform
 import { shareTtscTransformCache } from "../transform/session/shareTtscTransformCache";
 import { transformTtsc } from "../transform/transformTtsc";
 import { stripQuery } from "../transform/utils/stripQuery";
+import type { TtscMissingWatchInputShape } from "../transform/watch/TtscMissingWatchInputShape";
 import type { TtscTransformHooks } from "../transform/watch/TtscTransformHooks";
 import type { TtscWatchInput } from "../transform/watch/TtscWatchInput";
 import type { TtscTurbopackLoaderContext } from "./TtscTurbopackLoaderContext";
@@ -104,6 +105,21 @@ export function turbopack(
   // times per change. A development session therefore observes listings
   // through the worker's bridge, and only a one-shot build, whose persistent
   // cache still needs them, takes the context channel.
+  //
+  // Turbopack's file channel reads each path once the loader has returned,
+  // and that read fails on a directory. A failed read fails the module's
+  // evaluation, and Turbopack then returns the worker to its pool with the
+  // loader's result still unread in the pipe, so the next module evaluated on
+  // that worker receives this module's result, and every later one on it the
+  // result of the module before. Measured on the host matrix, where a
+  // dependency directory renamed away and back left the page importing the
+  // entry's code under its own path: the failed compile had registered the
+  // absent directory as a missing path, and the directory was back by the time
+  // Turbopack read it. Only a path that can come back as nothing but a file
+  // takes the file channel; a directory, or a path the registration cannot
+  // shape, takes the directory channel, whose read of a missing path, a file,
+  // or a directory is a listing, never a failure, and which hears a creation
+  // at the path.
   const addDependency = this.addDependency?.bind(this);
   const addContextDependency = this.addContextDependency?.bind(this);
   const cacheable = this.cacheable?.bind(this);
@@ -165,7 +181,13 @@ export function turbopack(
                   pathIsWithin(path.resolve(input), turbopackRoot),
                 addContextDependency: addContextDependency ?? addDependency,
                 addDependency,
-                addMissingDependency: addDependency,
+                addMissingDependency: (
+                  input: string,
+                  shape: TtscMissingWatchInputShape,
+                ) =>
+                  (shape === "file"
+                    ? addDependency
+                    : (addContextDependency ?? addDependency))(input),
               },
               // A result Turbopack persists cannot be proven without the inputs
               // it could not track, so a later process re-runs the module.

@@ -245,28 +245,24 @@ export async function openSession(bundler, project) {
   };
 }
 
-/** Each bridge sentinel below the project's tool directory, with its contents. */
+/**
+ * Each bridge sentinel below the project's tool directory, with its contents:
+ * one directory for every process, `watch-bridge`, whose sentinels persist.
+ */
 function sentinelStates(root) {
-  const tool = path.join(root, ".ttsc");
+  const directory = path.join(root, ".ttsc", "watch-bridge");
   const states = {};
-  let directories = [];
+  let files = [];
   try {
-    directories = fs
-      .readdirSync(tool)
-      .filter((name) => name.startsWith("ttsc-watch-bridge-"));
+    files = fs.readdirSync(directory);
   } catch {
     return states;
   }
-  for (const directory of directories) {
+  for (const file of files) {
     try {
-      for (const file of fs.readdirSync(path.join(tool, directory))) {
-        states[`${directory}/${file}`] = fs.readFileSync(
-          path.join(tool, directory, file),
-          "utf8",
-        );
-      }
+      states[file] = fs.readFileSync(path.join(directory, file), "utf8");
     } catch {
-      // A bridge directory removed between the listing and the read.
+      // Rewritten between the listing and the read.
     }
   }
   return states;

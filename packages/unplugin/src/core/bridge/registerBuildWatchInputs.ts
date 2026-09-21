@@ -1,8 +1,10 @@
 import path from "node:path";
 
+import type { TtscMissingWatchInputShape } from "../transform/watch/TtscMissingWatchInputShape";
 import type { TtscWatchInput } from "../transform/watch/TtscWatchInput";
 import type { TtscWatchInputKind } from "../transform/watch/TtscWatchInputKind";
 import { classifyWatchInput } from "../transform/watch/classifyWatchInput";
+import { missingWatchInputShape } from "../transform/watch/missingWatchInputShape";
 import { containsPath } from "../vite/containsPath";
 import { nearestExistingDirectory } from "../vite/nearestExistingDirectory";
 import type { HostWatchBridge } from "./HostWatchBridge";
@@ -16,9 +18,11 @@ import type { HostWatchBridge } from "./HostWatchBridge";
  *
  * - Webpack and Rspack loaders: `addDependency` for a file,
  *   `addMissingDependency` for a path whose creation matters, and
- *   `addContextDependency` for a directory listing. The Turbopack loader passes
- *   `addDependency` as its missing channel, since its `addMissingDependency`
- *   does not observe a creation.
+ *   `addContextDependency` for a directory listing. The missing channel is also
+ *   told what may appear at the path (`missingWatchInputShape`): Turbopack has
+ *   no missing channel, and its file channel reads the path and fails on a
+ *   directory, so its loader takes the directory channel for a path that may
+ *   come back as one.
  * - Rollup, Rolldown, and Farm: `addWatchFile` for each of them.
  *
  * During a watching session, the kinds in `bridge.kinds` go to the bridge
@@ -107,7 +111,15 @@ export function registerBuildWatchInputs(props: {
     accepts?(input: string): boolean;
     addContextDependency(input: string): void;
     addDependency(input: string): void;
-    addMissingDependency(input: string): void;
+    /**
+     * A path observed absent, with what must appear there for the compiler's
+     * answer to change. A host whose missing channel observes any creation
+     * ignores the shape.
+     */
+    addMissingDependency(
+      input: string,
+      shape: TtscMissingWatchInputShape,
+    ): void;
   };
   /**
    * Called once when an input the channels refuse was left out of them, after
@@ -144,7 +156,11 @@ export function registerBuildWatchInputs(props: {
     if (props.bridge?.ignores?.(input.file) === true) bridged.push(input);
     if (props.loader === undefined) props.addWatchFile(input.file);
     else if (kind === "file") props.loader.addDependency(input.file);
-    else if (kind === "missing") props.loader.addMissingDependency(input.file);
+    else if (kind === "missing")
+      props.loader.addMissingDependency(
+        input.file,
+        missingWatchInputShape(input),
+      );
     else props.loader.addContextDependency(input.file);
   }
   // Registering an empty set still replaces the importer's earlier inputs;

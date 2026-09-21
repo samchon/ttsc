@@ -1,13 +1,17 @@
+import type { TtscMissingWatchInputShape } from "./TtscMissingWatchInputShape";
 import type { TtscWatchInput } from "./TtscWatchInput";
 
 /**
  * What must appear at a `missing` watch input for the compiler's view of it to
- * change, so a host whose channels each observe one kind of creation can take
- * the one that sees it.
+ * change, so a host whose channels each observe one kind of creation, or whose
+ * file channel cannot take a directory, can take the one that sees it.
  *
- * That host is esbuild: for an absent path, its `watchFiles` fires only when a
- * file appears and its `watchDirs` only when a directory does, and it keeps one
- * watch state per path, so the same path cannot sit in both.
+ * Turbopack is such a host: its file channel reads the path, and the read fails
+ * on a directory, so a missing path that may come back as one takes its
+ * directory channel instead (see the Turbopack loader). esbuild is another: for
+ * an absent path, its `watchFiles` fires only when a file appears and its
+ * `watchDirs` only when a directory does, and it keeps one watch state per
+ * path, so the same path cannot sit in both.
  *
  * - `directory`: a `DirectoryExists` or `GetAccessibleEntries` probe, which
  *   changes only when a directory appears.
@@ -19,7 +23,7 @@ import type { TtscWatchInput } from "./TtscWatchInput";
  */
 export function missingWatchInputShape(
   input: TtscWatchInput,
-): "directory" | "either" | "file" {
+): TtscMissingWatchInputShape {
   const evidence = input.evidence;
   if (evidence === undefined) return "either";
   const observation =
