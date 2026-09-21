@@ -5,50 +5,13 @@ import path from "node:path";
 import { adapter, deadline, eventually, workspace, write } from "./common.mjs";
 
 /**
- * The linked contributor every predicate project shares, so the utility host it
- * links into is built once per install and cached across hosts.
+ * The linked contributor every predicate project shares: the host matrix's
+ * linked plugin, which appends one byte per compile to the `runLog` its config
+ * names. Sharing it keeps one utility-host build per install, warmed before any
+ * host runs.
  */
 function predicateProbe() {
-  const module = path.join(workspace, ".contracts", "predicate-probe");
-  write(module, "go.mod", "module example.com/ttscpredicates\n\ngo 1.26\n");
-  write(
-    module,
-    "compile-probe/probe.go",
-    [
-      "package predicateprobe",
-      "",
-      "import (",
-      '  "os"',
-      '  "path/filepath"',
-      "",
-      '  "github.com/samchon/ttsc/packages/ttsc/driver"',
-      ")",
-      "",
-      "type plugin struct{}",
-      "",
-      "func (plugin) ApplyProgram(_ *driver.Program, context driver.PluginContext) error {",
-      '  runLog, _ := context.Entry.Config["runLog"].(string)',
-      "  if err := os.MkdirAll(filepath.Dir(runLog), 0o755); err != nil {",
-      "    return err",
-      "  }",
-      "  file, err := os.OpenFile(runLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
-      "  if err != nil {",
-      "    return err",
-      "  }",
-      "  if _, err := file.Write([]byte{1}); err != nil {",
-      "    _ = file.Close()",
-      "    return err",
-      "  }",
-      "  return file.Close()",
-      "}",
-      "",
-      "func init() {",
-      "  driver.RegisterPlugin(plugin{})",
-      "}",
-      "",
-    ].join("\n"),
-  );
-  return path.join(module, "compile-probe");
+  return path.join(workspace, "unplugin-linked-go", "contract");
 }
 
 /**
@@ -58,10 +21,11 @@ function predicateProbe() {
  * admits `src`, whose root files no compiler predicate reports: the project's
  * root-file membership reaches the host instead (samchon/ttsc#1419).
  *
- * Its plugin is a linked contributor with no transform, so its compile goes
- * through TypeScript-Go's program and reports the full graph, and its
- * `ApplyProgram` appends one byte per compile. The sources stay JavaScript so
- * every host parses them without a TypeScript loader.
+ * Its plugin is a linked contributor, so its compile goes through
+ * TypeScript-Go's program and reports the full graph, and its `ApplyProgram`
+ * appends one byte per compile. The sources stay JavaScript, with no
+ * `watchValue()` for the plugin to rewrite, so every host parses them without a
+ * TypeScript loader.
  */
 function predicateFixture(name) {
   const root = path.join(workspace, ".contracts", `predicates-${name}`);

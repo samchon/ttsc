@@ -9,6 +9,7 @@ import {
   failedOutput,
   settledOutput,
   writeRaceLoader,
+  writeStripLoader,
 } from "../common.mjs";
 
 /**
@@ -16,7 +17,9 @@ import {
  * input.
  *
  * A loader after ttsc's pre-enforced one lands the `LATE_RACE_` edits, between
- * ttsc returning a module and the host recording the module's inputs.
+ * ttsc returning a module and the host recording the module's inputs, and the
+ * loader after that strips the types ttsc leaves, which neither host compiles
+ * itself. Normal loaders run from the last rule to the first.
  */
 export async function openSession(name, project) {
   const bundler =
@@ -35,6 +38,7 @@ export async function openSession(name, project) {
     module: {
       rules: [
         { test: /\.ts$/, type: "javascript/auto" },
+        { test: /\.ts$/, use: [{ loader: writeStripLoader(project.root) }] },
         { test: /\.ts$/, use: [{ loader: writeRaceLoader(project.root) }] },
       ],
     },

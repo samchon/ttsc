@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { write } from "./common.mjs";
+import { BROKEN_INPUT, write } from "./common.mjs";
 
 /**
  * The one list of edits every host must converge on, in one watching session,
@@ -21,15 +21,18 @@ import { write } from "./common.mjs";
  * root.
  *
  * A scenario is `{ name, run }`; `run` receives the session and the project,
- * and `when` says which sessions it applies to. The compile count is asserted
- * only where the host's session counts compiles exactly.
+ * and `when` says which sessions and projects it applies to. A scenario whose
+ * observable is the compiler's verdict applies to the linked plugin only: the
+ * source plugin's envelope carries no verdict beyond the plugin's own. The
+ * compile count is asserted only where the host's session counts compiles
+ * exactly.
  */
 export const SCENARIOS = [
   {
     name: "initial failure and repair",
     async run({ project, session }) {
       // The session opened on a broken input.
-      await session.failed("initial failure", /invalid contract type/);
+      await session.failed("initial failure", BROKEN_INPUT);
       project.change("FIRST");
       await session.settled("first build", "FIRST", [project.input]);
       if (session.exactRuns)
@@ -65,9 +68,7 @@ export const SCENARIOS = [
     name: "break and recover",
     async run({ project, session }) {
       project.break();
-      await session.failed("failed rebuild", /invalid contract type/, [
-        project.input,
-      ]);
+      await session.failed("failed rebuild", BROKEN_INPUT, [project.input]);
       project.change("FOURTH");
       await session.settled("recovered rebuild", "FOURTH", [project.input]);
       if (session.exactRuns) assert.equal(project.runs(), 4);
@@ -244,6 +245,7 @@ export const SCENARIOS = [
   },
   {
     name: "missing import that appears",
+    when: (_, project) => project.plugin === "linked",
     async run({ project, session }) {
       // The entry gains an import of a declaration that does not exist: the
       // compiler reports it, and the file appearing under the name it resolved
@@ -260,6 +262,7 @@ export const SCENARIOS = [
   },
   {
     name: "declaration broken and repaired",
+    when: (_, project) => project.plugin === "linked",
     async run({ project, session }) {
       // A declaration inside the project that no bundler loads is still an
       // input of the entry: only the compiler's verdict on it changes.
@@ -275,6 +278,7 @@ export const SCENARIOS = [
   },
   {
     name: "external input broken and repaired",
+    when: (_, project) => project.plugin === "linked",
     async run({ project, session }) {
       // A declaration outside the project root is an input the compiler reads
       // and the project does not contain; the module never changes, only the
@@ -306,6 +310,7 @@ export const SCENARIOS = [
   },
   {
     name: "dependency directory renamed away and back",
+    when: (_, project) => project.plugin === "linked",
     async run({ project, session }) {
       // The directory holding a dependency moves, which no watcher of the
       // file itself hears: the file's own path emits nothing when its parent
@@ -338,12 +343,13 @@ export const SCENARIOS = [
  */
 export async function runScenarios(project, session) {
   for (const scenario of SCENARIOS) {
-    if (scenario.when !== undefined && !scenario.when(session)) continue;
+    if (scenario.when !== undefined && !scenario.when(session, project))
+      continue;
     try {
       await scenario.run({ project, session });
     } catch (error) {
       throw new Error(
-        `${session.name}${project.linked ? " (linked root)" : ""}: ${scenario.name}: ${error.stack ?? error}`,
+        `${session.name}${project.linked ? " (linked root)" : ""}${project.plugin === "linked" ? " (linked plugin)" : ""}: ${scenario.name}: ${error.stack ?? error}`,
         { cause: error },
       );
     }

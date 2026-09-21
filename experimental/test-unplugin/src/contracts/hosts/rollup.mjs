@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 import {
+  BROKEN_INPUT,
   adapter,
   eventQueue,
   eventually,
   failedOutput,
   landLateRace,
   settledOutput,
+  stripTypes,
 } from "../common.mjs";
 
 /**
@@ -20,7 +22,9 @@ import {
  * and the same plugin instance then serves the watcher.
  *
  * A plugin placed after ttsc lands the `LATE_RACE_` edits: the one place a
- * public API reaches between ttsc returning a module and the build ending.
+ * public API reaches between ttsc returning a module and the build ending. A
+ * plugin after it strips the types ttsc leaves for Rollup, which compiles none
+ * itself; Rolldown strips its own.
  */
 export async function openSession(name, project) {
   const bundler = await import(name);
@@ -29,7 +33,7 @@ export async function openSession(name, project) {
     await assert.rejects(
       bundler.rollup({ input: project.entry, plugins: [plugin] }),
       (error) => {
-        assert.match(error.message, /invalid contract type/);
+        assert.match(error.message, BROKEN_INPUT);
         assert.ok(error.watchFiles.includes(project.input));
         return true;
       },
@@ -48,6 +52,18 @@ export async function openSession(name, project) {
           return null;
         },
       },
+      ...(name === "rollup"
+        ? [
+            {
+              name: "strip-types-after-ttsc",
+              transform(code, id) {
+                return id.endsWith(".ts")
+                  ? { code: stripTypes(code), map: null }
+                  : null;
+              },
+            },
+          ]
+        : []),
     ],
     output: { file: project.output, format: "esm" },
     watch: { clearScreen: false },

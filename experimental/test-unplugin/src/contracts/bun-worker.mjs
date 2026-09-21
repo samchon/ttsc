@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { landLateRace, projectAt, valuesIn } from "./common.mjs";
+import { BROKEN_INPUT, landLateRace, projectAt, valuesIn } from "./common.mjs";
 import { runScenarios } from "./scenarios.mjs";
 
 /**
@@ -15,8 +15,11 @@ import { runScenarios } from "./scenarios.mjs";
  * Bun offers no seam after a module's loader, as esbuild does not; the seam
  * after ttsc is the resolution of the module's imports.
  */
-const [root, linked] = process.argv.slice(2);
-const project = projectAt(root, { linked: linked === "linked" });
+const [root, linked, transformPlugin] = process.argv.slice(2);
+const project = projectAt(root, {
+  linked: linked === "linked",
+  plugin: transformPlugin,
+});
 const plugin = ttsc(project.options);
 const build = () =>
   Bun.build({
@@ -82,7 +85,7 @@ const broken = run(["run", "src/main.ts"]);
 assert.notEqual(broken.exitCode, 0);
 assert.match(
   `${broken.stdout}${broken.stderr}`,
-  /invalid contract type/,
+  BROKEN_INPUT,
   "a broken input fails a runtime session",
 );
 for (const value of ["RUNTIME_FIRST", "RUNTIME_SECOND"]) {

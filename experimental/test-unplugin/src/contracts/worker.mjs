@@ -52,40 +52,56 @@ function roots() {
     : [false, true];
 }
 
+/**
+ * The transform plugins a host is tried with: the standalone source plugin,
+ * whose envelope carries no compiler graph, and the linked plugin, whose
+ * compile goes through TypeScript-Go's program (see `fixture`).
+ */
+const PLUGINS = ["source", "linked"];
+
 async function matrix(open) {
-  for (const linked of roots()) {
-    const project = fixture(linked ? `${host}-linked` : host, { linked });
-    project.break();
-    const session = await open(project);
-    try {
-      await runScenarios(project, session);
-    } finally {
-      await session.close();
+  for (const plugin of PLUGINS)
+    for (const linked of roots()) {
+      const project = fixture(
+        `${host}${linked ? "-linked" : ""}${plugin === "linked" ? "-program" : ""}`,
+        { linked, plugin },
+      );
+      project.break();
+      const session = await open(project);
+      try {
+        await runScenarios(project, session);
+      } finally {
+        await session.close();
+      }
     }
-  }
 }
 
 if (host in sessions) {
   await matrix(sessions[host]);
 } else if (host === "bun") {
-  for (const linked of roots()) {
-    const project = fixture(linked ? "bun-linked" : "bun", { linked });
-    project.break();
-    await promisify(execFile)(
-      "bun",
-      [
-        fileURLToPath(new URL("./bun-worker.mjs", import.meta.url)),
-        project.root,
-        linked ? "linked" : "plain",
-      ],
-      {
-        cwd: project.root,
-        env: process.env,
-        windowsHide: true,
-        timeout: 240_000,
-      },
-    );
-  }
+  for (const plugin of PLUGINS)
+    for (const linked of roots()) {
+      const project = fixture(
+        `bun${linked ? "-linked" : ""}${plugin === "linked" ? "-program" : ""}`,
+        { linked, plugin },
+      );
+      project.break();
+      await promisify(execFile)(
+        "bun",
+        [
+          fileURLToPath(new URL("./bun-worker.mjs", import.meta.url)),
+          project.root,
+          linked ? "linked" : "plain",
+          plugin,
+        ],
+        {
+          cwd: project.root,
+          env: process.env,
+          windowsHide: true,
+          timeout: 240_000,
+        },
+      );
+    }
 } else if (host === "react-router") {
   await reactRouterContract();
 } else {

@@ -428,6 +428,29 @@ function writeTransformPlugin() {
     path.join(workspace, "unplugin-transform-go"),
     { recursive: true },
   );
+  // The host matrix's second plugin: a linked contributor to ttsc's utility
+  // host, so the compile goes through TypeScript-Go's program and the envelope
+  // carries the compiler's verdict and graph.
+  fs.writeFileSync(
+    path.join(workspace, "unplugin-linked.cjs"),
+    [
+      'const path = require("node:path");',
+      "",
+      "module.exports = function createUnpluginLinked(context) {",
+      "  return {",
+      '    name: "experimental-unplugin-linked",',
+      '    source: path.resolve(context.dirname, "unplugin-linked-go", "contract"),',
+      "  };",
+      "};",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+  fs.cpSync(
+    path.join(experimentRoot, "assets", "linked"),
+    path.join(workspace, "unplugin-linked-go"),
+    { recursive: true },
+  );
 }
 
 function writeNextConfig() {

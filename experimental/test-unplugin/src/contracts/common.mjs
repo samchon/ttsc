@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 
 export const workspace = path.resolve(import.meta.dirname, "..");
@@ -30,6 +31,13 @@ export const VALUES = [
   "RUNTIME_SECOND",
 ];
 
+/**
+ * What a host reports for the broken contract input: the source plugin's own
+ * error, or, with the linked plugin, the compiler's verdict on the input's
+ * syntax, which it reports before any plugin runs.
+ */
+export const BROKEN_INPUT = /invalid contract type|Type expected/;
+
 const VALUE_PATTERN = new RegExp(`(["'\`])(${VALUES.join("|")})\\1`, "g");
 
 /**
@@ -41,8 +49,14 @@ const VALUE_PATTERN = new RegExp(`(["'\`])(${VALUES.join("|")})\\1`, "g");
  * linked workspace names a project. The compiler then reports the project's
  * inputs under the physical directory while the host, and the contract, name it
  * through the link.
+ *
+ * `plugin` selects the transform plugin the tsconfig names: `"source"`, the
+ * standalone Go process whose envelope carries no compiler graph, or
+ * `"linked"`, the contributor to ttsc's utility host, whose compile goes
+ * through TypeScript-Go's program and whose envelope carries the compiler's
+ * verdict, graph, and resolution candidates.
  */
-export function fixture(name, { linked = false } = {}) {
+export function fixture(name, { linked = false, plugin = "source" } = {}) {
   const physical = path.join(workspace, ".contracts", name);
   assert.equal(path.dirname(physical), path.join(workspace, ".contracts"));
   fs.rmSync(physical, { recursive: true, force: true });
@@ -64,15 +78,15 @@ export function fixture(name, { linked = false } = {}) {
     "package.json",
     JSON.stringify({ private: true, type: "module" }),
   );
-  writeBaseTsconfig(root);
-  writeTsconfig(root);
+  writeBaseTsconfig(root, undefined, plugin);
+  writeTsconfig(root, undefined, plugin);
   write(root, "src/globals.d.ts", "declare function watchValue(): string;\n");
   writeMain(root);
   write(root, "src/deps/local.d.ts", localDeclaration("ok"));
   write(external, "shape.d.ts", shapeDeclaration("ok"));
   for (const i of [1, 2, 3])
     write(root, `src/mod${i}.ts`, "export const value = watchValue();\n");
-  const project = projectAt(root, { linked, physical });
+  const project = projectAt(root, { linked, physical, plugin });
   project.change("FIRST");
   return project;
 }
@@ -128,13 +142,14 @@ function shapeDeclaration(value) {
  * every consumer's value with it, so an edit to the tsconfig itself has an
  * observable effect.
  */
-function writeTsconfig(root, fixed) {
+function writeTsconfig(root, fixed, plugin) {
   write(
     root,
     "tsconfig.json",
     JSON.stringify({
       extends: "./tsconfig.base.json",
-      compilerOptions: fixed === undefined ? {} : { plugins: [plugin(fixed)] },
+      compilerOptions:
+        fixed === undefined ? {} : { plugins: [pluginEntry(plugin, fixed)] },
       include: ["src", "app", "pages"],
       exclude: ["dist-contract", "node_modules"],
     }),
@@ -147,7 +162,7 @@ function writeTsconfig(root, fixed) {
  * here, so an edit to a config reached only through the `extends` chain has an
  * observable effect too.
  */
-function writeBaseTsconfig(root, fixed) {
+function writeBaseTsconfig(root, fixed, plugin) {
   write(
     root,
     "tsconfig.base.json",
@@ -159,16 +174,22 @@ function writeBaseTsconfig(root, fixed) {
         types: [],
         jsx: "preserve",
         outDir: "dist-contract",
-        plugins: [plugin(fixed)],
+        plugins: [pluginEntry(plugin, fixed)],
       },
     }),
   );
 }
 
-/** The transform plugin's tsconfig entry, fixing every value when given. */
-function plugin(fixed) {
+/**
+ * The tsconfig entry of the transform plugin `plugin` names, fixing every value
+ * when given.
+ */
+function pluginEntry(plugin, fixed) {
   return {
-    transform: path.join(workspace, "unplugin-transform.cjs"),
+    transform: path.join(
+      workspace,
+      plugin === "linked" ? "unplugin-linked.cjs" : "unplugin-transform.cjs",
+    ),
     ...(fixed === undefined ? {} : { fixed }),
   };
 }
@@ -177,12 +198,16 @@ function plugin(fixed) {
  * The accessors of a fixture already on disk at `root`, for a process that did
  * not create it, such as the Bun worker.
  */
-export function projectAt(root, { linked = false, physical = root } = {}) {
+export function projectAt(
+  root,
+  { linked = false, physical = root, plugin = "source" } = {},
+) {
   const input = path.join(root, "src/contract-input.server.ts");
   return {
     root,
     physical,
     linked,
+    plugin,
     input,
     change(value) {
       fs.writeFileSync(input, contractInput(value));
@@ -214,14 +239,14 @@ export function projectAt(root, { linked = false, physical = root } = {}) {
     },
     /** Rewrite the tsconfig, fixing every consumer's value when given. */
     configure(fixed) {
-      writeTsconfig(root, fixed);
+      writeTsconfig(root, fixed, plugin);
     },
     /**
      * Rewrite the base config the tsconfig extends, fixing every consumer's
      * value when given.
      */
     configureBase(fixed) {
-      writeBaseTsconfig(root, fixed);
+      writeBaseTsconfig(root, fixed, plugin);
     },
     /** Rewrite the local declaration the entry depends on, exporting `value`. */
     local(value) {
@@ -487,4 +512,49 @@ export async function failedOutput(events, label, pattern) {
       `${error.message}; builds seen while waiting: ${JSON.stringify(seen)}`,
     );
   }
+}
+
+/**
+ * The type-stripping stage a Rollup, webpack, or Rspack build needs after ttsc:
+ * the adapter emits TypeScript, and those hosts compile none themselves, so a
+ * user adds an esbuild- or swc-based stage after `ttsc()` (the setup guide says
+ * so). The contract uses Node's own stripper, which keeps every position.
+ */
+export function stripTypes(code) {
+  return stripTypeScriptTypes(code, { mode: "strip" });
+}
+
+/**
+ * Write the type-stripping loader for a webpack or Rspack build, run after
+ * ttsc's pre-enforced loader the way `writeRaceLoader`'s is.
+ */
+export function writeStripLoader(root) {
+  const loader = path.join(root, "strip-loader.cjs");
+  fs.writeFileSync(
+    loader,
+    [
+      'const { stripTypeScriptTypes } = require("node:module");',
+      "module.exports = function stripLoader(source) {",
+      '  return stripTypeScriptTypes(source, { mode: "strip" });',
+      "};",
+    ].join(String.fromCharCode(10)),
+  );
+  return loader;
+}
+
+/**
+ * Pay the linked plugin's host build once, outside any host's deadline: the
+ * first compile with the linked plugin builds ttsc's utility host with the
+ * contract's contributor, minutes on a cold Go cache, and every later compile
+ * reuses that build.
+ */
+export async function warmLinkedPlugin() {
+  const api = await import("@ttsc/unplugin/api");
+  const project = fixture("warm-linked", { plugin: "linked" });
+  await api.transformTtsc(
+    project.entry,
+    fs.readFileSync(project.entry, "utf8"),
+    api.resolveOptions(project.options),
+  );
+  assert.equal(project.runs(), 1, "the linked plugin compiles");
 }
