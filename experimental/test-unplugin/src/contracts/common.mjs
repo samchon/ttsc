@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { stripTypeScriptTypes } from "node:module";
+import * as nodeModule from "node:module";
 import path from "node:path";
 
 export const workspace = path.resolve(import.meta.dirname, "..");
@@ -529,7 +529,9 @@ export async function failedOutput(events, label, pattern) {
  * so). The contract uses Node's own stripper, which keeps every position.
  */
 export function stripTypes(code) {
-  return stripTypeScriptTypes(code, { mode: "strip" });
+  // Read at use, since the Bun worker imports this module and Bun's
+  // `node:module` has no stripper; only a Node host strips.
+  return nodeModule.stripTypeScriptTypes(code, { mode: "strip" });
 }
 
 /**
