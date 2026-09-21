@@ -13,6 +13,11 @@ export interface IRealNativeEnvelopeApi {
     compilerOptions?: Record<string, unknown>;
     project: string;
   }): unknown;
+  /** Declare the cache's compiles shared through the pooled host session. */
+  shareTtscTransformCache(
+    cache: RealNativeEnvelopeCache,
+    session: string,
+  ): void;
   /** Transform one module through the shared cache. */
   transformTtsc(
     file: string,
