@@ -178,6 +178,10 @@ function writeBaseTsconfig(root, fixed, plugin) {
         // infer; the external declaration lies outside it, which a
         // declaration may.
         rootDir: ".",
+        // The consumers import each other with their `.ts` extension, as a
+        // bundler-only project may once it emits nothing itself.
+        allowImportingTsExtensions: true,
+        noEmit: true,
         plugins: [pluginEntry(plugin, fixed)],
       },
     }),

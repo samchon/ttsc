@@ -28,6 +28,9 @@ export async function openSession(bundler, project) {
     project.root,
     "pages/index.tsx",
     [
+      // The linked plugin type-checks the page: React's types declare the
+      // JSX elements.
+      'import * as React from "react";',
       'import { value } from "../src/main";',
       ...[1, 2, 3].map(
         (i) => `import { value as value${i} } from "../src/mod${i}";`,
