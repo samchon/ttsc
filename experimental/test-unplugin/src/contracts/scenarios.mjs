@@ -15,7 +15,10 @@ import { write } from "./common.mjs";
  * the compile, after ttsc returned a module and before the host's build ended,
  * during the host's own build, saved the way an editor saves, deleted and
  * recreated, to an input the module depends on for the first time, to the
- * tsconfig itself, and a dependency renamed away and back.
+ * tsconfig itself and to the config it extends, a dependency and a dependency's
+ * directory renamed away and back, an import that does not exist until its file
+ * appears, a declaration no bundler loads, and an input outside the project
+ * root.
  *
  * A scenario is `{ name, run }`; `run` receives the session and the project,
  * and `when` says which sessions it applies to. The compile count is asserted
@@ -237,6 +240,87 @@ export const SCENARIOS = [
       );
       fs.renameSync(away, late);
       await session.settled("dependency renamed back", "SIXTH", [late]);
+    },
+  },
+  {
+    name: "missing import that appears",
+    async run({ project, session }) {
+      // The entry gains an import of a declaration that does not exist: the
+      // compiler reports it, and the file appearing under the name it resolved
+      // repairs the module the host never heard change again.
+      project.importLater(true);
+      await session.failed("missing import", /Cannot find module|TS2307/, [
+        project.entry,
+      ]);
+      project.later();
+      await session.settled("missing import created", "SIXTH", [
+        project.laterDeclaration,
+      ]);
+    },
+  },
+  {
+    name: "declaration broken and repaired",
+    async run({ project, session }) {
+      // A declaration inside the project that no bundler loads is still an
+      // input of the entry: only the compiler's verdict on it changes.
+      project.local("broken");
+      await session.failed("declaration broken", /not assignable/, [
+        project.localDeclaration,
+      ]);
+      project.local("ok");
+      await session.settled("declaration repaired", "SIXTH", [
+        project.localDeclaration,
+      ]);
+    },
+  },
+  {
+    name: "external input broken and repaired",
+    async run({ project, session }) {
+      // A declaration outside the project root is an input the compiler reads
+      // and the project does not contain; the module never changes, only the
+      // verdict on it does.
+      project.shape("broken");
+      await session.failed("external input broken", /not assignable|TS2322/, [
+        project.externalDeclaration,
+      ]);
+      project.shape("ok");
+      await session.settled("external input repaired", "SIXTH", [
+        project.externalDeclaration,
+      ]);
+    },
+  },
+  {
+    name: "edit to the extended config",
+    async run({ project, session }) {
+      // The base config is reached only through the tsconfig's extends
+      // chain; a plugin entry it gains changes every consumer's value.
+      project.configureBase("CONFIGURED");
+      await session.settled("edit to the extended config", "CONFIGURED", [
+        project.baseTsconfig,
+      ]);
+      project.configureBase(undefined);
+      await session.settled("extended config restored", "SIXTH", [
+        project.baseTsconfig,
+      ]);
+    },
+  },
+  {
+    name: "dependency directory renamed away and back",
+    async run({ project, session }) {
+      // The directory holding a dependency moves, which no watcher of the
+      // file itself hears: the file's own path emits nothing when its parent
+      // is renamed, only the parent's parent does.
+      const away = `${project.depsDirectory}.moved`;
+      fs.renameSync(project.depsDirectory, away);
+      await session.failed(
+        "dependency directory renamed away",
+        /Cannot find module|TS2307/,
+        [project.localDeclaration],
+      );
+      fs.renameSync(away, project.depsDirectory);
+      await session.settled("dependency directory renamed back", "SIXTH", [
+        project.localDeclaration,
+      ]);
     },
   },
   {

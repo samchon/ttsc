@@ -57,24 +57,19 @@ export function fixture(name, { linked = false } = {}) {
     );
   }
   const root = linked ? link : physical;
+  const external = externalDirectory(root);
+  fs.rmSync(external, { recursive: true, force: true });
   write(
     root,
     "package.json",
     JSON.stringify({ private: true, type: "module" }),
   );
+  writeBaseTsconfig(root);
   writeTsconfig(root);
   write(root, "src/globals.d.ts", "declare function watchValue(): string;\n");
-  write(
-    root,
-    "src/main.ts",
-    [
-      ...[1, 2, 3].map(
-        (i) => `import { value as value${i} } from "./mod${i}.ts";`,
-      ),
-      "export const value = watchValue();",
-      "console.log(value, value1, value2, value3);",
-    ].join("\n"),
-  );
+  writeMain(root);
+  write(root, "src/deps/local.d.ts", localDeclaration("ok"));
+  write(external, "shape.d.ts", shapeDeclaration("ok"));
   for (const i of [1, 2, 3])
     write(root, `src/mod${i}.ts`, "export const value = watchValue();\n");
   const project = projectAt(root, { linked, physical });
@@ -83,14 +78,79 @@ export function fixture(name, { linked = false } = {}) {
 }
 
 /**
- * The project's tsconfig, with the transform plugin entry; `fixed` makes the
- * plugin replace every consumer's value with it, so an edit to the tsconfig
- * itself has an observable effect.
+ * The directory beside the project that holds its external input: a declaration
+ * the entry imports from outside the project root, so the compiler lists it as
+ * an input the project does not contain.
+ */
+function externalDirectory(root) {
+  return path.join(path.dirname(root), `${path.basename(root)}-external`);
+}
+
+/**
+ * The entry module: the three consumers, a value of its own, and two type-only
+ * imports the bundler never sees, one from a directory inside the project and
+ * one from the external directory beside it; with `later`, a third import of a
+ * declaration that does not exist until a scenario creates it.
+ */
+function writeMain(root, { later = false } = {}) {
+  write(
+    root,
+    "src/main.ts",
+    [
+      ...[1, 2, 3].map(
+        (i) => `import { value as value${i} } from "./mod${i}.ts";`,
+      ),
+      'import type { Local } from "./deps/local";',
+      `import type { Shape } from "../../${path.basename(root)}-external/shape";`,
+      ...(later ? ['import type { Later } from "./later";'] : []),
+      "export const value = watchValue();",
+      'export const local: Local = "ok";',
+      'export const shape: Shape = "ok";',
+      ...(later ? ['export const later: Later = "ok";'] : []),
+      "console.log(value, value1, value2, value3);",
+    ].join("\n"),
+  );
+}
+
+/** A declaration whose only export is the literal type `value`. */
+function localDeclaration(value) {
+  return `export type Local = ${JSON.stringify(value)};\n`;
+}
+
+/** A declaration whose only export is the literal type `value`. */
+function shapeDeclaration(value) {
+  return `export type Shape = ${JSON.stringify(value)};\n`;
+}
+
+/**
+ * The project's tsconfig, which extends the base config beside it; `fixed`
+ * overrides the base's plugin entry with one that makes the plugin replace
+ * every consumer's value with it, so an edit to the tsconfig itself has an
+ * observable effect.
  */
 function writeTsconfig(root, fixed) {
   write(
     root,
     "tsconfig.json",
+    JSON.stringify({
+      extends: "./tsconfig.base.json",
+      compilerOptions: fixed === undefined ? {} : { plugins: [plugin(fixed)] },
+      include: ["src", "app", "pages"],
+      exclude: ["dist-contract", "node_modules"],
+    }),
+  );
+}
+
+/**
+ * The base config the project's tsconfig extends, holding the compiler options
+ * and the transform plugin entry; `fixed` fixes every consumer's value from
+ * here, so an edit to a config reached only through the `extends` chain has an
+ * observable effect too.
+ */
+function writeBaseTsconfig(root, fixed) {
+  write(
+    root,
+    "tsconfig.base.json",
     JSON.stringify({
       compilerOptions: {
         target: "ES2022",
@@ -99,17 +159,18 @@ function writeTsconfig(root, fixed) {
         types: [],
         jsx: "preserve",
         outDir: "dist-contract",
-        plugins: [
-          {
-            transform: path.join(workspace, "unplugin-transform.cjs"),
-            ...(fixed === undefined ? {} : { fixed }),
-          },
-        ],
+        plugins: [plugin(fixed)],
       },
-      include: ["src", "app", "pages"],
-      exclude: ["dist-contract", "node_modules"],
     }),
   );
+}
+
+/** The transform plugin's tsconfig entry, fixing every value when given. */
+function plugin(fixed) {
+  return {
+    transform: path.join(workspace, "unplugin-transform.cjs"),
+    ...(fixed === undefined ? {} : { fixed }),
+  };
 }
 
 /**
@@ -155,7 +216,35 @@ export function projectAt(root, { linked = false, physical = root } = {}) {
     configure(fixed) {
       writeTsconfig(root, fixed);
     },
+    /**
+     * Rewrite the base config the tsconfig extends, fixing every consumer's
+     * value when given.
+     */
+    configureBase(fixed) {
+      writeBaseTsconfig(root, fixed);
+    },
+    /** Rewrite the local declaration the entry depends on, exporting `value`. */
+    local(value) {
+      write(root, "src/deps/local.d.ts", localDeclaration(value));
+    },
+    /** Rewrite the external declaration the entry depends on, exporting `value`. */
+    shape(value) {
+      write(externalDirectory(root), "shape.d.ts", shapeDeclaration(value));
+    },
+    /** Rewrite the entry, importing the declaration `src/later.d.ts` or not. */
+    importLater(later) {
+      writeMain(root, { later });
+    },
+    /** Create the declaration the entry imports once `importLater(true)` ran. */
+    later() {
+      write(root, "src/later.d.ts", 'export type Later = "ok";\n');
+    },
     tsconfig: path.join(root, "tsconfig.json"),
+    baseTsconfig: path.join(root, "tsconfig.base.json"),
+    localDeclaration: path.join(root, "src/deps/local.d.ts"),
+    depsDirectory: path.join(root, "src/deps"),
+    externalDeclaration: path.join(externalDirectory(root), "shape.d.ts"),
+    laterDeclaration: path.join(root, "src/later.d.ts"),
     entry: path.join(root, "src/main.ts"),
     output: path.join(root, "dist-contract/bundle.js"),
     options: { project: path.join(root, "tsconfig.json") },
