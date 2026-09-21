@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 
 import { eventually, projectAt } from "./common.mjs";
 import * as farm from "./hosts/farm.mjs";
@@ -14,7 +16,9 @@ import * as webpack from "./hosts/webpack.mjs";
  *
  * Arguments: the host, the project root, the plugin mode, and the expectation
  * as JSON: `{ kind: "settled", value }` or `{ kind: "failed", pattern }`, with
- * `compiles: false` when the session must compile nothing.
+ * `compiles` the most compiles the session may run when it must be served from
+ * the cache, and `store: true` when the next session depends on this one's
+ * store, which the session then waits for before it stops.
  */
 const [host, root, plugin, expectationJson] = process.argv.slice(2);
 const expectation = JSON.parse(expectationJson);
@@ -30,7 +34,48 @@ const sessions = {
   "next-turbopack": (project) => next.openSession("turbopack", project),
 };
 
+/**
+ * Every file of the project and its external directory with its state, the tool
+ * directory included and the hosts' output left out, so an unexpected compile
+ * names what moved since the session that stored the cache.
+ */
+function projectFiles() {
+  const states = {};
+  for (const base of [root, `${root}-external`]) {
+    let entries = [];
+    try {
+      entries = fs.readdirSync(base, { recursive: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      const name = String(entry);
+      const segments = name.split(/[/\\]/);
+      if (
+        segments.some((segment) =>
+          [".next", ".cache", "dist-contract", "node_modules"].includes(
+            segment,
+          ),
+        )
+      ) {
+        continue;
+      }
+      try {
+        const stats = fs.statSync(path.join(base, name));
+        if (stats.isFile()) {
+          states[path.join(base, name)] = `${stats.mtimeMs}:${stats.size}`;
+        }
+      } catch {
+        // Gone between the listing and the stat.
+      }
+    }
+  }
+  return states;
+}
+
+const recorded = path.join(root, ".cache", "restart-files.json");
 const before = project.runs();
+const openedAt = Date.now();
 const session = await sessions[host](project);
 try {
   if (expectation.kind === "settled") {
@@ -38,26 +83,40 @@ try {
   } else {
     await session.failed(expectation.label, new RegExp(expectation.pattern));
   }
-  if (expectation.compiles === false) {
-    assert.equal(
-      project.runs(),
-      before,
-      "a restart over an unchanged project serves every module from the cache",
-    );
+  if (expectation.compiles !== undefined) {
+    const compiled = project.runs() - before;
+    if (compiled > expectation.compiles) {
+      let previous = {};
+      try {
+        previous = JSON.parse(fs.readFileSync(recorded, "utf8"));
+      } catch {
+        // No earlier session recorded its files.
+      }
+      const current = projectFiles();
+      const moved = Object.keys({ ...previous, ...current }).filter(
+        (file) => previous[file] !== current[file],
+      );
+      assert.fail(
+        `a restart over an unchanged project serves every module from the cache: ${compiled} compile(s), at most ${expectation.compiles}; files moved since the stored session: ${JSON.stringify(moved)}`,
+      );
+    }
   }
   // Proven while the host runs, for the state this session settled on: a host
-  // stopped by a signal stores nothing more, and a step that rebuilt from
-  // nothing would prove nothing. Next's webpack stores on its idle timeout,
-  // a minute after a rebuild.
-  // A session that compiled nothing changed nothing in the cache, and a host
-  // stores nothing for it; what the last session stored is this state.
-  const settledAt = project.runs() === before ? 0 : Date.now();
-  await eventually(
-    () => session.stored(settledAt),
-    Boolean,
-    `${host}: ${expectation.label}: the persistent cache is stored`,
-    120_000,
-  );
+  // stopped by a signal stores nothing more. Next's webpack stores on its idle
+  // timeout, a minute after a rebuild. A session that compiled nothing changed
+  // nothing in the cache, and a host stores nothing for it.
+  // A store committed during this session, whichever moment after the build the
+  // host commits at, before or after the value settled.
+  if (expectation.store === true && project.runs() !== before) {
+    await eventually(
+      () => session.stored(openedAt),
+      Boolean,
+      `${host}: ${expectation.label}: the persistent cache is stored`,
+      120_000,
+    );
+  }
 } finally {
   await session.close();
 }
+fs.mkdirSync(path.dirname(recorded), { recursive: true });
+fs.writeFileSync(recorded, JSON.stringify(projectFiles()));

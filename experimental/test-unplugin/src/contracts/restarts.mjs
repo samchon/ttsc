@@ -29,19 +29,28 @@ import { write } from "./common.mjs";
  *
  * A step is `{ name, edit, expect }`: `edit` changes the project while nothing
  * runs, and `expect` is what the next session must observe, `{ kind: "settled",
- * value }` or `{ kind: "failed", pattern }`, with `compiles: false` when it
- * must compile nothing.
+ * value }` or `{ kind: "failed", pattern }`, with `compiles` the most compiles
+ * it may run, `0` for a restart over an unchanged project.
+ *
+ * Turbopack re-runs every webpack loader that starts a child process on every
+ * start, whatever its dependencies: measured on Next 16.3 with a loader that
+ * only counts its runs, which Turbopack restores from its cache across
+ * restarts, and runs again on every start once it calls `execFile` or
+ * `spawnSync`, while a worker thread or a 300 ms busy wait keeps it cached.
+ * ttsc's loader starts the native compiler, so under Turbopack an unchanged
+ * restart runs every module again, which shares one compile through the
+ * session, and the step allows that one compile.
  */
 export const RESTART_STEPS = [
   {
     name: "restart without edits",
     edit: () => undefined,
-    expect: { kind: "settled", value: "FIRST", compiles: false },
+    expect: { kind: "settled", value: "FIRST", compiles: 0 },
   },
   {
     name: "second restart without edits",
     edit: () => undefined,
-    expect: { kind: "settled", value: "FIRST", compiles: false },
+    expect: { kind: "settled", value: "FIRST", compiles: 0 },
   },
   {
     name: "input edited while stopped",
@@ -61,7 +70,7 @@ export const RESTART_STEPS = [
   {
     name: "restart without edits after edits",
     edit: () => undefined,
-    expect: { kind: "settled", value: "SECOND", compiles: false },
+    expect: { kind: "settled", value: "SECOND", compiles: 0 },
   },
   {
     name: "root file added while stopped",
@@ -116,19 +125,19 @@ export const RESTART_STEPS = [
   },
 ];
 
+/** Hosts that re-run a loader starting a child process on every start. */
+const SESSION_DEPENDENT_LOADERS = new Set(["next-turbopack"]);
+
 /**
  * Run every restart step on one project: a session over the host's persistent
- * cache in a process of its own, stopped, the edit, and the next.
+ * cache in a process of its own, stopped, the edit, and the next. A session
+ * followed by a step that must be served from the cache waits for its store
+ * before it stops.
  *
  * @param project The fixture, on its first value.
  * @param host The host, one `restart-cycle.mjs` knows.
- * @param options.essential Whether to run only the essential steps.
  */
-export async function restartContract(
-  project,
-  host,
-  { essential = false } = {},
-) {
+export async function restartContract(project, host) {
   const cycle = async (label, expectation) => {
     try {
       await promisify(execFile)(
@@ -155,10 +164,28 @@ export async function restartContract(
       );
     }
   };
-  await cycle("first session", { kind: "settled", value: "FIRST" });
-  for (const step of RESTART_STEPS) {
-    if (essential && step.essential !== true) continue;
+  const expectation = (index) => {
+    const step = RESTART_STEPS[index];
+    const next = RESTART_STEPS[index + 1];
+    const store = next?.expect.compiles !== undefined;
+    if (step === undefined) {
+      return { kind: "settled", value: "FIRST", store };
+    }
+    const compiles =
+      step.expect.compiles === undefined
+        ? undefined
+        : SESSION_DEPENDENT_LOADERS.has(host)
+          ? 1
+          : step.expect.compiles;
+    return {
+      ...step.expect,
+      ...(compiles === undefined ? {} : { compiles }),
+      store,
+    };
+  };
+  await cycle("first session", expectation(-1));
+  for (const [index, step] of RESTART_STEPS.entries()) {
     step.edit(project);
-    await cycle(step.name, step.expect);
+    await cycle(step.name, expectation(index));
   }
 }

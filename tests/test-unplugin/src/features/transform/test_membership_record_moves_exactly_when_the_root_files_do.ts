@@ -46,9 +46,14 @@ export async function test_membership_record_moves_exactly_when_the_root_files_d
   const tool = path.join(root, ".ttsc");
   // A policy the adapter reads carries members it left undefined, which a
   // record must still serialize as JSON a refresh can read back.
+  const adapterPolicy = readProjectMembershipPolicy(tsconfig);
   const policy = {
-    ...readProjectMembershipPolicy(tsconfig),
-    directoryExclusionOrigins: { declarationDir: undefined },
+    ...adapterPolicy,
+    directoryExclusionOrigins: {
+      exclude: [],
+      ...adapterPolicy.directoryExclusionOrigins,
+      declarationDir: undefined,
+    },
   };
   const digest = () =>
     membershipRecordDigest(
