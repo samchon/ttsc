@@ -49,21 +49,38 @@ export async function createHostInputMutationTracker(
   scopes?: ReadonlyMap<string, TtscTrackedInputScope>,
 ): Promise<TtscProjectMutationTracker> {
   const identities = createHostPathIdentityContext(filesystem);
+  // The project root in both of its spellings: an input the compiler reported
+  // physically is the project's as much as one spelled as the project was
+  // named, and the root's observer is opened once, under the name.
+  const internal: TtscProjectSpellings | undefined =
+    preferredRoot === undefined
+      ? undefined
+      : {
+          physical: identities.resolve(path.resolve(preferredRoot)).path,
+          spelling: path.resolve(preferredRoot),
+        };
+  const internalRoot = internal?.spelling;
   const linkedAncestors = new Map<string, boolean>();
   const authoritative = new Set(
     [...covered]
       .map((input) => path.resolve(input))
       .filter((input) => {
-        // A link between the input and the project root, whose observer
-        // follows it; the root and its ancestors are re-checked by identity
-        // on every delivery instead.
+        // A link between the input and the directory watched for it, whose
+        // observer follows it: the project root for an input inside the
+        // project, the input's own nearest existing directory outside it. The
+        // watched directory and its ancestors are re-checked by identity on
+        // every delivery instead (`verifyLocations`), so a link there
+        // withdraws the tracker rather than moving the input silently; every
+        // macOS temporary directory and any linked workspace lies below one.
+        const watched =
+          internal !== undefined &&
+          relativeToProject(input, internal) !== undefined
+            ? internalRoot
+            : filesystem.exists(input)
+              ? path.dirname(input)
+              : missingPathProbe(input, filesystem).directory;
         if (
-          pathTraversesSymbolicLink(
-            input,
-            filesystem,
-            linkedAncestors,
-            preferredRoot,
-          )
+          pathTraversesSymbolicLink(input, filesystem, linkedAncestors, watched)
         ) {
           return false;
         }
@@ -120,17 +137,6 @@ export async function createHostInputMutationTracker(
       recursive?: boolean;
     }
   >();
-  // The project root in both of its spellings: an input the compiler reported
-  // physically is the project's as much as one spelled as the project was
-  // named, and the root's observer is opened once, under the name.
-  const internal: TtscProjectSpellings | undefined =
-    preferredRoot === undefined
-      ? undefined
-      : {
-          physical: identities.resolve(path.resolve(preferredRoot)).path,
-          spelling: path.resolve(preferredRoot),
-        };
-  const internalRoot = internal?.spelling;
   // The directories below `internalRoot` its recursive observer must hear, for
   // a backend that watches directory by directory (samchon/ttsc#1389): every
   // directory leading to a tracked path, a `children` path itself, and all of
