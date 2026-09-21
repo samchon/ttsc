@@ -223,21 +223,24 @@ export async function openSession(bundler, project) {
         (runs) => runs > before,
         describe(label),
       ),
-    // Next stores both compilers' persistent caches below `.next/cache`:
-    // webpack's filesystem cache, and Turbopack's file-system cache for
-    // development, which Next enables by default.
+    // Next stores both compilers' persistent caches below a `cache`
+    // directory of its output: webpack's filesystem cache, and Turbopack's
+    // file-system cache for development, which Next enables by default. A
+    // development session's output lives under `.next/dev` since Next 16.
     stored: () => {
-      const cache = path.join(project.physical, ".next", "cache");
-      return (
-        fs.existsSync(cache) &&
-        fs.readdirSync(cache, { recursive: true }).some((entry) => {
+      const output = path.join(project.physical, ".next");
+      if (!fs.existsSync(output)) return false;
+      return fs
+        .readdirSync(output, { recursive: true })
+        .some((entry) => {
+          const segments = String(entry).split(/[\/]/);
+          if (!segments.includes("cache")) return false;
           try {
-            return fs.statSync(path.join(cache, entry)).isFile();
+            return fs.statSync(path.join(output, entry)).isFile();
           } catch {
             return false;
           }
-        })
-      );
+        });
     },
     close,
   };
