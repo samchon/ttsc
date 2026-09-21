@@ -38,7 +38,15 @@ export async function openSession(project, { cache = false } = {}) {
         configFile: false,
         compilation: {
           input: { main: "./src/main.ts" },
-          output: { path: "./dist-contract", targetEnv: "node", format: "esm" },
+          // Farm turns the timestamp cache-key strategy off for a Node
+          // target, and under the hash strategy alone it runs every
+          // module's load and transform before comparing, so a persistent
+          // cache can only skip a compile for a browser target.
+          output: {
+            path: "./dist-contract",
+            targetEnv: cache ? "browser" : "node",
+            format: "esm",
+          },
           minify: false,
           persistentCache: cache ? { cacheDir } : false,
           lazyCompilation: false,
