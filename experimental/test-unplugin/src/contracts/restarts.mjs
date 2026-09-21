@@ -117,6 +117,13 @@ export async function restartContract(project, open, name) {
     const session = await open(project);
     try {
       await expect(session);
+      // Proven while the host runs: a host stopped by a signal stores nothing
+      // more, and a step that rebuilt from nothing would prove nothing.
+      await eventually(
+        () => session.stored(),
+        Boolean,
+        `${name}: ${label}: the persistent cache is stored`,
+      );
     } catch (error) {
       throw new Error(`${name}: ${label}: ${error.stack ?? error}`, {
         cause: error,
@@ -124,11 +131,6 @@ export async function restartContract(project, open, name) {
     } finally {
       await session.close();
     }
-    await eventually(
-      () => session.stored(),
-      Boolean,
-      `${name}: ${label}: the persistent cache is stored`,
-    );
   };
   await cycle("first session", (session) =>
     session.settled("first build", "FIRST", []),
