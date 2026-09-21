@@ -45,12 +45,18 @@ try {
       "a restart over an unchanged project serves every module from the cache",
     );
   }
-  // Proven while the host runs: a host stopped by a signal stores nothing
-  // more, and a step that rebuilt from nothing would prove nothing.
+  // Proven while the host runs, for the state this session settled on: a host
+  // stopped by a signal stores nothing more, and a step that rebuilt from
+  // nothing would prove nothing. Next's webpack stores on its idle timeout,
+  // a minute after a rebuild.
+  // A session that compiled nothing changed nothing in the cache, and a host
+  // stores nothing for it; what the last session stored is this state.
+  const settledAt = project.runs() === before ? 0 : Date.now();
   await eventually(
-    () => session.stored(),
+    () => session.stored(settledAt),
     Boolean,
     `${host}: ${expectation.label}: the persistent cache is stored`,
+    120_000,
   );
 } finally {
   await session.close();

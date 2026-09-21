@@ -65,8 +65,18 @@ Every delivery hands the host the inputs it must hear about, spelled as the host
 
 ## Session
 
-`session/claimSharedCompile.ts`: identity (project, options, plugins) plus state (`session/sharedCompileState.ts`: the walk's directories and hashes and the tsconfig signature) name a publication. The first worker takes the lock; the others adopt what it publishes, then prove the adopted envelope against their own disk (`adoptedExternalInputMismatch`). A compile that ended in diagnostics is published like a success; an exception is not, since each worker must be free to retry it.
+`session/claimSharedCompile.ts`: identity (project, options, plugins) plus state (`session/sharedCompileState.ts`: the walk's directories and hashes and the tsconfig signature) name a publication. The first worker takes the lock; the others adopt what it publishes, then prove the adopted envelope against their own disk (`adoptedExternalInputMismatch`).
+
+The publication rule, in `generation/captureTransformGeneration.ts`: a success is published only when its whole snapshot is reusable as captured, the graph's own proofs included; a compile that ended in diagnostics only when the project held still; an exception never. The state a publication is keyed by leaves the project's dot directories out, so a plugin writing below the root while it runs changes a listing the graph proof rejects while the key stays the same. Published anyway, that envelope was what the retry and every other worker adopted, and a pool's first compile of a fresh project failed on every worker.
+
+## Persistent caches
+
+A host with a persistent cache restores a module by the dependencies it recorded, without running the adapter, so every registration that must survive a restart has to be a file whose state moves exactly when the verdict does.
+
+- The bridge's sentinels live in one directory for every process, `<tool>/watch-bridge` (`bridge/WATCH_BRIDGE_SENTINEL_DIRECTORY.ts`), and stay when the bridge closes. A registration never writes an existing sentinel; only a signal rewrites it, with bytes no earlier write left. A per-process sentinel directory made every restored module stale on every restart.
+- The project's root-file membership reaches a persistent cache as a record file, `<tool>/membership/<hash>.json` (`bridge/membershipDigestFile.ts`), registered through the host's file channel on every delivery (`watch/projectMembershipRecordInput.ts`) and written only when its digest moves (`bridge/writeMembershipDigestFile.ts`, `bridge/membershipRecordDigest.ts`). Each build start refreshes every record by walking its project again (`bridge/refreshMembershipDigestFiles.ts`): `buildStart` in `unplugin.ts`, esbuild's `onStart`, and `withTtsc` before Next starts either compiler.
+- The per-process directories beside them (`WATCH_BRIDGE_DIRECTORY_PREFIX`) hold only what may not outlive a process: the Turbopack marker for modules with untracked inputs, and the broker's probes.
 
 ## Where the host matrix measures this
 
-`experimental/test-unplugin/src/contracts` drives every host through the scenarios in `scenarios.mjs` with two plugins, one whose envelope carries no graph and one whose compile runs the program, and the restart contract in `restarts.mjs` over each host's persistent cache. A failure there names the host, the root spelling, the plugin, and the scenario; find its principle above, then its owner.
+`experimental/test-unplugin/src/contracts` drives every host through the scenarios in `scenarios.mjs` with two plugins, one whose envelope carries no graph and one whose compile runs the program, and the restart contract in `restarts.mjs` over each host's persistent cache, each session in a process of its own, where a restart over an unchanged project must compile nothing. A failure there names the host, the root spelling, the plugin, and the scenario; find its principle above, then its owner.

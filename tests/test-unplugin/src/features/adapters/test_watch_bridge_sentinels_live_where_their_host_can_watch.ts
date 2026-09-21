@@ -9,8 +9,9 @@ import { openHostWatchBridge } from "../../../../../packages/unplugin/lib/core/b
 
 /**
  * Verifies the watch bridge keeps its sentinels where every host can watch
- * them, removes them when it closes, and clears what a killed process left
- * behind (samchon/ttsc#1388, samchon/ttsc#1419, samchon/ttsc#1457).
+ * them, keeps them across sessions, and clears what a killed process left
+ * behind of what may not outlive it (samchon/ttsc#1388, samchon/ttsc#1419,
+ * samchon/ttsc#1457, samchon/ttsc#1468).
  *
  * Turbopack fails a module whose dependency leaves its project filesystem root,
  * Farm fails a watch file it cannot relate to its root, such as one on another
@@ -21,15 +22,20 @@ import { openHostWatchBridge } from "../../../../../packages/unplugin/lib/core/b
  * measured on the first Windows run of the whole host suite, where webpack,
  * Rspack, Farm, and the Next dev server all died. The sentinels live in the
  * project's own `.ttsc` directory, the one place inside every host's root and
- * outside `node_modules`, spelled as the project is; the directory inside it
- * carries the owning process id, so one nothing else cleans can be removed once
- * its owner is gone.
+ * outside `node_modules`, spelled as the project is. A sentinel is a dependency
+ * a host's persistent cache records, so it stays when the bridge closes and a
+ * later bridge registers the same importer without touching it; only a signal
+ * rewrites it, with bytes no earlier write left. The per-process directories
+ * beside it hold what may not outlive a process, and one whose owner is gone is
+ * swept.
  *
- * 1. Open a bridge with the default parent and one with an explicit parent, and
- *    assert each sentinel lives below its parent, the project's `.ttsc` by
- *    default, in a directory named for this process, removed when the bridge
- *    closes.
- * 2. Leave directories of a dead process, of this process, and of no process in
+ * 1. Open a bridge with the default parent and one with an explicit parent,
+ *    register an importer in each, and assert its sentinel lives below the
+ *    parent, the project's `.ttsc` by default, and survives the bridge
+ *    closing.
+ * 2. Open a bridge again over the surviving sentinel, register the importer, and
+ *    assert the file is untouched.
+ * 3. Leave directories of a dead process, of this process, and of no process in
  *    the tool directory, open a bridge there, and assert only the dead
  *    process's is removed.
  */
@@ -44,26 +50,39 @@ export async function test_watch_bridge_sentinels_live_where_their_host_can_watc
     poll: () => ({ close: () => undefined }),
     watch: () => ({ close: () => undefined }),
   };
+  const importer = path.join(root, "src", "main.ts");
   const sentinelOf = async (parent?: string) => {
     const bridge = openHostWatchBridge(root, quiet, parent);
-    const sentinel = bridge.register(path.join(root, "src", "main.ts"), [
+    const sentinel = bridge.register(importer, [
       { file: path.join(root, "src") },
     ]);
     assert.ok(sentinel !== undefined, "a registered importer has a sentinel");
-    const directory = path.dirname(sentinel);
     assert.ok(fs.existsSync(sentinel));
     await bridge.close();
-    assert.equal(fs.existsSync(directory), false, "closing removes it");
-    return directory;
+    assert.ok(fs.existsSync(sentinel), "closing leaves the sentinel");
+    return sentinel;
   };
 
-  const named = new RegExp(`^ttsc-watch-bridge-${process.pid}-`);
   const defaulted = await sentinelOf();
-  assert.equal(path.dirname(defaulted), tool, "below the project's .ttsc");
-  assert.match(path.basename(defaulted), named);
+  assert.equal(
+    path.dirname(defaulted),
+    path.join(tool, "watch-bridge"),
+    "below the project's .ttsc, under one name for every session",
+  );
   const placed = await sentinelOf(explicit);
-  assert.equal(path.dirname(placed), explicit);
-  assert.match(path.basename(placed), named);
+  assert.equal(path.dirname(placed), path.join(explicit, "watch-bridge"));
+
+  const before = fs.statSync(defaulted, { bigint: true });
+  const content = fs.readFileSync(defaulted, "utf8");
+  const again = openHostWatchBridge(root, quiet);
+  assert.equal(
+    again.register(importer, [{ file: path.join(root, "src") }]),
+    defaulted,
+  );
+  const after = fs.statSync(defaulted, { bigint: true });
+  assert.equal(after.mtimeNs, before.mtimeNs, "a registration writes nothing");
+  assert.equal(fs.readFileSync(defaulted, "utf8"), content);
+  await again.close();
 
   const exited = spawnSync(process.execPath, ["-e", ""]).pid;
   assert.ok(exited !== undefined);

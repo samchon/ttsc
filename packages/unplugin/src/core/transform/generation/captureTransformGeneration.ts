@@ -451,31 +451,6 @@ export async function captureTransformGeneration(props: {
     cached.externalInputObservations = externalInputSnapshot.observations;
     cached.externalInputRealpaths = externalInputSnapshot.realpaths;
     cached.externalInputSignatures = externalInputSnapshot.signatures;
-    // Publish only a compile whose snapshot held for the whole compile, so the
-    // state it is published under is the state it read. A compile that ended
-    // in diagnostics is such a compile: the diagnostics are a function of the
-    // state, and a pool whose host discards a worker after each failed run,
-    // as Turbopack does, would otherwise compile the same broken state once
-    // per fresh worker and per module, which on a slow machine outlasted the
-    // host's own patience (samchon/ttsc#1458). An exception stays local: it
-    // may come from a transient plugin crash, which each worker must be free
-    // to attempt again, as without sharing. The external inputs a plugin
-    // reports carry no compile-time proof, only the state recorded right after
-    // the compile, so that state travels with the publication for every
-    // adopter to match (samchon/ttsc#1390). Releasing the lock without
-    // publishing lets the next waiter compile.
-    if (sharedClaim !== undefined) {
-      if (walkStable && result.type !== "exception") {
-        await sharedClaim.publish({
-          externalInputHashes: externalInputSnapshot.hashes,
-          externalInputRealpaths: externalInputSnapshot.realpaths,
-          result,
-          scratchDirectory,
-          ...(temporaryTsconfig === undefined ? {} : { temporaryTsconfig }),
-        });
-      }
-      sharedClaim.release();
-    }
     // An adopted compile holds only while every external input still has the
     // state its publisher recorded after compiling. Recording this worker's
     // own reading instead would claim the compile saw inputs it never read.
@@ -545,6 +520,39 @@ export async function captureTransformGeneration(props: {
       externalInputSnapshot.complete &&
       adoptionFailure === undefined &&
       universalInputs;
+    // Publish only a compile that is reusable as captured, so the state it is
+    // published under is the state it read and proved: for a success, the
+    // whole reusable snapshot, the graph's own proofs among them, since an
+    // envelope whose graph proof already failed here fails it in every adopter
+    // too, and a pool then compiles nothing else until its attempts run out;
+    // for a compile that ended in diagnostics, a project that held still, as
+    // the diagnostics are a function of the state, and a pool whose host
+    // discards a worker after each failed run, as Turbopack does, would
+    // otherwise compile the same broken state once per fresh worker and per
+    // module, which on a slow machine outlasted the host's own patience
+    // (samchon/ttsc#1458). An exception stays local: it may come from a
+    // transient plugin crash, which each worker must be free to attempt again,
+    // as without sharing. The external inputs a plugin reports carry no
+    // compile-time proof, only the state recorded right after the compile, so
+    // that state travels with the publication for every adopter to match
+    // (samchon/ttsc#1390). Releasing the lock without publishing lets the next
+    // waiter compile.
+    if (sharedClaim !== undefined) {
+      if (
+        result.type === "success"
+          ? stableProjectSnapshot
+          : result.type === "failure" && walkStable
+      ) {
+        await sharedClaim.publish({
+          externalInputHashes: externalInputSnapshot.hashes,
+          externalInputRealpaths: externalInputSnapshot.realpaths,
+          result,
+          scratchDirectory,
+          ...(temporaryTsconfig === undefined ? {} : { temporaryTsconfig }),
+        });
+      }
+      sharedClaim.release();
+    }
     if (!stableProjectSnapshot) {
       TRANSFORM_GENERATION_FAILURES.set(result, failures);
       TRANSFORM_FAILED_GENERATION_VALIDATIONS.set(result, {

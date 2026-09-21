@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { hostToolDirectory } from "../bridge/hostToolDirectory";
+import { refreshMembershipDigestFiles } from "../bridge/refreshMembershipDigestFiles";
 import type { TtscUnpluginOptions } from "../options/TtscUnpluginOptions";
 import { TYPESCRIPT_TURBOPACK_RULE_GLOBS } from "../source/TYPESCRIPT_TURBOPACK_RULE_GLOBS";
 import { openTtscTransformSession } from "../transform/session/openTtscTransformSession";
@@ -54,6 +56,10 @@ export function next(
   // read, so they inherit the session and compile each generation once
   // between them (samchon/ttsc#1390).
   openTtscTransformSession();
+  // Before either compiler validates a module against the cache below
+  // `.next`: a root file that appeared while nothing ran is heard through the
+  // project's membership record, which only a walk here can move.
+  refreshMembershipDigestFiles(hostToolDirectory(process.cwd()));
   return {
     ...nextConfig,
     turbopack: withTtscTurbopackRules(

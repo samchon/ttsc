@@ -10,6 +10,7 @@ import type { TtscWatchInput } from "./TtscWatchInput";
 import type { TtscWatchSelection } from "./TtscWatchSelection";
 import { handWatchInputs } from "./handWatchInputs";
 import { projectMembershipInput } from "./projectMembershipInput";
+import { projectMembershipRecordInput } from "./projectMembershipRecordInput";
 import { selectionInputs } from "./selectionInputs";
 
 /**
@@ -94,6 +95,8 @@ export function notifyFailedGenerationInputs(
   const membership =
     hooks?.membership === true ? projectMembershipInput(cached) : undefined;
   if (membership !== undefined) inputs.push(membership);
+  const record = projectMembershipRecordInput(hooks, cached);
+  if (record !== undefined) inputs.push(record);
   inputs.push(
     ...selectionInputs(selection.consulted, selection.filesystem, spell),
   );

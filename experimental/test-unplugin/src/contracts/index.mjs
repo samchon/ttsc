@@ -58,7 +58,10 @@ for (const host of selected.length ? selected : Object.keys(hosts)) {
         cwd: workspace,
         stdio: "inherit",
         env: process.env,
-        timeout: 900_000,
+        // The scenario matrix on two roots with two plugins, the restart
+        // contract, and the predicate matrix; Next's webpack stores its cache
+        // a minute after a rebuild, once per restart.
+        timeout: 1_800_000,
         windowsHide: true,
       },
     );

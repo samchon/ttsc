@@ -62,15 +62,20 @@ export async function test_watch_bridge_repeats_a_signal_until_the_module_runs_a
   const signalled = immediate.register(importer, stale)!;
   assert.notEqual(
     fs.readFileSync(signalled, "utf8"),
-    "0",
+    `${process.pid}:0`,
     "a bridge that does not confirm signals at once",
   );
   await immediate.close();
 
+  // The sentinel outlives the bridge, so the confirming bridge registers over
+  // the bytes the immediate one left.
   const confirming = openHostWatchBridge(root, quiet, cache, true);
   const sentinel = confirming.register(importer, stale)!;
+  assert.equal(sentinel, signalled);
   const contents = () => fs.readFileSync(sentinel, "utf8");
-  assert.equal(contents(), "0", "the first rewrite waits");
+  const initial = contents();
+  await wait(20);
+  assert.equal(contents(), initial, "the first rewrite waits");
   await wait(150);
   const first = contents();
   assert.notEqual(first, "0", "the first rewrite lands");
@@ -94,16 +99,13 @@ export async function test_watch_bridge_repeats_a_signal_until_the_module_runs_a
     "a registration that read the current state stops the rewrites",
   );
 
-  confirming.register(path.join(root, "src", "other.ts"), stale);
-  const directory = path.dirname(sentinel);
+  const other = confirming.register(path.join(root, "src", "other.ts"), stale)!;
+  const owed = fs.readFileSync(other, "utf8");
   await confirming.close();
   await wait(400);
-  assert.equal(fs.existsSync(directory), false);
-  assert.deepEqual(
-    fs
-      .readdirSync(cache)
-      .filter((name) => name.startsWith(`ttsc-watch-bridge-${process.pid}-`)),
-    [],
+  assert.equal(
+    fs.readFileSync(other, "utf8"),
+    owed,
     "a closed bridge writes no owed rewrite",
   );
 }

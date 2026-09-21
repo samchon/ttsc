@@ -177,9 +177,12 @@ export function turbopack(
                 );
               },
             }),
-          // Only a development session's bridge observes the root files; a
-          // one-shot build has no channel for them (samchon/ttsc#1419).
-          membership: bridgeStartedAt !== undefined,
+          // A development session's bridge observes the root files
+          // (samchon/ttsc#1419); a build, and a session restored from
+          // Turbopack's cache, hear them through the membership record
+          // (samchon/ttsc#1468).
+          membership: true,
+          toolDirectory,
         }),
     ...(cacheable === undefined
       ? {}

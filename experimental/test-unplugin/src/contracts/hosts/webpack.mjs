@@ -3,6 +3,7 @@ import path from "node:path";
 
 import {
   adapter,
+  cacheStoredSince,
   deadline,
   eventQueue,
   eventually,
@@ -83,15 +84,7 @@ export async function openSession(name, project, { cache = false } = {}) {
       watcher.invalidate();
       await settledOutput(events, `${name} unchanged rebuild`, value);
     },
-    stored: () =>
-      fs.existsSync(cacheDirectory) &&
-      fs.readdirSync(cacheDirectory, { recursive: true }).some((entry) => {
-        try {
-          return fs.statSync(path.join(cacheDirectory, entry)).isFile();
-        } catch {
-          return false;
-        }
-      }),
+    stored: (since) => cacheStoredSince(cacheDirectory, since),
     recompiled: (label, before) =>
       eventually(
         () => project.runs(),

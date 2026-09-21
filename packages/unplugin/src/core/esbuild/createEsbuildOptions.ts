@@ -4,7 +4,9 @@ import type { UnpluginOptions } from "unplugin";
 
 import { BRIDGED_WATCH_INPUT_KINDS } from "../bridge/BRIDGED_WATCH_INPUT_KINDS";
 import type { HostWatchBridge } from "../bridge/HostWatchBridge";
+import { hostToolDirectory } from "../bridge/hostToolDirectory";
 import { openHostWatchBridge } from "../bridge/openHostWatchBridge";
+import { refreshMembershipDigestFiles } from "../bridge/refreshMembershipDigestFiles";
 import { registerBuildWatchInputs } from "../bridge/registerBuildWatchInputs";
 import type { ResolvedTtscUnpluginOptions } from "../options/ResolvedTtscUnpluginOptions";
 import { typescriptTransformSourcePattern } from "../source/typescriptTransformSourcePattern";
@@ -60,6 +62,7 @@ export function createEsbuildOptions(
           }
           beginTtscTransformBuild(cache);
           passStartedAt = bridge?.begin();
+          refreshMembershipDigestFiles(hostToolDirectory(root));
         });
         build.onDispose(() => {
           if (!owners.delete(build)) return;
@@ -107,7 +110,11 @@ export function createEsbuildOptions(
                 options,
                 undefined,
                 cache,
-                { addWatchFiles: register, membership: true },
+                {
+                  addWatchFiles: register,
+                  membership: true,
+                  toolDirectory: hostToolDirectory(root),
+                },
               );
               contents =
                 result === undefined ? source : inlineSourceMap(result);

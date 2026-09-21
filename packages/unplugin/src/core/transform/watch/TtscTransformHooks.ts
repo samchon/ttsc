@@ -40,6 +40,15 @@ export interface TtscTransformHooks {
    */
   membership?: boolean;
   /**
+   * The host's tool directory (`hostToolDirectory`), where the bridge keeps its
+   * sentinels and the adapter its membership records. With `membership`, every
+   * delivery also hands the host the project's membership record file
+   * (`projectMembershipRecordInput`), the membership as a file the host's
+   * persistent cache can record (samchon/ttsc#1468). Absent, no record is
+   * written or handed.
+   */
+  toolDirectory?: string;
+  /**
    * Invoked when the plugin declared the transformed file volatile (the
    * envelope's `volatile` list): its output depends on non-file inputs that no
    * file-dependency snapshot can represent. Adapters should mark the module

@@ -21,8 +21,11 @@ import path from "node:path";
  *
  * The system temporary directory, the previous default, met none of the three
  * on Windows. `.ttsc` is ttsc's own project-local directory, already excluded
- * from project discovery, and everything the adapter writes there is named by
- * the owning process and removed when it exits or by the next bridge to start.
+ * from project discovery. What must outlive a process lives there under a
+ * stable name: the bridge's sentinels (`WATCH_BRIDGE_SENTINEL_DIRECTORY`) and
+ * the membership records (`MEMBERSHIP_DIGEST_DIRECTORY`), which a host's
+ * persistent cache records as dependencies. What must not is named by the
+ * owning process and removed when it exits or by the next bridge to start.
  */
 export function hostToolDirectory(root: string): string {
   return path.join(root, ".ttsc");

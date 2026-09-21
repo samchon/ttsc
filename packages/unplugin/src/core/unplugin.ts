@@ -7,8 +7,10 @@ import {
 
 import { BRIDGED_WATCH_INPUT_KINDS } from "./bridge/BRIDGED_WATCH_INPUT_KINDS";
 import type { HostWatchBridge } from "./bridge/HostWatchBridge";
+import { hostToolDirectory } from "./bridge/hostToolDirectory";
 import { hostWatchIgnores } from "./bridge/hostWatchIgnores";
 import { openHostWatchBridge } from "./bridge/openHostWatchBridge";
+import { refreshMembershipDigestFiles } from "./bridge/refreshMembershipDigestFiles";
 import { registerBuildWatchInputs } from "./bridge/registerBuildWatchInputs";
 import { createEsbuildOptions } from "./esbuild/createEsbuildOptions";
 import { isTransformTarget } from "./isTransformTarget";
@@ -359,6 +361,10 @@ const unpluginFactory: UnpluginFactory<
       } else {
         beginTtscTransformBuild(transformCache);
         passStartedAt = bridge?.begin();
+        // Before the host validates a module against its persistent cache:
+        // a root file that appeared while nothing ran is heard through the
+        // project's membership record, which only a walk here can move.
+        refreshMembershipDigestFiles(hostToolDirectory(process.cwd()));
       }
     },
 
@@ -485,8 +491,10 @@ const unpluginFactory: UnpluginFactory<
                 },
           // A watching session's bridge and the dev server's watcher observe
           // the project's root files as well; a one-shot build host skips
-          // them (samchon/ttsc#1419).
+          // them (samchon/ttsc#1419), and hears them through the membership
+          // record its persistent cache holds (samchon/ttsc#1468).
           membership: true,
+          toolDirectory: hostToolDirectory(process.cwd()),
           ...(native?.framework === "farm" && farmRoot !== undefined
             ? { spelling: farmRoot }
             : {}),

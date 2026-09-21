@@ -297,9 +297,9 @@ export function contractInput(value) {
 }
 
 /**
- * Write a file below `root`, leaving one that already holds `contents` alone:
- * a session opened again over a persistent cache writes its host's files
- * again, and a write of the same bytes must not move their timestamps.
+ * Write a file below `root`, leaving one that already holds `contents` alone: a
+ * session opened again over a persistent cache writes its host's files again,
+ * and a write of the same bytes must not move their timestamps.
  */
 export function write(root, file, contents) {
   const target = path.join(root, file);
@@ -433,8 +433,9 @@ export function landLateRace(root, source) {
  */
 export function writeRaceLoader(root) {
   const loader = path.join(root, "race-loader.cjs");
-  fs.writeFileSync(
-    loader,
+  write(
+    root,
+    "race-loader.cjs",
     [
       'const fs = require("node:fs");',
       'const path = require("node:path");',
@@ -550,8 +551,9 @@ export function stripTypes(code) {
  */
 export function writeStripLoader(root) {
   const loader = path.join(root, "strip-loader.cjs");
-  fs.writeFileSync(
-    loader,
+  write(
+    root,
+    "strip-loader.cjs",
     [
       'const { stripTypeScriptTypes } = require("node:module");',
       "module.exports = function stripLoader(source) {",
@@ -577,4 +579,30 @@ export async function warmLinkedPlugin() {
     api.resolveOptions(project.options),
   );
   assert.equal(project.runs(), 1, "the linked plugin compiles");
+}
+
+/**
+ * Whether a host stored its persistent cache below `directory` since `since`: a
+ * completed cache file, not one still being written under the trailing
+ * underscore webpack gives a pack in progress, modified at or after that time.
+ * A host that stores on an idle timeout, as Next's webpack does, is asked until
+ * it has.
+ */
+export function cacheStoredSince(directory, since, within = () => true) {
+  let entries;
+  try {
+    entries = fs.readdirSync(directory, { recursive: true });
+  } catch {
+    return false;
+  }
+  return entries.some((entry) => {
+    const name = String(entry);
+    if (name.endsWith("_") || !within(name)) return false;
+    try {
+      const stats = fs.statSync(path.join(directory, name));
+      return stats.isFile() && stats.mtimeMs >= since;
+    } catch {
+      return false;
+    }
+  });
 }

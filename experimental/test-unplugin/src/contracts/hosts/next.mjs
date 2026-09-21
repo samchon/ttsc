@@ -6,6 +6,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 
 import {
+  cacheStoredSince,
   deadline,
   eventually,
   workspace,
@@ -224,22 +225,13 @@ export async function openSession(bundler, project) {
         describe(label),
       ),
     // Next stores both compilers' persistent caches below a `cache`
-    // directory of its output: webpack's filesystem cache, and Turbopack's
-    // file-system cache for development, which Next enables by default. A
-    // development session's output lives under `.next/dev` since Next 16.
-    stored: () => {
-      const output = path.join(project.physical, ".next");
-      if (!fs.existsSync(output)) return false;
-      return fs.readdirSync(output, { recursive: true }).some((entry) => {
-        const segments = String(entry).split(/[/\\]/);
-        if (!segments.includes("cache")) return false;
-        try {
-          return fs.statSync(path.join(output, entry)).isFile();
-        } catch {
-          return false;
-        }
-      });
-    },
+    // directory of its output, `.next/dev` for a development session since
+    // Next 16: webpack's filesystem cache, on webpack's idle timeout, and
+    // Turbopack's file-system cache for development, on by default.
+    stored: (since) =>
+      cacheStoredSince(path.join(project.physical, ".next"), since, (name) =>
+        name.split(/[/\\]/).includes("cache"),
+      ),
     close,
   };
 }

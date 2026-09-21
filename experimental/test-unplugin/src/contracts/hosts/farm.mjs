@@ -4,6 +4,7 @@ import path from "node:path";
 
 import {
   adapter,
+  cacheStoredSince,
   eventually,
   expectOutput,
   landLateRace,
@@ -208,15 +209,7 @@ export async function openSession(project, { cache = false } = {}) {
         (runs) => runs > before,
         `farm ${label}`,
       ),
-    stored: () =>
-      fs.existsSync(cacheDir) &&
-      fs.readdirSync(cacheDir, { recursive: true }).some((entry) => {
-        try {
-          return fs.statSync(path.join(cacheDir, entry)).isFile();
-        } catch {
-          return false;
-        }
-      }),
+    stored: (since) => cacheStoredSince(cacheDir, since),
     // Farm's Compiler API has no close/dispose method; the process owns it.
     close: () => undefined,
   };

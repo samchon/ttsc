@@ -7,10 +7,12 @@ import { WATCH_BRIDGE_DIRECTORY_PREFIX } from "./WATCH_BRIDGE_DIRECTORY_PREFIX";
  * Remove the sentinel directories below `parent` whose owning process no longer
  * exists.
  *
- * A bridge removes its own directory when it closes or its process exits, but a
- * killed process does neither. Only a directory named with a process id that
- * the operating system reports as gone (`ESRCH`) is removed: a live owner, one
- * this process may not signal, and a name without an id are left alone.
+ * A process removes its own directory when it exits, the Turbopack marker's and
+ * the broker's probes' among them, but a killed process does not. The bridge's
+ * sentinels live beside these under a stable name and are never swept. Only a
+ * directory named with a process id that the operating system reports as gone
+ * (`ESRCH`) is removed: a live owner, one this process may not signal, and a
+ * name without an id are left alone.
  *
  * @param parent The directory the bridge is about to create its own in.
  */

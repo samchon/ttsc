@@ -6,7 +6,7 @@ import type { ViteModuleNodeLike } from "../vite/ViteModuleNodeLike";
 import type { ViteServeWatchOperations } from "../vite/ViteServeWatchOperations";
 import { createViteServeInputWatch } from "../vite/createViteServeInputWatch";
 import type { HostWatchBridge } from "./HostWatchBridge";
-import { WATCH_BRIDGE_DIRECTORY_PREFIX } from "./WATCH_BRIDGE_DIRECTORY_PREFIX";
+import { WATCH_BRIDGE_SENTINEL_DIRECTORY } from "./WATCH_BRIDGE_SENTINEL_DIRECTORY";
 import { hostToolDirectory } from "./hostToolDirectory";
 import { sweepAbandonedWatchBridges } from "./sweepAbandonedWatchBridges";
 
@@ -25,9 +25,14 @@ import { sweepAbandonedWatchBridges } from "./sweepAbandonedWatchBridges";
  *
  * The observer is reused through its structural server view: each importer is
  * its own module node, and invalidating that node rewrites the importer's
- * sentinel. Sentinels live in an owned directory the host must be able to
- * watch, named after this process so a later bridge can remove it if this
- * process dies without cleaning up.
+ * sentinel. Sentinels live in one directory below the host's tool directory,
+ * shared by every process and every session on the project, and they stay: a
+ * host with a persistent cache records each module's sentinel as a dependency,
+ * and a sentinel that survived the session lets the host restore the module
+ * from its cache on the next start instead of running it again
+ * (samchon/ttsc#1468). A session that dies leaves nothing to remove. Two live
+ * processes on one project share the files, and a rewrite by either signals
+ * both, which is at most one rebuild the other did not need.
  *
  * @param root The directory whose pinned scope observes the project.
  * @param operations Native watch seams, replaceable for tests.
@@ -59,33 +64,23 @@ export function openHostWatchBridge(
 ): HostWatchBridge {
   const watch = createViteServeInputWatch(operations);
   const nodes = new Map<string, ViteModuleNodeLike & { file: string }>();
-  let directory: string | undefined;
+  const directory = path.join(sentinelParent, WATCH_BRIDGE_SENTINEL_DIRECTORY);
+  let prepared = false;
   let generation = 0;
-  // Farm's dev server exposes no teardown hook, so the sentinel directory is
-  // also removed when the process exits.
-  const removeDirectory = (): void => {
-    if (directory === undefined) return;
-    fs.rmSync(directory, { force: true, recursive: true });
-    directory = undefined;
-  };
   const sentinelOf = (importer: string): string => {
-    if (directory === undefined) {
-      fs.mkdirSync(sentinelParent, { recursive: true });
+    if (!prepared) {
+      fs.mkdirSync(directory, { recursive: true });
       sweepAbandonedWatchBridges(sentinelParent);
-      directory = fs.mkdtempSync(
-        path.join(
-          sentinelParent,
-          `${WATCH_BRIDGE_DIRECTORY_PREFIX}${process.pid}-`,
-        ),
-      );
-      process.once("exit", removeDirectory);
+      prepared = true;
     }
     return path.join(directory, `${nameOf(importer)}.signal`);
   };
+  // Every rewrite lands bytes no earlier write of any process left, so a host
+  // comparing content hears it as a host comparing timestamps does.
   const writeSentinel = (importer: string): void => {
     generation += 1;
     try {
-      fs.writeFileSync(sentinelOf(importer), String(generation));
+      fs.writeFileSync(sentinelOf(importer), `${process.pid}:${generation}`);
     } catch {
       // A sentinel that cannot be written signals nothing. The host's next
       // pass still re-proves the generation against the filesystem.
@@ -146,8 +141,6 @@ export function openHostWatchBridge(
       owed.clear();
       await watch.dispose();
       nodes.clear();
-      process.off("exit", removeDirectory);
-      removeDirectory();
     },
     owes: (importer) => owed.has(path.resolve(importer)),
     register(importer, inputs, failed, startedAt) {
@@ -159,8 +152,12 @@ export function openHostWatchBridge(
       watch.replace(importer, inputs, failed, startedAt);
       // A failed delivery keeps the importer's earlier inputs observed.
       if (inputs.length === 0 && failed !== true) return undefined;
+      // A sentinel an earlier session left is left as it is: a host restoring
+      // the importer from its persistent cache then finds the dependency it
+      // recorded unchanged, and only a signal ever rewrites it.
       const sentinel = sentinelOf(importer);
-      if (!fs.existsSync(sentinel)) fs.writeFileSync(sentinel, "0");
+      if (!fs.existsSync(sentinel))
+        fs.writeFileSync(sentinel, `${process.pid}:0`);
       return sentinel;
     },
   };

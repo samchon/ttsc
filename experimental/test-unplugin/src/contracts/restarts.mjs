@@ -122,8 +122,13 @@ export const RESTART_STEPS = [
  *
  * @param project The fixture, on its first value.
  * @param host The host, one `restart-cycle.mjs` knows.
+ * @param options.essential Whether to run only the essential steps.
  */
-export async function restartContract(project, host) {
+export async function restartContract(
+  project,
+  host,
+  { essential = false } = {},
+) {
   const cycle = async (label, expectation) => {
     try {
       await promisify(execFile)(
@@ -152,6 +157,7 @@ export async function restartContract(project, host) {
   };
   await cycle("first session", { kind: "settled", value: "FIRST" });
   for (const step of RESTART_STEPS) {
+    if (essential && step.essential !== true) continue;
     step.edit(project);
     await cycle(step.name, step.expect);
   }

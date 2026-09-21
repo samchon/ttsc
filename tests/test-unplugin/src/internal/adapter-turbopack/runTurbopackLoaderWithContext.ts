@@ -85,7 +85,7 @@ export async function runTurbopackLoaderWithContext(props: {
         assert.equal(this, context, "addDependency lost its context binding");
         const sentinel =
           file.endsWith(".signal") &&
-          path.basename(path.dirname(file)).startsWith("ttsc-watch-bridge-");
+          path.basename(path.dirname(file)) === "watch-bridge";
         (sentinel ? sentinels : dependencies).push(file);
       };
     }
