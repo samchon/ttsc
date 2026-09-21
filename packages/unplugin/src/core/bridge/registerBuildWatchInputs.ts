@@ -68,6 +68,10 @@ import type { HostWatchBridge } from "./HostWatchBridge";
  * ancestors (samchon/ttsc#1411), and the build hosts' channels now follow the
  * same rule: the input goes to the bridge, which polls it, and never to the
  * host.
+ *
+ * Its place in the adapter's invalidation model, and the units beside it, are
+ * mapped in the maintainer page
+ * `website/src/content/docs/development/reference/unplugin-invalidation.mdx`.
  */
 export function registerBuildWatchInputs(props: {
   /** The host's own file channel. */

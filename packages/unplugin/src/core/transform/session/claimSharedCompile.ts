@@ -44,6 +44,10 @@ const KEPT_PUBLICATIONS = 4;
  * @param identity Hex digest of what the compile is.
  * @param state Hex digest of the project state it reads.
  * @param options.adopt Whether an existing publication may be adopted.
+ *
+ *   Its place in the adapter's invalidation model, and the units beside it, are
+ *   mapped in the maintainer page
+ *   `website/src/content/docs/development/reference/unplugin-invalidation.mdx`.
  */
 export async function claimSharedCompile(
   store: string,

@@ -46,6 +46,10 @@ import { sweepAbandonedWatchBridges } from "./sweepAbandonedWatchBridges";
  *   host that compares timestamps, as webpack does, or that watches the
  *   sentinel from before the rewrite hears the first one, and a second would
  *   only rebuild again.
+ *
+ *   Its place in the adapter's invalidation model, and the units beside it, are
+ *   mapped in the maintainer page
+ *   `website/src/content/docs/development/reference/unplugin-invalidation.mdx`.
  */
 export function openHostWatchBridge(
   root: string,

@@ -1,0 +1,73 @@
+# Internals: Unplugin Invalidation
+
+This page is for maintainers of `@ttsc/unplugin`. It maps the adapter's invalidation model onto the source under `packages/unplugin/src/core`, so a change to one unit can be placed before it is made. What the model guarantees to a bundler user is in the [setup guide](/docs/setup/unplugin#cache-and-watch-invalidation); this page says where each guarantee lives and which unit owns each decision.
+
+## The one rule
+
+Only the compiler's verdict on the project as it is on disk may be served. Everything below exists to answer one question per module delivery, `transform/transformTtsc.ts`: is the generation the cache holds still that verdict, and if not, which inputs must the host hear about so it asks again.
+
+Four principles decide every case, and each names its owner:
+
+| Principle | Owner |
+| --- | --- |
+| A. A path is compared by filesystem identity, never by spelling; a host is handed one spelling per project. | `transform/filesystem/*` (`pathIdentityKey`, `relativeToProject`), `transform/envelope/hostSpelling.ts`, `watch/handWatchInputs.ts` |
+| B. A watcher's silence proves nothing until one delivery has proven the recorded state by reading it. | `transform/tracker/*`, `validation/notificationsProveProgramUnchanged.ts`, `transform/tracker/broker/*` |
+| C. A signal to a host is owed until a registration whose delivery read the post-signal state answers it. | `bridge/openHostWatchBridge.ts`, `vite/createViteServeInputWatch.ts` (`replace`) |
+| D. A generation is served only while every input it recorded is provably unchanged, or replaced. | `validation/matchesCachedSource.ts` and the three paths below |
+
+## Objects
+
+- **Generation**, `cache/TtscCachedProjectTransform.ts`: one whole-project compile and everything recorded around it: the envelope (`result`), the project walk (`inputHashes`, `inputSignatures`, `projectDirectories`, `membershipPolicy`), the out-of-walk inputs (`externalInput*`), the universal host inputs (`hostInputValidation`), the trackers, and the pass it was settled for (`deliveryEpoch`).
+- **Cache**, `cache/TtscTransformCache.ts`: one entry per project key, holding the in-flight or settled generation `Promise`. `cache/sharedBuildTransformCache.ts` gives every plugin instance of one process with the same options the same cache; `cache/createTtscTransformCache.ts` gives a long-lived worker its own.
+- **Pass**, `cache/beginTtscTransformBuild.ts`, `cache/transformCacheEpoch.ts`: a host build boundary. It never discards a generation; it lets the pass's first delivery prove the generation once and every later module's first delivery be settled by its source alone. A host without a boundary (the Turbopack loader, Metro, a watching Vite server) delivers with `epoch === undefined` and validates persistently.
+- **Session**, `session/*`: the pooled hosts' shared compile store (`TTSC_UNPLUGIN_TRANSFORM_SESSION`). `claimSharedCompile.ts` keys a compile by identity and project state and publishes a success or a diagnostics failure, never an exception.
+- **Bridge**, `bridge/openHostWatchBridge.ts`: the adapter-owned observer for inputs a host channel cannot observe precisely (`bridge/BRIDGED_WATCH_INPUT_KINDS.ts`). It signals the host by rewriting one sentinel per importer under `<root>/.ttsc`, and `owes(importer)` until the importer registers again with a delivery that read the post-signal state.
+- **Trackers**, `transform/tracker/*`: the notification observers a generation retains: the project walk's directories (`createProjectMutationTracker.ts`), the out-of-walk inputs and, as a second instance, the absent resolution candidates (`createHostInputMutationTracker.ts`). Windows and macOS watches live in the broker child (`tracker/broker/watchBrokerSource.ts`), Linux watches in ttsc's platform helper.
+
+## A delivery
+
+`transform/transformTtsc.ts`, one loop iteration per attempt:
+
+1. Read the pass (`transformCacheEpoch`) and the cached generation.
+2. A **terminal** generation (`cache/TERMINAL_TRANSFORM_GENERATIONS.ts`) is replayed or evicted by `cache/replaysTerminalGeneration.ts`: a pass verdict (`errors/TtscPassVerdictError.ts`) only inside the pass that produced it; an unstable generation (`errors/TtscUnstableGenerationError.ts`) until `generation/failedGenerationEnvironmentChanged.ts` sees its recorded environment move.
+3. A cached generation is awaited (`cache/awaitOrEvict.ts`), settled against pending notifications when there is no pass (`settleProjectMutationEvents`), and validated by `validation/matchesCachedSource.ts`. Valid: its output is selected (`cache/selectOrEvict.ts` over `envelope/selectTransformedSource.ts`) and its inputs registered (`watch/notifyWatchInputs.ts`). Invalid: evicted (`cache/evictGeneration.ts`), and the loop retries with whatever another caller installed meanwhile.
+4. No generation: `generation/transformProject.ts` captures one, with bounded retries for a project that moved under the compile.
+5. A failed envelope: `selectOrEvict` retains it as the pass verdict or evicts it, and `watch/notifyFailedGenerationInputs.ts` registers the recovery inputs before the error reaches the host.
+
+## Capture
+
+`generation/captureTransformGeneration.ts`, in order: the configuration state (`tsconfig/readTransformTsconfigState.ts`), the walk before the compile (`project/collectProjectInputSnapshot.ts`, `project/walkProjectInputs.ts`), the project tracker opened before the compile, the session claim (adopt a publication of this exact state, or take the lock), the compile on a worker thread (`ttsc`'s `transformAsync`), the walk after, the external-input snapshot (`validation/captureExternalInputSnapshot.ts`), the universal host-input capture (`validation/captureUniversalHostInputValidation.ts`), the graph proofs (`validation/compilerGraphInputProofFailures.ts`), and the stability verdict.
+
+Stability, `generation/projectWalkStable.ts`: the project held still only when the configuration did, both walks are complete for the declared inputs, those inputs kept content and metadata, every directory that can hold a program input kept its membership, and the tracker opened before the compile saw nothing. Only that tracker decides; the host-input and candidate trackers open after the compile. An unstable success is retried; a second failure becomes the terminal unstable verdict. A failed compile needs no proven snapshot, only a project that held still (`projectHeldStill`).
+
+The **declared inputs**, `envelope/selectDeclaredProjectInputKeys.ts`: the graph's edges, globals, configs, resolution inputs and candidates, the host inputs, and the plugin-reported dependencies, intersected with the walk. Validation compares hashes over that set alone; membership is compared over every directory that can hold a program input (`validation/sameProjectDirectories.ts`, signature of the walk's admitted entries). An envelope without a graph declares no set and keeps whole-walk comparison.
+
+## Validation paths
+
+`validation/matchesCachedSource.ts` orders them:
+
+1. **Source**: the delivered text against the generation's recorded hash of that file; a text that differs while the disk still holds the compiled bytes is reported once (`diagnostics/reportDivergentDelivery.ts`) and served.
+2. **Pass proof**: the pass's first delivery proves the whole generation once by the complete snapshot; later first deliveries of other modules in the pass are settled by source alone.
+3. **Notifications**: `validation/notificationsProveProgramUnchanged.ts`, the retained trackers' silence, trusted only while `contentAuthoritative` holds, which every tracker withdraws until one delivery has proven the recorded state by reading it (`validation/restrictNotificationCoverageToProvenInputs.ts`).
+4. **Narrow**: `validation/matchesNarrowPersistentInputs.ts`, a graph-bearing generation validated over the inputs that can affect the delivered file, with membership proven once per event-loop turn. Unavailable proof falls through; evidence of a change returns false.
+5. **Complete**: `validation/matchesCompleteInputSnapshot.ts`, the universal host inputs by identity, the walk by declared hashes and directory membership, and the out-of-walk inputs by their recorded state.
+
+Signatures, `clock/*` and `inputs/inputMetadataEvidence.ts`: an input whose nanosecond metadata signature still equals the one captured around the read that proved it is not read again, once the filesystem's own clock has provably left the stamp's tick (`clock/stampSeparable.ts`, the retained probe outside the project).
+
+## Registration
+
+Every delivery hands the host the inputs it must hear about, spelled as the host spells the project (`envelope/hostSpelling.ts`), and `watch/handWatchInputs.ts` hands each spelling once. The invariant it keeps: an evidenced registration is never lost to a plain spelling of the same path, and the project's membership input wins over any other registration of the root. A graph lists the project root itself as a resolution input, so without that rule a failed generation's registration dropped the membership and a root file appearing was never heard (the host matrix's Next sessions on a recreated input).
+
+- Success: `watch/notifyWatchInputs.ts` over `envelope/selectWatchInputs.ts` (`deriveWatchInputs.ts`): the plugin-reported dependencies, the reference closure, globals, configs, resolution inputs and candidates, each with its recorded evidence, plus the membership input (`watch/projectMembershipInput.ts`) and the config selection (`watch/selectionInputs.ts`). A file listed in `dependenciesComplete` narrows to its reported list and the configs.
+- Failure: `watch/notifyFailedGenerationInputs.ts`: the walk's files, the retained external inputs, files named by diagnostics, the membership, and the selection, with no evidence: the adapter observes each for the repair.
+- Rejection (a terminal verdict): `watch/notifyRejectedGenerationInputs.ts`.
+
+`bridge/registerBuildWatchInputs.ts` routes each input by `watch/classifyWatchInput.ts` to the host's channel (file, missing, listing) or to the bridge for the kinds the host cannot observe; the membership goes only to a bridge. `vite/createViteServeInputWatch.ts` is the dev server's equivalent and the bridge's engine: `replace(importer, inputs, failed, startedAt)` re-checks each input against changes since `startedAt` and signals again at once when the delivery read a state already gone; a failed registration keeps the importer's earlier inputs observed.
+
+## Session
+
+`session/claimSharedCompile.ts`: identity (project, options, plugins) plus state (`session/sharedCompileState.ts`: the walk's directories and hashes and the tsconfig signature) name a publication. The first worker takes the lock; the others adopt what it publishes, then prove the adopted envelope against their own disk (`adoptedExternalInputMismatch`). A compile that ended in diagnostics is published like a success; an exception is not, since each worker must be free to retry it.
+
+## Where the host matrix measures this
+
+`experimental/test-unplugin/src/contracts` drives every host through the scenarios in `scenarios.mjs` with two plugins, one whose envelope carries no graph and one whose compile runs the program, and the restart contract in `restarts.mjs` over each host's persistent cache. A failure there names the host, the root spelling, the plugin, and the scenario; find its principle above, then its owner.

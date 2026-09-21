@@ -59,6 +59,10 @@ import { notifyWatchInputs } from "./watch/notifyWatchInputs";
  * @param hooks - Optional adapter callbacks; see {@link TtscTransformHooks}.
  *   Dependency notifications fire on cache hits too; watch registrations are
  *   per build, not per compilation.
+ *
+ *   Its place in the adapter's invalidation model, and the units beside it, are
+ *   mapped in the maintainer page
+ *   `website/src/content/docs/development/reference/unplugin-invalidation.mdx`.
  */
 export async function transformTtsc(
   id: string,

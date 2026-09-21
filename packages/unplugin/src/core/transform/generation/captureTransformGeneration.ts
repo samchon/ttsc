@@ -55,7 +55,12 @@ import { selectPersistentHostInputs } from "./selectPersistentHostInputs";
 
 const TTSC_SEMANTIC_CONFIG_PATH = "TTSC_SEMANTIC_CONFIG_PATH";
 
-/** Capture one whole-project transform attempt and all of its reuse proofs. */
+/**
+ * Capture one whole-project transform attempt and all of its reuse proofs. *
+ * Its place in the adapter's invalidation model, and the units beside it, are
+ * mapped in the maintainer page
+ * `website/src/content/docs/development/reference/unplugin-invalidation.mdx`.
+ */
 export async function captureTransformGeneration(props: {
   aliasPaths: Record<string, string[]>;
   compilerOptions: Record<string, unknown>;
