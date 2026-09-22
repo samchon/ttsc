@@ -1,3 +1,7 @@
+import {
+  PROJECT_RECORD_DIRECTORY,
+  hostToolDirectory,
+} from "@ttsc/unplugin/api";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -39,6 +43,7 @@ export async function openSession(name, project, { cache = false } = {}) {
     logged = `${logged}${parts.map(String).join(" ")}
 `.slice(-64_000);
   };
+  const records = () => recordStamps(project.root);
   const compiler = bundler({
     context: project.root,
     mode: "development",
@@ -47,11 +52,12 @@ export async function openSession(name, project, { cache = false } = {}) {
     ...(cache
       ? {
           cache: persistentCache(name, cacheDirectory),
-          // The host's own verdict on its cache, for a restart that compiled
-          // to name what its snapshot rejected (`output()`).
+          // What the host restored from its cache, for a restart that
+          // compiled to name (`output()`). The verdict on each module's
+          // snapshot is a compilation logger's, read from `stats` at `done`.
           infrastructureLogging: {
             level: "verbose",
-            debug: /webpack\.cache|FileSystemInfo|rspack\.cache/,
+            debug: /webpack\.cache|rspack\.cache/,
             console: {
               debug: log,
               error: log,
@@ -80,6 +86,30 @@ export async function openSession(name, project, { cache = false } = {}) {
             const waiting = starts;
             starts = [];
             for (const resolve of waiting) resolve();
+          });
+          // Each pass, with the project's records as the host saw them at its
+          // start and its end, and each change the host's watcher reported:
+          // a restart that compiled is explained by the pass the stored
+          // session ended on, which this names.
+          compiler.hooks.compile.tap("observe-pass", () => {
+            log(`pass started at ${Date.now()}; records ${records()}`);
+          });
+          compiler.hooks.invalid.tap("observe-pass", (file, changeTime) => {
+            log(`change reported at ${Date.now()}: ${file} (${changeTime})`);
+          });
+          compiler.hooks.done.tap("observe-pass", (stats) => {
+            log(
+              `pass ${stats.startTime}..${stats.endTime} done at ${Date.now()}; records ${records()}`,
+            );
+            // The snapshot verdicts of this pass: why a cached module was
+            // rebuilt, in the words of the host's `FileSystemInfo`.
+            log(
+              stats.toString({
+                all: false,
+                logging: "verbose",
+                loggingDebug: [/FileSystemInfo/],
+              }),
+            );
           });
         },
       },
@@ -182,4 +212,33 @@ function cacheCommitted(name, cacheDirectory, since) {
       committedAfter(path.join(cacheDirectory, store, "index.pack")),
     )
   );
+}
+
+/**
+ * Every project record below the project's tool directory with its modification
+ * time and size, as one line, so a pass's log says whether the record moved
+ * while the pass ran.
+ *
+ * A stamp, not the proof `recordStates` makes: this runs inside the host's own
+ * hooks, on every pass, where re-walking the project would cost the host what
+ * the contract is measuring.
+ */
+function recordStamps(root) {
+  const directory = path.join(
+    hostToolDirectory(root),
+    PROJECT_RECORD_DIRECTORY,
+  );
+  try {
+    return (
+      fs
+        .readdirSync(directory)
+        .map((entry) => {
+          const stats = fs.statSync(path.join(directory, entry));
+          return `${entry}@${Math.round(stats.mtimeMs)}:${stats.size}`;
+        })
+        .join(",") || "(none)"
+    );
+  } catch {
+    return "(none)";
+  }
 }

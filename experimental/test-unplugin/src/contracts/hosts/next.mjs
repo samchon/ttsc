@@ -8,6 +8,7 @@ import { promisify } from "node:util";
 import {
   deadline,
   eventually,
+  recordStates,
   workspace,
   write,
   writeRaceLoader,
@@ -44,14 +45,47 @@ export async function openSession(bundler, project) {
     project.root,
     "next.config.mjs",
     [
+      'import fs from "node:fs";',
+      'import path from "node:path";',
+      'import { PROJECT_RECORD_DIRECTORY, hostToolDirectory } from "@ttsc/unplugin/api";',
       'import withTtsc from "@ttsc/unplugin/next";',
+      // Every project record with its modification time and size, so a
+      // pass's log says whether the record moved while the pass ran. The
+      // adapter names where they live; the config composes the same path.
+      "const records = () => {",
+      `  const directory = path.join(hostToolDirectory(${JSON.stringify(project.root)}), PROJECT_RECORD_DIRECTORY);`,
+      "  try {",
+      "    return fs.readdirSync(directory).map((entry) => {",
+      "      const stats = fs.statSync(path.join(directory, entry));",
+      "      return `${entry}@${Math.round(stats.mtimeMs)}:${stats.size}`;",
+      '    }).join(",") || "(none)";',
+      "  } catch {",
+      '    return "(none)";',
+      "  }",
+      "};",
       "export default withTtsc({",
       "  devIndicators: false,",
       `  turbopack: { root: ${JSON.stringify(workspace)}, rules: ${JSON.stringify(rules)} },`,
       "  webpack(config) {",
-      // webpack's cache says why it restored or rebuilt each module, which a
-      // failure that expected a restore needs to name.
-      '    config.infrastructureLogging = { level: "verbose", debug: /webpack\\.cache|FileSystemInfo/ };',
+      // webpack's cache says what it restored, which a failure that expected
+      // a restore needs to name; the verdict on each module's snapshot is a
+      // compilation logger's, read from `stats` at `done`, with each pass of
+      // each compiler and the records as it saw them.
+      '    config.infrastructureLogging = { level: "verbose", debug: /webpack\\.cache/ };',
+      "    config.plugins.push({",
+      "      apply(compiler) {",
+      '        compiler.hooks.compile.tap("observe-pass", () => {',
+      "          process.stdout.write(`[${compiler.name}] pass started at ${Date.now()}; records ${records()}\\n`);",
+      "        });",
+      '        compiler.hooks.invalid.tap("observe-pass", (file, changeTime) => {',
+      "          process.stdout.write(`[${compiler.name}] change reported at ${Date.now()}: ${file} (${changeTime})\\n`);",
+      "        });",
+      '        compiler.hooks.done.tap("observe-pass", (stats) => {',
+      "          process.stdout.write(`[${compiler.name}] pass ${stats.startTime}..${stats.endTime} done at ${Date.now()}; records ${records()}\\n`);",
+      '          process.stdout.write(`${stats.toString({ all: false, logging: "verbose", loggingDebug: [/FileSystemInfo/] })}\\n`);',
+      "        });",
+      "      },",
+      "    });",
       `    config.module.rules.push({ test: /\\.ts$/, use: [{ loader: ${JSON.stringify(raceLoader)} }] });`,
       "    return config;",
       "  },",
@@ -243,33 +277,6 @@ export async function openSession(bundler, project) {
     output: () => output,
     close,
   };
-}
-
-/**
- * Each project record below the project's tool directory, with its signal and
- * how many inputs it names: one directory for every process, `records`.
- */
-function recordStates(root) {
-  const directory = path.join(root, ".ttsc", "records");
-  const states = {};
-  let files = [];
-  try {
-    files = fs.readdirSync(directory);
-  } catch {
-    return states;
-  }
-  for (const file of files) {
-    try {
-      const record = JSON.parse(
-        fs.readFileSync(path.join(directory, file), "utf8"),
-      );
-      states[file] =
-        `signal ${record.signal}, ${Object.keys(record.inputs).length} input(s)`;
-    } catch {
-      // Rewritten between the listing and the read.
-    }
-  }
-  return states;
 }
 
 /**

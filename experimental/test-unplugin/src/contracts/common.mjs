@@ -1,3 +1,9 @@
+import {
+  PROJECT_RECORD_DIRECTORY,
+  hostToolDirectory,
+  projectRecordMoved,
+  readProjectRecordFile,
+} from "@ttsc/unplugin/api";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import * as nodeModule from "node:module";
@@ -289,6 +295,60 @@ export function projectAt(
       }
     },
   };
+}
+
+/**
+ * Every project record below a project's tool directory, each as the adapter
+ * reads one: its signal, how many inputs it names, its modification time and
+ * size, and the proof a build start makes of it (`projectRecordMoved`), which
+ * names the tsconfig, input, or project root whose state left the record, or
+ * nothing.
+ *
+ * The record is the one thing the adapter hands a build host, so a host that
+ * did not converge is explained by this: a signal the record did not receive
+ * says the adapter's own observer never heard the edit, and one it did receive
+ * says the host did not act on the move. `projectRecordMoved` reads the disk
+ * and moves nothing, so asking is safe while a session runs.
+ *
+ * @param root The project root, whose tool directory holds the records.
+ */
+export function recordStates(root) {
+  const directory = path.join(
+    hostToolDirectory(root),
+    PROJECT_RECORD_DIRECTORY,
+  );
+  const states = {};
+  let files = [];
+  try {
+    files = fs.readdirSync(directory);
+  } catch {
+    return states;
+  }
+  for (const file of files) {
+    if (!file.endsWith(".json")) continue;
+    const full = path.join(directory, file);
+    const record = readProjectRecordFile(full);
+    if (record === undefined) {
+      states[file] = "not a record";
+      continue;
+    }
+    let moved;
+    try {
+      moved = projectRecordMoved(record);
+    } catch (error) {
+      moved = `proof failed: ${error.message}`;
+    }
+    let stamp = "gone";
+    try {
+      const stats = fs.statSync(full);
+      stamp = `${Math.round(stats.mtimeMs)}:${stats.size}`;
+    } catch {
+      // Rewritten between the read and the stat.
+    }
+    states[file] =
+      `signal ${record.signal}, ${Object.keys(record.inputs).length} input(s), at ${stamp}, moved: ${moved ?? "nothing"}`;
+  }
+  return states;
 }
 
 /** The source of a contract input carrying `value`. */

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { eventually, projectAt } from "./common.mjs";
+import { eventually, projectAt, recordStates } from "./common.mjs";
 import * as farm from "./hosts/farm.mjs";
 import * as next from "./hosts/next.mjs";
 import * as webpack from "./hosts/webpack.mjs";
@@ -74,6 +74,24 @@ function projectFiles() {
   return states;
 }
 
+/** The files that differ between two listings of the project. */
+function movedBetween(previous, current) {
+  return Object.keys({ ...previous, ...current }).filter(
+    (file) => previous[file] !== current[file],
+  );
+}
+
+/** What the host wrote, the lines that say what it did with its cache. */
+function cacheLines(output) {
+  return output
+    .split(/\r?\n/)
+    .filter((line) =>
+      /cache|snapshot|restor|invalid|pack|pass |change reported/i.test(line),
+    )
+    .slice(-160)
+    .join("\n");
+}
+
 // Beside the project, not below it: the compiler lists the project root, and
 // a directory appearing there is a change to the project's state, which the
 // next session would rightly compile for.
@@ -81,6 +99,29 @@ const recorded = path.join(
   path.dirname(root),
   `${path.basename(root)}-restart-files.json`,
 );
+// The host's log of the session that stored the cache, beside it: a restart
+// that compiled is explained by the pass that session ended on.
+const storedLog = path.join(
+  path.dirname(root),
+  `${path.basename(root)}-restart-host.log`,
+);
+let previous = {};
+try {
+  previous = JSON.parse(fs.readFileSync(recorded, "utf8"));
+} catch {
+  // No earlier session recorded its files.
+}
+let previousLog = "";
+try {
+  previousLog = fs.readFileSync(storedLog, "utf8");
+} catch {
+  // No earlier session recorded its host's log.
+}
+const atStart = projectFiles();
+// The records as the adapter reads them before this session starts: its own
+// start moves a record whose proof fails, and its deliveries rewrite one, so
+// only a reading taken first says what the stored session left behind.
+const recordsAtStart = recordStates(root);
 const before = project.runs();
 const openedAt = Date.now();
 const session = await sessions[host](project);
@@ -93,23 +134,15 @@ try {
   if (expectation.compiles !== undefined) {
     const compiled = project.runs() - before;
     if (compiled > expectation.compiles) {
-      let previous = {};
-      try {
-        previous = JSON.parse(fs.readFileSync(recorded, "utf8"));
-      } catch {
-        // No earlier session recorded its files.
-      }
-      const current = projectFiles();
-      const moved = Object.keys({ ...previous, ...current }).filter(
-        (file) => previous[file] !== current[file],
-      );
-      const log = (session.output?.() ?? "")
-        .split(/\r?\n/)
-        .filter((line) => /cache|snapshot|restor|invalid|pack/i.test(line))
-        .slice(-120)
-        .join("\n");
       assert.fail(
-        `a restart over an unchanged project serves every module from the cache: ${compiled} compile(s), at most ${expectation.compiles}; files moved since the stored session: ${JSON.stringify(moved)}\nhost cache log:\n${log}`,
+        [
+          `a restart over an unchanged project serves every module from the cache: ${compiled} compile(s), at most ${expectation.compiles}`,
+          `records as the adapter read them at this session's start: ${JSON.stringify(recordsAtStart)}`,
+          `files moved between the stored session and this one: ${JSON.stringify(movedBetween(previous, atStart))}`,
+          `files moved during this session: ${JSON.stringify(movedBetween(atStart, projectFiles()))}`,
+          `the stored session's host log:\n${cacheLines(previousLog)}`,
+          `this session's host log:\n${cacheLines(session.output?.() ?? "")}`,
+        ].join("\n"),
       );
     }
   }
@@ -149,3 +182,4 @@ try {
 }
 fs.mkdirSync(path.dirname(recorded), { recursive: true });
 fs.writeFileSync(recorded, JSON.stringify(projectFiles()));
+fs.writeFileSync(storedLog, session.output?.() ?? "");
