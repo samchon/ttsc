@@ -1,3 +1,9 @@
+export { hostToolDirectory } from "./bridge/hostToolDirectory";
+export { PROJECT_RECORD_DIRECTORY } from "./bridge/PROJECT_RECORD_DIRECTORY";
+export { projectRecordFile } from "./bridge/projectRecordFile";
+export { projectRecordMoved } from "./bridge/projectRecordMoved";
+export { readProjectRecordFile } from "./bridge/readProjectRecordFile";
+export type { TtscProjectRecord } from "./bridge/TtscProjectRecord";
 export { discoverNearestProjectTsconfig } from "./discovery/discoverNearestProjectTsconfig";
 export { findNearestProjectTsconfig } from "./discovery/findNearestProjectTsconfig";
 export { findProjectTsconfigs } from "./discovery/findProjectTsconfigs";
