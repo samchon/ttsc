@@ -35,7 +35,7 @@ export const test_ttsx_nested_tsconfig_keeps_the_existing_workspace_cache_root =
         include: ["main.ts"],
       }),
     });
-    const physicalRoot = fs.realpathSync.native(root);
+    const physicalRoot = fs.realpathSync(root);
     fs.mkdirSync(path.join(root, "node_modules"));
 
     const before = cacheRoot(root);

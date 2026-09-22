@@ -32,7 +32,7 @@ export const test_ttsc_cache_paths_keeps_an_empty_ttsc_root_as_a_boundary =
       }),
     });
     const ttscRoot = path.join(
-      fs.realpathSync.native(root),
+      fs.realpathSync(root),
       "test",
       "node_modules",
       ".cache",
