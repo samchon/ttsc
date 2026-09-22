@@ -48,6 +48,14 @@ export async function openSession(name, project) {
   }
   const events = eventQueue();
   let starts = [];
+  // What the host itself says it heard, for a scenario that saw no build: its
+  // watcher reports each changed path and its own build phases, so a record
+  // the adapter moved and the host never heard is told apart from one it
+  // heard and did not rebuild for.
+  let logged = "";
+  const log = (line) => {
+    logged = `${logged}${Date.now()} ${line}\n`.slice(-64_000);
+  };
   const watcher = bundler.watch({
     input: project.entry,
     plugins: [
@@ -75,7 +83,13 @@ export async function openSession(name, project) {
     output: { file: project.output, format: "esm" },
     watch: { clearScreen: false },
   });
+  // Rollup reports every path its watcher heard change, whichever build
+  // follows; Rolldown carries the same event.
+  watcher.on("change", (id, details) =>
+    log(`change ${id} (${details?.event ?? "unknown"})`),
+  );
   watcher.on("event", async (event) => {
+    log(`event ${event.code}`);
     if (event.code === "BUNDLE_START") {
       const waiting = starts;
       starts = [];
@@ -100,6 +114,7 @@ export async function openSession(name, project) {
     settled: (label, value) => settledOutput(events, `${name} ${label}`, value),
     failed: (label, pattern) =>
       failedOutput(events, `${name} ${label}`, pattern),
+    output: () => logged,
     buildStarted: () =>
       new Promise((resolve) => {
         starts.push(resolve);

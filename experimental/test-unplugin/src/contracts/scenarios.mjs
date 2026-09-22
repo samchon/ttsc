@@ -358,6 +358,9 @@ export async function runScenarios(project, session) {
           `${session.name}${project.linked ? " (linked root)" : ""}${project.plugin === "linked" ? " (linked plugin)" : ""}: ${scenario.name}: ${error.stack ?? error}`,
           `records when the scenario began: ${JSON.stringify(before)}`,
           `records now: ${JSON.stringify(recordStates(project))}`,
+          ...(session.output === undefined
+            ? []
+            : [`what the host reported:\n${session.output()}`]),
         ].join("\n"),
         { cause: error },
       );
