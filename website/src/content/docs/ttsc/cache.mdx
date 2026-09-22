@@ -49,7 +49,7 @@ Use a directory dedicated to ttsc whose basename is `ttsc`. That basename lets `
 
 The compiled plugin cache is content-addressed, so worktrees with identical build inputs reuse one binary, while a branch that changes an input receives another entry. Builds of the same key are coordinated across processes.
 
-`TTSC_GO_CACHE_DIR` redirects only the Go object cache. `TTSC_CACHE_DIR` redirects the compiled plugin cache and, unless `TTSC_GO_CACHE_DIR` or `GOCACHE` overrides it, the Go object cache under `go-build/` as well.
+`TTSC_GO_CACHE_DIR` redirects only the Go object cache. `TTSC_CACHE_DIR` redirects the compiled plugin cache, temporary ttsx output, and, unless `TTSC_GO_CACHE_DIR` or `GOCACHE` overrides it, the Go object cache under `go-build/` as well.
 
 An explicit `TTSC_CACHE_DIR` is caller-owned and is not pruned automatically. Run `ttsc clean` while no worktree is building, or manage retention separately.
 
