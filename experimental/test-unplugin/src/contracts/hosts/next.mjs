@@ -282,6 +282,7 @@ export async function openSession(bundler, project) {
     // began before a dependency's last change, and the adapter writes the
     // record inside the build that produced it. Each compiler reports its
     // pass and the records as it saw them (`observe-pass`).
+    // When each of Next's compilers last reported a pass end, by its name.
     cacheSettled: () => {
       // The last pass that ended, with the records as it saw them then: a
       // pass still running is not that pass, since the delivery inside it is
@@ -304,9 +305,19 @@ export async function openSession(bundler, project) {
     // server, its own `index.pack`, on its own idle timeout. Only a commit of
     // every store counts; a session closed while one compiler's store is
     // pending leaves that compiler nothing to restore.
+    //
+    // A store is measured against its own compiler's last pass, not the
+    // session's: Next runs three of them, and a pass of one leaves the others
+    // nothing to store, so a rule that held every store to the last build of
+    // any compiler could never be satisfied. `since` is the floor for a store
+    // whose compiler this session never named.
     stored: (since) => {
       const commits = cacheCommits(path.join(project.physical, ".next"));
-      return commits.length !== 0 && commits.every((mtime) => mtime >= since);
+      if (commits.length === 0) return false;
+      const passes = passEndsIn(output);
+      return commits.every(
+        ([store, mtime]) => mtime >= Math.max(since, passOf(passes, store)),
+      );
     },
     /** What the dev server wrote, its cache log among it, for a failure to name. */
     output: () => output,
@@ -319,6 +330,34 @@ export async function openSession(bundler, project) {
  * `CURRENT`, and each webpack compiler's `index.pack`, one per directory of
  * `cache/webpack`.
  */
+/**
+ * When each compiler of this session last reported a pass end, by the name it
+ * reported it under (`observe-pass`): `client`, `server`, `edge-server`.
+ */
+function passEndsIn(output) {
+  const ends = new Map();
+  for (const [, name, ended] of output.matchAll(
+    /\[([^\]]+)\] pass \d+\.\.\d+ done at (\d+)/g,
+  )) {
+    ends.set(name, Math.max(ends.get(name) ?? 0, Number(ended)));
+  }
+  return ends;
+}
+
+/**
+ * The last pass end of the compiler a store belongs to, or `0` for a store no
+ * compiler of this session named: Next's webpack stores live one directory per
+ * compiler, `cache/webpack/<compiler>-development`, and Turbopack's under
+ * `cache/turbopack`, which no pass of this contract reports.
+ */
+function passOf(passes, store) {
+  const directory = store.split("/").at(-1) ?? "";
+  for (const [name, ended] of passes) {
+    if (directory.startsWith(`${name}-`)) return ended;
+  }
+  return 0;
+}
+
 function cacheCommits(output) {
   let entries;
   try {
@@ -350,5 +389,5 @@ function cacheCommits(output) {
     const known = stores.get(store);
     stores.set(store, committed ? mtime : (known ?? -Infinity));
   }
-  return [...stores.values()];
+  return [...stores.entries()];
 }
