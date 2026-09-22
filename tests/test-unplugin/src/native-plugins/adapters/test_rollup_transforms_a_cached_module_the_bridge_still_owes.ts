@@ -31,8 +31,9 @@ import { createRealNativeEnvelopeFixture } from "../../internal/real-native-enve
  *    project of its own.
  * 3. Deliver a second module in the same pass, and assert Rollup must transform it
  *    too, since the pass served it the state before the edit.
- * 4. Open a new pass, deliver both modules, and assert Rollup may serve each from
- *    its cache, then close the watcher.
+ * 4. Open a new pass and deliver a module, and assert Rollup must still transform
+ *    the other in that pass; deliver it, open the next pass, and assert Rollup
+ *    may serve each from its cache, then close the watcher.
  */
 export async function test_rollup_transforms_a_cached_module_the_bridge_still_owes(): Promise<void> {
   const fixture = createRealNativeEnvelopeFixture();
@@ -97,11 +98,17 @@ export async function test_rollup_transforms_a_cached_module_the_bridge_still_ow
 
     await invoke(plugin.buildStart, {});
     assert.ok(await invoke(plugin.transform, context, source, module));
+    assert.equal(
+      cacheable(second),
+      true,
+      "the pass that answered the signal transforms its every module",
+    );
     assert.ok(await invoke(plugin.transform, context, secondSource, second));
+    await invoke(plugin.buildStart, {});
     assert.equal(
       cacheable(),
       null,
-      "the run that registered the module answers the signal",
+      "the pass after the one that answered the signal serves from the cache",
     );
     assert.equal(cacheable(second), null);
   } finally {

@@ -30,7 +30,10 @@ import { writeProjectRecordFile } from "../../../../../packages/unplugin/lib/cor
  *    nothing changes; register a new generation that read the old state, and
  *    assert it is signalled at once; then register the current state and assert
  *    the moves stop.
- * 4. Close a bridge with moves still owed, and assert it writes nothing more.
+ * 4. Register a stale delivery, then the current state in a new pass, and assert
+ *    the bridge owes the signal for the rest of that pass and not for the next;
+ *    then close the bridge with moves still owed to another record, and assert
+ *    it writes nothing more.
  */
 export async function test_watch_bridge_moves_the_record_until_the_project_runs_again(): Promise<void> {
   const root = fs.realpathSync.native(
@@ -105,6 +108,21 @@ export async function test_watch_bridge_moves_the_record_until_the_project_runs_
     4,
     "a registration that read the current state stops the moves",
   );
+
+  // A host that asks per module whether its cache may serve it is answered
+  // for the whole pass the signal was answered in: the first delivery of the
+  // pass answered for the project, and the modules after it would still be
+  // served from the cache the signal was about.
+  bridge.register(record, recorded(true));
+  assert.ok(bridge.owes(), "a stale delivery owes the signal");
+  const pass = bridge.begin();
+  bridge.register(record, recorded(false), false, pass);
+  assert.ok(
+    bridge.owes(),
+    "the delivery that answered it still owes the rest of its pass",
+  );
+  bridge.begin();
+  assert.equal(bridge.owes(), false, "the next pass owes nothing");
 
   const other = projectRecordFile(tool, path.join(root, "tsconfig.other.json"));
   writeProjectRecordFile(other, {

@@ -61,6 +61,14 @@ export function openHostWatchBridge(
   >();
   // The records signalled since they last registered, by resolved path.
   const owed = new Set<string>();
+  // The pass a signal was last answered in, and the current pass: a host that
+  // asks per module whether its cache may serve it, Rollup, is answered for
+  // the whole pass the signal was answered in, since the first delivery of a
+  // pass answers for the project while the modules after it in the same pass
+  // would still be served from the cache the signal was about.
+  let pass = 0;
+  let lastBegin: number | undefined;
+  let answeredIn: number | undefined;
   // The next move owed to each record, until it is registered again.
   const pending = new Map<string, NodeJS.Timeout>();
   const settle = (record: string): void => {
@@ -98,7 +106,11 @@ export function openHostWatchBridge(
     },
   });
   return {
-    begin: () => watch.begin(),
+    begin: () => {
+      pass += 1;
+      lastBegin = watch.begin();
+      return lastBegin;
+    },
     close: async () => {
       for (const record of [...pending.keys()]) settle(record);
       owed.clear();
@@ -107,7 +119,8 @@ export function openHostWatchBridge(
       nodes.clear();
     },
     owes: (record) =>
-      record === undefined ? owed.size !== 0 : owed.has(path.resolve(record)),
+      answeredIn === pass ||
+      (record === undefined ? owed.size !== 0 : owed.has(path.resolve(record))),
     register(record, inputs, failed, startedAt) {
       // Every module of a generation registers the same inputs, the same
       // array, against the same pass, and the first registration established
@@ -125,6 +138,13 @@ export function openHostWatchBridge(
         return;
       }
       registered.set(record, { inputs, startedAt });
+      if (
+        owed.has(path.resolve(record)) &&
+        startedAt !== undefined &&
+        startedAt === lastBegin
+      ) {
+        answeredIn = pass;
+      }
       nodes.set(record.replace(/\\/g, "/"), { file: record });
       // The delivery being registered answers every signal owed so far. If it
       // read a state a change since `startedAt` has left, the replacement

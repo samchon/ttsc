@@ -580,29 +580,3 @@ export async function warmLinkedPlugin() {
   );
   assert.equal(project.runs(), 1, "the linked plugin compiles");
 }
-
-/**
- * Whether a host stored its persistent cache below `directory` since `since`: a
- * completed cache file, not one still being written under the trailing
- * underscore webpack gives a pack in progress, modified at or after that time.
- * A host that stores on an idle timeout, as Next's webpack does, is asked until
- * it has.
- */
-export function cacheStoredSince(directory, since, within = () => true) {
-  let entries;
-  try {
-    entries = fs.readdirSync(directory, { recursive: true });
-  } catch {
-    return false;
-  }
-  return entries.some((entry) => {
-    const name = String(entry);
-    if (name.endsWith("_") || !within(name)) return false;
-    try {
-      const stats = fs.statSync(path.join(directory, name));
-      return stats.isFile() && stats.mtimeMs >= since;
-    } catch {
-      return false;
-    }
-  });
-}
