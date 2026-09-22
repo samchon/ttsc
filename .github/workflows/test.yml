@@ -83,9 +83,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Verify Installed Tarballs With Bundled Go
-        # The host matrix packs and installs the same tarballs on the OS it
-        # covers, so this rehearses only what it does not reach.
-        if: matrix.experimental && !matrix.unplugin_hosts
+        # Every step below this one runs against the workspace it builds, and
+        # it is this job's only build: `matrix.build` is false whenever the
+        # shipped artifacts are rehearsed.
+        if: matrix.experimental
         run: pnpm run experimental:install
 
       - name: Use System Go For Source Plugin Tests

@@ -844,7 +844,6 @@ function createPlan(selected, watch, reasons, integrations) {
   const platform = createPlatformPlan({
     bun: integrations.bun,
     experimental: integrations.experimental,
-    unpluginE2e: integrations.unpluginE2e,
     pluginCache: integrations.pluginCache,
     runtime: integrations.runtime,
     sourceMap: integrations.sourceMap,
@@ -902,11 +901,6 @@ function createPlatformPlan(tasks) {
         (row.os === "linux" || row.os === "win32");
       const sourceMap =
         tasks.sourceMap && row.representative && row.os === "linux";
-      // Whether the adapter's real-host matrix covers this OS, in the job of
-      // its own it runs in (`createUnpluginHostPlan`). The platform lane runs
-      // none of it; it reads this only to leave the generic tarball rehearsal
-      // to that job, which packs and installs the same tarballs.
-      const unpluginHosts = tasks.unpluginE2e && row.representative;
       const vscode = tasks.vscode && row.representative;
       const watch = tasks.watch && row.representative;
       // Linux already runs the runtime suite in the core lane.
@@ -931,7 +925,6 @@ function createPlatformPlan(tasks) {
         runtime,
         setup_bun: bun || (pluginCache && row.os === "linux"),
         source_map: sourceMap,
-        unplugin_hosts: unpluginHosts,
         watch,
         vscode,
       };

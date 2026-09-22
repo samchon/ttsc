@@ -283,8 +283,8 @@ test("platform integrations reuse only the physical rows they need", () => {
     experimental.every((row) => row.experimental && !row.watch && !row.vscode),
   );
   assert.ok(
-    experimental.every((row) => !row.unplugin_hosts),
-    "the generic artifact rehearsal must not duplicate the package E2E",
+    experimental.every((row) => row.build === false),
+    "the artifact rehearsal is the only build of a row that runs it",
   );
 
   // The adapter's real hosts run on every representative OS, since the
@@ -315,9 +315,9 @@ test("platform integrations reuse only the physical rows they need", () => {
     assert.equal(plan.platformSelected, false);
   }
 
-  // A change that selects both leaves the generic tarball rehearsal to the
-  // host matrix on the OS it covers, which packs and installs the same
-  // tarballs.
+  // A change that selects both runs each in its own job, and the platform
+  // lane keeps the artifact rehearsal that builds the workspace its later
+  // steps run against.
   const both = planForPaths([
     "packages/unplugin/src/index.ts",
     "experimental/install/src/index.ts",
@@ -326,10 +326,8 @@ test("platform integrations reuse only the physical rows they need", () => {
     both.unpluginMatrix.include.map((row) => row.name),
     ["linux-x64", "darwin-x64", "win32-x64"],
   );
-  for (const row of both.platformMatrix.include) {
-    assert.equal(row.unplugin_hosts, row.name.endsWith("-x64"));
-    assert.equal(row.experimental, true);
-  }
+  assert.equal(both.platformMatrix.include.length, 6);
+  assert.ok(both.platformMatrix.include.every((row) => row.experimental));
 
   const genericInstallSource = fs.readFileSync(
     path.join(root, "experimental", "install", "src", "index.ts"),
@@ -642,7 +640,7 @@ test("remaining workflow path filters match the repository contract", () => {
     (step) => step.name === "Verify Installed Tarballs With Bundled Go",
   );
   assert.equal(tarballs.run, "pnpm run experimental:install");
-  assert.equal(tarballs.if, "matrix.experimental && !matrix.unplugin_hosts");
+  assert.equal(tarballs.if, "matrix.experimental");
   assert.equal(
     platformSteps.find(
       (step) => step.name === "Verify @ttsc/unplugin Package Contract",
