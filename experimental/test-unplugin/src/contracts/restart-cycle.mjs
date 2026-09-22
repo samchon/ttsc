@@ -210,11 +210,14 @@ try {
     // what the contract proved before it asked for the stronger one; only the
     // fallback is timed, and it only ever weakens the proof to the older one.
     if (afterTheBuild !== true) {
+      // The two minutes the proof had before the stronger one was asked for:
+      // a host commits when it commits, and a slow runner has taken over a
+      // minute to write one.
       await eventually(
         () => session.stored(openedAt),
         Boolean,
         `${host}: ${expectation.label}: the persistent cache is stored`,
-        60_000,
+        120_000,
       );
     }
   }

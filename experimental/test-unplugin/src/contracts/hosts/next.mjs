@@ -1,3 +1,7 @@
+import {
+  PROJECT_RECORD_DIRECTORY,
+  hostToolDirectory,
+} from "@ttsc/unplugin/api";
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
 import fs from "node:fs";
@@ -284,19 +288,17 @@ export async function openSession(bundler, project) {
     // pass and the records as it saw them (`observe-pass`).
     // When each of Next's compilers last reported a pass end, by its name.
     cacheSettled: () => {
-      // The last pass that ended, with the records as it saw them then: a
-      // pass still running is not that pass, since the delivery inside it is
-      // what writes the record.
-      const passes = [
-        ...output.matchAll(/ pass (\d+)\.\.\d+ done at \d+; records (\S*)/g),
-      ];
+      // The last pass that ended, against the record as it stands now: a pass
+      // still running is not that pass, since the delivery inside it is what
+      // writes the record, and the stamps that pass logged say nothing about
+      // a move the bridge made after it. A signal the host answered from its
+      // cache, running no module and so registering nothing, keeps repeating
+      // on its own schedule, and a session closed between such a move and the
+      // pass that follows it stores a cache older than the record.
+      const passes = [...output.matchAll(/ pass (\d+)\.\.\d+ done at \d+/g)];
       if (passes.length === 0) return false;
-      const [, startedAt, records] = passes[passes.length - 1];
-      let moved = 0;
-      for (const [, stamp] of records.matchAll(/@(\d+):\d+/g)) {
-        moved = Math.max(moved, Number(stamp));
-      }
-      return Number(startedAt) > moved;
+      const startedAt = Number(passes[passes.length - 1][1]);
+      return startedAt > recordsMovedAt(project.root);
     },
     // Next stores both compilers' persistent caches below a `cache`
     // directory of its output, `.next/dev` for a development session since
@@ -330,6 +332,27 @@ export async function openSession(bundler, project) {
  * `CURRENT`, and each webpack compiler's `index.pack`, one per directory of
  * `cache/webpack`.
  */
+/**
+ * When the newest project record below a root's tool directory last moved, or
+ * `0` while there is none: the development server runs in the project, so its
+ * records are the ones below it.
+ */
+function recordsMovedAt(root) {
+  const directory = path.join(
+    hostToolDirectory(root),
+    PROJECT_RECORD_DIRECTORY,
+  );
+  let moved = 0;
+  try {
+    for (const entry of fs.readdirSync(directory)) {
+      moved = Math.max(moved, fs.statSync(path.join(directory, entry)).mtimeMs);
+    }
+  } catch {
+    // No record yet; nothing has moved.
+  }
+  return moved;
+}
+
 /**
  * When each compiler of this session last reported a pass end, by the name it
  * reported it under (`observe-pass`): `client`, `server`, `edge-server`.
