@@ -33,7 +33,9 @@ export interface HostWatchBridge {
    * the Vite serve watcher does for an importer. The registration answers every
    * signal still owed to the record, and signals again at once when the
    * delivery read a state a change since `startedAt` has left
-   * (samchon/ttsc#1423).
+   * (samchon/ttsc#1423). Without `startedAt`, every input is proven against the
+   * disk now, which is how a record handed over at a build start, read from the
+   * file rather than delivered, is taken (`refreshProjectRecordFiles`).
    */
   register(
     record: string,
