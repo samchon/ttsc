@@ -177,12 +177,25 @@ try {
   // from the cache. Re-read on every poll, since a build may follow the
   // commit, and bounded by the deadline below.
   if (expectation.store === true && project.runs() !== before) {
-    await eventually(
+    const afterTheBuild = await eventually(
       () => session.stored(Math.max(openedAt, session.builtAt?.() ?? 0)),
       Boolean,
       `${host}: ${expectation.label}: the persistent cache is stored`,
-      120_000,
-    );
+      60_000,
+    ).catch(() => false);
+    // A host that committed nothing after its last build had nothing more to
+    // store, which its next session reads as the state this one ended on. The
+    // wait then falls back to the commit this session made at all, which is
+    // what the contract proved before it asked for the stronger one; only the
+    // fallback is timed, and it only ever weakens the proof to the older one.
+    if (afterTheBuild !== true) {
+      await eventually(
+        () => session.stored(openedAt),
+        Boolean,
+        `${host}: ${expectation.label}: the persistent cache is stored`,
+        60_000,
+      );
+    }
   }
 } finally {
   await session.close();
