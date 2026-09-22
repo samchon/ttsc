@@ -11,9 +11,9 @@ import type { TtscProjectRecord } from "./TtscProjectRecord";
  * The record is valid JSON with its keys in one order, whichever process writes
  * it, so two generations of one state produce one byte sequence.
  *
- * The bytes go into the file the host watches, which is why they are not
- * written beside it and renamed over it; the comment below the comparison says
- * what that costs and what answers it.
+ * The bytes go into the file the host watches rather than into a replacement of
+ * it; the comment below the comparison says why, what that costs, and what
+ * answers it.
  *
  * @returns Whether the file was written.
  */
