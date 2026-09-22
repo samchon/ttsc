@@ -10,9 +10,9 @@ import {
 /**
  * Verifies SourceBuildCacheLayout: marks default roots safely and idempotently.
  *
- * Concurrent first writers may both publish the ownership marker. Repeating the
- * operation must accept the ordinary file, while a pre-existing directory at
- * the marker path must never be followed or silently trusted.
+ * Concurrent first writers may race to publish the ownership marker. Repeating
+ * the operation must accept the ordinary file, while a pre-existing directory
+ * at the marker path must never be followed or silently trusted.
  *
  * 1. Create an empty cache root and assert the one-snapshot predicate accepts it.
  * 2. Mark it twice and assert the published marker remains accepted.
