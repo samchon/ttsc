@@ -243,8 +243,8 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       );
       await waitForQuiet(changes);
       previousProjectChanges = projectChangeCount(changes);
-      fs.renameSync(path.join(root, "docs"), movedDocs);
-      fs.renameSync(replacementDocs, path.join(root, "docs"));
+      await TestProject.rename(path.join(root, "docs"), movedDocs);
+      await TestProject.rename(replacementDocs, path.join(root, "docs"));
       await waitForNextProjectChange(changes, previousProjectChanges);
       previousProjectChanges = projectChangeCount(changes);
       fs.writeFileSync(
@@ -269,7 +269,7 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
 
       const movedApi = path.join(root, "api-old");
       previousProjectChanges = projectChangeCount(changes);
-      fs.renameSync(path.join(root, "api"), movedApi);
+      await TestProject.rename(path.join(root, "api"), movedApi);
       await waitForNextProjectChange(changes, previousProjectChanges);
       fs.mkdirSync(path.join(root, "api", "v1"), { recursive: true });
       await delay();
