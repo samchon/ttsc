@@ -167,7 +167,7 @@ export async function test_host_input_tracker_relevance_follows_observed_scopes(
 
   external.tracker.verifyLocations?.();
   assert.equal(external.tracker.failed, false, "unchanged locations hold");
-  fs.renameSync(at("external", "lib"), at("external", "lib-old"));
+  await TestProject.rename(at("external", "lib"), at("external", "lib-old"));
   fs.mkdirSync(at("external", "lib"));
   external.tracker.verifyLocations?.();
   assert.equal(

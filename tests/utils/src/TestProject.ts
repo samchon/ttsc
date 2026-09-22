@@ -150,6 +150,44 @@ export namespace TestProject {
     }
   }
 
+  /**
+   * Rename `from` to `to`, waiting out a process that still holds the path.
+   *
+   * Windows refuses a rename while any process has the path or an entry below
+   * it open, with `EPERM` for a directory and `EBUSY` for a file, and a watcher
+   * under test holds what it observes: a Vite scope held a directory a test
+   * renamed on a CI runner. The rename is the test's own step, so it is made
+   * rather than abandoned, and only the refusals a held path produces are
+   * waited out: any other error, a source that is not there above all, fails at
+   * once.
+   */
+  export async function rename(
+    from: string,
+    to: string,
+    milliseconds = 30_000,
+  ): Promise<void> {
+    const until = Date.now() + milliseconds;
+    for (;;) {
+      try {
+        fs.renameSync(from, to);
+        return;
+      } catch (error) {
+        const code = (error as { code?: string }).code;
+        if (
+          code === undefined ||
+          !HELD_PATH_CODES.has(code) ||
+          Date.now() >= until
+        ) {
+          throw error;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+    }
+  }
+
+  /** What a filesystem answers while another process still holds the path. */
+  const HELD_PATH_CODES = new Set(["EACCES", "EBUSY", "EPERM"]);
+
   /** Materialize a relative-path file map under the target project root. */
   export function writeFiles(root: string, files: Record<string, string>) {
     for (const [name, contents] of Object.entries(files) as [
