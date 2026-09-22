@@ -249,12 +249,21 @@ export async function openSession(bundler, project) {
     // (samchon/ttsc#1390).
     ...(bundler === "turbopack"
       ? {
-          sharedEdit: (before) =>
-            assert.equal(
-              project.runs() - before,
-              1,
-              `${name} recompiles an edit once across its workers`,
-            ),
+          sharedEdit: (before) => {
+            const compiled = project.runs() - before;
+            if (compiled === 1) return;
+            // A worker that could not adopt the publication compiles for
+            // itself (`claimSharedCompile`), and the run alone cannot say
+            // which worker or why. What the server reported and the records
+            // it left name the state each compile read.
+            assert.fail(
+              [
+                `${name} recompiles an edit once across its workers: ${compiled} compile(s)`,
+                `records ${JSON.stringify(recordStates(project))}`,
+                `what the host reported:\n${output.split(/\r?\n/).slice(-60).join("\n")}`,
+              ].join("\n"),
+            );
+          },
         }
       : {}),
     recompiled: (label, before) =>
