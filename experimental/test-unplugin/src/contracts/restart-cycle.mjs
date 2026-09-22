@@ -194,11 +194,15 @@ try {
         30_000,
       ).catch(() => undefined);
     }
+    // Thirty seconds, an order above the idle windows these hosts commit on,
+    // one second for webpack after a large change and five for Next's: a
+    // commit that has not landed by then is a host with nothing more to
+    // store, which the fallback below reads as such.
     const afterTheBuild = await eventually(
       () => session.stored(Math.max(openedAt, session.builtAt?.() ?? 0)),
       Boolean,
       `${host}: ${expectation.label}: the persistent cache is stored`,
-      60_000,
+      30_000,
     ).catch(() => false);
     // A host that committed nothing after its last build had nothing more to
     // store, which its next session reads as the state this one ended on. The
