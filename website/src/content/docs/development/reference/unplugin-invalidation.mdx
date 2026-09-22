@@ -93,6 +93,8 @@ Five moments a move can land in, and what answers each:
 - **After the build, while the session runs.** Reported as between builds.
 - **After the last build of a session.** A host with a persistent cache stores module snapshots that predate the move, and its next session rebuilds those modules once. The host hears the move itself and runs one more pass whose snapshots begin after it, so a session that keeps running settles; one stopped inside that window pays the one rebuild. The adapter cannot avoid it: a generation exists only during the build that produced it, so the record is written there.
 
+Next runs three webpack compilers over one project, and the wrapper gives each its own plugin instance, so each opens a bridge of its own and three observers watch one project's inputs. On Linux a directory's watch is shared process-wide, so the kernel holds one watch however many observers ask for it; the redundancy is bookkeeping and duplicate signals, which each registration settles. Sharing one bridge per root would need a lease across compiler shutdowns, as the transform cache already has.
+
 Two properties keep the table finite. The record is written into the file the host watches, never beside it and renamed over it, because replacing a path's file detaches a watcher holding the one behind it. And a record that can never be written again, whose tsconfig is gone, is removed rather than moved, because the rule that ends every other move, a delivery writing the state a proof found, has no delivery left to end it.
 
 ## Persistent caches
