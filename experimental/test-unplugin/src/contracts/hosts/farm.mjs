@@ -124,12 +124,17 @@ export async function openSession(project, { cache = false } = {}) {
   // named, the project's record among them (`hmrEngine.hmrUpdate`). A path it
   // holds none for is dropped; the adapter's bridge moves the record for it,
   // which the watcher reports next (`changedWatched`).
+  // When the compiler's last build ended, which the store must be newer than:
+  // a cache committed between two builds holds the earlier one's state, and a
+  // session restored from it compiles what this one had already recorded.
+  let builtAt = Date.now();
   const update = async (files) => {
     const reported = files.filter((file) =>
       compiler.hasModule(path.resolve(file)),
     );
     if (reported.length === 0) return output();
     const updated = await compiler.update(reported);
+    builtAt = Date.now();
     return [updated.mutableModules, updated.immutableModules].join("\n");
   };
   let firstCompile = true;
@@ -236,6 +241,7 @@ export async function openSession(project, { cache = false } = {}) {
         (runs) => runs > before,
         `farm ${label}`,
       ),
+    builtAt: () => builtAt,
     stored: (since) => cacheCommitted(cacheDir, since),
     // Farm's Compiler API has no close/dispose method; the process owns it.
     close: () => undefined,

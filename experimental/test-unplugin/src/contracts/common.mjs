@@ -387,19 +387,31 @@ function label(file) {
  * fails at the deadline, which is what a host that cannot be edited under looks
  * like.
  *
- * @param label What the rename is, for the failure that names it.
+ * Only the refusals a held path produces are waited out. Any other error is the
+ * contract's own mistake, a source that is not there above all, and it fails at
+ * once rather than at the deadline.
+ *
+ * @param what The rename, for the failure that names it.
  */
-export async function rename(from, to, label, milliseconds = 30_000) {
-  await eventually(
-    () => {
+export async function rename(from, to, what, milliseconds = 30_000) {
+  const until = Date.now() + milliseconds;
+  for (;;) {
+    try {
       fs.renameSync(from, to);
-      return true;
-    },
-    Boolean,
-    `${label}: ${from} -> ${to}`,
-    milliseconds,
-  );
+      return;
+    } catch (error) {
+      if (!HELD_PATH_CODES.has(error.code) || Date.now() >= until) {
+        throw new Error(`${what}: ${from} -> ${to}: ${error.message}`, {
+          cause: error,
+        });
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+  }
 }
+
+/** What a filesystem answers while another process still holds the path. */
+const HELD_PATH_CODES = new Set(["EACCES", "EBUSY", "EPERM"]);
 
 /** The source of a contract input carrying `value`. */
 export function contractInput(value) {
