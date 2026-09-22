@@ -262,6 +262,20 @@ export async function openSession(bundler, project) {
         (runs) => runs > before,
         describe(label),
       ),
+    // When the last build of any of Next's compilers ended, as they report it
+    // themselves (`observe-pass`): the store must be newer than that, since a
+    // pack committed on an earlier idle window holds an earlier build's
+    // snapshots, and a session restored from it rebuilds what that build had
+    // already recorded.
+    builtAt: () => {
+      let last = 0;
+      for (const [, ended] of output.matchAll(
+        / pass \d+\.\.\d+ done at (\d+)/g,
+      )) {
+        last = Math.max(last, Number(ended));
+      }
+      return last;
+    },
     // Next stores both compilers' persistent caches below a `cache`
     // directory of its output, `.next/dev` for a development session since
     // Next 16, and each store commits by writing one file last: Turbopack its

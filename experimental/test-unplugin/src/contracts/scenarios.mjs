@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
-import fs from "node:fs";
 import path from "node:path";
 
-import { BROKEN_INPUT, recordStates, write } from "./common.mjs";
+import { BROKEN_INPUT, recordStates, rename, write } from "./common.mjs";
 
 /**
  * The one list of edits every host must converge on, in one watching session,
@@ -233,13 +232,13 @@ export const SCENARIOS = [
       const away = `${late}.moved`;
       project.change("FROM_LATE");
       await session.settled("dependency in place", "SIXTH", [project.input]);
-      fs.renameSync(late, away);
+      await rename(late, away, "dependency away");
       await session.failed(
         "dependency renamed away",
         /late-input|ENOENT|not found/i,
         [late],
       );
-      fs.renameSync(away, late);
+      await rename(away, late, "dependency back");
       await session.settled("dependency renamed back", "SIXTH", [late]);
     },
   },
@@ -316,13 +315,13 @@ export const SCENARIOS = [
       // file itself hears: the file's own path emits nothing when its parent
       // is renamed, only the parent's parent does.
       const away = `${project.depsDirectory}.moved`;
-      fs.renameSync(project.depsDirectory, away);
+      await rename(project.depsDirectory, away, "dependency directory away");
       await session.failed(
         "dependency directory renamed away",
         /Cannot find module|TS2307/,
         [project.localDeclaration],
       );
-      fs.renameSync(away, project.depsDirectory);
+      await rename(away, project.depsDirectory, "dependency directory back");
       await session.settled("dependency directory renamed back", "SIXTH", [
         project.localDeclaration,
       ]);

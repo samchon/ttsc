@@ -44,6 +44,11 @@ export async function openSession(name, project, { cache = false } = {}) {
 `.slice(-64_000);
   };
   const records = () => recordStamps(project.root);
+  // When the host's last build ended, which the store must be newer than: a
+  // pack committed on an earlier idle window holds the snapshots of an
+  // earlier build, and a session restored from it rebuilds what that build
+  // had already recorded.
+  let builtAt = 0;
   const compiler = bundler({
     context: project.root,
     mode: "development",
@@ -98,6 +103,7 @@ export async function openSession(name, project, { cache = false } = {}) {
             log(`change reported at ${Date.now()}: ${file} (${changeTime})`);
           });
           compiler.hooks.done.tap("observe-pass", (stats) => {
+            builtAt = Date.now();
             log(
               `pass ${stats.startTime}..${stats.endTime} done at ${Date.now()}; records ${records()}`,
             );
@@ -136,6 +142,7 @@ export async function openSession(name, project, { cache = false } = {}) {
       watcher.invalidate();
       await settledOutput(events, `${name} unchanged rebuild`, value);
     },
+    builtAt: () => builtAt,
     stored: (since) => cacheCommitted(name, cacheDirectory, since),
     output: () => logged,
     recompiled: (label, before) =>

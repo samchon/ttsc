@@ -375,6 +375,32 @@ function label(file) {
   return relative.startsWith("..") ? file : relative;
 }
 
+/**
+ * Rename `from` to `to`, waiting out a host that still holds the path.
+ *
+ * Windows refuses a rename while any process has the path or an entry below it
+ * open, with `EPERM` for a directory and `EBUSY` for a file, and the hosts
+ * under contract hold what they watch: Turbopack refused `src/deps.moved ->
+ * src/deps` on a CI runner while its watcher still had the directory. The edit
+ * is the contract's, not the host's, so it is made rather than abandoned: the
+ * rename is retried until the host lets go, and a path it never lets go of
+ * fails at the deadline, which is what a host that cannot be edited under looks
+ * like.
+ *
+ * @param label What the rename is, for the failure that names it.
+ */
+export async function rename(from, to, label, milliseconds = 30_000) {
+  await eventually(
+    () => {
+      fs.renameSync(from, to);
+      return true;
+    },
+    Boolean,
+    `${label}: ${from} -> ${to}`,
+    milliseconds,
+  );
+}
+
 /** The source of a contract input carrying `value`. */
 export function contractInput(value) {
   return `export type ContractInput = "${value}";\n`;

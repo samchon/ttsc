@@ -167,11 +167,18 @@ try {
   // stopped by a signal stores nothing more. Next's webpack stores on its idle
   // timeout, a minute after a rebuild. A session that compiled nothing changed
   // nothing in the cache, and a host stores nothing for it.
-  // A store committed during this session, whichever moment after the build the
-  // host commits at, before or after the value settled.
+  //
+  // Every store must be newer than the host's last build, not merely than the
+  // session: a host commits on an idle window of its own, and one that
+  // committed before its last build holds that build's predecessor's module
+  // snapshots. The next session then rebuilds what this one had already
+  // recorded, which is the host's own cache lifecycle rather than anything the
+  // adapter registered, and the contract would read it as a failure to serve
+  // from the cache. Re-read on every poll, since a build may follow the
+  // commit, and bounded by the deadline below.
   if (expectation.store === true && project.runs() !== before) {
     await eventually(
-      () => session.stored(openedAt),
+      () => session.stored(Math.max(openedAt, session.builtAt?.() ?? 0)),
       Boolean,
       `${host}: ${expectation.label}: the persistent cache is stored`,
       120_000,
