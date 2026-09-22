@@ -1,6 +1,7 @@
 import {
   PROJECT_RECORD_DIRECTORY,
   hostToolDirectory,
+  projectRecordFile,
   projectRecordMoved,
   readProjectRecordFile,
 } from "@ttsc/unplugin/api";
@@ -298,11 +299,11 @@ export function projectAt(
 }
 
 /**
- * Every project record below a project's tool directory, each as the adapter
- * reads one: its signal, how many inputs it names, its modification time and
- * size, and the proof a build start makes of it (`projectRecordMoved`), which
- * names the tsconfig, input, or project root whose state left the record, or
- * nothing.
+ * Every project record the adapter could have written for `project`, each as
+ * the adapter reads one: its signal, how many inputs it names, its modification
+ * time and size, and the proof a build start makes of it
+ * (`projectRecordMoved`), which names the tsconfig, input, or project root
+ * whose state left the record, or nothing.
  *
  * The record is the one thing the adapter hands a build host, so a host that
  * did not converge is explained by this: a signal the record did not receive
@@ -310,45 +311,68 @@ export function projectAt(
  * says the host did not act on the move. `projectRecordMoved` reads the disk
  * and moves nothing, so asking is safe while a session runs.
  *
- * @param root The project root, whose tool directory holds the records.
+ * A record lives below the tool directory of the directory the host runs in,
+ * which is this process for a host the contract imports and the project's own
+ * for a development CLI the contract spawns there, so both are read. The record
+ * this project's tsconfig names (`projectRecordFile`) is marked, and its
+ * absence is said outright, since a report of other projects' records alone
+ * reads like a project that has none.
+ *
+ * @param project The fixture, which names its tsconfig and its root.
  */
-export function recordStates(root) {
-  const directory = path.join(
-    hostToolDirectory(root),
-    PROJECT_RECORD_DIRECTORY,
-  );
+export function recordStates(project) {
   const states = {};
-  let files = [];
-  try {
-    files = fs.readdirSync(directory);
-  } catch {
-    return states;
-  }
-  for (const file of files) {
-    if (!file.endsWith(".json")) continue;
-    const full = path.join(directory, file);
-    const record = readProjectRecordFile(full);
-    if (record === undefined) {
-      states[file] = "not a record";
+  for (const root of new Set([process.cwd(), project.root])) {
+    const tool = hostToolDirectory(root);
+    const mine = projectRecordFile(tool, project.tsconfig);
+    const directory = path.join(tool, PROJECT_RECORD_DIRECTORY);
+    let files = [];
+    try {
+      files = fs.readdirSync(directory);
+    } catch {
+      states[label(directory)] = "no tool directory";
       continue;
     }
-    let moved;
-    try {
-      moved = projectRecordMoved(record);
-    } catch (error) {
-      moved = `proof failed: ${error.message}`;
+    if (!files.includes(path.basename(mine))) {
+      states[label(mine)] = "no record for this project";
     }
-    let stamp = "gone";
-    try {
-      const stats = fs.statSync(full);
-      stamp = `${Math.round(stats.mtimeMs)}:${stats.size}`;
-    } catch {
-      // Rewritten between the read and the stat.
+    for (const file of files) {
+      if (!file.endsWith(".json")) continue;
+      const full = path.join(directory, file);
+      states[`${label(full)}${full === mine ? " (this project)" : ""}`] =
+        recordState(full);
     }
-    states[file] =
-      `signal ${record.signal}, ${Object.keys(record.inputs).length} input(s), at ${stamp}, moved: ${moved ?? "nothing"}`;
   }
   return states;
+}
+
+/** One record file as the adapter reads it, or why it cannot be read. */
+function recordState(file) {
+  const record = readProjectRecordFile(file);
+  if (record === undefined) return "not a record";
+  let moved;
+  try {
+    moved = projectRecordMoved(record);
+  } catch (error) {
+    moved = `proof failed: ${error.message}`;
+  }
+  let stamp = "gone";
+  try {
+    const stats = fs.statSync(file);
+    stamp = `${Math.round(stats.mtimeMs)}:${stats.size}`;
+  } catch {
+    // Rewritten between the read and the stat.
+  }
+  return `signal ${record.signal}, ${Object.keys(record.inputs).length} input(s), at ${stamp}, moved: ${moved ?? "nothing"}`;
+}
+
+/**
+ * A path as the contract names it: relative to the workspace when it is below
+ * it.
+ */
+function label(file) {
+  const relative = path.relative(workspace, file);
+  return relative.startsWith("..") ? file : relative;
 }
 
 /** The source of a contract input carrying `value`. */

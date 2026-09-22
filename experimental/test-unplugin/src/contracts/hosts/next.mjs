@@ -218,7 +218,7 @@ export async function openSession(bundler, project) {
         90_000,
       ).catch((error) => {
         throw new Error(
-          `${error.message}\nlast page ${lastPage()}\nrecords ${JSON.stringify(recordStates(project.root))}\n${output}`,
+          `${error.message}\nlast page ${lastPage()}\nrecords ${JSON.stringify(recordStates(project))}\n${output}`,
         );
       }),
     failed: (label, pattern) =>

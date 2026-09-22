@@ -121,7 +121,7 @@ const atStart = projectFiles();
 // The records as the adapter reads them before this session starts: its own
 // start moves a record whose proof fails, and its deliveries rewrite one, so
 // only a reading taken first says what the stored session left behind.
-const recordsAtStart = recordStates(root);
+const recordsAtStart = recordStates(project);
 const before = project.runs();
 const openedAt = Date.now();
 const session = await sessions[host](project);

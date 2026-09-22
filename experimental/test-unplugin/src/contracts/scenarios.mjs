@@ -349,7 +349,7 @@ export async function runScenarios(project, session) {
     // on say whether the adapter signalled the edit at all: the record is the
     // only thing a build host is handed, so its signal tells an edit the
     // adapter never heard from one the host did not act on.
-    const before = recordStates(project.root);
+    const before = recordStates(project);
     try {
       await scenario.run({ project, session });
     } catch (error) {
@@ -357,7 +357,7 @@ export async function runScenarios(project, session) {
         [
           `${session.name}${project.linked ? " (linked root)" : ""}${project.plugin === "linked" ? " (linked plugin)" : ""}: ${scenario.name}: ${error.stack ?? error}`,
           `records when the scenario began: ${JSON.stringify(before)}`,
-          `records now: ${JSON.stringify(recordStates(project.root))}`,
+          `records now: ${JSON.stringify(recordStates(project))}`,
         ].join("\n"),
         { cause: error },
       );
