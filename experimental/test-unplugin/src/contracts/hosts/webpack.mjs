@@ -43,7 +43,6 @@ export async function openSession(name, project, { cache = false } = {}) {
     logged = `${logged}${parts.map(String).join(" ")}
 `.slice(-64_000);
   };
-  const records = () => recordStamps(project.root);
   // When the host's last build ended, which the store must be newer than: a
   // pack committed on an earlier idle window holds the snapshots of an
   // earlier build, and a session restored from it rebuilds what that build
@@ -58,6 +57,11 @@ export async function openSession(name, project, { cache = false } = {}) {
   // session stopped before that pass leaves a cache the next session rebuilds
   // once.
   let startedAt = 0;
+  // Where a record of this project can be: below the directory the host runs
+  // in, which is this process, and below the project's own, which a session
+  // the contract runs inside the project shares with it.
+  const roots = [process.cwd(), project.root];
+  const records = () => recordStamps(roots);
   const compiler = bundler({
     context: project.root,
     mode: "development",
@@ -155,7 +159,7 @@ export async function openSession(name, project, { cache = false } = {}) {
     builtAt: () => builtAt,
     // Whether the last pass began after the record last moved, which is when
     // the modules it holds carry a snapshot the next session accepts.
-    cacheSettled: () => startedAt > recordsMovedAt(project.root),
+    cacheSettled: () => startedAt > recordsMovedAt(roots),
     stored: (since) => cacheCommitted(name, cacheDirectory, since),
     output: () => logged,
     recompiled: (label, before) =>
@@ -238,20 +242,33 @@ function cacheCommitted(name, cacheDirectory, since) {
  * When the newest project record below the tool directory last moved, in the
  * clock the session's own timestamps come from, or `0` while there is none.
  */
-function recordsMovedAt(root) {
-  const directory = path.join(
-    hostToolDirectory(root),
-    PROJECT_RECORD_DIRECTORY,
-  );
+function recordsMovedAt(roots) {
   let moved = 0;
-  try {
-    for (const entry of fs.readdirSync(directory)) {
-      moved = Math.max(moved, fs.statSync(path.join(directory, entry)).mtimeMs);
+  for (const directory of recordDirectories(roots)) {
+    try {
+      for (const entry of fs.readdirSync(directory)) {
+        moved = Math.max(
+          moved,
+          fs.statSync(path.join(directory, entry)).mtimeMs,
+        );
+      }
+    } catch {
+      // No record there yet; nothing has moved.
     }
-  } catch {
-    // No record yet; nothing has moved.
   }
   return moved;
+}
+
+/**
+ * The record directories of the roots a session's host could have written
+ * under: the directory it runs in, which is this process for a host the
+ * contract imports, and the project's own for a session the contract runs
+ * inside it.
+ */
+function recordDirectories(roots) {
+  return [...new Set(roots)].map((root) =>
+    path.join(hostToolDirectory(root), PROJECT_RECORD_DIRECTORY),
+  );
 }
 
 /**
@@ -263,22 +280,17 @@ function recordsMovedAt(root) {
  * hooks, on every pass, where re-walking the project would cost the host what
  * the contract is measuring.
  */
-function recordStamps(root) {
-  const directory = path.join(
-    hostToolDirectory(root),
-    PROJECT_RECORD_DIRECTORY,
-  );
-  try {
-    return (
-      fs
-        .readdirSync(directory)
-        .map((entry) => {
-          const stats = fs.statSync(path.join(directory, entry));
-          return `${entry}@${Math.round(stats.mtimeMs)}:${stats.size}`;
-        })
-        .join(",") || "(none)"
-    );
-  } catch {
-    return "(none)";
+function recordStamps(roots) {
+  const stamps = [];
+  for (const directory of recordDirectories(roots)) {
+    try {
+      for (const entry of fs.readdirSync(directory)) {
+        const stats = fs.statSync(path.join(directory, entry));
+        stamps.push(`${entry}@${Math.round(stats.mtimeMs)}:${stats.size}`);
+      }
+    } catch {
+      // No record there.
+    }
   }
+  return stamps.join(",") || "(none)";
 }

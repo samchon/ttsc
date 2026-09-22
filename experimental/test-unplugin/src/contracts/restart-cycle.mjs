@@ -191,7 +191,7 @@ try {
         () => session.cacheSettled(),
         Boolean,
         `${host}: ${expectation.label}: the host ran a pass after the record moved`,
-        60_000,
+        30_000,
       ).catch(() => undefined);
     }
     const afterTheBuild = await eventually(
