@@ -12,6 +12,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { SourceBuildCacheLayout } from "../../../../packages/ttsc/lib/plugin/internal/source/SourceBuildCacheLayout.js";
 import { acquirePluginBuildLock } from "../../../../packages/ttsc/lib/plugin/internal/source/acquirePluginBuildLock.js";
 import { autoQuoteGoModToken } from "../../../../packages/ttsc/lib/plugin/internal/source/autoQuoteGoModToken.js";
 import { buildSourcePlugin } from "../../../../packages/ttsc/lib/plugin/internal/source/buildSourcePlugin.js";
@@ -385,6 +386,7 @@ export {
   spawnNodeWorker,
   sourceBuildLibraryPath,
   spawnSourcePluginWorker,
+  SourceBuildCacheLayout,
   waitForCondition,
   waitForPluginBinary,
   withGoBuildCacheLease,

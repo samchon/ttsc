@@ -163,8 +163,7 @@ function classifyNodeModulesBoundary(
       SourceBuildCacheLayout.TTSC_CACHE_DIRNAME,
     );
     if (
-      SourceBuildCacheLayout.isMarkedDefaultWorkspaceCacheRoot(ttscRoot) ||
-      fs.readdirSync(ttscRoot).length === 0
+      SourceBuildCacheLayout.isEmptyOrMarkedDefaultWorkspaceCacheRoot(ttscRoot)
     ) {
       return "installation";
     }

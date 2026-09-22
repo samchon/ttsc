@@ -80,16 +80,22 @@ export namespace SourceBuildCacheLayout {
     }
   }
 
-  /** Report whether `root` carries an ordinary default-workspace marker. */
-  export function isMarkedDefaultWorkspaceCacheRoot(root: string): boolean {
-    try {
-      const stats = fs.lstatSync(
-        path.join(root, DEFAULT_WORKSPACE_CACHE_MARKER),
-      );
-      return stats.isFile() && !stats.isSymbolicLink();
-    } catch {
-      return false;
-    }
+  /**
+   * Report from one directory snapshot whether `root` is being or was marked.
+   *
+   * An empty root is the state after the exclusive directory creation and
+   * before marker publication. Reading the entries once prevents a concurrent
+   * publication from falling between separate marker and emptiness probes.
+   */
+  export function isEmptyOrMarkedDefaultWorkspaceCacheRoot(
+    root: string,
+  ): boolean {
+    const entries = fs.readdirSync(root, { withFileTypes: true });
+    if (entries.length === 0) return true;
+    const marker = entries.find(
+      (entry) => entry.name === DEFAULT_WORKSPACE_CACHE_MARKER,
+    );
+    return marker !== undefined && marker.isFile() && !marker.isSymbolicLink();
   }
 
   /** Pin the default plugin cache to one ordinary physical directory. */
