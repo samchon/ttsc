@@ -73,6 +73,9 @@ export function buildSourcePlugin(opts: {
   });
   const paths = resolveSourceBuildCachePaths(opts.baseDir, opts.cacheDir, env);
   const managePluginCache = !opts.cacheDir && !env.TTSC_CACHE_DIR;
+  if (managePluginCache) {
+    SourceBuildCacheLayout.markDefaultWorkspaceCacheRoot(paths.root);
+  }
   const manageGoBuildCache = shouldManageSourceBuildCaches(
     paths,
     opts.cacheDir,

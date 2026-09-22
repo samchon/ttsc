@@ -20,6 +20,8 @@ import { prunePluginCacheRoot } from "./prunePluginCacheRoot";
  * `resolveSourceBuildCachePaths` for the override-then-workspace priority.
  */
 export namespace SourceBuildCacheLayout {
+  const DEFAULT_WORKSPACE_CACHE_MARKER = ".workspace-root";
+
   /** Directory name the workspace-local cache is placed under. */
   export const NODE_MODULES_DIRNAME = "node_modules";
 
@@ -53,6 +55,40 @@ export namespace SourceBuildCacheLayout {
       if (paths.goBuildRootSource === "ttsc-cache") {
         pruneGoBuildCacheRoot(paths.goBuildRoot);
       }
+    }
+  }
+
+  /**
+   * Record that `root` was selected as a default workspace-local cache root.
+   *
+   * The marker keeps an intentionally empty `node_modules` authoritative after
+   * its first cache write changes its sole payload to `.cache/ttsc`. Creation
+   * is exclusive so concurrent first writers never follow or replace an
+   * existing filesystem entry.
+   */
+  export function markDefaultWorkspaceCacheRoot(root: string): void {
+    fs.mkdirSync(root, { recursive: true });
+    const marker = path.join(root, DEFAULT_WORKSPACE_CACHE_MARKER);
+    try {
+      fs.writeFileSync(marker, "1\n", { encoding: "utf8", flag: "wx" });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      const stats = fs.lstatSync(marker);
+      if (!stats.isFile() || stats.isSymbolicLink()) {
+        throw new Error(`ttsc: unsafe workspace cache marker: ${marker}`);
+      }
+    }
+  }
+
+  /** Report whether `root` carries an ordinary default-workspace marker. */
+  export function isMarkedDefaultWorkspaceCacheRoot(root: string): boolean {
+    try {
+      const stats = fs.lstatSync(
+        path.join(root, DEFAULT_WORKSPACE_CACHE_MARKER),
+      );
+      return stats.isFile() && !stats.isSymbolicLink();
+    } catch {
+      return false;
     }
   }
 

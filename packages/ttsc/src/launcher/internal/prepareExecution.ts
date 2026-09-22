@@ -9,6 +9,7 @@ import { readProjectConfig } from "../../compiler/internal/project/readProjectCo
 import { resolveOwningProjectConfig } from "../../compiler/internal/project/resolveOwningProjectConfig";
 import { readEffectiveCompilerOptions } from "../../compiler/internal/readEffectiveCompilerOptions";
 import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
+import { SourceBuildCacheLayout } from "../../plugin/internal/source/SourceBuildCacheLayout";
 import { resolveSourceBuildCachePaths } from "../../plugin/internal/source/resolveSourceBuildCachePaths";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
 import { buildSingleRootProject } from "./buildSingleRootProject";
@@ -435,11 +436,12 @@ function buildProject(
  * never replaced: it is the user's choice, and a failure there is reported.
  */
 function defaultRuntimeCacheDir(root: string, env: NodeJS.ProcessEnv): string {
-  const local = path.join(
-    resolveSourceBuildCachePaths(root, undefined, env).root,
-    "ttsx",
-  );
+  const paths = resolveSourceBuildCachePaths(root, undefined, env);
+  const local = path.join(paths.root, "ttsx");
   try {
+    if (!env.TTSC_CACHE_DIR) {
+      SourceBuildCacheLayout.markDefaultWorkspaceCacheRoot(paths.root);
+    }
     fs.mkdirSync(local, { recursive: true });
     return local;
   } catch (error) {

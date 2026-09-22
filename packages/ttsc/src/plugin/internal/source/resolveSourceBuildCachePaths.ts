@@ -154,9 +154,21 @@ function classifyNodeModulesBoundary(
       { withFileTypes: true },
     );
     const ttsc = cacheEntries.length === 1 ? cacheEntries[0] : undefined;
-    return isOrdinaryDirectory(ttsc, SourceBuildCacheLayout.TTSC_CACHE_DIRNAME)
-      ? "ttsc-cache"
-      : "installation";
+    if (!isOrdinaryDirectory(ttsc, SourceBuildCacheLayout.TTSC_CACHE_DIRNAME)) {
+      return "installation";
+    }
+    const ttscRoot = path.join(
+      nodeModules,
+      LOCAL_CACHE_PARENT_DIRNAME,
+      SourceBuildCacheLayout.TTSC_CACHE_DIRNAME,
+    );
+    if (
+      SourceBuildCacheLayout.isMarkedDefaultWorkspaceCacheRoot(ttscRoot) ||
+      fs.readdirSync(ttscRoot).length === 0
+    ) {
+      return "installation";
+    }
+    return "ttsc-cache";
   } catch {
     return "installation";
   }
