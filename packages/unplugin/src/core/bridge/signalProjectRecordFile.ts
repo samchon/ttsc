@@ -16,12 +16,16 @@ import { writeProjectRecordFile } from "./writeProjectRecordFile";
  * bytes no earlier write of any process left, so a host comparing content hears
  * it as a host comparing times does.
  */
+/** How many bare signals this process has written, so no two read alike. */
+let bare = 0;
+
 export function signalProjectRecordFile(file: string): void {
   const record = readProjectRecordFile(file);
   try {
     if (record === undefined) {
       fs.mkdirSync(path.dirname(file), { recursive: true });
-      fs.writeFileSync(file, `${process.pid}:${Date.now()}`);
+      bare += 1;
+      fs.writeFileSync(file, `${process.pid}:${bare}`);
       return;
     }
     writeProjectRecordFile(file, { ...record, signal: record.signal + 1 });

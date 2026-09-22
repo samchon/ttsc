@@ -31,9 +31,9 @@ import { writeProjectRecordFile } from "../../../../../packages/unplugin/lib/cor
  *    assert it is signalled at once; then register the current state and assert
  *    the moves stop.
  * 4. Register a stale delivery, then the current state in a new pass, and assert
- *    the bridge owes the signal for the rest of that pass and not for the next;
- *    then close the bridge with moves still owed to another record, and assert
- *    it writes nothing more.
+ *    the bridge owes the signal for the rest of that pass and the next, and not
+ *    for the one after; then close the bridge with moves still owed to another
+ *    record, and assert it writes nothing more.
  */
 export async function test_watch_bridge_moves_the_record_until_the_project_runs_again(): Promise<void> {
   const root = fs.realpathSync.native(
@@ -110,9 +110,9 @@ export async function test_watch_bridge_moves_the_record_until_the_project_runs_
   );
 
   // A host that asks per module whether its cache may serve it is answered
-  // for the whole pass the signal was answered in: the first delivery of the
-  // pass answered for the project, and the modules after it would still be
-  // served from the cache the signal was about.
+  // for the pass the signal was answered in and the next: the delivery that
+  // answered vouches for the state, not for the modules its pass served
+  // before it, and the next pass runs them all.
   bridge.register(record, recorded(true));
   assert.ok(bridge.owes(), "a stale delivery owes the signal");
   const pass = bridge.begin();
@@ -122,7 +122,12 @@ export async function test_watch_bridge_moves_the_record_until_the_project_runs_
     "the delivery that answered it still owes the rest of its pass",
   );
   bridge.begin();
-  assert.equal(bridge.owes(), false, "the next pass owes nothing");
+  assert.ok(
+    bridge.owes(),
+    "and the next pass, which runs the modules served before the answer",
+  );
+  bridge.begin();
+  assert.equal(bridge.owes(), false, "the pass after that owes nothing");
 
   const other = projectRecordFile(tool, path.join(root, "tsconfig.other.json"));
   writeProjectRecordFile(other, {

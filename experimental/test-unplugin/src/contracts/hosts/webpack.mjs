@@ -34,12 +34,35 @@ export async function openSession(name, project, { cache = false } = {}) {
   const events = eventQueue();
   let starts = [];
   const cacheDirectory = path.join(project.physical, ".cache", name);
+  let logged = "";
+  const log = (...parts) => {
+    logged = `${logged}${parts.map(String).join(" ")}
+`.slice(-64_000);
+  };
   const compiler = bundler({
     context: project.root,
     mode: "development",
     devtool: false,
     entry: project.entry,
-    ...(cache ? { cache: persistentCache(name, cacheDirectory) } : {}),
+    ...(cache
+      ? {
+          cache: persistentCache(name, cacheDirectory),
+          // The host's own verdict on its cache, for a restart that compiled
+          // to name what its snapshot rejected (`output()`).
+          infrastructureLogging: {
+            level: "verbose",
+            debug: /webpack\.cache|FileSystemInfo|rspack\.cache/,
+            console: {
+              debug: log,
+              error: log,
+              info: log,
+              log,
+              trace: log,
+              warn: log,
+            },
+          },
+        }
+      : {}),
     output: { path: path.dirname(project.output), filename: "bundle.js" },
     module: {
       rules: [
@@ -84,6 +107,7 @@ export async function openSession(name, project, { cache = false } = {}) {
       await settledOutput(events, `${name} unchanged rebuild`, value);
     },
     stored: (since) => cacheCommitted(name, cacheDirectory, since),
+    output: () => logged,
     recompiled: (label, before) =>
       eventually(
         () => project.runs(),

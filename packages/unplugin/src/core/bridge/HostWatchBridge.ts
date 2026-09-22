@@ -19,13 +19,13 @@ export interface HostWatchBridge {
   /**
    * Whether the host has yet to run its modules against a change: a project was
    * signalled since its record last registered, the one named or any the bridge
-   * observes, or a signal was answered in the current pass, whose other modules
-   * the host would still serve from the cache the signal was about. A host
-   * whose watcher applies the record's move to the build in progress, and then
-   * keeps that build's cache of the modules, loses the signal; Rollup does,
-   * measured on its watcher (samchon/ttsc#1460), and asks through
-   * `shouldTransformCachedModule` instead, before it serves a module from its
-   * cache, for any project since the module names none.
+   * observes, or a signal was answered in the current pass or the one before,
+   * whose other modules the host would still serve from the cache the signal
+   * was about. A host whose watcher applies the record's move to the build in
+   * progress, and then keeps that build's cache of the modules, loses the
+   * signal; Rollup does, measured on its watcher (samchon/ttsc#1460), and asks
+   * through `shouldTransformCachedModule` instead, before it serves a module
+   * from its cache, for any project since the module names none.
    */
   owes(record?: string): boolean;
   /**

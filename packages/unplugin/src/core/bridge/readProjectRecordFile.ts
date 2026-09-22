@@ -24,7 +24,11 @@ export function readProjectRecordFile(
     typeof candidate.signal !== "number" ||
     candidate.inputs === null ||
     typeof candidate.inputs !== "object" ||
-    candidate.membership === undefined
+    candidate.membership === undefined ||
+    (candidate.membership !== null &&
+      (typeof candidate.membership.digest !== "string" ||
+        candidate.membership.policy === null ||
+        typeof candidate.membership.policy !== "object"))
   ) {
     return undefined;
   }

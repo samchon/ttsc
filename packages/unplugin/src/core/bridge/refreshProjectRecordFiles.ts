@@ -48,8 +48,15 @@ export function refreshProjectRecordFiles(
     const file = path.join(directory, name);
     const record = readProjectRecordFile(file);
     if (record === undefined) continue;
-    if (projectRecordMoved(record, filesystem) !== undefined) {
-      signalProjectRecordFile(file);
+    // A proof that cannot run proves nothing, and the record is moved as if
+    // it had found a change: the host then runs the modules, whose
+    // deliveries write a record the next proof can run over.
+    let moved: string | undefined;
+    try {
+      moved = projectRecordMoved(record, filesystem);
+    } catch {
+      moved = record.root;
     }
+    if (moved !== undefined) signalProjectRecordFile(file);
   }
 }

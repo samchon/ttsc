@@ -63,9 +63,12 @@ export function openHostWatchBridge(
   const owed = new Set<string>();
   // The pass a signal was last answered in, and the current pass: a host that
   // asks per module whether its cache may serve it, Rollup, is answered for
-  // the whole pass the signal was answered in, since the first delivery of a
-  // pass answers for the project while the modules after it in the same pass
-  // would still be served from the cache the signal was about.
+  // the pass the signal was answered in and the one after it. The delivery
+  // that answers vouches for the project's state, not for the modules the
+  // same pass served before it read that state, and a change that lands
+  // while the host builds is answered by a module late in that very pass; so
+  // the host runs every module once more in the next pass, which registers
+  // them all against the answered state.
   let pass = 0;
   let lastBegin: number | undefined;
   let answeredIn: number | undefined;
@@ -119,7 +122,7 @@ export function openHostWatchBridge(
       nodes.clear();
     },
     owes: (record) =>
-      answeredIn === pass ||
+      (answeredIn !== undefined && pass <= answeredIn + 1) ||
       (record === undefined ? owed.size !== 0 : owed.has(path.resolve(record))),
     register(record, inputs, failed, startedAt) {
       // Every module of a generation registers the same inputs, the same

@@ -49,6 +49,10 @@ import { notifyWatchInputs } from "./watch/notifyWatchInputs";
  * Returns `undefined` when no transform is needed (declaration files, virtual
  * modules, disabled plugins, or source unchanged after transform).
  *
+ * Its place in the adapter's invalidation model, and the units beside it, are
+ * mapped in the maintainer page
+ * `website/src/content/docs/development/reference/unplugin-invalidation.mdx`.
+ *
  * @param id - Bundler module id (may carry a query string or virtual prefix).
  * @param source - Current file content supplied by the bundler.
  * @param options - Resolved plugin options.
@@ -59,10 +63,6 @@ import { notifyWatchInputs } from "./watch/notifyWatchInputs";
  * @param hooks - Optional adapter callbacks; see {@link TtscTransformHooks}.
  *   Dependency notifications fire on cache hits too; watch registrations are
  *   per build, not per compilation.
- *
- *   Its place in the adapter's invalidation model, and the units beside it, are
- *   mapped in the maintainer page
- *   `website/src/content/docs/development/reference/unplugin-invalidation.mdx`.
  */
 export async function transformTtsc(
   id: string,
