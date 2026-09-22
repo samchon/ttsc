@@ -35,6 +35,7 @@ export const test_ttsx_nested_tsconfig_keeps_the_existing_workspace_cache_root =
         include: ["main.ts"],
       }),
     });
+    const physicalRoot = fs.realpathSync.native(root);
     fs.mkdirSync(path.join(root, "node_modules"));
 
     const before = cacheRoot(root);
@@ -47,7 +48,10 @@ export const test_ttsx_nested_tsconfig_keeps_the_existing_workspace_cache_root =
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stdout.trim(), "nested-cache-root");
     assert.equal(fs.existsSync(path.join(root, "test", "node_modules")), false);
-    assert.equal(before, path.join(root, "node_modules", ".cache", "ttsc"));
+    assert.equal(
+      before,
+      path.join(physicalRoot, "node_modules", ".cache", "ttsc"),
+    );
     assert.equal(cacheRoot(root), before);
     assert.deepEqual(fs.readdirSync(path.join(before, "ttsx", "project")), []);
   };

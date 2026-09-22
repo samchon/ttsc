@@ -31,7 +31,13 @@ export const test_ttsc_cache_paths_keeps_an_empty_ttsc_root_as_a_boundary =
         include: ["main.ts"],
       }),
     });
-    const ttscRoot = path.join(root, "test", "node_modules", ".cache", "ttsc");
+    const ttscRoot = path.join(
+      fs.realpathSync.native(root),
+      "test",
+      "node_modules",
+      ".cache",
+      "ttsc",
+    );
     // `createProject` needs a file to materialize the directory; removing it
     // leaves the precise state between root creation and marker publication.
     fs.rmSync(path.join(ttscRoot, ".gitkeep"));
