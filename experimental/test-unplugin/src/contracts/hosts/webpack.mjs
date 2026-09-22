@@ -157,9 +157,12 @@ export async function openSession(name, project, { cache = false } = {}) {
       await settledOutput(events, `${name} unchanged rebuild`, value);
     },
     builtAt: () => builtAt,
-    // Whether the last pass began after the record last moved, which is when
-    // the modules it holds carry a snapshot the next session accepts.
-    cacheSettled: () => startedAt > recordsMovedAt(roots),
+    // Whether the last pass has ended and began after the record last moved,
+    // which is when the modules it holds carry a snapshot the next session
+    // accepts. A pass still running is not that pass: the delivery inside it
+    // is what writes the record.
+    cacheSettled: () =>
+      builtAt >= startedAt && startedAt > recordsMovedAt(roots),
     stored: (since) => cacheCommitted(name, cacheDirectory, since),
     output: () => logged,
     recompiled: (label, before) =>

@@ -283,8 +283,11 @@ export async function openSession(bundler, project) {
     // record inside the build that produced it. Each compiler reports its
     // pass and the records as it saw them (`observe-pass`).
     cacheSettled: () => {
+      // The last pass that ended, with the records as it saw them then: a
+      // pass still running is not that pass, since the delivery inside it is
+      // what writes the record.
       const passes = [
-        ...output.matchAll(/ pass started at (\d+); records (\S*)/g),
+        ...output.matchAll(/ pass (\d+)\.\.\d+ done at \d+; records (\S*)/g),
       ];
       if (passes.length === 0) return false;
       const [, startedAt, records] = passes[passes.length - 1];
