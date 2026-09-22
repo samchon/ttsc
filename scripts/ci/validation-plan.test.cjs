@@ -283,31 +283,52 @@ test("platform integrations reuse only the physical rows they need", () => {
     experimental.every((row) => row.experimental && !row.watch && !row.vscode),
   );
   assert.ok(
-    experimental.every((row) => !row.unplugin_e2e),
+    experimental.every((row) => !row.unplugin_hosts),
     "the generic artifact rehearsal must not duplicate the package E2E",
   );
 
   // The adapter's real hosts run on every representative OS, since the
   // adapter watches each one differently: the Linux inotify helper, and the
-  // Windows and macOS brokers.
+  // Windows and macOS brokers. They run in a job of their own, so a change to
+  // the adapter alone starts no platform lane at all.
   for (const changed of [
     "packages/unplugin/src/index.ts",
     "experimental/test-unplugin/src/index.ts",
   ]) {
-    const rows = planForPaths([changed]).platformMatrix.include;
+    const plan = planForPaths([changed]);
     assert.deepEqual(
-      rows.map((row) => row.name),
+      plan.unpluginMatrix.include.map((row) => row.name),
       ["linux-x64", "darwin-x64", "win32-x64"],
       `${changed} selects the packed E2E on every representative OS`,
     );
-    for (const row of rows) {
-      assert.equal(row.unplugin_e2e, true);
-      assert.equal(row.setup_bun, true);
-      assert.equal(row.bun, false);
-      assert.equal(row.experimental, false);
-      assert.equal(row.source_map, false);
-      assert.equal(row.plugin_cache, false);
-    }
+    assert.equal(plan.unpluginHostsSelected, true);
+    assert.deepEqual(
+      plan.unpluginMatrix.include.map((row) => Object.keys(row).sort()),
+      plan.unpluginMatrix.include.map(() => ["name", "os", "runner"]),
+      "the host matrix varies over the OS alone",
+    );
+    assert.deepEqual(
+      plan.platformMatrix.include,
+      [],
+      `${changed} starts no platform lane of its own`,
+    );
+    assert.equal(plan.platformSelected, false);
+  }
+
+  // A change that selects both leaves the generic tarball rehearsal to the
+  // host matrix on the OS it covers, which packs and installs the same
+  // tarballs.
+  const both = planForPaths([
+    "packages/unplugin/src/index.ts",
+    "experimental/install/src/index.ts",
+  ]);
+  assert.deepEqual(
+    both.unpluginMatrix.include.map((row) => row.name),
+    ["linux-x64", "darwin-x64", "win32-x64"],
+  );
+  for (const row of both.platformMatrix.include) {
+    assert.equal(row.unplugin_hosts, row.name.endsWith("-x64"));
+    assert.equal(row.experimental, true);
   }
 
   const genericInstallSource = fs.readFileSync(
@@ -562,6 +583,7 @@ test("remaining workflow path filters match the repository contract", () => {
   assert.deepEqual(Object.keys(testDocument.jobs), [
     "plan",
     "platform-integrations",
+    "unplugin-hosts",
     "test",
     "ci",
   ]);
@@ -616,17 +638,44 @@ test("remaining workflow path filters match the repository contract", () => {
     ).env.TTSC_BUILD_SCOPE,
     "${{ matrix.build_scope }}",
   );
-  assert.equal(
-    platformSteps.find(
-      (step) => step.name === "Verify Installed Tarballs With Bundled Go",
-    ).run,
-    "pnpm run experimental:install",
+  const tarballs = platformSteps.find(
+    (step) => step.name === "Verify Installed Tarballs With Bundled Go",
   );
+  assert.equal(tarballs.run, "pnpm run experimental:install");
+  assert.equal(tarballs.if, "matrix.experimental && !matrix.unplugin_hosts");
   assert.equal(
     platformSteps.find(
       (step) => step.name === "Verify @ttsc/unplugin Package Contract",
+    ),
+    undefined,
+    "the adapter's host matrix runs in a job of its own",
+  );
+  // That job, so its hour neither waits on the suites beside it nor shares
+  // their deadline.
+  const unpluginJob = testDocument.jobs["unplugin-hosts"];
+  assert.equal(unpluginJob["runs-on"], "${{ matrix.runner }}");
+  assert.equal(
+    unpluginJob.strategy.matrix,
+    "${{ fromJSON(needs.plan.outputs.unplugin_matrix) }}",
+  );
+  assert.equal(unpluginJob.if, "needs.plan.outputs.unplugin_hosts == 'true'");
+  assert.ok(unpluginJob["timeout-minutes"] >= 120);
+  assert.equal(
+    unpluginJob.steps.find(
+      (step) => step.name === "Verify @ttsc/unplugin Package Contract",
     ).run,
     "pnpm --dir experimental/test-unplugin start -- --pack-current",
+  );
+  assert.deepEqual(testDocument.jobs.ci.needs, [
+    "plan",
+    "platform-integrations",
+    "unplugin-hosts",
+    "test",
+  ]);
+  assert.match(
+    workflowJob(testWorkflow, "ci"),
+    /test "\$UNPLUGIN_RESULT" = "success"/,
+    "the aggregate must require the selected host matrix",
   );
   assert.equal(
     platformSteps.find((step) => step.name === "Run watch tests").env

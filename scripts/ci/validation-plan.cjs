@@ -851,15 +851,43 @@ function createPlan(selected, watch, reasons, integrations) {
     vscode: integrations.vscode,
     watch,
   });
+  const unpluginHosts = createUnpluginHostPlan(integrations.unpluginE2e);
   return {
     matrix: { include },
     laneIds: include.map((lane) => lane.id),
     platformMatrix: platform.matrix,
     platformSelected: platform.matrix.include.length > 0,
     platformTasks: platform.tasks,
+    unpluginMatrix: unpluginHosts.matrix,
+    unpluginHostsSelected: unpluginHosts.matrix.include.length > 0,
     watch,
     reasons: [...new Set(reasons)],
   };
+}
+
+/**
+ * The adapter's real-host matrix, one job per representative OS.
+ *
+ * It runs every host on two roots with two transform plugins and then restarts
+ * five of them over their persistent caches, measured at 78 minutes of one
+ * macOS Intel lane. It is a job of its own rather than a step of the platform
+ * lane, so the suites beside it neither wait on its cost nor share its
+ * deadline, and each verdict arrives whatever the other's cost.
+ *
+ * It varies over the OS alone, since that is what the adapter watches
+ * differently: the Linux inotify helper, and the Windows and macOS brokers.
+ *
+ * @param selected Whether the diff reaches the adapter or its rehearsal.
+ */
+function createUnpluginHostPlan(selected) {
+  const include = selected
+    ? PLATFORM_ROWS.filter((row) => row.representative).map((row) => ({
+        name: row.name,
+        os: row.os,
+        runner: row.runner,
+      }))
+    : [];
+  return { matrix: { include } };
 }
 
 function createPlatformPlan(tasks) {
@@ -874,10 +902,11 @@ function createPlatformPlan(tasks) {
         (row.os === "linux" || row.os === "win32");
       const sourceMap =
         tasks.sourceMap && row.representative && row.os === "linux";
-      // The real hosts, on every OS the adapter watches differently: the
-      // Linux inotify helper, the Windows and macOS brokers, and each OS's
-      // process model for the dev servers. One OS used to stand for all three.
-      const unpluginE2e = tasks.unpluginE2e && row.representative;
+      // Whether the adapter's real-host matrix covers this OS, in the job of
+      // its own it runs in (`createUnpluginHostPlan`). The platform lane runs
+      // none of it; it reads this only to leave the generic tarball rehearsal
+      // to that job, which packs and installs the same tarballs.
+      const unpluginHosts = tasks.unpluginE2e && row.representative;
       const vscode = tasks.vscode && row.representative;
       const watch = tasks.watch && row.representative;
       // Linux already runs the runtime suite in the core lane.
@@ -893,7 +922,6 @@ function createPlatformPlan(tasks) {
         experimental: tasks.experimental,
         needs_go:
           tasks.experimental ||
-          unpluginE2e ||
           bun ||
           pluginCache ||
           runtime ||
@@ -901,9 +929,9 @@ function createPlatformPlan(tasks) {
           watch,
         plugin_cache: pluginCache,
         runtime,
-        setup_bun: bun || unpluginE2e || (pluginCache && row.os === "linux"),
+        setup_bun: bun || (pluginCache && row.os === "linux"),
         source_map: sourceMap,
-        unplugin_e2e: unpluginE2e,
+        unplugin_hosts: unpluginHosts,
         watch,
         vscode,
       };
@@ -915,7 +943,6 @@ function createPlatformPlan(tasks) {
         row.plugin_cache ||
         row.runtime ||
         row.source_map ||
-        row.unplugin_e2e ||
         row.watch ||
         row.vscode,
     );
@@ -1019,6 +1046,8 @@ function main(argv = process.argv.slice(2)) {
     `platform_matrix=${platformMatrix}`,
     `platform=${String(plan.platformSelected)}`,
     `platform_tasks=${plan.platformTasks.join(",")}`,
+    `unplugin_matrix=${JSON.stringify(plan.unpluginMatrix)}`,
+    `unplugin_hosts=${String(plan.unpluginHostsSelected)}`,
   ].join("\n");
   if (options["github-output"]) {
     fs.appendFileSync(options["github-output"], `${output}\n`);
@@ -1028,6 +1057,7 @@ function main(argv = process.argv.slice(2)) {
   process.stderr.write(
     `validation plan: ${plan.laneIds.join(", ")}; ` +
       `platform=${plan.platformTasks.join(",") || "none"}; ` +
+      `unplugin hosts=${plan.unpluginMatrix.include.map((row) => row.name).join(",") || "none"}; ` +
       `${plan.reasons.join("; ") || "no expensive owner"}\n`,
   );
 }

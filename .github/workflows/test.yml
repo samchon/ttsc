@@ -25,6 +25,8 @@ jobs:
       platform_matrix: ${{ steps.plan.outputs.platform_matrix }}
       platform: ${{ steps.plan.outputs.platform }}
       platform_tasks: ${{ steps.plan.outputs.platform_tasks }}
+      unplugin_matrix: ${{ steps.plan.outputs.unplugin_matrix }}
+      unplugin_hosts: ${{ steps.plan.outputs.unplugin_hosts }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -44,8 +46,10 @@ jobs:
     needs: plan
     if: needs.plan.outputs.platform == 'true'
     runs-on: ${{ matrix.runner }}
-    # The unplugin host matrix runs every host on two roots with two transform
-    # plugins, about thirty minutes of the x64 lanes' time on macOS.
+    # One OS's shipped-artifact rehearsal and its watch, runtime,
+    # package-manager, source-map and VS Code suites. The adapter's host matrix
+    # is a job of its own (`unplugin-hosts`), whose hour does not stand between
+    # these and their verdict.
     timeout-minutes: 90
     strategy:
       fail-fast: false
@@ -79,12 +83,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Verify Installed Tarballs With Bundled Go
-        if: matrix.experimental && !matrix.unplugin_e2e
+        # The host matrix packs and installs the same tarballs on the OS it
+        # covers, so this rehearses only what it does not reach.
+        if: matrix.experimental && !matrix.unplugin_hosts
         run: pnpm run experimental:install
-
-      - name: Verify @ttsc/unplugin Package Contract
-        if: matrix.unplugin_e2e
-        run: pnpm --dir experimental/test-unplugin start -- --pack-current
 
       - name: Use System Go For Source Plugin Tests
         if: matrix.watch || matrix.plugin_cache || matrix.runtime
@@ -200,6 +202,48 @@ jobs:
         if: matrix.vscode
         run: node scripts/smoke-vscode-install.cjs packages/vscode
 
+  unplugin-hosts:
+    name: unplugin hosts (${{ matrix.name }})
+    needs: plan
+    if: needs.plan.outputs.unplugin_hosts == 'true'
+    runs-on: ${{ matrix.runner }}
+    # Every host of the adapter on two roots with two transform plugins, then a
+    # restart of five of them over their persistent caches: 78 minutes of the
+    # macOS Intel runner at its slowest measured, and its cost varies with the
+    # runner, so the deadline leaves room above that.
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.unplugin_matrix) }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: packages/ttsc/go.mod
+          cache-dependency-path: |
+            packages/ttsc/go.sum
+            packages/ttsc/tools/shim_audit/go.sum
+            tests/go-transformer/go.mod
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.6.4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify @ttsc/unplugin Package Contract
+        run: pnpm --dir experimental/test-unplugin start -- --pack-current
+
   test:
     name: ${{ matrix.name }}
     needs: plan
@@ -256,6 +300,7 @@ jobs:
     needs:
       - plan
       - platform-integrations
+      - unplugin-hosts
       - test
     # A superseding PR push cancels this run. Do not leave this always-job
     # queued behind the cancellation and block the next run's concurrency slot.
@@ -270,15 +315,23 @@ jobs:
           PLATFORM_RESULT: ${{ needs.platform-integrations.result }}
           PLATFORM_SELECTED: ${{ needs.plan.outputs.platform }}
           PLATFORM_TASKS: ${{ needs.plan.outputs.platform_tasks }}
+          UNPLUGIN_RESULT: ${{ needs.unplugin-hosts.result }}
+          UNPLUGIN_SELECTED: ${{ needs.plan.outputs.unplugin_hosts }}
           SELECTED_LANES: ${{ needs.plan.outputs.lanes }}
         run: |
           echo "selected lanes: $SELECTED_LANES"
           echo "selected platform tasks: $PLATFORM_TASKS"
           echo "plan=$PLAN_RESULT test=$TEST_RESULT platform=$PLATFORM_RESULT selected=$PLATFORM_SELECTED"
+          echo "unplugin hosts=$UNPLUGIN_RESULT selected=$UNPLUGIN_SELECTED"
           test "$PLAN_RESULT" = "success"
           test "$TEST_RESULT" = "success"
           if [ "$PLATFORM_SELECTED" = "true" ]; then
             test "$PLATFORM_RESULT" = "success"
           else
             test "$PLATFORM_RESULT" = "skipped"
+          fi
+          if [ "$UNPLUGIN_SELECTED" = "true" ]; then
+            test "$UNPLUGIN_RESULT" = "success"
+          else
+            test "$UNPLUGIN_RESULT" = "skipped"
           fi
