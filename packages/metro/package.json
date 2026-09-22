@@ -40,22 +40,6 @@
   "dependencies": {
     "@ttsc/unplugin": "workspace:^"
   },
-  "peerDependencies": {
-    "@expo/metro-config": "*",
-    "@react-native/metro-babel-transformer": "*",
-    "metro-react-native-babel-transformer": "*"
-  },
-  "peerDependenciesMeta": {
-    "@expo/metro-config": {
-      "optional": true
-    },
-    "@react-native/metro-babel-transformer": {
-      "optional": true
-    },
-    "metro-react-native-babel-transformer": {
-      "optional": true
-    }
-  },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^29.0.2",
     "@rollup/plugin-node-resolve": "^16.0.3",

@@ -4,25 +4,10 @@ packages:
   - "packages/*"
   - "tests/*"
   - "website"
-# A peer dependency is the consumer's to supply, and pnpm installs one here only
-# because its default changed in v8. `packages/metro` declares its three Metro
-# and Expo transformers as optional peers, which is what they are, and pnpm
-# installs them anyway; `peerDependenciesMeta.optional` does not exempt them.
-autoInstallPeers: false
-# Mocha 11 still ranges over serialize-javascript 6, whose serializer has a
-# code-injection advisory. Its public call shape is unchanged in the patched
-# release, so keep the real Mocha register defense without accepting that edge.
 overrides:
-  "mocha>serialize-javascript": 7.0.3
-  # Browserslist before 4.28.7 has two data-processing advisories. Pin the
-  # patched release until every transitive consumer raises its own range.
-  browserslist: 4.28.8
-  # fast-uri 3.1.5 has four URI parsing advisories. Pin the patched v3 release until every transitive consumer resolves it naturally.
-  fast-uri: 3.1.7
-  # Patched transitive parsers and image processing for the website and build tools.
+  # mathjax-full pins speech-rule-engine 4, which pins this vulnerable exact
+  # version; Marp and Nextra do not yet have released upgrade paths to v5.
   "@xmldom/xmldom": 0.9.12
-  sharp: 0.35.4
-  "js-yaml@^4": 4.3.2
 catalogs:
   typescript:
     typescript: ^7.0.2
@@ -40,7 +25,7 @@ catalogs:
     "@nestia/core": *nestia
     "@nestia/fetcher": *nestia
     "@nestia/sdk": *nestia
-    typia: &typia ^14.0.6
+    typia: &typia ^15.0.0
     "@typia/interface": *typia
     "@typia/mcp": *typia
     "@typia/utils": *typia
