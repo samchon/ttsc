@@ -54,11 +54,19 @@ export function refreshProjectRecordFiles(
     return;
   }
   for (const name of names) {
-    // A record, not the temporary file of a write in progress beside it.
     if (!name.endsWith(".json")) continue;
     const file = path.join(directory, name);
     const record = readProjectRecordFile(file);
-    if (record === undefined) continue;
+    // A record that cannot be read proves nothing about its project, and a
+    // record is written into the file the host watches, so a reader can catch
+    // one mid-write (`writeProjectRecordFile`). It is moved as if the proof
+    // had found a change, which is what a proof that cannot run does below:
+    // the host runs the project's modules, and their deliveries write a
+    // record the next proof can run over.
+    if (record === undefined) {
+      signalProjectRecordFile(file);
+      continue;
+    }
     if (bridge !== undefined) {
       bridge.register(file, projectRecordWatchInputs(record));
       continue;
