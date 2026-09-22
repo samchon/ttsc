@@ -5,7 +5,6 @@ import type { UnpluginOptions } from "unplugin";
 import type { HostWatchBridge } from "../bridge/HostWatchBridge";
 import { hostToolDirectory } from "../bridge/hostToolDirectory";
 import { openHostWatchBridge } from "../bridge/openHostWatchBridge";
-import { refreshProjectRecordFiles } from "../bridge/refreshProjectRecordFiles";
 import { registerProjectRecord } from "../bridge/registerProjectRecord";
 import type { ResolvedTtscUnpluginOptions } from "../options/ResolvedTtscUnpluginOptions";
 import { typescriptTransformSourcePattern } from "../source/typescriptTransformSourcePattern";
@@ -60,8 +59,10 @@ export function createEsbuildOptions(
             lifecycles += 1;
           }
           beginTtscTransformBuild(cache);
+          // No record is proven here: esbuild keeps no cache of a loader's
+          // result, so every build runs every module through the loader,
+          // and each delivery writes the record of the generation it read.
           passStartedAt = bridge?.begin();
-          refreshProjectRecordFiles(hostToolDirectory(root));
         });
         build.onDispose(() => {
           if (!owners.delete(build)) return;

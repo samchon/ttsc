@@ -17,8 +17,9 @@ import * as webpack from "./hosts/webpack.mjs";
  * Arguments: the host, the project root, the plugin mode, and the expectation
  * as JSON: `{ kind: "settled", value }` or `{ kind: "failed", pattern }`, with
  * `compiles` the most compiles the session may run when it must be served from
- * the cache, and `store: true` when the next session depends on this one's
- * store, which the session then waits for before it stops.
+ * the cache, `live` a value the tsconfig is edited to while the session runs
+ * and restored from, and `store: true` when the next session depends on this
+ * one's store, which the session then waits for before it stops.
  */
 const [host, root, plugin, expectationJson] = process.argv.slice(2);
 const expectation = JSON.parse(expectationJson);
@@ -111,6 +112,23 @@ try {
         `a restart over an unchanged project serves every module from the cache: ${compiled} compile(s), at most ${expectation.compiles}; files moved since the stored session: ${JSON.stringify(moved)}\nhost cache log:\n${log}`,
       );
     }
+  }
+  // An edit while the session runs, to the tsconfig, which no bundler loads:
+  // a session served whole from the cache ran the adapter for no module, and
+  // hears it only through what the build start handed its observer.
+  if (expectation.live !== undefined) {
+    project.configure(expectation.live);
+    await session.settled(
+      `${expectation.label}: tsconfig edited while running`,
+      expectation.live,
+      [project.tsconfig],
+    );
+    project.configure(undefined);
+    await session.settled(
+      `${expectation.label}: tsconfig restored while running`,
+      expectation.value,
+      [project.tsconfig],
+    );
   }
   // Proven while the host runs, for the state this session settled on: a host
   // stopped by a signal stores nothing more. Next's webpack stores on its idle

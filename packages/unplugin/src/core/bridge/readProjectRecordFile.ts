@@ -27,6 +27,7 @@ export function readProjectRecordFile(
     candidate.membership === undefined ||
     (candidate.membership !== null &&
       (typeof candidate.membership.digest !== "string" ||
+        !Array.isArray(candidate.membership.directories) ||
         candidate.membership.policy === null ||
         typeof candidate.membership.policy !== "object"))
   ) {

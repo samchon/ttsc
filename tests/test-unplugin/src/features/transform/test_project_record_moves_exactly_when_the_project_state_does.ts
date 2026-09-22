@@ -66,6 +66,7 @@ export async function test_project_record_moves_exactly_when_the_project_state_d
   };
   const file = projectRecordFile(tool, tsconfig);
   assert.equal(path.dirname(path.dirname(file)), tool);
+  const walked = walkProjectInputs(root, undefined, policy);
   assert.ok(
     writeProjectRecordFile(file, {
       inputs: {
@@ -82,10 +83,8 @@ export async function test_project_record_moves_exactly_when_the_project_state_d
         },
       },
       membership: {
-        digest: membershipRecordDigest(
-          policy,
-          walkProjectInputs(root, undefined, policy).directories,
-        ),
+        digest: membershipRecordDigest(policy, walked.directories),
+        directories: walked.directories.map((directory) => directory.path),
         policy,
       },
       root,

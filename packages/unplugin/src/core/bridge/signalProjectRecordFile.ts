@@ -4,6 +4,9 @@ import path from "node:path";
 import { readProjectRecordFile } from "./readProjectRecordFile";
 import { writeProjectRecordFile } from "./writeProjectRecordFile";
 
+/** How many bare signals this process has written, so no two read alike. */
+let bare = 0;
+
 /**
  * Move a project record's bytes without a generation to write them from: a
  * watching session's bridge heard a change to an input the record names, and
@@ -16,9 +19,6 @@ import { writeProjectRecordFile } from "./writeProjectRecordFile";
  * bytes no earlier write of any process left, so a host comparing content hears
  * it as a host comparing times does.
  */
-/** How many bare signals this process has written, so no two read alike. */
-let bare = 0;
-
 export function signalProjectRecordFile(file: string): void {
   const record = readProjectRecordFile(file);
   try {

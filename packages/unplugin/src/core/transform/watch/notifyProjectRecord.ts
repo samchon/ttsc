@@ -83,6 +83,9 @@ function recordOf(
               cached.membershipPolicy,
               cached.projectDirectories,
             ),
+            directories: cached.projectDirectories.map(
+              (directory) => directory.path,
+            ),
             policy: cached.membershipPolicy,
           },
     root: cached.projectRoot,

@@ -3,8 +3,10 @@ import path from "node:path";
 
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import type { TtscTransformFilesystemOperations } from "../transform/filesystem/TtscTransformFilesystemOperations";
+import type { HostWatchBridge } from "./HostWatchBridge";
 import { PROJECT_RECORD_DIRECTORY } from "./PROJECT_RECORD_DIRECTORY";
 import { projectRecordMoved } from "./projectRecordMoved";
+import { projectRecordWatchInputs } from "./projectRecordWatchInputs";
 import { readProjectRecordFile } from "./readProjectRecordFile";
 import { signalProjectRecordFile } from "./signalProjectRecordFile";
 
@@ -24,15 +26,24 @@ import { signalProjectRecordFile } from "./signalProjectRecordFile";
  * their deliveries write the record of the generation that read the change. A
  * record whose tsconfig is gone is moved too, which is a change as well.
  *
+ * A watching host's bridge, opened for its first pass, takes every record
+ * instead (`projectRecordWatchInputs`): the bridge proves the recorded inputs
+ * as it takes them, moves a record it finds stale and again until a delivery
+ * answers, and observes them from then on. A project the host restored whole
+ * from its cache has no delivery in this process to register it, and an input
+ * of it edited while the host runs would otherwise be heard by nothing.
+ *
  * This is the same proof a delivery makes of a generation, paid once per build
  * start instead of once per module, and it costs what the host's own snapshot
  * costs: one read per recorded input and one listing per project directory. A
  * tool directory with no records costs one failed listing.
  *
  * @param toolDirectory The host's tool directory (`hostToolDirectory`).
+ * @param bridge The watching session's bridge, when the host has one.
  */
 export function refreshProjectRecordFiles(
   toolDirectory: string,
+  bridge?: HostWatchBridge,
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
 ): void {
   const directory = path.join(toolDirectory, PROJECT_RECORD_DIRECTORY);
@@ -48,6 +59,10 @@ export function refreshProjectRecordFiles(
     const file = path.join(directory, name);
     const record = readProjectRecordFile(file);
     if (record === undefined) continue;
+    if (bridge !== undefined) {
+      bridge.register(file, projectRecordWatchInputs(record));
+      continue;
+    }
     // A proof that cannot run proves nothing, and the record is moved as if
     // it had found a change: the host then runs the modules, whose
     // deliveries write a record the next proof can run over.

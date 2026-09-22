@@ -31,13 +31,14 @@ shareTtscTransformCache(transformCache, session);
 
 /**
  * The worker's watch bridge during `next dev`, opened by its first watching
- * delivery and alive for the worker's lifetime.
+ * delivery, when it takes every record of the tool directory, and alive for the
+ * worker's lifetime.
  */
 let bridge: HostWatchBridge | undefined;
 
 /**
- * The tool directories whose records this worker has proven against the disk,
- * for a loader wired by hand, without `withTtsc`.
+ * The tool directories whose records this worker has proven against the disk
+ * for a one-shot build, for a loader wired by hand, without `withTtsc`.
  */
 const refreshed = new Set<string>();
 
@@ -109,19 +110,24 @@ export function turbopack(
   const projectRoot = this.rootContext ?? process.cwd();
   const toolDirectory = hostToolDirectory(projectRoot);
   const loaderOptions = this.getOptions?.() ?? {};
-  // A one-shot build, and a session restored from Turbopack's cache, prove
-  // the record at the process's first delivery, since Turbopack gives a
-  // loader no build start. A rule wired by hand pays it once per worker; under
-  // `withTtsc`, whose session the workers inherit, the wrapper proved every
-  // record before Next started, and no worker proves it again.
-  if (session === undefined && !refreshed.has(toolDirectory)) {
-    refreshed.add(toolDirectory);
-    refreshProjectRecordFiles(toolDirectory);
-  }
+  // Turbopack gives a loader no build start, so the records are proven at
+  // the process's first delivery. A watching worker's bridge takes every
+  // record as it opens, proving them as it does, and observes the projects
+  // the worker restores from Turbopack's cache without a delivery from then
+  // on. A one-shot build proves them once per worker when its rule is wired
+  // by hand; under `withTtsc`, whose session the workers inherit, the wrapper
+  // proved every record before Next started, and a one-shot worker proves
+  // nothing again.
   let bridgeStartedAt: number | undefined;
   if (watching && addDependency !== undefined) {
-    bridge ??= openHostWatchBridge(projectRoot);
+    if (bridge === undefined) {
+      bridge = openHostWatchBridge(projectRoot);
+      refreshProjectRecordFiles(toolDirectory, bridge);
+    }
     bridgeStartedAt = bridge.begin();
+  } else if (session === undefined && !refreshed.has(toolDirectory)) {
+    refreshed.add(toolDirectory);
+    refreshProjectRecordFiles(toolDirectory);
   }
   const hooks: TtscTransformHooks = {
     ...(addDependency === undefined

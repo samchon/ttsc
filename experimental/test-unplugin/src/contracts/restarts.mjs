@@ -30,7 +30,13 @@ import { write } from "./common.mjs";
  * A step is `{ name, edit, expect }`: `edit` changes the project while nothing
  * runs, and `expect` is what the next session must observe, `{ kind: "settled",
  * value }` or `{ kind: "failed", pattern }`, with `compiles` the most compiles
- * it may run, `0` for a restart over an unchanged project.
+ * it may run, `0` for a restart over an unchanged project, and `live` a value
+ * the tsconfig is then edited to while that session runs, which it must serve
+ * and then serve the step's value again once the tsconfig is restored. A
+ * session served whole from the cache ran the adapter for no module, so nothing
+ * of the project was registered in it by a delivery: an edit to an input no
+ * bundler loads, the tsconfig, is heard only by what the build start handed the
+ * session's own observer.
  *
  * Turbopack re-runs every webpack loader that starts a child process on every
  * start, whatever its dependencies: measured on Next 16.3 with a loader that
@@ -50,7 +56,12 @@ export const RESTART_STEPS = [
   {
     name: "second restart without edits",
     edit: () => undefined,
-    expect: { kind: "settled", value: "FIRST", compiles: 0 },
+    expect: {
+      kind: "settled",
+      value: "FIRST",
+      compiles: 0,
+      live: "CONFIGURED",
+    },
   },
   {
     name: "input edited while stopped",

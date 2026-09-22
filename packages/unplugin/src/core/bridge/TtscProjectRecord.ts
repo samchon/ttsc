@@ -29,9 +29,15 @@ export interface TtscProjectRecord {
   /**
    * The root files the adapter's walk admitted, as `membershipRecordDigest`
    * digests them under the policy stored beside it, so a refresh walks the same
-   * rule; `null` for a generation that had no walk.
+   * rule, with every directory the walk entered, as the membership input a
+   * delivery hands a watching observer carries it (`projectMembershipInput`);
+   * `null` for a generation that had no walk.
    */
-  membership: { digest: string; policy: ITtscProjectMembershipPolicy } | null;
+  membership: {
+    digest: string;
+    directories: readonly string[];
+    policy: ITtscProjectMembershipPolicy;
+  } | null;
   /** The project root the walk starts from and every input lies below or beside. */
   root: string;
   /**

@@ -1,5 +1,6 @@
 import path from "node:path";
 import {
+  type NativeBuildContext,
   type UnpluginFactory,
   type UnpluginInstance,
   createUnplugin,
@@ -103,6 +104,23 @@ const unpluginFactory: UnpluginFactory<
     bridge = undefined;
     passStartedAt = undefined;
     await open?.close();
+  };
+  // Whether the host watches: it then observes the compiler's inputs through
+  // the session's bridge, whose sequence token is taken before the compile,
+  // as the dev server's is. Every other host is one-shot and proves the
+  // record at its next start. Read from the context unplugin hands every hook,
+  // `buildStart` and `transform` alike.
+  const hostWatching = (context: {
+    getNativeBuildContext?: () => NativeBuildContext | undefined;
+    meta?: { watchMode?: boolean };
+  }): boolean => {
+    if (viteCommand === "serve") return false;
+    const native = context.getNativeBuildContext?.();
+    return native?.framework === "webpack" || native?.framework === "rspack"
+      ? (native.compiler as { watchMode?: boolean }).watchMode === true
+      : native?.framework === "farm"
+        ? farmWatching
+        : native === undefined && context.meta?.watchMode === true;
   };
 
   return {
@@ -350,11 +368,22 @@ const unpluginFactory: UnpluginFactory<
         resetTtscTransformCache(transformCache);
       } else {
         beginTtscTransformBuild(transformCache);
-        passStartedAt = bridge?.begin();
         // Before the host validates a module against its persistent cache:
         // a project whose state moved while nothing ran is heard through its
-        // record, which only a proof here can move.
-        refreshProjectRecordFiles(hostToolDirectory(process.cwd()));
+        // record, which only a proof here can move. A watching host's bridge
+        // opens for its first pass and takes every record, so a project the
+        // host restores whole from its cache, with no delivery in this
+        // process, is observed from then on; a later pass of that session
+        // has the bridge observing already, and a one-shot host proves the
+        // records at each start.
+        const opening = bridge === undefined;
+        if (opening && hostWatching(this)) {
+          bridge = openHostWatchBridge(process.cwd());
+        }
+        passStartedAt = bridge?.begin();
+        if (opening) {
+          refreshProjectRecordFiles(hostToolDirectory(process.cwd()), bridge);
+        }
       }
     },
 
@@ -378,22 +407,9 @@ const unpluginFactory: UnpluginFactory<
           ? serveInputs.begin()
           : undefined;
       const native = this.getNativeBuildContext?.();
-      const meta = (
-        this as { meta?: { rolldownVersion?: string; watchMode?: boolean } }
-      ).meta;
-      // Whether the host watches: it then observes the compiler's inputs
-      // through the session's bridge, whose sequence token is taken before
-      // the compile, as the dev server's is. Every other host is one-shot and
-      // proves the record at its next start.
-      const watching =
-        viteCommand === "serve"
-          ? false
-          : native?.framework === "webpack" || native?.framework === "rspack"
-            ? (native.compiler as { watchMode?: boolean }).watchMode === true
-            : native?.framework === "farm"
-              ? farmWatching
-              : native === undefined && meta?.watchMode === true;
-      const bridgeStartedAt = watching
+      // The bridge opened with the first pass (`buildStart`); a host that
+      // opened none before its first transform gets it here.
+      const bridgeStartedAt = hostWatching(this)
         ? (passStartedAt ??= (bridge ??= openHostWatchBridge(
             process.cwd(),
           )).begin())
