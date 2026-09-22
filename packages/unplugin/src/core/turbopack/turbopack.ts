@@ -26,7 +26,8 @@ import { failedModuleSource } from "./failedModuleSource";
  * (samchon/ttsc#1390).
  */
 const transformCache = createTtscTransformCache();
-shareTtscTransformCache(transformCache, readTtscTransformSession());
+const session = readTtscTransformSession();
+shareTtscTransformCache(transformCache, session);
 
 /**
  * The worker's watch bridge during `next dev`, opened by its first watching
@@ -34,7 +35,10 @@ shareTtscTransformCache(transformCache, readTtscTransformSession());
  */
 let bridge: HostWatchBridge | undefined;
 
-/** The tool directories whose records this worker has proven against the disk. */
+/**
+ * The tool directories whose records this worker has proven against the disk,
+ * for a loader wired by hand, without `withTtsc`.
+ */
 const refreshed = new Set<string>();
 
 /**
@@ -106,9 +110,11 @@ export function turbopack(
   const toolDirectory = hostToolDirectory(projectRoot);
   const loaderOptions = this.getOptions?.() ?? {};
   // A one-shot build, and a session restored from Turbopack's cache, prove
-  // the record at the process's first delivery: Turbopack gives a loader no
-  // build start, and `withTtsc` proves it before Next starts as well.
-  if (!refreshed.has(toolDirectory)) {
+  // the record at the process's first delivery, since Turbopack gives a
+  // loader no build start. A rule wired by hand pays it once per worker; under
+  // `withTtsc`, whose session the workers inherit, the wrapper proved every
+  // record before Next started, and no worker proves it again.
+  if (session === undefined && !refreshed.has(toolDirectory)) {
     refreshed.add(toolDirectory);
     refreshProjectRecordFiles(toolDirectory);
   }

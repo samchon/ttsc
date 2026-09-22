@@ -34,7 +34,14 @@ export async function openSession(name, project) {
       bundler.rollup({ input: project.entry, plugins: [plugin] }),
       (error) => {
         assert.match(error.message, BROKEN_INPUT);
-        assert.ok(error.watchFiles.includes(project.input));
+        // A failed build still names the project's record, which the repair
+        // moves, beside the module Rollup watches by nature.
+        assert.ok(
+          error.watchFiles.some((file) =>
+            /[\\/]records[\\/][0-9a-f]{32}\.json$/.test(file),
+          ),
+          `a failed build watches the record: ${JSON.stringify(error.watchFiles)}`,
+        );
         return true;
       },
     );

@@ -26,9 +26,10 @@ import { writeProjectRecordFile } from "../../../../../packages/unplugin/lib/cor
  * 1. Write a record, register it with a delivery that read a declaration the disk
  *    no longer holds, and assert the record's signal moved at once.
  * 2. Assert it moves again after a delay, and again later.
- * 3. Register again with the same stale state, as a run that read the old state
- *    does, and assert the moves go on; then register with the current state and
- *    assert they stop.
+ * 3. Register the same generation again, as every module of it does, and assert
+ *    nothing changes; register a new generation that read the old state, and
+ *    assert it is signalled at once; then register the current state and assert
+ *    the moves stop.
  * 4. Close a bridge with moves still owed, and assert it writes nothing more.
  */
 export async function test_watch_bridge_moves_the_record_until_the_project_runs_again(): Promise<void> {
@@ -86,8 +87,15 @@ export async function test_watch_bridge_moves_the_record_until_the_project_runs_
   bridge.register(record, stale);
   assert.equal(
     signal(),
+    3,
+    "a delivery of the same generation registers nothing again",
+  );
+  assert.ok(bridge.owes(), "and answers nothing");
+  bridge.register(record, recorded(true));
+  assert.equal(
+    signal(),
     4,
-    "a registration that read the old state is signalled again at once",
+    "a new generation that read the old state is signalled again at once",
   );
   bridge.register(record, current);
   assert.equal(bridge.owes(), false, "the current state answers the signal");

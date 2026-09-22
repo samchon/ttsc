@@ -3,27 +3,28 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { readProjectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/readProjectRecordFile.js";
 import { createRealNativeEnvelopeFixture } from "../../internal/real-native-envelope/createRealNativeEnvelopeFixture";
 
 /**
- * Verifies the Farm adapter hands every input under Farm's configured root,
- * whichever spelling Farm's resolver delivered the module under
- * (samchon/ttsc#1462).
+ * Verifies the Farm adapter hands Farm the project's record alone, whichever
+ * spelling Farm's resolver delivered the module under (samchon/ttsc#1462).
  *
- * A host is handed its inputs under the spelling of the module it delivered
- * (samchon/ttsc#1451). Farm resolves a module physically, through a junction or
- * link, while it relates every watch file to its configured root, so under a
- * linked root the input it was handed was no dependency its watcher could
+ * Farm resolves a module physically, through a junction or link, while it
+ * relates every watch file to its configured root, so an input handed under the
+ * physical spelling of a linked root was no dependency its watcher could
  * relate, and an edit to it rebuilt nothing; measured on the host matrix on
- * Windows. A host whose channel is rooted says so, and the delivery is spelled
- * under that root.
+ * Windows. No input reaches Farm any more: the record is one absolute path
+ * below the host's tool directory, the same for every spelling of the project,
+ * and the adapter's bridge moves it for every input, under whichever spelling
+ * the compiler read it.
  *
  * 1. Resolve Farm's config on a link to a real project, and deliver a module by
  *    its physical path through a watching Farm context.
- * 2. Assert every input below the project is spelled under the link, none under
- *    the physical directory, and the selected config is handed once.
+ * 2. Assert Farm is handed the record and nothing else, and that the record names
+ *    the selected config.
  */
-export async function test_farm_is_handed_a_linked_projects_inputs_under_its_root(): Promise<void> {
+export async function test_farm_is_handed_the_project_record_alone(): Promise<void> {
   const fixture = createRealNativeEnvelopeFixture();
   const physical = fs.realpathSync.native(fixture.root);
   const linked = path.join(
@@ -61,17 +62,21 @@ export async function test_farm_is_handed_a_linked_projects_inputs_under_its_roo
       compilation,
     ),
   );
-  const under = (root: string) => (input: string) =>
-    input === root || input.startsWith(`${root}${path.sep}`);
-  assert.ok(handed.some(under(linked)), "inputs are handed under the root");
-  assert.deepEqual(
-    handed.filter(under(physical)),
-    [],
-    "no input is spelled under the physical directory",
+  assert.equal(
+    handed.length,
+    1,
+    `Farm is handed the record alone: ${JSON.stringify(handed)}`,
   );
-  assert.deepEqual(
-    handed.filter((input) => input === path.join(linked, "tsconfig.json")),
-    [path.join(linked, "tsconfig.json")],
-    "the selected config is handed once",
+  const record = handed[0]!;
+  assert.match(record, /[\\/]records[\\/][0-9a-f]{32}\.json$/);
+  assert.ok(path.isAbsolute(record), "as one absolute path");
+  const written = readProjectRecordFile(record);
+  assert.ok(written !== undefined, "the record is written");
+  assert.equal(written.tsconfig, path.join(linked, "tsconfig.json"));
+  assert.ok(
+    Object.keys(written.inputs).some(
+      (input) => path.basename(input) === "tsconfig.json",
+    ),
+    "the record names the selected config",
   );
 }

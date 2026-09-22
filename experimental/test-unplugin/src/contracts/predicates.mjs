@@ -212,7 +212,7 @@ export function watchRollupLike(bundlerName) {
         }
         records =
           event.result?.watchFiles?.filter((file) =>
-            /[\/]records[\/][0-9a-f]{32}.json$/.test(file),
+            /[\\/]records[\\/][0-9a-f]{32}\.json$/.test(file),
           ) ?? records;
         await event.result?.close();
         built();
@@ -314,7 +314,7 @@ export async function watchFarm(project, plugin, built) {
   };
   for (const watched of compiler.resolvedWatchPaths()) {
     const file = path.resolve(project.root, watched);
-    if (/[\/]records[\/][0-9a-f]{32}.json$/.test(file))
+    if (/[\\/]records[\\/][0-9a-f]{32}\.json$/.test(file))
       signals.set(file, read(file));
   }
   return {

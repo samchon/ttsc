@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   adapter,
   eventQueue,
+  eventually,
   expectOutput,
   failedOutput,
   landLateRace,
@@ -77,6 +78,12 @@ export async function openSession(project) {
       // The rebuild's own end reaches the queue as a build; consume it.
       await settledOutput(events, "esbuild unchanged rebuild", value);
     },
+    recompiled: (label, before) =>
+      eventually(
+        () => project.runs(),
+        (runs) => runs > before,
+        `esbuild ${label}`,
+      ),
     close: () => context.dispose(),
   };
 }

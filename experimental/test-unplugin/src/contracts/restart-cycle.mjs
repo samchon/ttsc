@@ -73,7 +73,13 @@ function projectFiles() {
   return states;
 }
 
-const recorded = path.join(root, ".cache", "restart-files.json");
+// Beside the project, not below it: the compiler lists the project root, and
+// a directory appearing there is a change to the project's state, which the
+// next session would rightly compile for.
+const recorded = path.join(
+  path.dirname(root),
+  `${path.basename(root)}-restart-files.json`,
+);
 const before = project.runs();
 const openedAt = Date.now();
 const session = await sessions[host](project);

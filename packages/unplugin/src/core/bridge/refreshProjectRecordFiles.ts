@@ -3,11 +3,8 @@ import path from "node:path";
 
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import type { TtscTransformFilesystemOperations } from "../transform/filesystem/TtscTransformFilesystemOperations";
-import { walkProjectInputs } from "../transform/project/walkProjectInputs";
-import { watchInputEvidenceMatchesDisk } from "../transform/watch/watchInputEvidenceMatchesDisk";
 import { PROJECT_RECORD_DIRECTORY } from "./PROJECT_RECORD_DIRECTORY";
-import type { TtscProjectRecord } from "./TtscProjectRecord";
-import { membershipRecordDigest } from "./membershipRecordDigest";
+import { projectRecordMoved } from "./projectRecordMoved";
 import { readProjectRecordFile } from "./readProjectRecordFile";
 import { signalProjectRecordFile } from "./signalProjectRecordFile";
 
@@ -50,25 +47,8 @@ export function refreshProjectRecordFiles(
     const file = path.join(directory, name);
     const record = readProjectRecordFile(file);
     if (record === undefined) continue;
-    if (projectRecordMoved(record, filesystem)) signalProjectRecordFile(file);
+    if (projectRecordMoved(record, filesystem) !== undefined) {
+      signalProjectRecordFile(file);
+    }
   }
-}
-
-/** Whether the project's state on disk differs from what the record holds. */
-function projectRecordMoved(
-  record: TtscProjectRecord,
-  filesystem: TtscTransformFilesystemOperations,
-): boolean {
-  if (!fs.existsSync(record.tsconfig)) return true;
-  for (const [input, evidence] of Object.entries(record.inputs)) {
-    if (evidence === null || typeof evidence !== "object") return true;
-    if (!watchInputEvidenceMatchesDisk(input, evidence, filesystem))
-      return true;
-  }
-  if (record.membership === null) return false;
-  const { policy } = record.membership;
-  const { directories } = walkProjectInputs(record.root, filesystem, policy);
-  return (
-    membershipRecordDigest(policy, directories) !== record.membership.digest
-  );
 }

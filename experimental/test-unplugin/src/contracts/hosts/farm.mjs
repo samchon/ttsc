@@ -10,6 +10,9 @@ import {
   valuesIn,
 } from "../common.mjs";
 
+/** The project record below the tool directory (`projectRecordFile`). */
+const RECORD = /[\\/]records[\\/][0-9a-f]{32}\.json$/;
+
 /**
  * A Farm development compiler on the fixture, driven the way Farm's dev server
  * drives it: the server's watcher reports a changed path to `Compiler.update`,
@@ -116,9 +119,17 @@ export async function openSession(project, { cache = false } = {}) {
     Object.values(compiler.resources())
       .map((value) => value.toString())
       .join("\n");
+  // What Farm's dev server updates for a path its watcher reports: one the
+  // compiler holds a module for, a source module or a watch file a module
+  // named, the project's record among them (`hmrEngine.hmrUpdate`). A path it
+  // holds none for is dropped; the adapter's bridge moves the record for it,
+  // which the watcher reports next (`changedWatched`).
   const update = async (files) => {
-    if (files.length === 0) return output();
-    const updated = await compiler.update(files);
+    const reported = files.filter((file) =>
+      compiler.hasModule(path.resolve(file)),
+    );
+    if (reported.length === 0) return output();
+    const updated = await compiler.update(reported);
     return [updated.mutableModules, updated.immutableModules].join("\n");
   };
   let firstCompile = true;
@@ -201,9 +212,19 @@ export async function openSession(project, { cache = false } = {}) {
         `farm ${label}`,
       );
     },
+    // What Farm's watcher reports for an edit that changes nothing: the input
+    // and the project's record every module watches, which the adapter left
+    // as it was; every module then runs again from the unchanged generation.
     async rebuild(value) {
       observe();
-      expectOutput(await update([project.input]), value, 4);
+      expectOutput(
+        await update([
+          project.input,
+          ...watchedPaths().filter((file) => RECORD.test(file)),
+        ]),
+        value,
+        4,
+      );
     },
     recompiled: (label, before) =>
       eventually(
