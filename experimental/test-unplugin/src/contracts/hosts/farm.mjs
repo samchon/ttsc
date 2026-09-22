@@ -130,11 +130,17 @@ export async function openSession(project, { cache = false } = {}) {
     async settled(label, value, changed) {
       let code;
       if (firstCompile) {
-        // The session's first compile failed on the broken input; Farm's own
-        // recovery is a restart.
         firstCompile = false;
-        compiler = await create();
-        await compiler.compile();
+        if (initial !== undefined) {
+          // The session's first compile failed on the broken input; Farm's
+          // own recovery is a restart. A compile that succeeded keeps its
+          // compiler: a second one over the same persistent cache reads each
+          // store's manifest while the first's write thread may be
+          // rewriting it in place, and panics on the empty file (measured on
+          // the Windows lane).
+          compiler = await create();
+          await compiler.compile();
+        }
         code = output();
       } else {
         observe();
