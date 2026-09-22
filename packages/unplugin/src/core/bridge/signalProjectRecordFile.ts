@@ -17,20 +17,23 @@ let bare = 0;
  * hears as well, and the next delivery replaces it whole. Every rewrite lands
  * bytes no earlier write of any process left, so a host comparing content hears
  * it as a host comparing times does.
+ *
+ * A bare signal only ever replaces a file that is there. A record is gone when
+ * its project is (`refreshProjectRecordFiles`), and writing one here would
+ * bring a project's file back for a project that has none.
  */
 export function signalProjectRecordFile(file: string): void {
   const record = readProjectRecordFile(file);
   try {
     if (record === undefined) {
-      // Only ever over a file that is there. A record is gone when its
-      // project is (`refreshProjectRecordFiles`), and creating one here would
-      // bring back a project's file for a project that has none, which every
-      // later build start would then keep moving.
       bare += 1;
+      const text = `${process.pid}:${bare}`;
+      // `r+` and not a write that creates: a file that is gone stays gone,
+      // whichever process removed it between the read above and here.
       const handle = fs.openSync(file, "r+");
       try {
-        fs.writeSync(handle, `${process.pid}:${bare}`, 0, "utf8");
-        fs.ftruncateSync(handle, `${process.pid}:${bare}`.length);
+        fs.writeSync(handle, text, 0, "utf8");
+        fs.ftruncateSync(handle, Buffer.byteLength(text));
       } finally {
         fs.closeSync(handle);
       }
