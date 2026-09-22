@@ -177,6 +177,23 @@ try {
   // from the cache. Re-read on every poll, since a build may follow the
   // commit, and bounded by the deadline below.
   if (expectation.store === true && project.runs() !== before) {
+    // A host whose cached module snapshots predate the record's last move
+    // rebuilds those modules on its next start, however unchanged the
+    // project is: the adapter writes the record inside the build that
+    // produced it, and the host hears that write itself and runs one more
+    // pass, whose snapshots begin after it. A session stopped before that
+    // pass stores a cache its successor rebuilds from, which is a session cut
+    // short rather than a cache that failed to serve. The wait is for the
+    // host's own two facts, its last pass and the record's own time, never
+    // for a period of quiet.
+    if (session.cacheSettled !== undefined) {
+      await eventually(
+        () => session.cacheSettled(),
+        Boolean,
+        `${host}: ${expectation.label}: the host ran a pass after the record moved`,
+        60_000,
+      ).catch(() => undefined);
+    }
     const afterTheBuild = await eventually(
       () => session.stored(Math.max(openedAt, session.builtAt?.() ?? 0)),
       Boolean,

@@ -276,6 +276,24 @@ export async function openSession(bundler, project) {
       }
       return last;
     },
+    // Whether the last pass of every one of Next's compilers began after the
+    // record last moved, which is when the modules they hold carry a snapshot
+    // the next session accepts: webpack rejects a cached module whose snapshot
+    // began before a dependency's last change, and the adapter writes the
+    // record inside the build that produced it. Each compiler reports its
+    // pass and the records as it saw them (`observe-pass`).
+    cacheSettled: () => {
+      const passes = [
+        ...output.matchAll(/ pass started at (\d+); records (\S*)/g),
+      ];
+      if (passes.length === 0) return false;
+      const [, startedAt, records] = passes[passes.length - 1];
+      let moved = 0;
+      for (const [, stamp] of records.matchAll(/@(\d+):\d+/g)) {
+        moved = Math.max(moved, Number(stamp));
+      }
+      return Number(startedAt) > moved;
+    },
     // Next stores both compilers' persistent caches below a `cache`
     // directory of its output, `.next/dev` for a development session since
     // Next 16, and each store commits by writing one file last: Turbopack its

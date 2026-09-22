@@ -49,6 +49,15 @@ export async function openSession(name, project, { cache = false } = {}) {
   // earlier build, and a session restored from it rebuilds what that build
   // had already recorded.
   let builtAt = 0;
+  // When the host's last build began, against which the record's own move
+  // says whether the cache this session leaves is consistent: webpack rejects
+  // a cached module whose snapshot began before a dependency's last change
+  // (`FileSystemInfo.checkFile`, `safeTime > startTime`), and the adapter
+  // writes the record inside the build that produced it. The host hears that
+  // write itself and runs one more pass, whose snapshots begin after it; a
+  // session stopped before that pass leaves a cache the next session rebuilds
+  // once.
+  let startedAt = 0;
   const compiler = bundler({
     context: project.root,
     mode: "development",
@@ -97,7 +106,8 @@ export async function openSession(name, project, { cache = false } = {}) {
           // a restart that compiled is explained by the pass the stored
           // session ended on, which this names.
           compiler.hooks.compile.tap("observe-pass", () => {
-            log(`pass started at ${Date.now()}; records ${records()}`);
+            startedAt = Date.now();
+            log(`pass started at ${startedAt}; records ${records()}`);
           });
           compiler.hooks.invalid.tap("observe-pass", (file, changeTime) => {
             log(`change reported at ${Date.now()}: ${file} (${changeTime})`);
@@ -143,6 +153,9 @@ export async function openSession(name, project, { cache = false } = {}) {
       await settledOutput(events, `${name} unchanged rebuild`, value);
     },
     builtAt: () => builtAt,
+    // Whether the last pass began after the record last moved, which is when
+    // the modules it holds carry a snapshot the next session accepts.
+    cacheSettled: () => startedAt > recordsMovedAt(project.root),
     stored: (since) => cacheCommitted(name, cacheDirectory, since),
     output: () => logged,
     recompiled: (label, before) =>
@@ -219,6 +232,26 @@ function cacheCommitted(name, cacheDirectory, since) {
       committedAfter(path.join(cacheDirectory, store, "index.pack")),
     )
   );
+}
+
+/**
+ * When the newest project record below the tool directory last moved, in the
+ * clock the session's own timestamps come from, or `0` while there is none.
+ */
+function recordsMovedAt(root) {
+  const directory = path.join(
+    hostToolDirectory(root),
+    PROJECT_RECORD_DIRECTORY,
+  );
+  let moved = 0;
+  try {
+    for (const entry of fs.readdirSync(directory)) {
+      moved = Math.max(moved, fs.statSync(path.join(directory, entry)).mtimeMs);
+    }
+  } catch {
+    // No record yet; nothing has moved.
+  }
+  return moved;
 }
 
 /**
