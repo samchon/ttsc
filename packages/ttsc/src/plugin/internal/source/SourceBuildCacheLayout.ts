@@ -83,9 +83,9 @@ export namespace SourceBuildCacheLayout {
   /**
    * Report from one directory snapshot whether `root` is being or was marked.
    *
-   * An empty root is the state after the exclusive directory creation and
-   * before marker publication. Reading the entries once prevents a concurrent
-   * publication from falling between separate marker and emptiness probes.
+   * An empty root is the state after root creation and before marker
+   * publication. Reading the entries once prevents a concurrent publication
+   * from falling between separate marker and emptiness probes.
    */
   export function isEmptyOrMarkedDefaultWorkspaceCacheRoot(
     root: string,

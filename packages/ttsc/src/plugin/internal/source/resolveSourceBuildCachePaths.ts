@@ -80,8 +80,8 @@ function resolveSourceBuildCacheRoot(
  * Walks up from `projectRoot` and returns, in order of preference: the NEAREST
  * ancestor that is a workspace root (holds `pnpm-workspace.yaml`, or a
  * `package.json` with a `workspaces` field); else the nearest ancestor that
- * contains an installation; else the outermost ttsc-only cache owner below the
- * nearest ordinary package manifest, or `projectRoot` itself.
+ * contains an installation; else the outermost ttsc-only cache owner at or
+ * below the nearest ordinary package manifest, or `projectRoot` itself.
  *
  * A directory whose only payload is ttsc's own `.cache/ttsc` tree is not
  * installation evidence: an older ttsx may have created that tree below a

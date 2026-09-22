@@ -18,7 +18,7 @@ import {
  * it. This case warms a manifest-less fixture at its outer install root, then
  * enters through a nested tsconfig and proves no second Go build occurs.
  *
- * 1. Copy the source-plugin fixture and add a nested extending tsconfig.
+ * 1. Copy the source-plugin fixture and add a nested tsconfig.
  * 2. Prepare that project with the default cache and observe one cold build.
  * 3. Run it through ttsx, assert the warm binary is reused, and find one cache.
  */
