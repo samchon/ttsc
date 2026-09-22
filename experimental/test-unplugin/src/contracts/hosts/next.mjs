@@ -289,21 +289,20 @@ export async function openSession(bundler, project) {
       }
       return last;
     },
-    // Whether the last pass of every one of Next's compilers began after the
-    // record last moved, which is when the modules they hold carry a snapshot
-    // the next session accepts: webpack rejects a cached module whose snapshot
-    // began before a dependency's last change, and the adapter writes the
-    // record inside the build that produced it. Each compiler reports its
-    // pass and the records as it saw them (`observe-pass`).
-    // When each of Next's compilers last reported a pass end, by its name.
+    // Whether the last pass that ended began after the record last moved,
+    // which is when the modules it holds carry a snapshot the next session
+    // accepts: webpack rejects a cached module whose snapshot began before a
+    // dependency's last change, and the adapter writes the record inside the
+    // build that produced it. Each compiler reports its passes
+    // (`observe-pass`), and a pass still running is not that pass, since the
+    // delivery inside it is what writes the record.
+    //
+    // Against the record on disk, never the stamps a pass logged: a signal
+    // the host answered from its cache, running no module and so registering
+    // nothing, keeps repeating on its own schedule, and a session closed
+    // between such a move and the pass that follows it stores a cache older
+    // than the record.
     cacheSettled: () => {
-      // The last pass that ended, against the record as it stands now: a pass
-      // still running is not that pass, since the delivery inside it is what
-      // writes the record, and the stamps that pass logged say nothing about
-      // a move the bridge made after it. A signal the host answered from its
-      // cache, running no module and so registering nothing, keeps repeating
-      // on its own schedule, and a session closed between such a move and the
-      // pass that follows it stores a cache older than the record.
       const passes = [...output.matchAll(/ pass (\d+)\.\.\d+ done at \d+/g)];
       if (passes.length === 0) return false;
       const startedAt = Number(passes[passes.length - 1][1]);
