@@ -1,5 +1,4 @@
 import fs from "node:fs";
-import path from "node:path";
 
 import { readProjectRecordFile } from "./readProjectRecordFile";
 import { writeProjectRecordFile } from "./writeProjectRecordFile";
@@ -23,9 +22,18 @@ export function signalProjectRecordFile(file: string): void {
   const record = readProjectRecordFile(file);
   try {
     if (record === undefined) {
-      fs.mkdirSync(path.dirname(file), { recursive: true });
+      // Only ever over a file that is there. A record is gone when its
+      // project is (`refreshProjectRecordFiles`), and creating one here would
+      // bring back a project's file for a project that has none, which every
+      // later build start would then keep moving.
       bare += 1;
-      fs.writeFileSync(file, `${process.pid}:${bare}`);
+      const handle = fs.openSync(file, "r+");
+      try {
+        fs.writeSync(handle, `${process.pid}:${bare}`, 0, "utf8");
+        fs.ftruncateSync(handle, `${process.pid}:${bare}`.length);
+      } finally {
+        fs.closeSync(handle);
+      }
       return;
     }
     writeProjectRecordFile(file, { ...record, signal: record.signal + 1 });

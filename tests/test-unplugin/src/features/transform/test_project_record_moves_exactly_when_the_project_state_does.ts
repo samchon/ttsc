@@ -27,6 +27,10 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/li
  * recorded for each input, and a refresh proves each against the disk the way a
  * delivery proves a generation.
  *
+ * A record keeps moving until a delivery writes the state a proof found. The
+ * one project that can never deliver again, whose tsconfig is gone, is removed
+ * instead, since a start would otherwise move it forever.
+ *
  * 1. Write the record of a project from the state of its inputs: a read file, a
  *    file the compile found missing, and the walk's membership under a policy
  *    with an undefined member, which the record must still serialize as JSON a
@@ -37,7 +41,8 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/li
  *    refreshing after each, and assert each moves the record; then assert a
  *    refresh with no delivery since moves it again, since only a delivery
  *    writes the state the refresh found.
- * 4. Remove the tsconfig, refresh, and assert the record moves.
+ * 4. Remove the tsconfig, refresh twice, and assert the record is removed and
+ *    stays removed.
  */
 export async function test_project_record_moves_exactly_when_the_project_state_does(): Promise<void> {
   const root = fs.realpathSync.native(
@@ -141,5 +146,11 @@ export async function test_project_record_moves_exactly_when_the_project_state_d
 
   fs.rmSync(tsconfig);
   refreshProjectRecordFiles(tool);
-  assert.equal(signal(), 3, "a tsconfig that is gone moves the record");
+  assert.equal(
+    fs.existsSync(file),
+    false,
+    "a tsconfig that is gone removes the record",
+  );
+  refreshProjectRecordFiles(tool);
+  assert.equal(fs.existsSync(file), false, "and no later start brings it back");
 }

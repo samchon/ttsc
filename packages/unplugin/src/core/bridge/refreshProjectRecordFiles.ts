@@ -57,14 +57,25 @@ export function refreshProjectRecordFiles(
     if (!name.endsWith(".json")) continue;
     const file = path.join(directory, name);
     const record = readProjectRecordFile(file);
-    // A record that cannot be read proves nothing about its project, and a
-    // record is written into the file the host watches, so a reader can catch
-    // one mid-write (`writeProjectRecordFile`). It is moved as if the proof
-    // had found a change, which is what a proof that cannot run does below:
-    // the host runs the project's modules, and their deliveries write a
-    // record the next proof can run over.
-    if (record === undefined) {
-      signalProjectRecordFile(file);
+    // A record is written into the file the host watches, so a reader can
+    // catch one mid-write, and a writer that died leaves one for good
+    // (`writeProjectRecordFile`). Either way its bytes already differ from
+    // every consistent record a host snapshotted, so the host runs the
+    // project's modules on its own and the delivery writes the record whole.
+    // Moving it here would instead destroy a record caught mid-write, and
+    // race a process removing one.
+    if (record === undefined) continue;
+    // Nothing will write this project again: the record's own rule, that it
+    // keeps moving until a delivery writes the state a proof found, has no
+    // delivery left to end it, and a build start would rewrite it forever.
+    // Removing it is the move, which every host hears as the dependency it
+    // holds going away, and it ends there.
+    if (!fs.existsSync(record.tsconfig)) {
+      try {
+        fs.rmSync(file, { force: true });
+      } catch {
+        // Held by another process; the next start removes it.
+      }
       continue;
     }
     if (bridge !== undefined) {

@@ -110,14 +110,15 @@ export function turbopack(
   const projectRoot = this.rootContext ?? process.cwd();
   const toolDirectory = hostToolDirectory(projectRoot);
   const loaderOptions = this.getOptions?.() ?? {};
-  // Turbopack gives a loader no build start, so the records are proven at
-  // the process's first delivery. A watching worker's bridge takes every
-  // record as it opens, proving them as it does, and observes the projects
-  // the worker restores from Turbopack's cache without a delivery from then
-  // on. A one-shot build proves them once per worker when its rule is wired
-  // by hand; under `withTtsc`, whose session the workers inherit, the wrapper
-  // proved every record before Next started, and a one-shot worker proves
-  // nothing again.
+  // Turbopack gives a loader no build start, so the records are proven at the
+  // process's first delivery. A watching worker's bridge takes every record as
+  // it opens, proving them as it does, and observes the projects the worker
+  // restores from Turbopack's cache without a delivery from then on. A
+  // one-shot worker proves the records of its own tool directory once, which
+  // is the one `withTtsc` cannot prove for it: the wrapper knows only the
+  // directory Next was started in, while a loader's records live below the
+  // root Turbopack resolved, and a `turbopack.root` above the app, which is
+  // how a monorepo is configured, makes those two different directories.
   let bridgeStartedAt: number | undefined;
   if (watching && addDependency !== undefined) {
     if (bridge === undefined) {
@@ -125,7 +126,7 @@ export function turbopack(
       refreshProjectRecordFiles(toolDirectory, bridge);
     }
     bridgeStartedAt = bridge.begin();
-  } else if (session === undefined && !refreshed.has(toolDirectory)) {
+  } else if (!refreshed.has(toolDirectory)) {
     refreshed.add(toolDirectory);
     refreshProjectRecordFiles(toolDirectory);
   }
