@@ -13,9 +13,9 @@ import {
 /**
  * A Farm development compiler on the fixture, driven the way Farm's dev server
  * drives it: the server's watcher reports a changed path to `Compiler.update`,
- * and the contract reports the paths it changed and the sentinels the bridge
- * rewrote. Farm's public `Compiler` has no watcher of its own, so the session
- * opens on the broken input by compiling once and reading the failure.
+ * and the contract reports the paths it changed and the project record the
+ * bridge moved. Farm's public `Compiler` has no watcher of its own, so the
+ * session opens on the broken input by compiling once and reading the failure.
  *
  * A plugin after ttsc lands the `LATE_RACE_` edits in its `transform` hook.
  *
@@ -88,7 +88,7 @@ export async function openSession(project, { cache = false } = {}) {
     }
   };
   // What Farm's own file watcher would report: every path the compiler
-  // resolved to watch, the bridge's sentinels among them, whose content
+  // resolved to watch, the project's record among them, whose content
   // differs from what was seen last.
   const seen = new Map();
   const watchedPaths = () =>
@@ -148,7 +148,7 @@ export async function openSession(project, { cache = false } = {}) {
         code = await update(changed);
       }
       // The bridge answers an edit the compile did not read by rewriting the
-      // importer's sentinel, which the dev server's watcher reports next.
+      // project's record, which the dev server's watcher reports next.
       await eventually(
         async () => {
           const values = valuesIn(code);
@@ -187,7 +187,7 @@ export async function openSession(project, { cache = false } = {}) {
         }).finally(() => process.off("unhandledRejection", unhandled));
       };
       // A change to a file Farm holds no module for reaches it through the
-      // importer's sentinel, which the dev server's watcher reports next.
+      // project's record, which the dev server's watcher reports next.
       let failure = await attempt(changed);
       await eventually(
         async () => {

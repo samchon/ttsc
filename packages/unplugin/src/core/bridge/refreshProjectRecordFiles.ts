@@ -1,0 +1,74 @@
+import fs from "node:fs";
+import path from "node:path";
+
+import { DEFAULT_FILESYSTEM_OPERATIONS } from "../transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
+import type { TtscTransformFilesystemOperations } from "../transform/filesystem/TtscTransformFilesystemOperations";
+import { walkProjectInputs } from "../transform/project/walkProjectInputs";
+import { watchInputEvidenceMatchesDisk } from "../transform/watch/watchInputEvidenceMatchesDisk";
+import { PROJECT_RECORD_DIRECTORY } from "./PROJECT_RECORD_DIRECTORY";
+import type { TtscProjectRecord } from "./TtscProjectRecord";
+import { membershipRecordDigest } from "./membershipRecordDigest";
+import { readProjectRecordFile } from "./readProjectRecordFile";
+import { signalProjectRecordFile } from "./signalProjectRecordFile";
+
+/**
+ * Prove every project record below a host's tool directory against the disk
+ * before the host validates anything against its persistent cache, and move the
+ * record of a project whose state changed while nothing ran.
+ *
+ * A host restoring a module from its cache never runs the adapter for it, so
+ * the adapter cannot learn at delivery that an input moved, a root file
+ * appeared, or a tsconfig vanished while the host was stopped. It learns here:
+ * each recorded input is proven against the disk the way a delivery proves it
+ * (`watchInputEvidenceMatchesDisk`), and the walk is run again under the
+ * recorded policy and its digest compared. One mismatch moves the record
+ * (`signalProjectRecordFile`); the host, which recorded the file as a
+ * dependency of every module of the project, runs those modules again, and
+ * their deliveries write the record of the generation that read the change. A
+ * record whose tsconfig is gone is moved too, which is a change as well.
+ *
+ * This is the same proof a delivery makes of a generation, paid once per build
+ * start instead of once per module, and it costs what the host's own snapshot
+ * costs: one read per recorded input and one listing per project directory. A
+ * tool directory with no records costs one failed listing.
+ *
+ * @param toolDirectory The host's tool directory (`hostToolDirectory`).
+ */
+export function refreshProjectRecordFiles(
+  toolDirectory: string,
+  filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
+): void {
+  const directory = path.join(toolDirectory, PROJECT_RECORD_DIRECTORY);
+  let names: string[];
+  try {
+    names = fs.readdirSync(directory);
+  } catch {
+    return;
+  }
+  for (const name of names) {
+    if (!name.endsWith(".json")) continue;
+    const file = path.join(directory, name);
+    const record = readProjectRecordFile(file);
+    if (record === undefined) continue;
+    if (projectRecordMoved(record, filesystem)) signalProjectRecordFile(file);
+  }
+}
+
+/** Whether the project's state on disk differs from what the record holds. */
+function projectRecordMoved(
+  record: TtscProjectRecord,
+  filesystem: TtscTransformFilesystemOperations,
+): boolean {
+  if (!fs.existsSync(record.tsconfig)) return true;
+  for (const [input, evidence] of Object.entries(record.inputs)) {
+    if (evidence === null || typeof evidence !== "object") return true;
+    if (!watchInputEvidenceMatchesDisk(input, evidence, filesystem))
+      return true;
+  }
+  if (record.membership === null) return false;
+  const { policy } = record.membership;
+  const { directories } = walkProjectInputs(record.root, filesystem, policy);
+  return (
+    membershipRecordDigest(policy, directories) !== record.membership.digest
+  );
+}

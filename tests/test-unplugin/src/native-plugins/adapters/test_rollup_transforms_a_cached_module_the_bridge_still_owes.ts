@@ -7,16 +7,16 @@ import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
 import { createRealNativeEnvelopeFixture } from "../../internal/real-native-envelope/createRealNativeEnvelopeFixture";
 
 /**
- * Verifies the Rollup adapter refuses Rollup's cache for a module whose
- * sentinel the bridge rewrote since the module last ran, and accepts it again
- * once the module has run (samchon/ttsc#1460).
+ * Verifies the Rollup adapter refuses Rollup's cache for every module while the
+ * bridge has moved the project's record since a delivery last registered it,
+ * and accepts the cache again once a delivery has (samchon/ttsc#1460).
  *
- * Rollup applies a sentinel rewrite it hears during a build to the cache that
- * build started from, and the build's own result then replaces that cache with
- * the module intact, so the rerun served the module from its cache and the
- * module stayed on its old output. Rollup asks `shouldTransformCachedModule`
- * before serving a module from its cache; the adapter answers for the bridge,
- * which knows which importers it signalled and which registered since.
+ * Rollup applies a record move it hears during a build to the cache that build
+ * started from, and the build's own result then replaces that cache with the
+ * modules intact, so the rerun served them from its cache and they stayed on
+ * their old output. Rollup asks `shouldTransformCachedModule` before serving a
+ * module from its cache; the adapter answers for the bridge, which knows
+ * whether it signalled the project and whether a delivery registered since.
  *
  * A registration must not answer the signal with a stale delivery either. A
  * pass proves the generation once and serves every later module from it, so a
@@ -26,9 +26,9 @@ import { createRealNativeEnvelopeFixture } from "../../internal/real-native-enve
  *
  * 1. Deliver a module through a watching Rollup context and assert Rollup may
  *    serve it from its cache.
- * 2. Edit a declaration the module read, wait for the sentinel to be rewritten,
- *    and assert Rollup must transform the module instead, and that a module
- *    never delivered is Rollup's to decide.
+ * 2. Edit a declaration the module read, wait for the record to be moved, and
+ *    assert Rollup must transform every module instead, since a module names no
+ *    project of its own.
  * 3. Deliver a second module in the same pass, and assert Rollup must transform it
  *    too, since the pass served it the state before the edit.
  * 4. Open a new pass, deliver both modules, and assert Rollup may serve each from
@@ -53,9 +53,9 @@ export async function test_rollup_transforms_a_cached_module_the_bridge_still_ow
     typeof hook === "function"
       ? hook.apply(context, args)
       : hook?.handler?.apply(context, args);
-  const sentinels: string[] = [];
+  const records: string[] = [];
   const context = {
-    addWatchFile: (file: string) => sentinels.push(file),
+    addWatchFile: (file: string) => records.push(file),
     meta: { watchMode: true },
   };
   const cacheable = (id: string = module) =>
@@ -63,19 +63,19 @@ export async function test_rollup_transforms_a_cached_module_the_bridge_still_ow
   try {
     await invoke(plugin.buildStart, {});
     assert.ok(await invoke(plugin.transform, context, source, module));
-    assert.equal(sentinels.length, 1, "Rollup watches one sentinel");
+    assert.equal(records.length, 1, "Rollup watches the project's record");
     assert.equal(
       cacheable(),
       null,
       "a module that ran since any signal may come from Rollup's cache",
     );
 
-    const sentinel = sentinels[0]!;
-    const before = fs.readFileSync(sentinel, "utf8");
+    const record = records[0]!;
+    const before = fs.readFileSync(record, "utf8");
     fs.appendFileSync(declaration, "export declare const owed: 1;\n");
     await waitFor(
-      () => fs.readFileSync(sentinel, "utf8") !== before,
-      "the sentinel to be rewritten for the edited declaration",
+      () => fs.readFileSync(record, "utf8") !== before,
+      "the record to be moved for the edited declaration",
     );
     assert.equal(
       cacheable(),
@@ -84,8 +84,8 @@ export async function test_rollup_transforms_a_cached_module_the_bridge_still_ow
     );
     assert.equal(
       cacheable(second),
-      null,
-      "a module the bridge never signalled is Rollup's to decide",
+      true,
+      "every module of the project, since a module names no project",
     );
 
     assert.ok(await invoke(plugin.transform, context, secondSource, second));

@@ -23,6 +23,7 @@ export { transformTtsc } from "./transform/transformTtsc";
 export { captureWatchInputBaseline } from "./transform/watch/captureWatchInputBaseline";
 export { captureWatchInputFileBaseline } from "./transform/watch/captureWatchInputFileBaseline";
 export { isWatchInputKeyBaseline } from "./transform/watch/isWatchInputKeyBaseline";
+export type { TtscProjectRegistration } from "./transform/watch/TtscProjectRegistration";
 export type { TtscTransformHooks } from "./transform/watch/TtscTransformHooks";
 export type { TtscWatchInput } from "./transform/watch/TtscWatchInput";
 export type { TtscWatchInputBaseline } from "./transform/watch/TtscWatchInputBaseline";

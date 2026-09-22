@@ -1,12 +1,8 @@
 import type { TtscWatchInput } from "../transform/watch/TtscWatchInput";
 
 /**
- * An adapter-owned observer for build hosts whose own watch channel cannot
- * observe what the compiler observed (samchon/ttsc#1388).
- *
- * The host is told about a change through one owned sentinel file per importer.
- * That is a file the host can always watch, and writing it re-runs exactly the
- * importers whose inputs changed.
+ * The watching build session's observer of the compiler's inputs, which tells
+ * the host of a change by moving the project's record (`openHostWatchBridge`).
  */
 export interface HostWatchBridge {
   /**
@@ -15,33 +11,33 @@ export interface HostWatchBridge {
    */
   begin(): number;
   /**
-   * Close every observer and drop every owed signal. The sentinels stay: a
-   * host's persistent cache records them, and the next session reuses them.
+   * Close every observer and drop every owed signal. The records stay: a host's
+   * persistent cache holds them as dependencies, and the next session proves
+   * them against the disk.
    */
   close(): Promise<void>;
   /**
-   * Whether the importer was signalled since it last registered, so the host
-   * has yet to run it against the change. A host whose watcher applies a
-   * sentinel rewrite to the build in progress, and then keeps that build's
-   * cache of the importer, loses the signal; Rollup does, measured on its
-   * watcher (samchon/ttsc#1460), and asks through `shouldTransformCachedModule`
-   * instead, before it serves a module from its cache.
+   * Whether a project was signalled since its record last registered, so the
+   * host has yet to run its modules against the change: the one project named,
+   * or any project the bridge observes. A host whose watcher applies the
+   * record's move to the build in progress, and then keeps that build's cache
+   * of the modules, loses the signal; Rollup does, measured on its watcher
+   * (samchon/ttsc#1460), and asks through `shouldTransformCachedModule`
+   * instead, before it serves a module from its cache, for any project since
+   * the module names none.
    */
-  owes(importer: string): boolean;
+  owes(record?: string): boolean;
   /**
-   * Replace one importer's compiler inputs with a delivery's, as the Vite serve
-   * watcher does. The registration answers every signal still owed to the
-   * importer, and signals again at once when the delivery read a state a change
-   * since `startedAt` has left (samchon/ttsc#1423).
-   *
-   * @returns The importer's sentinel, which the caller registers through the
-   *   host's own file channel, or `undefined` when the bridge observes nothing
-   *   for the importer.
+   * Replace the inputs observed for one project's record with a delivery's, as
+   * the Vite serve watcher does for an importer. The registration answers every
+   * signal still owed to the record, and signals again at once when the
+   * delivery read a state a change since `startedAt` has left
+   * (samchon/ttsc#1423).
    */
   register(
-    importer: string,
+    record: string,
     inputs: readonly TtscWatchInput[],
     failed?: boolean,
     startedAt?: number,
-  ): string | undefined;
+  ): void;
 }

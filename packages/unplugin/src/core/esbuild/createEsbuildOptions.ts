@@ -2,12 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 import type { UnpluginOptions } from "unplugin";
 
-import { BRIDGED_WATCH_INPUT_KINDS } from "../bridge/BRIDGED_WATCH_INPUT_KINDS";
 import type { HostWatchBridge } from "../bridge/HostWatchBridge";
 import { hostToolDirectory } from "../bridge/hostToolDirectory";
 import { openHostWatchBridge } from "../bridge/openHostWatchBridge";
-import { refreshMembershipDigestFiles } from "../bridge/refreshMembershipDigestFiles";
-import { registerBuildWatchInputs } from "../bridge/registerBuildWatchInputs";
+import { refreshProjectRecordFiles } from "../bridge/refreshProjectRecordFiles";
+import { registerProjectRecord } from "../bridge/registerProjectRecord";
 import type { ResolvedTtscUnpluginOptions } from "../options/ResolvedTtscUnpluginOptions";
 import { typescriptTransformSourcePattern } from "../source/typescriptTransformSourcePattern";
 import { beginTtscTransformBuild } from "../transform/cache/beginTtscTransformBuild";
@@ -15,21 +14,21 @@ import { createTtscTransformCache } from "../transform/cache/createTtscTransform
 import { resetTtscTransformCache } from "../transform/cache/resetTtscTransformCache";
 import { transformTtsc } from "../transform/transformTtsc";
 import { inlineSourceMap } from "../transform/utils/inlineSourceMap";
-import type { TtscWatchInput } from "../transform/watch/TtscWatchInput";
+import type { TtscProjectRegistration } from "../transform/watch/TtscProjectRegistration";
 
 /**
  * The esbuild adapter: its native loader owns the transform and the
- * registration of each module's inputs, independent of unplugin's hook order.
+ * registration of the project's record, independent of unplugin's hook order.
  *
- * Esbuild keeps one watch state per path for a whole build, taken from the last
- * loader result that named the path (evanw/esbuild internal/fs). An edit
- * landing after one module's loader returned and before another module's did is
- * therefore the second module's baseline, and the first module's edit is
- * masked: measured on plain esbuild, with no rebuild ever (samchon/ttsc#1463).
- * A file read of an absent path likewise overwrote its directory read. Every
- * compiler input therefore goes to the adapter's bridge, which observes it and
- * rewrites one sentinel per module, and esbuild watches only the module itself
- * and that sentinel, a path no other module's result names.
+ * Esbuild watches each module and the project's record, which the bridge moves
+ * when an input changes. Esbuild keeps one watch state per path for a whole
+ * build, taken from the last loader result that named the path (evanw/esbuild
+ * internal/fs), which is why the compiler's inputs themselves were never a
+ * channel it could take: an edit landing after one module's loader returned and
+ * before another's did was the second module's baseline, and the first module's
+ * edit was masked, with no rebuild ever (samchon/ttsc#1463). The record is
+ * named by every module's result with one content, the generation's state, so
+ * no result masks another.
  *
  * Esbuild tells a plugin nothing about whether its context watches, so the
  * bridge opens for a one-shot `build()` as well, and closes when the last
@@ -62,7 +61,7 @@ export function createEsbuildOptions(
           }
           beginTtscTransformBuild(cache);
           passStartedAt = bridge?.begin();
-          refreshMembershipDigestFiles(hostToolDirectory(root));
+          refreshProjectRecordFiles(hostToolDirectory(root));
         });
         build.onDispose(() => {
           if (!owners.delete(build)) return;
@@ -74,7 +73,7 @@ export function createEsbuildOptions(
           passStartedAt = undefined;
           open?.close().catch(() => undefined);
         });
-        // The sentinel each module's last result named, kept through a failed
+        // The record each module's last result named, kept through a failed
         // load so the repair is observed by the same context.
         const previous = new Map<string, string[]>();
         build.onLoad(
@@ -84,21 +83,11 @@ export function createEsbuildOptions(
             const watchFiles = new Set<string>([file]);
             const startedAt = (passStartedAt ??= (bridge ??=
               openHostWatchBridge(root)).begin());
-            const register = (
-              inputs: readonly TtscWatchInput[],
-              failed?: boolean,
-            ) =>
-              registerBuildWatchInputs({
+            const register = (registration: TtscProjectRegistration) =>
+              registerProjectRecord({
                 addWatchFile: (input) => watchFiles.add(input),
-                bridge: {
-                  instance: bridge!,
-                  kinds: BRIDGED_WATCH_INPUT_KINDS.watcherPerPath,
-                  startedAt,
-                },
-                failed,
-                file,
-                inputs,
-                projectRoot: root,
+                bridge: { instance: bridge!, startedAt },
+                registration,
               });
             let contents: string;
             let errors;
@@ -111,9 +100,10 @@ export function createEsbuildOptions(
                 undefined,
                 cache,
                 {
-                  addWatchFiles: register,
-                  membership: true,
-                  toolDirectory: hostToolDirectory(root),
+                  project: {
+                    register,
+                    toolDirectory: hostToolDirectory(root),
+                  },
                 },
               );
               contents =

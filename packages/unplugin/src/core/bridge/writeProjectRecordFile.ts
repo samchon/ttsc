@@ -1,22 +1,22 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import type { TtscMembershipDigestRecord } from "./TtscMembershipDigestRecord";
+import type { TtscProjectRecord } from "./TtscProjectRecord";
 
 /**
- * Write a membership record (`membershipDigestFile`) only when its bytes would
- * change, so a host's persistent cache sees the file move exactly when the
- * project's root-file membership did, and never for a rewrite of the same
- * state.
+ * Write a project record (`projectRecordFile`) only when its bytes would
+ * change, so a host comparing the file's content or time sees it move exactly
+ * when the project's state did, and never for a rewrite of the same state.
+ *
+ * The record is valid JSON with its keys in one order, whichever process writes
+ * it, so two generations of one state produce one byte sequence.
  *
  * @returns Whether the file was written.
  */
-export function writeMembershipDigestFile(
+export function writeProjectRecordFile(
   file: string,
-  record: TtscMembershipDigestRecord,
+  record: TtscProjectRecord,
 ): boolean {
-  // Valid JSON with its keys in one order, whichever process writes it, so
-  // the bytes differ only when the record does.
   const text = JSON.stringify(record, (_key, value: unknown) =>
     value !== null && typeof value === "object" && !Array.isArray(value)
       ? Object.fromEntries(

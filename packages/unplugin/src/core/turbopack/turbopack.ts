@@ -1,27 +1,20 @@
-import path from "node:path";
-
-import { BRIDGED_WATCH_INPUT_KINDS } from "../bridge/BRIDGED_WATCH_INPUT_KINDS";
 import type { HostWatchBridge } from "../bridge/HostWatchBridge";
 import { hostToolDirectory } from "../bridge/hostToolDirectory";
 import { openHostWatchBridge } from "../bridge/openHostWatchBridge";
-import { registerBuildWatchInputs } from "../bridge/registerBuildWatchInputs";
+import { refreshProjectRecordFiles } from "../bridge/refreshProjectRecordFiles";
+import { registerProjectRecord } from "../bridge/registerProjectRecord";
 import { isTransformTarget } from "../isTransformTarget";
 import { resolveOptions } from "../options/resolveOptions";
 import { createTtscTransformCache } from "../transform/cache/createTtscTransformCache";
 import { TtscCompileFailureError } from "../transform/errors/TtscCompileFailureError";
-import { pathIsWithin } from "../transform/filesystem/pathIsWithin";
 import { readTtscTransformSession } from "../transform/session/readTtscTransformSession";
 import { shareTtscTransformCache } from "../transform/session/shareTtscTransformCache";
 import { transformTtsc } from "../transform/transformTtsc";
 import { stripQuery } from "../transform/utils/stripQuery";
-import type { TtscMissingWatchInputShape } from "../transform/watch/TtscMissingWatchInputShape";
+import type { TtscProjectRegistration } from "../transform/watch/TtscProjectRegistration";
 import type { TtscTransformHooks } from "../transform/watch/TtscTransformHooks";
-import type { TtscWatchInput } from "../transform/watch/TtscWatchInput";
 import type { TtscTurbopackLoaderContext } from "./TtscTurbopackLoaderContext";
 import { failedModuleSource } from "./failedModuleSource";
-import { resolveTurbopackRoot } from "./resolveTurbopackRoot";
-import { turbopackProcessMarker } from "./turbopackProcessMarker";
-import { warnUntrackedTurbopackInputs } from "./warnUntrackedTurbopackInputs";
 
 /**
  * Per-process transform cache. Turbopack runs loaders in a worker pool and
@@ -36,10 +29,13 @@ const transformCache = createTtscTransformCache();
 shareTtscTransformCache(transformCache, readTtscTransformSession());
 
 /**
- * The worker's watch bridge for directory listings during `next dev`, opened by
- * its first watching delivery and alive for the worker's lifetime.
+ * The worker's watch bridge during `next dev`, opened by its first watching
+ * delivery and alive for the worker's lifetime.
  */
 let bridge: HostWatchBridge | undefined;
+
+/** The tool directories whose records this worker has proven against the disk. */
+const refreshed = new Set<string>();
 
 /**
  * Standalone webpack-loader entrypoint for Turbopack.
@@ -85,126 +81,57 @@ export function turbopack(
     callback(undefined, source);
     return;
   }
-  // Forward the derived watch inputs (plugin-reported dependencies plus the
-  // host-owned reference graph) into Turbopack's `fileDependencies` set so
-  // editing a type-only input a transform consulted re-runs this loader.
-  // `addDependency` is bound so the webpack loader context stays `this` inside
-  // it; the hook fires on cache hits too, which is required because the shared
-  // transform cache lives for the worker lifetime across requests. A module
-  // the plugin declared volatile is marked uncacheable through the same loader
-  // contract.
+  // The project's record goes into Turbopack's `fileDependencies` set beside
+  // the module, and nothing else does: the record moves when any input of the
+  // generation does, so an edit to a type-only input the compile consulted
+  // re-runs this loader. `addDependency` is bound so the webpack loader
+  // context stays `this` inside it; the hook fires on cache hits too, which is
+  // required because the shared transform cache lives for the worker lifetime
+  // across requests. A module the plugin declared volatile is marked
+  // uncacheable through the same loader contract.
   //
-  // Each input goes to the channel measured to observe its predicate
-  // (samchon/ttsc#1388). `addDependency` observes a file's edit and a missing
-  // path's creation, where `addMissingDependency` does not observe the
-  // creation. A directory the compiler only checked exists is not registered,
-  // since each of its probed descendants is. A listing needs a directory
-  // channel, and Turbopack's `addContextDependency` is recursive: on the
-  // project root, which the compiler lists, every write into `.next`
-  // re-invalidated the module, and `next dev` re-ran the loader hundreds of
-  // times per change. A development session therefore observes listings
-  // through the worker's bridge, and only a one-shot build, whose persistent
-  // cache still needs them, takes the context channel.
-  //
-  // Turbopack's file channel reads each path once the loader has returned,
-  // and that read fails on a directory. A failed read fails the module's
-  // evaluation, and Turbopack then returns the worker to its pool with the
-  // loader's result still unread in the pipe, so the next module evaluated on
-  // that worker receives this module's result, and every later one on it the
-  // result of the module before. Measured on the host matrix, where a
-  // dependency directory renamed away and back left the page importing the
-  // entry's code under its own path: the failed compile had registered the
-  // absent directory as a missing path, and the directory was back by the time
-  // Turbopack read it. Only a path that can come back as nothing but a file
-  // takes the file channel; a directory, or a path the registration cannot
-  // shape, takes the directory channel, whose read of a missing path, a file,
-  // or a directory is a listing, never a failure, and which hears a creation
-  // at the path.
+  // The record lives in the project's own tool directory, inside Turbopack's
+  // project filesystem root, which Turbopack rejects a dependency outside of
+  // (samchon/ttsc#1422) and whose watcher hears the record move. Turbopack
+  // takes a dependency's state as its baseline only when the loader returns,
+  // so a change landing before then never re-runs the module
+  // (samchon/ttsc#1423); the bridge observes every input from the compile on
+  // and moves the record again until a registration proves a delivery read
+  // the changed state.
   const addDependency = this.addDependency?.bind(this);
-  const addContextDependency = this.addContextDependency?.bind(this);
   const cacheable = this.cacheable?.bind(this);
   const emitError = this.emitError?.bind(this);
   const watching = process.env.NODE_ENV !== "production";
-  // Turbopack rejects a dependency outside its project filesystem root, which
-  // failed every module with "leaves the filesystem root" while the bridge's
-  // sentinels lived in the system temp directory. They live in the project's
-  // own tool directory instead, where Turbopack's watcher hears them.
   const projectRoot = this.rootContext ?? process.cwd();
   const toolDirectory = hostToolDirectory(projectRoot);
   const loaderOptions = this.getOptions?.() ?? {};
-  // Turbopack fails the whole module on a dependency outside its project
-  // filesystem root, so only the inputs inside it reach Turbopack
-  // (samchon/ttsc#1422).
-  const turbopackRoot = resolveTurbopackRoot(
-    projectRoot,
-    loaderOptions.turbopackRoots,
-  );
-  // Turbopack takes a dependency's state as its baseline only when the loader
-  // returns, so a change landing before then never re-runs the module
-  // (samchon/ttsc#1423). The bridge observes every input as well, from the
-  // compile on, and rewrites a stale module's sentinel until a registration
-  // proves the module delivered the changed state.
+  // A one-shot build, and a session restored from Turbopack's cache, prove
+  // the record at the process's first delivery: Turbopack gives a loader no
+  // build start, and `withTtsc` proves it before Next starts as well.
+  if (!refreshed.has(toolDirectory)) {
+    refreshed.add(toolDirectory);
+    refreshProjectRecordFiles(toolDirectory);
+  }
   let bridgeStartedAt: number | undefined;
   if (watching && addDependency !== undefined) {
-    bridge ??= openHostWatchBridge(projectRoot, {}, toolDirectory, true);
+    bridge ??= openHostWatchBridge(projectRoot);
     bridgeStartedAt = bridge.begin();
   }
   const hooks: TtscTransformHooks = {
     ...(addDependency === undefined
       ? {}
       : {
-          addWatchFiles: (
-            inputs: readonly TtscWatchInput[],
-            failed?: boolean,
-          ) =>
-            registerBuildWatchInputs({
-              addWatchFile: addDependency,
-              ...(bridge !== undefined && bridgeStartedAt !== undefined
-                ? {
-                    bridge: {
-                      // Every input, since Turbopack's own channel misses a
-                      // change made before its baseline.
-                      ignores: () => true,
-                      instance: bridge,
-                      kinds:
-                        BRIDGED_WATCH_INPUT_KINDS.recursiveDirectoryChannel,
-                      startedAt: bridgeStartedAt,
-                    },
-                  }
-                : {}),
-              failed,
-              file,
-              inputs,
-              projectRoot,
-              loader: {
-                accepts: (input) =>
-                  pathIsWithin(path.resolve(input), turbopackRoot),
-                addContextDependency: addContextDependency ?? addDependency,
-                addDependency,
-                addMissingDependency: (
-                  input: string,
-                  shape: TtscMissingWatchInputShape,
-                ) =>
-                  (shape === "file"
-                    ? addDependency
-                    : (addContextDependency ?? addDependency))(input),
-              },
-              // A result Turbopack persists cannot be proven without the inputs
-              // it could not track, so a later process re-runs the module.
-              untracked: () => {
-                addDependency(turbopackProcessMarker(toolDirectory));
-                warnUntrackedTurbopackInputs(
-                  projectRoot,
-                  loaderOptions.turbopackRoots,
-                );
-              },
-            }),
-          // A development session's bridge observes the root files
-          // (samchon/ttsc#1419); a build, and a session restored from
-          // Turbopack's cache, hear them through the membership record
-          // (samchon/ttsc#1468).
-          membership: true,
-          toolDirectory,
+          project: {
+            register: (registration: TtscProjectRegistration) =>
+              registerProjectRecord({
+                addWatchFile: addDependency,
+                ...(bridge !== undefined && bridgeStartedAt !== undefined
+                  ? { bridge: { instance: bridge, startedAt: bridgeStartedAt } }
+                  : {}),
+                registration,
+              }),
+            toolDirectory,
+          },
         }),
     ...(cacheable === undefined
       ? {}

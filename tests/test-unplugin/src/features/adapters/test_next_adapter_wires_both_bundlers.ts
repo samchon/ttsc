@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import path from "node:path";
 
 import { AUTOMATIC_RULE_GLOBS } from "../../internal/adapter-next/AUTOMATIC_RULE_GLOBS";
 import { LOADER } from "../../internal/adapter-next/LOADER";
@@ -19,17 +18,10 @@ import { loadersOf } from "../../internal/adapter-next/loadersOf";
  * must reach both halves identically, since a wrapper that wires two bundlers
  * differently is its own defect.
  *
- * The loader also needs the Turbopack roots the configuration names, since
- * Turbopack fails a module whose dependency lies outside its root
- * (samchon/ttsc#1422). The wrapper passes them beside the options, none when
- * the configuration names none.
- *
  * 1. Wrap an empty config with a `project` option.
  * 2. Assert every automatic Turbopack glob routes through the ttsc loader with
- *    those exact options and no configured roots.
+ *    those exact options.
  * 3. Assert the webpack hook still injects one plugin.
- * 4. Wrap configs that set `turbopack.root`, `outputFileTracingRoot`, or both, and
- *    assert the loader receives each one set, resolved.
  */
 export async function test_next_adapter_wires_both_bundlers(): Promise<void> {
   const next = await loadNext();
@@ -46,7 +38,7 @@ export async function test_next_adapter_wires_both_bundlers(): Promise<void> {
     const entry = loaders.find(isTtscLoader) as { options?: unknown };
     assert.deepEqual(
       entry.options,
-      { ...options, turbopackRoots: [] },
+      options,
       `${glob} must receive the wrapper's own options`,
     );
   }
@@ -59,33 +51,5 @@ export async function test_next_adapter_wires_both_bundlers(): Promise<void> {
     webpackConfig.plugins.length,
     1,
     "the webpack plugin must still be injected",
-  );
-
-  const rootsOf = (wrapped: typeof config): unknown =>
-    (
-      loadersOf(wrapped.turbopack?.rules?.[AUTOMATIC_RULE_GLOBS[0]!]).find(
-        isTtscLoader,
-      ) as { options?: { turbopackRoots?: unknown } }
-    ).options?.turbopackRoots;
-  const traced = path.resolve("/workspace");
-  const turbo = path.resolve("/workspace/apps");
-  assert.deepEqual(rootsOf(next({ outputFileTracingRoot: traced }, options)), [
-    traced,
-  ]);
-  assert.deepEqual(rootsOf(next({ turbopack: { root: turbo } }, options)), [
-    turbo,
-  ]);
-  assert.deepEqual(
-    rootsOf(
-      next(
-        { outputFileTracingRoot: traced, turbopack: { root: turbo } },
-        options,
-      ),
-    ),
-    [turbo, traced],
-  );
-  assert.deepEqual(
-    rootsOf(next({ outputFileTracingRoot: "relative" }, options)),
-    [path.resolve("relative")],
   );
 }

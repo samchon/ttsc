@@ -1,5 +1,6 @@
 import path from "node:path";
 
+import { projectRecordFile } from "../../bridge/projectRecordFile";
 import { hostSpelling } from "../envelope/hostSpelling";
 import { TtscUnstableGenerationError } from "../errors/TtscUnstableGenerationError";
 import { createHostPathIdentityContext } from "../filesystem/createHostPathIdentityContext";
@@ -50,9 +51,7 @@ export function notifyRejectedGenerationInputs(
     );
     return;
   }
-  if (hooks?.addWatchFile === undefined && hooks?.addWatchFiles === undefined) {
-    return;
-  }
+  if (hooks === undefined) return;
   const spelling = path.dirname(selection.tsconfig);
   const spell = hostSpelling(
     {
@@ -61,11 +60,28 @@ export function notifyRejectedGenerationInputs(
       ).path,
       spelling,
     },
-    hooks.spelling ?? file,
+    file,
   );
-  handWatchInputs(
-    hooks,
-    selectionInputs(selection.consulted, selection.filesystem, spell),
-    true,
+  const inputs = selectionInputs(
+    selection.consulted,
+    selection.filesystem,
+    spell,
   );
+  // A generation the adapter rejected has no state to record beyond the
+  // config selection it read: a build host keeps the record its last
+  // generation wrote, which its bridge moves when the selection changes.
+  if (hooks.project !== undefined) {
+    hooks.project.register({
+      failed: true,
+      inputs: () => inputs,
+      record: projectRecordFile(
+        hooks.project.toolDirectory,
+        selection.tsconfig,
+      ),
+    });
+  }
+  if (hooks.addWatchFile === undefined && hooks.addWatchFiles === undefined) {
+    return;
+  }
+  handWatchInputs(hooks, inputs, true);
 }

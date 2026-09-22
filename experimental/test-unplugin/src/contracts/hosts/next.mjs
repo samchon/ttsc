@@ -184,7 +184,7 @@ export async function openSession(bundler, project) {
         90_000,
       ).catch((error) => {
         throw new Error(
-          `${error.message}\nlast page ${lastPage()}\nsentinels ${JSON.stringify(sentinelStates(project.root))}\n${output}`,
+          `${error.message}\nlast page ${lastPage()}\nrecords ${JSON.stringify(recordStates(project.root))}\n${output}`,
         );
       }),
     failed: (label, pattern) =>
@@ -246,11 +246,11 @@ export async function openSession(bundler, project) {
 }
 
 /**
- * Each bridge sentinel below the project's tool directory, with its contents:
- * one directory for every process, `watch-bridge`, whose sentinels persist.
+ * Each project record below the project's tool directory, with its signal and
+ * how many inputs it names: one directory for every process, `records`.
  */
-function sentinelStates(root) {
-  const directory = path.join(root, ".ttsc", "watch-bridge");
+function recordStates(root) {
+  const directory = path.join(root, ".ttsc", "records");
   const states = {};
   let files = [];
   try {
@@ -260,7 +260,11 @@ function sentinelStates(root) {
   }
   for (const file of files) {
     try {
-      states[file] = fs.readFileSync(path.join(directory, file), "utf8");
+      const record = JSON.parse(
+        fs.readFileSync(path.join(directory, file), "utf8"),
+      );
+      states[file] =
+        `signal ${record.signal}, ${Object.keys(record.inputs).length} input(s)`;
     } catch {
       // Rewritten between the listing and the read.
     }

@@ -18,10 +18,11 @@ import { waitFor } from "../../internal/real-native-envelope/waitFor";
  * result that named it, so a later module's result masks an earlier module's
  * edit, and a file read of an absent path overwrites its directory read. No
  * compiler input therefore reaches esbuild at all: each goes to the bridge, and
- * esbuild watches only the module and its own sentinel (samchon/ttsc#1463).
+ * esbuild watches only the module and the project's record
+ * (samchon/ttsc#1463).
  *
  * 1. Add and remove automatic type packages and their parent directory, asserting
- *    every build hands esbuild nothing but each module and its sentinel.
+ *    every build hands esbuild nothing but each module and the record.
  * 2. Check shared compilation and reuse across an unchanged rebuild.
  * 3. Recover from deleted, initially broken, and initially absent declarations.
  */
@@ -103,7 +104,7 @@ export async function test_real_native_envelope_esbuild_observes_directories_and
     assert.deepEqual(
       [...channels.keys()].filter(
         (file) =>
-          !file.endsWith(".signal") &&
+          !/[\\/]records[\\/][0-9a-f]{32}\.json$/.test(file) &&
           !(
             /\.[cm]?tsx?$/.test(file) &&
             !file.endsWith(".d.ts") &&
@@ -111,7 +112,7 @@ export async function test_real_native_envelope_esbuild_observes_directories_and
           ),
       ),
       [],
-      "esbuild is handed nothing but each module and its sentinel",
+      "esbuild is handed nothing but each module and the record",
     );
   };
   const observe = async (change: () => void, failed = false) => {

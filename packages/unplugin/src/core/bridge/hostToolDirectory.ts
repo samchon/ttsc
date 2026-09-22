@@ -2,8 +2,7 @@ import path from "node:path";
 
 /**
  * The directory below a project where the adapter keeps the files it asks a
- * host to watch: the watch bridge's sentinels and Turbopack's process marker
- * (samchon/ttsc#1457).
+ * host to watch: the project records (samchon/ttsc#1457).
  *
  * Every host constrains where such a file may live, and `<root>/.ttsc` is the
  * one place that satisfies all of them, measured on each:
@@ -22,10 +21,10 @@ import path from "node:path";
  * The system temporary directory, the previous default, met none of the three
  * on Windows. `.ttsc` is ttsc's own project-local directory, already excluded
  * from project discovery. What must outlive a process lives there under a
- * stable name: the bridge's sentinels (`WATCH_BRIDGE_SENTINEL_DIRECTORY`) and
- * the membership records (`MEMBERSHIP_DIGEST_DIRECTORY`), which a host's
+ * stable name: the project records (`PROJECT_RECORD_DIRECTORY`), which a host's
  * persistent cache records as dependencies. What must not is named by the
- * owning process and removed when it exits or by the next bridge to start.
+ * owning process and removed when it exits or by the next process to start
+ * (`WATCH_BRIDGE_DIRECTORY_PREFIX`).
  */
 export function hostToolDirectory(root: string): string {
   return path.join(root, ".ttsc");

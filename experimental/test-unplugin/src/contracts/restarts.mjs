@@ -24,7 +24,7 @@ import { write } from "./common.mjs";
  * nothing. A restart over an unchanged project expects no compile at all: a
  * cache the adapter's registrations invalidate on every restart is correct and
  * useless. It is repeated, so a cache that serves once and then loses an input
- * to the session between, a sentinel the next session swept, is told apart from
+ * to the session between, a record the next session moved, is told apart from
  * one that serves.
  *
  * A step is `{ name, edit, expect }`: `edit` changes the project while nothing

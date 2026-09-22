@@ -5,28 +5,22 @@ import path from "node:path";
 
 import type { TtscWatchInputKind } from "../../../../../packages/unplugin/lib/core/transform/watch/TtscWatchInputKind.mjs";
 import { classifyWatchInput } from "../../../../../packages/unplugin/lib/core/transform/watch/classifyWatchInput.mjs";
-import { missingWatchInputShape } from "../../../../../packages/unplugin/lib/core/transform/watch/missingWatchInputShape.mjs";
 
 /**
  * Verifies each watch input is classified by the predicate the compiler
- * observed on it, which decides the host channel it takes (samchon/ttsc#1388).
+ * observed on it, which decides how the adapter's own observer watches it
+ * (samchon/ttsc#1388).
  *
- * Every adapter used to hand every input to one file-dependency channel. That
- * channel misses a created path on Rolldown and Farm, and a new directory entry
- * on webpack, Rspack, and Turbopack. It also watches a directory recursively on
- * Rollup, where the compiler's `DirectoryExists(node_modules)` probe put every
- * package under watch. The rows are the observation shapes TypeScript-Go
- * reports for a real project.
- *
- * A missing input also carries what must appear there. esbuild keeps one watch
- * state per path and observes a file's creation and a directory's through
- * different channels, so the shape decides its channel. The project's root
- * files, which no compiler predicate reports, name their own kind
+ * A file is watched for its edit, a missing path for its creation, a listing
+ * for an entry appearing, and a directory only checked to exist for nothing,
+ * since each probed descendant is an input of its own. The rows are the
+ * observation shapes TypeScript-Go reports for a real project. The project's
+ * root files, which no compiler predicate reports, name their own kind
  * (samchon/ttsc#1419).
  *
  * 1. Classify each recorded observation, and the legacy evidence without one.
  * 2. Classify evidence-free recovery inputs from the filesystem.
- * 3. Assert every kind, and the shape of every missing input.
+ * 3. Assert every kind.
  */
 export async function test_watch_input_kinds_follow_the_observed_predicate(): Promise<void> {
   const observed = (observation: object, missing = false) => ({
@@ -37,8 +31,7 @@ export async function test_watch_input_kinds_follow_the_observed_predicate(): Pr
     },
     file: "x",
   });
-  type Shape = ReturnType<typeof missingWatchInputShape>;
-  const rows: [string, object, TtscWatchInputKind, Shape?][] = [
+  const rows: [string, object, TtscWatchInputKind][] = [
     [
       "a read declaration",
       observed({ fileExists: true, readFile: { hash: "h", ok: true } }),
@@ -48,37 +41,27 @@ export async function test_watch_input_kinds_follow_the_observed_predicate(): Pr
       "a file probe that failed",
       observed({ fileExists: false }, true),
       "missing",
-      "file",
     ],
     [
       "a read that failed",
       observed({ readFile: { ok: false } }, true),
       "missing",
-      "file",
     ],
     [
       "a missing ancestor `node_modules/@types`",
       observed({ directoryExists: false }),
       "missing",
-      "directory",
     ],
     [
       "a path probed absent as both kinds",
       observed({ directoryExists: false, fileExists: false }, true),
       "missing",
-      "either",
     ],
-    [
-      "a stat that found nothing",
-      observed({ stat: "missing" }),
-      "missing",
-      "either",
-    ],
+    ["a stat that found nothing", observed({ stat: "missing" }), "missing"],
     [
       "a realpath that failed",
       observed({ realpath: { ok: false } }),
       "missing",
-      "either",
     ],
     [
       "a listed type root",
@@ -95,7 +78,6 @@ export async function test_watch_input_kinds_follow_the_observed_predicate(): Pr
         directoryExists: false,
       }),
       "missing",
-      "directory",
     ],
     [
       "a package directory checked to exist",
@@ -116,7 +98,6 @@ export async function test_watch_input_kinds_follow_the_observed_predicate(): Pr
       "a missing graph input",
       { evidence: { identity: "x", missing: true }, file: "x" },
       "missing",
-      "file",
     ],
     [
       "the project's root-file membership",
@@ -136,14 +117,9 @@ export async function test_watch_input_kinds_follow_the_observed_predicate(): Pr
       "membership",
     ],
   ];
-  for (const [label, input, expected, shape] of rows) {
+  for (const [label, input, expected] of rows) {
     const watched = input as Parameters<typeof classifyWatchInput>[0];
     assert.equal(classifyWatchInput(watched), expected, label);
-    assert.equal(
-      expected === "missing" ? missingWatchInputShape(watched) : undefined,
-      shape,
-      label,
-    );
   }
 
   // A failed compile's recovery inputs carry no evidence; the filesystem
@@ -155,5 +131,4 @@ export async function test_watch_input_kinds_follow_the_observed_predicate(): Pr
   assert.equal(classifyWatchInput({ file: root }), "listing");
   const absent = { file: path.join(root, "absent.d.ts") };
   assert.equal(classifyWatchInput(absent), "missing");
-  assert.equal(missingWatchInputShape(absent), "either");
 }

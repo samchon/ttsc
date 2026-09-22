@@ -10,11 +10,8 @@ import path from "node:path";
  * Turbopack's `fileDependencies` invalidation set — and, in
  * `contextDependencies`, the directories it registered through
  * `addContextDependency(directory)`, Turbopack's directory channel, which the
- * real loader context offers as well. A development session's bridge sentinel,
- * which every module registers because the bridge observes the project's root
- * files (samchon/ttsc#1419), is reported apart in `sentinels`, so
- * `dependencies` holds exactly the compiler inputs. The context's `rootContext`
- * is the project directory, the nearest ancestor of the module holding a
+ * real loader context offers as well. The context's `rootContext` is the
+ * project directory, the nearest ancestor of the module holding a
  * `tsconfig.json`, as Turbopack gives it. Setting `omitAddDependency` models a
  * minimal/older loader context that does not expose the method at all, proving
  * the loader stays optional about it. With `emitErrors`, the context offers
@@ -34,14 +31,12 @@ export async function runTurbopackLoaderWithContext(props: {
   dependencies: string[];
   emitted: Error[];
   map?: unknown;
-  sentinels: string[];
 }> {
   const loader = await TestUnpluginRuntime.loadUnpluginAdapter("turbopack");
   const cacheableCalls: boolean[] = [];
   const contextDependencies: string[] = [];
   const dependencies: string[] = [];
   const emitted: Error[] = [];
-  const sentinels: string[] = [];
   return new Promise<{
     cacheableCalls: boolean[];
     content: string;
@@ -49,7 +44,6 @@ export async function runTurbopackLoaderWithContext(props: {
     dependencies: string[];
     emitted: Error[];
     map?: unknown;
-    sentinels: string[];
   }>((resolve, reject) => {
     const context: Record<string, unknown> = {
       resourcePath: props.resourcePath,
@@ -75,7 +69,6 @@ export async function runTurbopackLoaderWithContext(props: {
             dependencies,
             emitted,
             ...(map === undefined ? {} : { map }),
-            sentinels,
           });
         },
     };
@@ -90,10 +83,7 @@ export async function runTurbopackLoaderWithContext(props: {
         // Capture `this` binding: the loader must call addDependency bound to
         // the webpack loader context, not the transform hooks object.
         assert.equal(this, context, "addDependency lost its context binding");
-        const sentinel =
-          file.endsWith(".signal") &&
-          path.basename(path.dirname(file)) === "watch-bridge";
-        (sentinel ? sentinels : dependencies).push(file);
+        dependencies.push(file);
       };
       context.addContextDependency = function (
         this: unknown,

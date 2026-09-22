@@ -163,8 +163,8 @@ export async function predicateContract(name, start) {
     const listed = builds;
     const signaled = session.signals?.();
     write(project.root, "src/contract-extra.d.ts", "declare const extra: 1;\n");
-    // A timeout names the stalled side: an unchanged sentinel means the bridge
-    // never heard the entry, a changed one without a build means the host
+    // A timeout names the stalled side: an unchanged record means the bridge
+    // never heard the entry, a moved one without a build means the host
     // missed the signal, and a build without a compile means the generation
     // was judged unchanged.
     await eventually(
@@ -172,12 +172,12 @@ export async function predicateContract(name, start) {
       (count) => count === 3,
       `${name}: a new root file in the included directory recompiles`,
     ).catch((error) => {
-      const sentinels =
+      const records =
         signaled === undefined
           ? ""
-          : `, sentinels ${JSON.stringify(signaled)} -> ${JSON.stringify(session.signals())}`;
+          : `, records ${JSON.stringify(signaled)} -> ${JSON.stringify(session.signals())}`;
       throw new Error(
-        `${error.message} (${builds - listed} build(s) since the entry appeared${sentinels})`,
+        `${error.message} (${builds - listed} build(s) since the entry appeared${records})`,
       );
     });
   } finally {
@@ -189,8 +189,8 @@ export async function predicateContract(name, start) {
 export function watchRollupLike(bundlerName) {
   return async (project, plugin, built) => {
     const bundler = await import(bundlerName);
-    // The bridge's sentinels the last build watched, for a timeout to report.
-    let sentinels = [];
+    // The project records the last build watched, for a timeout to report.
+    let records = [];
     const watcher = bundler.watch({
       input: project.entry,
       plugins: [plugin],
@@ -210,10 +210,10 @@ export function watchRollupLike(bundlerName) {
             "Rollup must watch no compiler input below node_modules",
           );
         }
-        sentinels =
+        records =
           event.result?.watchFiles?.filter((file) =>
-            file.endsWith(".signal"),
-          ) ?? sentinels;
+            /[\/]records[\/][0-9a-f]{32}.json$/.test(file),
+          ) ?? records;
         await event.result?.close();
         built();
       }
@@ -222,7 +222,7 @@ export function watchRollupLike(bundlerName) {
     return {
       close: () => watcher.close(),
       signals: () =>
-        sentinels.map((file) => {
+        records.map((file) => {
           try {
             return fs.readFileSync(file, "utf8");
           } catch {
@@ -278,8 +278,8 @@ export function watchWebpackLike(name) {
 
 /**
  * A Farm development compiler. Its dev server's watcher reports a changed extra
- * watch file to `Compiler.update`; the contract does the same for the sentinels
- * the bridge rewrites.
+ * watch file to `Compiler.update`; the contract does the same for the project
+ * records the bridge moves.
  */
 export async function watchFarm(project, plugin, built) {
   const farm = await import("@farmfe/core");
@@ -314,7 +314,8 @@ export async function watchFarm(project, plugin, built) {
   };
   for (const watched of compiler.resolvedWatchPaths()) {
     const file = path.resolve(project.root, watched);
-    if (file.endsWith(".signal")) signals.set(file, read(file));
+    if (/[\/]records[\/][0-9a-f]{32}.json$/.test(file))
+      signals.set(file, read(file));
   }
   return {
     close: () => undefined,

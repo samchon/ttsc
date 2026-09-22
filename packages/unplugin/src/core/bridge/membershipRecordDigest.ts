@@ -3,7 +3,7 @@ import { projectMembershipDigest } from "../transform/project/projectMembershipD
 import type { ITtscProjectMembershipPolicy } from "../tsconfig/ITtscProjectMembershipPolicy";
 
 /**
- * The digest a membership record carries (`membershipDigestFile`): the
+ * The membership digest a project record carries (`TtscProjectRecord`): the
  * project's membership digest under the policy as the record stores it.
  *
  * A record travels as JSON, which drops a member the adapter left undefined,

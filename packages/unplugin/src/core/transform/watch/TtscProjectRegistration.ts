@@ -1,0 +1,20 @@
+import type { TtscWatchInput } from "./TtscWatchInput";
+
+/**
+ * What one delivery hands a host that observes the project through its record
+ * (`TtscTransformHooks.project`): the record file, written to the generation's
+ * state before the hand-over, and the inputs a watching session's bridge
+ * observes to move it.
+ */
+export interface TtscProjectRegistration {
+  /** Whether the delivery failed and the inputs are the recovery inputs. */
+  failed: boolean;
+  /**
+   * Every input of the generation, with the evidence the record holds, for a
+   * bridge that observes them live. Derived on first call and memoized per
+   * generation, so a host without a bridge never pays for it.
+   */
+  inputs: () => readonly TtscWatchInput[];
+  /** The project record file (`projectRecordFile`), up to date. */
+  record: string;
+}

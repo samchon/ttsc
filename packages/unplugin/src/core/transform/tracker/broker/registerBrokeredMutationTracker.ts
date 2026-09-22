@@ -200,7 +200,7 @@ const PROBE_DIRECTORIES = new Map<string, string>();
 /**
  * The directory below `probeRoot`'s tool cache where the broker writes its
  * probes, named after this process so a later process can remove it once this
- * one is gone, as the watch bridge names its sentinels. It is removed when this
+ * one is gone (`WATCH_BRIDGE_DIRECTORY_PREFIX`). It is removed when this
  * process exits, and a stale one is swept before it is created.
  */
 function probeDirectory(probeRoot: string): string {

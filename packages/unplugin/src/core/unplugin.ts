@@ -5,13 +5,11 @@ import {
   createUnplugin,
 } from "unplugin";
 
-import { BRIDGED_WATCH_INPUT_KINDS } from "./bridge/BRIDGED_WATCH_INPUT_KINDS";
 import type { HostWatchBridge } from "./bridge/HostWatchBridge";
 import { hostToolDirectory } from "./bridge/hostToolDirectory";
-import { hostWatchIgnores } from "./bridge/hostWatchIgnores";
 import { openHostWatchBridge } from "./bridge/openHostWatchBridge";
-import { refreshMembershipDigestFiles } from "./bridge/refreshMembershipDigestFiles";
-import { registerBuildWatchInputs } from "./bridge/registerBuildWatchInputs";
+import { refreshProjectRecordFiles } from "./bridge/refreshProjectRecordFiles";
+import { registerProjectRecord } from "./bridge/registerProjectRecord";
 import { createEsbuildOptions } from "./esbuild/createEsbuildOptions";
 import { isTransformTarget } from "./isTransformTarget";
 import type { TtscUnpluginOptions } from "./options/TtscUnpluginOptions";
@@ -27,7 +25,6 @@ import { transformTtsc } from "./transform/transformTtsc";
 import { isHostWrapperQuery } from "./transform/utils/isHostWrapperQuery";
 import { stableStringify } from "./transform/utils/stableStringify";
 import { stripQuery } from "./transform/utils/stripQuery";
-import type { TtscWatchInputKind } from "./transform/watch/TtscWatchInputKind";
 import { createViteServeInputWatch } from "./vite/createViteServeInputWatch";
 import { TTSC_SOURCE_MAP_STASH } from "./webpack/TTSC_SOURCE_MAP_STASH";
 import { registerTtscSourceMapLoader } from "./webpack/registerTtscSourceMapLoader";
@@ -101,10 +98,6 @@ const unpluginFactory: UnpluginFactory<
   // that watches: `farm start` and `farm watch` resolve it, `farm build` does
   // not.
   let farmWatching = false;
-  // Farm relates every watch file to its configured root, so its inputs are
-  // spelled under that root, whichever spelling its resolver delivered the
-  // module under (samchon/ttsc#1462).
-  let farmRoot: string | undefined;
   const closeBridge = async (): Promise<void> => {
     const open = bridge;
     bridge = undefined;
@@ -225,12 +218,12 @@ const unpluginFactory: UnpluginFactory<
         await serveInputs.dispose();
         await closeBridge();
       },
-      // A watching `vite build` bundles through Rollup, which loses a sentinel
-      // rewritten while it is building the way the Rollup block below
-      // describes (samchon/ttsc#1460); Rolldown, behind Vite 8, takes no such
-      // hook and ignores it.
-      shouldTransformCachedModule({ id }: { id: string }) {
-        return bridge?.owes(id) === true ? true : null;
+      // A watching `vite build` bundles through Rollup, which loses a record
+      // moved while it is building the way the Rollup block below describes
+      // (samchon/ttsc#1460); Rolldown, behind Vite 8, takes no such hook and
+      // ignores it.
+      shouldTransformCachedModule() {
+        return bridge?.owes() === true ? true : null;
       },
     },
 
@@ -258,15 +251,14 @@ const unpluginFactory: UnpluginFactory<
         resetTtscTransformCache(transformCache);
         await closeBridge();
       },
-      // A sentinel rewritten while Rollup is building invalidates the cache
-      // that build started from, and the build's own result then replaces it,
-      // so the importer is served from the cache on the rerun and stays on its
+      // A record moved while Rollup is building invalidates the cache that
+      // build started from, and the build's own result then replaces it, so
+      // the modules are served from the cache on the rerun and stay on their
       // old output (samchon/ttsc#1460). Rollup asks here before it serves a
-      // module from its cache, and a module the bridge signalled since it last
-      // registered is transformed instead, which registers it and answers the
-      // signal.
-      shouldTransformCachedModule({ id }: { id: string }) {
-        return bridge?.owes(id) === true ? true : null;
+      // module from its cache, and while the bridge owes a signal every module
+      // is transformed instead, which registers the record and answers it.
+      shouldTransformCachedModule() {
+        return bridge?.owes() === true ? true : null;
       },
     },
     rolldown: {
@@ -312,8 +304,6 @@ const unpluginFactory: UnpluginFactory<
         farmWatching =
           config.compilation?.mode === "development" ||
           (config.compilation?.watch ?? false) !== false;
-        farmRoot =
-          config.root === undefined ? undefined : path.resolve(config.root);
       },
       // Farm calls buildStart only for the initial compilation. Every update
       // opens a new pass so a failed verdict can recover, while an unchanged
@@ -362,9 +352,9 @@ const unpluginFactory: UnpluginFactory<
         beginTtscTransformBuild(transformCache);
         passStartedAt = bridge?.begin();
         // Before the host validates a module against its persistent cache:
-        // a root file that appeared while nothing ran is heard through the
-        // project's membership record, which only a walk here can move.
-        refreshMembershipDigestFiles(hostToolDirectory(process.cwd()));
+        // a project whose state moved while nothing ran is heard through its
+        // record, which only a proof here can move.
+        refreshProjectRecordFiles(hostToolDirectory(process.cwd()));
       }
     },
 
@@ -391,49 +381,39 @@ const unpluginFactory: UnpluginFactory<
       const meta = (
         this as { meta?: { rolldownVersion?: string; watchMode?: boolean } }
       ).meta;
-      // The compiler predicates a watching build's own channels observe
-      // imprecisely or not at all, which go through the bridge instead. Its
-      // sequence token is taken before the compile, as the dev server's is.
-      const bridgedKinds: ReadonlySet<TtscWatchInputKind> | undefined =
+      // Whether the host watches: it then observes the compiler's inputs
+      // through the session's bridge, whose sequence token is taken before
+      // the compile, as the dev server's is. Every other host is one-shot and
+      // proves the record at its next start.
+      const watching =
         viteCommand === "serve"
-          ? undefined
+          ? false
           : native?.framework === "webpack" || native?.framework === "rspack"
             ? (native.compiler as { watchMode?: boolean }).watchMode === true
-              ? BRIDGED_WATCH_INPUT_KINDS.recursiveDirectoryChannel
-              : undefined
             : native?.framework === "farm"
               ? farmWatching
-                ? BRIDGED_WATCH_INPUT_KINDS.fileChannel
-                : undefined
-              : native === undefined && meta?.watchMode === true
-                ? BRIDGED_WATCH_INPUT_KINDS.watcherPerPath
-                : undefined;
-      // Rolldown drops a change to a watched file that lands while it is
-      // building, so an edit after ttsc returned a module never rebuilt it:
-      // measured on the host matrix on every OS, intermittently
-      // (samchon/ttsc#1465). Rspack drops a change that lands between the end
-      // of a build and the moment its watcher records the file's modification
-      // time as the baseline for the next: its watcher suppresses an event
-      // whose file still carries the recorded time (`rspack_watcher`,
-      // `Trigger::on_event` against `record_file_mtimes`), and its scan for
-      // changes since the build's start covers only files the build newly
-      // registered. Measured on the host matrix on macOS x64, where an input
-      // repaired right after the failed build never rebuilt. Every input of
-      // either host therefore goes to the bridge as well, and the bridge
-      // repeats a signal until the module registers again, as it does for
-      // Turbopack; a rewrite that lands during a build, or before Rspack's
-      // baseline, is lost, and the next lands after it.
-      const dropsLateChanges =
-        meta?.rolldownVersion !== undefined || native?.framework === "rspack";
-      const bridgeStartedAt =
-        bridgedKinds === undefined
-          ? undefined
-          : (passStartedAt ??= (bridge ??= openHostWatchBridge(
-              process.cwd(),
-              {},
-              undefined,
-              dropsLateChanges,
-            )).begin());
+              : native === undefined && meta?.watchMode === true;
+      const bridgeStartedAt = watching
+        ? (passStartedAt ??= (bridge ??= openHostWatchBridge(
+            process.cwd(),
+          )).begin())
+        : undefined;
+      // A build host takes the project's record, and nothing else, through
+      // the same channel that watches the module itself: Farm relates a watch
+      // file to the module that named it, the webpack and Rspack loader
+      // contexts hold the module-level channel (a compilation-level one
+      // schedules a pass without invalidating the module), and every other
+      // host has one `addWatchFile`.
+      const loaderContext =
+        native?.framework === "webpack" || native?.framework === "rspack"
+          ? native.loaderContext
+          : undefined;
+      const addWatchFile: (input: string) => void =
+        native?.framework === "farm"
+          ? (input) => native.context.addWatchFile(file, input)
+          : loaderContext !== undefined
+            ? (input) => loaderContext.addDependency(input)
+            : (input) => this.addWatchFile(input);
       const result = await transformTtsc(
         file,
         source,
@@ -441,76 +421,35 @@ const unpluginFactory: UnpluginFactory<
         aliases,
         transformCache,
         {
-          // A watcherless server has no invalidation channel and needs no
-          // watch-input derivation. Every other host keeps its native contract.
-          addWatchFiles:
-            viteCommand === "serve" && !viteWatching
-              ? undefined
-              : (inputs, failed) => {
-                  if (viteCommand === "serve") {
-                    serveInputs.replace(file, inputs, failed, serveStartedAt);
-                  } else {
-                    registerBuildWatchInputs({
-                      addWatchFile:
-                        native?.framework === "farm"
-                          ? (input) => native.context.addWatchFile(file, input)
-                          : (input) => this.addWatchFile(input),
-                      ...(bridge !== undefined &&
-                      bridgedKinds !== undefined &&
-                      bridgeStartedAt !== undefined
+          // A dev server keys each importer on its own inputs through its
+          // module graph; a watcherless one has no invalidation channel and
+          // needs no derivation.
+          ...(viteCommand === "serve"
+            ? viteWatching
+              ? {
+                  addWatchFiles: (inputs, failed) =>
+                    serveInputs.replace(file, inputs, failed, serveStartedAt),
+                  membership: true,
+                }
+              : {}
+            : {
+                project: {
+                  register: (registration) =>
+                    registerProjectRecord({
+                      addWatchFile,
+                      ...(bridge !== undefined && bridgeStartedAt !== undefined
                         ? {
                             bridge: {
-                              // The paths the watching compiler skips, Rspack's
-                              // default `node_modules` among them, read where
-                              // its `Watching` keeps them; under Rspack every
-                              // input, since its own channel loses a change
-                              // that lands before its baseline.
-                              ...(native?.framework === "rspack"
-                                ? { ignores: () => true }
-                                : native?.framework === "webpack"
-                                  ? {
-                                      ignores: hostWatchIgnores(
-                                        (
-                                          native.compiler as {
-                                            watching?: {
-                                              watchOptions?: {
-                                                ignored?: unknown;
-                                              };
-                                            };
-                                          }
-                                        ).watching?.watchOptions?.ignored,
-                                      ),
-                                    }
-                                  : {}),
                               instance: bridge,
-                              kinds: bridgedKinds,
                               startedAt: bridgeStartedAt,
                             },
                           }
                         : {}),
-                      failed,
-                      file,
-                      inputs,
-                      projectRoot: process.cwd(),
-                      // Module-level channels, since compilation-level ones
-                      // schedule a pass without invalidating the module.
-                      ...((native?.framework === "webpack" ||
-                        native?.framework === "rspack") &&
-                      native.loaderContext !== undefined
-                        ? { loader: native.loaderContext }
-                        : {}),
-                    });
-                  }
+                      registration,
+                    }),
+                  toolDirectory: hostToolDirectory(process.cwd()),
                 },
-          // A watching session's bridge and the dev server's watcher observe
-          // the project's root files as well; a one-shot build host skips
-          // them (samchon/ttsc#1419), and hears them through the membership
-          // record its persistent cache holds (samchon/ttsc#1468).
-          membership: true,
-          toolDirectory: hostToolDirectory(process.cwd()),
-          ...(native?.framework === "farm" && farmRoot !== undefined
-            ? { spelling: farmRoot }
-            : {}),
+              }),
           // A module the plugin declared volatile depends on non-file inputs,
           // which no file-dependency snapshot can represent; mark it
           // uncacheable where the bundler exposes that control.
