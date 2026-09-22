@@ -1,6 +1,6 @@
 # Build cache
 
-This page is for anyone wiring `ttsc` into CI, a container image, or any environment that starts from a clean filesystem. It covers what the build cache holds, what invalidates it, and how to persist it correctly.
+This page is for anyone sharing a cache across Git worktrees, wiring `ttsc` into CI, or building a container image. It covers what the build cache holds, what invalidates it, and how to persist it correctly.
 
 If you only want to know where the cache lives locally or how to delete it, [Compile → Plugin cache](/docs/ttsc/compile#plugin-cache) is the short version.
 
@@ -36,6 +36,24 @@ For a typical consumer project, the dependency updates that matter are narrower 
 Hashing the lockfile in a CI cache key covers all of these without enumerating them. The cost is an occasional miss when an unrelated dependency moves, which is usually the right trade.
 
 Plugin options do not invalidate the binary. Lint `rules`, `banner` text, `calls`, and CLI flags such as `--emit` or `--outDir` are read at run time and are not part of the key.
+
+## Git worktrees
+
+Set `TTSC_CACHE_DIR` to the same absolute directory in every worktree. A relative value resolves from each worktree's project root and creates a separate cache there.
+
+```bash
+export TTSC_CACHE_DIR="$HOME/.cache/my-project/ttsc"
+```
+
+Use a directory dedicated to ttsc whose basename is `ttsc`. That basename lets `ttsc clean` remove both `plugins/` and the nested `go-build/`.
+
+The compiled plugin cache is content-addressed, so worktrees with identical build inputs reuse one binary, while a branch that changes an input receives another entry. Builds of the same key are coordinated across processes.
+
+`TTSC_GO_CACHE_DIR` redirects only the Go object cache. `TTSC_CACHE_DIR` redirects the compiled plugin cache and, unless `TTSC_GO_CACHE_DIR` or `GOCACHE` overrides it, the Go object cache under `go-build/` as well.
+
+An explicit `TTSC_CACHE_DIR` is caller-owned and is not pruned automatically. Run `ttsc clean` while no worktree is building, or manage retention separately.
+
+Run `npx ttsc cache paths --json` in each worktree to confirm that they resolve to the same root.
 
 ## GitHub Actions
 
