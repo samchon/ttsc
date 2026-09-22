@@ -8,11 +8,13 @@ import { programRuns } from "../../internal/real-native-envelope/programRuns";
 import { waitFor } from "../../internal/real-native-envelope/waitFor";
 
 /**
- * Verifies esbuild observes real compiler directory proofs and failed loads.
+ * Verifies an esbuild context rebuilds for real compiler directory proofs and
+ * recovers from failed loads.
  *
- * Generic watchFiles cannot observe directory membership. The actual native
- * envelope must reach watchDirs, while failed loads must retain subscriptions
- * so a repair can reach the same context without manual invalidation.
+ * Esbuild's own `watchFiles` cannot observe directory membership, so a type
+ * package appearing or vanishing reaches it only through the project's record,
+ * which the adapter's observer moves; a failed load must name the record too,
+ * so a repair reaches the same context without manual invalidation.
  *
  * One esbuild build keeps one watch state per path, taken from the last loader
  * result that named it, so a later module's result masks an earlier module's

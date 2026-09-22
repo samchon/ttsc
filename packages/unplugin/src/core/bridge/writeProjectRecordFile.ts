@@ -32,6 +32,19 @@ export function writeProjectRecordFile(
     // Absent or unreadable: written below.
   }
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, text);
+  // Whole or not at all: a host hashing the record while it is written would
+  // take a torn read for a change, and a worker of a pool reading it back
+  // would take it for no record. The bytes land beside the file and replace
+  // it in one step; where the replacement is refused, Windows with the file
+  // open elsewhere, the bytes are written in place, which is at most one
+  // rebuild the host did not need.
+  const temporary = `${file}.${process.pid}.tmp`;
+  try {
+    fs.writeFileSync(temporary, text);
+    fs.renameSync(temporary, file);
+  } catch {
+    fs.rmSync(temporary, { force: true });
+    fs.writeFileSync(file, text);
+  }
   return true;
 }

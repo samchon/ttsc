@@ -43,6 +43,7 @@ export function refreshProjectRecordFiles(
     return;
   }
   for (const name of names) {
+    // A record, not the temporary file of a write in progress beside it.
     if (!name.endsWith(".json")) continue;
     const file = path.join(directory, name);
     const record = readProjectRecordFile(file);
