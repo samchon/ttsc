@@ -19,20 +19,20 @@ import { writeProjectRecordFile } from "../../../../../packages/unplugin/lib/cor
  *
  * The worker used to leave that proof to the wrapper, which knows only the
  * directory Next was started in, while a loader's records live below the root
- * Turbopack resolved. A `turbopack.root` above the app, which is how a
- * monorepo names its workspace, makes those two different directories, and
- * nothing then proved what the loader reads: a project whose state moved while
- * nothing ran was served from Turbopack's persistent cache. A record the
- * worker compiles for would hide the difference, since its delivery writes the
- * record whole either way, so the one proven here belongs to a second project
- * of the same tool directory, which the worker never compiles.
+ * Turbopack resolved. A `turbopack.root` above the app, which is how a monorepo
+ * names its workspace, makes those two different directories, and nothing then
+ * proved what the loader reads: a project whose state moved while nothing ran
+ * was served from Turbopack's persistent cache. A record the worker compiles
+ * for would hide the difference, since its delivery writes the record whole
+ * either way, so the one proven here belongs to a second project of the same
+ * tool directory, which the worker never compiles.
  *
- * 1. Write a second project's record into the tool directory of the one the
- *    worker loads, naming an input state that project's disk never held.
- * 2. Run the loader in a worker whose environment names a session and a
- *    production build, the one-shot path the wrapper used to stand in for.
- * 3. Assert that record moved, and that it is still there for a delivery of
- *    its own project to write.
+ * 1. Write a second project's record into the tool directory of the one the worker
+ *    loads, naming an input state that project's disk never held.
+ * 2. Run the loader in a worker whose environment names a session and a production
+ *    build, the one-shot path the wrapper used to stand in for.
+ * 3. Assert that record moved, and that it is still there for a delivery of its
+ *    own project to write.
  */
 export async function test_turbopack_loader_proves_its_own_records_under_a_session(): Promise<void> {
   const root = TestUnpluginProject.createProject();
