@@ -45,9 +45,12 @@ export function writeProjectRecordFile(
   // (measured: six moves of the record, seventeen seconds, not one of them
   // reported, while the adapter's own observer had heard the edit).
   //
-  // A reader can therefore catch the file mid-write. That is answered where
-  // it is read rather than here: a record that cannot be read counts as a
-  // record whose state moved (`refreshProjectRecordFiles`), which is the
+  // A reader can therefore catch the file mid-write, and so can a second
+  // writer. Two processes holding one generation write the same bytes, since
+  // the record is a function of the project's state; two holding different
+  // ones can leave a mix, which reads as no record. Both are answered where
+  // the record is read rather than here: a record that cannot be read counts
+  // as a record whose state moved (`refreshProjectRecordFiles`), which is the
   // answer a proof that cannot run already gives, and costs at most one
   // rebuild the host did not need.
   fs.writeFileSync(file, text);
