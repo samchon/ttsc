@@ -9,6 +9,7 @@ import { readProjectConfig } from "../../compiler/internal/project/readProjectCo
 import { resolveOwningProjectConfig } from "../../compiler/internal/project/resolveOwningProjectConfig";
 import { readEffectiveCompilerOptions } from "../../compiler/internal/readEffectiveCompilerOptions";
 import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
+import { resolveSourceBuildCachePaths } from "../../plugin/internal/source/resolveSourceBuildCachePaths";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
 import { buildSingleRootProject } from "./buildSingleRootProject";
 import { linkVirtualEntry } from "./linkVirtualEntry";
@@ -210,7 +211,9 @@ function createProjectContext(
   const tsconfig = project.path;
   const root = project.root;
   const explicitCacheDir = resolveCacheDir(cwd, options.cacheDir);
-  const cacheDirSpelling = explicitCacheDir ?? defaultRuntimeCacheDir(root);
+  const cacheDirSpelling =
+    explicitCacheDir ??
+    defaultRuntimeCacheDir(root, { ...process.env, ...options.env });
   const runtimeCacheKey = resolveRuntimeCacheKey(options.runtimeCacheKey);
   // Resolved once: it now costs a realpath (and, for a missing directory on
   // Windows, a case-sensitivity probe) rather than a string join.
@@ -421,24 +424,32 @@ function buildProject(
 }
 
 /**
- * The runtime cache a run uses when `--cache-dir` names none: the project's own
- * `node_modules/.cache/ttsc/ttsx`, or, when the project refuses that directory
- * (a read-only checkout, mount, or container filesystem), one below the system
- * temp directory, keyed by the project.
+ * The runtime cache a run uses when `--cache-dir` names none: the `ttsx` area
+ * below the source-plugin cache root selected for the same project and
+ * environment, or, when the default workspace-local directory is read-only, one
+ * below the system temp directory keyed by the project.
  *
  * Every run writes its output into a directory of its own below the cache and
- * removes it on exit, so any writable parent serves; the project-local default
- * only keeps the runs of one project together. A `--cache-dir` the user named
- * is never replaced: it is the user's choice, and a failure there is reported.
+ * removes it on exit, so any writable parent serves; the workspace-local
+ * default keeps related projects together. A `--cache-dir` the user named is
+ * never replaced: it is the user's choice, and a failure there is reported.
  */
-function defaultRuntimeCacheDir(root: string): string {
-  const local = path.join(root, "node_modules", ".cache", "ttsc", "ttsx");
+function defaultRuntimeCacheDir(root: string, env: NodeJS.ProcessEnv): string {
+  const local = path.join(
+    resolveSourceBuildCachePaths(root, undefined, env).root,
+    "ttsx",
+  );
   try {
     fs.mkdirSync(local, { recursive: true });
     return local;
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
-    if (code !== "EACCES" && code !== "EPERM" && code !== "EROFS") throw error;
+    if (
+      env.TTSC_CACHE_DIR ||
+      (code !== "EACCES" && code !== "EPERM" && code !== "EROFS")
+    ) {
+      throw error;
+    }
   }
   return path.join(
     os.tmpdir(),

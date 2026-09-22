@@ -80,7 +80,14 @@ function resolveSourceBuildCacheRoot(
  * Walks up from `projectRoot` and returns, in order of preference: the NEAREST
  * ancestor that is a workspace root (holds `pnpm-workspace.yaml`, or a
  * `package.json` with a `workspaces` field); else the nearest ancestor that
- * already contains a `node_modules` directory; else `projectRoot` itself.
+ * contains an installation; else the outermost ttsc-only cache owner below the
+ * nearest ordinary package manifest, or `projectRoot` itself.
+ *
+ * A directory whose only payload is ttsc's own `.cache/ttsc` tree is not
+ * installation evidence: an older ttsx may have created that tree below a
+ * nested tsconfig before this resolver ran. Remembering the outermost such
+ * owner still gives manifest-less projects a stable answer after their empty
+ * `node_modules` becomes a ttsc cache on the first run.
  *
  * Nearest (not highest) so an unrelated ancestor that happens to declare
  * `workspaces` — for example a `package.json` in the user's home directory —
@@ -89,23 +96,85 @@ function resolveSourceBuildCacheRoot(
 function resolveWorkspaceRoot(projectRoot: string): string {
   let dir = path.resolve(projectRoot);
   let nearestNodeModulesOwner: string | null = null;
+  let outermostTtscCacheOwner: string | null = null;
+  let packageBoundarySeen = false;
   for (;;) {
     if (isWorkspaceRootDir(dir)) {
       return dir;
     }
-    if (
-      nearestNodeModulesOwner === null &&
-      fs.existsSync(path.join(dir, SourceBuildCacheLayout.NODE_MODULES_DIRNAME))
-    ) {
+    const nodeModules = classifyNodeModulesBoundary(dir);
+    if (nearestNodeModulesOwner === null && nodeModules === "installation") {
       nearestNodeModulesOwner = dir;
+    } else if (nodeModules === "ttsc-cache" && !packageBoundarySeen) {
+      outermostTtscCacheOwner = dir;
     }
+    packageBoundarySeen ||= hasPackageManifest(dir);
     const parent = path.dirname(dir);
     if (parent === dir) {
       break;
     }
     dir = parent;
   }
-  return nearestNodeModulesOwner ?? path.resolve(projectRoot);
+  return (
+    nearestNodeModulesOwner ??
+    outermostTtscCacheOwner ??
+    path.resolve(projectRoot)
+  );
+}
+
+/**
+ * Classify the evidence carried by `dir/node_modules`.
+ *
+ * An empty directory remains installation evidence for package managers and
+ * callers that materialize the root before populating it. The distinguished
+ * `ttsc-cache` shape is an ordinary `.cache/ttsc` tree with no sibling: every
+ * byte below it is owned by this product, so counting it as an installation
+ * would let ttsc's output change its own workspace-root query. Links and
+ * unreadable directories remain installations because they cannot be proved
+ * ttsc-owned.
+ */
+function classifyNodeModulesBoundary(
+  dir: string,
+): "absent" | "installation" | "ttsc-cache" {
+  const nodeModules = path.join(
+    dir,
+    SourceBuildCacheLayout.NODE_MODULES_DIRNAME,
+  );
+  if (!fs.existsSync(nodeModules)) return "absent";
+  try {
+    if (fs.lstatSync(nodeModules).isSymbolicLink()) return "installation";
+    const entries = fs.readdirSync(nodeModules, { withFileTypes: true });
+    const cache = entries.length === 1 ? entries[0] : undefined;
+    if (!isOrdinaryDirectory(cache, LOCAL_CACHE_PARENT_DIRNAME)) {
+      return "installation";
+    }
+
+    const cacheEntries = fs.readdirSync(
+      path.join(nodeModules, LOCAL_CACHE_PARENT_DIRNAME),
+      { withFileTypes: true },
+    );
+    const ttsc = cacheEntries.length === 1 ? cacheEntries[0] : undefined;
+    return isOrdinaryDirectory(ttsc, SourceBuildCacheLayout.TTSC_CACHE_DIRNAME)
+      ? "ttsc-cache"
+      : "installation";
+  } catch {
+    return "installation";
+  }
+}
+
+function hasPackageManifest(dir: string): boolean {
+  try {
+    return fs.statSync(path.join(dir, "package.json")).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function isOrdinaryDirectory(
+  entry: fs.Dirent | undefined,
+  name: string,
+): boolean {
+  return entry?.name === name && entry.isDirectory() && !entry.isSymbolicLink();
 }
 
 function isWorkspaceRootDir(dir: string): boolean {

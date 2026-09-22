@@ -18,7 +18,9 @@ import {
  *
  * 1. Create two strict projects whose `include` covers only `src`, not tests.
  * 2. Run real Mocha with three `.ts` tests and `--require ttsc/register`.
- * 3. Assert all pass, same-project emits coexist, and exit cleans both caches.
+ * 3. Assert all pass, every project emit coexists in the workspace cache, and exit
+ *    cleans the shared generation directory without creating nested
+ *    `node_modules` trees.
  */
 export const test_ttsx_register_runs_multiple_out_of_include_mocha_roots =
   () => {
@@ -57,19 +59,22 @@ export const test_ttsx_register_runs_multiple_out_of_include_mocha_roots =
     for (const suite of ["first", "second", "third"]) {
       assert.match(result.stdout, new RegExp(`\\b${suite}\\b`));
     }
+    const runtimeRoot = path.join(
+      root,
+      "node_modules",
+      ".cache",
+      "ttsc",
+      "ttsx",
+      "project",
+    );
+    assert.deepEqual(
+      fs.existsSync(runtimeRoot) ? fs.readdirSync(runtimeRoot) : [],
+      [],
+    );
     for (const project of ["one", "two"]) {
-      const runtimeRoot = path.join(
-        root,
-        project,
-        "node_modules",
-        ".cache",
-        "ttsc",
-        "ttsx",
-        "project",
-      );
-      assert.deepEqual(
-        fs.existsSync(runtimeRoot) ? fs.readdirSync(runtimeRoot) : [],
-        [],
+      assert.equal(
+        fs.existsSync(path.join(root, project, "node_modules")),
+        false,
       );
     }
   };
@@ -97,9 +102,8 @@ function mochaTest(
     : [
         `    const fs = require("node:fs");`,
         `    const path = require("node:path");`,
-        `    const cache = (project: string) => path.join(process.cwd(), project, "node_modules", ".cache", "ttsc", "ttsx", "project");`,
-        `    if (fs.readdirSync(cache("one")).length !== 2) throw new Error("expected two coexisting roots in project one");`,
-        `    if (fs.readdirSync(cache("two")).length !== 1) throw new Error("expected one independent root in project two");`,
+        `    const cache = path.join(process.cwd(), "node_modules", ".cache", "ttsc", "ttsx", "project");`,
+        `    if (fs.readdirSync(cache).length !== 3) throw new Error("expected three roots in the shared workspace cache");`,
       ].join("\n");
   return [
     `declare function describe(name: string, body: () => void): void;`,

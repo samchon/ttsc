@@ -39,7 +39,7 @@ Plugin options do not invalidate the binary. Lint `rules`, `banner` text, `calls
 
 ## GitHub Actions
 
-The default cache root is `node_modules/.cache/ttsc`, and you can persist it directly. The ordering is the part that matters.
+The default cache root is `node_modules/.cache/ttsc`, and you can persist it directly. Source-plugin binaries and Go objects use its `plugins` and `go-build` directories. Temporary ttsx output uses `ttsx` below the same resolved workspace root, but each runtime generation is removed on exit and must not be persisted. The ordering is the part that matters.
 
 ```yaml
 jobs:
@@ -103,7 +103,7 @@ env:
   TTSC_CACHE_DIR: .ttsc-cache/ttsc
 ```
 
-Then cache `.ttsc-cache/ttsc/plugins` as the required artifact. Add `.ttsc-cache/ttsc/go-build` only as the optional accelerator. Point the root at a directory dedicated to `ttsc` whose basename is `ttsc`: `ttsc clean` always removes its `plugins/`, and that basename is the safety proof that lets it remove the nested `go-build/` too. A shared location such as `~/.cache` is therefore the wrong target.
+Then cache `.ttsc-cache/ttsc/plugins` as the required artifact. Add `.ttsc-cache/ttsc/go-build` only as the optional accelerator. The same variable places temporary ttsx output under `.ttsc-cache/ttsc/ttsx`, so a nested tsconfig cannot create a second project-local cache root. Point the root at a directory dedicated to `ttsc` whose basename is `ttsc`: `ttsc clean` always removes its `plugins/`, and that basename is the safety proof that lets it remove the nested `go-build/` too. A shared location such as `~/.cache` is therefore the wrong target.
 
 Relocating costs you automatic cleanup. In the default project-local cache, `ttsc` prunes plugin binaries unused for 30 days and runs LRU pruning from a 2 GiB ceiling toward 1.6 GiB. It checks at most daily while idle and again after every cold binary publication, so a fresh daily marker cannot hide the binary just added. The binary returned by that cold build and entries with active build generations are excluded; if those safety exclusions keep the root above the ceiling, the marker schedules another pass instead of deleting an entry that may be about to execute. `ttsc` applies the corresponding policy to the Go object cache after every cold source-plugin build attempt, including a failed build, pruning from an 8 GiB ceiling toward 6 GiB. The newest target-sized Go-object cohort remains protected for the requested hour plus Go's one-hour access-mtime coalescing tolerance. Active builds and maintenance publish heartbeat records. A stopped build heartbeat retains a one-hour grace for an orphaned Go child; completed maintenance is retired immediately, and an abandoned maintenance heartbeat expires after one minute. A record dated implausibly far in the future is rebased and receives one ordinary grace period: a live owner refreshes it, while an orphan then expires normally. A root named explicitly through `TTSC_CACHE_DIR` or `--cache-dir` is never garbage collected, on the assumption that a caller who named a path owns it. `TTSC_GO_CACHE_DIR` follows the same caller-owned lifetime, and an ambient user `GOCACHE` is never modified or removed by ttsc.
 
