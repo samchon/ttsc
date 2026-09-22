@@ -18,8 +18,9 @@ import { membershipRecordDigest } from "./membershipRecordDigest";
  * generation (`watchInputEvidenceMatchesDisk`), and the walk is run again under
  * the recorded policy and its digest compared (`membershipRecordDigest`).
  *
- * @returns The tsconfig when it is gone, the first input whose state moved, the
- *   project root when the root files did, or `undefined`.
+ * @returns The tsconfig when it is gone, which a build start answers by
+ *   removing the record rather than moving it, the first input whose state
+ *   moved, the project root when the root files did, or `undefined`.
  */
 export function projectRecordMoved(
   record: TtscProjectRecord,
