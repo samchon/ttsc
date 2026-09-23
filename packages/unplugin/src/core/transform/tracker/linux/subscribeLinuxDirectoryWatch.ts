@@ -5,6 +5,7 @@ import type { LinuxDirectoryWatch } from "./LinuxDirectoryWatch";
 import { getLinuxWatchHelper } from "./getLinuxWatchHelper";
 import { referenceLinuxWatchHelper } from "./referenceLinuxWatchHelper";
 import { sendLinuxWatchHelper } from "./sendLinuxWatchHelper";
+import { syncLinuxWatchHelper } from "./syncLinuxWatchHelper";
 
 /**
  * Subscribe to one directory's non-recursive watch, opening it only when no
@@ -18,6 +19,20 @@ import { sendLinuxWatchHelper } from "./sendLinuxWatchHelper";
  * it. `ready` resolves `false`, and `onError` runs, when the directory cannot
  * be watched, for instance once the per-user inotify limit is reached.
  *
+ * A subscriber hears exactly what a watch of its own would, the events of
+ * writes made after it subscribed (samchon/ttsc#1486). The subscriber that
+ * opens the watch hears it from the helper's answer on, and the helper writes
+ * no event of a watch before that answer. One that joins a watch another
+ * subscriber opened would otherwise be handed every line the helper had already
+ * written and Node had not yet read, the tail of writes made before it existed:
+ * a tracker opened right after an edit heard the rest of that edit as a change
+ * during its compile, and compiled the project again. So a joining subscriber
+ * hears nothing until the helper answers a sync sent when it joined, which the
+ * helper writes only after every event queued before the request, and hears
+ * every line after it. Its `ready` resolves at that answer, and a sync the
+ * helper does not answer leaves it not live, reported through `onError`, since
+ * it cannot know what it missed.
+ *
  * Throws when there is no helper to serve the watch, which the caller treats as
  * a failed tracker, falling back to snapshot validation.
  */
@@ -28,6 +43,7 @@ export function subscribeLinuxDirectoryWatch(
 ): { close(): void; ready: Promise<boolean> } {
   const key = path.resolve(directory);
   let shared = LINUX_DIRECTORY_WATCHES.get(key);
+  const opening = shared === undefined;
   if (shared === undefined) {
     const helper = getLinuxWatchHelper();
     if (helper === undefined) {
@@ -57,6 +73,7 @@ export function subscribeLinuxDirectoryWatch(
         }
       },
       errors,
+      helper,
       listeners,
       ready,
     };
@@ -93,17 +110,39 @@ export function subscribeLinuxDirectoryWatch(
     shared = opened;
   }
   const subscribed = shared;
-  subscribed.listeners.add(listener);
-  subscribed.errors.add(onError);
-  let released = false;
-  return {
-    close: () => {
-      if (released) return;
-      released = true;
-      subscribed.listeners.delete(listener);
-      subscribed.errors.delete(onError);
-      if (subscribed.listeners.size === 0) subscribed.close();
-    },
-    ready: subscribed.ready,
+  // Whether this subscriber hears the watch yet: its opener at once, a joiner
+  // from the answer to its sync on, switched synchronously with the answer's
+  // line so the very next line reaches it.
+  let hearing = opening;
+  const heard = (eventType: string, filename: string | null): void => {
+    if (hearing) listener(eventType, filename);
   };
+  // This subscription's own entry in the watch's error set, whatever function
+  // the caller passed.
+  const ended = (): void => onError();
+  subscribed.listeners.add(heard);
+  subscribed.errors.add(ended);
+  let released = false;
+  const close = (): void => {
+    if (released) return;
+    released = true;
+    subscribed.listeners.delete(heard);
+    subscribed.errors.delete(ended);
+    if (subscribed.listeners.size === 0) subscribed.close();
+  };
+  const ready = opening
+    ? subscribed.ready
+    : syncLinuxWatchHelper(subscribed.helper, (answered) => {
+        if (answered) hearing = true;
+      }).then((answered) => {
+        if (answered) return subscribed.ready;
+        // Still subscribed, so the watch itself did not end: this subscriber
+        // alone cannot vouch for what it covers.
+        if (subscribed.errors.has(ended)) {
+          close();
+          onError();
+        }
+        return false;
+      });
+  return { close, ready };
 }

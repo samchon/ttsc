@@ -12,9 +12,17 @@ import { sendLinuxWatchHelper } from "./sendLinuxWatchHelper";
  * it has reached its subscriptions. An unanswered one proves nothing
  * (samchon/ttsc#1428), and gives up after a second, so a helper that stopped
  * answering cannot hold a delivery.
+ *
+ * @param helper The helper to sync.
+ * @param onAnswer Told whether the helper answered, synchronously with the
+ *   answer's line, before any later line is routed. A resolution reaches its
+ *   callbacks only after every line the same chunk of output carried, so a
+ *   caller that must act between the answer and the next event, as a subscriber
+ *   joining a shared watch does (`subscribeLinuxDirectoryWatch`), acts here.
  */
 export function syncLinuxWatchHelper(
   helper: LinuxWatchHelper,
+  onAnswer?: (answered: boolean) => void,
 ): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
     const id = helper.nextId++;
@@ -24,6 +32,7 @@ export function syncLinuxWatchHelper(
       settled = true;
       clearTimeout(timer);
       if (helper.syncs.delete(id)) referenceLinuxWatchHelper(helper, -1);
+      onAnswer?.(answered);
       resolve(answered);
     };
     const timer = setTimeout(() => release(false), SYNC_FALLBACK_MS);
