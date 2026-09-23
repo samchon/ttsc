@@ -46,6 +46,7 @@ export function getWatchBroker(): WatchBroker {
     nextId: 1,
     pendingDrains: 0,
     pendingRegistrations: 0,
+    probes: typeof fsevents === "string",
     registrations: new Map(),
   };
   const fail = (): void => {

@@ -19,9 +19,26 @@ import * as webpack from "./hosts/webpack.mjs";
  * `compiles` the most compiles the session may run when it must be served from
  * the cache, `live` a value the tsconfig is edited to while the session runs
  * and restored from, and `store: true` when the next session depends on this
- * one's store, which the session then waits for before it stops.
+ * one's store, which the session then waits for before it stops. With
+ * `refusedWithoutRecords`, a session whose adapter reported that it could write
+ * no record anywhere the host accepts, and turned its cache off, must refuse
+ * its modules instead (`unwritable.mjs`).
  */
 const [host, root, plugin, expectationJson] = process.argv.slice(2);
+// A host whose records the adapter can write nowhere it accepts runs without
+// its persistent cache, which the adapter reports as a process warning, and
+// then compiles at every start by design (samchon/ttsc#1480). The session
+// holds no host to a bound the product declared it cannot meet, and nothing
+// else lifts the bound.
+let cacheTurnedOff = false;
+process.on("warning", (warning) => {
+  if (
+    warning.code === "TTSC_PROJECT_RECORD_UNWRITABLE" &&
+    /persistent cache is turned off/.test(warning.message)
+  ) {
+    cacheTurnedOff = true;
+  }
+});
 const expectation = JSON.parse(expectationJson);
 const project = projectAt(root, { plugin });
 
@@ -125,12 +142,16 @@ const before = project.runs();
 const openedAt = Date.now();
 const session = await sessions[host](project);
 try {
-  if (expectation.kind === "settled") {
+  if (expectation.refusedWithoutRecords === true && cacheTurnedOff) {
+    // No record anywhere the host accepts, as the adapter reported: a watching
+    // session refuses its modules, naming the directory (samchon/ttsc#1480).
+    await session.failed(expectation.label, /cannot be written/);
+  } else if (expectation.kind === "settled") {
     await session.settled(expectation.label, expectation.value, []);
   } else {
     await session.failed(expectation.label, new RegExp(expectation.pattern));
   }
-  if (expectation.compiles !== undefined) {
+  if (expectation.compiles !== undefined && !cacheTurnedOff) {
     const compiled = project.runs() - before;
     if (compiled > expectation.compiles) {
       assert.fail(
@@ -176,7 +197,12 @@ try {
   // adapter registered, and the contract would read it as a failure to serve
   // from the cache. Re-read on every poll, since a build may follow the
   // commit, and bounded by the deadline below.
-  if (expectation.store === true && project.runs() !== before) {
+  // A cache the adapter turned off stores nothing to wait for.
+  if (
+    expectation.store === true &&
+    project.runs() !== before &&
+    !cacheTurnedOff
+  ) {
     // A host whose cached module snapshots predate the record's last move
     // rebuilds those modules on its next start, however unchanged the
     // project is: the adapter writes the record inside the build that

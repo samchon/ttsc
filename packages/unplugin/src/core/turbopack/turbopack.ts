@@ -144,6 +144,9 @@ export function turbopack(
                 registration,
               }),
             toolDirectory,
+            // Turbopack takes no record outside its root, so a watching worker
+            // refuses a module it could hand none (samchon/ttsc#1480).
+            watching: bridge !== undefined,
           },
         }),
     ...(cacheable === undefined

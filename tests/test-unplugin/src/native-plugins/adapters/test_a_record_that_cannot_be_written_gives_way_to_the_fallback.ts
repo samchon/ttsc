@@ -3,31 +3,35 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { fallbackToolDirectory } from "../../../../../packages/unplugin/lib/core/bridge/fallbackToolDirectory.js";
 import { hostToolDirectory } from "../../../../../packages/unplugin/lib/core/bridge/hostToolDirectory.js";
 import { projectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/projectRecordFile.js";
 import { createRealNativeEnvelopeFixture } from "../../internal/real-native-envelope/createRealNativeEnvelopeFixture";
 
 /**
- * Verifies a project record the adapter cannot write for a new generation is
- * handed to the host all the same while it is there, and that the next delivery
- * of that generation writes it.
+ * Verifies a project record the adapter cannot write for a new generation gives
+ * way to the fallback the host accepts, and that the next delivery of that
+ * generation writes it again once it can (samchon/ttsc#1480).
  *
  * A module handed over without the record depends on its own bytes alone, and a
  * host's persistent cache restores it on those whatever its types did. The
  * adapter used to hand nothing over when a write failed, on the reasoning that
  * the host would run the module again at its next start, which a persistent
- * cache does not. The bytes the record still holds stand for the last state
- * written, which the next proof moves once the project has left it.
+ * cache does not. A record the adapter cannot write cannot move either, so the
+ * module is handed the record in the fallback below the user's temporary
+ * directory, which holds the new state; a host with no fallback is handed the
+ * old record all the same
+ * (`test_transformttsc_hands_a_fallback_record_or_refuses_a_watching_delivery`).
  *
  * 1. Deliver a module through a one-shot Rollup context, which writes the record
  *    and hands it over.
  * 2. Make the record read-only, edit a declaration the project reads, and deliver
  *    the module in a new pass: assert the record kept its bytes, since the
- *    write failed, and was handed over all the same.
+ *    write failed, and the module was handed the fallback's record, written.
  * 3. Make the record writable and deliver another module of that generation:
  *    assert it hands the record over and writes the generation's state.
  */
-export async function test_a_record_that_cannot_be_written_is_handed_over_while_it_is_there(): Promise<void> {
+export async function test_a_record_that_cannot_be_written_gives_way_to_the_fallback(): Promise<void> {
   const fixture = createRealNativeEnvelopeFixture();
   const root = fs.realpathSync.native(fixture.root);
   const at = (file: string) =>
@@ -80,10 +84,15 @@ export async function test_a_record_that_cannot_be_written_is_handed_over_while_
       before,
       "the write failed, as this scenario needs",
     );
-    assert.deepEqual(
-      handed,
-      [record],
-      "the record is handed over all the same",
+    const fallback = projectRecordFile(
+      fallbackToolDirectory(process.cwd())!,
+      options.project,
+    );
+    assert.deepEqual(handed, [fallback], "the fallback's record instead");
+    assert.notDeepEqual(
+      fs.readFileSync(fallback),
+      before,
+      "holding the new generation's state",
     );
   } finally {
     fs.chmodSync(record, 0o644);

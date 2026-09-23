@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { fallbackToolDirectory } from "../bridge/fallbackToolDirectory";
 import { hostToolDirectory } from "../bridge/hostToolDirectory";
 import { refreshProjectRecordFiles } from "../bridge/refreshProjectRecordFiles";
 import type { TtscUnpluginOptions } from "../options/TtscUnpluginOptions";
@@ -60,6 +61,10 @@ export function next(
   // `.next`: a project whose state moved while nothing ran is heard through
   // its record, which only a proof here can move.
   refreshProjectRecordFiles(hostToolDirectory(process.cwd()));
+  // And where webpack's records live when that directory cannot be written
+  // (samchon/ttsc#1480); Turbopack's loader proves its own.
+  const fallback = fallbackToolDirectory(process.cwd());
+  if (fallback !== undefined) refreshProjectRecordFiles(fallback);
   return {
     ...nextConfig,
     turbopack: withTtscTurbopackRules(nextConfig.turbopack, options),

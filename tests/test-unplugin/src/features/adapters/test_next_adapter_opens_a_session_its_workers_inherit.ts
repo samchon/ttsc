@@ -27,7 +27,10 @@ import { pathIsWithin } from "../../../../../packages/unplugin/lib/core/transfor
  * 3. Assert the child's store is still there after it exited.
  */
 export async function test_next_adapter_opens_a_session_its_workers_inherit(): Promise<void> {
-  const temporary = TestProject.tmpdir("ttsc-next-session-root-");
+  // In its long spelling, which the store is resolved to.
+  const temporary = fs.realpathSync.native(
+    TestProject.tmpdir("ttsc-next-session-root-"),
+  );
   const script = [
     'const fs = await import("node:fs");',
     'const os = await import("node:os");',

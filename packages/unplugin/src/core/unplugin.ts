@@ -7,11 +7,14 @@ import {
 } from "unplugin";
 
 import type { HostWatchBridge } from "./bridge/HostWatchBridge";
+import { fallbackToolDirectory } from "./bridge/fallbackToolDirectory";
 import { hostToolDirectory } from "./bridge/hostToolDirectory";
 import { openHostWatchBridge } from "./bridge/openHostWatchBridge";
 import { refreshProjectRecordFiles } from "./bridge/refreshProjectRecordFiles";
 import { registerProjectRecord } from "./bridge/registerProjectRecord";
 import { createEsbuildOptions } from "./esbuild/createEsbuildOptions";
+import { farmPersistentCacheWithoutRecords } from "./farm/farmPersistentCacheWithoutRecords";
+import { farmRecordFallback } from "./farm/farmRecordFallback";
 import { isTransformTarget } from "./isTransformTarget";
 import type { TtscUnpluginOptions } from "./options/TtscUnpluginOptions";
 import { resolveOptions } from "./options/resolveOptions";
@@ -107,6 +110,20 @@ const unpluginFactory: UnpluginFactory<
   // directory it runs in.
   let farmRoot: string | undefined;
   const hostRoot = (): string => farmRoot ?? process.cwd();
+  // Where a host that cannot write below its root keeps its records
+  // (samchon/ttsc#1480): below this user's temporary directory, which every
+  // host this factory serves accepts but Farm on another drive.
+  const recordFallback = (): { fallbackToolDirectory?: string } => {
+    const fallback =
+      farmRoot !== undefined
+        ? farmRecordFallback(farmRoot)
+        : fallbackToolDirectory(hostRoot());
+    return fallback === undefined ? {} : { fallbackToolDirectory: fallback };
+  };
+  const recordDirectories = (): string[] => [
+    hostToolDirectory(hostRoot()),
+    ...Object.values(recordFallback()),
+  ];
   const closeBridge = async (): Promise<void> => {
     const open = bridge;
     bridge = undefined;
@@ -335,6 +352,12 @@ const unpluginFactory: UnpluginFactory<
       });
     },
     farm: {
+      // Farm offers no per-module opt-out of its persistent cache, so where
+      // no record can be written its cache is turned off (samchon/ttsc#1480).
+      config: (config: {
+        compilation?: { persistentCache?: unknown };
+        root?: string;
+      }) => farmPersistentCacheWithoutRecords(config, process.cwd()),
       configResolved(config: {
         compilation?: { mode?: string; watch?: unknown };
         root?: string;
@@ -404,7 +427,11 @@ const unpluginFactory: UnpluginFactory<
         }
         passStartedAt = bridge?.begin();
         if (opening) {
-          refreshProjectRecordFiles(hostToolDirectory(hostRoot()), bridge);
+          // Below the root, and in the fallback a host that cannot write there
+          // keeps its records in (samchon/ttsc#1480).
+          for (const directory of recordDirectories()) {
+            refreshProjectRecordFiles(directory, bridge);
+          }
         }
       }
     },
@@ -485,6 +512,8 @@ const unpluginFactory: UnpluginFactory<
                       registration,
                     }),
                   toolDirectory: hostToolDirectory(hostRoot()),
+                  ...recordFallback(),
+                  watching: bridge !== undefined,
                 },
               }),
           // A module the plugin declared volatile depends on non-file inputs,

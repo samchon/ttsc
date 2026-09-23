@@ -75,11 +75,17 @@ export function notifyRejectedGenerationInputs(
   // hands over none that is not there, and the module is marked uncacheable
   // as one that function could not hand its record to is.
   if (hooks.project !== undefined) {
-    const record = projectRecordFile(
+    // Below the host's tool directory, or the fallback it accepts, where the
+    // last generation may have written it (samchon/ttsc#1480).
+    const record = [
       hooks.project.toolDirectory,
-      selection.tsconfig,
-    );
-    if (fs.existsSync(record)) {
+      ...(hooks.project.fallbackToolDirectory === undefined
+        ? []
+        : [hooks.project.fallbackToolDirectory]),
+    ]
+      .map((directory) => projectRecordFile(directory, selection.tsconfig))
+      .find((candidate) => fs.existsSync(candidate));
+    if (record !== undefined) {
       hooks.project.register({ failed: true, inputs: () => inputs, record });
     } else {
       hooks.markVolatile?.();

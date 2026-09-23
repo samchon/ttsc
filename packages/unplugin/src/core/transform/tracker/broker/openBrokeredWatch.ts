@@ -77,12 +77,23 @@ export function openBrokeredWatch(
       directory = path.resolve(location.directory);
     }
     spellings.set(directory, location.directory);
-    const probe = probeForLocation(
-      directory,
-      options.probeRoot,
-      probeDirectory,
-      options.filesystem,
-    );
+    // A probe proves only a backend that writes one, FSEvents, and one whose
+    // directory cannot be prepared, below a read-only `node_modules`, leaves
+    // the location unproven rather than the watch failed, as a probe the child
+    // cannot write does (samchon/ttsc#1480).
+    let probe: ReturnType<typeof probeForLocation>;
+    try {
+      probe = broker.probes
+        ? probeForLocation(
+            directory,
+            options.probeRoot,
+            probeDirectory,
+            options.filesystem,
+          )
+        : undefined;
+    } catch {
+      probe = undefined;
+    }
     return {
       directory,
       ...(location.names === undefined ? {} : { names: location.names }),

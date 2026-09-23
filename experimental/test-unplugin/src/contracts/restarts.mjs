@@ -148,32 +148,8 @@ export const RESTART_STEPS = [
  * @param host The host, one `restart-cycle.mjs` knows.
  */
 export async function restartContract(project, host) {
-  const cycle = async (label, expectation) => {
-    try {
-      await promisify(execFile)(
-        process.execPath,
-        [
-          fileURLToPath(new URL("./restart-cycle.mjs", import.meta.url)),
-          host,
-          project.root,
-          project.plugin,
-          JSON.stringify({ ...expectation, label }),
-        ],
-        {
-          cwd: project.root,
-          env: process.env,
-          maxBuffer: 64 * 1024 * 1024,
-          timeout: 300_000,
-          windowsHide: true,
-        },
-      );
-    } catch (error) {
-      throw new Error(
-        `${host}: ${label}: ${error.stderr ?? ""}${error.stdout ?? ""}${error.message}`,
-        { cause: error },
-      );
-    }
-  };
+  const cycle = (label, expectation) =>
+    restartCycle(project, host, label, expectation);
   const expectation = (index) => {
     const step = RESTART_STEPS[index];
     const next = RESTART_STEPS[index + 1];
@@ -187,5 +163,42 @@ export async function restartContract(project, host) {
   for (const [index, step] of RESTART_STEPS.entries()) {
     step.edit(project);
     await cycle(step.name, expectation(index));
+  }
+}
+
+/**
+ * One session of the restart contract, in a process of its own
+ * (`restart-cycle.mjs`), over the host's persistent cache and run in the
+ * project's root, which is the host's root.
+ *
+ * @param project The fixture.
+ * @param host The host, one `restart-cycle.mjs` knows.
+ * @param label The step, for a failure to name.
+ * @param expectation What the session must observe (`restart-cycle.mjs`).
+ */
+export async function restartCycle(project, host, label, expectation) {
+  try {
+    await promisify(execFile)(
+      process.execPath,
+      [
+        fileURLToPath(new URL("./restart-cycle.mjs", import.meta.url)),
+        host,
+        project.root,
+        project.plugin,
+        JSON.stringify({ ...expectation, label }),
+      ],
+      {
+        cwd: project.root,
+        env: process.env,
+        maxBuffer: 64 * 1024 * 1024,
+        timeout: 300_000,
+        windowsHide: true,
+      },
+    );
+  } catch (error) {
+    throw new Error(
+      `${host}: ${label}: ${error.stderr ?? ""}${error.stdout ?? ""}${error.message}`,
+      { cause: error },
+    );
   }
 }

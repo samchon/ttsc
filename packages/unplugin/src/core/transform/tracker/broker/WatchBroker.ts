@@ -35,4 +35,10 @@ export interface WatchBroker {
   pendingRegistrations: number;
   /** Live registrations by id. */
   registrations: Map<number, WatchBrokerRegistration>;
+  /**
+   * Whether the child proves a stream through probes (samchon/ttsc#1453): its
+   * backend is FSEvents, which delivers with a latency no turn of its loop
+   * proves. Windows' backend never writes one, so no location names one there.
+   */
+  probes: boolean;
 }

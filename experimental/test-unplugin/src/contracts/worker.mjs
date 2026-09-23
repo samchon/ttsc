@@ -18,6 +18,7 @@ import {
 } from "./predicates.mjs";
 import { restartContract } from "./restarts.mjs";
 import { runScenarios } from "./scenarios.mjs";
+import { unwritableContract } from "./unwritable.mjs";
 import { reactRouterContract } from "./vite.mjs";
 
 /**
@@ -122,6 +123,13 @@ const RESTARTED = [
 ];
 if (RESTARTED.includes(host)) {
   await restartContract(fixture(`${host}-restart`, { plugin: "linked" }), host);
+}
+
+// Once more where the host's tool directory cannot be written, on one host per
+// way the adapter keeps a record then: webpack's fallback, Farm's fallback or
+// its cache turned off, Turbopack's refusal; see unwritable.mjs.
+if (["webpack", "farm", "next-turbopack"].includes(host)) {
+  await unwritableContract(host);
 }
 
 // Each watching build host also runs the compiler-predicate matrix through its

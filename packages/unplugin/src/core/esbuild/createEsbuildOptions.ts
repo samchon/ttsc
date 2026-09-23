@@ -3,6 +3,7 @@ import path from "node:path";
 import type { UnpluginOptions } from "unplugin";
 
 import type { HostWatchBridge } from "../bridge/HostWatchBridge";
+import { fallbackToolDirectory } from "../bridge/fallbackToolDirectory";
 import { hostToolDirectory } from "../bridge/hostToolDirectory";
 import { openHostWatchBridge } from "../bridge/openHostWatchBridge";
 import { registerProjectRecord } from "../bridge/registerProjectRecord";
@@ -104,6 +105,9 @@ export function createEsbuildOptions(
                   project: {
                     register,
                     toolDirectory: hostToolDirectory(root),
+                    // esbuild takes a record anywhere, and cannot say whether
+                    // it watches (samchon/ttsc#1480).
+                    ...fallbackRecordDirectory(root),
                   },
                 },
               );
@@ -136,4 +140,12 @@ export function createEsbuildOptions(
       },
     },
   };
+}
+
+/** The fallback record directory of a root, spread into a project hook. */
+function fallbackRecordDirectory(root: string): {
+  fallbackToolDirectory?: string;
+} {
+  const fallback = fallbackToolDirectory(root);
+  return fallback === undefined ? {} : { fallbackToolDirectory: fallback };
 }
