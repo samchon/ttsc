@@ -13,8 +13,8 @@ Four principles decide every case, and each names its owner:
 | A. A path is compared by filesystem identity, never by spelling; a host is handed one spelling per project. | `transform/filesystem/*` (`pathIdentityKey`, `relativeToProject`), `transform/envelope/hostSpelling.ts`, `watch/handWatchInputs.ts` |
 | B. A watcher's silence proves nothing until one delivery has proven the recorded state by reading it. | `transform/tracker/*`, `validation/notificationsProveProgramUnchanged.ts`, `transform/tracker/broker/*` |
 | C. A signal to a host is owed until a registration whose delivery read the post-signal state answers it. | `bridge/openHostWatchBridge.ts`, `vite/createViteServeInputWatch.ts` (`replace`) |
-| E. A build host is handed the project's state as one file, never the compiler's inputs. | `bridge/projectRecordFile.ts`, `watch/notifyProjectRecord.ts`, `bridge/refreshProjectRecordFiles.ts` |
 | D. A generation is served only while every input it recorded is provably unchanged, or replaced. | `validation/matchesCachedSource.ts` and the three paths below |
+| E. A build host is handed the project's state as one file, never the compiler's inputs. | `bridge/projectRecordFile.ts`, `watch/notifyProjectRecord.ts`, `bridge/refreshProjectRecordFiles.ts` |
 
 ## Objects
 

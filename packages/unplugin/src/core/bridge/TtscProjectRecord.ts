@@ -15,8 +15,9 @@ import type { ITtscProjectMembershipPolicy } from "../tsconfig/ITtscProjectMembe
  * its generation (`writeProjectRecordFile`), a watching session's bridge bumps
  * `signal` when an observer reports a change to a recorded input
  * (`signalProjectRecordFile`), and a build start proves each recorded input
- * against the disk and rewrites a record whose state has moved while nothing
- * ran (`refreshProjectRecordFiles`).
+ * against the disk and moves a record whose state has moved while nothing ran
+ * or that it cannot read, and removes one whose tsconfig is gone
+ * (`refreshProjectRecordFiles`).
  */
 export interface TtscProjectRecord {
   /**

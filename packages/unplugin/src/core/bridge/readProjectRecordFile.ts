@@ -4,8 +4,10 @@ import type { TtscProjectRecord } from "./TtscProjectRecord";
 
 /**
  * Read a project record (`projectRecordFile`) back, or nothing for a file that
- * is absent, unreadable, or not a record: such a file names no project to
- * refresh and no signal to continue, and the next delivery writes it whole.
+ * is absent, unreadable, or not a record: such a file names no project and no
+ * signal to continue. A build start moves one that is there, since no proof can
+ * run over it (`refreshProjectRecordFiles`), and the next generation's delivery
+ * writes it whole.
  */
 export function readProjectRecordFile(
   file: string,

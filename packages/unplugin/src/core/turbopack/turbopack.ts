@@ -95,9 +95,10 @@ export function turbopack(
   // across requests. A module the plugin declared volatile is marked
   // uncacheable through the same loader contract.
   //
-  // The record lives in the project's own tool directory, inside Turbopack's
-  // project filesystem root, which Turbopack rejects a dependency outside of
-  // (samchon/ttsc#1422) and whose watcher hears the record move. Turbopack
+  // The record lives in the tool directory of the root Turbopack resolved
+  // (`rootContext`), inside its project filesystem root, which Turbopack
+  // rejects a dependency outside of (samchon/ttsc#1422) and whose watcher
+  // hears the record move. Turbopack
   // takes a dependency's state as its baseline only when the loader returns,
   // so a change landing before then never re-runs the module
   // (samchon/ttsc#1423); the bridge observes every input from the compile on

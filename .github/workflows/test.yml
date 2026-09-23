@@ -50,7 +50,7 @@ jobs:
     # package-manager, source-map and VS Code suites. The adapter's host matrix
     # is a job of its own (`unplugin-hosts`), whose hour does not stand between
     # these and their verdict.
-    timeout-minutes: 90
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.platform_matrix) }}
