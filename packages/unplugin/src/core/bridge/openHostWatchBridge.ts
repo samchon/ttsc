@@ -41,6 +41,15 @@ import { signalProjectRecordFile } from "./signalProjectRecordFile";
  * host then runs the modules once more, from its cache, which registers and
  * ends it there.
  *
+ * The later moves defend the host's watcher, so a host that reports what each
+ * compile depended on (`HostWatchBridge.compiled`) has them only for the
+ * records its watcher observes. A compiler holding no module of a project,
+ * Next's edge compiler beside the client and server ones, never delivers the
+ * registration that ends them, and each would run the compilers that do observe
+ * the record again. Such a record is still observed and moved once per change:
+ * a compile that comes to depend on it, as `next dev` does a page on its first
+ * request, reads the move through its cache's snapshot.
+ *
  * The record stays when the bridge closes: a host with a persistent cache
  * recorded it as a dependency of every module, and a build start proves it
  * against the disk (`refreshProjectRecordFiles`).
@@ -74,6 +83,9 @@ export function openHostWatchBridge(
   let answeredIn: number | undefined;
   // The next move owed to each record, until it is registered again.
   const pending = new Map<string, NodeJS.Timeout>();
+  // The records the host's last compile did not depend on, which its watcher
+  // does not observe, reported by a host that reports it (`compiled`).
+  const unwatched = new Set<string>();
   const settle = (record: string): void => {
     owed.delete(path.resolve(record));
     clearTimeout(pending.get(record));
@@ -85,6 +97,11 @@ export function openHostWatchBridge(
     // after whatever baseline the host takes next.
     if (pending.has(record)) return;
     signalProjectRecordFile(record);
+    // The later moves defend a watcher's baseline, and no watcher of this host
+    // observes the record: a compile that comes to depend on it reads this
+    // move through its cache's snapshot, and `compiled` resumes the schedule
+    // for the signal still owed once the watcher observes the record.
+    if (unwatched.has(record)) return;
     const moveAfter = (delay: number): void => {
       const timer = setTimeout(() => {
         if (pending.get(record) !== timer) return;
@@ -118,8 +135,21 @@ export function openHostWatchBridge(
       for (const record of [...pending.keys()]) settle(record);
       owed.clear();
       registered.clear();
+      unwatched.clear();
       await watch.dispose();
       nodes.clear();
+    },
+    compiled(depends) {
+      for (const record of registered.keys()) {
+        if (!depends(record)) {
+          // Observed still, and still owed, but moved no more on the schedule.
+          unwatched.add(record);
+          clearTimeout(pending.get(record));
+          pending.delete(record);
+        } else if (unwatched.delete(record) && owed.has(path.resolve(record))) {
+          signal(record);
+        }
+      }
     },
     owes: (record) =>
       (answeredIn !== undefined && pass <= answeredIn + 1) ||

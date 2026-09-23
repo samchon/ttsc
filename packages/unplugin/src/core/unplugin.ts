@@ -1,4 +1,3 @@
-import path from "node:path";
 import {
   type NativeBuildContext,
   type UnpluginFactory,
@@ -29,6 +28,7 @@ import { stripQuery } from "./transform/utils/stripQuery";
 import { createViteServeInputWatch } from "./vite/createViteServeInputWatch";
 import { TTSC_SOURCE_MAP_STASH } from "./webpack/TTSC_SOURCE_MAP_STASH";
 import { registerTtscSourceMapLoader } from "./webpack/registerTtscSourceMapLoader";
+import { reportCompiledProjectRecords } from "./webpack/reportCompiledProjectRecords";
 
 const name = "ttsc-unplugin";
 
@@ -296,6 +296,12 @@ const unpluginFactory: UnpluginFactory<
     // are installed by unplugin alongside its ordinary transform wiring.
     webpack(compiler) {
       registerTtscSourceMapLoader(compiler);
+      compiler.hooks.done.tap(name, (stats) => {
+        reportCompiledProjectRecords(
+          bridge,
+          stats.compilation.fileDependencies,
+        );
+      });
       compiler.hooks.shutdown.tap(name, () => {
         // The shared generation outlives this compiler for the next one; the
         // lease resets it once no compiler has used it for its grace.
@@ -306,6 +312,12 @@ const unpluginFactory: UnpluginFactory<
     },
     rspack(compiler) {
       registerTtscSourceMapLoader(compiler);
+      compiler.hooks.done.tap(name, (stats) => {
+        reportCompiledProjectRecords(
+          bridge,
+          stats.compilation.fileDependencies,
+        );
+      });
       compiler.hooks.shutdown.tap(name, () => {
         // The shared generation outlives this compiler for the next one; the
         // lease resets it once no compiler has used it for its grace.
