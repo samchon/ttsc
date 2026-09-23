@@ -2,6 +2,12 @@
 
 One cell is one native session driven through its arm's objectives. The operator freezes the inputs, launches, and watches; the runner prepares the workspace, sends every objective, and retains the record. [benchmarks/evidence/README.md](../../../../../benchmarks/evidence/README.md) describes what the runner does: workspace preparation, the port block, run options, archive sharing, the instruction sequence, and the retained record. This document holds the operator's procedure.
 
+## Contents
+
+- [Open The Campaign](#open-the-campaign)
+- [Launch A Cell](#launch-a-cell)
+- [Supervise](#supervise)
+
 ## Open The Campaign
 
 1. Open the campaign issue.

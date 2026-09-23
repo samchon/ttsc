@@ -4,6 +4,15 @@ A cell edits its own workspace. That is the measurement, not a violation of it.
 
 Only the edits the cell's **own** instructions forbid void the measurement. The rules that bind the operator in [intervention/boundary.md](../intervention/boundary.md) do not bind a cell, and reading one as the other punishes a cell for doing exactly what it was told to do.
 
+## Contents
+
+- [What Governs A Cell](#what-governs-a-cell)
+- [Legitimate, Never A Hit](#legitimate-never-a-hit)
+- [A Hit](#a-hit)
+- [Why These Decide The Measurement](#why-these-decide-the-measurement)
+- [Publishing A Number](#publishing-a-number)
+- [On A Confirmed Hit](#on-a-confirmed-hit)
+
 ## What Governs A Cell
 
 The workspace carries its own contract, copied in at preparation. Read it there before reporting anything:
