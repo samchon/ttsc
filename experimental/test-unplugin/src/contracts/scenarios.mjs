@@ -42,6 +42,8 @@ export const SCENARIOS = [
     name: "edit between builds",
     async run({ project, session }) {
       const before = project.runs();
+      // TEMPORARY DIAGNOSTIC, reverted before merge.
+      const editedAt = Date.now();
       project.change("SECOND");
       await session.settled("edit between builds", "SECOND", [project.input]);
       if (session.exactRuns)
@@ -52,7 +54,7 @@ export const SCENARIOS = [
         );
       // A host with several compilers, or a pool of workers, still compiles
       // the edit once for all of them where its session says so.
-      await session.sharedEdit?.(before);
+      await session.sharedEdit?.(before, editedAt);
     },
   },
   {

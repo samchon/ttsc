@@ -106,6 +106,12 @@ export async function openSession(bundler, project) {
     ].join("\n"),
   );
   const require = createRequire(import.meta.url);
+  // TEMPORARY DIAGNOSTIC, reverted before merge: every capture's verdict.
+  const captureLog = path.join(
+    path.dirname(project.physical),
+    `${path.basename(project.physical)}-captures.jsonl`,
+  );
+  fs.rmSync(captureLog, { force: true });
   const child = spawn(
     process.execPath,
     [
@@ -119,7 +125,12 @@ export async function openSession(bundler, project) {
     ],
     {
       cwd: project.root,
-      env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
+      env: {
+        ...process.env,
+        NEXT_TELEMETRY_DISABLED: "1",
+        // TEMPORARY DIAGNOSTIC, reverted before merge.
+        TTSC_UNPLUGIN_CAPTURE_LOG: captureLog,
+      },
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
     },
@@ -258,7 +269,7 @@ export async function openSession(bundler, project) {
     // (samchon/ttsc#1390).
     ...(bundler === "turbopack"
       ? {
-          sharedEdit: (before) => {
+          sharedEdit: (before, editedAt) => {
             const compiled = project.runs() - before;
             if (compiled === 1) return;
             // A worker that could not adopt the publication compiles for
@@ -270,6 +281,14 @@ export async function openSession(bundler, project) {
               [
                 `${name} recompiles an edit once across its workers: ${compiled} compile(s)`,
                 `the pool's shared compile store:\n${sharedStores(output)}`,
+                // TEMPORARY DIAGNOSTIC, reverted before merge.
+                `edited at ${editedAt}; captures:\n${(() => {
+                  try {
+                    return fs.readFileSync(captureLog, "utf8").trim();
+                  } catch {
+                    return "none";
+                  }
+                })()}`,
                 `records ${JSON.stringify(recordStates(project))}`,
                 `what the host reported:\n${output.split(/\r?\n/).slice(-60).join("\n")}`,
               ].join("\n"),

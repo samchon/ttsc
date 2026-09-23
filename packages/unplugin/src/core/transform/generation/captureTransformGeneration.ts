@@ -93,6 +93,8 @@ export async function captureTransformGeneration(props: {
   trackProjectMembership: boolean;
   tsconfig: string;
 }): Promise<TtscCachedProjectTransform> {
+  // TEMPORARY DIAGNOSTIC, reverted before merge: when the capture started.
+  const diagnosticStartedAt = Date.now();
   const projectRoot = path.dirname(props.tsconfig);
   const scratchDirectory = createTransformScratchDirectory(
     projectRoot,
@@ -538,6 +540,45 @@ export async function captureTransformGeneration(props: {
     // that state travels with the publication for every adopter to match
     // (samchon/ttsc#1390). Releasing the lock without publishing lets the next
     // waiter compile.
+    // TEMPORARY DIAGNOSTIC, reverted before merge: every capture's verdict,
+    // for the darwin pool that compiles one edit twice.
+    const diagnosticLog = process.env.TTSC_UNPLUGIN_CAPTURE_LOG;
+    if (diagnosticLog !== undefined) {
+      try {
+        fs.appendFileSync(
+          diagnosticLog,
+          `${JSON.stringify({
+            adopt: props.adopt !== false,
+            at: Date.now(),
+            claim: claim === undefined ? "none" : claim.kind,
+            complete: before.complete,
+            config: configStable,
+            external: externalInputSnapshot.complete,
+            failures: failures.entries
+              .slice(0, 6)
+              .map((entry) => `${entry.kind}:${entry.path}`),
+            file: path.basename(props.currentFile),
+            graph: graphProofs,
+            pid: process.pid,
+            rejected: adoptionFailure ?? null,
+            result: result.type,
+            startedAt: diagnosticStartedAt,
+            tracker:
+              tracker === undefined
+                ? null
+                : {
+                    changes: [...tracker.changes].slice(0, 4),
+                    membership: tracker.membershipChanged,
+                    omitted: tracker.changesOmitted,
+                  },
+            universal: universalInputs,
+            walk: walkStable,
+          })}\n`,
+        );
+      } catch {
+        // Diagnostic only.
+      }
+    }
     if (sharedClaim !== undefined) {
       if (
         result.type === "success"
