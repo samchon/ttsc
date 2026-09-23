@@ -12,10 +12,9 @@ import path from "node:path";
  * - Farm computes every watch file's path relative to its root and fails on one
  *   it cannot relate, such as a file on another Windows drive; its watcher
  *   ignores `node_modules` inside the root and refuses an extra file below any
- *   `node_modules`, so the file must be on the root's drive and outside them.
- *   The host matrix runs Farm on a root below the directory it runs in, and the
- *   record, outside that root, reaches it; a root on another drive than the
- *   directory Farm runs in is the one layout this cannot serve.
+ *   `node_modules`, so the file must be on the root's drive and outside them,
+ *   and it lives below Farm's configured root rather than the directory Farm
+ *   runs in, which a configuration can place on another drive.
  * - Webpack and Rspack watch a dependency's directory through `fs.watch`, and
  *   libuv's Windows backend aborts the host on a directory spelled with a short
  *   name, which the system temporary directory routinely is
@@ -29,8 +28,9 @@ import path from "node:path";
  * cache records them as dependencies and they outlive every process.
  *
  * @param root The host's root: the directory the host runs in for the unplugin
- *   adapters and the Next wrapper, `absWorkingDir` for esbuild, and the root
- *   Turbopack resolved (`rootContext`) for its loader.
+ *   adapters and the Next wrapper, Farm's configured root for Farm,
+ *   `absWorkingDir` for esbuild, and the root Turbopack resolved
+ *   (`rootContext`) for its loader.
  */
 export function hostToolDirectory(root: string): string {
   return path.join(root, ".ttsc");

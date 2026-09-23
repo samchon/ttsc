@@ -96,9 +96,12 @@ export function notifyFailedGenerationInputs(
     ...selectionInputs(selection.consulted, selection.filesystem, spell),
   );
   // A build host takes the record, written to what the failed compile
-  // consulted, so the repair moves it wherever it lands.
-  if (hooks.project !== undefined) {
-    notifyProjectRecord(hooks.project, cached, true, () => [
+  // consulted, so the repair moves it wherever it lands; a module handed over
+  // without it depends on its own bytes alone, and no persistent cache may
+  // keep it.
+  if (
+    hooks.project !== undefined &&
+    !notifyProjectRecord(hooks.project, cached, true, () => [
       ...recorded.map((input) =>
         evidencedWatchInput(cached, state, input, (spelling) => spelling),
       ),
@@ -107,7 +110,9 @@ export function notifyFailedGenerationInputs(
         selection.filesystem,
         (spelling) => spelling,
       ),
-    ]);
+    ])
+  ) {
+    hooks.markVolatile?.();
   }
   if (hooks.addWatchFile === undefined && hooks.addWatchFiles === undefined) {
     return;

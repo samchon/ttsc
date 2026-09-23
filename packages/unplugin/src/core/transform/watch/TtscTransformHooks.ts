@@ -57,11 +57,12 @@ export interface TtscTransformHooks {
     toolDirectory: string;
   };
   /**
-   * Invoked when the plugin declared the transformed file volatile (the
-   * envelope's `volatile` list): its output depends on non-file inputs that no
-   * file-dependency snapshot can represent. Adapters should mark the module
-   * uncacheable where the bundler exposes that control (e.g. a webpack loader
-   * context's `cacheable(false)`).
+   * Invoked when the module's output depends on inputs no file-dependency
+   * snapshot of the module represents: the plugin declared the transformed file
+   * volatile (the envelope's `volatile` list), or the module was handed over
+   * without the project's record, which could not be written. Adapters should
+   * mark the module uncacheable where the bundler exposes that control (e.g. a
+   * webpack loader context's `cacheable(false)`).
    */
   markVolatile?: () => void;
 }

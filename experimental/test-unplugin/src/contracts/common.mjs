@@ -384,8 +384,9 @@ export function projectRecordStamps(project) {
  * A record lives below the tool directory of the root its host resolved: the
  * directory the host runs in, which is this process for a host the contract
  * imports and the project's own for a development CLI the contract spawns
- * there, or, for Turbopack, the root the contract configures, which is this
- * process's workspace; so both are read. The records that can be this project's
+ * there; for Farm, the root the contract configures, which is the project's;
+ * or, for Turbopack, the root the contract configures, which is this process's
+ * workspace; so both are read. The records that can be this project's
  * (`projectRecordFiles`) are marked, and their absence is said outright, since
  * a report of other projects' records alone reads like a project that has
  * none.

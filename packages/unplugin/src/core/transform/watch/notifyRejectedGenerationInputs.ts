@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 
 import { projectRecordFile } from "../../bridge/projectRecordFile";
@@ -69,16 +70,20 @@ export function notifyRejectedGenerationInputs(
   );
   // A generation the adapter rejected has no state to record beyond the
   // config selection it read: a build host keeps the record its last
-  // generation wrote, which its bridge moves when the selection changes.
+  // generation wrote, which its bridge moves when the selection changes. A
+  // record no generation wrote is not handed over, as `notifyProjectRecord`
+  // hands over none that is not there, and the module is marked uncacheable
+  // as one that function could not hand its record to is.
   if (hooks.project !== undefined) {
-    hooks.project.register({
-      failed: true,
-      inputs: () => inputs,
-      record: projectRecordFile(
-        hooks.project.toolDirectory,
-        selection.tsconfig,
-      ),
-    });
+    const record = projectRecordFile(
+      hooks.project.toolDirectory,
+      selection.tsconfig,
+    );
+    if (fs.existsSync(record)) {
+      hooks.project.register({ failed: true, inputs: () => inputs, record });
+    } else {
+      hooks.markVolatile?.();
+    }
   }
   if (hooks.addWatchFile === undefined && hooks.addWatchFiles === undefined) {
     return;

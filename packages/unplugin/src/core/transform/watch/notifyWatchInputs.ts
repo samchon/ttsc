@@ -39,15 +39,20 @@ export function notifyWatchInputs(
 ): void {
   if (hooks === undefined) return;
   const state = envelopeDerivation(cached);
-  if (hooks.project !== undefined) {
-    notifyProjectRecord(hooks.project, cached, false, () => [
+  // A module handed over without its record depends on its own bytes alone,
+  // so no persistent cache may keep it.
+  if (
+    hooks.project !== undefined &&
+    !notifyProjectRecord(hooks.project, cached, false, () => [
       ...generationWatchInputs(cached),
       ...selectionInputs(
         selection.consulted,
         selection.filesystem,
         (input) => input,
       ),
-    ]);
+    ])
+  ) {
+    hooks.markVolatile?.();
   }
   if (hooks.addWatchFile === undefined && hooks.addWatchFiles === undefined) {
     return;

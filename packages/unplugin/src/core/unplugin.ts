@@ -1,3 +1,4 @@
+import path from "node:path";
 import {
   type NativeBuildContext,
   type UnpluginFactory,
@@ -99,6 +100,13 @@ const unpluginFactory: UnpluginFactory<
   // that watches: `farm start` and `farm watch` resolve it, `farm build` does
   // not.
   let farmWatching = false;
+  // Farm's configured root, which Farm relates every watch file to and cannot
+  // relate one on another Windows drive to, so its record lives below it, as
+  // the Turbopack loader's lives below the root Turbopack resolved. Every other
+  // host this factory serves takes any path, and its record lives below the
+  // directory it runs in.
+  let farmRoot: string | undefined;
+  const hostRoot = (): string => farmRoot ?? process.cwd();
   const closeBridge = async (): Promise<void> => {
     const open = bridge;
     bridge = undefined;
@@ -334,6 +342,8 @@ const unpluginFactory: UnpluginFactory<
         farmWatching =
           config.compilation?.mode === "development" ||
           (config.compilation?.watch ?? false) !== false;
+        farmRoot =
+          config.root === undefined ? undefined : path.resolve(config.root);
       },
       // Farm calls buildStart only for the initial compilation. Every update
       // opens a new pass so a failed verdict can recover, while an unchanged
@@ -390,11 +400,11 @@ const unpluginFactory: UnpluginFactory<
         // records at each start.
         const opening = bridge === undefined;
         if (opening && hostWatching(this)) {
-          bridge = openHostWatchBridge(process.cwd());
+          bridge = openHostWatchBridge(hostRoot());
         }
         passStartedAt = bridge?.begin();
         if (opening) {
-          refreshProjectRecordFiles(hostToolDirectory(process.cwd()), bridge);
+          refreshProjectRecordFiles(hostToolDirectory(hostRoot()), bridge);
         }
       }
     },
@@ -422,9 +432,8 @@ const unpluginFactory: UnpluginFactory<
       // The bridge opened with the first pass (`buildStart`); a host that
       // opened none before its first transform gets it here.
       const bridgeStartedAt = hostWatching(this)
-        ? (passStartedAt ??= (bridge ??= openHostWatchBridge(
-            process.cwd(),
-          )).begin())
+        ? (passStartedAt ??= (bridge ??=
+            openHostWatchBridge(hostRoot())).begin())
         : undefined;
       // A build host takes the project's record, and nothing else, through
       // the same channel that watches the module itself: Farm relates a watch
@@ -475,7 +484,7 @@ const unpluginFactory: UnpluginFactory<
                         : {}),
                       registration,
                     }),
-                  toolDirectory: hostToolDirectory(process.cwd()),
+                  toolDirectory: hostToolDirectory(hostRoot()),
                 },
               }),
           // A module the plugin declared volatile depends on non-file inputs,

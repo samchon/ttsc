@@ -3,6 +3,7 @@ import fs from "node:fs";
 import type { TtscProjectRecord } from "../../bridge/TtscProjectRecord";
 import { membershipRecordDigest } from "../../bridge/membershipRecordDigest";
 import { projectRecordFile } from "../../bridge/projectRecordFile";
+import { warnUnwritableProjectRecord } from "../../bridge/warnUnwritableProjectRecord";
 import { writeProjectRecordFile } from "../../bridge/writeProjectRecordFile";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { createHostPathIdentityContext } from "../filesystem/createHostPathIdentityContext";
@@ -55,18 +56,19 @@ const HANDED = new WeakMap<
  * bytes it holds stand for the last state written, which the next proof moves
  * once the project has left it, and the next delivery of the generation writes
  * it again. A record that is not there is not handed over, since what a host
- * does with a dependency on a path that does not exist differs per host, and a
- * directory the adapter cannot write leaves the host watching each module
- * alone.
+ * does with a dependency on a path that does not exist differs per host: the
+ * caller marks the module uncacheable instead, and the user is told once that
+ * the host watches each module alone (`warnUnwritableProjectRecord`).
  *
  * @param inputs The generation's inputs, derived on first call.
+ * @returns Whether the host was handed the record.
  */
 export function notifyProjectRecord(
   project: NonNullable<TtscTransformHooks["project"]>,
   cached: TtscCachedProjectTransform,
   failed: boolean,
   inputs: () => readonly TtscWatchInput[],
-): void {
+): boolean {
   let handed = HANDED.get(cached);
   if (handed === undefined) {
     const identities = createHostPathIdentityContext();
@@ -88,12 +90,16 @@ export function notifyProjectRecord(
     try {
       writeProjectRecordFile(record, recordOf(cached, handed.evidenced));
       handed.written.add(record);
-    } catch {
-      if (!fs.existsSync(record)) return;
+    } catch (error) {
+      if (!fs.existsSync(record)) {
+        warnUnwritableProjectRecord(record, error);
+        return false;
+      }
     }
   }
   const registered = handed.inputs;
   project.register({ failed, inputs: () => registered, record });
+  return true;
 }
 
 /** The record of a generation over its evidenced inputs. */

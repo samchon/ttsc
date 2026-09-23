@@ -17,14 +17,17 @@ import { createRealNativeEnvelopeFixture } from "../../internal/real-native-enve
  * physical spelling of a linked root was no dependency its watcher could
  * relate, and an edit to it rebuilt nothing; measured on the host matrix on
  * Windows. No input reaches Farm any more: the record is one absolute path
- * below the host's tool directory, the same for every spelling of the project,
- * and the adapter's bridge moves it for every input, under whichever spelling
- * the compiler read it.
+ * below the tool directory of Farm's own root, the same for every spelling of
+ * the project, and the adapter's bridge moves it for every input, under
+ * whichever spelling the compiler read it. It lies below Farm's root rather
+ * than the directory Farm runs in, since Farm cannot relate a watch file on
+ * another drive to its root.
  *
  * 1. Resolve Farm's config on a link to a real project, and deliver a module by
  *    its physical path through a watching Farm context.
- * 2. Assert Farm is handed the record and nothing else, and that the record names
- *    the selected config.
+ * 2. Assert Farm is handed the record and nothing else, below the tool directory
+ *    of the root Farm was configured with, and that the record names the
+ *    selected config.
  */
 export async function test_farm_is_handed_the_project_record_alone(): Promise<void> {
   const fixture = createRealNativeEnvelopeFixture();
@@ -73,10 +76,10 @@ export async function test_farm_is_handed_the_project_record_alone(): Promise<vo
   assert.equal(
     record,
     projectRecordFile(
-      hostToolDirectory(process.cwd()),
+      hostToolDirectory(linked),
       path.join(linked, "tsconfig.json"),
     ),
-    "the project's record",
+    "the project's record, below Farm's root",
   );
   assert.ok(path.isAbsolute(record), "as one absolute path");
   const written = readProjectRecordFile(record);
