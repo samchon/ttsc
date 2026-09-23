@@ -14,16 +14,16 @@ import type { TtscWatchInput } from "./TtscWatchInput";
 import { projectMembershipInput } from "./projectMembershipInput";
 
 /**
- * Each generation's record in this process: the inputs read for it, what is
- * handed over with it, and whether the file holds them yet.
+ * What each generation hands a build host in this process: the inputs read for
+ * it, what is handed over with its record, and the records that hold them.
  */
 const HANDED = new WeakMap<
   TtscCachedProjectTransform,
   {
     evidenced: readonly TtscWatchInput[];
     inputs: readonly TtscWatchInput[];
-    record: string;
-    written: boolean;
+    /** The records written, one per host root the generation reached. */
+    written: Set<string>;
   }
 >();
 
@@ -32,12 +32,16 @@ const HANDED = new WeakMap<
  * (`TtscTransformHooks.project`), once per delivery.
  *
  * The generation's inputs are read once per generation and process, and the
- * record is written from them until a write lands; every later delivery of the
- * generation hands the same record over without reading anything. An input the
- * generation recorded no state for, a failed compile's recovery input or a walk
- * file no graph names, is read now, so a refresh at the next build start has a
- * state to prove it against; an input that cannot be read is recorded absent,
- * which its appearance moves.
+ * record below the root of each host the generation is delivered to is written
+ * from them until a write lands; every later delivery to that host hands the
+ * same record over without reading anything. One process can run two hosts with
+ * different roots over one project with the same options, esbuild with an
+ * `absWorkingDir` of its own beside a bundler in the directory the process runs
+ * in, and they share the generation; each takes the record below its own root,
+ * the one place it accepts one. An input the generation recorded no state for,
+ * a failed compile's recovery input or a walk file no graph names, is read now,
+ * so a refresh at the next build start has a state to prove it against; an
+ * input that cannot be read is recorded absent, which its appearance moves.
  *
  * The record is written before it is handed over, so a host that snapshots the
  * file as the delivery registers it snapshots the generation's state, and a
@@ -72,20 +76,20 @@ export function notifyProjectRecord(
     handed = {
       evidenced,
       inputs: membership === undefined ? evidenced : [...evidenced, membership],
-      record: projectRecordFile(project.toolDirectory, cached.tsconfig),
-      written: false,
+      written: new Set(),
     };
     HANDED.set(cached, handed);
   }
-  if (!handed.written) {
+  const record = projectRecordFile(project.toolDirectory, cached.tsconfig);
+  if (!handed.written.has(record)) {
     try {
-      writeProjectRecordFile(handed.record, recordOf(cached, handed.evidenced));
-      handed.written = true;
+      writeProjectRecordFile(record, recordOf(cached, handed.evidenced));
+      handed.written.add(record);
     } catch {
-      if (!fs.existsSync(handed.record)) return;
+      if (!fs.existsSync(record)) return;
     }
   }
-  const { inputs: registered, record } = handed;
+  const registered = handed.inputs;
   project.register({ failed, inputs: () => registered, record });
 }
 
