@@ -73,7 +73,7 @@ The publication rule, in `generation/captureTransformGeneration.ts`: a success i
 
 ## When the record moves, and what each host does with it
 
-The record moves at four places and nowhere else: a delivery writes its generation's state (`watch/notifyProjectRecord.ts`), a watching session's bridge signals at once and, while the host's watcher observes the record, again with a growing delay (`bridge/openHostWatchBridge.ts`), and a build start's proof signals a record whose state moved (`bridge/refreshProjectRecordFiles.ts`). It is read at three: that proof, the signal's own read before it increments, and the writer's byte comparison.
+The record moves at four places and nowhere else: a delivery writes its generation's state (`watch/notifyProjectRecord.ts`), a watching session's bridge signals at once and, while the host's watcher observes the record, again with a growing delay (`bridge/openHostWatchBridge.ts`), and a build start's proof signals a record whose state moved or that it cannot read (`bridge/refreshProjectRecordFiles.ts`). It is read at three: that proof, the signal's own read before it increments, and the writer's byte comparison.
 
 A host sees a move through one of five mechanisms, each with its own moment for taking a file's state as known. The table is the whole surface; a change to either column is a change to this model rather than to one host.
 
