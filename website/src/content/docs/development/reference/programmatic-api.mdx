@@ -213,6 +213,14 @@ console.log(config.path); // canonical physical spelling
 console.log(identities.isWithin(workspace.path, config.path)); // true
 ```
 
+Create one context per filesystem transaction and reuse it for every comparison in that transaction. The context memoizes normalized input identities, each realpath prefix at its first probe, and each directory case decision when missing-suffix resolution or `caseSensitive()` first needs it. Resolving a descendant can therefore populate an ancestor's realpath cache before that ancestor is resolved directly, while resolving an existing directory need not probe its case behavior. This keeps repeated comparisons consistent and avoids repeated filesystem probes, but it is not an atomic filesystem snapshot: a probe first reached later can observe a newer filesystem state.
+
+Existing path segments use their physical spelling. For a prospective path whose nearest existing prefix is a directory, missing suffixes preserve spelling when that directory is proven case-sensitive and fold it when that directory is proven case-insensitive. Windows drive and UNC roots are always matched case-insensitively. If the directory behavior cannot be proven, Windows and macOS use their case-insensitive platform default while other platforms assume case-sensitive behavior. An empty, unreadable, or otherwise unprovable NTFS/APFS directory that was explicitly configured as case-sensitive can therefore merge case-only missing suffixes until a probe can establish its behavior.
+
+`resolve(location)` returns `{ key, path }`. Use `key` for maps and sets, and retain `path` when a filesystem operation needs canonical spelling. `isWithin(root, candidate)` compares the same canonical identities instead of applying a process-wide lowercase rule. `caseSensitive(directory)` exposes the probed directory behavior when a host needs to make the same missing-path decision itself.
+
+Realpath errors other than a missing entry throw by default. A bundler or editor that deliberately tolerates files moving during a scan can construct the context with `{ throwOnRealpathError: false }`; unreadable locations are then treated as missing for that transaction. The optional `platform`, `realpath`, and `caseSensitive` operations are for controlled host integration and tests. Most callers should use the defaults.
+
 ## Platform binary
 
 Tool hosts that run one of the platform binary's helper commands find the binary the way ttsc does through the `ttsc/binary` subpath: an absolute `TTSC_BINARY`, then the `@ttsc/<platform>-<arch>` package, then the repository's own dev layout. `@ttsc/unplugin` starts its Linux watch helper this way, so the helper always comes from the binary ttsc itself uses.
@@ -223,13 +231,22 @@ import { resolveBinary } from "ttsc/binary";
 const binary = resolveBinary(); // absolute path, or null when none is installed
 ```
 
-Create one context per filesystem transaction and reuse it for every comparison in that transaction. The context memoizes normalized input identities, each realpath prefix at its first probe, and each directory case decision when missing-suffix resolution or `caseSensitive()` first needs it. Resolving a descendant can therefore populate an ancestor's realpath cache before that ancestor is resolved directly, while resolving an existing directory need not probe its case behavior. This keeps repeated comparisons consistent and avoids repeated filesystem probes, but it is not an atomic filesystem snapshot: a probe first reached later can observe a newer filesystem state.
+## Config reading
 
-Existing path segments use their physical spelling. For a prospective path whose nearest existing prefix is a directory, missing suffixes preserve spelling when that directory is proven case-sensitive and fold it when that directory is proven case-insensitive. Windows drive and UNC roots are always matched case-insensitively. If the directory behavior cannot be proven, Windows and macOS use their case-insensitive platform default while other platforms assume case-sensitive behavior. An empty, unreadable, or otherwise unprovable NTFS/APFS directory that was explicitly configured as case-sensitive can therefore merge case-only missing suffixes until a probe can establish its behavior.
+Tool hosts that read a project's `tsconfig.json` themselves, for its `paths` or for the files its `include` admits, read it by ttsc's rules through the `ttsc/tsconfig` subpath. A host that parsed comments, followed `extends`, or resolved a plugin path its own way could disagree with the compiler about what the project says. `@ttsc/unplugin` reads the configs behind its alias overlay and project membership this way.
 
-`resolve(location)` returns `{ key, path }`. Use `key` for maps and sets, and retain `path` when a filesystem operation needs canonical spelling. `isWithin(root, candidate)` compares the same canonical identities instead of applying a process-wide lowercase rule. `caseSensitive(directory)` exposes the probed directory behavior when a host needs to make the same missing-path decision itself.
+```ts
+import fs from "node:fs";
+import { parseJsonc, resolveTsconfigExtends } from "ttsc/tsconfig";
 
-Realpath errors other than a missing entry throw by default. A bundler or editor that deliberately tolerates files moving during a scan can construct the context with `{ throwOnRealpathError: false }`; unreadable locations are then treated as missing for that transaction. The optional `platform`, `realpath`, and `caseSensitive` operations are for controlled host integration and tests. Most callers should use the defaults.
+const config = parseJsonc(fs.readFileSync("tsconfig.json", "utf8"));
+const base = resolveTsconfigExtends("tsconfig.json", "./tsconfig.base");
+```
+
+- `parseJsonc(text)` parses a config as TypeScript reads one. A byte-order mark, comments, and trailing commas are allowed, and a syntax error keeps the line and column of the original text.
+- `resolveTsconfigExtends(tsconfig, specifier)` returns the path an `extends` value names, by TypeScript-Go's rule. After `\` is folded into `/`, a rooted, `./`, or `../` specifier names the file or the file with `.json` appended, under the spelling it was reached by. Any other specifier is resolved as a module to its physical path, and a bare package root is resolved through its `package.json#tsconfig`. It throws when nothing matches.
+- `tsconfigExtendsFileCandidates(tsconfig, specifier)` returns the exact files a file specifier tries, in order, or `undefined` for a module specifier. A host that watches for a missing base config to appear watches these.
+- `isRelativePluginSpecifier(specifier)` tells whether a plugin entry's `transform` is a relative path, which resolves from the config that wrote it, rather than a package, which resolves from the project root.
 
 ## Diagnostics
 
@@ -290,4 +307,4 @@ Pair this with caching `TTSC_CACHE_DIR` between CI runs to skip the rebuild on s
 
 ## Stability
 
-`TtscCompiler`, `TtscService`, the result types, `ITtscCompilerContext`, and the `ttsc/path-identity` and `ttsc/binary` subpaths are the public programmatic surface. CLI launchers, project config parsing utilities, and native build helpers stay internal, depending on them will break. The package `exports` field enforces this.
+`TtscCompiler`, `TtscService`, the result types, `ITtscCompilerContext`, and the `ttsc/path-identity`, `ttsc/binary`, and `ttsc/tsconfig` subpaths are the public programmatic surface. CLI launchers, the rest of the project config reader, and native build helpers stay internal, depending on them will break. The package `exports` field enforces this.
