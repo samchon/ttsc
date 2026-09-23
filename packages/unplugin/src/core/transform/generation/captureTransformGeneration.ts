@@ -210,7 +210,7 @@ export async function captureTransformGeneration(props: {
       props.session !== undefined && state !== undefined
         ? await claimSharedCompile(
             props.session,
-            sharedCompileIdentity(props),
+            sharedCompileIdentity({ ...props, projectRoot }),
             state,
             { adopt: state !== props.rejected },
           )

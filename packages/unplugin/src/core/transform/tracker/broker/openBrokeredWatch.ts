@@ -190,10 +190,9 @@ const PROBE_DIRECTORIES = new Map<string, string>();
  * one is gone (`WATCH_PROBE_DIRECTORY_PREFIX`). It is removed when this process
  * exits, and a stale one is swept before it is named.
  *
- * One exit listener removes every probe directory of the process, as it does
- * every session store (`openTtscTransformSession`): a listener per project root
- * would add one for each project a process watches, past the count at which
- * Node warns of a leak.
+ * One exit listener removes every probe directory of the process: a listener
+ * per project root would add one for each project a process watches, past the
+ * count at which Node warns of a leak.
  */
 function probeDirectory(probeRoot: string): string {
   const existing = PROBE_DIRECTORIES.get(probeRoot);

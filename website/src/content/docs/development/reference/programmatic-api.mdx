@@ -263,6 +263,7 @@ const stale = Object.entries(t.pluginSources ?? {}).some(
 ```
 
 - `pluginSourceDigest(directory)` returns the SHA-256 over the relative path and bytes of every file the build keys a binary on, in sorted order. It skips files below a `node_modules`, `.git`, or `.ttsc` directory, generated `go.work` files, package tarballs, editor sidecars, and backups ending in `~`. It throws when a listed file cannot be read, as the build would.
+- `pluginBuildVersions(projectRoot)` returns the ttsc version and the version of the `typescript` package the project resolves, the two versions every plugin build is keyed on. A host that keeps output beyond the process that produced it names the output by them, as `@ttsc/unplugin`'s shared compile store does.
 - `prunesPluginSourceDirectory(name)` tells whether the digest passes over a directory of that name. A host watching a plugin source as a subtree skips such a directory, rather than watching a nested package tree or a repository's object store.
 
 ## Diagnostics

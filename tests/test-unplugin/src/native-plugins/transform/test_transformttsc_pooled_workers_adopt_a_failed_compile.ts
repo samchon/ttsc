@@ -24,8 +24,10 @@ import { createRealNativeEnvelopeFixture } from "../../internal/real-native-enve
  *    module at once in a session, and assert every worker reports the
  *    diagnostic and the session holds one publication, the failed compile's.
  * 2. Start the workers again, and assert every worker reports the diagnostic while
- *    the publication is untouched: the broken state was adopted, not compiled
- *    again.
+ *    the publication is still the same compile, the one whose scratch directory
+ *    it names: the broken state was adopted, not compiled again. Its time is no
+ *    witness, since an adoption marks the publication used
+ *    (samchon/ttsc#1483).
  * 3. Repair the declaration and repeat, and assert every worker is served and the
  *    repaired compile replaced the broken one in the session: the declaration
  *    is outside the project walk, so both name one state, and a worker that
@@ -48,8 +50,13 @@ export async function test_transformttsc_pooled_workers_adopt_a_failed_compile()
       .filter((name) => name.endsWith(".json"))
       .sort()
       .map((name) => ({
-        mtimeMs: fs.statSync(path.join(session, name)).mtimeMs,
         name,
+        // Unique per compile: its publisher's own scratch directory.
+        scratchDirectory: (
+          JSON.parse(fs.readFileSync(path.join(session, name), "utf8")) as {
+            scratchDirectory: string;
+          }
+        ).scratchDirectory,
       }));
 
   const original = fs.readFileSync(fixture.declaration, "utf8");

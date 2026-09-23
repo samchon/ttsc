@@ -18,8 +18,16 @@ const ABANDONED_MS = 15_000;
 /** Longest pause between two looks at the store while another worker holds it. */
 const MAX_WAIT_MS = 250;
 
-/** Publications kept per compile identity, newest first. */
+/** Publications kept per compile identity, most recently used first. */
 const KEPT_PUBLICATIONS = 4;
+
+/**
+ * Publications kept in the whole store, most recently used first. The store
+ * outlives every process (samchon/ttsc#1483), so without a bound it would keep
+ * every identity a project ever had, those of an older ttsc among them, which
+ * can never be adopted again.
+ */
+const KEPT_STORE_PUBLICATIONS = 32;
 
 /**
  * Ask the session store for the compile named `identity` and `state`: another
@@ -33,6 +41,11 @@ const KEPT_PUBLICATIONS = 4;
  * waiter takes the lock instead. A holder whose process has died, or whose
  * heartbeat stopped, loses the lock to the next waiter, so a crash mid-compile
  * never blocks the session.
+ *
+ * The store outlives the processes that use it (samchon/ttsc#1483), so it
+ * bounds itself: an adoption marks its publication used, and each publication
+ * keeps the most recently used ones of its identity and of the whole store, and
+ * removes locks and partial writes whose writer is gone.
  *
  * Sharing is only an optimization. Any failure to read, lock, or write the
  * store answers `undefined`, and the caller compiles for itself. With `adopt:
@@ -64,6 +77,7 @@ export async function claimSharedCompile(
       if (options.adopt) {
         const published = await readPublication(publication);
         if (published !== undefined) {
+          await markUsed(publication);
           return { kind: "adopt", publication: published };
         }
       }
@@ -76,6 +90,7 @@ export async function claimSharedCompile(
           const published = await readPublication(publication);
           if (published !== undefined) {
             claim.release();
+            await markUsed(publication);
             return { kind: "adopt", publication: published };
           }
         }
@@ -191,29 +206,64 @@ function holdLock(
   };
 }
 
-/** Keep the newest publications of `identity`, removing older states. */
+/**
+ * Keep the most recently used publications of `identity` and of the whole
+ * store, removing the rest, and remove the locks and partial writes of workers
+ * that are gone.
+ */
 async function prunePublications(
   store: string,
   identity: string,
 ): Promise<void> {
-  const entries = (await fs.promises.readdir(store)).filter(
-    (entry) => entry.startsWith(`${identity}-`) && entry.endsWith(".json"),
-  );
-  if (entries.length <= KEPT_PUBLICATIONS) return;
+  const entries = await fs.promises.readdir(store);
   const dated = await Promise.all(
-    entries.map(async (entry) => {
-      const file = path.join(store, entry);
-      try {
-        return { file, modified: (await fs.promises.stat(file)).mtimeMs };
-      } catch {
-        return { file, modified: -1 };
-      }
-    }),
+    entries
+      .filter((entry) => entry.endsWith(".json"))
+      .map(async (entry) => {
+        const file = path.join(store, entry);
+        try {
+          return { entry, file, used: (await fs.promises.stat(file)).mtimeMs };
+        } catch {
+          return { entry, file, used: -1 };
+        }
+      }),
   );
-  dated.sort((left, right) => right.modified - left.modified);
-  for (const { file } of dated.slice(KEPT_PUBLICATIONS)) {
+  dated.sort((left, right) => right.used - left.used);
+  const own = dated.filter(({ entry }) => entry.startsWith(`${identity}-`));
+  const removed = new Set([
+    ...own.slice(KEPT_PUBLICATIONS).map(({ file }) => file),
+    ...dated.slice(KEPT_STORE_PUBLICATIONS).map(({ file }) => file),
+  ]);
+  for (const file of removed) {
     await fs.promises.rm(file, { force: true }).catch(() => undefined);
   }
+  for (const entry of entries) {
+    const file = path.join(store, entry);
+    if (entry.endsWith(".lock") && (await abandoned(file))) {
+      await fs.promises
+        .rm(file, { force: true, recursive: true })
+        .catch(() => undefined);
+    } else if (entry.endsWith(".tmp")) {
+      // A partial write outlives only a writer that died before renaming it.
+      try {
+        const written = (await fs.promises.stat(file)).mtimeMs;
+        if (Date.now() - written > ABANDONED_MS) {
+          await fs.promises.rm(file, { force: true });
+        }
+      } catch {
+        // Renamed or removed meanwhile.
+      }
+    }
+  }
+}
+
+/**
+ * Mark a publication used, so the store keeps the ones its processes still
+ * adopt. Best effort: an unmarked publication is only pruned sooner.
+ */
+async function markUsed(file: string): Promise<void> {
+  const now = new Date();
+  await fs.promises.utimes(file, now, now).catch(() => undefined);
 }
 
 /** Read a publication, or `undefined` when it is absent or unusable. */

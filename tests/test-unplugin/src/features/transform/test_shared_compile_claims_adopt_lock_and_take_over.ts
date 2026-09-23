@@ -29,7 +29,9 @@ import { sharedCompileIdentity } from "../../../../../packages/unplugin/lib/core
  *    and that the displaced holder's release leaves the new owner's lock
  *    alone.
  * 3. Point a claim at a store that cannot be used and assert it answers nothing.
- * 4. Decide identities and external-input mismatches for each changed field.
+ * 4. Decide identities and external-input mismatches for each changed field, a
+ *    project resolving another TypeScript-Go among them, since a compile is
+ *    adopted across processes and versions (samchon/ttsc#1483).
  */
 export async function test_shared_compile_claims_adopt_lock_and_take_over(): Promise<void> {
   const store = TestProject.tmpdir("ttsc-unplugin-shared-claims-");
@@ -128,8 +130,18 @@ export async function test_shared_compile_claims_adopt_lock_and_take_over(): Pro
     aliasPaths: { "@/*": ["/project/src/*"] },
     compilerOptions: { removeComments: true },
     plugins: [{ transform: "typia/lib/transform" }],
+    projectRoot: process.cwd(),
     tsconfig: path.resolve("/project/tsconfig.json"),
   };
+  // A project that resolves a TypeScript-Go of another version.
+  const otherCompiler = TestProject.tmpdir("ttsc-unplugin-shared-compiler-");
+  TestProject.writeFiles(otherCompiler, {
+    "node_modules/typescript/package.json": JSON.stringify({
+      name: "typescript",
+      version: "0.0.0-other",
+    }),
+    "package.json": JSON.stringify({ private: true }),
+  });
   const id = sharedCompileIdentity(compile);
   assert.match(id, /^[0-9a-f]{32}$/);
   assert.equal(sharedCompileIdentity({ ...compile }), id);
@@ -137,6 +149,7 @@ export async function test_shared_compile_claims_adopt_lock_and_take_over(): Pro
     { aliasPaths: {} },
     { compilerOptions: {} },
     { plugins: undefined },
+    { projectRoot: otherCompiler },
     { tsconfig: path.resolve("/project/tsconfig.app.json") },
   ]) {
     assert.notEqual(

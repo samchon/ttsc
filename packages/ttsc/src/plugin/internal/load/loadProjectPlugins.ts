@@ -22,6 +22,7 @@ import { pluginDescriptorFailureReason } from "../pluginDescriptorFailureReason"
 import { pluginDescriptorProcessFailure } from "../pluginDescriptorProcessFailure";
 import { buildSourcePlugin } from "../source/buildSourcePlugin";
 import { isPathWithin } from "../source/isPathWithin";
+import { pluginBuildVersions } from "../source/pluginBuildVersions";
 import { COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE } from "./COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE";
 import { PLUGIN_DESCRIPTOR_SHIM_SOURCE } from "./PLUGIN_DESCRIPTOR_SHIM_SOURCE";
 import { PluginPackageResolution } from "./PluginPackageResolution";
@@ -199,8 +200,9 @@ export function loadProjectPlugins(options: {
     loadedEntries.map((entry) => entry.plugin),
   );
 
-  const ttscVersion = readTtscVersion();
-  const tsgoVersion = readTsgoVersion(context.projectRoot);
+  const { ttsc: ttscVersion, tsgo: tsgoVersion } = pluginBuildVersions(
+    context.projectRoot,
+  );
   const records = plugins.map((plugin, index) => {
     const stage = resolvePluginStage(plugin);
     validatePluginSource(plugin);
@@ -2030,41 +2032,8 @@ function hasBuildableGoSource(dir: string): boolean {
   );
 }
 
-let cachedTtscVersion: string | null = null;
-
-function readTtscVersion(): string {
-  if (cachedTtscVersion !== null) {
-    return cachedTtscVersion;
-  }
-  try {
-    const file = path.join(ttscPackageRoot(), "package.json");
-    const pkg = JSON.parse(fs.readFileSync(file, "utf8")) as {
-      version?: string;
-    };
-    cachedTtscVersion = pkg.version ?? "0.0.0";
-  } catch {
-    cachedTtscVersion = "0.0.0";
-  }
-  return cachedTtscVersion;
-}
-
 function ttscPackageRoot(): string {
   return path.resolve(__dirname, "..", "..", "..", "..");
-}
-
-function readTsgoVersion(projectRoot: string): string {
-  try {
-    const projectRequire = createRequire(
-      path.join(projectRoot, "package.json"),
-    );
-    const pkgPath = projectRequire.resolve("typescript/package.json");
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8")) as {
-      version?: string;
-    };
-    return pkg.version ?? "unknown";
-  } catch {
-    return "unknown";
-  }
 }
 
 /**

@@ -15,29 +15,38 @@ export namespace TestMetroRuntime {
   const SESSION_ENV = "TTSC_UNPLUGIN_TRANSFORM_SESSION";
 
   /**
-   * Run `body`, then close any transform session a `withTtsc` call inside it
-   * opened (samchon/ttsc#1390).
+   * Run `body` with a temporary directory of its own, then close any transform
+   * session a `withTtsc` call inside it opened (samchon/ttsc#1390).
    *
    * `withTtsc` opens the session Metro's workers inherit by setting a
    * process-wide variable. This suite shares one process among every case, so a
    * session left open would make later cases share compiles they expect to make
-   * themselves. The store is removed and the variable restored.
+   * themselves, and the variable is restored. The store outlives every process
+   * (samchon/ttsc#1483) and belongs to the user, so the session opens below a
+   * temporary directory of this case's own, never the user's, which the process
+   * removes when it exits with everything else the case made there.
    */
   export async function confineSession<T>(
     body: () => T | Promise<T>,
   ): Promise<T> {
     const previous = process.env[SESSION_ENV];
+    const temporary = TEMPORARY_ENV.map((key) => [key, process.env[key]]);
+    const isolated = TestProject.tmpdir("ttsc-metro-session-");
+    for (const key of TEMPORARY_ENV) process.env[key] = isolated;
     try {
       return await body();
     } finally {
-      const opened = process.env[SESSION_ENV];
-      if (opened !== undefined && opened !== previous) {
-        fs.rmSync(opened, { force: true, recursive: true });
+      for (const [key, value] of temporary) {
+        if (value === undefined) delete process.env[key!];
+        else process.env[key!] = value;
       }
       if (previous === undefined) delete process.env[SESSION_ENV];
       else process.env[SESSION_ENV] = previous;
     }
   }
+
+  /** The variables `os.tmpdir()` reads, on every platform. */
+  const TEMPORARY_ENV = ["TEMP", "TMP", "TMPDIR"];
 
   /** Resolve a built entrypoint under `packages/metro/lib`. */
   export function libPath(entry: string, extension: "js" | "mjs"): string {

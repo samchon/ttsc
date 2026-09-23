@@ -44,8 +44,10 @@ import { write } from "./common.mjs";
  * restarts, and runs again on every start once it calls `execFile` or
  * `spawnSync`, while a worker thread or a 300 ms busy wait keeps it cached.
  * ttsc's loader starts the native compiler, so under Turbopack an unchanged
- * restart runs every module again, which shares one compile through the
- * session, and the step allows that one compile.
+ * restart runs every module again, in fresh workers. The session's store
+ * outlives the process, so those workers adopt what the last session compiled
+ * after proving it, and an unchanged restart compiles nothing there either
+ * (samchon/ttsc#1483).
  */
 export const RESTART_STEPS = [
   {
@@ -136,9 +138,6 @@ export const RESTART_STEPS = [
   },
 ];
 
-/** Hosts that re-run a loader starting a child process on every start. */
-const SESSION_DEPENDENT_LOADERS = new Set(["next-turbopack"]);
-
 /**
  * Run every restart step on one project: a session over the host's persistent
  * cache in a process of its own, stopped, the edit, and the next. A session
@@ -182,17 +181,7 @@ export async function restartContract(project, host) {
     if (step === undefined) {
       return { kind: "settled", value: "FIRST", store };
     }
-    const compiles =
-      step.expect.compiles === undefined
-        ? undefined
-        : SESSION_DEPENDENT_LOADERS.has(host)
-          ? 1
-          : step.expect.compiles;
-    return {
-      ...step.expect,
-      ...(compiles === undefined ? {} : { compiles }),
-      store,
-    };
+    return { ...step.expect, store };
   };
   await cycle("first session", expectation(-1));
   for (const [index, step] of RESTART_STEPS.entries()) {
