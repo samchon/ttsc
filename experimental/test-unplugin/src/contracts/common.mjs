@@ -299,6 +299,54 @@ export function projectAt(
 }
 
 /**
+ * The files the adapter can have written as `project`'s record
+ * (`projectRecordFile`), named by the adapter's own rule rather than a copy of
+ * it: below the tool directory of each root a host can run in, this process's
+ * and the project's under either of its spellings, for the tsconfig under
+ * either spelling, since a host running inside a project named through a link
+ * can name both physically.
+ *
+ * @param project The fixture, or any object naming a root, its physical
+ *   spelling, and its tsconfig.
+ */
+export function projectRecordFiles(project) {
+  const physical = project.physical ?? project.root;
+  const tsconfigs = [
+    project.tsconfig,
+    path.join(physical, path.relative(project.root, project.tsconfig)),
+  ];
+  const files = new Set();
+  for (const root of [process.cwd(), project.root, physical]) {
+    for (const tsconfig of tsconfigs) {
+      files.add(projectRecordFile(hostToolDirectory(root), tsconfig));
+    }
+  }
+  return [...files];
+}
+
+/** Whether `file` is one `project`'s record can be (`projectRecordFiles`). */
+export function isProjectRecordOf(file, project) {
+  return projectRecordFiles(project).includes(path.resolve(file));
+}
+
+/**
+ * When `project`'s record last moved, or `0` while there is none: what a host's
+ * persistent cache of the project depends on, and nothing another project's
+ * record does.
+ */
+export function projectRecordMovedAt(project) {
+  let moved = 0;
+  for (const file of projectRecordFiles(project)) {
+    try {
+      moved = Math.max(moved, fs.statSync(file).mtimeMs);
+    } catch {
+      // No record there.
+    }
+  }
+  return moved;
+}
+
+/**
  * Every project record the adapter could have written for `project`, each as
  * the adapter reads one: its signal, how many inputs it names, its modification
  * time and size, and the proof a build start makes of it
@@ -311,21 +359,25 @@ export function projectAt(
  * says the host did not act on the move. `projectRecordMoved` reads the disk
  * and moves nothing, so asking is safe while a session runs.
  *
- * A record lives below the tool directory of the directory the host runs in,
- * which is this process for a host the contract imports and the project's own
- * for a development CLI the contract spawns there, so both are read. The record
- * this project's tsconfig names (`projectRecordFile`) is marked, and its
- * absence is said outright, since a report of other projects' records alone
- * reads like a project that has none.
+ * A record lives below the tool directory of the root its host resolved: the
+ * directory the host runs in, which is this process for a host the contract
+ * imports and the project's own for a development CLI the contract spawns
+ * there, or, for Turbopack, the root the contract configures, which is this
+ * process's workspace; so both are read. The records that can be this project's
+ * (`projectRecordFiles`) are marked, and their absence is said outright, since
+ * a report of other projects' records alone reads like a project that has
+ * none.
  *
  * @param project The fixture, which names its tsconfig and its root.
  */
 export function recordStates(project) {
   const states = {};
+  const mine = new Set(projectRecordFiles(project));
   for (const root of new Set([process.cwd(), project.root])) {
-    const tool = hostToolDirectory(root);
-    const mine = projectRecordFile(tool, project.tsconfig);
-    const directory = path.join(tool, PROJECT_RECORD_DIRECTORY);
+    const directory = path.join(
+      hostToolDirectory(root),
+      PROJECT_RECORD_DIRECTORY,
+    );
     let files = [];
     try {
       files = fs.readdirSync(directory);
@@ -333,13 +385,13 @@ export function recordStates(project) {
       states[label(directory)] = "no tool directory";
       continue;
     }
-    if (!files.includes(path.basename(mine))) {
-      states[label(mine)] = "no record for this project";
+    if (!files.some((file) => mine.has(path.join(directory, file)))) {
+      states[label(directory)] = "no record for this project";
     }
     for (const file of files) {
       if (!file.endsWith(".json")) continue;
       const full = path.join(directory, file);
-      states[`${label(full)}${full === mine ? " (this project)" : ""}`] =
+      states[`${label(full)}${mine.has(full) ? " (this project)" : ""}`] =
         recordState(full);
     }
   }

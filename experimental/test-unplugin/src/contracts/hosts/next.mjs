@@ -1,7 +1,3 @@
-import {
-  PROJECT_RECORD_DIRECTORY,
-  hostToolDirectory,
-} from "@ttsc/unplugin/api";
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
 import fs from "node:fs";
@@ -12,6 +8,8 @@ import { promisify } from "node:util";
 import {
   deadline,
   eventually,
+  isProjectRecordOf,
+  projectRecordMovedAt,
   recordStates,
   workspace,
   write,
@@ -302,7 +300,7 @@ export async function openSession(bundler, project) {
       const passes = [...output.matchAll(/ pass (\d+)\.\.\d+ done at \d+/g)];
       if (passes.length === 0) return false;
       const startedAt = Number(passes[passes.length - 1][1]);
-      return startedAt > recordsMovedAt(project.root);
+      return startedAt > projectRecordMovedAt(project);
     },
     // Next stores both compilers' persistent caches below a `cache`
     // directory of its output, `.next/dev` for a development session since
@@ -329,7 +327,7 @@ export async function openSession(bundler, project) {
       const commits = cacheCommits(path.join(project.physical, ".next"));
       if (commits.length === 0) return false;
       const passes = passEndsIn(output);
-      const watching = recordWatchers(output);
+      const watching = recordWatchers(output, project);
       return commits.every(([store, mtime]) => {
         const name = compilerOf(passes, store);
         const floor =
@@ -348,27 +346,6 @@ export async function openSession(bundler, project) {
  * `CURRENT`, and each webpack compiler's `index.pack`, one per directory of
  * `cache/webpack`.
  */
-/**
- * When the newest project record below a root's tool directory last moved, or
- * `0` while there is none: the development server runs in the project, so its
- * records are the ones below it.
- */
-function recordsMovedAt(root) {
-  const directory = path.join(
-    hostToolDirectory(root),
-    PROJECT_RECORD_DIRECTORY,
-  );
-  let moved = 0;
-  try {
-    for (const entry of fs.readdirSync(directory)) {
-      moved = Math.max(moved, fs.statSync(path.join(directory, entry)).mtimeMs);
-    }
-  } catch {
-    // No record yet; nothing has moved.
-  }
-  return moved;
-}
-
 /**
  * When each compiler of this session last reported a pass end, by the name it
  * reported it under (`observe-pass`): `client`, `server`, `edge-server`.
@@ -398,15 +375,15 @@ function compilerOf(passes, store) {
 }
 
 /**
- * The compilers that reported a project record changing, by name
+ * The compilers that reported this project's record changing, by name
  * (`observe-pass`): the ones holding a module that depends on it.
  */
-function recordWatchers(output) {
+function recordWatchers(output, project) {
   const watching = new Set();
-  for (const [, name] of output.matchAll(
-    /\[([^\]]+)\] change reported at \d+: [^\n]*?[\\/]records[\\/]/g,
+  for (const [, name, file] of output.matchAll(
+    /^\[([^\]]+)\] change reported at \d+: (.*) \([^()]*\)\r?$/gm,
   )) {
-    watching.add(name);
+    if (isProjectRecordOf(file, project)) watching.add(name);
   }
   return watching;
 }
@@ -452,9 +429,10 @@ function cacheCommits(output) {
  * state being compiled, naming its holder (`claimSharedCompile`).
  *
  * Two compiles of one edit that left two states read two project states. Two
- * that left one state are an adopter whose proof of the publication failed,
- * which compiles again and replaces it, or a waiter that took a lock over from
- * a holder whose heartbeat stopped.
+ * that left one state are a compile whose own snapshot did not hold, which is
+ * not published and is compiled again, an adopter whose proof of the
+ * publication failed, which compiles again and replaces it, or a waiter that
+ * took a lock over from a holder whose heartbeat stopped.
  */
 function sharedStores(output) {
   const stores = new Set(

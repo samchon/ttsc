@@ -6,12 +6,10 @@ import {
   adapter,
   eventually,
   expectOutput,
+  isProjectRecordOf,
   landLateRace,
   valuesIn,
 } from "../common.mjs";
-
-/** The project record below the tool directory (`projectRecordFile`). */
-const RECORD = /[\\/]records[\\/][0-9a-f]{32}\.json$/;
 
 /**
  * A Farm development compiler on the fixture, driven the way Farm's dev server
@@ -220,7 +218,7 @@ export async function openSession(project, { cache = false } = {}) {
       expectOutput(
         await update([
           project.input,
-          ...watchedPaths().filter((file) => RECORD.test(file)),
+          ...watchedPaths().filter((file) => isProjectRecordOf(file, project)),
         ]),
         value,
         4,

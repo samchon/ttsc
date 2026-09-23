@@ -2,7 +2,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { adapter, deadline, eventually, workspace, write } from "./common.mjs";
+import {
+  adapter,
+  deadline,
+  eventually,
+  isProjectRecordOf,
+  workspace,
+  write,
+} from "./common.mjs";
 
 /**
  * The linked contributor every predicate project shares: the host matrix's
@@ -212,7 +219,7 @@ export function watchRollupLike(bundlerName) {
         }
         records =
           event.result?.watchFiles?.filter((file) =>
-            /[\\/]records[\\/][0-9a-f]{32}\.json$/.test(file),
+            isProjectRecordOf(file, predicateRecordOwner(project)),
           ) ?? records;
         await event.result?.close();
         built();
@@ -314,7 +321,7 @@ export async function watchFarm(project, plugin, built) {
   };
   for (const watched of compiler.resolvedWatchPaths()) {
     const file = path.resolve(project.root, watched);
-    if (/[\\/]records[\\/][0-9a-f]{32}\.json$/.test(file))
+    if (isProjectRecordOf(file, predicateRecordOwner(project)))
       signals.set(file, read(file));
   }
   return {
@@ -333,4 +340,9 @@ export async function watchFarm(project, plugin, built) {
       built();
     },
   };
+}
+
+/** A predicate project as `projectRecordFiles` names its record's owner. */
+function predicateRecordOwner(project) {
+  return { root: project.root, tsconfig: project.options.project };
 }

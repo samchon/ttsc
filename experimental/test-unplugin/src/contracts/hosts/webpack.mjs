@@ -11,6 +11,7 @@ import {
   eventQueue,
   eventually,
   failedOutput,
+  projectRecordMovedAt,
   settledOutput,
   writeRaceLoader,
   writeStripLoader,
@@ -165,7 +166,7 @@ export async function openSession(name, project, { cache = false } = {}) {
     // accepts. A pass still running is not that pass: the delivery inside it
     // is what writes the record.
     cacheSettled: () =>
-      builtAt >= startedAt && startedAt > recordsMovedAt(roots),
+      builtAt >= startedAt && startedAt > projectRecordMovedAt(project),
     stored: (since) => cacheCommitted(name, cacheDirectory, since),
     output: () => logged,
     recompiled: (label, before) =>
@@ -242,27 +243,6 @@ function cacheCommitted(name, cacheDirectory, since) {
       committedAfter(path.join(cacheDirectory, store, "index.pack")),
     )
   );
-}
-
-/**
- * When the newest project record below the tool directory last moved, in the
- * clock the session's own timestamps come from, or `0` while there is none.
- */
-function recordsMovedAt(roots) {
-  let moved = 0;
-  for (const directory of recordDirectories(roots)) {
-    try {
-      for (const entry of fs.readdirSync(directory)) {
-        moved = Math.max(
-          moved,
-          fs.statSync(path.join(directory, entry)).mtimeMs,
-        );
-      }
-    } catch {
-      // No record there yet; nothing has moved.
-    }
-  }
-  return moved;
 }
 
 /**

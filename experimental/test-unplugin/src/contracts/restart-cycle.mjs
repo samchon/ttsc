@@ -92,9 +92,8 @@ function cacheLines(output) {
     .join("\n");
 }
 
-// Beside the project, not below it: the compiler lists the project root, and
-// a directory appearing there is a change to the project's state, which the
-// next session would rightly compile for.
+// Beside the project, not below it: the contract's own files stay out of the
+// project whose state it measures.
 const recorded = path.join(
   path.dirname(root),
   `${path.basename(root)}-restart-files.json`,
