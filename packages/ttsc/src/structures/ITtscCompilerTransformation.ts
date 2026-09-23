@@ -275,10 +275,11 @@ export namespace ITtscCompilerTransformation {
     hostInputRealpaths?: Record<string, string | null>;
 
     /**
-     * The state of every Go source directory the transform's plugin binaries
-     * were built from, by absolute path: each plugin's module root, each
-     * contributor, and each overlay module, with the digest of the files the
-     * build keyed its binary on, as the build read them (samchon/ttsc#1487).
+     * The state of every Go source directory the transform's plugins supplied
+     * to their binaries, by absolute path: each plugin's module root and each
+     * contributor's source, with the digest of the files the build keyed its
+     * binary on, as the build read them (samchon/ttsc#1487). ttsc's own
+     * sources, which change only with ttsc itself, are not listed.
      *
      * A plugin's binary is keyed on its source, so every transformed file is a
      * function of these directories as much as of {@link hostInputs}, and a

@@ -42,7 +42,7 @@ import { spawnNative } from "./spawnNative";
  *
  * @returns A `{ result, typescript }` pair where `typescript` maps output paths
  *   to their transformed TypeScript source text, and `pluginSources` the state
- *   of every Go source directory the plugin binaries were keyed on.
+ *   of every Go source directory the plugins supplied to their binaries.
  */
 export function transformProjectInMemory(options: ITtscCompilerContext): {
   dependencies?: Record<string, string[]>;

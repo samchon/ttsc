@@ -26,8 +26,8 @@ import {
  * prove the state the output was compiled for.
  *
  * 1. Transform a project whose plugin is Go source in a module of its own, and
- *    assert the envelope names the module's root, and every reported digest is
- *    the rule's digest of that directory now.
+ *    assert the envelope names that module's root alone, none of ttsc's own
+ *    sources, with the rule's digest of the directory now.
  * 2. Write files the build never keys on (below `node_modules` and `.git`, and an
  *    editor backup), and assert the digest does not move.
  * 3. Edit the plugin's Go source, and assert the digest moves and the next
@@ -49,12 +49,11 @@ export const test_ttsccompiler_transform_reports_the_plugin_sources_its_binaries
     const first = compiler.transform();
     assert.equal(first.type, "success");
     if (first.type !== "success") return;
-    const reported = first.pluginSources ?? {};
-    assert.equal(reported[source], pluginSourceDigest(source));
-    for (const [directory, digest] of Object.entries(reported)) {
-      assert.equal(path.isAbsolute(directory), true, directory);
-      assert.equal(digest, pluginSourceDigest(directory), directory);
-    }
+    // The plugin's own module root alone: ttsc's overlays key the binary too,
+    // but they change only with ttsc itself.
+    assert.deepEqual(first.pluginSources, {
+      [source]: pluginSourceDigest(source),
+    });
 
     // 2. What the build never keys on moves nothing.
     const before = pluginSourceDigest(source);

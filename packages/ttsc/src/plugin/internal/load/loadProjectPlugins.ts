@@ -21,6 +21,7 @@ import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITts
 import { pluginDescriptorFailureReason } from "../pluginDescriptorFailureReason";
 import { pluginDescriptorProcessFailure } from "../pluginDescriptorProcessFailure";
 import { buildSourcePlugin } from "../source/buildSourcePlugin";
+import { isPathWithin } from "../source/isPathWithin";
 import { COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE } from "./COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE";
 import { PLUGIN_DESCRIPTOR_SHIM_SOURCE } from "./PLUGIN_DESCRIPTOR_SHIM_SOURCE";
 import { PluginPackageResolution } from "./PluginPackageResolution";
@@ -38,10 +39,11 @@ import { realpathHostInputPaths } from "./realpathHostInputPaths";
  * `buildSourcePlugin` to compile each Go source package into a cached binary.
  * Returns the ordered native plugins, parsed project config, exact
  * JavaScript-host files that universally influence the loaded selection, and
- * the state of every Go source directory the builds keyed their binaries on
- * (`pluginSources`, samchon/ttsc#1487): each plugin's module root, each
- * contributor, and each overlay, with its digest (`pluginSourceDigest`) as the
- * build read it.
+ * the state of every Go source directory the plugins supplied to the builds
+ * (`pluginSources`, samchon/ttsc#1487): each plugin's module root and each
+ * contributor's source, with its digest (`pluginSourceDigest`) as the build
+ * read it. ttsc's own sources, its overlays and the host it builds for linked
+ * plugins, are keyed too but not reported: they change only with ttsc itself.
  *
  * @param options.binary - Absolute path to the ttsc native helper binary.
  * @param options.cacheDir - Override the plugin binary cache directory.
@@ -362,10 +364,13 @@ export function loadProjectPlugins(options: {
       ),
     ),
     nativePlugins: orderNativePlugins(nativePlugins),
+    // ttsc's own sources change only with ttsc, whose version its consumer
+    // already runs; reporting them would have every consumer read and watch
+    // the whole installed package as if it were a plugin's.
     pluginSources: Object.fromEntries(
-      [...sourceDigests].sort(([left], [right]) =>
-        left < right ? -1 : left > right ? 1 : 0,
-      ),
+      [...sourceDigests]
+        .filter(([directory]) => !isPathWithin(directory, ttscPackageRoot()))
+        .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0)),
     ),
     project,
   };

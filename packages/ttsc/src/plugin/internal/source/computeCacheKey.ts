@@ -19,10 +19,11 @@ import { spawnGoTool } from "./spawnGoTool";
  * affect the key.
  *
  * Each source directory enters the key as its digest (`pluginSourceDigest`),
- * the state the transform envelope reports for it, so what a consumer proves is
- * exactly what the binary was keyed on (samchon/ttsc#1487). `sourceDigests`
- * carries the digests one load already took: every build of the load keys on
- * one reading of each directory, and the load reports those readings.
+ * the state the transform envelope reports for each directory a plugin
+ * supplied, so what a consumer proves is exactly what the binary was keyed on
+ * (samchon/ttsc#1487). `sourceDigests` carries the digests one load already
+ * took: every build of the load keys on one reading of each directory, and the
+ * load reports those readings.
  *
  * Exposed for testing and for the `ttsc cache` CLI command.
  */
