@@ -1,49 +1,28 @@
-import { createRequire } from "node:module";
-import path from "node:path";
-
-import { isRelativeSpecifier } from "./isRelativeSpecifier";
-import { resolveExistingExtendsPath } from "./resolveExistingExtendsPath";
-import { resolvePackageManifestTsconfig } from "./resolvePackageManifestTsconfig";
-import { resolveRealPath } from "./resolveRealPath";
+import { resolveTsconfigExtends } from "ttsc/tsconfig";
 
 /**
- * Resolve an `extends` specifier to an absolute config path using TypeScript's
- * rules: absolute paths and relative specifiers get an exact-file / `.json`
- * fallback and keep the spelling they resolve to against the declaring config's
- * own path; bare specifiers go through Node's module resolver scoped to the
- * declaring config, which answers with the physical path, as TypeScript's
- * module resolution does (samchon/ttsc#1455). Returns `null` instead of
- * throwing; the compiler reports unresolvable `extends` itself.
+ * Resolve an `extends` specifier to the config file it names, or `null` when
+ * it names none.
+ *
+ * The rule is ttsc's, `resolveTsconfigExtends`, written to TypeScript-Go's
+ * `getExtendsConfigPath`: separators folded, a file-path specifier kept under
+ * the spelling it was reached by, as TypeScript anchors a relatively extended
+ * config (samchon/ttsc#1455), and a module specifier resolved to its physical
+ * path. This reader only adds its policy: it is best-effort, so a specifier
+ * that names nothing, or a preset whose manifest does not parse, answers
+ * `null`, and the compiler reports the configuration error itself
+ * (samchon/ttsc#1489).
+ *
+ * @param tsconfig The declaring config, as this reader named it.
+ * @param specifier The `extends` value as written.
  */
 export function resolveExtendsConfig(
   tsconfig: string,
   specifier: string,
 ): string | null {
-  if (path.isAbsolute(specifier)) {
-    return resolveExistingExtendsPath(specifier);
-  }
-  if (isRelativeSpecifier(specifier)) {
-    return resolveExistingExtendsPath(
-      path.resolve(path.dirname(tsconfig), specifier),
-    );
-  }
-  const resolver = createRequire(tsconfig);
-  // A bare package root selects its preset through `package.json#tsconfig`,
-  // matching TypeScript's config resolution and the core project reader. Such
-  // presets often ship no JS/JSON entrypoint, so Node's entrypoint resolver and
-  // the `<specifier>.json` fallback both miss them, silently dropping the
-  // preset's inherited `paths`.
-  const viaManifest = resolvePackageManifestTsconfig(resolver, specifier);
-  if (viaManifest !== null) {
-    return viaManifest;
-  }
   try {
-    return resolveRealPath(resolver.resolve(specifier));
+    return resolveTsconfigExtends(tsconfig, specifier);
   } catch {
-    try {
-      return resolveRealPath(resolver.resolve(`${specifier}.json`));
-    } catch {
-      return null;
-    }
+    return null;
   }
 }

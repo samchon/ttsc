@@ -1,11 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
+import { parseJsonc, tsconfigExtendsFileCandidates } from "ttsc/tsconfig";
 
 import { extendsSpecifiers } from "./extendsSpecifiers";
-import { isRelativeSpecifier } from "./isRelativeSpecifier";
-import { missingExtendsCandidates } from "./missingExtendsCandidates";
-import { normalizeTypeScriptPathSeparators } from "./normalizeTypeScriptPathSeparators";
-import { parseJsonc } from "./parseJsonc";
 import { resolveExtendsConfig } from "./resolveExtendsConfig";
 import { resolveRealPath } from "./resolveRealPath";
 
@@ -68,16 +65,16 @@ function resolve(
       : undefined;
   }
   let inherited: { baseDir: string; specs: string[] } | undefined;
-  for (const rawSpecifier of extendsSpecifiers(parsed.extends)) {
-    const specifier = normalizeTypeScriptPathSeparators(rawSpecifier);
+  for (const specifier of extendsSpecifiers(parsed.extends)) {
     const base = resolveExtendsConfig(resolved, specifier);
     if (base === null) {
       // Record where the base would resolve, so a caller memoizing the policy
       // notices it appearing; see `findDeclaredValue`.
-      if (isRelativeSpecifier(specifier) || path.isAbsolute(specifier)) {
-        for (const candidate of missingExtendsCandidates(resolved, specifier)) {
-          collect?.add(candidate);
-        }
+      for (const candidate of tsconfigExtendsFileCandidates(
+        resolved,
+        specifier,
+      ) ?? []) {
+        collect?.add(candidate);
       }
       continue;
     }

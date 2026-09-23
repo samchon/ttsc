@@ -3,6 +3,7 @@ import path from "node:path";
 import type { ITtscProjectPluginConfig } from "../../../structures/ITtscProjectPluginConfig";
 import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
 import { PluginPackageResolution } from "./PluginPackageResolution";
+import { isRelativePluginSpecifier } from "./isRelativePluginSpecifier";
 
 /**
  * The plugin entries a project declares, from its `tsconfig.json` and from the
@@ -47,7 +48,7 @@ export namespace ProjectPluginEntries {
       const declaringDir = project.pluginBaseDirs[index];
       const baseDir =
         typeof config.transform === "string" &&
-        PluginPackageResolution.isRelativePluginSpecifier(config.transform) &&
+        isRelativePluginSpecifier(config.transform) &&
         declaringDir !== undefined
           ? declaringDir
           : project.root;
@@ -98,7 +99,7 @@ export namespace ProjectPluginEntries {
       if (typeof transform !== "string") {
         continue;
       }
-      const baseDir = PluginPackageResolution.isRelativePluginSpecifier(
+      const baseDir = isRelativePluginSpecifier(
         transform,
       )
         ? packageRoot
@@ -134,7 +135,7 @@ export namespace ProjectPluginEntries {
       if (typeof transform !== "string" || transform.length === 0) {
         continue;
       }
-      if (!PluginPackageResolution.isRelativePluginSpecifier(transform)) {
+      if (!isRelativePluginSpecifier(transform)) {
         raw.add(transform);
       }
       try {
@@ -158,7 +159,7 @@ export namespace ProjectPluginEntries {
   ): boolean {
     return (
       configuredTransforms.resolved.has(resolved) ||
-      (!PluginPackageResolution.isRelativePluginSpecifier(transform) &&
+      (!isRelativePluginSpecifier(transform) &&
         configuredTransforms.raw.has(transform))
     );
   }
@@ -168,7 +169,7 @@ export namespace ProjectPluginEntries {
     transform: string,
     resolved: string,
   ): void {
-    if (!PluginPackageResolution.isRelativePluginSpecifier(transform)) {
+    if (!isRelativePluginSpecifier(transform)) {
       configuredTransforms.raw.add(transform);
     }
     configuredTransforms.resolved.add(resolved);

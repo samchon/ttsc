@@ -1,11 +1,7 @@
 import fs from "node:fs";
-import path from "node:path";
+import { parseJsonc, tsconfigExtendsFileCandidates } from "ttsc/tsconfig";
 
 import { extendsSpecifiers } from "./extendsSpecifiers";
-import { isRelativeSpecifier } from "./isRelativeSpecifier";
-import { missingExtendsCandidates } from "./missingExtendsCandidates";
-import { normalizeTypeScriptPathSeparators } from "./normalizeTypeScriptPathSeparators";
-import { parseJsonc } from "./parseJsonc";
 import { resolveExtendsConfig } from "./resolveExtendsConfig";
 import { resolveRealPath } from "./resolveRealPath";
 
@@ -31,17 +27,17 @@ export function collectTsconfigSourceSnapshot(
   }
   if (typeof parsed !== "object" || parsed === null) return;
 
-  for (const rawSpecifier of extendsSpecifiers(parsed.extends)) {
-    const specifier = normalizeTypeScriptPathSeparators(rawSpecifier);
+  for (const specifier of extendsSpecifiers(parsed.extends)) {
     const base = resolveExtendsConfig(canonical, specifier);
     if (base !== null) {
       collectTsconfigSourceSnapshot(base, seen, output);
       continue;
     }
-    if (isRelativeSpecifier(specifier) || path.isAbsolute(specifier)) {
-      for (const candidate of missingExtendsCandidates(canonical, specifier)) {
-        if (!output.has(candidate)) output.set(candidate, null);
-      }
+    for (const candidate of tsconfigExtendsFileCandidates(
+      canonical,
+      specifier,
+    ) ?? []) {
+      if (!output.has(candidate)) output.set(candidate, null);
     }
   }
 }

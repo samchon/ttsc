@@ -1,11 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
+import { parseJsonc, tsconfigExtendsFileCandidates } from "ttsc/tsconfig";
 
 import { extendsSpecifiers } from "./extendsSpecifiers";
-import { isRelativeSpecifier } from "./isRelativeSpecifier";
-import { missingExtendsCandidates } from "./missingExtendsCandidates";
-import { normalizeTypeScriptPathSeparators } from "./normalizeTypeScriptPathSeparators";
-import { parseJsonc } from "./parseJsonc";
 import { resolveExtendsConfig } from "./resolveExtendsConfig";
 import { resolveRealPath } from "./resolveRealPath";
 
@@ -67,21 +64,21 @@ export function findDeclaredValue<T>(
     return { baseDir: path.dirname(resolved), value: own };
   }
 
-  for (const rawSpecifier of extendsSpecifiers(parsed.extends).reverse()) {
-    const specifier = normalizeTypeScriptPathSeparators(rawSpecifier);
+  for (const specifier of extendsSpecifiers(parsed.extends).reverse()) {
     const base = resolveExtendsConfig(resolved, specifier);
     if (base === null) {
-      // Record where a relative or absolute specifier *would* have resolved,
-      // even though nothing is there. A caller stamping this policy has to
-      // notice the config appearing later, and a base config can be absent for
+      // Record where a specifier naming a file *would* have resolved, even
+      // though nothing is there. A caller stamping this policy has to notice
+      // the config appearing later, and a base config can be absent for
       // ordinary reasons: generated during install, or missing across a branch
       // switch. Without this the stamp never moves and a long-lived worker
-      // keeps a policy the next run's walk already disagrees with. A bare
-      // specifier is skipped, since it has no single candidate path.
-      if (isRelativeSpecifier(specifier) || path.isAbsolute(specifier)) {
-        for (const candidate of missingExtendsCandidates(resolved, specifier)) {
-          collect?.add(candidate);
-        }
+      // keeps a policy the next run's walk already disagrees with. A module
+      // specifier has no single candidate path, so it names none.
+      for (const candidate of tsconfigExtendsFileCandidates(
+        resolved,
+        specifier,
+      ) ?? []) {
+        collect?.add(candidate);
       }
       continue;
     }

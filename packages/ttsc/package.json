@@ -22,6 +22,10 @@
       "types": "./src/internal/projectInputPathIdentity.ts",
       "default": "./lib/internal/projectInputPathIdentity.js"
     },
+    "./tsconfig": {
+      "types": "./src/internal/tsconfig.ts",
+      "default": "./lib/internal/tsconfig.js"
+    },
     "./register": {
       "types": "./src/register.ts",
       "default": "./lib/register.js"
@@ -43,6 +47,10 @@
       "./path-identity": {
         "types": "./lib/internal/projectInputPathIdentity.d.ts",
         "default": "./lib/internal/projectInputPathIdentity.js"
+      },
+      "./tsconfig": {
+        "types": "./lib/internal/tsconfig.d.ts",
+        "default": "./lib/internal/tsconfig.js"
       },
       "./register": {
         "types": "./lib/register.d.ts",

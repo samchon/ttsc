@@ -1,8 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { parseJsonc } from "ttsc/tsconfig";
+
 import { normalizeTypeScriptPathSeparators } from "./normalizeTypeScriptPathSeparators";
-import { parseJsonc } from "./parseJsonc";
 
 /**
  * The project configs a tsconfig's `references` name, in declaration order

@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 
 import { readJsonFile } from "../../../compiler/internal/project/readJsonFile";
+import { isRelativePluginSpecifier } from "./isRelativePluginSpecifier";
 
 /**
  * How ttsc finds a plugin package and reads its manifest.
@@ -427,20 +428,5 @@ export namespace PluginPackageResolution {
     } catch {
       return location;
     }
-  }
-
-  /**
-   * Whether a plugin specifier is a relative path, including the Windows
-   * backslash spellings a user may write in `tsconfig.json`.
-   */
-  export function isRelativePluginSpecifier(specifier: string): boolean {
-    return (
-      specifier === "." ||
-      specifier === ".." ||
-      specifier.startsWith("./") ||
-      specifier.startsWith("../") ||
-      specifier.startsWith(".\\") ||
-      specifier.startsWith("..\\")
-    );
   }
 }

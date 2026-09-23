@@ -1,9 +1,9 @@
 import path from "node:path";
+import { isRelativePluginSpecifier } from "ttsc/tsconfig";
 
 import { CONFIG_DIR_TEMPLATE_LIST_OPTIONS } from "../../tsconfig/CONFIG_DIR_TEMPLATE_LIST_OPTIONS";
 import { CONFIG_DIR_TEMPLATE_SCALAR_OPTIONS } from "../../tsconfig/CONFIG_DIR_TEMPLATE_SCALAR_OPTIONS";
 import { absolutizePathsTarget } from "../../tsconfig/absolutizePathsTarget";
-import { isRelativeSpecifier } from "../../tsconfig/isRelativeSpecifier";
 import { resolveConfigDirTemplatePath } from "../../tsconfig/resolveConfigDirTemplatePath";
 import { readPaths } from "../alias/readPaths";
 
@@ -87,7 +87,7 @@ function normalizePluginConfigForGeneratedTsconfig(
   const output: Record<string, unknown> = { ...entry };
   for (const key of ["config", "configFile", "source", "transform"]) {
     const value = output[key];
-    if (typeof value === "string" && isRelativeSpecifier(value)) {
+    if (typeof value === "string" && isRelativePluginSpecifier(value)) {
       output[key] = spell(path.resolve(tsconfigDir, value));
     } else if (typeof value === "string" && path.isAbsolute(value)) {
       output[key] = spell(value);
