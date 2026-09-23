@@ -236,10 +236,10 @@ export async function openSession(project, { cache = false } = {}) {
         (runs) => runs > before,
         `farm ${label}`,
       ),
-    // No `builtAt`: Farm's compiler writes its cache inside the compile, so a
-    // commit during the session is a commit of the build that made it, and a
-    // store proven newer than the compile that produced it never arrives
-    // (measured: every first session waited out its deadline).
+    // No `storedAfterLastBuild`: Farm's compiler writes its cache inside the
+    // compile, so a commit during the session is a commit of the build that
+    // made it, and a store proven newer than the compile that produced it
+    // never arrives (measured: every first session waited out its deadline).
     stored: (since) => cacheCommitted(cacheDir, since),
     // Farm's Compiler API has no close/dispose method; the process owns it.
     close: () => undefined,

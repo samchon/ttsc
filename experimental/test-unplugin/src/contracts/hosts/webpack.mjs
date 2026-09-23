@@ -156,7 +156,10 @@ export async function openSession(name, project, { cache = false } = {}) {
       watcher.invalidate();
       await settledOutput(events, `${name} unchanged rebuild`, value);
     },
-    builtAt: () => builtAt,
+    // The stronger proof: the store is newer than the compiler's last build,
+    // so it holds the snapshots that build took.
+    storedAfterLastBuild: (since) =>
+      cacheCommitted(name, cacheDirectory, Math.max(since, builtAt)),
     // Whether the last pass has ended and began after the record last moved,
     // which is when the modules it holds carry a snapshot the next session
     // accepts. A pass still running is not that pass: the delivery inside it

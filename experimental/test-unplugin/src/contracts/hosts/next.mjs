@@ -76,6 +76,11 @@ export async function openSession(bundler, project) {
       // compilation logger's, read from `stats` at `done`, with each pass of
       // each compiler and the records as it saw them.
       '    config.infrastructureLogging = { level: "verbose", debug: /webpack\\.cache/ };',
+      // Each compiler stores its cache as soon as a build ends, as the plain
+      // webpack session does: webpack's own default waits a minute of idle
+      // after a small change, and the contract stops the server forcibly on
+      // Windows, where it gets no chance to store at exit.
+      '    if (config.cache && typeof config.cache === "object") Object.assign(config.cache, { idleTimeout: 0, idleTimeoutForInitialStore: 0, idleTimeoutAfterLargeChanges: 0 });',
       "    config.plugins.push({",
       "      apply(compiler) {",
       '        compiler.hooks.compile.tap("observe-pass", () => {',
@@ -275,20 +280,6 @@ export async function openSession(bundler, project) {
         (runs) => runs > before,
         describe(label),
       ),
-    // When the last build of any of Next's compilers ended, as they report it
-    // themselves (`observe-pass`): the store must be newer than that, since a
-    // pack committed on an earlier idle window holds an earlier build's
-    // snapshots, and a session restored from it rebuilds what that build had
-    // already recorded.
-    builtAt: () => {
-      let last = 0;
-      for (const [, ended] of output.matchAll(
-        / pass \d+\.\.\d+ done at (\d+)/g,
-      )) {
-        last = Math.max(last, Number(ended));
-      }
-      return last;
-    },
     // Whether the last pass that ended began after the record last moved,
     // which is when the modules it holds carry a snapshot the next session
     // accepts: webpack rejects a cached module whose snapshot began before a
@@ -315,19 +306,31 @@ export async function openSession(bundler, project) {
     // server, its own `index.pack`, on its own idle timeout. Only a commit of
     // every store counts; a session closed while one compiler's store is
     // pending leaves that compiler nothing to restore.
-    //
-    // A store is measured against its own compiler's last pass, not the
-    // session's: Next runs three of them, and a pass of one leaves the others
-    // nothing to store, so a rule that held every store to the last build of
-    // any compiler could never be satisfied. `since` is the floor for a store
-    // whose compiler this session never named.
     stored: (since) => {
+      const commits = cacheCommits(path.join(project.physical, ".next"));
+      return (
+        commits.length !== 0 && commits.every(([, mtime]) => mtime >= since)
+      );
+    },
+    // The stronger proof: the store of every compiler that watches the record
+    // is newer than that compiler's last pass, so it holds the snapshots that
+    // pass took. Each store is measured against its own compiler, never the
+    // session's last pass: Next runs three, and a pass of one leaves the
+    // others nothing to store. A compiler that never reported the record
+    // changing holds no module depending on it, so its store is held to
+    // `since` alone; the edge compiler of this fixture never builds after a
+    // move.
+    storedAfterLastBuild: (since) => {
       const commits = cacheCommits(path.join(project.physical, ".next"));
       if (commits.length === 0) return false;
       const passes = passEndsIn(output);
-      return commits.every(
-        ([store, mtime]) => mtime >= Math.max(since, passOf(passes, store)),
-      );
+      const watching = recordWatchers(output);
+      return commits.every(([store, mtime]) => {
+        const name = compilerOf(passes, store);
+        const floor =
+          name !== undefined && watching.has(name) ? passes.get(name) : 0;
+        return mtime >= Math.max(since, floor);
+      });
     },
     /** What the dev server wrote, its cache log among it, for a failure to name. */
     output: () => output,
@@ -376,17 +379,31 @@ function passEndsIn(output) {
 }
 
 /**
- * The last pass end of the compiler a store belongs to, or `0` for a store no
- * compiler of this session named: Next's webpack stores live one directory per
- * compiler, `cache/webpack/<compiler>-development`, and Turbopack's under
+ * The compiler a store belongs to, or `undefined` for one no compiler of this
+ * session named: Next's webpack stores live one directory per compiler,
+ * `cache/webpack/<compiler>-development`, and Turbopack's under
  * `cache/turbopack`, which no pass of this contract reports.
  */
-function passOf(passes, store) {
+function compilerOf(passes, store) {
   const directory = store.split("/").at(-1) ?? "";
-  for (const [name, ended] of passes) {
-    if (directory.startsWith(`${name}-`)) return ended;
+  for (const name of passes.keys()) {
+    if (directory.startsWith(`${name}-`)) return name;
   }
-  return 0;
+  return undefined;
+}
+
+/**
+ * The compilers that reported a project record changing, by name
+ * (`observe-pass`): the ones holding a module that depends on it.
+ */
+function recordWatchers(output) {
+  const watching = new Set();
+  for (const [, name] of output.matchAll(
+    /\[([^\]]+)\] change reported at \d+: [^\n]*?[\\/]records[\\/]/g,
+  )) {
+    watching.add(name);
+  }
+  return watching;
 }
 
 function cacheCommits(output) {
