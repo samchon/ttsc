@@ -2,6 +2,8 @@ import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import path from "node:path";
 
+import { hostToolDirectory } from "../../../../../packages/unplugin/lib/core/bridge/hostToolDirectory.js";
+import { projectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/projectRecordFile.js";
 import { readProjectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/readProjectRecordFile.js";
 import { emitDependenciesPlugins } from "../../internal/transform-dependencies/emitDependenciesPlugins";
 
@@ -39,8 +41,12 @@ export async function test_rollup_build_registers_plugin_dependencies_as_watch_f
       TestUnpluginProject.collectRollupOutputCode(generated.output),
     );
     const dependency = path.join(root, "src", "types.d.ts");
-    const records = bundle.watchFiles.filter((file: string) =>
-      /[\\/]records[\\/][0-9a-f]{32}\.json$/.test(file),
+    const expected = projectRecordFile(
+      hostToolDirectory(process.cwd()),
+      path.join(root, "tsconfig.json"),
+    );
+    const records = bundle.watchFiles.filter(
+      (file: string) => path.resolve(file) === expected,
     );
     assert.equal(
       records.length,

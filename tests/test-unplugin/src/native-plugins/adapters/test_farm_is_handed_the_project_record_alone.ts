@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { hostToolDirectory } from "../../../../../packages/unplugin/lib/core/bridge/hostToolDirectory.js";
+import { projectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/projectRecordFile.js";
 import { readProjectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/readProjectRecordFile.js";
 import { createRealNativeEnvelopeFixture } from "../../internal/real-native-envelope/createRealNativeEnvelopeFixture";
 
@@ -68,7 +70,14 @@ export async function test_farm_is_handed_the_project_record_alone(): Promise<vo
     `Farm is handed the record alone: ${JSON.stringify(handed)}`,
   );
   const record = handed[0]!;
-  assert.match(record, /[\\/]records[\\/][0-9a-f]{32}\.json$/);
+  assert.equal(
+    record,
+    projectRecordFile(
+      hostToolDirectory(process.cwd()),
+      path.join(linked, "tsconfig.json"),
+    ),
+    "the project's record",
+  );
   assert.ok(path.isAbsolute(record), "as one absolute path");
   const written = readProjectRecordFile(record);
   assert.ok(written !== undefined, "the record is written");

@@ -20,9 +20,7 @@ import path from "node:path";
  * 3. Assert both succeed, then restore the environment.
  */
 export async function test_ttsc_undeclared_run_scrubs_inherited_plugin_config_dir(): Promise<void> {
-  const requireFromTest = createRequire(
-    path.join(process.cwd(), "package.json"),
-  );
+  const requireFromTest = createRequire(import.meta.url);
   const { TtscCompiler } = requireFromTest("ttsc");
   const root = TestUnpluginProject.createProject({
     plugins: [

@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { hostToolDirectory } from "../../../../../packages/unplugin/lib/core/bridge/hostToolDirectory.js";
+import { projectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/projectRecordFile.js";
 import { createRealNativeEnvelopeFixture } from "../../internal/real-native-envelope/createRealNativeEnvelopeFixture";
 import { programRuns } from "../../internal/real-native-envelope/programRuns";
 import { waitFor } from "../../internal/real-native-envelope/waitFor";
@@ -106,7 +108,8 @@ export async function test_real_native_envelope_esbuild_observes_directories_and
     assert.deepEqual(
       [...channels.keys()].filter(
         (file) =>
-          !/[\\/]records[\\/][0-9a-f]{32}\.json$/.test(file) &&
+          path.resolve(file) !==
+            projectRecordFile(hostToolDirectory(root), options.project) &&
           !(
             /\.[cm]?tsx?$/.test(file) &&
             !file.endsWith(".d.ts") &&

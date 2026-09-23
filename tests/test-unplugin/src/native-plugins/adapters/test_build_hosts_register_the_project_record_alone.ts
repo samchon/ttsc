@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { hostToolDirectory } from "../../../../../packages/unplugin/lib/core/bridge/hostToolDirectory.js";
+import { projectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/projectRecordFile.js";
 import { readProjectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/readProjectRecordFile.js";
 import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
 import { createRealNativeEnvelopeFixture } from "../../internal/real-native-envelope/createRealNativeEnvelopeFixture";
@@ -66,7 +68,8 @@ export async function test_build_hosts_register_the_project_record_alone(): Prom
     return plugin;
   };
   const isRecord = (file: string) =>
-    file.endsWith(".json") && path.basename(path.dirname(file)) === "records";
+    path.resolve(file) ===
+    projectRecordFile(hostToolDirectory(process.cwd()), options.project);
 
   const loaderHost = async (
     framework: "rspack" | "webpack",
