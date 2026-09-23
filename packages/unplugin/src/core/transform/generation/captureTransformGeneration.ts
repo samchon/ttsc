@@ -86,10 +86,10 @@ export async function captureTransformGeneration(props: {
    */
   session?: string;
   /**
-   * The project state of a publication an earlier attempt adopted and could not
-   * prove here. A claim for that same state compiles under the lock and
-   * replaces it; a claim for any other state adopts as usual, since nothing has
-   * found its publication wanting.
+   * The project state of a publication an earlier attempt adopted and found
+   * refuted here (`TtscAdoptionVerdict`). A claim for that same state compiles
+   * under the lock and replaces it; a claim for any other state adopts as
+   * usual, since nothing has found its publication wanting.
    */
   rejected?: string;
   trackProjectMembership: boolean;
@@ -246,9 +246,6 @@ export async function captureTransformGeneration(props: {
         tsconfig: configured.path,
         env: compilerEnvironment,
       }).transformAsync());
-    if (adopted !== undefined && state !== undefined) {
-      TRANSFORM_ADOPTED_RESULTS.set(result, state);
-    }
     TRANSFORM_RESULT_FILESYSTEM.set(result, props.filesystem);
     TRANSFORM_RESULT_MEMBERSHIP.set(result, {
       policy: membershipPolicy,
@@ -530,6 +527,21 @@ export async function captureTransformGeneration(props: {
       externalInputSnapshot.complete &&
       adoptionFailure === undefined &&
       universalInputs;
+    // An adopted envelope failed either because the publication does not hold
+    // on this disk or because this worker's own window moved around it, and
+    // only the first speaks against the publication (samchon/ttsc#1479). The
+    // retry refuses a refuted one for the same state, and adopts one that held.
+    // A failure envelope is proven by its external inputs alone, as its
+    // verdict is its diagnostics.
+    if (adopted !== undefined && state !== undefined) {
+      TRANSFORM_ADOPTED_RESULTS.set(result, {
+        refuted:
+          adoptionFailure !== undefined ||
+          !externalInputSnapshot.complete ||
+          (result.type === "success" && !(graphProofs && universalInputs)),
+        state,
+      });
+    }
     // Publish only a compile that is reusable as captured, so the state it is
     // published under is the state it read and proved: for a success, the
     // whole reusable snapshot, the graph's own proofs among them, since an

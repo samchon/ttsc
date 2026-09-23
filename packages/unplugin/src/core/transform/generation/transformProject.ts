@@ -20,21 +20,30 @@ const TRANSFORM_GENERATION_ATTEMPTS = 2;
  * is lost to a filesystem race.
  *
  * A capture whose snapshot could not be proven stable is disposed and attempted
- * again. The second compile here that fails that proof becomes a terminal
+ * again. The second failure that says the project moved becomes a terminal
  * `TtscUnstableGenerationError` that carries the failed environment, so later
  * deliveries replay the verdict until that environment provably changes instead
  * of each repeating a whole-project compile.
  *
- * The bound is for a project that keeps moving, so it counts the attempts that
- * compiled here. An attempt that adopted another worker's compile and could not
- * prove it says as much about that publication as about the project, and the
- * attempt after it either compiles that same state here, since it refuses the
- * publication it found wanting, or claims the state the project moved to. An
- * adoption therefore never spends the bound, which a pool would otherwise
- * exhaust on publications while its project moved once, and end the delivery in
- * an unstable verdict that compiling the state resolves. The attempts are
- * capped at twice the bound all the same, so a project that keeps moving from
- * one published state to the next ends too.
+ * The bound is for a project that keeps moving, so it counts the failures that
+ * say the project moved: every compile here that fails its proof, and every
+ * adoption whose own window moved. An attempt that adopted another worker's
+ * compile and could not prove it failed for one of two reasons
+ * (`TtscAdoptionVerdict`, samchon/ttsc#1479). When the publication itself
+ * failed its proof on this disk, the attempt says nothing about the project
+ * moving: the attempt after it refuses that publication and compiles the same
+ * state here, or claims the state the project moved to, and it does not spend
+ * the bound, which a pool would otherwise exhaust on publications while its
+ * project moved once, and end the delivery in an unstable verdict that
+ * compiling the state resolves. When the publication held and only this
+ * worker's window moved around it, the attempt is a moved window like any
+ * compile's here, and spends the bound; its retry claims whatever state it then
+ * reads, and adopts the same publication again when the project's content never
+ * changed. Refusing it, as every failed adoption once was, compiled on a
+ * Turbopack pool a state the pool had already compiled and proven, for an event
+ * that changed nothing. The attempts are capped at twice the bound all the
+ * same, so a project that keeps moving from one published state to the next
+ * ends too.
  *
  * A failed compile (a `failure` or `exception` envelope) needs no proven
  * snapshot, since its verdict is its diagnostics, but it does need the project
@@ -74,7 +83,7 @@ export async function transformProject(props: {
 }): Promise<TtscCachedProjectTransform> {
   const attempts: TtscGenerationProofFailures[] = [];
   let rejected: string | undefined;
-  let compiled = 0;
+  let moved = 0;
   for (let attempt = 0; ; attempt += 1) {
     const cached = await captureTransformGeneration({ ...props, rejected });
     if (
@@ -89,17 +98,18 @@ export async function transformProject(props: {
       TRANSFORM_GENERATION_FAILURES.get(cached.result) ??
         createGenerationProofFailures(),
     );
-    // Another worker's compile that failed its proof here would be found again
-    // by a retry for the same state, which therefore compiles and replaces the
-    // publication. A retry whose project moved to another state claims that
-    // state's publication, and adopts it: refusing it too, measured on a
-    // Turbopack pool, compiled a state another worker had just published,
-    // while the next edit was already landing.
+    // A publication refuted here would be found again by a retry for the same
+    // state, which therefore compiles and replaces it. A retry whose project
+    // moved to another state claims that state's publication, and adopts it:
+    // refusing it too, measured on a Turbopack pool, compiled a state another
+    // worker had just published, while the next edit was already landing. An
+    // adoption whose own window moved refutes nothing, and is counted as the
+    // compile it stood in for.
     const adopted = TRANSFORM_ADOPTED_RESULTS.get(cached.result);
-    if (adopted === undefined) compiled += 1;
-    else rejected = adopted;
+    if (adopted?.refuted === true) rejected = adopted.state;
+    else moved += 1;
     const last =
-      compiled === TRANSFORM_GENERATION_ATTEMPTS ||
+      moved === TRANSFORM_GENERATION_ATTEMPTS ||
       attempt + 1 === TRANSFORM_GENERATION_ATTEMPTS * 2;
     // A failed compile the project moved under twice still names its own
     // diagnostics, which say more than an unstable-generation error.
