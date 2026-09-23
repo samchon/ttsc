@@ -84,9 +84,6 @@ importers:
       typescript:
         specifier: catalog:typescript
         version: 7.0.2
-      yaml:
-        specifier: catalog:utils
-        version: 2.9.0
 
   benchmarks/evidence:
     devDependencies:

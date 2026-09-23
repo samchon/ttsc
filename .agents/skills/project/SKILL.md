@@ -25,7 +25,7 @@ Each package's README describes what it does and how to use it. This table recor
 | `packages/graph` | `@ttsc/graph`, the MCP server | Its contract is [graph.md](graph.md). |
 | `packages/wasm` | `@ttsc/wasm`, the in-browser host |  |
 | `packages/playground` | `@ttsc/playground`, the playground shell | `website/` and `typia/website/` consume it. |
-| `packages/factory` | `@ttsc/factory`, the AST factory and printer | Nothing else in the workspace depends on it. |
+| `packages/factory` | `@ttsc/factory`, the AST factory and printer | No other package depends on it; only `tests/test-factory` imports it. |
 | `packages/unplugin` | Bundler adapters |  |
 | `packages/metro` | The Metro adapter built on `@ttsc/unplugin` |  |
 | `packages/vscode` | The VS Code extension | It wires `vscode-languageclient` to `ttscserver`, bridges the built-in lint and format commands, and executes other plugin command ids with editor-applied `WorkspaceEdit`s. |

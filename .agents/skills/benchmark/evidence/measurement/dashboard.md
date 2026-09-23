@@ -8,7 +8,7 @@ Never reconstruct a value the generator did not produce, and never read workspac
 
 Run `audit-suspensions`, then `dashboard`, and paste what the second printed; [benchmarks/evidence/README.md](../../../../../benchmarks/evidence/README.md) describes both commands. Refresh every 5 minutes, and immediately after a state change or an anomaly.
 
-`dashboard` accepts `--run-id` silently and ignores it, so a cohort reported that way would be the live one wearing a historical label. A historical cohort goes through `report`, which [aggregate.md](aggregate.md) owns.
+`dashboard` refuses every argument, `--run-id` included, because it can only render the latest launched run of each cell. A historical cohort goes through `report`, which [aggregate.md](aggregate.md) owns.
 
 ## Shape
 

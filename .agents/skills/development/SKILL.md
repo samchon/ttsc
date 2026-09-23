@@ -97,6 +97,8 @@ Use the shared helpers in `tests/utils` and the per-suite `internal/` modules; d
 
 Commit only tests that are meaningful and necessary to verify the change. Scratch probes and one-off checks you ran while working stay out of the repository.
 
+A test runs the code it concerns and asserts what that code does. Do not add a test or check script whose subject is the repository's own files: that a document lists every package, a README mentions an option, a workflow contains a step, a file exists, source text matches a pattern, or two committed files agree.
+
 ### Coverage, not happy paths
 
 A test that only feeds a rule its own canonical output and asserts it is unchanged proves idempotency, not correctness. Each rule or predicate needs more than its happy path:

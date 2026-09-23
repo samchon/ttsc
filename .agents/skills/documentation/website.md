@@ -14,8 +14,8 @@ Guide documents live under `website/src/content/docs/` as MDX, served by Nextra 
 
 Organize the tree by audience:
 
-- top-level pages (`index.mdx`, `setup.mdx`, `faq.mdx`, `benchmark/`) for cross-cutting tasks;
-- per-package folders (`ttsc/`, `lint/`, `plugins/`, `wasm/`) for package users; and
+- top-level pages and folders (`index.mdx`, `faq.mdx`, `playground.mdx`, `setup/`, `benchmark/`) for cross-cutting tasks;
+- per-package folders (`ttsc/`, `lint/`, `evidence/`, `graph/`, `plugins/`, `wasm/`) for package users; and
 - `development/` for plugin authors and maintainers.
 
 Package guides may cover full options, recipes, troubleshooting, compatibility, and migration. Plugin-author guides may cover protocols, Go APIs, testing, publishing, and internals.

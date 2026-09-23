@@ -48,7 +48,6 @@
     "prettier-plugin-jsdoc": "^1.8.0",
     "rimraf": "catalog:utils",
     "rollup": "catalog:rollup",
-    "typescript": "catalog:typescript",
-    "yaml": "catalog:utils"
+    "typescript": "catalog:typescript"
   }
 }

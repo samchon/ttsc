@@ -20,10 +20,10 @@ Read this document through the documentation skill before writing or changing `A
 ## Skill File Format
 
 - **One directory per skill:** `.agents/skills/<name>/SKILL.md`. The frontmatter `name` equals the directory name and uses lowercase letters, digits, and single hyphens, at most 64 characters.
-- **Vendored skills nest under their host.** `project/evidence` and `benchmark/evidence` come from `samchon/lint-plugin-evidence` and sit one level below the skill that owns their subject, so a re-copy keeps upstream's shape and every relative link inside it. Their `name` is that path, because two skills named `evidence` would collide.
+- **Vendored skills nest under their host.** `project/evidence` and `benchmark/evidence` come from `samchon/lint-plugin-evidence` and keep its layout one level below the skill that owns their subject, so the relative links inside them hold. Their `name` is that path, because two skills named `evidence` would collide. They have no line of their own in the `AGENTS.md` index; their host skill links them.
 - **Outside the vendored trees, only a skill's entry file is named `SKILL.md`.** Codex registers every `SKILL.md` it finds as a separate skill, so a sibling document uses another name.
 - **The `description` is the trigger.** Write it in the third person, at most 1,024 characters. Put the key use case and its trigger words in the first sentence, then when to use the skill, then its exclusions. A harness may cut everything after the first sentence.
-- **Keep the index and the description on one scope.** Every skill has one line in the `AGENTS.md` skill index. When the scope changes, correct the description first, then the index line.
+- **Keep the index and the description on one scope.** Every top-level skill has one line in the `AGENTS.md` skill index. When the scope changes, correct the description first, then the index line.
 - **Keep the file set small.** A skill holds `SKILL.md` and its sibling documents only, with no `agents/openai.yaml` metadata.
 - **Write plain headings and portable links.** No chapter numbers, and relative links with forward slashes.
 

@@ -120,6 +120,8 @@ The merge partner decides this, not the namespace. An interface or a class merge
 
 Build a symbol's addresses from identity segments rather than by rewriting a joined target, or a literal dot inside a name collapses into qualification. An address is legal in the module that publishes it rather than everywhere, so record the module-and-address pair; import-scope resolution then keeps two modules publishing one declaration from competing.
 
+Containment among reached units follows the declaration hierarchy, never the address text. A type and a callable may share one public name, so treating a common address prefix as ownership would make an unrelated same-name declaration an ancestor and turn every citation of that name ambiguous.
+
 A mixed variable statement can carry both function and property host kinds because TypeScript attaches one leading JSDoc block to the statement wrapper. Preserve the host set; choosing one kind makes the other selector spuriously out of scope.
 
 ## Evaluation
