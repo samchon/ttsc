@@ -12,7 +12,10 @@ import path from "node:path";
  * - Farm computes every watch file's path relative to its root and fails on one
  *   it cannot relate, such as a file on another Windows drive; its watcher
  *   ignores `node_modules` inside the root and refuses an extra file below any
- *   `node_modules`, so the file must be inside the root and outside them.
+ *   `node_modules`, so the file must be on the root's drive and outside them.
+ *   The host matrix runs Farm on a root below the directory it runs in, and the
+ *   record, outside that root, reaches it; a root on another drive than the
+ *   directory Farm runs in is the one layout this cannot serve.
  * - Webpack and Rspack watch a dependency's directory through `fs.watch`, and
  *   libuv's Windows backend aborts the host on a directory spelled with a short
  *   name, which the system temporary directory routinely is

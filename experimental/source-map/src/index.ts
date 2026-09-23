@@ -72,20 +72,13 @@ function packPackage(packageDirName, tarballName) {
   const packageDir = path.join(root, "packages", packageDirName);
   assert(fs.existsSync(packageDir), `${packageDirName} package must exist`);
 
-  for (const entry of fs.readdirSync(packageDir)) {
-    if (entry.endsWith(".tgz")) {
-      fs.rmSync(path.join(packageDir, entry), { force: true });
-    }
-  }
-
-  run("pnpm pack", packageDir);
-  const packed = fs
-    .readdirSync(packageDir)
-    .find((entry) => entry.endsWith(".tgz"));
-  assert(packed, `${packageDirName} package tarball must be created`);
-  fs.copyFileSync(
-    path.join(packageDir, packed),
-    path.join(tarballs, `${tarballName}.tgz`),
+  // Straight into the tarball directory, as `pnpm package:tgz` packs: a
+  // tarball packed into the package directory outlives the run there.
+  const output = path.join(tarballs, `${tarballName}.tgz`);
+  run(`pnpm pack --out ${JSON.stringify(output)}`, packageDir);
+  assert(
+    fs.existsSync(output),
+    `${packageDirName} package tarball must be created`,
   );
 }
 

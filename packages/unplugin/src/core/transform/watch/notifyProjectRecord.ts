@@ -1,3 +1,5 @@
+import fs from "node:fs";
+
 import type { TtscProjectRecord } from "../../bridge/TtscProjectRecord";
 import { membershipRecordDigest } from "../../bridge/membershipRecordDigest";
 import { projectRecordFile } from "../../bridge/projectRecordFile";
@@ -11,29 +13,44 @@ import type { TtscTransformHooks } from "./TtscTransformHooks";
 import type { TtscWatchInput } from "./TtscWatchInput";
 import { projectMembershipInput } from "./projectMembershipInput";
 
-/** The generations whose record this process has written, with what it wrote. */
-const WRITTEN = new WeakMap<
+/**
+ * Each generation's record in this process: the inputs read for it, what is
+ * handed over with it, and whether the file holds them yet.
+ */
+const HANDED = new WeakMap<
   TtscCachedProjectTransform,
-  { inputs: readonly TtscWatchInput[]; record: string }
+  {
+    evidenced: readonly TtscWatchInput[];
+    inputs: readonly TtscWatchInput[];
+    record: string;
+    written: boolean;
+  }
 >();
 
 /**
  * Write the project's record to a generation's state and hand it to the host
  * (`TtscTransformHooks.project`), once per delivery.
  *
- * The record is written from the generation's inputs once per generation and
- * process; every later delivery of the generation hands the same record over
- * without reading anything. An input the generation recorded no state for, a
- * failed compile's recovery input or a walk file no graph names, is read now,
- * so a refresh at the next build start has a state to prove it against; an
- * input that cannot be read is recorded absent, which its appearance moves.
+ * The generation's inputs are read once per generation and process, and the
+ * record is written from them until a write lands; every later delivery of the
+ * generation hands the same record over without reading anything. An input the
+ * generation recorded no state for, a failed compile's recovery input or a walk
+ * file no graph names, is read now, so a refresh at the next build start has a
+ * state to prove it against; an input that cannot be read is recorded absent,
+ * which its appearance moves.
  *
  * The record is written before it is handed over, so a host that snapshots the
  * file as the delivery registers it snapshots the generation's state, and a
- * host that compares content on its next start compares against that state. A
- * record that cannot be written is not handed over: the host then records no
- * project dependency for the module, and its next start runs the module again,
- * which is the safe side.
+ * host that compares content on its next start compares against that state.
+ *
+ * A record that cannot be written this time is handed over all the same when it
+ * is there: a module handed over without it depends on its own bytes alone, and
+ * a host's persistent cache restores it on those whatever its types did. The
+ * bytes it holds stand for the last state written, which the next proof finds
+ * gone and moves, and the next delivery of the generation writes it again. A
+ * record that is not there is not handed over, since what a host does with a
+ * dependency on a path that does not exist differs per host, and a directory
+ * the adapter cannot write leaves the host watching each module alone.
  *
  * @param inputs The generation's inputs, derived on first call.
  */
@@ -43,28 +60,32 @@ export function notifyProjectRecord(
   failed: boolean,
   inputs: () => readonly TtscWatchInput[],
 ): void {
-  let written = WRITTEN.get(cached);
-  if (written === undefined) {
-    const record = projectRecordFile(project.toolDirectory, cached.tsconfig);
+  let handed = HANDED.get(cached);
+  if (handed === undefined) {
     const identities = createHostPathIdentityContext();
     const evidenced = inputs().map((input) =>
       readUnrecordedState(input, identities),
     );
-    try {
-      writeProjectRecordFile(record, recordOf(cached, evidenced));
-    } catch {
-      return;
-    }
     // One array per generation, so the bridge can tell a delivery of the same
     // generation from one of the next by the inputs it is handed.
     const membership = projectMembershipInput(cached);
-    written = {
+    handed = {
+      evidenced,
       inputs: membership === undefined ? evidenced : [...evidenced, membership],
-      record,
+      record: projectRecordFile(project.toolDirectory, cached.tsconfig),
+      written: false,
     };
-    WRITTEN.set(cached, written);
+    HANDED.set(cached, handed);
   }
-  const { inputs: registered, record } = written;
+  if (!handed.written) {
+    try {
+      writeProjectRecordFile(handed.record, recordOf(cached, handed.evidenced));
+      handed.written = true;
+    } catch {
+      if (!fs.existsSync(handed.record)) return;
+    }
+  }
+  const { inputs: registered, record } = handed;
   project.register({ failed, inputs: () => registered, record });
 }
 

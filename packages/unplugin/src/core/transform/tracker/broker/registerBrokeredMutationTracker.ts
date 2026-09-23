@@ -202,6 +202,11 @@ const PROBE_DIRECTORIES = new Map<string, string>();
  * probes, named after this process so a later process can remove it once this
  * one is gone (`WATCH_PROBE_DIRECTORY_PREFIX`). It is removed when this process
  * exits, and a stale one is swept before it is named.
+ *
+ * One exit listener removes every probe directory of the process, as it does
+ * every session store (`openTtscTransformSession`): a listener per project root
+ * would add one for each project a process watches, past the count at which
+ * Node warns of a leak.
  */
 function probeDirectory(probeRoot: string): string {
   const existing = PROBE_DIRECTORIES.get(probeRoot);
@@ -213,9 +218,17 @@ function probeDirectory(probeRoot: string): string {
     parent,
     `${WATCH_PROBE_DIRECTORY_PREFIX}${process.pid}`,
   );
-  process.once("exit", () => {
-    fs.rmSync(directory, { force: true, recursive: true });
-  });
+  if (PROBE_DIRECTORIES.size === 0) {
+    process.once("exit", () => {
+      for (const opened of PROBE_DIRECTORIES.values()) {
+        try {
+          fs.rmSync(opened, { force: true, recursive: true });
+        } catch {
+          // A directory left behind is swept by the next process to probe.
+        }
+      }
+    });
+  }
   PROBE_DIRECTORIES.set(probeRoot, directory);
   return directory;
 }

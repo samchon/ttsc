@@ -26,8 +26,7 @@ import { failedModuleSource } from "./failedModuleSource";
  * (samchon/ttsc#1390).
  */
 const transformCache = createTtscTransformCache();
-const session = readTtscTransformSession();
-shareTtscTransformCache(transformCache, session);
+shareTtscTransformCache(transformCache, readTtscTransformSession());
 
 /**
  * The worker's watch bridge during `next dev`, opened by its first watching
