@@ -127,7 +127,7 @@ Every environment variable this package consults, `PATH` aside, is here.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `TTSC_GRAPH_BENCH_WORK` | `../graph-benchmark-work` | Fixture clone directory, checkouts only. It defaults outside the repo so a measured agent does not inherit ttsc's `CLAUDE.md` / `AGENTS.md` from a parent directory. Reports never follow it; they stay under `.work/`. |
+| `TTSC_GRAPH_BENCH_WORK` | `../graph-benchmark-work` | Fixture clone directory, checkouts only. It defaults outside the repo so a measured agent does not inherit ttsc's `AGENTS.md` from a parent directory. Reports never follow it; they stay under `.work/`. |
 | `TTSC_GRAPH_BENCH_OUT` | `.work/graph/<timestamp>` | Report directory for `src/executable/index.ts`, below `--out` and above the default. |
 | `TTSC_GRAPH_BENCH_TIMEOUT_MS` | `1800000` | Timeout on every child either runner spawns: an agent cell, a comparator index build, a fixture clone or install, the trace-audit pass, and the `ttscgraph` build. Not a per-sample budget: one agent child runs `arms × --runs` samples. |
 | `TTSC_BENCH_CONCURRENCY` | unlimited | Cap on concurrently launched agent samples. A low cap keeps the host quiet enough for per-run timings and token counts to settle. |

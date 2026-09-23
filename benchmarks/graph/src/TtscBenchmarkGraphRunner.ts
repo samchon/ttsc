@@ -9,7 +9,7 @@
  * own lockfile. Two reasons the fixtures are not shared with the performance
  * sweep: a graph-only fixture edit would change what the tsc-vs-ttsc cells
  * compile, and a fixture under this repo hands the measured agent ttsc's own
- * CLAUDE.md / AGENTS.md through the parent-directory walk both CLIs do.
+ * AGENTS.md through the parent-directory walk both CLIs do.
  *
  * Projects run sequentially: a large fixture such as VS Code already consumes
  * enough memory while its graph is built.
