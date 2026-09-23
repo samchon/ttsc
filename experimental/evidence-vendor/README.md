@@ -2,11 +2,13 @@
 
 `@ttsc/evidence`, its benchmark, and its two feature suites are vendored from `samchon/lint-plugin-evidence` (published as `@samchon/lint-plugin-evidence`). Upstream keeps moving, so the copy has to be repeatable rather than hand-made.
 
-These scripts are branch-local tooling for the migration pull request. They are not part of any build, lane, or published package.
+This script is branch-local tooling for the migration pull request. It is not part of any build, lane, or published package.
 
 ## Refreshing the vendored trees
 
 `<upstream>` below stands for a local checkout of `samchon/lint-plugin-evidence`.
+
+The copy is destructive. `/MIR` deletes every file that exists only here, and the copy overwrites every local edit `readapt.cjs` does not re-apply, including the edited skill documents. Review `git status` and `git diff` after the refresh and restore what upstream does not carry before committing.
 
 ```bash
 # 1. Copy. Never exclude a directory named `lib` — the benchmark template ships

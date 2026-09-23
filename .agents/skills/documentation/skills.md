@@ -4,7 +4,7 @@ Read this document through the documentation skill before writing or changing `A
 
 ## How The Harnesses Load Them
 
-- **`AGENTS.md`** loads at the start of every session. Codex reads it and stops at 32 KiB. Claude Code reads it directly because the repository has no `CLAUDE.md`; a `CLAUDE.md` or `CLAUDE.local.md` would replace it.
+- **`AGENTS.md`** loads at the start of every session. Codex reads it and stops at 32 KiB. Claude Code reads it directly because the repository has no `CLAUDE.md`; a `CLAUDE.md` or `CLAUDE.local.md` added anywhere on the path replaces it unless that file imports `@AGENTS.md`.
 - **Codex** scans every `.agents/skills` directory recursively. It lists the `name` and `description` of every `SKILL.md` it finds, shortens descriptions when the list is over budget, and loads a skill's body only when it uses the skill.
 - **Claude Code** does not read `.agents/`. It reaches a skill only through the `AGENTS.md` skill index, so an index line is the only trigger it sees.
 
