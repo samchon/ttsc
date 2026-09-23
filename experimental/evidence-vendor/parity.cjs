@@ -1,9 +1,8 @@
 // Prove that every difference between the vendored trees and upstream is a
 // declared adaptation.
 //
-// `audit.cjs` sweeps for assumptions the copy carried over. This asks the
-// opposite and stricter question: given upstream's bytes plus exactly the
-// rewrites `readapt.cjs` declares, is anything left over? A residual is either
+// Given upstream's bytes plus exactly the rewrites `readapt.cjs` declares, is
+// anything left over? A residual is either
 // an upstream change the copy missed or a local edit nobody recorded, and both
 // are silent until something breaks.
 //

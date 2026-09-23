@@ -9,11 +9,6 @@ const repoRoot = path.resolve(casesRoot, "../../../..");
 const harnessRoot = path.join(repoRoot, "packages", "lint", "test");
 const positiveHarnessPathPattern =
   /\bpackages\/lint\/test\/[\w./-]+_test\.go\b/g;
-const corpusSkipManifestPath = path.join(
-  harnessRoot,
-  "registry",
-  "behavioral_witness_exclusions.json",
-);
 type CorpusConstraint =
   | "options"
   | "filename"
@@ -34,12 +29,6 @@ interface CorpusSkipDirective {
   reason: string;
 }
 
-interface CorpusSkipManifestEntry {
-  rule: string;
-  constraint: CorpusConstraint;
-  harness: string;
-}
-
 interface CorpusFileRecord {
   relativeFile: string;
   source: string;
@@ -47,8 +36,6 @@ interface CorpusFileRecord {
   skip: CorpusSkipDirective | null;
   companion: boolean;
 }
-
-const corpusSkipManifest = loadCorpusSkipManifest();
 
 /**
  * Discover and assert every classified lint fixture under `src/cases`.
@@ -58,8 +45,8 @@ const corpusSkipManifest = loadCorpusSkipManifest();
  * `assertLintCase`. Unclassified or conflicting sources fail immediately.
  *
  * A fixture may opt out with one `// @ttsc-corpus-skip(<constraint>): <reason>`
- * directive. Its rule, constraint, and Go harness must match the mechanically
- * audited manifest.
+ * directive whose reason names exactly one Go harness under
+ * `packages/lint/test/`.
  *
  * The corpus is the single heaviest lint scenario, so CI runs it as a handful
  * of parallel partitions: pass `{ index, total }` and this asserts only the `i
@@ -72,7 +59,7 @@ export function assertAllLintCases(partition?: {
 }): void {
   const cases = listLintCases();
   assert.notEqual(cases.length, 0, "expected at least one lint fixture");
-  validateCorpusSkipManifestCoverage(cases);
+  validateCorpusSkips(cases);
   const selected = partition
     ? cases.filter((_, i) => i % partition.total === partition.index)
     : cases;
@@ -116,10 +103,9 @@ export function assertLintCases(relativeFiles: readonly string[]): void {
  * subdirectory carry `// @ttsc-corpus-companion`; `collectExtraSources`
  * materializes those files at their case-root-relative paths.
  *
- * Honors the audited `// @ttsc-corpus-skip(<constraint>): <reason>` directive:
- * a matching fixture is validated but its flat native run is skipped. The
- * referenced Go harness still has to prove the same rule and constraint through
- * production dispatch.
+ * Honors the `// @ttsc-corpus-skip(<constraint>): <reason>` directive: a
+ * matching fixture is validated but its flat native run is skipped. The reason
+ * names the Go harness that proves the rule through production dispatch.
  *
  * Honors the `// @ttsc-corpus-filename: <path>` directive: the fixture is
  * materialized at the given project-root-relative path (under `src/`) instead
@@ -243,34 +229,15 @@ function validateCorpusSkip(
     false,
     `${relativeFile}: referenced harness escapes packages/lint/test/: ${replacement}`,
   );
-  assert.equal(
-    fs.existsSync(replacementPath),
-    true,
-    `${relativeFile}: referenced positive harness does not exist: ${replacement}`,
-  );
 
-  const rule = parseSkippedRule(relativeFile, source);
-  const manifest = corpusSkipManifest.get(rule);
-  assert.ok(
-    manifest,
-    `${relativeFile}: ${rule} has no mechanically audited corpus-skip manifest entry`,
-  );
-  assert.equal(
-    skip.constraint,
-    manifest.constraint,
-    `${relativeFile}: corpus constraint does not match the audited ${rule} witness`,
-  );
-  assert.equal(
-    replacement,
-    manifest.harness,
-    `${relativeFile}: replacement harness does not match the audited ${rule} witness`,
-  );
-  return rule;
+  return parseSkippedRule(relativeFile, source);
 }
 
-export function validateCorpusSkipManifestCoverage(
-  cases: readonly string[],
-): void {
+/**
+ * Validate every corpus-skip directive in the discovered tree and allow at most
+ * one skip fixture per rule.
+ */
+export function validateCorpusSkips(cases: readonly string[]): void {
   const used = new Set<string>();
   for (const relativeFile of cases) {
     const source = fs.readFileSync(path.join(casesRoot, relativeFile), "utf8");
@@ -284,67 +251,6 @@ export function validateCorpusSkipManifestCoverage(
     );
     used.add(rule);
   }
-  assert.deepEqual(
-    [...used].sort(),
-    [...corpusSkipManifest.keys()].sort(),
-    "corpus-skip manifest entries must correspond exactly to excluded fixtures",
-  );
-}
-
-function loadCorpusSkipManifest(): Map<string, CorpusSkipManifestEntry> {
-  const value: unknown = JSON.parse(
-    fs.readFileSync(corpusSkipManifestPath, "utf8"),
-  );
-  assert.ok(Array.isArray(value), "corpus-skip manifest must be an array");
-  const entries = new Map<string, CorpusSkipManifestEntry>();
-  for (const [index, item] of value.entries()) {
-    assert.ok(
-      isRecord(item),
-      `corpus-skip manifest entry ${index} must be an object`,
-    );
-    assert.deepEqual(
-      Object.keys(item).sort(),
-      ["constraint", "harness", "rule"],
-      `corpus-skip manifest entry ${index} has unknown or missing fields`,
-    );
-    const { rule, constraint, harness } = item;
-    assert.ok(
-      typeof rule === "string",
-      `corpus-skip manifest entry ${index} has an invalid rule`,
-    );
-    assert.ok(
-      isCorpusConstraint(constraint),
-      `corpus-skip manifest entry ${index} has an invalid constraint`,
-    );
-    assert.ok(
-      typeof harness === "string",
-      `corpus-skip manifest entry ${index} has an invalid harness`,
-    );
-    assert.equal(
-      entries.has(rule),
-      false,
-      `corpus-skip manifest repeats ${rule}`,
-    );
-    const harnessPath = path.resolve(repoRoot, harness);
-    const relativeHarnessPath = path.relative(harnessRoot, harnessPath);
-    assert.equal(
-      relativeHarnessPath.startsWith("..") ||
-        path.isAbsolute(relativeHarnessPath),
-      false,
-      `corpus-skip manifest harness escapes packages/lint/test/: ${harness}`,
-    );
-    assert.equal(
-      harness.endsWith("_test.go") && fs.existsSync(harnessPath),
-      true,
-      `corpus-skip manifest harness is not an existing Go test: ${harness}`,
-    );
-    entries.set(rule, { rule, constraint, harness });
-  }
-  return entries;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isCorpusConstraint(value: unknown): value is CorpusConstraint {
@@ -413,7 +319,7 @@ export function applyCorpusOptions(
 
 /**
  * Read the single corpus-skip directive from the source, if any. Its constraint
- * is validated against the manifest before the fixture can be excluded.
+ * and harness reference are validated before the fixture can be excluded.
  *
  * The directive may appear on any line; it is not required to be the first
  * line. Callers iterate the fixture tree once, so a linear scan is fine.

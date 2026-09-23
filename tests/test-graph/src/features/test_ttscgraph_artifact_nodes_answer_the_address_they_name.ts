@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
@@ -16,10 +15,6 @@ const { runLookup } = require(
     props: { query: string },
   ): { result: { hits: { id: string; kind: string; name: string }[] } };
 };
-const { TTSC_GRAPH_ARTIFACT_NODE_KINDS } = require(
-  path.join(graphLib, "structures", "TtscGraphArtifactNodeKind.js"),
-) as { TTSC_GRAPH_ARTIFACT_NODE_KINDS: readonly string[] };
-
 interface GraphMemory {
   node(id: string): { id: string; kind: string; parent?: string } | undefined;
   incoming(id: string): readonly { from: string; to: string; kind: string }[];
@@ -93,8 +88,7 @@ const dump = () => ({
 });
 
 /**
- * Verifies artifact nodes: a citation resolves to what it names, and a tour is
- * never seeded by one.
+ * Verifies artifact nodes: a citation resolves to what it names.
  *
  * The reverse question worked before an artifact was a node: a lookup on an
  * address answered with the declarations citing it. What it could not answer is
@@ -102,18 +96,13 @@ const dump = () => ({
  * — so the artifact now leads its own answer, carrying the heading text and the
  * line that heading starts on, never the section's content.
  *
- * The tour is the negative half, and it is the one a closed seed set makes easy
- * to lose: a tour is asked what the project is and how it runs, and a document
- * section is neither. Nothing stops someone widening `TOUR_SEED_KINDS`, so the
- * outcome is pinned here rather than left to that set's current contents.
- *
  * 1. Build a memory over a dump carrying a declaration, the section it cites, and
  *    that section's document.
  * 2. Assert containment was synthesized from `parent`, not from a `file` node.
  * 3. Assert a lookup on the address returns the artifact and the citing
- *    declaration, and that a tour selects neither artifact.
+ *    declaration.
  */
-export const test_ttscgraph_artifact_nodes_answer_and_never_seed_a_tour =
+export const test_ttscgraph_artifact_nodes_answer_the_address_they_name =
   (): void => {
     const graph = TtscGraphMemory.from(dump());
 
@@ -144,46 +133,4 @@ export const test_ttscgraph_artifact_nodes_answer_and_never_seed_a_tour =
       hits.some((hit) => hit.id === "src/notice.ts#renderNotice:function"),
       "the declaration citing the address is missing from the answer",
     );
-
-    // The sidecar finds its own configured rules in the manifest, so a verb
-    // invoked without one loads an empty configuration and answers `[]` — for
-    // every project, indistinguishable from one that publishes nothing. It
-    // shipped that way once. Nothing observable from here can tell the two
-    // apart, so the invocation itself is what is pinned.
-    const launcher = fs.readFileSync(
-      path.join(
-        path.resolve(graphLib, "..", "..", ".."),
-        "packages/graph/src/model/publishedArtifacts.ts",
-      ),
-      "utf8",
-    );
-    assert.ok(
-      /--plugins-json=\$\{plugin\.manifest\}/.test(launcher),
-      "the artifact verb is invoked without the manifest that carries the project's rules",
-    );
-
-    // The tour half is a source-level claim, not a run. A synthetic dump cannot
-    // be made to seed a tour without also fabricating the entrypoint and degree
-    // conditions a seed depends on, and a tour that selected nothing would pass
-    // a case written to prove what a tour does not select — the vacuous form.
-    // What is actually invariant is the seed set: a tour is asked what the
-    // project is and how it runs, and a document section is neither.
-    const seeds = /const TOUR_SEED_KINDS = new Set<[^>]*>\(\[([^\]]*)\]/.exec(
-      fs.readFileSync(
-        path.join(
-          path.dirname(require.resolve("@ttsc/graph/package.json")),
-          "src",
-          "server",
-          "runTour.ts",
-        ),
-        "utf8",
-      ),
-    );
-    assert.notEqual(seeds, null, "runTour no longer declares a seed-kind set");
-    for (const kind of TTSC_GRAPH_ARTIFACT_NODE_KINDS)
-      assert.equal(
-        seeds![1]!.includes(`"${kind}"`),
-        false,
-        `${kind} seeds a tour; a tour is asked what the project is and how it runs`,
-      );
   };

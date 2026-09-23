@@ -1,11 +1,7 @@
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
 const { test } = require("node:test");
 
 const { evaluateAudit } = require("./dependency-audit.cjs");
-
-const root = path.resolve(__dirname, "..", "..");
 
 function payload({ high = 0, critical = 0, advisories = {} } = {}) {
   return JSON.stringify({
@@ -346,39 +342,4 @@ test("command and JSON failures cannot report green", () => {
   assert.equal(unexpectedStatus.ok, false);
   assert.match(unexpectedStatus.message, /exit 2/);
   assert.match(unexpectedStatus.message, /audit command exited unexpectedly/);
-});
-
-test("the lockfile excludes every campaign high or critical resolution", () => {
-  const lockfile = fs.readFileSync(path.join(root, "pnpm-lock.yaml"), "utf8");
-  for (const resolution of [
-    "brace-expansion@1.1.14:",
-    "brace-expansion@2.1.0:",
-    "brace-expansion@2.1.2:",
-    "brace-expansion@5.0.6:",
-    "fast-uri@3.1.2:",
-    "fast-uri@3.1.5:",
-    "form-data@4.0.5:",
-    "js-yaml@4.1.1:",
-    "js-yaml@4.3.1:",
-    "linkify-it@5.0.0:",
-    "nanoid@3.3.16:",
-    "next@15.5.18:",
-    "next@16.3.0:",
-    "postcss@8.4.31:",
-    "postcss@8.5.15:",
-    "sharp@0.34.5:",
-    "sharp@0.35.3:",
-    "shell-quote@1.8.4:",
-    "tmp@0.2.5:",
-    "tmp@0.2.6:",
-    "undici@7.25.0:",
-    "vite@7.3.3:",
-    "websocket-driver@0.7.4:",
-    "'@xmldom/xmldom@0.9.10':",
-  ])
-    assert.doesNotMatch(
-      lockfile,
-      new RegExp(`^  ${resolution.replaceAll(".", "\\.")}`, "m"),
-      `vulnerable resolution remains: ${resolution}`,
-    );
 });

@@ -14,14 +14,10 @@ import path from "node:path";
 //             tarball). Calls `pnpm run build:current` instead of the full
 //             `pnpm run build`, and only packs the current-platform package.
 //             Drops typical CI time from ~20 min to ~3 min.
-//
-// `--print-plan` reports the two package plans below as JSON and packs
-// nothing.
 
 const CURRENT_ONLY =
   process.argv.includes("--current") ||
   process.env.TTSC_TARBALLS_CURRENT === "1";
-const PRINT_PLAN = process.argv.includes("--print-plan");
 
 /**
  * Non-platform packages the release rehearsal packs, by directory name.
@@ -49,19 +45,6 @@ const FULL_PACKAGES = [
 ];
 
 /**
- * Publishable packages full mode deliberately does not pack, keyed by published
- * name, with the reason as the value.
- *
- * Empty on purpose: nothing published is currently held back from the
- * rehearsal. An entry here is a decision, not a gap, so the reason has to say
- * why the registry consumer of that package can live without a rehearsed
- * tarball. `scripts/ci/factory-package.test.cjs` reads this file through
- * `--print-plan` and fails when a publishable package appears in neither list,
- * so a newly published package cannot skip the rehearsal in silence.
- */
-const FULL_EXCLUSIONS: Record<string, string> = {};
-
-/**
  * The deliberately narrow current-platform set, by directory name.
  *
  * PR CI installs only ttsc, the utility plugins and the local platform tarball,
@@ -83,27 +66,10 @@ const root = path.resolve(import.meta.dirname, "../..");
 const outputDir = import.meta.dirname;
 const platformKey = `${process.platform}-${process.arch}`;
 
-if (PRINT_PLAN) {
-  printPlan();
-} else {
-  const targets = listTargets(path.join(root, "packages"));
-  preparePackages();
-  clearOutputDirectory();
-  for (const target of targets) build(target);
-}
-
-function printPlan() {
-  process.stdout.write(
-    `${JSON.stringify(
-      {
-        full: { packages: FULL_PACKAGES, exclusions: FULL_EXCLUSIONS },
-        current: { packages: CURRENT_PACKAGES },
-      },
-      null,
-      2,
-    )}\n`,
-  );
-}
+const targets = listTargets(path.join(root, "packages"));
+preparePackages();
+clearOutputDirectory();
+for (const target of targets) build(target);
 
 function preparePackages() {
   const script = CURRENT_ONLY ? "build:current" : "build";

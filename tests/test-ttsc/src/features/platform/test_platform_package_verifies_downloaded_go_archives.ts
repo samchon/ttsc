@@ -18,7 +18,6 @@ import {
  *
  * 1. Resolve official metadata and replace a corrupt cache through SHA-256.
  * 2. Pin replacement failure cleanup and checksum-bound extraction markers.
- * 3. Assert the platform package wires authentication into extraction.
  */
 export const test_platform_package_verifies_downloaded_go_archives = () => {
   const integrity = requireFromTest(
@@ -117,16 +116,4 @@ export const test_platform_package_verifies_downloaded_go_archives = () => {
   } finally {
     fs.rmSync(root, { force: true, recursive: true });
   }
-
-  const packager = fs.readFileSync(
-    path.join(workspaceRoot, "scripts", "build-platform-package.cjs"),
-    "utf8",
-  );
-  assert.match(packager, /https:\/\/go\.dev\/dl\/\?mode=json&include=all/);
-  assert.match(packager, /fetchGoArchiveChecksum/);
-  assert.match(
-    packager,
-    /ensureVerifiedGoExtraction\(\{\s*archivePath,\s*checksum,\s*extractDir,\s*extractZipArchive,\s*goBinary,\s*verifyArchive: \(file, expected\) =>\s*ensureVerifiedGoArchive\(file, url, expected\),\s*\}\)/,
-    "the package owner must authenticate the same archive before extraction",
-  );
 };

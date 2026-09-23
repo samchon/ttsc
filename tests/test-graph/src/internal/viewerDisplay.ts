@@ -7,79 +7,16 @@ import { repositoryRoot } from "./viewerReducers";
 
 export { repositoryRoot } from "./viewerReducers";
 
-/**
- * Source readers for the viewer's display vocabularies.
- *
- * The maps and lists these read are production constants in modules a test
- * cannot import: the website's live in React components, and the benchmark's
- * copy sits inside a namespace. Reading them from source is also what makes a
- * claim about the _declaration_ testable — an entry whose fold is an identity,
- * or a list whose order is the only thing it carries, changes no behavior when
- * it is deleted.
- */
+/** Reads one repository file as UTF-8 text. */
 const read = (root: string, file: string): string =>
   fs.readFileSync(path.join(root, file), "utf8");
-
-/** A `const NAME: Record<string, string> = { ... }` literal, read from source. */
-export const readStringMap = (
-  root: string,
-  file: string,
-  name: string,
-): Record<string, string> => {
-  const source = read(root, file);
-  const head = `const ${name}: Record<string, string> = {`;
-  const start = source.indexOf(head);
-  assert.notEqual(start, -1, `${file} no longer declares ${name}`);
-  const tail = source.slice(start + head.length);
-  const close = tail.search(/\n[ \t]*\};/);
-  assert.notEqual(close, -1, `${name} in ${file} is not a flat object literal`);
-  const entries = [
-    ...tail.slice(0, close).matchAll(/^\s*"?([\w-]+)"?:\s*"([^"]+)",/gm),
-  ];
-  assert.ok(entries.length > 0, `${name} in ${file} parsed as empty`);
-  return Object.fromEntries(entries.map((match) => [match[1]!, match[2]!]));
-};
-
-/** A `const NAME: readonly string[] = [ ... ]` literal, read from source. */
-export const readStringList = (
-  root: string,
-  file: string,
-  name: string,
-): string[] => {
-  const source = read(root, file);
-  const head = `const ${name}: readonly string[] = [`;
-  const start = source.indexOf(head);
-  assert.notEqual(start, -1, `${file} no longer declares ${name}`);
-  const tail = source.slice(start + head.length);
-  const close = tail.indexOf("];");
-  assert.notEqual(close, -1, `${name} in ${file} is not a flat array literal`);
-  const entries = [...tail.slice(0, close).matchAll(/"([\w-]+)"/g)].map(
-    (match) => match[1]!,
-  );
-  assert.ok(entries.length > 0, `${name} in ${file} parsed as empty`);
-  return entries;
-};
-
-/** An exported `const NAME = "value"` declaration, read from source. */
-export const readStringConstant = (
-  root: string,
-  file: string,
-  name: string,
-): string => {
-  const source = read(root, file);
-  const match = new RegExp(`const ${name} = "([^"]+)"`).exec(source);
-  assert.notEqual(match, null, `${file} no longer declares ${name}`);
-  return match![1]!;
-};
 
 /**
  * A `export type NAME = | "a" | "b"` union, read from source.
  *
- * `TtscGraphDumpEdgeKind` and `TtscGraphDumpNodeKind` are the authoritative
- * lists of what a native dump can carry, and
- * `packages/ttsc/internal/graph/graph_kind_contracts_match_their_producers_test.go`
- * already holds each of them against the Go producer. Deriving either set any
- * other way would add a hand-maintained copy of a machine-checked fact.
+ * `TtscGraphDumpEdgeKind` is the authoritative list of edges a native dump can
+ * carry, so a case that feeds every edge kind through the viewer reads the list
+ * from there rather than keeping a hand-maintained copy.
  */
 export const dumpVocabulary = (
   root: string,

@@ -11,9 +11,7 @@ import { publishArtifacts } from "./publishedArtifacts";
  * The dump schema version this client reads.
  *
  * Keep it equal to `DumpSchemaVersion` in
- * `packages/ttsc/internal/graph/provenance.go`. The two are hand-synchronized,
- * and `dump_schema_version_matches_the_typescript_client_test.go` reads this
- * constant out of this file and fails if the pair drifts.
+ * `packages/ttsc/internal/graph/provenance.go`. The two are hand-synchronized.
  *
  * Exported because the resident session reads the same dump body over the serve
  * protocol and has to hold it to the same number: the envelope's version and

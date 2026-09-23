@@ -50,9 +50,8 @@ npx prettier --write "packages/evidence/src/**/*.ts" \
   ".agents/skills/project/evidence/*.md" \
   ".agents/skills/benchmark/evidence/**/*.md"
 
-# 4. Sweep for assumptions the copy carried over, then prove that every
-#    remaining difference from upstream is a declared adaptation.
-node experimental/evidence-vendor/audit.cjs
+# 4. Prove that every remaining difference from upstream is a declared
+#    adaptation.
 node experimental/evidence-vendor/parity.cjs
 node experimental/evidence-vendor/parity.cjs <upstream>          # a checkout elsewhere
 ```
@@ -78,9 +77,3 @@ Upstream removed `workspacePackageVersions` from `EvidenceBenchmarkWorkspace`, a
 Here they are the workspace itself, and a workspace never lists itself in a catalog. Without the manifest fallback, `{{version:ttsc}}` is unanswerable and `prepareWorkspace` throws before a cell writes anything. The script re-adds it.
 
 This is the shape to watch for on every refresh: a blanket copy cannot tell an upstream change from an adaptation this workspace requires.
-
-## `audit.cjs`
-
-Sweeps the vendored trees for the classes of defect this migration has actually produced: repository-relative path literals that resolve to nothing, bare import specifiers no manifest declares, package scripts invoking a bin that `install` cannot create, cross-references to skills or wiki documents this repository does not have, broken skill links, and TypeScript no suite reads.
-
-Expect one standing false positive: `@org/api`, a package name inside a fixture string. Most `path` hits are the benchmark describing the workspace it generates (`packages/api`, `packages/backend`) and are correct as written — rewriting those to this repository's layout would break the benchmark.

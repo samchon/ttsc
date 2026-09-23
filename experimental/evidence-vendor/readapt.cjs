@@ -554,7 +554,7 @@ for (const m of missing.slice(0, 12)) console.log("   ", m);
 // `benchmark/requirements/**` sends an operator to a path this repository does
 // not have. Anchored edits cannot cover this: upstream restructures these
 // documents, and a file that did not exist on the previous copy carries no
-// anchor. The rewrite is therefore a sweep, and `audit.cjs` re-measures it.
+// anchor. The rewrite is therefore a sweep.
 const SKILL_ASSETS =
   /(?<![\w/-])benchmark\/(aggregate|instructions|output|requirements|src|template)\b/g;
 const ROOTED_DOCS = [

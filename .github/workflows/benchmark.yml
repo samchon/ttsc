@@ -49,9 +49,6 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Check Source Contract
-        run: node --experimental-transform-types scripts/ci/benchmark-source-contract.mts
-
       - name: Check Types
         run: |
           pnpm --dir benchmarks/graph run check

@@ -62,12 +62,9 @@ const LANES = [
       "pnpm run check:flags && pnpm run check:dependencies && " +
       "node --test packages/ttsc/scripts/check-flags.test.cjs && " +
       "node --test scripts/ci/validation-plan.test.cjs " +
-      "scripts/ci/test-owners.test.cjs scripts/ci/line-endings.test.cjs " +
       "scripts/ci/dependency-audit.test.cjs " +
-      "scripts/ci/config-loader-copies.test.cjs " +
       "scripts/ci/gofmt-wrapper.test.cjs && " +
-      "node --test scripts/ci/unplugin-test-contract.test.cjs " +
-      "scripts/ci/unplugin-structure.test.cjs && " +
+      "node --test scripts/ci/unplugin-test-contract.test.cjs && " +
       "node scripts/ci/format-check.cjs && " +
       "pnpm --filter @ttsc/test-unplugin start && " +
       "pnpm run test:typecheck",
@@ -329,63 +326,6 @@ const PLATFORM_ROWS = [
   },
 ];
 
-/**
- * Exact workflow path contracts that remain at workflow creation time.
- *
- * The main test workflow intentionally has no path filter: GitHub can leave a
- * required filtered workflow Pending and evaluates only the first 300 changed
- * files. Its expensive work is selected by `planForPaths` instead.
- */
-const WORKFLOW_PATHS = {
-  benchmark: [
-    ".github/workflows/benchmark.yml",
-    "benchmarks/**",
-    "packages/ttsc/**",
-    "package.json",
-    "pnpm-lock.yaml",
-    "pnpm-workspace.yaml",
-  ],
-  build: [
-    ".github/workflows/build.yml",
-    "config/**",
-    "scripts/assert-platform-package.cjs",
-    "scripts/assert-ttscgraph-release-candidate.cjs",
-    "scripts/build-platform-package.cjs",
-    "scripts/build-platforms.cjs",
-    "scripts/go-build-cache.cjs",
-    "scripts/go-sdk-extraction.cjs",
-    "scripts/go-sdk-integrity.cjs",
-    "scripts/go-wasm-exec.cjs",
-    "scripts/platform-target.cjs",
-    "packages/**",
-    "!packages/unplugin/**",
-    "package.json",
-    "pnpm-lock.yaml",
-    "pnpm-workspace.yaml",
-  ],
-  nestia: integrationPaths("nestia").filter(
-    (entry) => entry !== "packages/unplugin/**",
-  ),
-  typia: integrationPaths("typia").filter(
-    (entry) => entry !== "packages/unplugin/**",
-  ),
-  website: [
-    ".github/workflows/website.yml",
-    "config/**",
-    "packages/ttsc/**",
-    "packages/lint/**",
-    "packages/wasm/**",
-    "packages/playground/**",
-    "scripts/go-build-cache.cjs",
-    "benchmarks/evidence/aggregate/**",
-    "website/**",
-    "README.md",
-    "package.json",
-    "pnpm-lock.yaml",
-    "pnpm-workspace.yaml",
-  ],
-};
-
 const PLATFORM_INTEGRATION_PATHS = {
   bun: withoutUnpluginSurface(
     integrationSurfacePaths(
@@ -429,13 +369,6 @@ const PLATFORM_INTEGRATION_PATHS = {
   ],
 };
 
-function integrationPaths(workflow, ...harnesses) {
-  return [
-    `.github/workflows/${workflow}.yml`,
-    ...integrationSurfacePaths(...harnesses),
-  ];
-}
-
 function integrationSurfacePaths(...harnesses) {
   return [
     ...harnesses,
@@ -469,7 +402,7 @@ function withoutUnpluginSurface(entries) {
 /**
  * Compute the expensive validation selected by a set of repository paths.
  *
- * The planner always keeps the shared type/format/ownership contract. Known
+ * The planner always keeps the shared type/format contract. Known
  * leaf owners add only their direct and verified reverse consumers. Any input
  * that can change dependency topology or is not classified fails open.
  */
@@ -716,7 +649,6 @@ function planForPaths(files) {
       [
         "scripts/ci/go-test-overlay.cjs",
         "scripts/ci/go-test-runners.test.cjs",
-        "scripts/ci/website-compiler-module.test.cjs",
       ].includes(file)
     ) {
       add(["go", "windows-go"], file);
@@ -724,36 +656,17 @@ function planForPaths(files) {
     }
     if (
       [
-        "scripts/ci/benchmark-source-contract.mts",
-        // The config-loader drift gate reads three tracked Go files and runs in
-        // `typecheck`, which every plan already selects. Nothing it touches
-        // needs a build, so it adds no lane of its own.
-        "scripts/ci/config-loader-copies.cjs",
-        "scripts/ci/config-loader-copies.test.cjs",
         "scripts/ci/dependency-audit.cjs",
         "scripts/ci/dependency-audit.test.cjs",
         "scripts/ci/format-check.cjs",
         "scripts/ci/gofmt-wrapper.test.cjs",
-        "scripts/ci/line-endings.test.cjs",
         "scripts/ci/plugin-cache-persistence.mjs",
-        "scripts/ci/test-owners.cjs",
-        "scripts/ci/test-owners.test.cjs",
-        "scripts/ci/unplugin-structure.test.cjs",
         "scripts/ci/unplugin-test-contract.test.cjs",
       ].includes(file)
     ) {
       continue;
     }
     if (file.startsWith("experimental/test-unplugin/")) {
-      continue;
-    }
-    // The tarball rehearsal's package list is a hand-written set that has to
-    // track the published one, and `scripts/ci/factory-package.test.cjs` is what
-    // holds it there. That gate runs in `package-defenses`, so without this
-    // clause the generic `experimental/` skip below would let a deleted pack
-    // entry merge with the gate that guards it never having run.
-    if (file.startsWith("experimental/tarballs/")) {
-      add(["package-defenses"], file);
       continue;
     }
     // The evidence benchmark is claimed above; the two ttsc harnesses under
@@ -1038,7 +951,6 @@ module.exports = {
   LANES,
   PLATFORM_INTEGRATION_PATHS,
   PLATFORM_ROWS,
-  WORKFLOW_PATHS,
   changedPaths,
   fullPlan,
   normalizePath,

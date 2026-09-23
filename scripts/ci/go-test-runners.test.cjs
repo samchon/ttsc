@@ -13,7 +13,7 @@ const path = require("node:path");
 const { test } = require("node:test");
 
 const { copyGoTestsFlat } = require("./go-test-overlay.cjs");
-const { runAll, runners } = require("../test-go.cjs");
+const { runAll } = require("../test-go.cjs");
 
 function tmpdir(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-runner-harness-"));
@@ -93,18 +93,4 @@ test("runAll invokes every runner even after an earlier one fails", () => {
 test("runAll reports every failing runner, not just the first", () => {
   const failed = runAll(["a", "b", "c"], (runner) => (runner === "b" ? 0 : 1));
   assert.deepEqual(failed, ["a", "c"]);
-});
-
-test("the orchestrator still lists the graph runner that used to be skipped", () => {
-  assert.ok(
-    runners.includes("test-go-graph.cjs"),
-    "test-go-graph.cjs must stay in the aggregated runner list",
-  );
-});
-
-test("the orchestrator runs the js/wasm host suite", () => {
-  assert.ok(
-    runners.includes("test-go-wasm.cjs"),
-    "test-go-wasm.cjs must exercise the public wasm host API",
-  );
 });

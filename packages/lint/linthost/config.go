@@ -4562,11 +4562,8 @@ func typeScriptConfigLoaderTsconfig(loader, location, outDir string) string {
 // packages/banner/driver/banner.go and packages/strip/driver/config.go. #1169
 // decided against extracting it — the only home the three modules could share
 // is the public `packages/ttsc/driver` seam, and packages/lint's go.mod
-// deliberately requires no in-tree ttsc module — and replaced the checklist
-// with a gate: `scripts/ci/config-loader-copies.cjs` compares every function
-// between these markers across all three copies on every pull request, so
-// editing one and not the others fails by name. That file's header carries the
-// full decision and the rules for changing this block.
+// deliberately requires no in-tree ttsc module — so a change to one copy must
+// be made to all three.
 //
 // The code between the markers must stay identical. Comments may differ, the
 // `@ttsc/<pkg>:` error prefix may differ, and @ttsc/strip spells each name with

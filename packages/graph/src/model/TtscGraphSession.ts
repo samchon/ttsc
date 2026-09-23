@@ -20,9 +20,7 @@ import {
  * The serve protocol version this client speaks.
  *
  * Keep it equal to `serveProtocolVersion` in
- * `packages/ttsc/cmd/ttscgraph/serve.go`. The two are hand-synchronized, and
- * `serve_protocol_version_matches_the_typescript_client_test.go` reads this
- * constant out of this file and fails if the pair drifts.
+ * `packages/ttsc/cmd/ttscgraph/serve.go`. The two are hand-synchronized.
  */
 const PROTOCOL_VERSION = 1;
 const GRAPH_SNAPSHOT_PROTOCOL_VERSION = 1;

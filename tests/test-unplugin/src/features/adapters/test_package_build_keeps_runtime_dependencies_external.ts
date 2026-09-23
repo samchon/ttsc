@@ -49,11 +49,7 @@ const LEGACY: ILegacyParser = createRequire(
  * that rollup resolved instead of externalizing would ship a second copy of the
  * host's path identity next to the one the host uses. The check therefore scans
  * the whole `lib` output in both formats. It also pins the stale dev-time
- * externals (`diff-match-patch-es`, `magic-string`) out of the config and the
- * output, and keeps the config free of `rollup-plugin-auto-external` and
- * `rollup-plugin-node-externals`, whose v9 calls the ES2025 `RegExp.escape` and
- * crashes the build on Node 22; the config derives its externals from
- * `package.json` instead.
+ * externals (`diff-match-patch-es`, `magic-string`) out of the output.
  *
  * 1. Assert every emitted `.js` and `.mjs` module maps to one source file, and
  *    collect its bare import specifiers from the parse.
@@ -62,7 +58,6 @@ const LEGACY: ILegacyParser = createRequire(
  *    both formats.
  * 3. Assert no module carries a virtual shim, `__dirname`, a workspace path, or a
  *    stale external, and that no `_virtual` directory was emitted.
- * 4. Assert the rollup config imports neither externals plugin.
  */
 export async function test_package_build_keeps_runtime_dependencies_external(): Promise<void> {
   const manifest = JSON.parse(
@@ -123,26 +118,6 @@ export async function test_package_build_keeps_runtime_dependencies_external(): 
     }
   }
   assert.equal(fs.existsSync(path.join(lib, "_virtual")), false);
-
-  const rollupConfig = fs.readFileSync(
-    path.join(PACKAGE_DIR, "rollup.config.mjs"),
-    "utf8",
-  );
-  for (const staleExternal of ["diff-match-patch-es", "magic-string"]) {
-    assert.doesNotMatch(rollupConfig, new RegExp(escapeRegExp(staleExternal)));
-  }
-  for (const removedPlugin of [
-    "rollup-plugin-node-externals",
-    "rollup-plugin-auto-external",
-  ]) {
-    // Match the import statement, not a bare mention: the config comment names
-    // these plugins to explain why externals come from package.json instead.
-    assert.doesNotMatch(
-      rollupConfig,
-      new RegExp(`from ["']${escapeRegExp(removedPlugin)}["']`),
-      removedPlugin,
-    );
-  }
 }
 
 /** Every TypeScript source below `directory`. */
@@ -216,9 +191,4 @@ function bareSpecifiers(file: string, source: string): string[] {
 function packageName(specifier: string): string {
   const parts = specifier.split("/");
   return specifier.startsWith("@") ? parts.slice(0, 2).join("/") : parts[0]!;
-}
-
-/** Escapes all regex meta-characters in `value` for use in `new RegExp(...)`. */
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

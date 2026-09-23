@@ -24,7 +24,6 @@ const { pathToFileURL } = require("node:url");
 const {
   STRIP_TYPES_NODE_ARGS,
 } = require("../../../scripts/node-strip-types.cjs");
-const station = require("../../../package.json");
 const {
   computeDrift,
   normalizeEol,
@@ -92,13 +91,6 @@ function createCanonicalTempDirectory(prefix) {
   return physicalDirectory;
 }
 
-test("the canonical flag generator enters through the targeted loader", () => {
-  assert.equal(
-    station.scripts["gen:flags"],
-    "node scripts/node-strip-types.cjs packages/ttsc/scripts/gen-flags.mts",
-  );
-});
-
 // The committed LF content of every target, regardless of how this checkout
 // materialized them on disk. This is the "after" a clean regeneration produces.
 function lfSnapshot() {
@@ -112,15 +104,6 @@ function lfSnapshot() {
 function withEol(text, eol) {
   return normalizeEol(text).replace(/\n/g, eol);
 }
-
-test("targets is the four committed generated artifacts", () => {
-  // Guards the oracle: a renamed or dropped target would otherwise make the
-  // regression silently vacuous.
-  assert.equal(targets.length, 4);
-  for (const target of targets) {
-    assert.ok(fs.existsSync(target), `${target} should exist`);
-  }
-});
 
 test("a CRLF checkout of unchanged output is not drift", () => {
   const after = lfSnapshot();

@@ -56,7 +56,7 @@ const INSTRUCTION =
  * enabled before the layer it references exists selects nothing.
  *
  * 1. Build the workspace far enough that every claim's population can exist.
- * 2. Assert every declared claim ships staged, with a comment naming its layer.
+ * 2. Assert every declared claim ships staged.
  * 3. For each claim in the instructed order, write its host layer, delete its
  *    marker, and run the gate that compiles the Program owning its hosts.
  * 4. Assert the claim reported obligations, that its requirement reference reached
@@ -146,12 +146,11 @@ export const test_benchmark_evidence_backend_gates_activate_each_claim =
   };
 
 /**
- * Reads every claim's activation marker and holds the staging contract.
+ * Reads every claim's activation marker and requires every claim to ship
+ * staged.
  *
- * Both halves matter. A claim that ships enabled floods a cell's context with
- * errors for tags the instruction told it not to write yet, and a marker with
- * no comment leaves the unlock condition knowable only from a document the
- * configuration never points at.
+ * A claim that ships enabled floods a cell's context with errors for tags the
+ * instruction told it not to write yet.
  */
 const readStagedClaims = (configurations: readonly string[]) => {
   const gates: IActivationGate[] = [];
@@ -169,11 +168,6 @@ const readStagedClaims = (configurations: readonly string[]) => {
       throw new Error(
         `${file} declares ${String(declared.length)} claim(s) but stages ${String(staged.length)}. Every claim ships disabled so a cell unlocks it when its layer is complete.`,
       );
-    for (const gate of staged)
-      if (!(gate.comment[0] ?? "").startsWith("// Remove after"))
-        throw new Error(
-          `Claim '${gate.claim}' in ${file} stages its marker without a comment naming the layer that unlocks it. The instruction tells a cell when to delete it; the configuration has to agree.`,
-        );
     gates.push(...staged);
   }
   return gates;

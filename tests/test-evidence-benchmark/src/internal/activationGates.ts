@@ -7,16 +7,6 @@ export interface IActivationGate {
 
   /** Absolute path of the configuration that declares it. */
   readonly file: string;
-
-  /**
-   * The comment run directly above the marker.
-   *
-   * The Evidence arm's instructions tell a cell to delete `disabled` once a
-   * named layer is complete, and this comment is where the configuration says
-   * which layer that is. A marker without one would leave the unlock condition
-   * knowable only from the instruction file.
-   */
-  readonly comment: readonly string[];
 }
 
 /**
@@ -83,11 +73,7 @@ export const readActivationGates = (file: string): IActivationGate[] => {
       throw new Error(
         `${file} declares a disabled marker at line ${index + 1} that belongs to no named claim.`,
       );
-    gates.push({
-      claim,
-      file,
-      comment: commentRunAbove(source, index),
-    });
+    gates.push({ claim, file });
   }
   return gates;
 };

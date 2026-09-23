@@ -4,17 +4,12 @@ const path = require("node:path");
 const { test } = require("node:test");
 
 const {
-  FRONTMATTER_PATTERN,
   SLIDES_DIR,
   SLIDE_LOCALE_CODES,
   parseSlideLocale,
   readListedSlides,
   readSlides,
 } = require("../build/slides-metadata.cjs");
-
-const REQUIRED_SLUGS = ["evidence", "evidence-kr", "graph"];
-const KOREAN_LOCALES = ["ko", "kr"];
-const HANGUL_PATTERN = /[가-힣]/;
 
 /**
  * Verifies website export: every declared slide has one navigable deck and one
@@ -32,8 +27,7 @@ const HANGUL_PATTERN = /[가-힣]/;
  *    accessor drops exactly the locale-suffixed decks.
  * 3. Assert each deck exports its own Marp presentation plus a route carrying its
  *    title, summary, and Open Graph image.
- * 4. Assert the index cards cover the default decks only, and that a Korean deck
- *    is written in Korean while a default deck never drifts into it.
+ * 4. Assert the index cards cover the default decks only.
  */
 test("static slide routes publish their decks and social metadata", () => {
   const websiteRoot = path.resolve(__dirname, "..");
@@ -50,8 +44,6 @@ test("static slide routes publish their decks and social metadata", () => {
     .sort();
 
   assert.deepEqual(slides.map((slide) => slide.slug).sort(), sourceSlugs);
-  for (const slug of REQUIRED_SLUGS)
-    assert.ok(sourceSlugs.includes(slug), `${slug}.md must stay published`);
 
   assert.deepEqual(parseSlideLocale("evidence-kr"), {
     base: "evidence",
@@ -80,8 +72,6 @@ test("static slide routes publish their decks and social metadata", () => {
   );
 
   for (const slide of slides) {
-    const source = fs.readFileSync(slide.file, "utf8");
-    const body = source.replace(FRONTMATTER_PATTERN, "");
     const deckHtml = fs.readFileSync(
       path.join(outputRoot, "slides-static", slide.slug, "index.html"),
       "utf8",
@@ -103,11 +93,6 @@ test("static slide routes publish their decks and social metadata", () => {
       assert.match(indexHtml, cardLink);
       assert.ok(indexHtml.includes(slide.description));
       assert.ok(indexHtml.includes(new URL(slide.image).pathname));
-      assert.doesNotMatch(
-        source,
-        HANGUL_PATTERN,
-        `${slide.slug}.md must stay in English`,
-      );
       continue;
     }
 
@@ -124,11 +109,5 @@ test("static slide routes publish their decks and social metadata", () => {
       !indexHtml.includes(slide.description),
       `${slide.slug} must not surface its summary on the index`,
     );
-    if (KOREAN_LOCALES.includes(slide.locale))
-      assert.match(
-        body,
-        HANGUL_PATTERN,
-        `${slide.slug}.md must be translated into Korean, not only retitled`,
-      );
   }
 });

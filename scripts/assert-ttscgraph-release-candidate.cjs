@@ -127,9 +127,8 @@ console.log(
 //
 // The source rather than the build, because this script runs against a packaged
 // binary in a workflow that has no reason to have built the TypeScript package
-// first. `DUMP_SCHEMA_VERSION` is exported from that module and is the same
-// constant `dump_schema_version_matches_the_typescript_client_test.go` holds the
-// Go producer to, so reading it here puts all three on one number.
+// first. `DUMP_SCHEMA_VERSION` is exported from that module, so reading it
+// here holds the packaged binary to the number the TypeScript client expects.
 function readDumpSchemaVersion() {
   const source = path.join(
     root,

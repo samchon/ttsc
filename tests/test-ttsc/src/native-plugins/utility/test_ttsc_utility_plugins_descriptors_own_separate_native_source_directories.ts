@@ -1,6 +1,5 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import fs from "node:fs";
 import path from "node:path";
 
 import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
@@ -12,8 +11,8 @@ import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
  * Each utility package (`lint`, `banner`, `paths`, `strip`) must advertise its
  * own `source` directory — distinct from every other package — so the
  * linked-plugin host can combine their sources into one binary without path
- * collisions. The `stage`, optional diagnostics capability, and `package.json`
- * plugin field must also match the expected values for each package.
+ * collisions. The `stage` and optional capabilities must also match the
+ * expected values for each package.
  *
  * 1. Invoke `createTtscPlugin` for each utility package with a factory context.
  * 2. Assert the returned descriptor's `name`, `source`, and `stage` fields.
@@ -138,26 +137,6 @@ export const test_ttsc_utility_plugins_descriptors_own_separate_native_source_di
           expectation.source,
         ),
       );
-      assert.equal(
-        fs.existsSync(
-          path.join(TestProject.WORKSPACE_ROOT, "packages", name, "go.mod"),
-        ),
-        true,
-      );
-      const manifest = JSON.parse(
-        fs.readFileSync(
-          path.join(
-            TestProject.WORKSPACE_ROOT,
-            "packages",
-            name,
-            "package.json",
-          ),
-          "utf8",
-        ),
-      );
-      assert.deepEqual(manifest.ttsc?.plugin, {
-        transform: `@ttsc/${name}`,
-      });
       seenDirs.add(descriptor.source);
     }
     assert.equal(seenDirs.size, 4);

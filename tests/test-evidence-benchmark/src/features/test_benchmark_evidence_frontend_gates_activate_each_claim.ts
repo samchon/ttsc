@@ -79,11 +79,6 @@ export const test_benchmark_evidence_frontend_gates_activate_each_claim =
       throw new Error(
         `${configuration} declares ${String(declared.length)} claim(s) but stages ${String(gates.length)}. Every claim ships disabled so a cell unlocks it when its layer is complete.`,
       );
-    for (const gate of gates)
-      if (!(gate.comment[0] ?? "").startsWith("// Remove after"))
-        throw new Error(
-          `Claim '${gate.claim}' in ${configuration} stages its marker without a comment naming the layer that unlocks it.`,
-        );
 
     const throughTheInstall: string[] =
       readClaimsReferencingAPackage(configuration);

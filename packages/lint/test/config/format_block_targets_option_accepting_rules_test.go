@@ -1,6 +1,7 @@
 package linthost
 
 import (
+  "sort"
   "testing"
 )
 
@@ -47,4 +48,38 @@ func TestFormatBlockTargetsOptionAcceptingRules(t *testing.T) {
     }
   }
   assertSameRuleNameSet(t, "registered format rules", registeredFormat, "generated format payloads", generated)
+}
+
+func assertSameRuleNameSet(
+  t *testing.T,
+  leftLabel string,
+  left map[string]struct{},
+  rightLabel string,
+  right map[string]struct{},
+) {
+  t.Helper()
+  var onlyLeft, onlyRight []string
+  for name := range left {
+    if _, ok := right[name]; !ok {
+      onlyLeft = append(onlyLeft, name)
+    }
+  }
+  for name := range right {
+    if _, ok := left[name]; !ok {
+      onlyRight = append(onlyRight, name)
+    }
+  }
+  sort.Strings(onlyLeft)
+  sort.Strings(onlyRight)
+  if len(onlyLeft) > 0 || len(onlyRight) > 0 {
+    t.Fatalf(
+      "%s and %s differ: only %s=%v; only %s=%v",
+      leftLabel,
+      rightLabel,
+      leftLabel,
+      onlyLeft,
+      rightLabel,
+      onlyRight,
+    )
+  }
 }

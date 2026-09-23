@@ -34,7 +34,7 @@ Each executable imports exactly one owning symbol and calls its `main()`:
 - `src/executable/merge.ts` → `TtscBenchmarkPerformanceWebsiteMerger`.
 - `src/executable/tsconfig-files.ts` → `TtscBenchmarkPerformanceTypeScriptFileSelector`.
 
-Validate the package with `pnpm --dir benchmarks/performance run check` for strict types, and `node --experimental-transform-types scripts/ci/benchmark-source-contract.mts` from the repository root for the source contract.
+Validate the package with `pnpm --dir benchmarks/performance run check` for strict types.
 
 The first run packs the local `ttsc` workspace into tarballs, clones each fixture's three branches into `.work/`, installs the tarballs, runs `ttsc prepare`, then measures the matrix sequentially. Subsequent runs reuse the clones.
 

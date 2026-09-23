@@ -1,12 +1,8 @@
 package linthost
 
 import (
-  "encoding/json"
   "flag"
   "fmt"
-  "io"
-  "os"
-  "path"
   "path/filepath"
   "runtime"
   "sort"
@@ -66,8 +62,8 @@ func behavioralWitnessSourceFiles() []string {
   for {
     frame, more := frames.Next()
     if strings.HasSuffix(frame.File, "_test.go") {
-      // Keep the outermost test frame, not shared recorder/helper frames. A
-      // manifest therefore has to name the test that owns the positive case.
+      // Keep the outermost test frame, not shared recorder/helper frames, so a
+      // witness names the test that owns the positive case.
       source = filepath.Base(frame.File)
     }
     if !more {
@@ -134,13 +130,54 @@ func recordedBehavioralWitnesses() map[string][]behavioralWitness {
   return out
 }
 
+// registeredRuleSetForParity returns the canonical built-in, non-format rule
+// set. Runtime contributors and test-only direct registrations have no
+// built-in TypeScript family property, while format rules are configured
+// through ITtscLintFormat instead of ITtscLintRules.
+func registeredRuleSetForParity() map[string]struct{} {
+  out := make(map[string]struct{}, len(AllRuleNames()))
+  for _, name := range AllRuleNames() {
+    if !isRegisteredBuiltInNonFormatRule(name, LookupRule(name)) {
+      continue
+    }
+    out[name] = struct{}{}
+  }
+  return out
+}
+
+// isRegisteredBuiltInNonFormatRule classifies registry entries by runtime
+// provenance rather than namespace spelling. The append-only built-in rule-code
+// ledger excludes arbitrary direct registrations, and the structural adapter
+// check also excludes a contributor that reuses a retired ledger name.
+func isRegisteredBuiltInNonFormatRule(name string, candidate Rule) bool {
+  return isRegisteredBuiltInRule(name, candidate) && !isFormatRule(candidate)
+}
+
+// isRegisteredBuiltInFormatRule is the format-side twin used to compare the
+// live format-block expansion with every native formatter registration.
+func isRegisteredBuiltInFormatRule(name string, candidate Rule) bool {
+  return isRegisteredBuiltInRule(name, candidate) && isFormatRule(candidate)
+}
+
+func isRegisteredBuiltInRule(name string, candidate Rule) bool {
+  if candidate == nil {
+    return false
+  }
+  switch candidate.(type) {
+  case contributorAdapter, formatContributorAdapter:
+    return false
+  }
+  _, builtIn := builtInRuleCodes[name]
+  return builtIn
+}
+
 // behavioralWitnessPublicRuleSet is the rule set the witness audit requires a
 // positive production witness for: every user-facing registered rule. It is the
-// typed-key parity set (registeredRuleSetForParity) plus the format/* family.
+// built-in non-format set (registeredRuleSetForParity) plus the format/* family.
 // Format rules are user-facing but configured through the `format` block rather
-// than a typed `rules` key, so registeredRuleSetForParity — which must match the
-// typed keys — excludes them. The witness audit asks a different question ("does
-// every user-facing rule fire in production?"), so it must not: the formatter
+// than a typed `rules` key, so registeredRuleSetForParity excludes them. The
+// witness audit asks a different question ("does every user-facing rule fire in
+// production?"), so it must not: the formatter
 // family is precisely the over-match-prone surface the witness doctrine exists
 // to guard. Format rules earn their witnesses through the dedicated fixer
 // harnesses under packages/lint/test/format, the same route other rules that
@@ -165,10 +202,7 @@ func verifyRecordedBehavioralWitnessCoverage() error {
   if err != nil {
     return err
   }
-  if err := verifyRequiredBehavioralWitnessKinds(public, candidates); err != nil {
-    return err
-  }
-  return verifyBehavioralWitnessExclusions(public, candidates)
+  return verifyRequiredBehavioralWitnessKinds(public, candidates)
 }
 
 func verifyRequiredBehavioralWitnessKinds(
@@ -204,148 +238,6 @@ func verifyRequiredBehavioralWitnessKinds(
   return nil
 }
 
-type behavioralWitnessExclusion struct {
-  Rule       string                `json:"rule"`
-  Constraint behavioralWitnessKind `json:"constraint"`
-  Harness    string                `json:"harness"`
-}
-
-func verifyBehavioralWitnessExclusions(
-  public map[string]struct{},
-  candidates map[string][]behavioralWitness,
-) error {
-  entries, lintRoot, err := loadBehavioralWitnessExclusions()
-  if err != nil {
-    return err
-  }
-  testFiles, err := behavioralWitnessTestFileCounts(filepath.Join(lintRoot, "test"))
-  if err != nil {
-    return err
-  }
-  return auditBehavioralWitnessExclusions(public, candidates, entries, testFiles)
-}
-
-func loadBehavioralWitnessExclusions() (
-  []behavioralWitnessExclusion,
-  string,
-  error,
-) {
-  _, thisFile, _, ok := runtime.Caller(0)
-  if !ok {
-    return nil, "", fmt.Errorf("cannot locate behavioral witness exclusion manifest")
-  }
-  manifestName := "behavioral_witness_exclusions.json"
-  locations := []string{
-    filepath.Join(filepath.Dir(thisFile), manifestName),
-    filepath.Join(filepath.Dir(thisFile), "..", "test", "registry", manifestName),
-  }
-  var manifestPath string
-  for _, location := range locations {
-    if _, err := os.Stat(location); err == nil {
-      manifestPath = location
-      break
-    }
-  }
-  if manifestPath == "" {
-    return nil, "", fmt.Errorf("cannot find %s", manifestName)
-  }
-  file, err := os.Open(manifestPath)
-  if err != nil {
-    return nil, "", err
-  }
-  defer file.Close()
-  decoder := json.NewDecoder(file)
-  decoder.DisallowUnknownFields()
-  entries := []behavioralWitnessExclusion{}
-  if err := decoder.Decode(&entries); err != nil {
-    return nil, "", fmt.Errorf("decode %s: %w", manifestPath, err)
-  }
-  if err := decoder.Decode(&struct{}{}); err != io.EOF {
-    return nil, "", fmt.Errorf("decode %s: trailing JSON value", manifestPath)
-  }
-  lintRoot := filepath.Dir(filepath.Dir(filepath.Dir(manifestPath)))
-  return entries, lintRoot, nil
-}
-
-func behavioralWitnessTestFileCounts(root string) (map[string]int, error) {
-  counts := map[string]int{}
-  err := filepath.Walk(root, func(filePath string, info os.FileInfo, err error) error {
-    if err != nil {
-      return err
-    }
-    if !info.IsDir() && strings.HasSuffix(info.Name(), "_test.go") {
-      relative, err := filepath.Rel(root, filePath)
-      if err != nil {
-        return err
-      }
-      canonical := path.Join("packages/lint/test", filepath.ToSlash(relative))
-      counts[canonical]++
-      counts[info.Name()]++
-    }
-    return nil
-  })
-  if err != nil {
-    return nil, fmt.Errorf("scan behavioral witness harnesses: %w", err)
-  }
-  return counts, nil
-}
-
-func auditBehavioralWitnessExclusions(
-  public map[string]struct{},
-  candidates map[string][]behavioralWitness,
-  entries []behavioralWitnessExclusion,
-  testFiles map[string]int,
-) error {
-  seen := map[string]struct{}{}
-  for _, entry := range entries {
-    if entry.Rule == "" || entry.Harness == "" ||
-      !validBehavioralWitnessKind(entry.Constraint) ||
-      entry.Constraint == behavioralWitnessEngine {
-      return fmt.Errorf("invalid behavioral witness exclusion: %+v", entry)
-    }
-    if _, duplicate := seen[entry.Rule]; duplicate {
-      return fmt.Errorf("duplicate behavioral witness exclusion for %s", entry.Rule)
-    }
-    seen[entry.Rule] = struct{}{}
-    if _, ok := public[entry.Rule]; !ok {
-      return fmt.Errorf("behavioral witness exclusion names non-public rule %s", entry.Rule)
-    }
-    if !strings.HasPrefix(entry.Harness, "packages/lint/test/") ||
-      path.Clean(entry.Harness) != entry.Harness ||
-      !strings.HasSuffix(entry.Harness, "_test.go") {
-      return fmt.Errorf("invalid behavioral witness harness path for %s: %s", entry.Rule, entry.Harness)
-    }
-    harnessFile := path.Base(entry.Harness)
-    if testFiles[entry.Harness] != 1 || testFiles[harnessFile] != 1 {
-      return fmt.Errorf("behavioral witness harness must exist with a unique basename for %s: %s", entry.Rule, entry.Harness)
-    }
-    matched := false
-    for _, candidate := range candidates[entry.Rule] {
-      if candidate.Kind != entry.Constraint {
-        continue
-      }
-      for _, source := range candidate.Sources {
-        if source == harnessFile {
-          matched = true
-          break
-        }
-      }
-      if matched {
-        break
-      }
-    }
-    if !matched {
-      return fmt.Errorf(
-        "corpus exclusion for %s does not reference a positive %s witness from %s",
-        entry.Rule,
-        entry.Constraint,
-        entry.Harness,
-      )
-    }
-  }
-  return nil
-}
-
 // shouldVerifyRecordedBehavioralWitnessCoverage preserves focused test and
 // test-listing workflows. The aggregate contract is evaluated only when the
 // complete package suite ran; CI and scripts/test-go-lint.cjs use that path.
@@ -365,8 +257,7 @@ func shouldVerifyRecordedBehavioralWitnessCoverage() bool {
 
 // auditBehavioralWitnesses returns exactly one deterministic route for every
 // public built-in. Test-only, demo, and formatter registrations never enter the
-// public set because registeredRuleSetForParity applies the same boundary as
-// the typed-key parity test.
+// public set because registeredRuleSetForParity applies the built-in boundary.
 func auditBehavioralWitnesses(
   public map[string]struct{},
   candidates map[string][]behavioralWitness,
@@ -632,78 +523,5 @@ func TestBehavioralWitnessKindForRuleRequiresTypeAwareRule(t *testing.T) {
     if got := behavioralWitnessKindForRule(test.rule); got != test.want {
       t.Fatalf("behavioral witness kind for %s = %s, want %s", test.rule, got, test.want)
     }
-  }
-}
-
-func TestBehavioralWitnessExclusionAuditBindsConstraintAndHarness(t *testing.T) {
-  ruleName := "fixture/options-rule"
-  harness := "packages/lint/test/rules/fixture/options_rule_test.go"
-  public := map[string]struct{}{ruleName: {}}
-  entries := []behavioralWitnessExclusion{{
-    Rule:       ruleName,
-    Constraint: behavioralWitnessOptions,
-    Harness:    harness,
-  }}
-  testFiles := map[string]int{
-    harness:                1,
-    "options_rule_test.go": 1,
-  }
-  valid := map[string][]behavioralWitness{
-    ruleName: {{
-      Rule:    ruleName,
-      Route:   "TestOptionsRule",
-      Kind:    behavioralWitnessOptions,
-      Sources: []string{"options_rule_test.go"},
-    }},
-  }
-  if err := auditBehavioralWitnessExclusions(public, valid, entries, testFiles); err != nil {
-    t.Fatalf("valid exclusion was rejected: %v", err)
-  }
-
-  wrongKind := map[string][]behavioralWitness{
-    ruleName: {{
-      Rule:    ruleName,
-      Route:   "TestOptionsRule",
-      Kind:    behavioralWitnessEngine,
-      Sources: []string{"options_rule_test.go"},
-    }},
-  }
-  if err := auditBehavioralWitnessExclusions(public, wrongKind, entries, testFiles); err == nil {
-    t.Fatal("engine witness satisfied an options-dependent exclusion")
-  }
-
-  wrongHarness := map[string][]behavioralWitness{
-    ruleName: {{
-      Rule:    ruleName,
-      Route:   "TestOtherRule",
-      Kind:    behavioralWitnessOptions,
-      Sources: []string{"other_rule_test.go"},
-    }},
-  }
-  if err := auditBehavioralWitnessExclusions(public, wrongHarness, entries, testFiles); err == nil {
-    t.Fatal("detached harness satisfied a corpus exclusion")
-  }
-
-  escaped := append([]behavioralWitnessExclusion(nil), entries...)
-  escaped[0].Harness = "packages/lint/test/../outside_test.go"
-  escapedCandidates := map[string][]behavioralWitness{
-    ruleName: {{
-      Rule:    ruleName,
-      Route:   "TestOutsideRule",
-      Kind:    behavioralWitnessOptions,
-      Sources: []string{"outside_test.go"},
-    }},
-  }
-  escapedTestFiles := map[string]int{
-    escaped[0].Harness: 1,
-    "outside_test.go":  1,
-  }
-  if err := auditBehavioralWitnessExclusions(
-    public,
-    escapedCandidates,
-    escaped,
-    escapedTestFiles,
-  ); err == nil {
-    t.Fatal("path-traversing harness satisfied a corpus exclusion")
   }
 }

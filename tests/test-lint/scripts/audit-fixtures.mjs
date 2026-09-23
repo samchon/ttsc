@@ -10,13 +10,12 @@ const pkgRoot = path.join(here, "..");
 process.chdir(pkgRoot);
 
 // Use the same strict discovery contract as the partitioned corpus runner.
-const { assertLintCase, listLintCases, validateCorpusSkipManifestCoverage } =
-  await import(
-    pathToFileURL(path.join(pkgRoot, "src", "helpers", "assertLintCase.ts"))
-  );
+const { assertLintCase, listLintCases, validateCorpusSkips } = await import(
+  pathToFileURL(path.join(pkgRoot, "src", "helpers", "assertLintCase.ts"))
+);
 
 const cases = listLintCases();
-validateCorpusSkipManifestCoverage(cases);
+validateCorpusSkips(cases);
 
 let pass = 0;
 const failures = [];

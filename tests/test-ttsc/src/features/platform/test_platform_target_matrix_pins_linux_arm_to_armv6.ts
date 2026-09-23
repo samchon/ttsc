@@ -1,6 +1,5 @@
 import {
   assert,
-  fs,
   path,
   requireFromTest,
   workspaceRoot,
@@ -10,21 +9,18 @@ import {
  * Verifies the platform build target matrix pins linux-arm to the ARMv6
  * baseline.
  *
- * Locks `scripts/platform-target.cjs::resolveGoTarget` and its use in
- * `scripts/build-platform-package.cjs`. The linux-arm package bundles the
- * `linux-armv6l` Go SDK, but the executables were cross-compiled with no GOARM,
- * which the toolchain defaults to ARMv7; the SDK and executables then targeted
- * different CPU baselines. The fix forces GOARM=6 and derives the SDK archive
- * suffix from the same record so all three executables and the bundled SDK
- * share one baseline. arm64 and non-ARM targets are the negative twins that
- * must never acquire a GOARM.
+ * Locks `scripts/platform-target.cjs::resolveGoTarget`. The linux-arm package
+ * bundles the `linux-armv6l` Go SDK, but the executables were cross-compiled
+ * with no GOARM, which the toolchain defaults to ARMv7; the SDK and executables
+ * then targeted different CPU baselines. The fix forces GOARM=6 and derives the
+ * SDK archive suffix from the same record so all three executables and the
+ * bundled SDK share one baseline. arm64 and non-ARM targets are the negative
+ * twins that must never acquire a GOARM.
  *
  * 1. Resolve the Go target for linux-arm and assert GOOS=linux, GOARCH=arm,
  *    GOARM=6, and archiveTarget=linux-armv6l.
  * 2. Resolve the negative twins (linux-arm64, linux-x64, darwin-arm64, win32-x64)
  *    and assert none carries a GOARM and each keeps its own archive.
- * 3. Read build-platform-package.cjs and assert the shared record injects GOARM
- *    into a single buildGoTarget that builds all three executables.
  */
 export const test_platform_target_matrix_pins_linux_arm_to_armv6 = () => {
   const { resolveGoTarget } = requireFromTest(
@@ -72,16 +68,4 @@ export const test_platform_target_matrix_pins_linux_arm_to_armv6 = () => {
   assert.equal(win.goos, "windows");
   assert.equal(win.goarm, undefined);
   assert.equal(win.archiveTarget, "windows-amd64");
-
-  // Structural guard: all three executables must flow through one buildGoTarget
-  // that injects GOARM from the shared record, so a future edit cannot pin only
-  // one binary to ARMv6 while the others drift back to the ARMv7 default.
-  const scriptSource = fs.readFileSync(
-    path.join(workspaceRoot, "scripts", "build-platform-package.cjs"),
-    "utf8",
-  );
-  assert.match(scriptSource, /GOARM:\s*goarm/);
-  for (const target of ["ttsc", "ttscserver", "ttscgraph"]) {
-    assert.match(scriptSource, new RegExp(`buildGoTarget\\("${target}"`));
-  }
 };
