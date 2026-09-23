@@ -72,7 +72,7 @@ export async function test_watch_broker_reports_a_real_macos_root_change_as_a_ga
       (message) => message.id === 1 && message.gap === true,
       "a gap for the moved root",
     );
-    fs.renameSync(watched, path.join(parent, "moved"));
+    await TestProject.rename(watched, path.join(parent, "moved"));
     await gap;
   } finally {
     if (child.connected) child.disconnect();

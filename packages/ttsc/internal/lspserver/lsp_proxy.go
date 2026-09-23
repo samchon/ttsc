@@ -170,6 +170,14 @@ type Proxy struct {
   projectInputWatchDynamic     bool
   projectInputWatchRelative    bool
 
+  // diagnosticsMu guards the diagnostics and document state below, and is
+  // never held across a frame write. A writer that decides a frame from this
+  // state holds writeMu across the decision and the write, which keeps frames
+  // in the order their decisions were made, and releases diagnosticsMu before
+  // the write blocks on an editor that is not reading yet: the editor pump
+  // takes diagnosticsMu for every document notification before it forwards
+  // the notification upstream, and must never wait on a publication
+  // (samchon/ttsc#1441).
   diagnosticsMu               sync.Mutex
   upstreamDiagnostics         map[string]cachedDiagnostics
   pluginDiagnostics           map[string]cachedDiagnostics
@@ -1358,9 +1366,9 @@ func (p *Proxy) writePublishDiagnosticsIfCurrent(uri string, version *int, diagn
   p.writeMu.Lock()
   defer p.writeMu.Unlock()
   p.diagnosticsMu.Lock()
-  defer p.diagnosticsMu.Unlock()
   _, dirty := p.dirtyDocuments[uri]
   current := p.diagnosticGeneration[uri] == generation && !dirty
+  p.diagnosticsMu.Unlock()
   if !current {
     return nil
   }
@@ -1383,24 +1391,20 @@ func (p *Proxy) writeProjectDiagnosticsIfCurrent(
   p.writeMu.Lock()
   defer p.writeMu.Unlock()
   p.diagnosticsMu.Lock()
-  defer p.diagnosticsMu.Unlock()
   if p.projectDiagnosticGeneration != generation ||
     len(p.dirtyDocuments) != 0 {
+    p.diagnosticsMu.Unlock()
     return projectDiagnosticsWriteResult{}, nil
   }
 
+  var frames [][]byte
   previousURI := p.projectDiagnosticsURI
   previousHadDiagnostics := len(p.projectDiagnostics.diagnostics) > 0
   changedURI := previousURI != "" && previousURI != publication.URI
   if changedURI {
     p.projectDiagnosticsURI = ""
     p.projectDiagnostics = cachedDiagnostics{}
-    if err := WriteFrame(
-      p.editorOut,
-      p.publishDiagnosticsBody(previousURI, nil, p.mergedDiagnosticsLocked(previousURI)),
-    ); err != nil {
-      return projectDiagnosticsWriteResult{}, err
-    }
+    frames = append(frames, p.publishDiagnosticsBody(previousURI, nil, p.mergedDiagnosticsLocked(previousURI)))
   }
 
   p.projectDiagnosticsURI = publication.URI
@@ -1409,13 +1413,15 @@ func (p *Proxy) writeProjectDiagnosticsIfCurrent(
     !publishEmpty &&
     !previousHadDiagnostics &&
     !changedURI {
+    p.diagnosticsMu.Unlock()
     return projectDiagnosticsWriteResult{accepted: true}, nil
   }
-  if err := WriteFrame(
-    p.editorOut,
-    p.publishDiagnosticsBody(publication.URI, nil, p.mergedDiagnosticsLocked(publication.URI)),
-  ); err != nil {
-    return projectDiagnosticsWriteResult{}, err
+  frames = append(frames, p.publishDiagnosticsBody(publication.URI, nil, p.mergedDiagnosticsLocked(publication.URI)))
+  p.diagnosticsMu.Unlock()
+  for _, frame := range frames {
+    if err := WriteFrame(p.editorOut, frame); err != nil {
+      return projectDiagnosticsWriteResult{}, err
+    }
   }
   return projectDiagnosticsWriteResult{
     accepted:     true,
@@ -1455,11 +1461,11 @@ func (p *Proxy) writeLocalCodeActionsResultIfCurrent(id json.RawMessage, actions
   p.writeMu.Lock()
   defer p.writeMu.Unlock()
   p.diagnosticsMu.Lock()
-  defer p.diagnosticsMu.Unlock()
   if _, dirty := p.dirtyDocuments[pending.uri]; dirty || p.documentGeneration[pending.uri] != pending.generation {
     actions = []LSPCodeAction{}
   }
   actions = p.rewriteCodeActionCommands(actions)
+  p.diagnosticsMu.Unlock()
   return p.writeResultLocked(id, actions)
 }
 
@@ -1467,11 +1473,12 @@ func (p *Proxy) writeAugmentedCodeActionFrameIfCurrent(pending pendingCodeAction
   p.writeMu.Lock()
   defer p.writeMu.Unlock()
   p.diagnosticsMu.Lock()
-  defer p.diagnosticsMu.Unlock()
+  frame := augmented
   if _, dirty := p.dirtyDocuments[pending.uri]; dirty || p.documentGeneration[pending.uri] != pending.generation {
-    return WriteFrame(p.editorOut, fallback)
+    frame = fallback
   }
-  return WriteFrame(p.editorOut, augmented)
+  p.diagnosticsMu.Unlock()
+  return WriteFrame(p.editorOut, frame)
 }
 
 func (p *Proxy) publishDiagnosticsBody(uri string, version *int, diagnostics []json.RawMessage) []byte {
@@ -2537,13 +2544,15 @@ func (p *Proxy) withdrawPluginDiagnosticsForDeletedDocument(uri string) error {
   p.writeMu.Lock()
   defer p.writeMu.Unlock()
   p.diagnosticsMu.Lock()
-  defer p.diagnosticsMu.Unlock()
   if len(p.pluginDiagnostics[uri].diagnostics) == 0 {
+    p.diagnosticsMu.Unlock()
     return nil
   }
   delete(p.pluginDiagnostics, uri)
   p.diagnosticGeneration[uri]++
-  return WriteFrame(p.editorOut, p.publishDiagnosticsBody(uri, nil, p.mergedDiagnosticsLocked(uri)))
+  body := p.publishDiagnosticsBody(uri, nil, p.mergedDiagnosticsLocked(uri))
+  p.diagnosticsMu.Unlock()
+  return WriteFrame(p.editorOut, body)
 }
 
 // watchedFileChangeIsLocalizable reports whether one watched-file entry can be
@@ -3129,11 +3138,11 @@ func (p *Proxy) writeExecuteCommandResultIfClean(id json.RawMessage, pending pen
   p.writeMu.Lock()
   defer p.writeMu.Unlock()
   p.diagnosticsMu.Lock()
-  defer p.diagnosticsMu.Unlock()
   dirty := p.documentGenerationsChangedLocked(pending.argumentGenerations) ||
     p.argumentsContainDirtyDocumentLocked(pending.args) ||
     p.workspaceEditTargetsChangedLocked(edit, pending.documentGenerations) ||
     p.workspaceEditTargetsDirtyDocumentLocked(edit)
+  p.diagnosticsMu.Unlock()
   if dirty || edit == nil {
     return p.writeResultLocked(id, nil)
   }
@@ -3144,12 +3153,12 @@ func (p *Proxy) writeExecuteCommandErrorIfClean(id json.RawMessage, pending pend
   p.writeMu.Lock()
   defer p.writeMu.Unlock()
   p.diagnosticsMu.Lock()
-  defer p.diagnosticsMu.Unlock()
   stale := p.documentGenerationsChangedLocked(pending.argumentGenerations) ||
     p.argumentsContainDirtyDocumentLocked(pending.args)
   if len(pending.argumentGenerations) == 0 {
     stale = p.documentGenerationsChangedLocked(pending.documentGenerations)
   }
+  p.diagnosticsMu.Unlock()
   if stale {
     return p.writeResultLocked(id, nil)
   }

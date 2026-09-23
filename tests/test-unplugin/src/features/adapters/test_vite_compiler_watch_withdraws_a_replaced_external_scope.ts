@@ -57,7 +57,7 @@ export async function test_vite_compiler_watch_withdraws_a_replaced_external_sco
     poll();
     assert.equal(invalidated.size, 0, "an unchanged root must hold");
 
-    fs.renameSync(external, `${external}-old`);
+    await TestProject.rename(external, `${external}-old`);
     fs.mkdirSync(external);
     fs.writeFileSync(input, "export declare const shared: 2;\n");
     poll();

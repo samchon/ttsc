@@ -49,6 +49,10 @@ import { notifyWatchInputs } from "./watch/notifyWatchInputs";
  * Returns `undefined` when no transform is needed (declaration files, virtual
  * modules, disabled plugins, or source unchanged after transform).
  *
+ * Its place in the adapter's invalidation model, and the units beside it, are
+ * mapped in the maintainer page
+ * `website/src/content/docs/development/reference/unplugin-invalidation.mdx`.
+ *
  * @param id - Bundler module id (may carry a query string or virtual prefix).
  * @param source - Current file content supplied by the bundler.
  * @param options - Resolved plugin options.

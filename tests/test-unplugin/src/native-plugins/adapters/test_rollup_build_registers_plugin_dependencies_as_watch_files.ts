@@ -2,21 +2,28 @@ import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import path from "node:path";
 
+import { hostToolDirectory } from "../../../../../packages/unplugin/lib/core/bridge/hostToolDirectory.js";
+import { projectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/projectRecordFile.js";
+import { readProjectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/readProjectRecordFile.js";
 import { emitDependenciesPlugins } from "../../internal/transform-dependencies/emitDependenciesPlugins";
 
 const rollup = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("rollup").rollup;
 
 /**
- * Verifies a plugin-reported dependency reaches a real Rollup bundle's
- * `watchFiles`.
+ * Verifies a real Rollup bundle's `watchFiles` carries the project's record,
+ * and that the record names a plugin-reported dependency.
  *
  * `watchFiles` is the channel Rollup's watch mode reads to decide what triggers
- * a rebuild. A dependency that reaches the transform but not this list is never
- * watched, so editing a type-only input would leave the bundle stale.
+ * a rebuild. The adapter hands it the record alone beside the module: the
+ * record moves when any input of the generation changes, the type-only
+ * dependency a plugin reported among them, so editing that input rebuilds
+ * without Rollup watching it, and a dependency that reached the transform but
+ * not the record would never be observed.
  *
  * 1. Configure a plugin that reports `src/types.d.ts` as a dependency.
  * 2. Bundle and generate with the Rollup adapter.
- * 3. Assert the output is transformed and `watchFiles` contains the dependency.
+ * 3. Assert the output is transformed, `watchFiles` contains the record and no
+ *    compiler input, and the record names the dependency.
  */
 export async function test_rollup_build_registers_plugin_dependencies_as_watch_files(): Promise<void> {
   const unpluginRollup =
@@ -33,10 +40,31 @@ export async function test_rollup_build_registers_plugin_dependencies_as_watch_f
     TestUnpluginProject.assertTransformedToPlugin(
       TestUnpluginProject.collectRollupOutputCode(generated.output),
     );
-    const expected = path.join(root, "src", "types.d.ts");
+    const dependency = path.join(root, "src", "types.d.ts");
+    const expected = projectRecordFile(
+      hostToolDirectory(process.cwd()),
+      path.join(root, "tsconfig.json"),
+    );
+    const records = bundle.watchFiles.filter(
+      (file: string) => path.resolve(file) === expected,
+    );
+    assert.equal(
+      records.length,
+      1,
+      `watchFiles carry one record: ${JSON.stringify(bundle.watchFiles)}`,
+    );
+    assert.equal(
+      bundle.watchFiles.some(
+        (file: string) => path.resolve(file) === dependency,
+      ),
+      false,
+      "no compiler input reaches watchFiles",
+    );
+    const record = readProjectRecordFile(records[0]!);
+    assert.ok(record !== undefined, "the record is written");
     assert.ok(
-      bundle.watchFiles.some((file: string) => path.resolve(file) === expected),
-      `watchFiles missing ${expected}: ${JSON.stringify(bundle.watchFiles)}`,
+      Object.prototype.hasOwnProperty.call(record.inputs, dependency),
+      `the record names ${dependency}`,
     );
   } finally {
     await bundle.close();

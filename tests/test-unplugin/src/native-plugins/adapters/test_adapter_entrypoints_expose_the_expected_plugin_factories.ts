@@ -17,8 +17,8 @@ import path from "node:path";
  *
  * 1. Assert each of the four adapter entries is a callable factory.
  * 2. Wire one plugin instance to a fake webpack compiler and one to a fake Rspack
- *    compiler, and assert each taps `shutdown` under the plugin's name and
- *    gains the source-map rule.
+ *    compiler, and assert each taps `shutdown` and `done` under the plugin's
+ *    name and gains the source-map rule.
  * 3. Deliver the entry module and assert one compile. Shut the webpack compiler
  *    down, let the grace pass, and assert the Rspack compiler keeps the
  *    generation. Shut it down too and assert the next delivery compiles again.
@@ -66,10 +66,18 @@ export async function test_adapter_entrypoints_expose_the_expected_plugin_factor
     } as never);
     raw ??= plugin;
     let registeredName: string | undefined;
+    // Each compile's end, where the adapter reports what the compilation
+    // depends on to the session's bridge.
+    let doneName: string | undefined;
     const rules: unknown[] = [];
     plugin[framework]?.({
       options: { module: { rules } },
       hooks: {
+        done: {
+          tap(name: string) {
+            doneName = name;
+          },
+        },
         shutdown: {
           tap(name: string, callback: () => void) {
             registeredName = name;
@@ -79,6 +87,7 @@ export async function test_adapter_entrypoints_expose_the_expected_plugin_factor
       },
     } as never);
     assert.equal(registeredName, "ttsc-unplugin", framework);
+    assert.equal(doneName, "ttsc-unplugin", framework);
     assert.equal(typeof disposals.get(framework), "function", framework);
     assert.equal(rules.length, 1, `${framework} gains the source-map rule`);
   }

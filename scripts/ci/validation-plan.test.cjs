@@ -245,32 +245,51 @@ test("platform integrations reuse only the physical rows they need", () => {
     experimental.every((row) => row.experimental && !row.watch && !row.vscode),
   );
   assert.ok(
-    experimental.every((row) => !row.unplugin_e2e),
-    "the generic artifact rehearsal must not duplicate the package E2E",
+    experimental.every((row) => row.build === false),
+    "the artifact rehearsal is the only build of a row that runs it",
   );
 
   // The adapter's real hosts run on every representative OS, since the
   // adapter watches each one differently: the Linux inotify helper, and the
-  // Windows and macOS brokers.
+  // Windows and macOS brokers. They run in a job of their own, so a change to
+  // the adapter alone starts no platform lane at all.
   for (const changed of [
     "packages/unplugin/src/index.ts",
     "experimental/test-unplugin/src/index.ts",
   ]) {
-    const rows = planForPaths([changed]).platformMatrix.include;
+    const plan = planForPaths([changed]);
     assert.deepEqual(
-      rows.map((row) => row.name),
+      plan.unpluginMatrix.include.map((row) => row.name),
       ["linux-x64", "darwin-x64", "win32-x64"],
       `${changed} selects the packed E2E on every representative OS`,
     );
-    for (const row of rows) {
-      assert.equal(row.unplugin_e2e, true);
-      assert.equal(row.setup_bun, true);
-      assert.equal(row.bun, false);
-      assert.equal(row.experimental, false);
-      assert.equal(row.source_map, false);
-      assert.equal(row.plugin_cache, false);
-    }
+    assert.equal(plan.unpluginHostsSelected, true);
+    assert.deepEqual(
+      plan.unpluginMatrix.include.map((row) => Object.keys(row).sort()),
+      plan.unpluginMatrix.include.map(() => ["name", "os", "runner"]),
+      "the host matrix varies over the OS alone",
+    );
+    assert.deepEqual(
+      plan.platformMatrix.include,
+      [],
+      `${changed} starts no platform lane of its own`,
+    );
+    assert.equal(plan.platformSelected, false);
   }
+
+  // A change that selects both runs each in its own job, and the platform
+  // lane keeps the artifact rehearsal that builds the workspace its later
+  // steps run against.
+  const both = planForPaths([
+    "packages/unplugin/src/index.ts",
+    "experimental/install/src/index.ts",
+  ]);
+  assert.deepEqual(
+    both.unpluginMatrix.include.map((row) => row.name),
+    ["linux-x64", "darwin-x64", "win32-x64"],
+  );
+  assert.equal(both.platformMatrix.include.length, 6);
+  assert.ok(both.platformMatrix.include.every((row) => row.experimental));
 
   const sourceMap = planForPaths(["experimental/source-map/src/index.ts"])
     .platformMatrix.include;

@@ -40,6 +40,10 @@ const KEPT_PUBLICATIONS = 4;
  * regardless, but still under the lock, so its compile replaces the publication
  * for the waiters.
  *
+ * Its place in the adapter's invalidation model, and the units beside it, are
+ * mapped in the maintainer page
+ * `website/src/content/docs/development/reference/unplugin-invalidation.mdx`.
+ *
  * @param store The session's shared compile store.
  * @param identity Hex digest of what the compile is.
  * @param state Hex digest of the project state it reads.

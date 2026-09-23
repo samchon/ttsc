@@ -1,5 +1,13 @@
+import {
+  PROJECT_RECORD_DIRECTORY,
+  hostToolDirectory,
+  projectRecordFile,
+  projectRecordMoved,
+  readProjectRecordFile,
+} from "@ttsc/unplugin/api";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import * as nodeModule from "node:module";
 import path from "node:path";
 
 export const workspace = path.resolve(import.meta.dirname, "..");
@@ -30,6 +38,13 @@ export const VALUES = [
   "RUNTIME_SECOND",
 ];
 
+/**
+ * What a host reports for the broken contract input: the source plugin's own
+ * error, or, with the linked plugin, the compiler's verdict on the input's
+ * syntax, which it reports before any plugin runs.
+ */
+export const BROKEN_INPUT = /invalid contract type|Type expected/;
+
 const VALUE_PATTERN = new RegExp(`(["'\`])(${VALUES.join("|")})\\1`, "g");
 
 /**
@@ -41,8 +56,14 @@ const VALUE_PATTERN = new RegExp(`(["'\`])(${VALUES.join("|")})\\1`, "g");
  * linked workspace names a project. The compiler then reports the project's
  * inputs under the physical directory while the host, and the contract, name it
  * through the link.
+ *
+ * `plugin` selects the transform plugin the tsconfig names: `"source"`, the
+ * standalone Go process whose envelope carries no compiler graph, or
+ * `"linked"`, the contributor to ttsc's utility host, whose compile goes
+ * through TypeScript-Go's program and whose envelope carries the compiler's
+ * verdict, graph, and resolution candidates.
  */
-export function fixture(name, { linked = false } = {}) {
+export function fixture(name, { linked = false, plugin = "source" } = {}) {
   const physical = path.join(workspace, ".contracts", name);
   assert.equal(path.dirname(physical), path.join(workspace, ".contracts"));
   fs.rmSync(physical, { recursive: true, force: true });
@@ -57,13 +78,42 @@ export function fixture(name, { linked = false } = {}) {
     );
   }
   const root = linked ? link : physical;
+  const external = externalDirectory(root);
+  fs.rmSync(external, { recursive: true, force: true });
   write(
     root,
     "package.json",
     JSON.stringify({ private: true, type: "module" }),
   );
-  writeTsconfig(root);
+  writeBaseTsconfig(root, undefined, plugin);
+  writeTsconfig(root, undefined, plugin);
   write(root, "src/globals.d.ts", "declare function watchValue(): string;\n");
+  writeMain(root);
+  write(root, "src/deps/local.d.ts", localDeclaration("ok"));
+  write(external, "shape.d.ts", shapeDeclaration("ok"));
+  for (const i of [1, 2, 3])
+    write(root, `src/mod${i}.ts`, "export const value = watchValue();\n");
+  const project = projectAt(root, { linked, physical, plugin });
+  project.change("FIRST");
+  return project;
+}
+
+/**
+ * The directory beside the project that holds its external input: a declaration
+ * the entry imports from outside the project root, so the compiler lists it as
+ * an input the project does not contain.
+ */
+function externalDirectory(root) {
+  return path.join(path.dirname(root), `${path.basename(root)}-external`);
+}
+
+/**
+ * The entry module: the three consumers, a value of its own, and two type-only
+ * imports the bundler never sees, one from a directory inside the project and
+ * one from the external directory beside it; with `later`, a third import of a
+ * declaration that does not exist until a scenario creates it.
+ */
+function writeMain(root, { later = false } = {}) {
   write(
     root,
     "src/main.ts",
@@ -71,26 +121,58 @@ export function fixture(name, { linked = false } = {}) {
       ...[1, 2, 3].map(
         (i) => `import { value as value${i} } from "./mod${i}.ts";`,
       ),
+      'import type { Local } from "./deps/local";',
+      `import type { Shape } from "../../${path.basename(root)}-external/shape";`,
+      ...(later ? ['import type { Later } from "./later";'] : []),
       "export const value = watchValue();",
+      'export const local: Local = "ok";',
+      'export const shape: Shape = "ok";',
+      ...(later ? ['export const later: Later = "ok";'] : []),
       "console.log(value, value1, value2, value3);",
     ].join("\n"),
   );
-  for (const i of [1, 2, 3])
-    write(root, `src/mod${i}.ts`, "export const value = watchValue();\n");
-  const project = projectAt(root, { linked, physical });
-  project.change("FIRST");
-  return project;
+}
+
+/** A declaration whose only export is the literal type `value`. */
+function localDeclaration(value) {
+  return `export type Local = ${JSON.stringify(value)};\n`;
+}
+
+/** A declaration whose only export is the literal type `value`. */
+function shapeDeclaration(value) {
+  return `export type Shape = ${JSON.stringify(value)};\n`;
 }
 
 /**
- * The project's tsconfig, with the transform plugin entry; `fixed` makes the
- * plugin replace every consumer's value with it, so an edit to the tsconfig
- * itself has an observable effect.
+ * The project's tsconfig, which extends the base config beside it; `fixed`
+ * overrides the base's plugin entry with one that makes the plugin replace
+ * every consumer's value with it, so an edit to the tsconfig itself has an
+ * observable effect.
  */
-function writeTsconfig(root, fixed) {
+function writeTsconfig(root, fixed, plugin) {
   write(
     root,
     "tsconfig.json",
+    JSON.stringify({
+      extends: "./tsconfig.base.json",
+      compilerOptions:
+        fixed === undefined ? {} : { plugins: [pluginEntry(plugin, fixed)] },
+      include: ["src", "app", "pages"],
+      exclude: ["dist-contract", "node_modules"],
+    }),
+  );
+}
+
+/**
+ * The base config the project's tsconfig extends, holding the compiler options
+ * and the transform plugin entry; `fixed` fixes every consumer's value from
+ * here, so an edit to a config reached only through the `extends` chain has an
+ * observable effect too.
+ */
+function writeBaseTsconfig(root, fixed, plugin) {
+  write(
+    root,
+    "tsconfig.base.json",
     JSON.stringify({
       compilerOptions: {
         target: "ES2022",
@@ -99,29 +181,48 @@ function writeTsconfig(root, fixed) {
         types: [],
         jsx: "preserve",
         outDir: "dist-contract",
-        plugins: [
-          {
-            transform: path.join(workspace, "unplugin-transform.cjs"),
-            ...(fixed === undefined ? {} : { fixed }),
-          },
-        ],
+        // TypeScript 6 refuses an `outDir` whose `rootDir` it would have to
+        // infer; the external declaration lies outside it, which a
+        // declaration may.
+        rootDir: ".",
+        // The consumers import each other with their `.ts` extension, as a
+        // bundler-only project may once it emits nothing itself.
+        allowImportingTsExtensions: true,
+        noEmit: true,
+        plugins: [pluginEntry(plugin, fixed)],
       },
-      include: ["src", "app", "pages"],
-      exclude: ["dist-contract", "node_modules"],
     }),
   );
+}
+
+/**
+ * The tsconfig entry of the transform plugin `plugin` names, fixing every value
+ * when given.
+ */
+function pluginEntry(plugin, fixed) {
+  return {
+    transform: path.join(
+      workspace,
+      plugin === "linked" ? "unplugin-linked.cjs" : "unplugin-transform.cjs",
+    ),
+    ...(fixed === undefined ? {} : { fixed }),
+  };
 }
 
 /**
  * The accessors of a fixture already on disk at `root`, for a process that did
  * not create it, such as the Bun worker.
  */
-export function projectAt(root, { linked = false, physical = root } = {}) {
+export function projectAt(
+  root,
+  { linked = false, physical = root, plugin = "source" } = {},
+) {
   const input = path.join(root, "src/contract-input.server.ts");
   return {
     root,
     physical,
     linked,
+    plugin,
     input,
     change(value) {
       fs.writeFileSync(input, contractInput(value));
@@ -153,9 +254,37 @@ export function projectAt(root, { linked = false, physical = root } = {}) {
     },
     /** Rewrite the tsconfig, fixing every consumer's value when given. */
     configure(fixed) {
-      writeTsconfig(root, fixed);
+      writeTsconfig(root, fixed, plugin);
+    },
+    /**
+     * Rewrite the base config the tsconfig extends, fixing every consumer's
+     * value when given.
+     */
+    configureBase(fixed) {
+      writeBaseTsconfig(root, fixed, plugin);
+    },
+    /** Rewrite the local declaration the entry depends on, exporting `value`. */
+    local(value) {
+      write(root, "src/deps/local.d.ts", localDeclaration(value));
+    },
+    /** Rewrite the external declaration the entry depends on, exporting `value`. */
+    shape(value) {
+      write(externalDirectory(root), "shape.d.ts", shapeDeclaration(value));
+    },
+    /** Rewrite the entry, importing the declaration `src/later.d.ts` or not. */
+    importLater(later) {
+      writeMain(root, { later });
+    },
+    /** Create the declaration the entry imports once `importLater(true)` ran. */
+    later() {
+      write(root, "src/later.d.ts", 'export type Later = "ok";\n');
     },
     tsconfig: path.join(root, "tsconfig.json"),
+    baseTsconfig: path.join(root, "tsconfig.base.json"),
+    localDeclaration: path.join(root, "src/deps/local.d.ts"),
+    depsDirectory: path.join(root, "src/deps"),
+    externalDeclaration: path.join(externalDirectory(root), "shape.d.ts"),
+    laterDeclaration: path.join(root, "src/later.d.ts"),
     entry: path.join(root, "src/main.ts"),
     output: path.join(root, "dist-contract/bundle.js"),
     options: { project: path.join(root, "tsconfig.json") },
@@ -169,13 +298,213 @@ export function projectAt(root, { linked = false, physical = root } = {}) {
   };
 }
 
+/**
+ * The files the adapter can have written as `project`'s record
+ * (`projectRecordFile`), named by the adapter's own rule rather than a copy of
+ * it: below the tool directory of each root a host can run in, this process's
+ * and the project's under either of its spellings, for the tsconfig under
+ * either spelling, since a host running inside a project named through a link
+ * can name both physically.
+ *
+ * @param project The fixture, or any object naming a root, its physical
+ *   spelling, and its tsconfig.
+ */
+export function projectRecordFiles(project) {
+  const physical = project.physical ?? project.root;
+  const tsconfigs = [
+    project.tsconfig,
+    path.join(physical, path.relative(project.root, project.tsconfig)),
+  ];
+  const files = new Set();
+  for (const root of [process.cwd(), project.root, physical]) {
+    for (const tsconfig of tsconfigs) {
+      files.add(projectRecordFile(hostToolDirectory(root), tsconfig));
+    }
+  }
+  return [...files];
+}
+
+/** Whether `file` is one `project`'s record can be (`projectRecordFiles`). */
+export function isProjectRecordOf(file, project) {
+  return projectRecordFiles(project).includes(path.resolve(file));
+}
+
+/**
+ * When `project`'s record last moved, or `0` while there is none: what a host's
+ * persistent cache of the project depends on, and nothing another project's
+ * record does.
+ */
+export function projectRecordMovedAt(project) {
+  let moved = 0;
+  for (const file of projectRecordFiles(project)) {
+    try {
+      moved = Math.max(moved, fs.statSync(file).mtimeMs);
+    } catch {
+      // No record there.
+    }
+  }
+  return moved;
+}
+
+/**
+ * `project`'s records (`projectRecordFiles`) with their modification time and
+ * size, as one line, so a pass's log says whether the record moved while the
+ * pass ran.
+ *
+ * A stamp, not the proof `recordStates` makes: a host's own hooks take it on
+ * every pass, where re-walking the project would cost the host what the
+ * contract is measuring.
+ */
+export function projectRecordStamps(project) {
+  const stamps = [];
+  for (const file of projectRecordFiles(project)) {
+    try {
+      const stats = fs.statSync(file);
+      stamps.push(`${label(file)}@${Math.round(stats.mtimeMs)}:${stats.size}`);
+    } catch {
+      // No record there.
+    }
+  }
+  return stamps.join(",") || "(none)";
+}
+
+/**
+ * Every project record the adapter could have written for `project`, each as
+ * the adapter reads one: its signal, how many inputs it names, its modification
+ * time and size, and the proof a build start makes of it
+ * (`projectRecordMoved`), which names the tsconfig, input, or project root
+ * whose state left the record, or nothing.
+ *
+ * The record is the one thing the adapter hands a build host, so a host that
+ * did not converge is explained by this: a signal the record did not receive
+ * says the adapter's own observer never heard the edit, and one it did receive
+ * says the host did not act on the move. `projectRecordMoved` reads the disk
+ * and moves nothing, so asking is safe while a session runs.
+ *
+ * A record lives below the tool directory of the root its host resolved: the
+ * directory the host runs in, which is this process for a host the contract
+ * imports and the project's own for a development CLI the contract spawns
+ * there; for Farm, the root the contract configures, which is the project's;
+ * or, for Turbopack, the root the contract configures, which is this process's
+ * workspace; so both are read. The records that can be this project's
+ * (`projectRecordFiles`) are marked, and their absence is said outright, since
+ * a report of other projects' records alone reads like a project that has
+ * none.
+ *
+ * @param project The fixture, which names its tsconfig and its root.
+ */
+export function recordStates(project) {
+  const states = {};
+  const mine = new Set(projectRecordFiles(project));
+  for (const root of new Set([process.cwd(), project.root])) {
+    const directory = path.join(
+      hostToolDirectory(root),
+      PROJECT_RECORD_DIRECTORY,
+    );
+    let files = [];
+    try {
+      files = fs.readdirSync(directory);
+    } catch {
+      states[label(directory)] = "no tool directory";
+      continue;
+    }
+    if (!files.some((file) => mine.has(path.join(directory, file)))) {
+      states[label(directory)] = "no record for this project";
+    }
+    for (const file of files) {
+      if (!file.endsWith(".json")) continue;
+      const full = path.join(directory, file);
+      states[`${label(full)}${mine.has(full) ? " (this project)" : ""}`] =
+        recordState(full);
+    }
+  }
+  return states;
+}
+
+/** One record file as the adapter reads it, or why it cannot be read. */
+function recordState(file) {
+  const record = readProjectRecordFile(file);
+  if (record === undefined) return "not a record";
+  let moved;
+  try {
+    moved = projectRecordMoved(record);
+  } catch (error) {
+    moved = `proof failed: ${error.message}`;
+  }
+  let stamp = "gone";
+  try {
+    const stats = fs.statSync(file);
+    stamp = `${Math.round(stats.mtimeMs)}:${stats.size}`;
+  } catch {
+    // Rewritten between the read and the stat.
+  }
+  return `signal ${record.signal}, ${Object.keys(record.inputs).length} input(s), at ${stamp}, moved: ${moved ?? "nothing"}`;
+}
+
+/**
+ * A path as the contract names it: relative to the workspace when it is below
+ * it.
+ */
+function label(file) {
+  const relative = path.relative(workspace, file);
+  return relative.startsWith("..") ? file : relative;
+}
+
+/**
+ * Rename `from` to `to`, waiting out a host that still holds the path.
+ *
+ * Windows refuses a rename while any process has the path or an entry below it
+ * open, with `EPERM` for a directory and `EBUSY` for a file, and the hosts
+ * under contract hold what they watch: Turbopack refused `src/deps.moved ->
+ * src/deps` on a CI runner while its watcher still had the directory. The edit
+ * is the contract's, not the host's, so it is made rather than abandoned: the
+ * rename is retried until the host lets go, and a path it never lets go of
+ * fails at the deadline, which is what a host that cannot be edited under looks
+ * like.
+ *
+ * Only the refusals a held path produces are waited out. Any other error is the
+ * contract's own mistake, a source that is not there above all, and it fails at
+ * once rather than at the deadline.
+ *
+ * @param what The rename, for the failure that names it.
+ */
+export async function rename(from, to, what, milliseconds = 30_000) {
+  const until = Date.now() + milliseconds;
+  for (;;) {
+    try {
+      fs.renameSync(from, to);
+      return;
+    } catch (error) {
+      if (!HELD_PATH_CODES.has(error.code) || Date.now() >= until) {
+        throw new Error(`${what}: ${from} -> ${to}: ${error.message}`, {
+          cause: error,
+        });
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+  }
+}
+
+/** What a filesystem answers while another process still holds the path. */
+const HELD_PATH_CODES = new Set(["EACCES", "EBUSY", "EPERM"]);
+
 /** The source of a contract input carrying `value`. */
 export function contractInput(value) {
   return `export type ContractInput = "${value}";\n`;
 }
 
+/**
+ * Write a file below `root`, leaving one that already holds `contents` alone: a
+ * session opened again over a persistent cache writes its host's files again,
+ * and a write of the same bytes must not move their timestamps.
+ */
 export function write(root, file, contents) {
   const target = path.join(root, file);
+  try {
+    if (fs.readFileSync(target, "utf8") === contents) return;
+  } catch {
+    // Absent, or unreadable: written below.
+  }
   fs.mkdirSync(path.dirname(target), { recursive: true });
   fs.writeFileSync(target, contents);
 }
@@ -301,8 +630,9 @@ export function landLateRace(root, source) {
  */
 export function writeRaceLoader(root) {
   const loader = path.join(root, "race-loader.cjs");
-  fs.writeFileSync(
-    loader,
+  write(
+    root,
+    "race-loader.cjs",
     [
       'const fs = require("node:fs");',
       'const path = require("node:path");',
@@ -398,4 +728,52 @@ export async function failedOutput(events, label, pattern) {
       `${error.message}; builds seen while waiting: ${JSON.stringify(seen)}`,
     );
   }
+}
+
+/**
+ * The type-stripping stage a Rollup, webpack, or Rspack build needs after ttsc:
+ * the adapter emits TypeScript, and those hosts compile none themselves, so a
+ * user adds an esbuild- or swc-based stage after `ttsc()` (the setup guide says
+ * so). The contract uses Node's own stripper, which keeps every position.
+ */
+export function stripTypes(code) {
+  // Read at use, since the Bun worker imports this module and Bun's
+  // `node:module` has no stripper; only a Node host strips.
+  return nodeModule.stripTypeScriptTypes(code, { mode: "strip" });
+}
+
+/**
+ * Write the type-stripping loader for a webpack or Rspack build, run after
+ * ttsc's pre-enforced loader the way `writeRaceLoader`'s is.
+ */
+export function writeStripLoader(root) {
+  const loader = path.join(root, "strip-loader.cjs");
+  write(
+    root,
+    "strip-loader.cjs",
+    [
+      'const { stripTypeScriptTypes } = require("node:module");',
+      "module.exports = function stripLoader(source) {",
+      '  return stripTypeScriptTypes(source, { mode: "strip" });',
+      "};",
+    ].join(String.fromCharCode(10)),
+  );
+  return loader;
+}
+
+/**
+ * Pay the linked plugin's host build once, outside any host's deadline: the
+ * first compile with the linked plugin builds ttsc's utility host with the
+ * contract's contributor, minutes on a cold Go cache, and every later compile
+ * reuses that build.
+ */
+export async function warmLinkedPlugin() {
+  const api = await import("@ttsc/unplugin/api");
+  const project = fixture("warm-linked", { plugin: "linked" });
+  await api.transformTtsc(
+    project.entry,
+    fs.readFileSync(project.entry, "utf8"),
+    api.resolveOptions(project.options),
+  );
+  assert.equal(project.runs(), 1, "the linked plugin compiles");
 }

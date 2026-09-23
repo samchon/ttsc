@@ -1,3 +1,9 @@
+export { hostToolDirectory } from "./bridge/hostToolDirectory";
+export { PROJECT_RECORD_DIRECTORY } from "./bridge/PROJECT_RECORD_DIRECTORY";
+export { projectRecordFile } from "./bridge/projectRecordFile";
+export { projectRecordMoved } from "./bridge/projectRecordMoved";
+export { readProjectRecordFile } from "./bridge/readProjectRecordFile";
+export type { TtscProjectRecord } from "./bridge/TtscProjectRecord";
 export { discoverNearestProjectTsconfig } from "./discovery/discoverNearestProjectTsconfig";
 export { findNearestProjectTsconfig } from "./discovery/findNearestProjectTsconfig";
 export { findProjectTsconfigs } from "./discovery/findProjectTsconfigs";
@@ -23,6 +29,7 @@ export { transformTtsc } from "./transform/transformTtsc";
 export { captureWatchInputBaseline } from "./transform/watch/captureWatchInputBaseline";
 export { captureWatchInputFileBaseline } from "./transform/watch/captureWatchInputFileBaseline";
 export { isWatchInputKeyBaseline } from "./transform/watch/isWatchInputKeyBaseline";
+export type { TtscProjectRegistration } from "./transform/watch/TtscProjectRegistration";
 export type { TtscTransformHooks } from "./transform/watch/TtscTransformHooks";
 export type { TtscWatchInput } from "./transform/watch/TtscWatchInput";
 export type { TtscWatchInputBaseline } from "./transform/watch/TtscWatchInputBaseline";

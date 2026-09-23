@@ -4,7 +4,7 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
-import { workspace } from "./common.mjs";
+import { warmLinkedPlugin, workspace } from "./common.mjs";
 import { warmPredicateProbe } from "./predicates.mjs";
 
 // This inventory is checked against the installed package. Adding a public host
@@ -40,6 +40,9 @@ for (const host of selected) assert.ok(host in hosts, `Unknown host: ${host}`);
 // build can take minutes on a cold Go cache. Pay it here, outside any host's
 // deadline, so every host reuses the cached build.
 await warmPredicateProbe();
+// The host matrix's linked plugin links a contributor into the utility host
+// too, another build paid here once.
+await warmLinkedPlugin();
 // Every host runs to its own verdict, so one failing host does not hide the
 // verdicts of the hosts after it.
 const failures = [];
@@ -55,7 +58,10 @@ for (const host of selected.length ? selected : Object.keys(hosts)) {
         cwd: workspace,
         stdio: "inherit",
         env: process.env,
-        timeout: 900_000,
+        // The scenario matrix on two roots with two plugins, the restart
+        // contract, and the predicate matrix; Next's webpack stores its cache
+        // a minute after a rebuild, once per restart.
+        timeout: 1_800_000,
         windowsHide: true,
       },
     );

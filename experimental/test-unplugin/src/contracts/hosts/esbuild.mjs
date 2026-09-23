@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   adapter,
   eventQueue,
+  eventually,
   expectOutput,
   failedOutput,
   landLateRace,
@@ -17,9 +18,9 @@ import {
  * module's own imports, which esbuild performs once the module's loader has
  * returned, while the build goes on; a `LATE_RACE_` edit lands there.
  *
- * Esbuild's watcher polls the paths each loader result names, so the session
- * offers no root-file membership: a file appearing changes no path it was
- * given.
+ * Esbuild's watcher polls the paths each loader result names: each module and
+ * the project's record, which the adapter's bridge moves for a file appearing
+ * as for any other change, so the session offers root-file membership.
  */
 export async function openSession(project) {
   const esbuild = await import("esbuild");
@@ -62,7 +63,7 @@ export async function openSession(project) {
     name: "esbuild",
     exactRuns: true,
     lateRace: true,
-    membership: false,
+    membership: true,
     settled: (label, value) => settledOutput(events, `esbuild ${label}`, value),
     failed: (label, pattern) =>
       failedOutput(events, `esbuild ${label}`, pattern),
@@ -77,6 +78,12 @@ export async function openSession(project) {
       // The rebuild's own end reaches the queue as a build; consume it.
       await settledOutput(events, "esbuild unchanged rebuild", value);
     },
+    recompiled: (label, before) =>
+      eventually(
+        () => project.runs(),
+        (runs) => runs > before,
+        `esbuild ${label}`,
+      ),
     close: () => context.dispose(),
   };
 }

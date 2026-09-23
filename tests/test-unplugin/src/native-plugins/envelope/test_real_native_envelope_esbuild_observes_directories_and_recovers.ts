@@ -3,25 +3,30 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { hostToolDirectory } from "../../../../../packages/unplugin/lib/core/bridge/hostToolDirectory.js";
+import { projectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/projectRecordFile.js";
 import { createRealNativeEnvelopeFixture } from "../../internal/real-native-envelope/createRealNativeEnvelopeFixture";
 import { programRuns } from "../../internal/real-native-envelope/programRuns";
 import { waitFor } from "../../internal/real-native-envelope/waitFor";
 
 /**
- * Verifies esbuild observes real compiler directory proofs and failed loads.
+ * Verifies an esbuild context rebuilds for real compiler directory proofs and
+ * recovers from failed loads.
  *
- * Generic watchFiles cannot observe directory membership. The actual native
- * envelope must reach watchDirs, while failed loads must retain subscriptions
- * so a repair can reach the same context without manual invalidation.
+ * Esbuild's own `watchFiles` cannot observe directory membership, so a type
+ * package appearing or vanishing reaches it only through the project's record,
+ * which the adapter's observer moves; a failed load must name the record too,
+ * so a repair reaches the same context without manual invalidation.
  *
  * One esbuild build keeps one watch state per path, taken from the last loader
  * result that named it, so a later module's result masks an earlier module's
  * edit, and a file read of an absent path overwrites its directory read. No
  * compiler input therefore reaches esbuild at all: each goes to the bridge, and
- * esbuild watches only the module and its own sentinel (samchon/ttsc#1463).
+ * esbuild watches only the module and the project's record
+ * (samchon/ttsc#1463).
  *
  * 1. Add and remove automatic type packages and their parent directory, asserting
- *    every build hands esbuild nothing but each module and its sentinel.
+ *    every build hands esbuild nothing but each module and the record.
  * 2. Check shared compilation and reuse across an unchanged rebuild.
  * 3. Recover from deleted, initially broken, and initially absent declarations.
  */
@@ -103,7 +108,8 @@ export async function test_real_native_envelope_esbuild_observes_directories_and
     assert.deepEqual(
       [...channels.keys()].filter(
         (file) =>
-          !file.endsWith(".signal") &&
+          path.resolve(file) !==
+            projectRecordFile(hostToolDirectory(root), options.project) &&
           !(
             /\.[cm]?tsx?$/.test(file) &&
             !file.endsWith(".d.ts") &&
@@ -111,7 +117,7 @@ export async function test_real_native_envelope_esbuild_observes_directories_and
           ),
       ),
       [],
-      "esbuild is handed nothing but each module and its sentinel",
+      "esbuild is handed nothing but each module and the record",
     );
   };
   const observe = async (change: () => void, failed = false) => {

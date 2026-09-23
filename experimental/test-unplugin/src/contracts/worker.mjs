@@ -16,6 +16,7 @@ import {
   watchRollupLike,
   watchWebpackLike,
 } from "./predicates.mjs";
+import { restartContract } from "./restarts.mjs";
 import { runScenarios } from "./scenarios.mjs";
 import { reactRouterContract } from "./vite.mjs";
 
@@ -52,44 +53,75 @@ function roots() {
     : [false, true];
 }
 
+/**
+ * The transform plugins a host is tried with: the standalone source plugin,
+ * whose envelope carries no compiler graph, and the linked plugin, whose
+ * compile goes through TypeScript-Go's program (see `fixture`).
+ */
+const PLUGINS = ["source", "linked"];
+
 async function matrix(open) {
-  for (const linked of roots()) {
-    const project = fixture(linked ? `${host}-linked` : host, { linked });
-    project.break();
-    const session = await open(project);
-    try {
-      await runScenarios(project, session);
-    } finally {
-      await session.close();
+  for (const plugin of PLUGINS)
+    for (const linked of roots()) {
+      const project = fixture(
+        `${host}${linked ? "-linked" : ""}${plugin === "linked" ? "-program" : ""}`,
+        { linked, plugin },
+      );
+      project.break();
+      const session = await open(project);
+      try {
+        await runScenarios(project, session);
+      } finally {
+        await session.close();
+      }
     }
-  }
 }
 
 if (host in sessions) {
   await matrix(sessions[host]);
 } else if (host === "bun") {
-  for (const linked of roots()) {
-    const project = fixture(linked ? "bun-linked" : "bun", { linked });
-    project.break();
-    await promisify(execFile)(
-      "bun",
-      [
-        fileURLToPath(new URL("./bun-worker.mjs", import.meta.url)),
-        project.root,
-        linked ? "linked" : "plain",
-      ],
-      {
-        cwd: project.root,
-        env: process.env,
-        windowsHide: true,
-        timeout: 240_000,
-      },
-    );
-  }
+  for (const plugin of PLUGINS)
+    for (const linked of roots()) {
+      const project = fixture(
+        `bun${linked ? "-linked" : ""}${plugin === "linked" ? "-program" : ""}`,
+        { linked, plugin },
+      );
+      project.break();
+      await promisify(execFile)(
+        "bun",
+        [
+          fileURLToPath(new URL("./bun-worker.mjs", import.meta.url)),
+          project.root,
+          linked ? "linked" : "plain",
+          plugin,
+        ],
+        {
+          cwd: project.root,
+          env: process.env,
+          windowsHide: true,
+          timeout: 240_000,
+        },
+      );
+    }
 } else if (host === "react-router") {
   await reactRouterContract();
 } else {
   throw new Error(`Unknown host ${host}`);
+}
+
+// A host with a persistent cache is stopped, edited under, and started again
+// over that cache, each session in a process of its own; see restarts.mjs.
+// The linked plugin, so the verdict steps are observable: a source plugin's
+// envelope carries no compiler verdict.
+const RESTARTED = [
+  "webpack",
+  "rspack",
+  "farm",
+  "next-webpack",
+  "next-turbopack",
+];
+if (RESTARTED.includes(host)) {
+  await restartContract(fixture(`${host}-restart`, { plugin: "linked" }), host);
 }
 
 // Each watching build host also runs the compiler-predicate matrix through its

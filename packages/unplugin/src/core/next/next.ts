@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { hostToolDirectory } from "../bridge/hostToolDirectory";
+import { refreshProjectRecordFiles } from "../bridge/refreshProjectRecordFiles";
 import type { TtscUnpluginOptions } from "../options/TtscUnpluginOptions";
 import { TYPESCRIPT_TURBOPACK_RULE_GLOBS } from "../source/TYPESCRIPT_TURBOPACK_RULE_GLOBS";
 import { openTtscTransformSession } from "../transform/session/openTtscTransformSession";
@@ -54,13 +56,13 @@ export function next(
   // read, so they inherit the session and compile each generation once
   // between them (samchon/ttsc#1390).
   openTtscTransformSession();
+  // Before either compiler validates a module against the cache below
+  // `.next`: a project whose state moved while nothing ran is heard through
+  // its record, which only a proof here can move.
+  refreshProjectRecordFiles(hostToolDirectory(process.cwd()));
   return {
     ...nextConfig,
-    turbopack: withTtscTurbopackRules(
-      nextConfig.turbopack,
-      options,
-      configuredTurbopackRoots(nextConfig),
-    ),
+    turbopack: withTtscTurbopackRules(nextConfig.turbopack, options),
     webpack(config: WebpackLikeConfig, webpackOptions: unknown) {
       config.plugins = Array.isArray(config.plugins) ? config.plugins : [];
       // Prepend so ttsc runs before any user-added plugins.
@@ -130,7 +132,6 @@ function warnAboutSuppressedWebpackConfig(nextConfig: NextLikeConfig): void {
 function withTtscTurbopackRules(
   existing: TurbopackLikeConfig | undefined,
   options: TtscUnpluginOptions | undefined,
-  turbopackRoots: readonly string[],
 ): TurbopackLikeConfig {
   const rules: Record<string, unknown> = { ...(existing?.rules ?? {}) };
   // Package ownership is stable only for this configuration snapshot. A later
@@ -152,7 +153,7 @@ function withTtscTurbopackRules(
     }
     const entry = {
       loader: TURBOPACK_LOADER,
-      options: { ...(options ?? {}), turbopackRoots },
+      options: { ...(options ?? {}) },
     };
     // Loader shorthand runs right to left, so ttsc is appended there to see
     // the original source. Rule collections run matching items in order, so
@@ -378,25 +379,4 @@ function isResolvedTtscLoader(
   }
   resolvedLoaderResults.set(identity, matches);
   return matches;
-}
-
-/**
- * The project filesystem roots the configuration names, `turbopack.root` and
- * `outputFileTracingRoot`, resolved against the working directory as Next
- * resolves them (samchon/ttsc#1422).
- *
- * The loader keeps every dependency inside the deepest of them, since Turbopack
- * fails a module whose dependency lies outside its root.
- */
-function configuredTurbopackRoots(nextConfig: NextLikeConfig): string[] {
-  const roots: string[] = [];
-  for (const root of [
-    nextConfig.turbopack?.root,
-    nextConfig.outputFileTracingRoot,
-  ]) {
-    if (typeof root === "string" && root.length !== 0) {
-      roots.push(path.resolve(root));
-    }
-  }
-  return roots;
 }

@@ -1,10 +1,18 @@
+import type { TtscProjectRegistration } from "./TtscProjectRegistration";
 import type { TtscWatchInput } from "./TtscWatchInput";
 import type { TtscWatchInputEvidence } from "./TtscWatchInputEvidence";
 
 /**
- * Hooks the bundler adapter passes into `transformTtsc` so transform
- * side-channels (plugin-reported dependencies and host resolver inputs) reach
- * the bundler without leaking extra fields on the returned `TransformResult`.
+ * How a host learns what one delivery depends on. A host takes one of two
+ * shapes:
+ *
+ * - A host that keys each module on the inputs of that module alone, such as
+ *   `@ttsc/metro`'s fingerprint or a Vite dev server's module graph, takes them
+ *   through {@link addWatchFile} or {@link addWatchFiles}.
+ * - A build host, which watches files and snapshots them in a persistent cache,
+ *   takes the project's record through {@link project}: a generation compiles
+ *   the whole project, so a module's output is a function of the project's
+ *   state and of nothing finer, and the record is that state as one file.
  */
 export interface TtscTransformHooks {
   /**
@@ -15,9 +23,7 @@ export interface TtscTransformHooks {
    * `graph.candidates`, and universal `graph.resolutionInputs`. For a file the
    * envelope declared `dependenciesComplete`, only `dependencies[F]`,
    * `graph.candidates`, `graph.resolutionInputs`, and the universal
-   * `graph.configs` chain remain. Adapters forward this to the bundler's
-   * `addWatchFile` so type-only inputs participate in watch-mode and
-   * persistent-cache invalidation. See `selectWatchInputs` for the exact
+   * `graph.configs` chain remain. See `selectWatchInputs` for the exact
    * derivation.
    */
   addWatchFile?: (file: string, evidence?: TtscWatchInputEvidence) => void;
@@ -30,30 +36,33 @@ export interface TtscTransformHooks {
    */
   addWatchFiles?: (inputs: readonly TtscWatchInput[], failed?: boolean) => void;
   /**
-   * Whether the batch also carries the project's root-file membership: one
-   * input for the project root, of kind `membership` (samchon/ttsc#1419).
-   *
-   * A watching host needs it to hear that a file the tsconfig includes appeared
-   * or disappeared, since no compiler input changes when one does. A host that
-   * already re-keys on the whole project walk, as `@ttsc/metro` does, leaves it
-   * out.
+   * Whether the batch of {@link addWatchFile} or {@link addWatchFiles} also
+   * carries the project's root-file membership: one input for the project root,
+   * of kind `membership` (samchon/ttsc#1419), which a dev server's watcher
+   * observes by walking the project again. A host that already re-keys on the
+   * whole project walk, as `@ttsc/metro` does, leaves it out. A build host's
+   * record ({@link project}) always carries it.
    */
   membership?: boolean;
   /**
-   * Invoked when the plugin declared the transformed file volatile (the
-   * envelope's `volatile` list): its output depends on non-file inputs that no
-   * file-dependency snapshot can represent. Adapters should mark the module
-   * uncacheable where the bundler exposes that control (e.g. a webpack loader
-   * context's `cacheable(false)`).
+   * A build host's registration: the transform writes the project's record
+   * below `toolDirectory` (`projectRecordFile`) to the generation's state and
+   * hands it over once per delivery, with the generation's inputs for a
+   * watching session's bridge (`registerProjectRecord`).
+   */
+  project?: {
+    /** Called once per delivery, failed deliveries included. */
+    register: (registration: TtscProjectRegistration) => void;
+    /** The host's tool directory (`hostToolDirectory`), where the record lives. */
+    toolDirectory: string;
+  };
+  /**
+   * Invoked when the module's output depends on inputs no file-dependency
+   * snapshot of the module represents: the plugin declared the transformed file
+   * volatile (the envelope's `volatile` list), or the module was handed over
+   * without the project's record, which could not be written. Adapters should
+   * mark the module uncacheable where the bundler exposes that control (e.g. a
+   * webpack loader context's `cacheable(false)`).
    */
   markVolatile?: () => void;
-  /**
-   * A path spelled the way the host's watch channel names the project, when
-   * that channel relates every input to a root of its own rather than to the
-   * module it delivered: Farm relates each watch file to its configured root,
-   * so an input is handed under that root's spelling, whichever spelling Farm's
-   * resolver delivered the module under (samchon/ttsc#1462). Absent, the
-   * delivered module decides the spelling (`hostSpelling`).
-   */
-  spelling?: string;
 }

@@ -1,15 +1,16 @@
 import path from "node:path";
 import {
+  type NativeBuildContext,
   type UnpluginFactory,
   type UnpluginInstance,
   createUnplugin,
 } from "unplugin";
 
-import { BRIDGED_WATCH_INPUT_KINDS } from "./bridge/BRIDGED_WATCH_INPUT_KINDS";
 import type { HostWatchBridge } from "./bridge/HostWatchBridge";
-import { hostWatchIgnores } from "./bridge/hostWatchIgnores";
+import { hostToolDirectory } from "./bridge/hostToolDirectory";
 import { openHostWatchBridge } from "./bridge/openHostWatchBridge";
-import { registerBuildWatchInputs } from "./bridge/registerBuildWatchInputs";
+import { refreshProjectRecordFiles } from "./bridge/refreshProjectRecordFiles";
+import { registerProjectRecord } from "./bridge/registerProjectRecord";
 import { createEsbuildOptions } from "./esbuild/createEsbuildOptions";
 import { isTransformTarget } from "./isTransformTarget";
 import type { TtscUnpluginOptions } from "./options/TtscUnpluginOptions";
@@ -25,10 +26,10 @@ import { transformTtsc } from "./transform/transformTtsc";
 import { isHostWrapperQuery } from "./transform/utils/isHostWrapperQuery";
 import { stableStringify } from "./transform/utils/stableStringify";
 import { stripQuery } from "./transform/utils/stripQuery";
-import type { TtscWatchInputKind } from "./transform/watch/TtscWatchInputKind";
 import { createViteServeInputWatch } from "./vite/createViteServeInputWatch";
 import { TTSC_SOURCE_MAP_STASH } from "./webpack/TTSC_SOURCE_MAP_STASH";
 import { registerTtscSourceMapLoader } from "./webpack/registerTtscSourceMapLoader";
+import { reportCompiledProjectRecords } from "./webpack/reportCompiledProjectRecords";
 
 const name = "ttsc-unplugin";
 
@@ -99,15 +100,35 @@ const unpluginFactory: UnpluginFactory<
   // that watches: `farm start` and `farm watch` resolve it, `farm build` does
   // not.
   let farmWatching = false;
-  // Farm relates every watch file to its configured root, so its inputs are
-  // spelled under that root, whichever spelling its resolver delivered the
-  // module under (samchon/ttsc#1462).
+  // Farm's configured root, which Farm relates every watch file to and cannot
+  // relate one on another Windows drive to, so its record lives below it, as
+  // the Turbopack loader's lives below the root Turbopack resolved. Every other
+  // host this factory serves takes any path, and its record lives below the
+  // directory it runs in.
   let farmRoot: string | undefined;
+  const hostRoot = (): string => farmRoot ?? process.cwd();
   const closeBridge = async (): Promise<void> => {
     const open = bridge;
     bridge = undefined;
     passStartedAt = undefined;
     await open?.close();
+  };
+  // Whether the host watches: it then observes the compiler's inputs through
+  // the session's bridge, whose sequence token is taken before the compile,
+  // as the dev server's is. Every other host is one-shot and proves the
+  // record at its next start. Read from the context unplugin hands every hook,
+  // `buildStart` and `transform` alike.
+  const hostWatching = (context: {
+    getNativeBuildContext?: () => NativeBuildContext | undefined;
+    meta?: { watchMode?: boolean };
+  }): boolean => {
+    if (viteCommand === "serve") return false;
+    const native = context.getNativeBuildContext?.();
+    return native?.framework === "webpack" || native?.framework === "rspack"
+      ? (native.compiler as { watchMode?: boolean }).watchMode === true
+      : native?.framework === "farm"
+        ? farmWatching
+        : native === undefined && context.meta?.watchMode === true;
   };
 
   return {
@@ -223,12 +244,12 @@ const unpluginFactory: UnpluginFactory<
         await serveInputs.dispose();
         await closeBridge();
       },
-      // A watching `vite build` bundles through Rollup, which loses a sentinel
-      // rewritten while it is building the way the Rollup block below
-      // describes (samchon/ttsc#1460); Rolldown, behind Vite 8, takes no such
-      // hook and ignores it.
-      shouldTransformCachedModule({ id }: { id: string }) {
-        return bridge?.owes(id) === true ? true : null;
+      // A watching `vite build` bundles through Rollup, which loses a record
+      // moved while it is building the way the Rollup block below describes
+      // (samchon/ttsc#1460); Rolldown, behind Vite 8, takes no such hook and
+      // ignores it.
+      shouldTransformCachedModule() {
+        return bridge?.owes() === true ? true : null;
       },
     },
 
@@ -256,15 +277,14 @@ const unpluginFactory: UnpluginFactory<
         resetTtscTransformCache(transformCache);
         await closeBridge();
       },
-      // A sentinel rewritten while Rollup is building invalidates the cache
-      // that build started from, and the build's own result then replaces it,
-      // so the importer is served from the cache on the rerun and stays on its
+      // A record moved while Rollup is building invalidates the cache that
+      // build started from, and the build's own result then replaces it, so
+      // the modules are served from the cache on the rerun and stay on their
       // old output (samchon/ttsc#1460). Rollup asks here before it serves a
-      // module from its cache, and a module the bridge signalled since it last
-      // registered is transformed instead, which registers it and answers the
-      // signal.
-      shouldTransformCachedModule({ id }: { id: string }) {
-        return bridge?.owes(id) === true ? true : null;
+      // module from its cache, and while the bridge owes a signal every module
+      // is transformed instead, which registers the record and answers it.
+      shouldTransformCachedModule() {
+        return bridge?.owes() === true ? true : null;
       },
     },
     rolldown: {
@@ -284,6 +304,12 @@ const unpluginFactory: UnpluginFactory<
     // are installed by unplugin alongside its ordinary transform wiring.
     webpack(compiler) {
       registerTtscSourceMapLoader(compiler);
+      compiler.hooks.done.tap(name, (stats) => {
+        reportCompiledProjectRecords(
+          bridge,
+          stats.compilation.fileDependencies,
+        );
+      });
       compiler.hooks.shutdown.tap(name, () => {
         // The shared generation outlives this compiler for the next one; the
         // lease resets it once no compiler has used it for its grace.
@@ -294,6 +320,12 @@ const unpluginFactory: UnpluginFactory<
     },
     rspack(compiler) {
       registerTtscSourceMapLoader(compiler);
+      compiler.hooks.done.tap(name, (stats) => {
+        reportCompiledProjectRecords(
+          bridge,
+          stats.compilation.fileDependencies,
+        );
+      });
       compiler.hooks.shutdown.tap(name, () => {
         // The shared generation outlives this compiler for the next one; the
         // lease resets it once no compiler has used it for its grace.
@@ -358,7 +390,22 @@ const unpluginFactory: UnpluginFactory<
         resetTtscTransformCache(transformCache);
       } else {
         beginTtscTransformBuild(transformCache);
+        // Before the host validates a module against its persistent cache:
+        // a project whose state moved while nothing ran is heard through its
+        // record, which only a proof here can move. A watching host's bridge
+        // opens for its first pass and takes every record, so a project the
+        // host restores whole from its cache, with no delivery in this
+        // process, is observed from then on; a later pass of that session
+        // has the bridge observing already, and a one-shot host proves the
+        // records at each start.
+        const opening = bridge === undefined;
+        if (opening && hostWatching(this)) {
+          bridge = openHostWatchBridge(hostRoot());
+        }
         passStartedAt = bridge?.begin();
+        if (opening) {
+          refreshProjectRecordFiles(hostToolDirectory(hostRoot()), bridge);
+        }
       }
     },
 
@@ -382,42 +429,28 @@ const unpluginFactory: UnpluginFactory<
           ? serveInputs.begin()
           : undefined;
       const native = this.getNativeBuildContext?.();
-      const meta = (
-        this as { meta?: { rolldownVersion?: string; watchMode?: boolean } }
-      ).meta;
-      // The compiler predicates a watching build's own channels observe
-      // imprecisely or not at all, which go through the bridge instead. Its
-      // sequence token is taken before the compile, as the dev server's is.
-      const bridgedKinds: ReadonlySet<TtscWatchInputKind> | undefined =
-        viteCommand === "serve"
-          ? undefined
-          : native?.framework === "webpack" || native?.framework === "rspack"
-            ? (native.compiler as { watchMode?: boolean }).watchMode === true
-              ? BRIDGED_WATCH_INPUT_KINDS.recursiveDirectoryChannel
-              : undefined
-            : native?.framework === "farm"
-              ? farmWatching
-                ? BRIDGED_WATCH_INPUT_KINDS.fileChannel
-                : undefined
-              : native === undefined && meta?.watchMode === true
-                ? BRIDGED_WATCH_INPUT_KINDS.watcherPerPath
-                : undefined;
-      // Rolldown drops a change to a watched file that lands while it is
-      // building, so an edit after ttsc returned a module never rebuilt it:
-      // measured on the host matrix on every OS, intermittently
-      // (samchon/ttsc#1465). Every input therefore goes to the bridge, and
-      // the bridge repeats a signal until the module registers again, as it
-      // does for Turbopack; a rewrite that lands during a build is lost, and
-      // the next lands after it.
-      const bridgeStartedAt =
-        bridgedKinds === undefined
-          ? undefined
-          : (passStartedAt ??= (bridge ??= openHostWatchBridge(
-              process.cwd(),
-              {},
-              undefined,
-              meta?.rolldownVersion !== undefined,
-            )).begin());
+      // The bridge opened with the first pass (`buildStart`); a host that
+      // opened none before its first transform gets it here.
+      const bridgeStartedAt = hostWatching(this)
+        ? (passStartedAt ??= (bridge ??=
+            openHostWatchBridge(hostRoot())).begin())
+        : undefined;
+      // A build host takes the project's record, and nothing else, through
+      // the same channel that watches the module itself: Farm relates a watch
+      // file to the module that named it, the webpack and Rspack loader
+      // contexts hold the module-level channel (a compilation-level one
+      // schedules a pass without invalidating the module), and every other
+      // host has one `addWatchFile`.
+      const loaderContext =
+        native?.framework === "webpack" || native?.framework === "rspack"
+          ? native.loaderContext
+          : undefined;
+      const addWatchFile: (input: string) => void =
+        native?.framework === "farm"
+          ? (input) => native.context.addWatchFile(file, input)
+          : loaderContext !== undefined
+            ? (input) => loaderContext.addDependency(input)
+            : (input) => this.addWatchFile(input);
       const result = await transformTtsc(
         file,
         source,
@@ -425,71 +458,35 @@ const unpluginFactory: UnpluginFactory<
         aliases,
         transformCache,
         {
-          // A watcherless server has no invalidation channel and needs no
-          // watch-input derivation. Every other host keeps its native contract.
-          addWatchFiles:
-            viteCommand === "serve" && !viteWatching
-              ? undefined
-              : (inputs, failed) => {
-                  if (viteCommand === "serve") {
-                    serveInputs.replace(file, inputs, failed, serveStartedAt);
-                  } else {
-                    registerBuildWatchInputs({
-                      addWatchFile:
-                        native?.framework === "farm"
-                          ? (input) => native.context.addWatchFile(file, input)
-                          : (input) => this.addWatchFile(input),
-                      ...(bridge !== undefined &&
-                      bridgedKinds !== undefined &&
-                      bridgeStartedAt !== undefined
+          // A dev server keys each importer on its own inputs through its
+          // module graph; a watcherless one has no invalidation channel and
+          // needs no derivation.
+          ...(viteCommand === "serve"
+            ? viteWatching
+              ? {
+                  addWatchFiles: (inputs, failed) =>
+                    serveInputs.replace(file, inputs, failed, serveStartedAt),
+                  membership: true,
+                }
+              : {}
+            : {
+                project: {
+                  register: (registration) =>
+                    registerProjectRecord({
+                      addWatchFile,
+                      ...(bridge !== undefined && bridgeStartedAt !== undefined
                         ? {
                             bridge: {
-                              // The paths the watching compiler skips, Rspack's
-                              // default `node_modules` among them, read where
-                              // its `Watching` keeps them.
-                              ...(native?.framework === "webpack" ||
-                              native?.framework === "rspack"
-                                ? {
-                                    ignores: hostWatchIgnores(
-                                      (
-                                        native.compiler as {
-                                          watching?: {
-                                            watchOptions?: {
-                                              ignored?: unknown;
-                                            };
-                                          };
-                                        }
-                                      ).watching?.watchOptions?.ignored,
-                                    ),
-                                  }
-                                : {}),
                               instance: bridge,
-                              kinds: bridgedKinds,
                               startedAt: bridgeStartedAt,
                             },
                           }
                         : {}),
-                      failed,
-                      file,
-                      inputs,
-                      projectRoot: process.cwd(),
-                      // Module-level channels, since compilation-level ones
-                      // schedule a pass without invalidating the module.
-                      ...((native?.framework === "webpack" ||
-                        native?.framework === "rspack") &&
-                      native.loaderContext !== undefined
-                        ? { loader: native.loaderContext }
-                        : {}),
-                    });
-                  }
+                      registration,
+                    }),
+                  toolDirectory: hostToolDirectory(hostRoot()),
                 },
-          // A watching session's bridge and the dev server's watcher observe
-          // the project's root files as well; a one-shot build host skips
-          // them (samchon/ttsc#1419).
-          membership: true,
-          ...(native?.framework === "farm" && farmRoot !== undefined
-            ? { spelling: farmRoot }
-            : {}),
+              }),
           // A module the plugin declared volatile depends on non-file inputs,
           // which no file-dependency snapshot can represent; mark it
           // uncacheable where the bundler exposes that control.

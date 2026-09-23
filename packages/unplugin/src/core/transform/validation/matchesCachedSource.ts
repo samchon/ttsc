@@ -30,6 +30,10 @@ import { notificationsProveProgramUnchanged } from "./notificationsProveProgramU
  * re-transform. A delivered text that differs from the file while the disk
  * still holds the bytes the generation compiled is not one: it is reported and
  * served, since the compile read the disk (samchon/ttsc#1394).
+ *
+ * Its place in the adapter's invalidation model, and the units beside it, are
+ * mapped in the maintainer page
+ * `website/src/content/docs/development/reference/unplugin-invalidation.mdx`.
  */
 export function matchesCachedSource(
   cached: TtscCachedProjectTransform,

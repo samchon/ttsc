@@ -99,7 +99,7 @@ export async function test_host_input_tracker_real_backends_agree(): Promise<voi
     if (process.platform !== "win32") {
       tracker.verifyLocations?.();
       assert.equal(tracker.failed, false, "unchanged locations hold");
-      fs.renameSync(at("lib"), at("lib-old"));
+      await TestProject.rename(at("lib"), at("lib-old"));
       fs.mkdirSync(at("lib"));
       fs.writeFileSync(
         at("lib", "types.d.ts"),

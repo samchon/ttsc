@@ -1,13 +1,12 @@
 import { TestUnpluginProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import path from "node:path";
 
 import { emitDependenciesPlugins } from "../../internal/adapter-turbopack/emitDependenciesPlugins";
+import { projectRecordOf } from "../../internal/adapter-turbopack/projectRecordOf";
 import { runTurbopackLoaderWithContext } from "../../internal/adapter-turbopack/runTurbopackLoaderWithContext";
-import { universalHostInputs } from "../../internal/adapter-turbopack/universalHostInputs";
 
 /**
- * Verifies a cache-served transform still registers the dependency list.
+ * Verifies a cache-served transform still registers the project's record.
  *
  * The loader shares one transform cache across requests for the worker's
  * lifetime, but Turbopack rebuilds its `fileDependencies` set per loader
@@ -16,17 +15,14 @@ import { universalHostInputs } from "../../internal/adapter-turbopack/universalH
  *
  * 1. Configure a plugin that reports `src/types.d.ts`.
  * 2. Run the loader twice on the entry module, a fresh compile and a cache hit.
- * 3. Assert both runs register the same dependencies.
+ * 3. Assert both runs register the record, and nothing else.
  */
 export async function test_turbopack_loader_registers_plugin_dependencies_on_cache_hit(): Promise<void> {
   const root = TestUnpluginProject.createProject({ plugins: [] });
   const options = {
     plugins: emitDependenciesPlugins(["src/types.d.ts"]),
   };
-  const expected = [
-    path.join(root, "src", "types.d.ts"),
-    ...universalHostInputs(root),
-  ];
+  const expected = [projectRecordOf(root)];
 
   const first = await runTurbopackLoaderWithContext({
     resourcePath: TestUnpluginProject.mainFile(root),

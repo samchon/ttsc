@@ -83,7 +83,16 @@ function resolveTscBinary() {
 }
 const TSC_BINARY = resolveTscBinary();
 
-test_unplugin_package_e2e();
+// A failure ends the process through its exit code rather than as an uncaught
+// exception, which exits at once: macOS takes writes to a pipe
+// asynchronously, so the output `run` writes for a failed command just before
+// it throws, the host matrix's failure detail among it, was cut short there.
+try {
+  test_unplugin_package_e2e();
+} catch (error) {
+  console.error(error);
+  process.exitCode = 1;
+}
 
 /** Run the complete packed-package adapter contract in one consumer install. */
 export function test_unplugin_package_e2e() {
@@ -131,20 +140,13 @@ function packPackage(packageDirName, tarballName) {
   const packageDir = path.join(root, "packages", packageDirName);
   assert(fs.existsSync(packageDir), `${packageDirName} package must exist`);
 
-  for (const entry of fs.readdirSync(packageDir)) {
-    if (entry.endsWith(".tgz")) {
-      fs.rmSync(path.join(packageDir, entry), { force: true });
-    }
-  }
-
-  run("pnpm pack", packageDir);
-  const packed = fs
-    .readdirSync(packageDir)
-    .find((entry) => entry.endsWith(".tgz"));
-  assert(packed, `${packageDirName} package tarball must be created`);
-  fs.copyFileSync(
-    path.join(packageDir, packed),
-    path.join(tarballs, `${tarballName}.tgz`),
+  // Straight into the tarball directory, as `pnpm package:tgz` packs: a
+  // tarball packed into the package directory outlives the run there.
+  const output = path.join(tarballs, `${tarballName}.tgz`);
+  run(`pnpm pack --out ${JSON.stringify(output)}`, packageDir);
+  assert(
+    fs.existsSync(output),
+    `${packageDirName} package tarball must be created`,
   );
 }
 
@@ -426,6 +428,29 @@ function writeTransformPlugin() {
   fs.cpSync(
     path.join(experimentRoot, "assets", "transform"),
     path.join(workspace, "unplugin-transform-go"),
+    { recursive: true },
+  );
+  // The host matrix's second plugin: a linked contributor to ttsc's utility
+  // host, so the compile goes through TypeScript-Go's program and the envelope
+  // carries the compiler's verdict and graph.
+  fs.writeFileSync(
+    path.join(workspace, "unplugin-linked.cjs"),
+    [
+      'const path = require("node:path");',
+      "",
+      "module.exports = function createUnpluginLinked(context) {",
+      "  return {",
+      '    name: "experimental-unplugin-linked",',
+      '    source: path.resolve(context.dirname, "unplugin-linked-go", "contract"),',
+      "  };",
+      "};",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+  fs.cpSync(
+    path.join(experimentRoot, "assets", "linked"),
+    path.join(workspace, "unplugin-linked-go"),
     { recursive: true },
   );
 }

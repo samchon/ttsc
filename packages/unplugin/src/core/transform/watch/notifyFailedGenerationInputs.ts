@@ -8,7 +8,9 @@ import { isTransformScratchInput } from "../tsconfig/isTransformScratchInput";
 import type { TtscTransformHooks } from "./TtscTransformHooks";
 import type { TtscWatchInput } from "./TtscWatchInput";
 import type { TtscWatchSelection } from "./TtscWatchSelection";
+import { evidencedWatchInput } from "./evidencedWatchInput";
 import { handWatchInputs } from "./handWatchInputs";
+import { notifyProjectRecord } from "./notifyProjectRecord";
 import { projectMembershipInput } from "./projectMembershipInput";
 import { selectionInputs } from "./selectionInputs";
 
@@ -43,14 +45,14 @@ export function notifyFailedGenerationInputs(
   file: string,
   selection: TtscWatchSelection,
 ): void {
-  const addWatchFile = hooks?.addWatchFile;
-  const addWatchFiles = hooks?.addWatchFiles;
-  if (addWatchFile === undefined && addWatchFiles === undefined) {
-    return;
-  }
+  if (hooks === undefined) return;
   const state = envelopeDerivation(cached);
-  const spell = hostSpelling(state.project, hooks?.spelling ?? file);
+  const spell = hostSpelling(state.project, file);
   const inputs: TtscWatchInput[] = [];
+  // The same paths as the compiler spelled them, for the record: what the
+  // failed generation did record of each, its walk hash or external state, is
+  // what the record holds, read again only where it recorded nothing.
+  const recorded: string[] = [];
   const seen = new Set<string>();
   const append = (input: string): void => {
     const spelling = path.resolve(input);
@@ -65,6 +67,7 @@ export function notifyFailedGenerationInputs(
     // of its pass without re-proving its inputs, so the adapter must observe
     // the current availability itself.
     inputs.push({ file: spell(spelling) });
+    recorded.push(spelling);
   };
   for (const key of Object.keys(cached.inputHashes)) {
     append(path.resolve(cached.projectRoot, key));
@@ -89,15 +92,40 @@ export function notifyFailedGenerationInputs(
       append(path.resolve(cached.projectRoot, diagnostic));
     }
   }
-  // A root file the tsconfig includes, such as the global declaration the
-  // failed compile was missing, can repair it too (samchon/ttsc#1419).
-  const membership =
-    hooks?.membership === true ? projectMembershipInput(cached) : undefined;
-  if (membership !== undefined) inputs.push(membership);
   inputs.push(
     ...selectionInputs(selection.consulted, selection.filesystem, spell),
   );
-  handWatchInputs(hooks, inputs, true);
+  // A build host takes the record, written to what the failed compile
+  // consulted, so the repair moves it wherever it lands; a module handed over
+  // without it depends on its own bytes alone, and no persistent cache may
+  // keep it.
+  if (
+    hooks.project !== undefined &&
+    !notifyProjectRecord(hooks.project, cached, true, () => [
+      ...recorded.map((input) =>
+        evidencedWatchInput(cached, state, input, (spelling) => spelling),
+      ),
+      ...selectionInputs(
+        selection.consulted,
+        selection.filesystem,
+        (spelling) => spelling,
+      ),
+    ])
+  ) {
+    hooks.markVolatile?.();
+  }
+  if (hooks.addWatchFile === undefined && hooks.addWatchFiles === undefined) {
+    return;
+  }
+  // A root file the tsconfig includes, such as the global declaration the
+  // failed compile was missing, can repair it too (samchon/ttsc#1419).
+  const membership =
+    hooks.membership === true ? projectMembershipInput(cached) : undefined;
+  handWatchInputs(
+    hooks,
+    membership === undefined ? inputs : [...inputs, membership],
+    true,
+  );
 }
 
 /**

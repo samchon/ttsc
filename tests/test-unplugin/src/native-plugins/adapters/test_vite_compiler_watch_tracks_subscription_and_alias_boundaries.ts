@@ -104,7 +104,7 @@ export async function test_vite_compiler_watch_tracks_subscription_and_alias_bou
     watch.replace(importer("directory-rename"), [
       { file: nested, evidence: evidence(nested) },
     ]);
-    fs.renameSync(
+    await TestProject.rename(
       path.join(root, "ordinary"),
       path.join(root, "ordinary-moved"),
     );

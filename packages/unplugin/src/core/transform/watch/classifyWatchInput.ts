@@ -4,15 +4,13 @@ import type { TtscWatchInput } from "./TtscWatchInput";
 import type { TtscWatchInputKind } from "./TtscWatchInputKind";
 
 /**
- * Classify one watch input by the predicate the compiler observed on it, so
- * each adapter can hand it to the host channel that observes that predicate
- * (samchon/ttsc#1388).
- *
- * Hosts differ in what their file-dependency channel sees. For example,
- * Rolldown's and Farm's `addWatchFile` never report a created path, webpack's
- * `addDependency` never reports a directory gaining an entry, and Rollup's
- * `addWatchFile` watches a directory recursively. Deciding the kind once here
- * keeps every adapter's mapping a table instead of a second derivation.
+ * Classify one watch input by the predicate the compiler observed on it, so the
+ * adapter's own observer, the Vite dev server's watcher and the build hosts'
+ * bridge (`createViteServeInputWatch`), watches it for the change that
+ * predicate can undergo (samchon/ttsc#1388): a file for its edit, a missing
+ * path for its creation, a listing for an entry appearing. Deciding the kind
+ * once here keeps the observer's mapping a table instead of a second
+ * derivation.
  *
  * The project's root-file membership carries its own codec, which names its
  * kind outright (samchon/ttsc#1419).

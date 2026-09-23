@@ -31,13 +31,6 @@ export interface TtscTurbopackLoaderContext {
    */
   addDependency?(file: string): void;
   /**
-   * Register a directory whose entries the transformed module depends on. Part
-   * of the same loader contract; Turbopack observes a directory gaining or
-   * losing an entry only through this channel (samchon/ttsc#1388). Optional for
-   * the same reason as `addDependency`.
-   */
-  addContextDependency?(directory: string): void;
-  /**
    * Toggle result cacheability. Part of the webpack loader context contract;
    * called with `false` when the ttsc plugin declared the module volatile
    * (output depends on non-file inputs), so the bundler never replays a cached
