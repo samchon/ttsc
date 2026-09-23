@@ -1,5 +1,3 @@
-import path from "node:path";
-
 import type { HostWatchBridge } from "../bridge/HostWatchBridge";
 
 /**
@@ -36,5 +34,5 @@ export function reportCompiledProjectRecords(
           const files = new Set(dependencies);
           return (file: string) => files.has(file);
         })();
-  bridge.compiled((record) => depends(record) || depends(path.resolve(record)));
+  bridge.compiled(depends);
 }

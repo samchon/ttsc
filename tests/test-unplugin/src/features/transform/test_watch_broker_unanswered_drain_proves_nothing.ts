@@ -36,7 +36,7 @@ export async function test_watch_broker_unanswered_drain_proves_nothing(): Promi
       nextId: 1,
       pendingDrains: 0,
       pendingRegistrations: 0,
-      trackers: new Map(),
+      registrations: new Map(),
     };
     return broker;
   };

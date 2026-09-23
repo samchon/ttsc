@@ -1,9 +1,9 @@
 import path from "node:path";
 
+import type { InputObserverOperations } from "../observer/InputObserverOperations";
+import { createInputObserver } from "../observer/createInputObserver";
+import { hostDeclaresPolling } from "../transform/tracker/hostDeclaresPolling";
 import type { TtscWatchInput } from "../transform/watch/TtscWatchInput";
-import type { ViteModuleNodeLike } from "../vite/ViteModuleNodeLike";
-import type { ViteServeWatchOperations } from "../vite/ViteServeWatchOperations";
-import { createViteServeInputWatch } from "../vite/createViteServeInputWatch";
 import type { HostWatchBridge } from "./HostWatchBridge";
 import { signalProjectRecordFile } from "./signalProjectRecordFile";
 
@@ -18,12 +18,11 @@ import { signalProjectRecordFile } from "./signalProjectRecordFile";
  * loses a change that lands while it builds or before it records its baseline,
  * one fails a module on a dependency outside its root or reads a directory as a
  * file. The host is therefore handed no input at all, only the project's record
- * (`projectRecordFile`), and the bridge observes the inputs with the bounded
- * observer that serves the Vite dev server: one project scope plus at most 16
- * external ones, and a precise predicate re-check per event. The observer is
- * reused through its structural server view: each record is its own module
- * node, and invalidating that node moves the record
- * (`signalProjectRecordFile`).
+ * (`projectRecordFile`), and the bridge observes the inputs with the adapter's
+ * own bounded observer (`createInputObserver`): one project scope plus at most
+ * 16 external ones, and a precise predicate re-check per event. Each record is
+ * one owner of the observer, and an owner whose inputs changed moves its record
+ * (`signalProjectRecordFile`, samchon/ttsc#1485).
  *
  * A signal moves the record at once and is owed until a registration whose
  * delivery read the post-signal state answers it (principle C). A host takes a
@@ -59,16 +58,16 @@ import { signalProjectRecordFile } from "./signalProjectRecordFile";
  */
 export function openHostWatchBridge(
   root: string,
-  operations: Partial<ViteServeWatchOperations> = {},
+  operations: Partial<InputObserverOperations> = {},
 ): HostWatchBridge {
-  const watch = createViteServeInputWatch(operations);
-  const nodes = new Map<string, ViteModuleNodeLike & { file: string }>();
+  // Every map below is keyed by the record's absolute spelling, the one the
+  // observer reports its owners under.
   // What each record was last registered with.
   const registered = new Map<
     string,
     { inputs: readonly TtscWatchInput[]; startedAt: number | undefined }
   >();
-  // The records signalled since they last registered, by resolved path.
+  // The records signalled since they last registered.
   const owed = new Set<string>();
   // The pass a signal was last answered in, and the current pass: a host that
   // asks per module whether its cache may serve it, Rollup, is answered for
@@ -87,12 +86,12 @@ export function openHostWatchBridge(
   // does not observe, reported by a host that reports it (`compiled`).
   const unwatched = new Set<string>();
   const settle = (record: string): void => {
-    owed.delete(path.resolve(record));
+    owed.delete(record);
     clearTimeout(pending.get(record));
     pending.delete(record);
   };
   const signal = (record: string): void => {
-    owed.add(path.resolve(record));
+    owed.add(record);
     // A signal already owed keeps its schedule, which still lands a move
     // after whatever baseline the host takes next.
     if (pending.has(record)) return;
@@ -112,23 +111,17 @@ export function openHostWatchBridge(
     };
     moveAfter(FIRST_SIGNAL_DELAY_MS);
   };
-  watch.attach({
-    config: { root },
-    moduleGraph: {
-      getModulesByFile: (file) => {
-        const node = nodes.get(file);
-        return node === undefined ? undefined : new Set([node]);
-      },
-      invalidateModule: (node) => {
-        const record = (node as { file?: string }).file;
-        if (record !== undefined) signal(record);
-      },
-    },
-  });
+  // A record whose inputs changed and one whose project only gained or lost a
+  // root file are the same news to a build host: its modules must run again.
+  const observer = createInputObserver(({ invalidate, reload }) => {
+    for (const record of reload) signal(record);
+    for (const record of invalidate) signal(record);
+  }, operations);
+  observer.open(root, hostDeclaresPolling(process.env));
   return {
     begin: () => {
       pass += 1;
-      lastBegin = watch.begin();
+      lastBegin = observer.begin();
       return lastBegin;
     },
     close: async () => {
@@ -136,8 +129,7 @@ export function openHostWatchBridge(
       owed.clear();
       registered.clear();
       unwatched.clear();
-      await watch.dispose();
-      nodes.clear();
+      await observer.dispose();
     },
     compiled(depends) {
       for (const record of registered.keys()) {
@@ -146,7 +138,7 @@ export function openHostWatchBridge(
           unwatched.add(record);
           clearTimeout(pending.get(record));
           pending.delete(record);
-        } else if (unwatched.delete(record) && owed.has(path.resolve(record))) {
+        } else if (unwatched.delete(record) && owed.has(record)) {
           signal(record);
         }
       }
@@ -154,7 +146,8 @@ export function openHostWatchBridge(
     owes: (record) =>
       (answeredIn !== undefined && pass <= answeredIn + 1) ||
       (record === undefined ? owed.size !== 0 : owed.has(path.resolve(record))),
-    register(record, inputs, failed, startedAt) {
+    register(file, inputs, failed, startedAt) {
+      const record = path.resolve(file);
       // Every module of a generation registers the same inputs, the same
       // array, against the same pass, and the first registration established
       // the observation: the observer is live from then on and reports every
@@ -172,18 +165,17 @@ export function openHostWatchBridge(
       }
       registered.set(record, { inputs, startedAt });
       if (
-        owed.has(path.resolve(record)) &&
+        owed.has(record) &&
         startedAt !== undefined &&
         startedAt === lastBegin
       ) {
         answeredIn = pass;
       }
-      nodes.set(record.replace(/\\/g, "/"), { file: record });
       // The delivery being registered answers every signal owed so far. If it
       // read a state a change since `startedAt` has left, the replacement
       // finds that at once and signals again.
       settle(record);
-      watch.replace(record, inputs, failed, startedAt);
+      observer.replace(record, inputs, failed, startedAt);
     },
   };
 }

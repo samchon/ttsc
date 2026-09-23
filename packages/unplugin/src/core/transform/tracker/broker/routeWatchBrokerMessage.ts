@@ -1,47 +1,38 @@
-import path from "node:path";
-
-import { recordProjectChange } from "../recordProjectChange";
-import { recordProjectMutation } from "../recordProjectMutation";
 import type { WatchBroker } from "./WatchBroker";
 
 /**
- * Apply one message from the isolated watch process to the waiter or tracker it
- * names (samchon/ttsc#1387).
+ * Apply one message from the isolated watch process to the waiter or
+ * registration it names (samchon/ttsc#1387).
  *
- * The child multiplexes every brokered tracker of the process, and every drain,
+ * The child multiplexes every registration of the process, and every drain,
  * over one ordered IPC channel, so each message carries the request id it
  * answers, and the decision is a table over what else it carries:
  *
  * - A malformed message, or one without an id, is ignored.
  * - A `drained` reply releases the drain waiting on that id. The channel is
  *   ordered, so every event the child sent before it has already been applied.
- *   Every draining registration's unproven set becomes the directories the
- *   reply names for it, those of the watches the child could not prove
- *   delivered (samchon/ttsc#1453), translated back to the walk's spelling.
+ *   Every draining registration is told which of its watches the child could
+ *   not prove delivered (samchon/ttsc#1453), in its own spelling, or that none
+ *   was unproven.
  * - A message for an id with no live registration is ignored. It is the late
- *   event of a tracker already closed.
+ *   event of a registration already closed.
  * - `gap` says a native watch of the registration reported that events were
- *   dropped, so some may have been lost (samchon/ttsc#1425). The registration's
- *   own `gap` answers it; without one, the tracker is marked unverified, and
- *   its silence proves nothing until a delivery proves the recorded state
- *   again.
- * - `failed` fails the tracker, and `ready` resolves its registration. One
- *   message can carry both, when some of the watches could not be opened.
- * - An event without a directory is a membership change the child could not
- *   attribute.
- * - An event names its directory by the child's canonical spelling, which is
- *   translated back to the walk's own spelling before anything compares it.
- *   With the exact-input trackers' classifier, that classifier alone decides
- *   between a mutation, a content change, and nothing. With the
- *   project-directory tracker's filters, a named event is a mutation when it
- *   can change membership, a content change when it can change a program
- *   input's content, and otherwise nothing. Any other event is a mutation.
+ *   dropped (samchon/ttsc#1425).
+ * - `failed` says a watch of the registration failed, and `ready` resolves its
+ *   wait. One message can carry both, when some of the watches could not be
+ *   opened.
+ * - An event without a directory is one the child could not place.
+ * - Every other message is an event of a watched directory, named by the child's
+ *   canonical spelling and translated back to the registration's own before its
+ *   sink hears it.
+ *
+ * What each call means is the sink's to decide (`WatchBrokerSink`).
  *
  * @param broker The drains and registrations of the broker the child serves.
  * @param message The message as the IPC channel delivered it.
  */
 export function routeWatchBrokerMessage(
-  broker: Pick<WatchBroker, "drains" | "trackers">,
+  broker: Pick<WatchBroker, "drains" | "registrations">,
   message: unknown,
 ): void {
   if (message === null || typeof message !== "object") return;
@@ -59,8 +50,8 @@ export function routeWatchBrokerMessage(
   if (typeof record.id !== "number") return;
   if (record.drained === true) {
     // The reply is the whole verdict of this drain: a watch it does not name
-    // was proven, so every draining tracker's set is replaced, emptied where
-    // nothing is named.
+    // was proven, so every draining registration hears a verdict, the empty
+    // one where nothing of it is named.
     const unproven = new Map<number, Set<string>>();
     if (Array.isArray(record.unproven)) {
       for (const entry of record.unproven as unknown[]) {
@@ -70,71 +61,37 @@ export function routeWatchBrokerMessage(
           id?: unknown;
         };
         if (typeof id !== "number" || typeof directory !== "string") continue;
-        const registration = broker.trackers.get(id);
+        const registration = broker.registrations.get(id);
         if (registration === undefined) continue;
         const directories = unproven.get(id) ?? new Set<string>();
         directories.add(registration.spellings.get(directory) ?? directory);
         unproven.set(id, directories);
       }
     }
-    for (const [id, registration] of broker.trackers) {
-      if (!registration.drains) continue;
-      const directories = unproven.get(id);
-      if (directories === undefined) delete registration.tracker.unproven;
-      else registration.tracker.unproven = directories;
+    for (const [id, registration] of broker.registrations) {
+      if (registration.drains) registration.sink.unproven(unproven.get(id));
     }
     const release = broker.drains.get(record.id);
     broker.drains.delete(record.id);
     release?.(true);
     return;
   }
-  const registration = broker.trackers.get(record.id);
+  const registration = broker.registrations.get(record.id);
   if (registration === undefined) return;
   if (record.gap === true) {
-    if (registration.gap !== undefined) registration.gap();
-    else registration.tracker.unverified = true;
+    registration.sink.gap();
     return;
   }
-  if (record.failed === true) registration.tracker.failed = true;
+  if (record.failed === true) registration.sink.failed();
   if (record.ready === true) registration.ready();
   if (record.ready === true || record.failed === true) return;
   if (typeof record.directory !== "string") {
-    registration.tracker.membershipChanged = true;
+    registration.sink.unattributed();
     return;
   }
-  const reported =
-    registration.spellings.get(record.directory) ?? record.directory;
-  const filename = typeof record.filename === "string" ? record.filename : null;
-  const changed = filename === null ? reported : path.join(reported, filename);
-  if (registration.classify !== undefined) {
-    const verdict = registration.classify(
-      reported,
-      filename,
-      record.eventType ?? "rename",
-    );
-    if (verdict === "mutation") {
-      recordProjectMutation(registration.tracker, changed);
-    } else if (verdict === "change") {
-      recordProjectChange(registration.tracker, changed);
-    }
-    return;
-  }
-  if (filename !== null && registration.membership !== undefined) {
-    if (
-      registration.membership(reported, filename) &&
-      (record.eventType === "rename" ||
-        registration.changeAddsMembership?.(reported, filename) === true)
-    ) {
-      recordProjectMutation(registration.tracker, changed);
-      return;
-    }
-    if (
-      record.eventType !== "rename" &&
-      registration.content?.(reported, filename) === true
-    ) {
-      recordProjectChange(registration.tracker, changed);
-    }
-    return;
-  }
-  recordProjectMutation(registration.tracker, changed);
+  registration.sink.event(
+    registration.spellings.get(record.directory) ?? record.directory,
+    typeof record.filename === "string" ? record.filename : null,
+    record.eventType ?? "rename",
+  );
 }

@@ -327,12 +327,10 @@ export async function createHostInputMutationTracker(
       })),
       events === "all",
       filesystem,
-      undefined,
-      undefined,
-      undefined,
-      classify,
-      undefined,
-      preferredRoot,
+      {
+        filters: { classify },
+        ...(preferredRoot === undefined ? {} : { probeRoot: preferredRoot }),
+      },
     );
     return tracker;
   }

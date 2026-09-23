@@ -10,8 +10,9 @@ import { watchBrokerSource } from "./watchBrokerSource";
 /**
  * Return the process-wide watch broker, starting it on first use.
  *
- * Every Windows and macOS observer of the transform core and the Vite serve
- * watcher lives in one isolated child process, for a reason on each:
+ * Every Windows and macOS watch of the transform core's trackers and of the
+ * input observer's scopes lives in one isolated child process, for a reason on
+ * each:
  *
  * - Node's Windows fs-event backend can hit a native assertion that aborts the
  *   whole process when a watched temporary tree is deleted. In the child that
@@ -45,17 +46,18 @@ export function getWatchBroker(): WatchBroker {
     nextId: 1,
     pendingDrains: 0,
     pendingRegistrations: 0,
-    trackers: new Map(),
+    registrations: new Map(),
   };
   const fail = (): void => {
-    for (const registration of broker.trackers.values()) {
-      registration.tracker.failed = true;
+    for (const registration of broker.registrations.values()) {
+      registration.sink.failed();
       registration.ready();
     }
-    broker.trackers.clear();
+    broker.registrations.clear();
     // A broker that died answers no round-trip. Release every waiter instead of
-    // stalling the deliveries behind them; their trackers are failed now, so
-    // validation falls back to proving the generation from its own state.
+    // stalling the deliveries behind them; every registration was told its
+    // watches failed, so a generation proves itself from its own state and an
+    // input observer's scope falls back to its poll.
     for (const release of broker.drains.values()) release(false);
     broker.drains.clear();
     if (WATCH_BROKER.current === broker) {

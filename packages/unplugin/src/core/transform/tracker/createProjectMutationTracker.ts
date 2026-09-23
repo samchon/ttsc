@@ -95,13 +95,15 @@ export async function createProjectMutationTracker(
       [{ directory: root, recursive: true }],
       false,
       filesystem,
-      reportsMembership,
-      (_location, filename) =>
-        isPossibleProgramFileName(path.basename(filename), policy),
-      reportsNewMembership,
-      undefined,
-      undefined,
-      root,
+      {
+        filters: {
+          changeAddsMembership: reportsNewMembership,
+          content: (_location, filename) =>
+            isPossibleProgramFileName(path.basename(filename), policy),
+          membership: reportsMembership,
+        },
+        probeRoot: root,
+      },
     );
     return tracker;
   }

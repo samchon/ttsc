@@ -2,7 +2,8 @@ import type { InputCondition } from "./InputCondition";
 import type { WatchScope } from "./WatchScope";
 
 /**
- * One compiler-input path the Vite serve watcher is responsible for.
+ * One compiler-input path an input observer (`createInputObserver`) is
+ * responsible for.
  *
  * Holds every spelling an event can arrive under (`aliases`), the ancestors
  * whose rename can move it (`renameAliases`), the scopes and links observing
@@ -18,7 +19,7 @@ export interface InputEntry {
   aliases: Set<string>;
   /** Latest native event already associated with this registered spelling. */
   changedAt: number;
-  /** Recorded states by serialized evidence, each with its importers. */
+  /** Recorded states by serialized evidence, each with its owners. */
   conditions: Map<string, InputCondition>;
   /**
    * Whether the bounded poll checks this entry: no native scope covers it, it

@@ -1,15 +1,15 @@
 import type { ChildProcess } from "node:child_process";
 
-import type { TtscProjectMutationTracker } from "../TtscProjectMutationTracker";
+import type { WatchBrokerRegistration } from "./WatchBrokerRegistration";
 
 /**
  * The live state of the isolated watch process.
  *
- * The broker multiplexes every Windows and macOS tracker of the process over
- * one IPC channel. Registrations and drains are counted so the channel is
- * referenced only while a reply is outstanding, and each tracker keeps the
- * filters and the spelling map it needs to translate the child's canonical
- * paths back to the spellings the rest of the adapter compares.
+ * The broker multiplexes every Windows and macOS watch of the process over one
+ * IPC channel, a tracker's and an input observer's scope's alike. Registrations
+ * and drains are counted so the channel is referenced only while a reply is
+ * outstanding, and each registration keeps the sink its messages go to and the
+ * spelling map that translates the child's canonical paths back to its own.
  */
 export interface WatchBroker {
   /** The isolated watch process; unreferenced whenever no reply is outstanding. */
@@ -33,59 +33,6 @@ export interface WatchBroker {
    * while nonzero.
    */
   pendingRegistrations: number;
-  /** Live registrations by id, each with its filters and spelling map. */
-  trackers: Map<
-    number,
-    {
-      /**
-       * Whether one named event can be a program membership change. Present
-       * only for the project-directory tracker, which watches whole directories
-       * and so has to narrow what it hears; the trackers that watch exact names
-       * have already narrowed theirs by construction.
-       */
-      membership?: (location: string, filename: string) => boolean;
-      /** Whether one named event can change compiler-consumed content. */
-      content?: (location: string, filename: string) => boolean;
-      /**
-       * The exact-input trackers' event decision, which replaces the three
-       * filters above when present.
-       */
-      classify?: (
-        location: string,
-        filename: string | null,
-        eventType: string,
-      ) => "change" | "mutation" | undefined;
-      /** Classify a backend `change` that can add one unknown program path. */
-      changeAddsMembership?: (location: string, filename: string) => boolean;
-      /**
-       * What a gap notice means to this registration (samchon/ttsc#1425): a
-       * native watch of it reported that events were dropped, so some may have
-       * been lost. Absent, the tracker is marked unverified, and its silence
-       * proves nothing until a delivery re-proves the recorded state; a Vite
-       * serve scope re-checks its entries instead.
-       */
-      gap?: () => void;
-      /**
-       * Whether this registration takes part in drains (samchon/ttsc#1453): a
-       * drain's reply then names the directories of its watches the child could
-       * not prove delivered, which become the tracker's
-       * {@link TtscProjectMutationTracker.unproven} set until the next drain. A
-       * registration that never drains, such as a Vite serve scope, is not
-       * told; its events keep arriving as they do.
-       */
-      drains: boolean;
-      ready: () => void;
-      /**
-       * The walk's own spelling for each canonical directory the child watches,
-       * so a reported event can be translated back before anything compares it
-       * with a path the walk or the configuration produced.
-       *
-       * Required, not optional. A registration that forgot it would fall back
-       * to the child's canonical spelling and silently reintroduce the mismatch
-       * this map exists to remove, with no type error and no failing test.
-       */
-      spellings: ReadonlyMap<string, string>;
-      tracker: TtscProjectMutationTracker;
-    }
-  >;
+  /** Live registrations by id. */
+  registrations: Map<number, WatchBrokerRegistration>;
 }

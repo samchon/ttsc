@@ -31,8 +31,8 @@ export interface HostWatchBridge {
    * observing with a signal still owed is moved again at once, on the schedule,
    * since the watcher took its baseline without that move.
    *
-   * @param depends Whether the compile depends on a record, by its path as it
-   *   was registered.
+   * @param depends Whether the compile depends on a record, by its absolute
+   *   path, the one `projectRecordFile` spells and the host was handed.
    */
   compiled(depends: (record: string) => boolean): void;
   /**
