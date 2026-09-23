@@ -502,7 +502,7 @@ func captureCommandOutput(t *testing.T, fn func() int) (int, string, string) {
     t.Fatal(err)
   }
   stderr := string(errOut)
-  public := registeredRuleSetForParity()
+  public := registeredBuiltInNonFormatRuleSet()
   normalizedStderr := ansiControlSequencePattern.ReplaceAllString(stderr, "")
   for _, match := range renderedRuleDiagnosticPattern.FindAllStringSubmatch(normalizedStderr, -1) {
     if len(match) != 2 {

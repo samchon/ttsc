@@ -46,4 +46,4 @@ Everything else in this repository is fixable, and where the fix lands decides w
 
 Report the defect immediately, and commit and push the verified correction in the campaign pull request.
 
-A defect confined to an instruction after `backend-start` is corrected by [deriving a new run](recovery.md) from that checkpoint, never by restarting the cell.
+A defect confined to an instruction after `backend-start` is corrected by [deriving a new run](recovery.md#derive-a-run-from-the-backend-start-checkpoint) from that checkpoint, never by restarting the cell.

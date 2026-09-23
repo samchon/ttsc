@@ -130,11 +130,11 @@ func recordedBehavioralWitnesses() map[string][]behavioralWitness {
   return out
 }
 
-// registeredRuleSetForParity returns the canonical built-in, non-format rule
+// registeredBuiltInNonFormatRuleSet returns the canonical built-in, non-format rule
 // set. Runtime contributors and test-only direct registrations have no
 // built-in TypeScript family property, while format rules are configured
 // through ITtscLintFormat instead of ITtscLintRules.
-func registeredRuleSetForParity() map[string]struct{} {
+func registeredBuiltInNonFormatRuleSet() map[string]struct{} {
   out := make(map[string]struct{}, len(AllRuleNames()))
   for _, name := range AllRuleNames() {
     if !isRegisteredBuiltInNonFormatRule(name, LookupRule(name)) {
@@ -173,9 +173,9 @@ func isRegisteredBuiltInRule(name string, candidate Rule) bool {
 
 // behavioralWitnessPublicRuleSet is the rule set the witness audit requires a
 // positive production witness for: every user-facing registered rule. It is the
-// built-in non-format set (registeredRuleSetForParity) plus the format/* family.
+// built-in non-format set (registeredBuiltInNonFormatRuleSet) plus the format/* family.
 // Format rules are user-facing but configured through the `format` block rather
-// than a typed `rules` key, so registeredRuleSetForParity excludes them. The
+// than a typed `rules` key, so registeredBuiltInNonFormatRuleSet excludes them. The
 // witness audit asks a different question ("does every user-facing rule fire in
 // production?"), so it must not: the formatter
 // family is precisely the over-match-prone surface the witness doctrine exists
@@ -183,7 +183,7 @@ func isRegisteredBuiltInRule(name string, candidate Rule) bool {
 // harnesses under packages/lint/test/format, the same route other rules that
 // cannot run the flat corpus already use.
 func behavioralWitnessPublicRuleSet() map[string]struct{} {
-  public := registeredRuleSetForParity()
+  public := registeredBuiltInNonFormatRuleSet()
   for _, name := range AllRuleNames() {
     if strings.HasPrefix(name, "format/") {
       public[name] = struct{}{}
@@ -257,7 +257,7 @@ func shouldVerifyRecordedBehavioralWitnessCoverage() bool {
 
 // auditBehavioralWitnesses returns exactly one deterministic route for every
 // public built-in. Test-only, demo, and formatter registrations never enter the
-// public set because registeredRuleSetForParity applies the built-in boundary.
+// public set because registeredBuiltInNonFormatRuleSet applies the built-in boundary.
 func auditBehavioralWitnesses(
   public map[string]struct{},
   candidates map[string][]behavioralWitness,

@@ -31,7 +31,7 @@ Executable surfaces are classes or namespaces. Never add a standalone exported f
 
 Every exported symbol, exported namespace member, and public member of an exported class has JSDoc that states its benchmark role and non-obvious invariant. Every field in an exported data contract has JSDoc that records its meaning, units, optional-state semantics, and default where applicable. Do not restate only the TypeScript spelling.
 
-Before committing benchmark source, run the strict type check that each harness README names. `benchmarks/evidence` keeps its own conventions.
+Before committing benchmark source, run the strict type check that each harness README names.
 
 ## Benchmark Improvement Campaigns
 
