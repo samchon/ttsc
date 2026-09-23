@@ -25,6 +25,17 @@ const TRANSFORM_GENERATION_ATTEMPTS = 2;
  * that environment provably changes instead of each repeating a whole-project
  * compile.
  *
+ * The bound is for a project that keeps moving, so it counts the attempts that
+ * compiled here. An attempt that adopted another worker's compile and could not
+ * prove it says as much about that publication as about the project, and the
+ * attempt after it either compiles that same state here, since it refuses the
+ * publication it found wanting, or claims the state the project moved to. An
+ * adoption therefore never spends the bound, which a pool would otherwise
+ * exhaust on publications while its project moved once, and end the delivery in
+ * an unstable verdict that compiling the state resolves. The attempts are
+ * capped at twice the bound all the same, so a project that keeps moving from
+ * one published state to the next ends too.
+ *
  * A failed compile (a `failure` or `exception` envelope) needs no proven
  * snapshot, since its verdict is its diagnostics, but it does need the project
  * to have held still across it. One that read a source repaired while it ran
@@ -63,7 +74,8 @@ export async function transformProject(props: {
 }): Promise<TtscCachedProjectTransform> {
   const attempts: TtscGenerationProofFailures[] = [];
   let rejected: string | undefined;
-  for (let attempt = 0; attempt < TRANSFORM_GENERATION_ATTEMPTS; attempt += 1) {
+  let compiled = 0;
+  for (let attempt = 0; ; attempt += 1) {
     const cached = await captureTransformGeneration({ ...props, rejected });
     if (
       cached.configStateComplete !== false &&
@@ -83,17 +95,22 @@ export async function transformProject(props: {
     // state's publication, and adopts it: refusing it too, measured on a
     // Turbopack pool, compiled a state another worker had just published,
     // while the next edit was already landing.
-    rejected = TRANSFORM_ADOPTED_RESULTS.get(cached.result) ?? rejected;
+    const adopted = TRANSFORM_ADOPTED_RESULTS.get(cached.result);
+    if (adopted === undefined) compiled += 1;
+    else rejected = adopted;
+    const last =
+      compiled === TRANSFORM_GENERATION_ATTEMPTS ||
+      attempt + 1 === TRANSFORM_GENERATION_ATTEMPTS * 2;
     // A failed compile the project moved under twice still names its own
     // diagnostics, which say more than an unstable-generation error.
     if (
-      attempt + 1 === TRANSFORM_GENERATION_ATTEMPTS &&
+      last &&
       cached.result.type !== "success" &&
       cached.configStateComplete !== false
     ) {
       return cached;
     }
-    if (attempt + 1 === TRANSFORM_GENERATION_ATTEMPTS) {
+    if (last) {
       const validation = TRANSFORM_FAILED_GENERATION_VALIDATIONS.get(
         cached.result,
       );
@@ -111,5 +128,4 @@ export async function transformProject(props: {
     }
     disposeCachedTransform(cached);
   }
-  throw new Error("ttsc: transform generation retry loop did not terminate");
 }
