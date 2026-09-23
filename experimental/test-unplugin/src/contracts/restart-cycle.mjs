@@ -141,6 +141,7 @@ try {
           `files moved during this session: ${JSON.stringify(movedBetween(atStart, projectFiles()))}`,
           `the stored session's host log:\n${cacheLines(previousLog)}`,
           `this session's host log:\n${cacheLines(session.output?.() ?? "")}`,
+          ...(session.diagnostics === undefined ? [] : [session.diagnostics()]),
         ].join("\n"),
       );
     }

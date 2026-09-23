@@ -360,6 +360,7 @@ export async function runScenarios(project, session) {
           ...(session.output === undefined
             ? []
             : [`what the host reported:\n${session.output()}`]),
+          ...(session.diagnostics === undefined ? [] : [session.diagnostics()]),
         ].join("\n"),
         { cause: error },
       );

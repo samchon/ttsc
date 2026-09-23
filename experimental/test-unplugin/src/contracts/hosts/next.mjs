@@ -256,23 +256,24 @@ export async function openSession(bundler, project) {
     // (samchon/ttsc#1390).
     ...(bundler === "turbopack"
       ? {
+          // A worker that could not adopt the publication compiles for
+          // itself (`claimSharedCompile`), and the run alone cannot say which
+          // worker or why. The scenario's report carries what does: the
+          // pool's store (`diagnostics`), which names what each compile
+          // published, and the records and the server's output, which name
+          // the state each compile read.
           sharedEdit: (before) => {
-            const compiled = project.runs() - before;
-            if (compiled === 1) return;
-            // A worker that could not adopt the publication compiles for
-            // itself (`claimSharedCompile`), and the run alone cannot say
-            // which worker or why. The store names what each compile
-            // published, what the server reported and the records it left
-            // name the state each compile read.
-            assert.fail(
-              [
-                `${name} recompiles an edit once across its workers: ${compiled} compile(s)`,
-                `the pool's shared compile store:\n${sharedStores(output)}`,
-                `records ${JSON.stringify(recordStates(project))}`,
-                `what the host reported:\n${output.split(/\r?\n/).slice(-60).join("\n")}`,
-              ].join("\n"),
+            assert.equal(
+              project.runs() - before,
+              1,
+              `${name} recompiles an edit once across its workers`,
             );
           },
+          // Any scenario can make the pool compile more than it should, an
+          // unchanged rebuild as much as an edit, so every failure lists the
+          // store.
+          diagnostics: () =>
+            `the pool's shared compile store:\n${sharedStores(output)}`,
         }
       : {}),
     recompiled: (label, before) =>
