@@ -1,0 +1,38 @@
+import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+
+import { collectPluginSourceFiles } from "./collectPluginSourceFiles";
+
+/**
+ * The state of one plugin source directory as a plugin build reads it: a
+ * SHA-256 over the relative path and bytes of every file the build keys its
+ * binary on (`collectPluginSourceFiles`), in sorted order.
+ *
+ * A plugin's binary is keyed on this state, so the output of every transform
+ * that ran the binary is a function of it. The cache key folds the digest of
+ * each directory it covers (`computeCacheKey`), and the transform envelope
+ * reports the same digests
+ * (`ITtscCompilerTransformation.ISuccess.pluginSources`) so a consumer that
+ * caches the output proves it still holds by recomputing this digest, through
+ * the `ttsc/plugin-source` entry, instead of a copy of the rule
+ * (samchon/ttsc#1487).
+ *
+ * Content rather than size and modification time: the build reads every byte
+ * anyway, and a consumer's proof must not accept an edit that kept a file's
+ * size within one clock tick. A directory that does not exist has the digest of
+ * an empty one, as it keys the build.
+ *
+ * @param directory The source directory.
+ * @returns The digest, as lowercase hex.
+ * @throws When a listed file cannot be read, as the build itself would.
+ */
+export function pluginSourceDigest(directory: string): string {
+  const hash = crypto.createHash("sha256");
+  for (const file of collectPluginSourceFiles(directory)) {
+    hash.update(`f=${path.relative(directory, file).replace(/\\/g, "/")}\n`);
+    hash.update(fs.readFileSync(file));
+    hash.update("\n");
+  }
+  return hash.digest("hex");
+}

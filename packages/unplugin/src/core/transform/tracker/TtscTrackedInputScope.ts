@@ -18,9 +18,14 @@
  * - `subtree`: a missing path's first missing component, whose creation can
  *   arrive through any descendant, or a directory whose observation is unknown
  *   and so keeps the conservative answer: any event on or below it.
+ * - `tree`: a plugin's Go source directory (samchon/ttsc#1487), whose digest any
+ *   file below it can move. Any event on or below it counts, except below a
+ *   directory the digest passes over (`pluginSourceCovers`), and it is watched
+ *   as a whole subtree wherever it lies.
  */
 export type TtscTrackedInputScope =
   | "children"
   | "content"
   | "presence"
-  | "subtree";
+  | "subtree"
+  | "tree";

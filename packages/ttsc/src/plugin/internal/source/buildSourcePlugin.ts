@@ -46,6 +46,13 @@ export function buildSourcePlugin(opts: {
   label?: string;
   overlayDirs?: readonly string[];
   quiet?: boolean;
+  /**
+   * Digests of the source directories the caller's load already read, shared by
+   * every build of the load and filled with each directory this build keys on
+   * (`computeCacheKey`), so the load can report exactly what its binaries were
+   * built from (samchon/ttsc#1487).
+   */
+  sourceDigests?: Map<string, string>;
   ttscVersion: string;
   tsgoVersion: string;
 }): string {
@@ -68,6 +75,9 @@ export function buildSourcePlugin(opts: {
     filesystem: opts.filesystem,
     goBinary,
     overlayDirs,
+    ...(opts.sourceDigests === undefined
+      ? {}
+      : { sourceDigests: opts.sourceDigests }),
     ttscVersion: opts.ttscVersion,
     tsgoVersion: opts.tsgoVersion,
   });

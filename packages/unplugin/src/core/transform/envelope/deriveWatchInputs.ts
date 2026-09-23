@@ -10,6 +10,7 @@ import { isVolatileFile } from "./isVolatileFile";
 import { selectFileDependencies } from "./selectFileDependencies";
 import { selectGraphInputs } from "./selectGraphInputs";
 import { selectHostInputs } from "./selectHostInputs";
+import { selectPluginSourceInputs } from "./selectPluginSourceInputs";
 import { selectResolutionCandidateInputs } from "./selectResolutionCandidateInputs";
 
 /** Compute one file's watch-input list over the shared per-envelope state. */
@@ -74,5 +75,9 @@ export function deriveWatchInputs(
   for (const input of selectResolutionCandidateInputs(graph, state, props))
     appendLexical(input);
   for (const input of selectHostInputs(props)) appendLexical(input);
+  // A plugin's Go source is a universal input of every module, observed as a
+  // whole subtree (samchon/ttsc#1487).
+  for (const input of selectPluginSourceInputs(props.result).keys())
+    appendLexical(input);
   return output;
 }

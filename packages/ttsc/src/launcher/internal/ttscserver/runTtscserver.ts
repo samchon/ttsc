@@ -300,6 +300,7 @@ function loadLSPProjectPlugins(
         hostInputRealpaths: {},
         hostInputs: [...project.configPaths],
         nativePlugins: [],
+        pluginSources: {},
         project,
       };
 }

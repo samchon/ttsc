@@ -17,4 +17,10 @@ export interface TtscWatchInputBaseline extends TtscWatchInputFileBaseline {
   realpath: { ok: false; path?: never } | { ok: true; path: string };
   /** The compiler's stat classification of the path. */
   stat: "directory" | "file" | "missing";
+  /**
+   * The path's digest as a plugin source directory (`pluginSourceState`,
+   * samchon/ttsc#1487), captured only for a path recorded as one, since the
+   * digest reads every file below it; `null` when it cannot be read.
+   */
+  tree?: string | null;
 }

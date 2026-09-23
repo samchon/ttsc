@@ -7,6 +7,7 @@ import { compilerStatKind } from "../inputs/compilerStatKind";
 import { graphInputReadHash } from "../inputs/graphInputReadHash";
 import { graphInputStateHash } from "../inputs/graphInputStateHash";
 import { hostInputStateHash } from "../inputs/hostInputStateHash";
+import { pluginSourceState } from "../inputs/pluginSourceState";
 import { stableStringify } from "../utils/stableStringify";
 import { MISSING_INPUT_STATE } from "../validation/MISSING_INPUT_STATE";
 import type { TtscWatchInputBaseline } from "./TtscWatchInputBaseline";
@@ -15,10 +16,14 @@ import type { TtscWatchInputBaseline } from "./TtscWatchInputBaseline";
  * Capture one stable main-process baseline that can be compared with any
  * generation-owned watch-input evidence. Two equal broad observations are
  * required so a cache key never publishes a torn path state.
+ *
+ * @param options.tree Whether the path was recorded as a plugin source
+ *   directory, whose digest the baseline then carries (samchon/ttsc#1487).
  */
 export function captureWatchInputBaseline(
   file: string,
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
+  options: { tree?: boolean } = {},
 ): TtscWatchInputBaseline | undefined {
   const capture = (): TtscWatchInputBaseline => {
     const identities = createHostPathIdentityContext(filesystem);
@@ -32,6 +37,7 @@ export function captureWatchInputBaseline(
       identity: pathIdentityKey(file, identities),
       realpath: compilerInputRealpathObservation(file, filesystem),
       stat,
+      ...(options.tree === true ? { tree: pluginSourceState(file) } : {}),
     };
   };
   try {

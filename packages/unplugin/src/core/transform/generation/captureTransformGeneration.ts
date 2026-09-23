@@ -15,6 +15,7 @@ import { reportDivergentDelivery } from "../diagnostics/reportDivergentDelivery"
 import { selectDeclaredProjectInputKeys } from "../envelope/selectDeclaredProjectInputKeys";
 import { selectExternalInputPaths } from "../envelope/selectExternalInputPaths";
 import { selectNotifiableAbsentInputs } from "../envelope/selectNotifiableAbsentInputs";
+import { selectPluginSourceInputs } from "../envelope/selectPluginSourceInputs";
 import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransformFilesystemOperations";
 import { createHostPathIdentityContext } from "../filesystem/createHostPathIdentityContext";
 import { collectProjectInputSnapshot } from "../project/collectProjectInputSnapshot";
@@ -281,8 +282,14 @@ export async function captureTransformGeneration(props: {
       scratchDirectory: envelopeScratchDirectory,
       temporaryTsconfig: envelopeTemporaryTsconfig,
     });
+    // A plugin's Go source is as universal an input as any host input, and the
+    // tracker watches it as a whole subtree (samchon/ttsc#1487).
     const persistentValidationInputs = [
-      ...new Set([...persistentHostInputs, ...externalInputPaths]),
+      ...new Set([
+        ...persistentHostInputs,
+        ...externalInputPaths,
+        ...selectPluginSourceInputs(result).keys(),
+      ]),
     ];
     // The generation's absent resolution candidates, which get a watcher of
     // their own below; watching one is what lets a delivery stop probing it

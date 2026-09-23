@@ -106,6 +106,8 @@ When no transform-stage plugin is configured, the map contains the unmodified fi
 
 Successful and compiler-failure transformations may also carry `hostInputs`: the exact tsconfig ancestry, every package manifest inspected by auto-discovery, the JavaScript descriptor's loaded module graph, absolute paths declared by each plugin descriptor, and inputs a linked native plugin reports while evaluating configuration. First-party plugins use the reporting channels for implicit config candidates and evaluated config dependencies; missing paths are retained because creating a higher-priority candidate changes resolution. `hostInputHashes` carries the matching evaluation-time SHA-256 digest, or `null` for an observed missing candidate, while `hostInputRealpaths` carries its physical path or `null`. Bundler adapters require both when supplied before narrowly reusing a persistent generation, so concurrent content changes and symlink or junction retargeting cannot authorize stale output. Arbitrary unclassified project files remain absent.
 
+A transformation that ran a plugin also carries `pluginSources`: every Go source directory its plugin binaries were built from, by absolute path, with the digest the build keyed the binary on. These are each plugin's Go module root, each contributor, and each overlay module. A plugin edited in place changes nothing else a consumer can see, so a consumer that caches the output proves each digest with `pluginSourceDigest` from `ttsc/plugin-source` and observes each directory as a whole subtree.
+
 ### `transformAsync()`
 
 The same transformation, run on a worker thread so it never blocks the event loop. The envelope, the failure semantics, and the descriptor-resilient launches are the same as `transform()`'s.
@@ -248,6 +250,21 @@ const base = resolveTsconfigExtends("tsconfig.json", "./tsconfig.base");
 - `tsconfigExtendsFileCandidates(tsconfig, specifier)` returns the exact files a file specifier tries, in order, or `undefined` for a module specifier. A host that watches for a missing base config to appear watches these.
 - `isRelativePluginSpecifier(specifier)` tells whether a plugin entry's `transform` is a relative path, which resolves from the config that wrote it, rather than a package, which resolves from the project root.
 
+## Plugin source
+
+Tool hosts that cache a transform's output prove its `pluginSources` through the `ttsc/plugin-source` subpath, with the rule the plugin build itself applies. `@ttsc/unplugin` and `@ttsc/metro` prove each plugin's Go source this way, so a plugin edited in place invalidates what it produced.
+
+```ts
+import { pluginSourceDigest } from "ttsc/plugin-source";
+
+const stale = Object.entries(t.pluginSources ?? {}).some(
+  ([directory, digest]) => pluginSourceDigest(directory) !== digest,
+);
+```
+
+- `pluginSourceDigest(directory)` returns the SHA-256 over the relative path and bytes of every file the build keys a binary on, in sorted order. It skips files below a `node_modules`, `.git`, or `.ttsc` directory, generated `go.work` files, package tarballs, editor sidecars, and backups ending in `~`. It throws when a listed file cannot be read, as the build would.
+- `prunesPluginSourceDirectory(name)` tells whether the digest passes over a directory of that name. A host watching a plugin source as a subtree skips such a directory, rather than watching a nested package tree or a repository's object store.
+
 ## Diagnostics
 
 [`ITtscCompilerDiagnostic`](https://github.com/samchon/ttsc/blob/master/packages/ttsc/src/structures/ITtscCompilerDiagnostic.ts) is a flat, JSON-friendly shape independent of TypeScript-Go's internal Go types.
@@ -307,4 +324,4 @@ Pair this with caching `TTSC_CACHE_DIR` between CI runs to skip the rebuild on s
 
 ## Stability
 
-`TtscCompiler`, `TtscService`, the result types, `ITtscCompilerContext`, and the `ttsc/path-identity`, `ttsc/binary`, and `ttsc/tsconfig` subpaths are the public programmatic surface. CLI launchers, the rest of the project config reader, and native build helpers stay internal, depending on them will break. The package `exports` field enforces this.
+`TtscCompiler`, `TtscService`, the result types, `ITtscCompilerContext`, and the `ttsc/path-identity`, `ttsc/binary`, `ttsc/tsconfig`, and `ttsc/plugin-source` subpaths are the public programmatic surface. CLI launchers, the rest of the project config reader, and native build helpers stay internal, depending on them will break. The package `exports` field enforces this.

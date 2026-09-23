@@ -3,6 +3,7 @@ import path from "node:path";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { resultFilesystem } from "../cache/resultFilesystem";
 import { envelopeDerivation } from "../envelope/envelopeDerivation";
+import { selectPluginSourceInputs } from "../envelope/selectPluginSourceInputs";
 import { normalizeHostInputName } from "../filesystem/normalizeHostInputName";
 import type { TtscGenerationProofFailures } from "../generation/TtscGenerationProofFailures";
 import { createGenerationProofFailures } from "../generation/createGenerationProofFailures";
@@ -13,6 +14,7 @@ import { hostInputStateHash } from "../inputs/hostInputStateHash";
 import { inputMetadataEvidence } from "../inputs/inputMetadataEvidence";
 import { inputMetadataSignature } from "../inputs/inputMetadataSignature";
 import { missingPathProbe } from "../inputs/missingPathProbe";
+import { pluginSourceState } from "../inputs/pluginSourceState";
 import { sameHostInputRealpath } from "../inputs/sameHostInputRealpath";
 import type { TtscHostInputValidation } from "./TtscHostInputValidation";
 import { matchesRecordedInput } from "./matchesRecordedInput";
@@ -32,6 +34,7 @@ export function captureUniversalHostInputValidation(
     entries: new Map(),
     covered: new Set(),
     missing: new Map(),
+    trees: new Map(),
   };
   for (const input of selectPersistentHostInputs({
     filesystem,
@@ -183,6 +186,21 @@ export function captureUniversalHostInputValidation(
         state.identityContext.caseSensitive(probe.directory),
       ),
     );
+  }
+  // A plugin binary keyed on a source other than the disk's now, whether it
+  // was built here or adopted from another worker, is output for a state
+  // already gone (samchon/ttsc#1487).
+  for (const [directory, digest] of selectPluginSourceInputs(cached.result)) {
+    if (pluginSourceState(directory) !== digest) {
+      recordGenerationProofFailure(failures, {
+        domain: "host",
+        kind: "content-changed",
+        path: directory,
+      });
+      return { failures };
+    }
+    validation.covered.add(directory);
+    validation.trees.set(directory, digest);
   }
   cached.hostInputValidation = validation;
   return { failures, validation };

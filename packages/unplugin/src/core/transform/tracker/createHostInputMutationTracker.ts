@@ -8,6 +8,7 @@ import { pathIdentityKey } from "../filesystem/pathIdentityKey";
 import { relativeToProject } from "../filesystem/relativeToProject";
 import { hostInputRealpath } from "../inputs/hostInputRealpath";
 import { missingPathProbe } from "../inputs/missingPathProbe";
+import { pluginSourceCovers } from "../inputs/pluginSourceCovers";
 import type { TtscProjectMutationTracker } from "./TtscProjectMutationTracker";
 import type { TtscTrackedInputScope } from "./TtscTrackedInputScope";
 import { registerBrokeredMutationTracker } from "./broker/registerBrokeredMutationTracker";
@@ -143,6 +144,10 @@ export async function createHostInputMutationTracker(
   // a `subtree` path. Nothing else under the root can change an answer.
   const internalDirectories = new Set<string>();
   const internalSubtrees: string[] = [];
+  // Every plugin source directory, inside the root or not, whose directories a
+  // directory-level backend watches but for those the digest passes over
+  // (samchon/ttsc#1487).
+  const trees: string[] = [];
   const admitInternal = (
     probed: string,
     scope: TtscTrackedInputScope,
@@ -162,6 +167,8 @@ export async function createHostInputMutationTracker(
       internalDirectories.add(pathIdentityKey(probed, identities));
     } else if (scope === "subtree") {
       internalSubtrees.push(probed);
+    } else if (scope === "tree") {
+      trees.push(probed);
     }
   };
   const watchDirectory = (
@@ -210,6 +217,14 @@ export async function createHostInputMutationTracker(
     ) {
       watchDirectory(internalRoot, undefined, true);
       admitInternal(probed, scope);
+      continue;
+    }
+    // A plugin's source outside the project is watched as a whole subtree of
+    // its own, since any file below it can move its digest; its parent would
+    // report only the directory's own entry.
+    if (scope === "tree") {
+      watchDirectory(probed, undefined, true);
+      trees.push(probed);
       continue;
     }
     watchDirectory(probe.directory, probe.name, false);
@@ -295,7 +310,14 @@ export async function createHostInputMutationTracker(
     const own = tracked.get(key);
     if (own !== undefined) {
       // Only a read or an unknown subtree hears its own content change.
-      if (rename || own.has("content") || own.has("subtree")) return verdict;
+      if (
+        rename ||
+        own.has("content") ||
+        own.has("subtree") ||
+        own.has("tree")
+      ) {
+        return verdict;
+      }
       return undefined;
     }
     // Moving or replacing an ancestor moves the input without an event on it.
@@ -308,6 +330,9 @@ export async function createHostInputMutationTracker(
       const scopes = tracked.get(pathIdentityKey(parent, identities));
       if (scopes === undefined) continue;
       if (scopes.has("subtree")) return verdict;
+      if (scopes.has("tree") && pluginSourceCovers(parent, changed, "entry")) {
+        return verdict;
+      }
       if (scopes.has("children") && child === changed && rename) {
         return "mutation";
       }
@@ -363,6 +388,11 @@ export async function createHostInputMutationTracker(
             internalDirectories.has(pathIdentityKey(directory, identities)) ||
             internalSubtrees.some((subtree) =>
               identities.isWithin(subtree, directory),
+            ) ||
+            trees.some(
+              (tree) =>
+                identities.isWithin(tree, directory) &&
+                pluginSourceCovers(tree, directory, "directory"),
             ),
         ),
       );

@@ -41,7 +41,8 @@ import { spawnNative } from "./spawnNative";
  *    with linked plugins passed via `TTSC_LINKED_PLUGINS_JSON`.
  *
  * @returns A `{ result, typescript }` pair where `typescript` maps output paths
- *   to their transformed TypeScript source text.
+ *   to their transformed TypeScript source text, and `pluginSources` the state
+ *   of every Go source directory the plugin binaries were keyed on.
  */
 export function transformProjectInMemory(options: ITtscCompilerContext): {
   dependencies?: Record<string, string[]>;
@@ -50,6 +51,7 @@ export function transformProjectInMemory(options: ITtscCompilerContext): {
   hostInputHashes?: Record<string, string | null>;
   hostInputRealpaths?: Record<string, string | null>;
   hostInputs?: string[];
+  pluginSources?: Record<string, string>;
   result: TtscBuildResult;
   sourceMaps?: Record<string, ITtscCompilerTransformation.ISourceMap>;
   typescript: Record<string, string>;
@@ -67,7 +69,15 @@ export function transformProjectInMemory(options: ITtscCompilerContext): {
     tsconfig: options.tsconfig,
   });
   if (loaded.nativePlugins.length !== 0) {
-    return transformProjectWithPlugins(options, loaded);
+    // Every step below runs binaries built from these sources, so the output
+    // is a function of their state, which the envelope carries for a consumer
+    // to prove (samchon/ttsc#1487).
+    return {
+      ...transformProjectWithPlugins(options, loaded),
+      ...(Object.keys(loaded.pluginSources).length === 0
+        ? {}
+        : { pluginSources: loaded.pluginSources }),
+    };
   }
   return transformProjectWithNativeHost(options, loaded.project, loaded);
 }

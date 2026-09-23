@@ -21,18 +21,29 @@ export function isWatchInputKeyBaseline(
   if (stableStringify(keys) === stableStringify(["fileExists", "identity"])) {
     return true;
   }
+  const broad = [
+    "directoryExists",
+    "fileExists",
+    "graphHash",
+    "graphReadHash",
+    "hostHash",
+    "identity",
+    "realpath",
+    "stat",
+  ];
+  // A plugin source directory's baseline also carries its digest
+  // (samchon/ttsc#1487).
+  const tree = Object.prototype.hasOwnProperty.call(baseline, "tree");
   if (
     stableStringify(keys) !==
-    stableStringify([
-      "directoryExists",
-      "fileExists",
-      "graphHash",
-      "graphReadHash",
-      "hostHash",
-      "identity",
-      "realpath",
-      "stat",
-    ])
+    stableStringify(tree ? [...broad, "tree"].sort() : broad)
+  ) {
+    return false;
+  }
+  if (
+    tree &&
+    baseline.tree !== null &&
+    !(typeof baseline.tree === "string" && isContentHash(baseline.tree))
   ) {
     return false;
   }

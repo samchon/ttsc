@@ -6,6 +6,8 @@ import { DEFAULT_FILESYSTEM_OPERATIONS } from "../transform/filesystem/DEFAULT_F
 import type { TtscProjectSpellings } from "../transform/filesystem/TtscProjectSpellings";
 import { pathIsWithin } from "../transform/filesystem/pathIsWithin";
 import { relativeToProject } from "../transform/filesystem/relativeToProject";
+import { pluginSourceCovers } from "../transform/inputs/pluginSourceCovers";
+import { pluginSourceState } from "../transform/inputs/pluginSourceState";
 import { validateGraphInputObservation } from "../transform/inputs/validateGraphInputObservation";
 import { isProjectWalkDirectory } from "../transform/project/isProjectWalkDirectory";
 import { projectMembershipMatches } from "../transform/project/projectMembershipMatches";
@@ -60,6 +62,12 @@ import { someSet } from "./someSet";
  * check re-walks the project. Its owners are reported as invalidated rather
  * than reloaded, since most new files change no other module.
  *
+ * A plugin's Go source directory is one entry too (samchon/ttsc#1487). Its
+ * scope admits every directory below it but those its digest passes over, any
+ * event below it marks it, and its check recomputes the digest the plugin build
+ * keyed the binary on. Its owners are reloaded, since the plugin's output can
+ * change for every module.
+ *
  * @param onChanged Told, once per settled batch of events, which owners' inputs
  *   changed: `reload` for a changed input, and `invalidate` for a membership
  *   change alone.
@@ -76,6 +84,9 @@ export function createInputObserver(
   const pending = new Set<InputEntry>();
   // Entries holding a project's root-file membership (samchon/ttsc#1419).
   const memberships = new Set<InputEntry>();
+  // Entries holding a plugin's Go source directory, whose digest any file
+  // below it can move (samchon/ttsc#1487).
+  const trees = new Set<InputEntry>();
   const polled = new Set<InputEntry>();
   const links = new Map<string, LinkedPath>();
   const scopes = new Map<string, WatchScope>();
@@ -195,16 +206,13 @@ export function createInputObserver(
   };
 
   /**
-   * A path below a membership's root, under the root's own name, or `undefined`
-   * when the root does not contain it. The root is matched under both of its
-   * spellings: a backend that reports physical paths names a root reached
-   * through a link by its target, while the policy and the walk spell it as the
-   * host named it (samchon/ttsc#1461).
+   * A path below a membership's or a plugin source's root, under the root's own
+   * name, or `undefined` when the root does not contain it. The root is matched
+   * under both of its spellings: a backend that reports physical paths names a
+   * root reached through a link by its target, while the policy and the walk
+   * spell it as the host named it (samchon/ttsc#1461).
    */
-  const namedInMembership = (
-    entry: InputEntry,
-    file: string,
-  ): string | undefined => {
+  const namedBelow = (entry: InputEntry, file: string): string | undefined => {
     const below = relativeToProject(file, {
       physical: entry.physical ?? entry.file,
       spelling: entry.file,
@@ -215,7 +223,7 @@ export function createInputObserver(
   /** Whether a membership in `scope` needs a directory-level watch there. */
   const admitsMembership = (scope: WatchScope, directory: string): boolean => {
     for (const entry of memberships) {
-      const named = namedInMembership(entry, directory);
+      const named = namedBelow(entry, directory);
       if (!entry.scopes.has(scope) || named === undefined) continue;
       if (
         membershipPolicies(entry).some((policy) =>
@@ -224,6 +232,19 @@ export function createInputObserver(
       ) {
         return true;
       }
+    }
+    return false;
+  };
+
+  /**
+   * Whether a plugin source in `scope` needs a directory-level watch there:
+   * every directory below it but those its digest passes over.
+   */
+  const admitsTree = (scope: WatchScope, directory: string): boolean => {
+    for (const entry of trees) {
+      const named = namedBelow(entry, directory);
+      if (!entry.scopes.has(scope) || named === undefined) continue;
+      if (pluginSourceCovers(entry.file, named, "directory")) return true;
     }
     return false;
   };
@@ -276,6 +297,7 @@ export function createInputObserver(
     entries.delete(entry.file);
     pending.delete(entry);
     memberships.delete(entry);
+    trees.delete(entry);
     polled.delete(entry);
     for (const alias of entry.aliases) unbindAlias(alias, entry);
     entry.aliases.clear();
@@ -329,7 +351,9 @@ export function createInputObserver(
           entry.conditions.delete(key);
           continue;
         }
-        if (state?.codec === "predicates") {
+        if (state?.codec === "tree") {
+          changed = pluginSourceState(entry.file) !== state.digest;
+        } else if (state?.codec === "predicates") {
           changed =
             validateGraphInputObservation(entry.file, state.observation)
               .length !== 0;
@@ -373,12 +397,26 @@ export function createInputObserver(
         pending.add(entry);
       }
     }
+    // Any file below a plugin's source can move its digest, whatever kind of
+    // event names it (samchon/ttsc#1487).
+    for (const entry of trees) {
+      const named = namedBelow(entry, absolute);
+      if (
+        named === undefined ||
+        named === entry.file ||
+        !pluginSourceCovers(entry.file, named, "entry")
+      ) {
+        continue;
+      }
+      entry.changedAt = changeSequence;
+      pending.add(entry);
+    }
     // A root file appearing or leaving anywhere a project's walk enters is a
     // membership change, whatever path the event names (samchon/ttsc#1419).
     // Only a rename can be one; an edit to an existing file is not.
     if (eventType === "rename") {
       for (const entry of memberships) {
-        const named = namedInMembership(entry, absolute);
+        const named = namedBelow(entry, absolute);
         if (named === undefined || named === entry.file) continue;
         if (
           membershipPolicies(entry).some((policy) =>
@@ -517,7 +555,8 @@ export function createInputObserver(
           },
           (directory) =>
             owned.directories.has(watchPathKey(directory)) ||
-            admitsMembership(owned, directory),
+            admitsMembership(owned, directory) ||
+            admitsTree(owned, directory),
           // Only the project's own scope may be proven through a probe below
           // its tool cache; an external one is not the adapter's to write in.
           external ? undefined : root,
@@ -810,6 +849,7 @@ export function createInputObserver(
     async dispose() {
       entries.clear();
       memberships.clear();
+      trees.clear();
       aliases.clear();
       renameAliases.clear();
       ownerInputs.clear();
@@ -867,8 +907,9 @@ export function createInputObserver(
       const current = new Map<string, string>();
       const added = new Set<InputEntry>();
       const touched = new Set<InputEntry>();
-      // Memberships new to this replacement, checked at once: a root file can
-      // have appeared after the walk the digest was taken from.
+      // Memberships and plugin sources new to this replacement, checked at
+      // once: a root file can have appeared, or a source file changed, after
+      // the reading the digest was taken from.
       const recorded = new Set<InputEntry>();
       for (const input of inputs) {
         const file = path.resolve(input.file);
@@ -916,6 +957,16 @@ export function createInputObserver(
             recorded.add(entry);
             // Its scope now admits the walk's directories, which a
             // directory-level backend passed over before.
+            for (const scope of entry.scopes) {
+              scope.watcher?.track?.(entry.file, true);
+            }
+          } else if (state?.codec === "tree") {
+            // A plugin's source is proven at once, as a membership is: a file
+            // below it can have moved after the capture proved its digest, and
+            // its scope now admits the directories below it (samchon/ttsc#1487).
+            trees.add(entry);
+            entry.physical ??= realpath(entry.file) ?? entry.file;
+            recorded.add(entry);
             for (const scope of entry.scopes) {
               scope.watcher?.track?.(entry.file, true);
             }

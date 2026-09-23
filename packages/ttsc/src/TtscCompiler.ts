@@ -311,6 +311,7 @@ interface ProjectTransformation {
   hostInputHashes?: Record<string, string | null>;
   hostInputRealpaths?: Record<string, string | null>;
   hostInputs?: string[];
+  pluginSources?: Record<string, string>;
   result: TtscBuildResult;
   sourceMaps?: Record<string, ITtscCompilerTransformation.ISourceMap>;
   typescript: Record<string, string>;
@@ -432,6 +433,7 @@ function toCompilerTransformation(
     hostInputHashes,
     hostInputRealpaths,
     hostInputs,
+    pluginSources,
     result,
     sourceMaps,
     typescript,
@@ -444,6 +446,7 @@ function toCompilerTransformation(
     ...(hostInputHashes === undefined ? {} : { hostInputHashes }),
     ...(hostInputRealpaths === undefined ? {} : { hostInputRealpaths }),
     ...(hostInputs === undefined ? {} : { hostInputs }),
+    ...(pluginSources === undefined ? {} : { pluginSources }),
     ...(sourceMaps === undefined ? {} : { sourceMaps }),
     ...(volatile === undefined ? {} : { volatile }),
   };

@@ -6,6 +6,7 @@ import { collectProjectInputSnapshot } from "../project/collectProjectInputSnaps
 import { matchesCachedExternalInputs } from "./matchesCachedExternalInputs";
 import { matchesExternalInputRealpaths } from "./matchesExternalInputRealpaths";
 import { matchesUniversalHostInputEntries } from "./matchesUniversalHostInputEntries";
+import { matchesUniversalHostInputTrees } from "./matchesUniversalHostInputTrees";
 import { sameHashes } from "./sameHashes";
 import { sameProjectDirectories } from "./sameProjectDirectories";
 import { walkSnapshotComplete } from "./walkSnapshotComplete";
@@ -39,12 +40,14 @@ export function matchesCompleteInputSnapshot(
   // byte-identical file selects a different file, and its own transitive
   // requires with it. Only the graph half of the out-of-walk snapshot records
   // realpaths, so without this the fallback would quietly hold a lower standard
-  // than the narrow path it stands in for.
+  // than the narrow path it stands in for. A plugin's source is proven by its
+  // digest here too, since no walk reads it (samchon/ttsc#1487).
   const state = envelopeDerivation(cached);
   const hostValidation = cached.hostInputValidation;
   if (
     hostValidation === undefined ||
-    !matchesUniversalHostInputEntries(cached, hostValidation)
+    !matchesUniversalHostInputEntries(cached, hostValidation) ||
+    !matchesUniversalHostInputTrees(cached, hostValidation)
   ) {
     return false;
   }

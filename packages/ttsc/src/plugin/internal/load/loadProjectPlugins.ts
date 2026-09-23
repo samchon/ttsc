@@ -36,8 +36,12 @@ import { realpathHostInputPaths } from "./realpathHostInputPaths";
  * Reads the project config, discovers plugin entries (from tsconfig and package
  * auto-discovery), validates and composes their descriptors, then invokes
  * `buildSourcePlugin` to compile each Go source package into a cached binary.
- * Returns the ordered native plugins, parsed project config, and exact
- * JavaScript-host files that universally influence the loaded selection.
+ * Returns the ordered native plugins, parsed project config, exact
+ * JavaScript-host files that universally influence the loaded selection, and
+ * the state of every Go source directory the builds keyed their binaries on
+ * (`pluginSources`, samchon/ttsc#1487): each plugin's module root, each
+ * contributor, and each overlay, with its digest (`pluginSourceDigest`) as the
+ * build read it.
  *
  * @param options.binary - Absolute path to the ttsc native helper binary.
  * @param options.cacheDir - Override the plugin binary cache directory.
@@ -71,6 +75,7 @@ export function loadProjectPlugins(options: {
   hostInputRealpaths: Record<string, string | null>;
   hostInputs: string[];
   nativePlugins: ITtscLoadedNativePlugin[];
+  pluginSources: Record<string, string>;
   project: ITtscParsedProjectConfig;
 } {
   // Snapshot the caller environment before `withPluginLoaderEnv` injects
@@ -111,6 +116,7 @@ export function loadProjectPlugins(options: {
         ),
       ),
       nativePlugins: [],
+      pluginSources: {},
       project,
     };
   }
@@ -270,6 +276,9 @@ export function loadProjectPlugins(options: {
   );
   const hostContributors =
     linkedContributors.length === 0 ? undefined : linkedContributors;
+  // One reading of each source directory, shared by every build below and
+  // reported as the state the binaries were keyed on.
+  const sourceDigests = new Map<string, string>();
   const builtTransformHosts = new Map<object, string>();
   for (const record of transformHosts) {
     builtTransformHosts.set(
@@ -281,6 +290,7 @@ export function loadProjectPlugins(options: {
         env: effectiveEnv,
         pluginName: record.label,
         source: record.source,
+        sourceDigests,
         ttscVersion,
         tsgoVersion,
       }),
@@ -296,6 +306,7 @@ export function loadProjectPlugins(options: {
           label: "linked plugin host",
           pluginName: "linked-plugin-host",
           source: path.join(ttscPackageRoot(), "cmd", "utility-host"),
+          sourceDigests,
           ttscVersion,
           tsgoVersion,
         })
@@ -317,6 +328,7 @@ export function loadProjectPlugins(options: {
               env: effectiveEnv,
               pluginName: record.label,
               source: record.source,
+              sourceDigests,
               ttscVersion,
               tsgoVersion,
             });
@@ -350,6 +362,11 @@ export function loadProjectPlugins(options: {
       ),
     ),
     nativePlugins: orderNativePlugins(nativePlugins),
+    pluginSources: Object.fromEntries(
+      [...sourceDigests].sort(([left], [right]) =>
+        left < right ? -1 : left > right ? 1 : 0,
+      ),
+    ),
     project,
   };
 }

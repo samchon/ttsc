@@ -50,4 +50,11 @@ export interface TtscHostInputValidation {
    * absent.
    */
   readonly missing: Map<string, Set<string>>;
+  /**
+   * The plugin source directories of the generation, each with the digest its
+   * binary was built from (samchon/ttsc#1487). No metadata stands for a
+   * directory's files, so each is proven by recomputing its digest
+   * (`pluginSourceState`) unless its tracker proves it unchanged.
+   */
+  readonly trees: Map<string, string>;
 }

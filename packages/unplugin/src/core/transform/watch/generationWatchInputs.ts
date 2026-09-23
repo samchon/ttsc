@@ -4,6 +4,7 @@ import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTrans
 import { envelopeDerivation } from "../envelope/envelopeDerivation";
 import { envelopeGraphIndexes } from "../envelope/envelopeGraphIndexes";
 import { selectHostInputs } from "../envelope/selectHostInputs";
+import { selectPluginSourceInputs } from "../envelope/selectPluginSourceInputs";
 import { isTransformScratchInput } from "../tsconfig/isTransformScratchInput";
 import type { TtscWatchInput } from "./TtscWatchInput";
 import { evidencedWatchInput } from "./evidencedWatchInput";
@@ -74,6 +75,8 @@ export function generationWatchInputs(
       }
     }
     for (const input of selectHostInputs(props)) append(input);
+    for (const input of selectPluginSourceInputs(cached.result).keys())
+      append(input);
   }
   GENERATION_WATCH_INPUTS.set(cached, inputs);
   return inputs;

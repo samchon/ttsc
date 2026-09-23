@@ -73,7 +73,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 /** Bumped when the snapshot JSON shape changes; mismatches read as corrupt. */
-const SNAPSHOT_VERSION = 2;
+const SNAPSHOT_VERSION = 3;
 
 /** Snapshot directory segments under the fingerprint base directory. */
 const SNAPSHOT_DIRECTORY = ["node_modules", ".cache", "ttsc-metro"];
@@ -108,6 +108,11 @@ interface SnapshotState {
   id: string;
   /** Absolute paths of every recorded derived transform input. */
   files: string[];
+  /**
+   * The recorded inputs that are plugin source directories, each also in
+   * `files`, whose digest the static key carries (samchon/ttsc#1487).
+   */
+  trees: string[];
   /** Whether any recorded transform declared volatile output. */
   volatile: boolean;
   /** Whether a transform observed state different from its run's static key. */
@@ -119,6 +124,7 @@ interface SnapshotDocument {
   files: string[];
   id?: string;
   tainted: boolean;
+  trees: string[];
   version: number;
   volatile: boolean;
 }
@@ -669,12 +675,20 @@ function observeProjectFingerprint(props: {
   if (snapshot === undefined || snapshot.volatile || snapshot.tainted) {
     throw new Error("Metro's recorded transform snapshot is not reusable.");
   }
-  const recorded: Record<string, { hash: string; identity: string }> = {};
+  // A plugin's Go source is a recorded input like any other, but no one
+  // path's state stands for the files below it, so the key carries its digest
+  // (samchon/ttsc#1487).
+  const trees = new Set(snapshot.trees);
+  const recorded: Record<
+    string,
+    { hash: string; identity: string; tree?: string | null }
+  > = {};
   for (const file of snapshot.files) {
-    const baseline = addBaselineInput(inputs, file);
+    const baseline = addBaselineInput(inputs, file, undefined, trees.has(file));
     recorded[snapshotPathKey(file)] = {
       hash: baseline.hostHash,
       identity: baseline.identity,
+      ...(baseline.tree === undefined ? {} : { tree: baseline.tree }),
     };
   }
   return {
@@ -690,24 +704,36 @@ function observeProjectFingerprint(props: {
   };
 }
 
-/** Add one lexical path's stable broad state to a key baseline. */
+/**
+ * Add one lexical path's stable broad state to a key baseline, with its digest
+ * when it was recorded as a plugin source directory (`tree`).
+ */
 function addBaselineInput(
   inputs: Record<string, TtscWatchInputKeyBaseline>,
   file: string,
   staticInputs?: Set<string>,
+  tree = false,
 ): TtscWatchInputBaseline {
   const key = snapshotPathKey(file);
-  const observed = captureWatchInputBaseline(file);
+  const observed = captureWatchInputBaseline(file, undefined, { tree });
   if (observed === undefined) {
     throw new Error("Unable to read a stable Metro input baseline.");
   }
   const existing = inputs[key];
   if (existing !== undefined) {
+    // One path observed as a plugin source and as a plain input compares on
+    // what both observations carry.
+    const { tree: existingTree, ...existingState } =
+      existing as TtscWatchInputBaseline;
+    const { tree: observedTree, ...observedState } = observed;
     if (
       existing.identity !== observed.identity ||
       existing.fileExists !== observed.fileExists ||
       ("hostHash" in existing &&
-        stableStringify(existing) !== stableStringify(observed))
+        stableStringify(existingState) !== stableStringify(observedState)) ||
+      (existingTree !== undefined &&
+        observedTree !== undefined &&
+        existingTree !== observedTree)
     ) {
       throw new Error("A Metro input changed between baseline observations.");
     }
@@ -774,6 +800,7 @@ export function prepareSnapshot(projectRoot: string | undefined): string {
   let pending: SnapshotDocument = {
     files: [],
     tainted: false,
+    trees: [],
     version: SNAPSHOT_VERSION,
     volatile: false,
   };
@@ -806,6 +833,7 @@ export function prepareSnapshot(projectRoot: string | undefined): string {
     }
     const main = readMainDocument(directory);
     const files = new Set(main?.files ?? []);
+    const trees = new Set(main?.trees ?? []);
     const observations = [...recovery.entries, ...workers.entries];
     const tainted = observations.some((entry) => entry.tainted);
     const volatile =
@@ -819,6 +847,9 @@ export function prepareSnapshot(projectRoot: string | undefined): string {
       for (const file of entry.files) {
         files.add(file);
       }
+      for (const tree of entry.trees) {
+        trees.add(tree);
+      }
     }
     const recovering =
       unhealthySnapshots.has(base) ||
@@ -831,6 +862,7 @@ export function prepareSnapshot(projectRoot: string | undefined): string {
           ? (main?.id ?? randomBytes(16).toString("hex"))
           : randomBytes(16).toString("hex"),
       tainted: false,
+      trees: [...trees].sort(),
       version: SNAPSHOT_VERSION,
       volatile,
     };
@@ -1075,16 +1107,26 @@ export function readSnapshotState(base: string): SnapshotState | undefined {
     return undefined;
   }
   const files = new Set(main.files);
+  const trees = new Set(main.trees);
   let volatile = main.volatile;
   let tainted = main.tainted;
   for (const entry of workers.entries) {
     for (const file of entry.files) {
       files.add(file);
     }
+    for (const tree of entry.trees) {
+      trees.add(tree);
+    }
     volatile ||= entry.volatile;
     tainted ||= entry.tainted;
   }
-  return { files: [...files].sort(), id: main.id, tainted, volatile };
+  return {
+    files: [...files].sort(),
+    id: main.id,
+    tainted,
+    trees: [...trees].sort(),
+    volatile,
+  };
 }
 
 /**
@@ -1128,6 +1170,7 @@ export function createSnapshotRecorder(runId?: string): {
     files: Set<string>;
     observed: boolean;
     tainted: boolean;
+    trees: Set<string>;
     volatile: boolean;
   }
   const states = new Map<string, BaseState>();
@@ -1180,6 +1223,7 @@ export function createSnapshotRecorder(runId?: string): {
         files: new Set(),
         observed: false,
         tainted: false,
+        trees: new Set(),
         volatile: false,
       };
       states.set(base, state);
@@ -1194,6 +1238,7 @@ export function createSnapshotRecorder(runId?: string): {
     const document: SnapshotDocument = {
       files: [...state.files].sort(),
       tainted: state.tainted,
+      trees: [...state.trees].sort(),
       version: SNAPSHOT_VERSION,
       volatile: state.volatile,
     };
@@ -1243,6 +1288,12 @@ export function createSnapshotRecorder(runId?: string): {
       }
       if (!coverage.static && !state.files.has(file)) {
         state.files.add(file);
+        state.dirty = true;
+      }
+      // A plugin source directory is recorded as one, so the next run's key
+      // carries its digest (samchon/ttsc#1487).
+      if (input.evidence?.state?.codec === "tree" && !state.trees.has(file)) {
+        state.trees.add(file);
         state.dirty = true;
       }
     }
@@ -1541,7 +1592,7 @@ function parseSnapshotDocument(text: string): SnapshotDocument | undefined {
   }
   const document = value as Record<string, unknown>;
   const keys = Object.keys(document).sort();
-  const expectedKeys = ["files", "tainted", "version", "volatile"];
+  const expectedKeys = ["files", "tainted", "trees", "version", "volatile"];
   if (Object.prototype.hasOwnProperty.call(document, "id")) {
     expectedKeys.push("id");
     expectedKeys.sort();
@@ -1558,6 +1609,15 @@ function parseSnapshotDocument(text: string): SnapshotDocument | undefined {
     new Set(document.files).size !== document.files.length ||
     stableStringify(document.files) !==
       stableStringify([...document.files].sort()) ||
+    !Array.isArray(document.trees) ||
+    document.trees.some(
+      (entry) =>
+        typeof entry !== "string" ||
+        !(document.files as string[]).includes(entry),
+    ) ||
+    new Set(document.trees).size !== document.trees.length ||
+    stableStringify(document.trees) !==
+      stableStringify([...document.trees].sort()) ||
     typeof document.tainted !== "boolean" ||
     typeof document.volatile !== "boolean" ||
     (document.id !== undefined &&
@@ -1569,6 +1629,7 @@ function parseSnapshotDocument(text: string): SnapshotDocument | undefined {
     files: document.files as string[],
     ...(typeof document.id === "string" ? { id: document.id } : {}),
     tainted: document.tainted,
+    trees: document.trees as string[],
     version: SNAPSHOT_VERSION,
     volatile: document.volatile,
   };

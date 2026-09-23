@@ -6,6 +6,7 @@ import { GoSourceInputs } from "./GoSourceInputs";
 import { GoToolResolution } from "./GoToolResolution";
 import type { ITtscBuildContributor } from "./ITtscBuildContributor";
 import type { SourceBuildFilesystemOperations } from "./SourceBuildFilesystemOperations";
+import { pluginSourceDigest } from "./pluginSourceDigest";
 import { spawnGoTool } from "./spawnGoTool";
 
 /**
@@ -17,6 +18,12 @@ import { spawnGoTool } from "./spawnGoTool";
  * source files. Contributors are sorted by name so declaration order does not
  * affect the key.
  *
+ * Each source directory enters the key as its digest (`pluginSourceDigest`),
+ * the state the transform envelope reports for it, so what a consumer proves is
+ * exactly what the binary was keyed on (samchon/ttsc#1487). `sourceDigests`
+ * carries the digests one load already took: every build of the load keys on
+ * one reading of each directory, and the load reports those readings.
+ *
  * Exposed for testing and for the `ttsc cache` CLI command.
  */
 export function computeCacheKey(inputs: {
@@ -27,6 +34,11 @@ export function computeCacheKey(inputs: {
   filesystem?: Partial<SourceBuildFilesystemOperations>;
   goBinary?: string;
   overlayDirs?: readonly string[];
+  /**
+   * Digests of the source directories this load already read, by absolute path.
+   * Read through, and filled with every directory this key covers.
+   */
+  sourceDigests?: Map<string, string>;
   ttscVersion: string;
   tsgoVersion: string;
 }): string {
@@ -53,9 +65,9 @@ export function computeCacheKey(inputs: {
   }
   hashGoBuildEnvironment(hash, goBinary, inputs.dir, env, filesystem);
   hashExternalGoBuildEnvironment(hash, env);
-  hashSourceDirectory(hash, "plugin", inputs.dir);
+  hashSourceDirectory(hash, "plugin", inputs.dir, inputs.sourceDigests);
   for (const [index, dir] of [...(inputs.overlayDirs ?? [])].sort().entries()) {
-    hashSourceDirectory(hash, `overlay:${index}`, dir);
+    hashSourceDirectory(hash, `overlay:${index}`, dir, inputs.sourceDigests);
   }
   // Hash contributors in sorted-by-name order so two consumers with the
   // same logical set produce the same key regardless of declaration order
@@ -68,6 +80,7 @@ export function computeCacheKey(inputs: {
       hash,
       `contributor:${contributor.name}`,
       contributor.source,
+      inputs.sourceDigests,
     );
   }
   return hash.digest("hex").slice(0, 32);
@@ -158,46 +171,17 @@ function hashSourceDirectory(
   hash: crypto.Hash,
   label: string,
   root: string,
+  digests: Map<string, string> | undefined,
 ): void {
-  hash.update(`dir=${label}\n`);
-  for (const file of collectSourceFiles(root)) {
-    const rel = path.relative(root, file).replace(/\\/g, "/");
-    hash.update(`f=${rel}\n`);
-    hash.update(fs.readFileSync(file));
-    hash.update("\n");
+  const directory = path.resolve(root);
+  let digest = digests?.get(directory);
+  if (digest === undefined) {
+    digest = pluginSourceDigest(directory);
+    digests?.set(directory, digest);
   }
-}
-
-function collectSourceFiles(root: string): string[] {
-  const out: string[] = [];
-  walk(root, out);
-  out.sort();
-  return out;
-}
-
-function walk(dir: string, out: string[]): void {
-  let entries: fs.Dirent[];
-  try {
-    entries = fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return;
-  }
-  for (const entry of entries) {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      if (GoSourceInputs.shouldPruneDirectory(entry.name)) continue;
-      walk(full, out);
-      continue;
-    }
-    if (!entry.isFile()) continue;
-    if (GoSourceInputs.shouldOmitSourceFile(entry.name)) continue;
-    if (!isHashableFile(entry.name)) continue;
-    out.push(full);
-  }
-}
-
-function isHashableFile(name: string): boolean {
-  return !name.endsWith("~");
+  hash.update(`dir=${label}
+${digest}
+`);
 }
 
 // Per-process memo for the Go compiler identity. `computeCacheKey` runs once

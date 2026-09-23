@@ -2,6 +2,7 @@ import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTrans
 import type { TtscHostInputValidation } from "./TtscHostInputValidation";
 import { matchesUniversalHostInputEntries } from "./matchesUniversalHostInputEntries";
 import { matchesUniversalHostInputProbes } from "./matchesUniversalHostInputProbes";
+import { matchesUniversalHostInputTrees } from "./matchesUniversalHostInputTrees";
 import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
 
 /**
@@ -24,6 +25,7 @@ export function matchesUniversalHostInputs(
   if (notificationsProveAll) return true;
   return (
     matchesUniversalHostInputEntries(cached, validation) &&
-    matchesUniversalHostInputProbes(cached, validation)
+    matchesUniversalHostInputProbes(cached, validation) &&
+    matchesUniversalHostInputTrees(cached, validation)
   );
 }
