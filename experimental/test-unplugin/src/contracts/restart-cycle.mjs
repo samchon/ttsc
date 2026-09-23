@@ -210,8 +210,9 @@ try {
     // A host that committed nothing after its last build had nothing more to
     // store, which its next session reads as the state this one ended on. The
     // wait then falls back to the commit this session made at all, which is
-    // what the contract proved before it asked for the stronger one; only the
-    // fallback is timed, and it only ever weakens the proof to the older one.
+    // what the contract proved before it asked for the stronger one. The
+    // stronger proof's deadline only ever weakens the proof to that older one,
+    // never past it.
     if (afterTheBuild !== true) {
       // The two minutes the proof had before the stronger one was asked for:
       // a host commits when it commits, and a slow runner has taken over a
