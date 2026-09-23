@@ -2,8 +2,10 @@ import path from "node:path";
 import type { ITtscCompilerTransformation } from "ttsc";
 import { resolveFilesystemPath } from "ttsc/path-identity";
 
+import { TRANSFORM_RESULT_MEMBERSHIP } from "../cache/TRANSFORM_RESULT_MEMBERSHIP";
 import { resultFilesystem } from "../cache/resultFilesystem";
 import { sameHostInputRealpath } from "../inputs/sameHostInputRealpath";
+import { walkEnumeratesDirectory } from "../project/walkEnumeratesDirectory";
 import { isDeclarationFile } from "../utils/isDeclarationFile";
 import type { TtscEnvelopeDerivation } from "./TtscEnvelopeDerivation";
 import type { TtscEnvelopeGraphIndexes } from "./TtscEnvelopeGraphIndexes";
@@ -174,6 +176,44 @@ export function envelopeGraphIndexes(
         }
       } else if (!built.inputObservationConflicts.has(spelling)) {
         built.inputObservations.set(spelling, merged);
+      }
+    }
+    // The compiler's observer keeps every predicate anyone asked of a path, so
+    // a directory the config's file list was expanded from carries its whole
+    // listing wherever else it is an input: the project root is a module
+    // resolution candidate, and it arrived listing `.next`, `AGENTS.md` and
+    // ttsc's own tool directory. What that expansion depends on is the
+    // program's root-file membership there, which the capture's own walk
+    // proves under the same policy (`walkProjectInputs`), and proving the raw
+    // listing instead failed the generation, measured on a Turbopack pool, for
+    // every unrelated file a framework wrote beside the project. The listing is
+    // kept where the walk does not enumerate the directory, where automatic
+    // type discovery read it as a type root, which the walk does not model,
+    // and where it is the only predicate the path carries.
+    const membership = TRANSFORM_RESULT_MEMBERSHIP.get(props.result);
+    if (membership !== undefined) {
+      const universalInputs = new Set(
+        built.resolutionInputs.map((input) => path.resolve(input)),
+      );
+      for (const [spelling, observation] of built.inputObservations) {
+        if (
+          observation.accessibleEntries === undefined ||
+          universalInputs.has(spelling)
+        ) {
+          continue;
+        }
+        const { accessibleEntries: _listing, ...remaining } = observation;
+        if (
+          Object.values(remaining).every((value) => value === undefined) ||
+          !walkEnumeratesDirectory(
+            membership.projectRoot,
+            spelling,
+            membership.policy,
+          )
+        ) {
+          continue;
+        }
+        built.inputObservations.set(spelling, remaining);
       }
     }
     for (const [input, hash] of Object.entries(graph.inputHashes ?? {})) {

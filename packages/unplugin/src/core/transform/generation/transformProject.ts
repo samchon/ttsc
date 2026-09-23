@@ -62,9 +62,9 @@ export async function transformProject(props: {
   tsconfig: string;
 }): Promise<TtscCachedProjectTransform> {
   const attempts: TtscGenerationProofFailures[] = [];
-  let adopt = true;
+  let rejected: string | undefined;
   for (let attempt = 0; attempt < TRANSFORM_GENERATION_ATTEMPTS; attempt += 1) {
-    const cached = await captureTransformGeneration({ ...props, adopt });
+    const cached = await captureTransformGeneration({ ...props, rejected });
     if (
       cached.configStateComplete !== false &&
       (cached.result.type === "success"
@@ -78,8 +78,12 @@ export async function transformProject(props: {
         createGenerationProofFailures(),
     );
     // Another worker's compile that failed its proof here would be found again
-    // by the retry, so the retry compiles, and replaces the publication.
-    if (TRANSFORM_ADOPTED_RESULTS.has(cached.result)) adopt = false;
+    // by a retry for the same state, which therefore compiles and replaces the
+    // publication. A retry whose project moved to another state claims that
+    // state's publication, and adopts it: refusing it too, measured on a
+    // Turbopack pool, compiled a state another worker had just published,
+    // while the next edit was already landing.
+    rejected = TRANSFORM_ADOPTED_RESULTS.get(cached.result) ?? rejected;
     // A failed compile the project moved under twice still names its own
     // diagnostics, which say more than an unstable-generation error.
     if (

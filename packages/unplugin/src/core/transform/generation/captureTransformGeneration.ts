@@ -6,6 +6,7 @@ import type { ResolvedTtscUnpluginOptions } from "../../options/ResolvedTtscUnpl
 import { mergeMembershipPolicyOverlay } from "../../tsconfig/mergeMembershipPolicyOverlay";
 import { readTsconfigSourceSnapshot } from "../../tsconfig/readTsconfigSourceSnapshot";
 import { TRANSFORM_RESULT_FILESYSTEM } from "../cache/TRANSFORM_RESULT_FILESYSTEM";
+import { TRANSFORM_RESULT_MEMBERSHIP } from "../cache/TRANSFORM_RESULT_MEMBERSHIP";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { TRANSFORM_CLOCK_REFERENCE_DIRECTORIES } from "../clock/TRANSFORM_CLOCK_REFERENCE_DIRECTORIES";
 import { disposeFilesystemClockReference } from "../clock/disposeFilesystemClockReference";
@@ -86,10 +87,12 @@ export async function captureTransformGeneration(props: {
    */
   session?: string;
   /**
-   * Whether an existing publication may be adopted. False on the retry of an
-   * attempt whose adopted compile failed its proof here.
+   * The project state of a publication an earlier attempt adopted and could not
+   * prove here. A claim for that same state compiles under the lock and
+   * replaces it; a claim for any other state adopts as usual, since nothing has
+   * found its publication wanting.
    */
-  adopt?: boolean;
+  rejected?: string;
   trackProjectMembership: boolean;
   tsconfig: string;
 }): Promise<TtscCachedProjectTransform> {
@@ -189,23 +192,27 @@ export async function captureTransformGeneration(props: {
     // Only a complete snapshot names a state. The adopted envelope is then
     // proven below like one compiled here, against this worker's own
     // filesystem and inside the window its tracker already watches.
-    const claim =
+    const state =
       props.session !== undefined && before.complete
+        ? sharedCompileState({
+            directories: before.projectDirectories,
+            hashes: before.hashes,
+            // The chain's own text when no wrapper derived a signature from
+            // it, since the walk hashes no config file.
+            tsconfigSignature:
+              tsconfigState.signature ??
+              hashText(
+                JSON.stringify(readTsconfigSourceSnapshot(props.tsconfig)),
+              ),
+          })
+        : undefined;
+    const claim =
+      props.session !== undefined && state !== undefined
         ? await claimSharedCompile(
             props.session,
             sharedCompileIdentity(props),
-            sharedCompileState({
-              directories: before.projectDirectories,
-              hashes: before.hashes,
-              // The chain's own text when no wrapper derived a signature
-              // from it, since the walk hashes no config file.
-              tsconfigSignature:
-                tsconfigState.signature ??
-                hashText(
-                  JSON.stringify(readTsconfigSourceSnapshot(props.tsconfig)),
-                ),
-            }),
-            { adopt: props.adopt !== false },
+            state,
+            { adopt: state !== props.rejected },
           )
         : undefined;
     if (claim?.kind === "compile") {
@@ -241,10 +248,14 @@ export async function captureTransformGeneration(props: {
           env: compilerEnvironment,
         }).transformAsync(),
       ));
-    if (adopted !== undefined) {
-      TRANSFORM_ADOPTED_RESULTS.add(result);
+    if (adopted !== undefined && state !== undefined) {
+      TRANSFORM_ADOPTED_RESULTS.set(result, state);
     }
     TRANSFORM_RESULT_FILESYSTEM.set(result, props.filesystem);
+    TRANSFORM_RESULT_MEMBERSHIP.set(result, {
+      policy: membershipPolicy,
+      projectRoot,
+    });
     const configStable =
       tsconfigState.signature === undefined ||
       tsconfigState.signature ===
