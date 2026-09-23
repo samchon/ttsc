@@ -187,6 +187,30 @@ test("compiler and platform changes select verified reverse consumers", () => {
   assert.ok(platform.includes("package-defenses"));
 });
 
+test("a Go change of the compiler selects the race lane, a TypeScript one does not", () => {
+  // The race detector is the only lane that can report a data race in the LSP
+  // proxy (samchon/ttsc#1482), and the proxy links most of the Go module.
+  for (const file of [
+    "packages/ttsc/internal/lspserver/lsp_proxy.go",
+    "packages/ttsc/test/driver/lsp_proxy_harness_test.go",
+    "packages/ttsc/driver/program.go",
+    "packages/ttsc/go.mod",
+    "packages/ttsc/go.sum",
+  ])
+    assert.ok(ids([file]).includes("go-race"), file);
+  for (const file of [
+    "packages/ttsc/src/index.ts",
+    "packages/ttsc/package.json",
+    "packages/unplugin/src/index.ts",
+  ])
+    assert.ok(!ids([file]).includes("go-race"), file);
+  // Its own runner reaches it and nothing else.
+  assert.deepEqual(ids(["scripts/test-go-race.cjs"]), [
+    "go-race",
+    "typecheck",
+  ]);
+});
+
 test("platform integrations reuse only the physical rows they need", () => {
   const watch = planForPaths([
     "tests/test-ttsc/src/features/watch/test_example.ts",

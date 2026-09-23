@@ -40,6 +40,17 @@ const LANES = [
       "pnpm run test:go",
   },
   {
+    // The LSP proxy's concurrency under the race detector, on Linux, where cgo
+    // has a C toolchain: every proxy and driver test once, then the did-save
+    // tests 200 times with one scheduler thread (samchon/ttsc#1482). The Go
+    // lanes above run without `-race`, so this is the only lane that can report
+    // a data race in the proxy.
+    id: "go-race",
+    name: "go race",
+    needsGo: true,
+    run: "node scripts/test-go-race.cjs",
+  },
+  {
     id: "shim-audit",
     name: "shim-audit",
     needsGo: true,
@@ -444,6 +455,9 @@ function planForPaths(files) {
       watch = true;
       runtime = true;
       if (file.startsWith("packages/ttsc/shim/")) selected.add("shim-audit");
+      // The proxy links most of the Go module, so any Go source or module
+      // change can move a memory access it races on (samchon/ttsc#1482).
+      if (/\.go$|\/go\.(mod|sum)$/.test(file)) add(["go-race"], file);
       continue;
     }
     if (/^packages\/ttsc-[^/]+\//.test(file)) {
@@ -620,6 +634,10 @@ function planForPaths(files) {
     }
     if (file.startsWith("tests/go-transformer/")) {
       add(["go", "windows-go"], file);
+      continue;
+    }
+    if (file === "scripts/test-go-race.cjs") {
+      add(["go-race"], file);
       continue;
     }
     if (file.startsWith("scripts/test-go") || file === "scripts/go.cjs") {
