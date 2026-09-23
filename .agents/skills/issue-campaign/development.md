@@ -67,7 +67,7 @@ If implementation disproves, narrows, or externally blocks an issue, reopen the 
 
 ## Validate With CI And Overall Self-Review
 
-After no ready issue remains and every Individual Self-Review is recorded, commit and push the formatted integrated snapshot, then let every ordinary pull-request check run. Start the solo Overall Self-Review immediately over that exact base-to-head diff while CI executes.
+After no ready issue remains and every Individual Self-Review is recorded, commit and push the formatted integrated snapshot, then let every ordinary pull-request check run. Start the Overall Self-Review immediately over that exact base-to-head diff while CI executes.
 
 Submit every Overall Self-Review finding round and the final clean round as a formal GitHub pull-request review with the `COMMENT` event. Attach line-specific findings as inline review comments and summarize round-wide findings or the clean conclusion in the review body. Do not post ordinary issue-style pull-request comments for Self-Review.
 

@@ -15,7 +15,7 @@ Creating or deleting one of those files counts as changing it.
 Three more:
 
 - **A measured workspace.** What a cell did to its own workspace is the measurement.
-- **`benchmarks/evidence/requirements/**`.\*\* Opaque, authoritative bytes: never edit, rename, add, delete, normalize, summarize, validate, or challenge them.
+- **The requirements.** `benchmarks/evidence/requirements/**` is opaque, authoritative bytes: never edit, rename, add, delete, normalize, summarize, validate, or challenge them.
 - **The cell's own reasoning.** Do not prompt the measured agent, inject advice, weaken a gate, or hard-code a subject answer, and never expose Evidence material to Plain. A cell's questions and partial reports do not invite operator input; its continuation instruction already tells it to finish on its own.
 
 ## Why The Three Files

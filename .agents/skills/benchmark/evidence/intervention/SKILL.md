@@ -24,6 +24,6 @@ Every remedy lands outside the measured workspace or in this repository.
 
 ## Topics
 
-- **[Boundary](boundary.md)** — what you may never change, when to stop and ask the user, and where a benchmark defect may be corrected.
-- **[Warning](warning.md)** — the operator's one channel into a running cell.
-- **[Recovery](recovery.md)** — diagnosis, cell ports, resume, checkpoint-derived runs, and cancellation.
+- **[Boundary](boundary.md):** what you may never change, when to stop and ask the user, and where a benchmark defect may be corrected.
+- **[Warning](warning.md):** the operator's one channel into a running cell.
+- **[Recovery](recovery.md):** diagnosis, cell ports, resume, checkpoint-derived runs, and cancellation.
