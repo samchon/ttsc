@@ -14,9 +14,11 @@ let bare = 0;
  *
  * The record's `signal` is incremented and the file rewritten. A record that
  * cannot be read back is written as a bare signal, which a host comparing bytes
- * hears as well, and the next delivery replaces it whole. Every rewrite lands
- * bytes no earlier write of any process left, so a host comparing content hears
- * it as a host comparing times does.
+ * hears as well. The next generation's delivery replaces it whole, and until
+ * then a build start moves it again, since no proof can run over it
+ * (`refreshProjectRecordFiles`). Every rewrite lands bytes no earlier write of
+ * any process left, so a host comparing content hears it as a host comparing
+ * times does.
  *
  * A bare signal only ever replaces a file that is there. A record is gone when
  * its project is (`refreshProjectRecordFiles`), and writing one here would

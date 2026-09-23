@@ -24,7 +24,8 @@ import { signalProjectRecordFile } from "./signalProjectRecordFile";
  * (`signalProjectRecordFile`); the host, which recorded the file as a
  * dependency of every module of the project, runs those modules again, and
  * their deliveries write the record of the generation that read the change. A
- * record whose tsconfig is gone is moved too, which is a change as well.
+ * record that cannot be read proves nothing and is moved too. A record whose
+ * tsconfig is gone is removed instead, the one move no delivery has to end.
  *
  * A watching host's bridge, opened for its first pass, takes every record
  * instead (`projectRecordWatchInputs`): the bridge proves the recorded inputs
@@ -57,14 +58,20 @@ export function refreshProjectRecordFiles(
     if (!name.endsWith(".json")) continue;
     const file = path.join(directory, name);
     const record = readProjectRecordFile(file);
-    // A record is written into the file the host watches, so a reader can
-    // catch one mid-write, and a writer that died leaves one for good
-    // (`writeProjectRecordFile`). Either way its bytes already differ from
-    // every consistent record a host snapshotted, so the host runs the
-    // project's modules on its own and the delivery writes the record whole.
-    // Moving it here would instead destroy a record caught mid-write, and
-    // race a process removing one.
-    if (record === undefined) continue;
+    // A record that cannot be read proves nothing, and is moved as a proof
+    // that found a change is. A host may hold exactly these bytes: a signal
+    // that could not read the record writes a bare one
+    // (`signalProjectRecordFile`), the host runs the project's modules on that
+    // move, and a delivery of a generation its process already recorded hands
+    // the file over without writing it again, so the host's cache ends up
+    // recording bytes no proof can run over. Only a move here runs those
+    // modules again, whose deliveries write the record whole. A writer caught
+    // mid-write loses its bytes to the move, which its own host hears and
+    // runs on, and a record another process removed stays removed.
+    if (record === undefined) {
+      signalProjectRecordFile(file);
+      continue;
+    }
     // Nothing will write this project again: the record's own rule, that it
     // keeps moving until a delivery writes the state a proof found, has no
     // delivery left to end it, and a build start would rewrite it forever.
