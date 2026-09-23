@@ -17,7 +17,7 @@ import { createRealNativeEnvelopeFixture } from "../../internal/real-native-enve
  * adapter used to hand nothing over when a write failed, on the reasoning that
  * the host would run the module again at its next start, which a persistent
  * cache does not. The bytes the record still holds stand for the last state
- * written, which the next proof finds gone and moves.
+ * written, which the next proof moves once the project has left it.
  *
  * 1. Deliver a module through a one-shot Rollup context, which writes the record
  *    and hands it over.

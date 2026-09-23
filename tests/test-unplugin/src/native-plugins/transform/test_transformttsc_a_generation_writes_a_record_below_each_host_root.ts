@@ -11,12 +11,13 @@ import path from "node:path";
  * Verifies one generation delivered in one process to two hosts whose roots
  * differ hands each host the record below its own root, and writes both.
  *
- * A process can run two build hosts over one project with the same options,
- * such as esbuild with an `absWorkingDir` of its own beside a bundler in the
- * directory the process runs in, and they share the generation. The record is
- * named by the host's root, the one place each host accepts it, but the adapter
- * kept one record per generation, so the second host was handed the first
- * host's record, outside its own root, and nothing was written below it.
+ * The record's path is the host's root's, while a generation is the cache's,
+ * and one cache can reach hosts whose roots differ: a caller of `transformTtsc`
+ * can hand one cache to hosts of its own, and the adapters' process-wide cache
+ * names the root of each delivery by the directory the process runs in at the
+ * time. The adapter kept one record per generation, so the second host was
+ * handed the first host's record, outside its own root, and nothing was written
+ * below it.
  *
  * 1. Deliver a module of a project to a host whose tool directory is one
  *    directory, then the same module from the same cache to a host whose tool

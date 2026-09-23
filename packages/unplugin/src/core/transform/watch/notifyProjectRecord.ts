@@ -34,14 +34,16 @@ const HANDED = new WeakMap<
  * The generation's inputs are read once per generation and process, and the
  * record below the root of each host the generation is delivered to is written
  * from them until a write lands; every later delivery to that host hands the
- * same record over without reading anything. One process can run two hosts with
- * different roots over one project with the same options, esbuild with an
- * `absWorkingDir` of its own beside a bundler in the directory the process runs
- * in, and they share the generation; each takes the record below its own root,
- * the one place it accepts one. An input the generation recorded no state for,
- * a failed compile's recovery input or a walk file no graph names, is read now,
- * so a refresh at the next build start has a state to prove it against; an
- * input that cannot be read is recorded absent, which its appearance moves.
+ * same record over without reading anything. The record's path is the host's
+ * root's, while a generation is the cache's, and one cache can reach hosts
+ * whose roots differ: a caller of `transformTtsc` can hand one cache to hosts
+ * of its own, and the adapters' process-wide cache names the root of each
+ * delivery by the directory the process runs in at the time. Each host takes
+ * the record below its own root, the one place it accepts one. An input the
+ * generation recorded no state for, a failed compile's recovery input or a walk
+ * file no graph names, is read now, so a refresh at the next build start has a
+ * state to prove it against; an input that cannot be read is recorded absent,
+ * which its appearance moves.
  *
  * The record is written before it is handed over, so a host that snapshots the
  * file as the delivery registers it snapshots the generation's state, and a
@@ -50,11 +52,12 @@ const HANDED = new WeakMap<
  * A record that cannot be written this time is handed over all the same when it
  * is there: a module handed over without it depends on its own bytes alone, and
  * a host's persistent cache restores it on those whatever its types did. The
- * bytes it holds stand for the last state written, which the next proof finds
- * gone and moves, and the next delivery of the generation writes it again. A
- * record that is not there is not handed over, since what a host does with a
- * dependency on a path that does not exist differs per host, and a directory
- * the adapter cannot write leaves the host watching each module alone.
+ * bytes it holds stand for the last state written, which the next proof moves
+ * once the project has left it, and the next delivery of the generation writes
+ * it again. A record that is not there is not handed over, since what a host
+ * does with a dependency on a path that does not exist differs per host, and a
+ * directory the adapter cannot write leaves the host watching each module
+ * alone.
  *
  * @param inputs The generation's inputs, derived on first call.
  */
