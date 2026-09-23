@@ -6,7 +6,7 @@ Read this document through the benchmark skill before running or changing the gr
 
 - Keep fixtures outside the ttsc checkout, as the README explains, and name them with the plain agent-visible project name such as `vue@graph`, never a harness-oriented prefix.
 - A fixture's `graph` branch uses `tsconfig.graph.json`, which includes source and tests, never an emit-only build config. A test-less program sends the agent searching the filesystem for tests and changes the workload.
-- Give every comparator its prescribed setup and record its time. Never omit a setup step to make a comparator look worse.
+- Record each comparator's setup time. The setup itself follows the benchmark skill's [Measurement Integrity](SKILL.md#measurement-integrity) rules.
 - Shell source reads in a graph arm are measured behavior. Exclude only zero-token infrastructure or capacity failures from published results.
 - VS Code is a global single lane: never run two `vscode` cells concurrently, though other projects may run beside one.
 
