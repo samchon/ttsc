@@ -30,9 +30,9 @@ Before resuming any silent cell, confirm it has an objective left. Where the run
 
 ## Free The Cell's Ports
 
-A cell never contends with another cell — the blocks are disjoint, and [measurement/running.md](../measurement/running.md) maps them. A cell contends with its own past: a killed runner leaves its API server, Swagger, Vite, and Playwright children holding that block, and the next launch fails its pre-launch port check.
+A cell never contends with another cell: the blocks are disjoint, and [measurement/running.md](../measurement/running.md) maps them. A cell contends with its own past: a killed runner leaves its API server, Swagger, Vite, and Playwright children holding that block, and the next launch fails its pre-launch port check.
 
-Before resuming a stopped cell, confirm its four ports have no listener and stop whatever holds one. A listener on a cell's port while no runner of its own is alive means orphans are blocking recovery, and the reporting subagent reports that as its own condition rather than as a dead cell.
+Before resuming a stopped cell, confirm its four ports have no listener and stop whatever holds one. A listener on a cell's port while no runner of its own is alive means orphans are blocking recovery; report that as its own condition rather than as a dead cell.
 
 ## Resume The Same Run
 
@@ -42,7 +42,7 @@ Resume only when the cell identity, frozen inputs, workspace, CLI version, objec
 pnpm --filter @ttsc/benchmark-evidence start codex <subject> <evidence|plain> <model> <effort> <run-id>
 ```
 
-Repeat that cell's own model and effort rather than the campaign default. The runner compares engine, subject, arm, model, effort, run ID, stop point, and ledger mode against the retained cell and refuses the resume on any difference.
+Repeat that cell's own model and effort rather than the campaign default; the runner refuses a resume that differs from the retained cell in any identity field.
 
 Keep the cell's original `benchmarkRevision` frozen. When recovery requires a committed runner correction, resume only from a clean descendant revision, which the runner retains as the new process's `runnerRevision`.
 
@@ -50,9 +50,9 @@ Before continuing, the runner revalidates the stored cell, instruction bytes, wo
 
 One retained status refuses resume outright:
 
-- `checkpointed` — the run was stopped deliberately after `backend-start` and continues only as a derived run.
+- `checkpointed`: the run was stopped deliberately after `backend-start` and continues only as a derived run.
 
-`quality-failed` does not. It belongs to the earlier behaviour, where exhausting a scope's supplementations ended the cell; a run retained under it resumes and continues from the boundary its plan already points past. Failing the last permitted supplementation now dispatches that scope's Final, so the status a current run reaches is `completed` whether its scope converged or not. [measurement/plain-review.md](../measurement/plain-review.md) owns what the verdicts then have to say.
+`quality-failed` does not: a run retained under it resumes from the boundary its plan already points past. A current run reaches `completed` whether its scopes converged or not. [measurement/plain-review.md](../measurement/plain-review.md) owns what the verdicts then have to say.
 
 If the resume itself fails, preserve that attempt, diagnose the new failure, and recover again from the last exact checkpoint. Never abandon a cell, and never loop without evidence.
 
@@ -66,15 +66,7 @@ When a defect is confined to an instruction after `backend-start`, preserve the 
 pnpm --filter @ttsc/benchmark-evidence start codex <subject> <evidence|plain> <model> <effort> --from-backend-start <source-run-id>
 ```
 
-The command then:
-
-1. Verifies the retained cell and the exact completed `backend-start` boundary.
-2. Restores that workspace, reinstalls its dependencies, and revalidates the restored digests.
-3. Reapplies the current non-product instruction surface — `AGENTS.md` and `.agents/`.
-4. Forks the native thread through the retained terminal turn.
-5. Starts the new run at `backend-review` with the current downstream instructions.
-
-An explicit operator launch does not reject the checkpoint because repository inputs changed after it was created.
+[benchmarks/evidence/README.md](../../../../../benchmarks/evidence/README.md) describes what the derivation restores and reapplies.
 
 Never edit a checkpoint, its source run, or its retained state.
 
@@ -82,6 +74,6 @@ A derived run has a new run ID and records its source lineage and inherited timi
 
 ## Cancel The Campaign
 
-Stop the reporting subagent and every liveness watcher first, then force-stop every benchmark command, native process, and owned descendant. Verify that no process still references an affected run.
+Stop every liveness watcher first, then force-stop every benchmark command, native process, and owned descendant. Verify that no process still references an affected run.
 
 Preserve every run directory and report each cell as incomplete. Never delete one and never mark it complete.

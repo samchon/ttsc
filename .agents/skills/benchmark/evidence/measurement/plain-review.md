@@ -1,30 +1,10 @@
 # Plain Review
 
-A Plain cell at `awaiting-review-verdict` is waiting for a decision, and three facts answer most of why:
-
-- **The runner judges it itself.** A fresh inspecting thread decides, and the cell continues in the same command.
-- **A resume retries a failed inspection.** Three attempts are permitted at one boundary.
-- **Only after the third failure do you write a verdict by hand.**
-
-## Where Plain Stops
-
-Every Plain cell stops after its Backend, Frontend, and Overall Review, and again after each supplementation Goal. Evidence never stops.
-
-The retained status is `awaiting-review-verdict`, and the cell cannot continue until a verdict is applied.
-
-## Who Judges
-
-At the boundary the runner spawns a fresh Codex thread on the cell's own model and effort. It reads the attempt's stage log and the measured workspace, returns a decision, and the cell continues in the same command.
-
-The inspection costs what a model run costs, and its tokens and time join the cell's `Cost` and `Work time`; [dashboard.md](dashboard.md) owns how that appears. Every attempt is retained under `inspection/<NN>-<stage>-<attempt>.*`, so a retry never overwrites the evidence of the attempt before it.
+[benchmarks/evidence/README.md](../../../../../benchmarks/evidence/README.md) describes the mechanics of a Plain review boundary: where a Plain cell stops, the inspecting thread that judges it, the three inspection attempts, the hand-written verdict command, the identical reminder, the four supplementation attempts, and the review ledger. This document holds what an operator needs beyond them.
 
 ## Keep The Inspector Outside The Cell
 
-The measured agent must not learn that it is being judged or by what criteria. A cell that knows the criteria can satisfy the criteria instead of meeting them, and every later attempt of every later cell would then measure something else.
-
-- **A separate thread.** The inspection never runs inside the measured thread and never speaks to it.
-- **Read-only.** It reads the attempt's stage log, which lives in the run root outside the workspace, and the workspace. It writes nothing into either.
-- **No text reaches the cell.** A decision carries `decision` and `rationale` only, and the runner refuses one carrying a `feedback` property. Every failing scope receives the identical prescribed reminder, so attempt counts stay comparable between cells.
+The measured agent must not learn that it is being judged or by what criteria. A cell that knows the criteria can satisfy the criteria instead of meeting them, and every later attempt of every later cell would then measure something else. So the inspection runs in a separate thread that never speaks to the measured one, reads the stage log and the workspace without writing to either, and returns a decision whose `rationale` the cell never sees.
 
 ## What A Verdict Judges
 
@@ -33,42 +13,21 @@ Two questions, whose exact wording the inspection prompt in `EvidenceBenchmarkIn
 1. **Did the prescribed review loop run to dryness?** Pass an attempt that read its full scope every round and ended on a round that read everything and changed nothing, despite checklist or formatting slips. Fail one that substituted counts, summaries, searches, or green commands for reading; divided its scope across rounds; skipped the re-read after its last edit; or reported a dry round the stage log shows it never performed.
 2. **Are the tests properly written?** Judge them against the workspace's own testing instructions. A suite that names one test for a hundred published operations, that asserts nothing, that asserts only that a call did not throw, or that pins the implementation's current output instead of the behavior it owes, is not properly written however green it runs.
 
-Nothing else is a verdict's business. Design taste, formatting, checklist bookkeeping, and commit hygiene are observations for the rationale, never grounds.
+Nothing else is a verdict's business. Design taste, formatting, checklist bookkeeping, and commit hygiene are observations for the rationale, never grounds. Final is a finishing and safety stage after a passed Review, not permission to accept a false Review pass.
 
-Final is a finishing and safety stage after a passed Review, not permission to accept a false Review pass.
+The bound is four supplementation attempts because a cell that answers a reminder answers the first one; attempts past the point of movement measure nothing and are charged at full inspection price. A scope can reach Final having failed every attempt, and the cohort report has to say so.
 
-## What Each Decision Does
+## Read The Loop By Its Verdict Files
 
-- **Pass** skips the reminder and advances directly to that scope's Final.
-- **Fail** inserts that scope's `plain/<scope>/remind.md`, joined by the runner with that scope's own Review instruction quoted in full. The reminder carries nothing cell-specific — it asserts that the report was rejected, orders the full Review again unconditionally, and states the evidentiary standard the inspection applies. The cell then stops for another decision after the supplementation Goal.
+A new file under `supervision/` is the only reliable sign that a decision landed. Count them to know how many attempts a scope has spent, and read the newest to know what the last one decided. The runner refuses a decision whose earlier retained verdict files no longer match their digests, so never edit one.
 
-Four supplementation attempts are permitted, and Final is reached either by passing or by failing the last one. The attempt a scope stops on is itself a measurement, so the bound is set where a cell that can converge still has room to; what a scope failed to prove stays retained in its verdicts, while what the cell builds afterwards becomes measurable instead of absent.
-
-Read the verdict files rather than the status to know which it was. A scope can reach Final having failed every attempt, and the cohort report has to say so.
-
-`quality-failed` belongs to the earlier behaviour, where exhausting a scope ended the cell. A run retained under it still validates and still resumes, continuing from the boundary its plan already points past.
-
-Four rather than eight because a cell that answers a reminder answers the first one. The `todo` Plain cell of the first `0.6.0` cohort spent all eight: its first supplementation ran 346 commands and changed 9 files, and the seven after it ran 8 commands between them and changed nothing, the last executing no command at all. Attempts past the point of movement measure nothing and are charged at full inspection price.
-
-The runner retains each decision's exact bytes and digest alongside the workspace digest and Goal boundary, and refuses a decision whose earlier retained verdict files no longer match their digests.
-
-### Read The Loop By Its Verdict Files
-
-A new file under `supervision/` is the only reliable sign that a decision landed. Count them to know how many attempts a scope has spent, and read the newest to know what the last one decided.
-
-Neither the status nor the plan answers this. `instructionPlan` grows when a failing verdict inserts a supplementation, so its length is a consequence of a decision rather than a record of one, and reading it between a stop and the verdict that follows describes a plan that is about to change. A cursor compared against a stale length has twice produced the conclusion that a cell was one objective from finishing when it was not.
-
-Read the plan only after a transition completes, and never to infer how much of the bound is left.
+Neither the status nor the plan answers this. `instructionPlan` grows when a failing verdict inserts a supplementation, so its length is a consequence of a decision rather than a record of one, and reading it between a stop and the verdict that follows describes a plan that is about to change. Read the plan only after a transition completes, and never to infer how much of the bound is left.
 
 ## When The Inspection Cannot Decide
 
-A spawn failure, a failed turn, an unreadable decision, an unaccountable token report, or the inspection timeout leaves the pause undecided. The reason lands on that attempt's `failure`, naming what did not match with the raw text excerpted.
+A spawn failure, a failed turn, an unreadable decision, an unaccountable token report, or the inspection timeout leaves the pause undecided, and the reason lands on that attempt's `failure` with the raw text excerpted. Resume the run to retry; the common failures are transient and an operator adds nothing to them.
 
-**Resuming the run retries the inspection.** The common failures are transient and an operator adds nothing to them.
-
-Three attempts are permitted at one boundary, because each is a full model run on the cell's own model and a permanently broken inspector must stop rather than spend the account one resume at a time.
-
-After the third failure the run stays at `awaiting-review-verdict` and a resume refuses outright. Only an operator can move the boundary from there, so write the verdict by hand:
+After the third failure a resume refuses outright, and only a hand-written verdict moves the boundary. It answers the same two questions, carries only `decision` and `rationale`, and is followed by resuming the same run command:
 
 ```json
 {
@@ -77,32 +36,10 @@ After the third failure the run stays at `awaiting-review-verdict` and a resume 
 }
 ```
 
-```bash
-pnpm --filter @ttsc/benchmark-evidence supervise <subject> <run-id> <verdict.json>
-```
+An operator warning is a different channel with its own contents, and [intervention/warning.md](../intervention/warning.md) owns it. Do not reach for a verdict to deliver one.
 
-Then resume the same run command.
+## The Backend Review Ledger
 
-A hand-written verdict answers the same two questions and obeys the same rules: no `feedback` property, and the reasoning stays in the retained `rationale`, which the cell never sees.
+`--review-ledger` injects six tools as the only mechanisms that receive review credit: `review_start_round`, `review_read_file`, `review_finish_round`, `review_start_calibration`, `review_edit_file`, and `review_run_backend_command`. A shell inventory, a self-authored manifest, or a summary earns nothing.
 
-An operator warning is a different channel with its own command and contents, and [intervention/warning.md](../intervention/warning.md) owns it. Do not reach for a verdict to deliver one.
-
-## Optional: The Backend Review Ledger
-
-`--review-ledger` makes the backend review loop mechanically provable instead of self-reported. It is an addition to everything above, not a replacement for any of it.
-
-It is Plain-only and needs a detached `backend-start` checkpoint thread, so it attaches to an existing run ID or a `--from-backend-start` derivation, never to a fresh cell:
-
-```bash
-pnpm --filter @ttsc/benchmark-evidence start codex <subject> plain <model> <effort> --review-ledger --from-backend-start <source-run-id>
-```
-
-During `backend-review` the runner holds the cell's sandbox read-only and injects six tools as the only mechanisms that receive review credit:
-
-`review_start_round` · `review_read_file` · `review_finish_round` · `review_start_calibration` · `review_edit_file` · `review_run_backend_command`
-
-`backend-review` and `backend-final` then refuse to complete unless a runner-owned round ended `dry` and the workspace manifest still hashes to what that round read. A shell inventory, a self-authored manifest, or a summary earns nothing.
-
-**The verdict boundary still fires.** `backend-review` stops at `awaiting-review-verdict` exactly as it does without the flag, because the boundary is computed from the arm and the instruction alone. The inspecting thread also knows nothing about the ledger, so it still judges the loop from the stage log. Expect a ledger run to stop for a verdict, and do not read that stop as a stall.
-
-The fresh thread restarts its token counter at zero, and the dashboard adds the inherited pre-thread goals back into the cell's total. Report what the generator printed and never hand-compute a ledger run's totals.
+Expect a ledger run to stop for a verdict anyway, because the boundary is computed from the arm and the instruction alone and the inspecting thread knows nothing about the ledger; do not read that stop as a stall. The fresh thread restarts its token counter at zero and the dashboard adds the inherited pre-thread goals back into the cell's total, so report what the generator printed and never hand-compute a ledger run's totals.

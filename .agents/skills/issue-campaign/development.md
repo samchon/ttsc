@@ -1,6 +1,6 @@
-# Solo Campaign Development
+# Campaign Development
 
-Read this document in full when the user authorizes implementation pull requests or the end of a solo issue campaign that entered implementation. Also read the repository development, pull-request, and review skills before acting.
+Read this document in full when the user authorizes implementation of an issue campaign, or the end of a campaign that entered implementation. Also read the development, pull-request, and review skills before acting. Implementation starts only after the cycle's empty-round gate in the [campaign skill's discovery rounds](SKILL.md#discovery-rounds) passes.
 
 ## Flow
 
@@ -9,21 +9,13 @@ Read this document in full when the user authorizes implementation pull requests
 - [Implement And Write Tests](#implement-and-write-tests)
 - [Validate With CI And Overall Self-Review](#validate-with-ci-and-overall-self-review)
 - [Merge And Clean Up](#merge-and-clean-up)
-- [Repeat Until A Clean Round](#repeat-until-a-clean-round)
-
-Five rules govern the implementation phase:
-
-- Enter implementation only after the parent skill's discovery saturation ends with a complete fresh empty round against the recorded pre-development integrated state.
-- The main agent performs all implementation, test authoring, CI diagnosis, adjudication, Overall Self-Review, and cleanup. For every coherent pushed issue-implementation commit, spawn exactly one read-only [Individual Self-Review](#implement-and-write-tests) subagent.
-- Put every accepted, implementation-ready issue in the current cycle into one pull request. The issue DAG controls implementation order inside that pull request, not pull-request count.
-- Work in the current checkout and one topic branch. Do not create a clone or worktree for a solo campaign or its Self-Review.
-- The pull request's ordinary CI and a clean Overall Self-Review are the acceptance gates. Repair every red CI lane in that same pull request, even when the failure predates the campaign or is unrelated to its original issues.
+- [Start The Next Cycle](#start-the-next-cycle)
 
 ## Plan One Cycle Pull Request
 
-Confirm the discovery gate before planning or claiming work. The campaign ledger must identify the integrated baseline, every complete discovery round against it, the last round's empty result, and the accepted issue set accumulated across preceding nonempty rounds. Fetch the target branch and compare it with that baseline. If the last complete round is not empty or the target advanced, synchronize the target checkout, record the new baseline, and return to discovery instead of opening development.
+Confirm the discovery gate before planning or claiming work. The campaign ledger must identify the cycle baseline, every complete discovery round against it, the last round's empty result, and the accepted issue set accumulated across preceding nonempty rounds. Fetch the target branch and compare it with that baseline. If the last complete round is not empty or the target advanced, synchronize the target checkout, record the new baseline, and return to discovery instead of opening development.
 
-Recompute the published-issue dependency DAG after publication. Record dependencies because they determine safe edit order and when one fix can expose another, but do not partition ready issues into separate pull requests.
+Put every accepted, implementation-ready issue of the cycle into the one cycle pull request. Recompute the published-issue dependency DAG after publication: it sets safe edit order and shows when one fix can expose another, but it never splits ready issues into separate pull requests.
 
 Build the cycle scope in this order:
 
@@ -33,7 +25,7 @@ Build the cycle scope in this order:
 4. Put every remaining issue into one cycle ledger with its acceptance matrix, consequence surface, affected files, and DAG predecessors.
 5. Record the issue count before grouping and the result as one pull-request unit.
 
-Different packages, invariants, or validation lanes do not split the solo cycle. Keep issue-level commits when that improves diagnosis, but the pull request remains the integrated campaign unit.
+Different packages, invariants, or validation lanes do not split the cycle. Keep issue-level commits when that improves diagnosis, but the cycle pull request remains the unit.
 
 An issue whose only predecessor is another issue in the same cycle is implementation-ready for this purpose. Order the edits through the DAG instead of deferring it to another pull request.
 
@@ -43,7 +35,7 @@ Difficulty never removes an issue from the cycle. When a resolution needs a judg
 
 Claim the whole cycle before implementation:
 
-1. Use the current checkout, confirm the target branch still matches the gated baseline, and create one topic branch from that exact state. Do not create a clone or worktree.
+1. Use the current checkout, confirm the target branch still matches the cycle baseline, and create one topic branch from that exact state. Do not create a clone or worktree.
 2. Create one implementation-free commit with `git commit --allow-empty`.
 3. Push the branch and open one draft pull request.
 4. Reference every cycle issue by number, mark verification pending, and state that the pull request owns the complete accepted cycle.
@@ -63,13 +55,9 @@ Close each issue from the commit that earns it. End the commit message with one 
 
 A revert inside the pull request must not carry the closing keyword forward: `git revert` quotes the original subject, so rewrite its default `Revert "Close #n: ..."` without the closing phrase, and drop any `Closes #n` line for that issue from the pull-request body. That does not spare the issue by itself. A squash merge concatenates every commit message into the merge commit body, where the reverted commit's own `Close #n` line still sits, so the merge closes an issue whose fix no longer exists at `HEAD` and [the merge gate](#merge-and-clean-up) has to reopen it.
 
-Immediately after each coherent issue-implementation commit is pushed, start exactly one read-only subagent Individual Self-Review over that commit's parent-to-commit diff. Do not wait for its result or for per-commit CI. Continue the next ready issue immediately while the review runs.
+After each coherent issue-implementation commit is pushed, perform its [Individual Self-Review](../review/SKILL.md#individual-self-review) over that commit's parent-to-commit diff without waiting for per-commit CI, then continue with the next ready issue.
 
-The individual reviewer advises the main agent only. It reports candidate findings for that one commit and never edits, commits, pushes, posts to GitHub, or makes implementation or disposition decisions.
-
-When the result arrives, the main agent adjudicates every candidate and records the Individual Self-Review as one formal GitHub pull-request review with the `COMMENT` event. Name the commit, summarize what landed and which issues it resolved, attach line-specific findings as inline review comments, and put commit-wide findings or a clean result in the review body. This review is the running ledger for a reader who does not read the diff, not a closing mechanism. Do not replace it with an ordinary issue-style pull-request comment.
-
-Individual Self-Review never reduces or substitutes for [Overall Self-Review](#validate-with-ci-and-overall-self-review). One commit cannot expose every cross-file or integrated consequence, and individual reviews do not combine into an overall round. The [review skill](../review/SKILL.md#individual-self-review) owns this boundary.
+Record each Individual Self-Review as one formal GitHub pull-request review with the `COMMENT` event. Name the commit, summarize what landed and which issues it resolved, attach line-specific findings as inline review comments, and put commit-wide findings or a clean result in the review body. This review is the running ledger for a reader who does not read the diff, not a closing mechanism. Do not replace it with an ordinary issue-style pull-request comment.
 
 Each issue remains an evidence and acceptance unit inside the combined diff. Keep its positive, negative, boundary, and regression cases identifiable. Near-100% coverage of changed behavior is required; a green happy path is not completion.
 
@@ -79,7 +67,7 @@ If implementation disproves, narrows, or externally blocks an issue, reopen the 
 
 ## Validate With CI And Overall Self-Review
 
-After no ready issue remains, receive and adjudicate every outstanding Individual Self-Review result. Commit and push the formatted integrated snapshot, then let every ordinary pull-request check run. Start the solo Overall Self-Review immediately over that exact base-to-head diff while CI executes.
+After no ready issue remains and every Individual Self-Review is recorded, commit and push the formatted integrated snapshot, then let every ordinary pull-request check run. Start the solo Overall Self-Review immediately over that exact base-to-head diff while CI executes.
 
 Submit every Overall Self-Review finding round and the final clean round as a formal GitHub pull-request review with the `COMMENT` event. Attach line-specific findings as inline review comments and summarize round-wide findings or the clean conclusion in the review body. Do not post ordinary issue-style pull-request comments for Self-Review.
 
@@ -96,8 +84,8 @@ When either gate finds a defect:
 2. Correct the source and complete the corresponding regression coverage.
 3. Run `pnpm format`.
 4. Commit and push the correction to the same pull request.
-5. Immediately start exactly one Individual Self-Review for that correction commit without waiting for it or per-commit CI.
-6. Adjudicate and record the individual result when it arrives, let the new CI run to completion, and restart Overall Self-Review as a fresh complete round over the new head.
+5. Perform and record the Individual Self-Review of that correction commit.
+6. Let the new CI run to completion, and restart Overall Self-Review as a fresh complete round over the new head.
 
 Fix every red CI lane in the same pull request even when the failure predates the campaign or is unrelated to the campaign's original issues. Do not dismiss it as another contributor's failure.
 
@@ -117,21 +105,8 @@ After merge:
 4. For every assignment-created external path, confirm no live process or other assignment uses it, preserve required evidence, delete only the exact proven path, and verify it is absent.
 5. Never bulk-delete a shared temporary directory, global `GOCACHE`, `GOMODCACHE`, an installed Go toolchain, or an asset whose ownership is uncertain.
 
-Formatting belongs to the unified cycle pull request, so a separate post-campaign formatting pull request is not part of this solo workflow.
+Formatting belongs to the cycle pull request, so a separate post-campaign formatting pull request is not part of this workflow.
 
-## Repeat Until A Clean Round
+## Start The Next Cycle
 
-After every merged cycle, return to the parent skill's Discover Issues phase and start the next cycle against the new integrated state.
-
-If any meaningful candidate survives fact-checking, adjudicate and publish it when authorized, accumulate it in the next cycle ledger, and run another complete fresh full-scope round against that same pre-development state. Repeat discovery without a fixed round limit and do not claim the next pull request until a subsequent complete round is empty.
-
-After the empty-round gate passes, claim the next single cycle pull request containing every implementation-ready issue accumulated by the preceding nonempty rounds. If the gate passes with no accepted issue to implement, finish the remaining cleanup and evaluate the completion conditions below.
-
-The campaign succeeds only when all of these are true:
-
-- one complete fresh full-scope discovery round produces no meaningful candidate after fact-checking;
-- no accepted or published campaign issue remains unresolved;
-- no campaign pull request, branch, process, or assignment-owned temporary asset remains; and
-- the target checkout is clean and synchronized.
-
-If an external blocker makes those conditions impossible, report the campaign as blocked rather than complete.
+After every merged cycle, return to the campaign skill's [discovery rounds](SKILL.md#discovery-rounds) against the new cycle baseline. Claim the next cycle pull request only after a later complete round is empty, and include every implementation-ready issue the preceding nonempty rounds accumulated. If the gate passes with no accepted issue left, finish the remaining cleanup and evaluate the [completion conditions](SKILL.md#completion).

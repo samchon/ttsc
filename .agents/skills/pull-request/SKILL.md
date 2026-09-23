@@ -1,23 +1,23 @@
 ---
 name: pull-request
-description: Defines ttsc branch, commit, pull-request, check, and merge workflows. Use when the user explicitly asks to open, submit, update, or merge a pull request, or when a standing autonomous mandate authorizes end-to-end delivery; never open, push, update, or merge one on unprompted initiative.
+description: Defines ttsc's branch, commit, pull-request, check, and merge flow. Use only when the user explicitly asks to open, update, or merge a pull request, or a standing autonomous mandate covers delivery; never open, push, update, or merge one on unprompted initiative.
 ---
 
 # Pull Request Submission
 
-Act on this skill only when the user explicitly requests the corresponding remote action, or when a standing autonomous mandate authorizes it. Permission to edit locally is not permission to push or open a pull request, and permission to open or update is not permission to merge. The one exception is a standing autonomous mandate, such as an autonomous or remote-control campaign or an explicit instruction to carry the work through merge. It requests every step it names, including push and merge, and the skill's check, verification, and Self-Review gates still apply to each step.
+Act on this skill only when the user explicitly requests the remote action or a standing autonomous mandate covers it. Permission to edit locally is not permission to push or open a pull request, and permission to open or update is not permission to merge. A standing autonomous mandate, such as an autonomous or remote-control campaign or an explicit instruction to carry the work through merge, requests every step it names, including push and merge. The check, verification, and Self-Review gates still apply to each step, and the work runs under [AGENTS.md's **Unattended runs** rule](../../../AGENTS.md#attitude).
 
 ## Branch From The Target
 
 Branch from the pull-request target (`master` unless stated otherwise); never commit or push directly to the target. Name the branch for the merged outcome with the repository's established type and scope, such as `feat/<scope>`, `fix/<scope>`, `docs/<scope>`, or `ci/<scope>`.
 
-Solo work never creates a clone or worktree. If the current checkout contains unrelated or protected work, stage only the authorized paths; if that cannot keep the pull request isolated, report the conflict rather than stashing, reverting, mixing, or relocating the work.
+Never create a clone or worktree. If the current checkout contains unrelated or protected work, stage only the authorized paths; if that cannot keep the pull request isolated, report the conflict rather than stashing, reverting, mixing, or relocating the work.
 
 ## Commit Logical Units
 
 Use one commit per coherent unit when the diff is large. Follow the repository's `<type>(<scope>): <subject>` history with an imperative lowercase subject and no trailing period.
 
-Run the validation required by the development skill. Run `pnpm format` before ordinary commits. An issue campaign formats its unified implementation branch once, and in a multi-agent campaign that formatter run belongs to the lead's finishing phase.
+Run the validation and the `pnpm format` step the development skill requires, including its issue-campaign exception.
 
 Stage explicit paths when the worktree is mixed. Never include unrelated user changes silently.
 
@@ -29,15 +29,15 @@ Do not rewrite the body after every follow-up push. Record later CI fixes, newly
 
 Push only the topic branch with upstream tracking. Use a file-backed body for multiline Markdown when opening through `gh`.
 
-## Issue Campaign Override
+## Issue Campaigns
 
-Before any issue-campaign push or pull request, complete `.agents/skills/issue-campaign/development.md`. Every campaign uses one formatted pull request and the ordinary check loop. The explicit multi-agent procedure overrides only the topology: parallel batch agents share that one checkout, topic branch, and pull request, and each records its own Batch Self-Review there.
+An issue campaign pushes and opens its cycle pull request only through [its development procedure](../issue-campaign/development.md), which owns the claim, the formatting points, the check loop, and the review record.
 
 ## Watch Checks After Every Ordinary Push
 
 After each ordinary push, monitor the pull-request checks until every check settles. On failure, fetch the relevant job log, diagnose the real cause, fix it in place, push a new commit, and resume monitoring. Do not treat a green unrelated job as acceptance for a failed required surface.
 
-Issue-campaign implementation commits skip that per-push wait. The solo main agent starts the required Individual Self-Review and immediately implements the next ready issue, while a multi-agent batch agent continues its batch and leaves every check to the lead. Both read CI once the integrated head settles, as the development procedure requires.
+Issue-campaign implementation commits skip that per-push wait and read CI once the integrated head settles, as the development procedure requires.
 
 ## Merge On Explicit Request Or Standing Autonomous Mandate
 

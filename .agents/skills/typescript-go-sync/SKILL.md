@@ -34,10 +34,7 @@ Pick the mechanism by what the symbol is:
 The common task: a plugin needs a typescript-go symbol that the shim does not yet re-export.
 
 1. Find the symbol in the pinned typescript-go source under the module cache: `go env GOMODCACHE`/`github.com/microsoft/typescript-go@<version>/internal/<pkg>/`. Confirm its exact name, signature, and whether it is exported.
-2. Add the re-export to the matching `shim/<pkg>/`:
-   - use `go run ./tools/gen_shims` for symbols the generator derives;
-   - use a hand-maintained file for an exported symbol the generator cannot derive; or
-   - add a `//go:linkname` declaration for an unexported symbol.
+2. Add the re-export to the matching `shim/<pkg>/` with the mechanism [Shim structure](#shim-structure) assigns to that kind of symbol: `go run ./tools/gen_shims` for what the generator derives, a hand-maintained file for an exported symbol it cannot derive, or a `//go:linkname` declaration for an unexported symbol.
 3. Build the shim module and `packages/ttsc` to verify it links.
 
 ## Bumping the pinned typescript-go version

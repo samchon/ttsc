@@ -4,13 +4,7 @@ A warning is the operator's one channel into a cell. It carries only what no age
 
 **Warn and resume; do not restart.** The violation is measured behavior and the run holds the evidence of it. A restart destroys that record, discards the cell's work, and answers a correctable mistake with the most expensive remedy available. Restart only when the cell cannot be recovered at all, and say in the report what made recovery impossible.
 
-Stop the cell, attach the warning to its current objective, then resume the same run command:
-
-```bash
-pnpm --filter @ttsc/benchmark-evidence warn <subject> <evidence|plain> <run-id> <warning.json>
-```
-
-The warning file is a failing decision with a retained `rationale` and the `feedback` the cell will read:
+Stop the cell, attach the warning to its current objective with the `warn` command [benchmarks/evidence/README.md](../../../../../benchmarks/evidence/README.md) shows, then resume the same run command. The warning file is a failing decision with a retained `rationale` and the `feedback` the cell will read:
 
 ```json
 {
@@ -20,7 +14,7 @@ The warning file is a failing decision with a retained `rationale` and the `feed
 }
 ```
 
-The runner refuses feedback that names the machinery outside the workspace, because a cell told it is being measured stops being a measurement. `EvidenceBenchmarkSupervision.ts:459` owns the exact pattern, and it rejects three families of wording:
+The runner refuses feedback that names the machinery outside the workspace, because a cell told it is being measured stops being a measurement. `EvidenceBenchmarkSupervision.ts` owns the exact pattern, and it rejects three families of wording:
 
 - The benchmark, an operator, an auditor, a verdict, supervision or a supervisor, a reviewer, or the plugin.
 - Another, other, external, main, or measurement **agent**.

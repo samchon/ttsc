@@ -1,6 +1,6 @@
 ---
 name: benchmark
-description: Defines ttsc benchmark selection, fixture integrity, result reporting, and publication safeguards. Use before running or modifying a benchmark, changing a fixture, or publishing benchmark results; load the linked performance or graph procedure for the selected benchmark.
+description: Runs, supervises, and publishes ttsc's three benchmarks under benchmarks/, namely the performance and graph harnesses (measurement integrity, fixture branches, temporary assets, result reporting) and the evidence benchmark campaign (launch, supervision, recovery, reporting). Use before running, supervising, changing, or publishing any benchmark or editing its fixtures; graph product changes use the project skill.
 ---
 
 # Benchmark
@@ -8,11 +8,11 @@ description: Defines ttsc benchmark selection, fixture integrity, result reporti
 This skill owns the two harnesses this repository wrote for itself, one package each under `benchmarks/`. Read the matching procedure in full before acting:
 
 - [performance.md](performance.md): `ttsc + @ttsc/lint + ttsc format` versus `tsc + eslint + prettier`, including fixture branches and dashboard publication.
-- [graph.md](graph.md): `@ttsc/graph` and graph-MCP comparators, including AI-agent runs, trace audits, regression gates, and graph fixtures.
+- [graph.md](graph.md): `@ttsc/graph` against an empty-MCP baseline and graph-MCP comparators, including AI-agent runs, trace audits, and graph fixtures.
 
 Read both only when changing shared fixture infrastructure or a surface that affects both systems.
 
-`benchmarks/evidence` is a third package and a different kind of measurement: it runs one coding engine against itself rather than ttsc against a competitor, it is vendored from `samchon/lint-plugin-evidence`, and it keeps that project's conventions. Nothing here applies to it. Its operation is [evidence/SKILL.md](evidence/SKILL.md).
+`benchmarks/evidence` is a third package and a different kind of measurement: it runs one coding engine against itself rather than ttsc against a competitor, it is vendored from `samchon/lint-plugin-evidence`, and it keeps that project's conventions. Nothing below applies to it. Its operation is [evidence/SKILL.md](evidence/SKILL.md).
 
 ## Measurement Integrity
 
@@ -31,15 +31,15 @@ Executable surfaces are classes or namespaces. Never add a standalone exported f
 
 Every exported symbol, exported namespace member, and public member of an exported class has JSDoc that states its benchmark role and non-obvious invariant. Every field in an exported data contract has JSDoc that records its meaning, units, optional-state semantics, and default where applicable. Do not restate only the TypeScript spelling.
 
-Before committing benchmark source, run the source contract over both harnesses with `node --experimental-transform-types scripts/ci/benchmark-source-contract.mts`, then the strict TypeScript validation of whichever package you touched with `pnpm --dir benchmarks/graph run check` or `pnpm --dir benchmarks/performance run check`. The contract check is repository tooling rather than a package script because neither harness owns it, and it deliberately skips `benchmarks/evidence`, which is vendored and keeps its own conventions.
+Before committing benchmark source, run the strict type check that each harness README names. `benchmarks/evidence` keeps its own conventions.
 
 ## Benchmark Improvement Campaigns
 
-When benchmark evidence leads to multiple published issues and the user authorizes repeated issue-to-pull-request implementation, use the issue-campaign skill with this skill. This skill owns workload integrity, measurement, fixture handling, and result publication. The applicable issue-campaign workflow owns issue publication, implementation topology, claim stability, CI, review, cleanup, and renewed discovery. The default is the solo workflow; use the multi-agent workflow only on an explicit parallel request.
+When benchmark evidence leads to multiple published issues and the user authorizes repeated issue-to-pull-request implementation, use the issue-campaign skill with this skill. This skill owns workload integrity, measurement, fixture handling, and result publication. The issue-campaign skill owns issue publication, implementation topology, claim stability, CI, review, cleanup, and renewed discovery.
 
 ## Temporary Asset Cleanup
 
-Each benchmark run must own an exact temporary root. A solo run uses the current checkout and existing fixture checkouts; do not create a clone or worktree. Place run-only indexes, Go build caches, and Go temporary directories below the exact root. For Go commands, set `GOCACHE` and `GOTMPDIR` to run-specific directories rather than the user's shared Go cache or system temp directory.
+Each benchmark run must own an exact temporary root. A run uses the current checkout and existing fixture checkouts; do not create a clone or worktree. Place run-only indexes, Go build caches, and Go temporary directories below the exact root. For Go commands, set `GOCACHE` and `GOTMPDIR` to run-specific directories rather than the user's shared Go cache or system temp directory.
 
 After a run, retry, aborted attempt, or completed benchmark-driven campaign, preserve the report and any user-authorized fixture change, then remove the run's exact temporary root. First confirm no process still uses it, then verify the directory is absent. Never recursively clean shared `GOCACHE`, `GOMODCACHE`, `GOPATH`, or a broad temp directory. A `--keep-...` option or another explicit user retention request is the only exception; record the retained path and reason.
 
@@ -53,10 +53,8 @@ Finish every fixture change before pushing it:
 2. Confirm the branch contains no tarball path, vendored ttsc build, stale `dist/`, or other generated benchmark input.
 3. Commit and push the fixture branch. A half-finished upstream tip contaminates every later setup.
 
-Fixture READMEs and prose follow AGENTS.md `## Maintenance` and the documentation skill.
+Fixture READMEs and prose follow the [documentation skill](../documentation/SKILL.md).
 
 ## Report Results
 
-Every result table reported in chat or committed to the website must be preserved for the active pull request. When the user has authorized PR updates under the pull-request skill, maintain one sticky comment beginning with `<!-- ttsc-benchmark-results -->`; update it with the latest table, report and audit paths, and known invalid or missing cells.
-
-If no pull request exists or no update is authorized, keep the result in the final report and mark the comment as pending. Post it only after the user creates or authorizes updating the pull request.
+Both harness READMEs define the sticky pull-request comment that carries result tables. Post or update it only when the user has authorized pull-request updates under the pull-request skill; otherwise keep the table in the final report and mark the comment as pending.

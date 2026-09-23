@@ -4,7 +4,7 @@ This benchmark compares the same coding engine building the same application wit
 
 The runner prepares an isolated workspace, drives the prescribed instructions in one native session, and retains the native execution record. It does not validate requirements, judge the generated application, or repair a measured workspace.
 
-Operating a campaign — authorization, supervision, warnings, recovery, and reporting — belongs to `.agents/skills/benchmark/`. This file describes what the runner itself does.
+Operating a campaign — authorization, supervision, warnings, recovery, and reporting — belongs to `.agents/skills/benchmark/evidence/`. This file describes what the runner itself does.
 
 ## Workspace preparation
 
@@ -59,7 +59,7 @@ The runner produces the verdict itself: at the boundary it spawns a fresh Codex 
 pnpm --filter @ttsc/benchmark-evidence supervise <subject> <run-id> <verdict.json>
 ```
 
-A verdict carries `decision` and `rationale` only; the runner refuses one carrying `feedback`, so no verdict text ever reaches the cell. A failing scope receives the identical prescribed reminder, and four supplementation attempts are permitted before the run retains `quality-failed`.
+A verdict carries `decision` and `rationale` only; the runner refuses one carrying `feedback`, so no verdict text ever reaches the cell. A failing scope receives the identical prescribed reminder, and four supplementation attempts are permitted; failing the last one continues into that scope's Final. A run retained as `quality-failed` comes from the earlier behaviour and still resumes.
 
 `--review-ledger` additionally makes the backend review loop mechanically provable. During `backend-review` the runner holds the cell's sandbox read-only and injects the only tools that receive review credit, then refuses to complete `backend-review` or `backend-final` unless a runner-owned round ended dry and the workspace manifest still hashes to what that round read. It does not replace the verdict boundary, which still fires.
 
@@ -104,7 +104,7 @@ pnpm --filter @ttsc/benchmark-evidence dashboard
 
 ## Instruction sequence
 
-One native session receives its arm-owned base sequence of eight objectives, in order:
+One native session receives its arm-owned base sequence, in order: eight objectives for Plain, and seven for Evidence, which has no Overall review.
 
 | Step | Evidence | Plain |
 | --- | --- | --- |
@@ -114,7 +114,7 @@ One native session receives its arm-owned base sequence of eight objectives, in 
 | Frontend start | `instructions/evidence/frontend/start.md` | `instructions/plain/frontend/start.md` |
 | Frontend review | `instructions/evidence/frontend/review.md` | `instructions/plain/frontend/review.md` |
 | Frontend final | `instructions/evidence/frontend/final.md` | `instructions/plain/frontend/final.md` |
-| Overall review | `instructions/evidence/overall/review.md` | `instructions/plain/overall/review.md` |
+| Overall review | none | `instructions/plain/overall/review.md` |
 | Overall final | `instructions/evidence/overall/final.md` | `instructions/plain/overall/final.md` |
 
 The sequence is adaptive, not fixed. A failing Plain review verdict inserts that scope's `instructions/plain/<scope>/remind.md` as a supplementation Goal named `<scope>-remind-<attempt>`, and a passing verdict advances straight to that scope's Final. `EvidenceBenchmarkInstruction.entries()` owns the base sequence; runs retained before the adaptive plan reconstruct their fixed eleven-step order through `legacyPlan()`.

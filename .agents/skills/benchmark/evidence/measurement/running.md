@@ -1,6 +1,6 @@
 # Running A Campaign
 
-One cell is one native session driven through its arm's eight objectives. The operator freezes the inputs, launches, and watches; the runner prepares the workspace, sends every objective, and retains the record.
+One cell is one native session driven through its arm's objectives. The operator freezes the inputs, launches, and watches; the runner prepares the workspace, sends every objective, and retains the record. [benchmarks/evidence/README.md](../../../../../benchmarks/evidence/README.md) describes what the runner does: workspace preparation, the port block, run options, archive sharing, the instruction sequence, and the retained record. This document holds the operator's procedure.
 
 ## Open The Campaign
 
@@ -8,19 +8,17 @@ One cell is one native session driven through its arm's eight objectives. The op
 2. Use the campaign branch in the repository's single worktree.
 3. Push an empty campaign commit and open a draft pull request.
 4. Record the authorized matrix, benchmark revision, engines, models, efforts, CLI versions, Evidence archive digest, and live dashboard in the pull-request body.
-5. Assign one read-only reporting subagent to update that body every 5 minutes and immediately after a state change or anomaly. [Watch the watcher](#watch-the-watcher) for the duty that outlives it.
+5. Refresh that body every 5 minutes and immediately after a state change or anomaly, as [dashboard.md](dashboard.md) describes. [Watch the watcher](#watch-the-watcher) for the duty that outlives a restart.
 
 ## Launch A Cell
 
 Freeze every input before launch, and never launch an unauthorized cell or rerun:
 
-- **Identity** — subject, arm, engine, model, effort.
-- **Material** — requirements, template, instructions, package archive.
-- **Version** — CLI version, benchmark revision.
+- **Identity:** subject, arm, engine, model, effort.
+- **Material:** requirements, template, instructions, package archive.
+- **Version:** CLI version, benchmark revision.
 
 [intervention/boundary.md](../intervention/boundary.md) owns what may change and when.
-
-The runner reads the benchmark revision from the repository's `HEAD` and refuses to launch while anything is uncommitted or untracked, so commit or stash first.
 
 Unless the user names something else, every campaign runs the same engine, model, and effort. Only the subject and arm vary:
 
@@ -40,7 +38,7 @@ A launch that fails before native work does not consume the authorized cell, as 
 
 ### Port Blocks
 
-Every cell owns a disjoint block of four ports from base 46000, so two cells never contend. The runner assigns them before any model use and refuses to launch when one is occupied.
+Every cell owns a disjoint block of four ports from base 46000, so two cells never contend:
 
 | subject  | arm      | api   | swagger | vite  | playwright |
 | -------- | -------- | ----- | ------- | ----- | ---------- |
@@ -53,74 +51,19 @@ Every cell owns a disjoint block of four ports from base 46000, so two cells nev
 | erp      | evidence | 46060 | 46061   | 46062 | 46063      |
 | erp      | plain    | 46070 | 46071   | 46072 | 46073      |
 
-The block reaches the workspace as `API_PORT`, `SWAGGER_PORT`, `VITE_DEV_PORT`, `VITE_API_HOST`, and `PLAYWRIGHT_TEST_PORT`, so the cell's own commands and tests inherit it without being told.
+What contends is never another cell; it is a cell and its own past. [intervention/recovery.md](../intervention/recovery.md) owns the orphan case.
 
-What contends is never another cell — it is a cell and its own past. [intervention/recovery.md](../intervention/recovery.md) owns the orphan case.
+### Backend-Start Checkpoints
 
-### Stop After Backend Start
+`--stop-after-backend-start` seeds a reusable `backend-start` checkpoint for downstream instruction work without spending the rest of a cell. It cannot be combined with `--from-backend-start`, and the runner refuses the stop if the checkpoint is missing. [intervention/recovery.md](../intervention/recovery.md) owns the derivation.
 
-`--stop-after-backend-start` ends the run once `backend-start` completes and its durable checkpoint exists, retaining status `checkpointed`:
+### Parallel Evidence Cells
 
-```bash
-pnpm --filter @ttsc/benchmark-evidence start codex <subject> <evidence|plain> gpt-5.6-luna high --stop-after-backend-start
-```
+Pack one Evidence archive and export `EVIDENCE_BENCHMARK_ARCHIVE` before launching Evidence cells in parallel, as the README describes, so every cell measures one artifact.
 
-That run is finished. It never resumes, and it continues only as a checkpoint-derived run, which is why the flag exists: it seeds a reusable `backend-start` for downstream instruction work without spending the rest of a cell. It cannot be combined with `--from-backend-start`, and the runner refuses the stop if the checkpoint is missing. [intervention/recovery.md](../intervention/recovery.md) owns the derivation.
-
-## What The Runner Prepares
-
-Each cell gets a new ignored workspace, prepared before any model use:
-
-1. Copy `benchmarks/evidence/template/base` and render its variables.
-2. Apply `benchmarks/evidence/template/<arm>` over it. Both arms get an overlay — each splices its own `AGENTS.md` and review skill — but only Evidence adds the package, claims, tags, and graph guidance.
-3. Copy `benchmarks/evidence/requirements/<subject>/` byte-for-byte into the workspace's `docs/analysis/`.
-4. For Evidence only, install the locally packed Evidence archive and pin its SHA-256 to the cell. Plain never reads or installs it.
-5. Run `pnpm install`.
-6. Initialize the workspace as a Git repository and commit the prepared baseline.
-
-Instructions are never copied into the workspace. The runner reads each Markdown file from this repository when its objective starts, and records the exact text it sent.
-
-### Share One Archive Across Parallel Evidence Cells
-
-A cell with no `EVIDENCE_BENCHMARK_ARCHIVE` in its environment packs its own Evidence tarball, so parallel Evidence cells would each measure a separately built artifact. Pack once and export the path, and every cell copies that one file and pins its digest:
-
-```bash
-pnpm --dir packages/evidence pack --out /tmp/evidence.tgz
-export EVIDENCE_BENCHMARK_ARCHIVE=/tmp/evidence.tgz
-```
-
-That is the same `pack --out` the runner would have run per cell, hoisted to once per campaign.
-
-The runner strips the variable from every child environment, so a measured cell never sees it.
-
-## The Objective Sequence
-
-One native session receives its arm's frozen base sequence, read from `benchmarks/evidence/instructions/<arm>/<scope>/<step>.md`. The two arms do not share one sequence:
-
-- **Plain**, eight objectives — `backend-start` → `backend-review` → `backend-final` → `frontend-start` → `frontend-review` → `frontend-final` → `overall-review` → `overall-final`.
-- **Evidence**, seven — the same order without `overall-review`. That arm has two review scopes and no third: `evidence/review` proves mechanically that a citation carries a review written against the cited content as it stands, and what a by-hand third re-read alone could do moved into Frontend Review, the last scope and the only one where both layers are finished.
-
-`EvidenceBenchmarkInstruction.entries()` is the only authority on that sequence.
-
-The runner joins each objective with the same arm's `instructions/<arm>/continue.md` once, and a Plain reminder or Final also carries its own scope's Review instruction quoted beneath it. An operator warning is the one exception: outside a Plain reminder or Final it replaces the continuation rather than joining it, which keeps the objective inside the 4000 characters Codex accepts however long the warning runs.
-
-The arms share no runtime instruction bytes. Do not add operator prose.
+### Review Boundaries
 
 Only Plain stops at a Review boundary; Evidence runs its sequence without stopping. [plain-review.md](plain-review.md) owns that loop.
-
-## What Is Retained
-
-Every run directory holds the record the campaign is reported from:
-
-- `state.json` — cell identity, frozen inputs, instruction plan and cursor, status, thread token usage, checkpoints, processes, operator warnings, and review history.
-- `events.jsonl` — the complete native stream with observation and process-relative times.
-- `<stage>.log` — one file per objective in the run root, named after the Goal that owned the thread when the chunk arrived: `backend-start.log`, `backend-remind-3.log`, `overall-final.log`. Reading them in objective order reproduces the native stream exactly, and a resumed run appends to the same file.
-- `supervision/` — the exact bytes of every applied decision: `<NN>-<objective>-warning.json` for an operator warning, `<NN>-<scope>-<attempt>-verdict.json` for a review verdict.
-- `inspection/` — every inspecting-thread attempt: prompt, response schema, event stream, standard error, and final message.
-
-Stage names in the logs and on the dashboard are one vocabulary.
-
-Setup time stays separate from model-process time, and the record carries no build, lint, quality, or completion verdict.
 
 ## Supervise
 
@@ -128,7 +71,7 @@ Observe every active cell at least every 30 seconds:
 
 - The growth of `events.jsonl` and of the current stage's `<stage>.log`.
 - `state.json`, and benchmark and native process liveness.
-- The frozen configuration files in every cell. The reporting subagent re-reads them on every cycle and reports a hit as a material change, quoting the diff it just read. [integrity.md](integrity.md) owns what is a hit and what is the cell doing its job.
+- The frozen configuration files in every cell. Re-read them on every cycle and report a hit as a material change, quoting the diff you just read. [integrity.md](integrity.md) owns what is a hit and what is the cell doing its job.
 
 Correct the dashboard on any disagreement immediately, without waiting for its 5-minute interval.
 
@@ -153,7 +96,7 @@ Set the silence threshold above the longest silence any completed objective in t
 
 ### Watch The Watcher
 
-Supervision that a restart can end silently is not supervision. Verify on every session start, and after any machine restart, that the reporting subagent and every liveness watcher are alive, and restart the ones that are not.
+Supervision that a restart can end silently is not supervision. Verify on every session start, and after any machine restart, that every liveness watcher is alive, and restart any that is not.
 
 A watcher stopping is invisible from its own output, because a healthy watcher and a dead one both say nothing. Confirm liveness by observing that the dashboard advanced, never by observing that no alarm arrived.
 

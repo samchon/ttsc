@@ -1,50 +1,47 @@
 ---
 name: project
-description: Defines the ttsc product contract, workspace layout, package boundaries, and canonical commands. Use when orienting in the repository, working inside any package, or choosing a build, test, or format command.
+description: Maps ttsc's product boundaries and package ownership, and holds the @ttsc/graph contract and the @ttsc/evidence implementation invariants. Use when a task crosses package boundaries or needs the package that owns a behavior, and before changing packages/graph, graph benchmark prompts, or @ttsc/evidence rule semantics, tag grammar, configuration surface, or diagnostics.
 ---
 
 # Project Outline
 
 ## Product Contract
 
-`ttsc` is a standalone TypeScript-Go compiler, runtime, plugin host, and LSP host. It ships three CLIs and a plugin protocol:
-
-- `ttsc`: build, check, watch, and source-to-source transform on top of `typescript` (the native TypeScript-Go compiler).
-- `ttsx`: run a TypeScript entrypoint after a real type-check (a typed `tsx`/`ts-node`).
-- `ttscserver`: LSP host wrapping `tsc --lsp --stdio` and proxying JSON-RPC so ttsc plugin diagnostics, code actions, and `workspace/executeCommand` handlers reach the editor through one stream.
-- Plugins: Go source packages that share TypeScript-Go's AST/Checker. Executable `package main` sources build as sidecars; non-`main` transform packages link into a native host. `ttsc` builds plugin source on demand and caches the binary.
-
-The contract is general-purpose. Downstream projects like `typia` and `nestia` are compatibility fixtures, not the product definition.
-
-Graph MCP work has an additional contract in [graph.md](graph.md). Read it before changing `packages/graph`, graph benchmark prompts, graph benchmark runners, or the graph benchmark website.
+- The contract is general-purpose. Downstream projects such as `typia` and `nestia` are compatibility fixtures, not the product definition.
+- `ttsc` builds, checks, watches, and transforms source on top of `typescript`, the native TypeScript-Go compiler. `ttsx` runs a TypeScript entrypoint after a real type-check.
+- `ttscserver` wraps `tsc --lsp --stdio` and proxies JSON-RPC, so plugin diagnostics, code actions, and `workspace/executeCommand` handlers reach the editor through one stream.
+- Plugins are Go source packages that share TypeScript-Go's AST and Checker. An executable `package main` source builds as a sidecar, and a non-`main` transform package links into a native host. `ttsc` builds plugin source on demand and caches the binary.
 
 ## Layout
 
-- `packages/ttsc`: JS launcher/API plus Go host (`cmd/*`, `driver`, `internal`, `utility`, `shim/`). `driver.PluginSource` is the public seam embedders implement; `NativePluginSource` adapts `capabilities.lsp` sidecars. `internal/lspserver` is the byte-level LSP proxy ttscserver uses.
-- `packages/{banner,paths,strip}`: utility transform plugins with package-owned `driver/` logic linked into a generic native host.
-- `packages/lint`: `@ttsc/lint` with its own native engine, exposing LSP verbs from `linthost/lsp.go` so ttscserver and `packages/vscode` call them through the language client. Rules may consult the TypeScript-Go Checker directly via `ctx.Checker`; third-party rules ship through the public `rule` package and may use the `rule/astutil` helpers.
-- `packages/evidence`: `@ttsc/evidence`, a lint contributor that turns a configured requirement into a compile error until code, tests, or docs acknowledge it by name. Ships Go **source** under `native/` rather than a module, because ttsc copies a contributor's source directory into `@ttsc/lint`'s own Go module and rejects a `go.mod` inside it; the one a level above exists for local tooling and points at the sibling packages. Its domain model is the `project/evidence` skill.
-- `packages/wasm`: `@ttsc/wasm`, Go `host` helper plus JS boot scaffolding for in-browser ttsc playgrounds. `host.Expose` binds `globalThis[apiName]` with the standard verbs (`build/check/transform/plugin/plugins/version`) plus fountain verbs (`snapshot/getDiagnostics/getNodeAtPosition/...`) over a snapshot handle table.
-- `packages/playground`: `@ttsc/playground`, reusable Web Worker + React shell built on `@ttsc/wasm`. Exports `createWorkerCompiler` (worker-side `ICompilerService` factory), `PlaygroundShell` (Tailwind 4 React component), runtime npm dependency installer, typia source/runtime pack helpers, and Monaco editor wrappers. Consumed by `website/` and `typia/website/`.
-- `packages/factory`: `@ttsc/factory`, a hand-written, zero-dependency TypeScript AST factory and width-aware printer (no `typescript` import) for source-code generation that survives the tsgo migration. Standalone published library; nothing else in the workspace depends on it yet.
-- `packages/unplugin`: bundler adapters.
-- `packages/metro`: React Native and Expo Metro adapter built on `@ttsc/unplugin`.
-- `packages/vscode`: VS Code extension that wires `vscode-languageclient` to ttscserver, exposes the built-in lint/format command bridge, and lets other plugin command ids execute through the language client with editor-applied `WorkspaceEdit`s.
-- `packages/ttsc-*`: per-platform packages (native helper + bundled Go SDK). Each ships both the `ttsc` helper and the `ttscserver` binary.
-- `tests/projects`: project-shaped fixtures copied into temp dirs by `TestProject.copyProject`.
-- `tests/test-*`: feature-test packages (run via `pnpm test:features`).
-- `tests/utils`: shared helpers (`@ttsc/testing`).
-- `tests/<plugin-name>`: workspace packages that need to be `require.resolve`-able from a fixture's `node_modules` (e.g. `tests/lint-contributor-demo`). Built by `scripts/build-current.cjs` before tests run.
-- `benchmarks/*`: one private workspace package per benchmark, and the three differ in kind. `graph` and `performance` are this repository's own harnesses, each holding short, export-free executable bootstraps and reusable `TtscBenchmark*` / `ITtscBenchmark*` implementations, with the graph prompt assets under `benchmarks/graph/assets`. `evidence` is vendored from `samchon/lint-plugin-evidence` and keeps that project's conventions.
-- `website`: Nextra-based docs site (`src/content/docs/**/*.mdx`) that is the canonical home for guides, shipped to https://ttsc.dev.
-- `config`, `scripts`: shared tsconfig and workspace scripts.
+Each package's README describes what it does and how to use it. This table records which path owns a behavior, plus the facts a change needs that the README does not state.
 
-## Commands
+| Path | Owns | Beyond its README |
+| --- | --- | --- |
+| `packages/ttsc` | The JS launcher and API plus the Go host (`cmd/*`, `driver`, `internal`, `utility`, `shim/`) | `driver.PluginSource` is the seam embedders implement, `NativePluginSource` adapts `capabilities.lsp` sidecars, and `internal/lspserver` is the byte-level LSP proxy `ttscserver` uses. The shim follows the typescript-go-sync skill. |
+| `packages/{banner,paths,strip}` | Utility transform plugins | Each package's logic lives in its own `driver/` and links into a generic native host. |
+| `packages/lint` | `@ttsc/lint` and its native engine | LSP verbs live in `linthost/lsp.go`, which `ttscserver` and `packages/vscode` call through the language client. |
+| `packages/evidence` | `@ttsc/evidence`, a lint contributor | It ships Go source under `native/` instead of a module, because ttsc copies a contributor's source directory into `@ttsc/lint`'s Go module and rejects a `go.mod` inside it; the `go.mod` one level up exists for local tooling. Its implementation invariants are [evidence/SKILL.md](evidence/SKILL.md). |
+| `packages/graph` | `@ttsc/graph`, the MCP server | Its contract is [graph.md](graph.md). |
+| `packages/wasm` | `@ttsc/wasm`, the in-browser host |  |
+| `packages/playground` | `@ttsc/playground`, the playground shell | `website/` and `typia/website/` consume it. |
+| `packages/factory` | `@ttsc/factory`, the AST factory and printer | Nothing else in the workspace depends on it. |
+| `packages/unplugin` | Bundler adapters |  |
+| `packages/metro` | The Metro adapter built on `@ttsc/unplugin` |  |
+| `packages/vscode` | The VS Code extension | It wires `vscode-languageclient` to `ttscserver`, bridges the built-in lint and format commands, and executes other plugin command ids with editor-applied `WorkspaceEdit`s. |
+| `packages/ttsc-*` | Per-platform packages |  |
+| `tests/test-*` | Feature-test packages, run by `pnpm test:features` |  |
+| `tests/projects` | Project-shaped fixtures that `TestProject.copyProject` copies into temporary directories |  |
+| `tests/utils` | Shared test helpers (`@ttsc/testing`) |  |
+| `tests/<plugin-name>` | Workspace packages a fixture must `require.resolve` from its `node_modules`, such as `tests/lint-contributor-demo` | `scripts/build-current.cjs` builds them before tests run. |
+| `benchmarks/*` | One private package per benchmark, each with its own README | Operated through the benchmark skill. |
+| `website` | The Nextra docs site under `src/content/docs/**/*.mdx`, shipped to https://ttsc.dev | The canonical home for guides. |
+| `config`, `scripts` | Shared tsconfig and workspace scripts |  |
 
-```bash
-pnpm install
-pnpm format
-pnpm build
-pnpm test:go
-pnpm test
-```
+## Graph MCP
+
+The `@ttsc/graph` contract is [graph.md](graph.md). Read it before changing `packages/graph`, its MCP instruction or schema, graph benchmark prompts, or the graph benchmark website.
+
+## Evidence Graph
+
+The `@ttsc/evidence` implementation invariants are [evidence/SKILL.md](evidence/SKILL.md). Read them before changing rule semantics, the tag grammar, the configuration surface, or a diagnostic message.

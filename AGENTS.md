@@ -2,89 +2,45 @@
 
 `ttsc` is a standalone TypeScript-Go compiler, runtime, plugin host, and LSP host. It ships the `ttsc`, `ttsx`, and `ttscserver` CLIs plus the Go-source plugin protocol.
 
+## Commands
+
+```bash
+pnpm install
+pnpm format
+pnpm build
+pnpm test:go
+pnpm test:features
+pnpm test
+```
+
 ## Attitude
 
 Follow the literal request; it is the contract, not a hint at what the user "really" wants.
 
-- **Scope is the user's to widen.** Reinterpret the goal, weigh alternatives, or expand the task only on an explicit hand-off ("figure it out", "you decide"). Take a confident, specific ask as given.
+- **Scope is the user's to widen.** Reinterpret the goal, weigh alternatives, or expand the task only on an explicit hand-off ("figure it out", "you decide"). Take a confident, specific ask as given, and do not edit code the change does not need.
+- **The user's instruction outranks a skill.** A skill's procedure is the default for whatever the user left open.
 - **Fidelity binds the goal, not the effort.** Within that goal, act with full initiative: do the substeps it needs, verify your work, surface what you notice. Literal scope is no excuse for passive execution.
-- **Match the user's language.** Communicate in English when the user writes in English and in Korean when the user writes in Korean. Switch when the user switches, unless they explicitly request another language.
-- **Choose the principled course.** Decide from evidence, correctness, product boundaries, and the durable consequence. Time, difficulty, and consequence surface are reasons to investigate and validate more carefully, never reasons to settle for a shortcut, workaround, or weaker standard.
 - **Evidence precedes correction.** Treat issue reports, review proposals, and claims that something is wrong or missing as hypotheses. Verify the real code path, tests, generated artifacts, upstream ownership, and history before accepting the premise or changing behavior.
 - **Trace the consequence surface.** A named file or failing case is the starting point, not the investigation boundary. Follow the same cause through downstream consumers, side effects, state transitions, platforms, and boundary cases, then address the whole verified class of failure within the requested goal.
+- **Choose the principled course.** Decide from evidence, correctness, product boundaries, and the durable consequence. Time, difficulty, and consequence surface are reasons to investigate and validate more carefully, never reasons to settle for a shortcut, workaround, or weaker standard.
 - **Default over ask.** On an ambiguous detail, pick the sensible default and say what you chose; reserve questions for forks only the user can settle.
+- **Unattended runs keep moving.** In an issue campaign's authorized phases or under a standing autonomous mandate, take every reversible step the authorization covers without asking. Stop only when nothing can move without the user, or before a destructive action the workflow has not authorized.
+- **Keep the user oriented.** Give brief progress updates on multi-step work.
+- **Match the user's language.** Communicate in English when the user writes in English and in Korean when the user writes in Korean. Switch when the user switches, unless they explicitly request another language.
 
 ## Skills
 
-Durable project conventions and workflows live under `.agents/skills/`. Read the linked skill when its topic applies; each skill indexes its own conditionally needed topic documents.
+Each skill is `.agents/skills/<name>/SKILL.md`. Read it when its trigger applies.
 
-### Project Outline
-
-What `ttsc` is, the workspace layout, product boundaries, and canonical commands, `.agents/skills/project/SKILL.md`.
-
-### Development
-
-Work rules, testing, validation, consequence analysis, and change integrity, `.agents/skills/development/SKILL.md`. Read before writing or modifying code.
-
-### TypeScript-Go Shim Sync
-
-Keeping `packages/ttsc/shim/*` synced with typescript-go and complete for plugin authors, `.agents/skills/typescript-go-sync/SKILL.md`. Read before adding a re-export, bumping the pinned typescript-go version, or chasing a missing AST, transform, printer, or emit API.
-
-### Documentation
-
-README, website-guide, and agent-instruction writing rules, `.agents/skills/documentation/SKILL.md`. Read before writing or modifying documentation.
-
-### Issue Campaigns
-
-Default solo repository-wide issue discovery, issue publication, one CI-validated implementation pull request per cycle, and renewed discovery, `.agents/skills/issue-campaign/SKILL.md`. Read when the user asks for a broad audit, many issue candidates, or an issue-to-implementation campaign without explicitly requesting parallel agents; do not use it for one already-defined issue.
-
-### Review
-
-Default solo Overall Self-Review, mandatory advisory Individual Self-Review for solo issue-campaign commits, unqualified review, and exhaustive issue-discovery rounds, `.agents/skills/review/SKILL.md`. Overall review and discovery inspect the whole declared surface and repeat fresh rounds until a complete pass produces no sound improvement or meaningful issue candidate.
-
-### Multi-Agent Workflows
-
-Explicitly parallel review and issue-campaign variants live under one entry point, `.agents/skills/multi-agent/SKILL.md`. Read it only when the user explicitly asks for a team, parallel, or multi-agent workflow. A multi-agent issue campaign differs from the solo campaign only in parallel batch implementation inside its one shared checkout, branch, and pull request. Overall Self-Review remains solo, while Individual Self-Review is the solo campaign's mandatory per-commit advisory subagent workflow.
-
-### Discussion
-
-Structured multi-agent topic discussion with persistent research notes and transcripts, `.agents/skills/discussion/SKILL.md`. Read only when the user explicitly asks for a discussion; review and issue discovery do not imply discussion.
-
-### Pull Request Submission
-
-Branch, commit, pull request, check, and merge flow, `.agents/skills/pull-request/SKILL.md`. Read when the user explicitly asks to open, submit, update, or merge a pull request, or when a standing autonomous mandate authorizes end-to-end delivery; never open, push, or propose one on unprompted initiative.
-
-### Evidence Graph
-
-The domain model `@ttsc/evidence` enforces: the `@evidence` tag grammar, node kinds, hierarchy, reference resolution, obligation coverage, reference policies, and exclusions, `.agents/skills/project/evidence/SKILL.md`. Read before changing evidence rule semantics, the tag grammar, its configuration surface, or any of its diagnostics; the Go rule API itself is the contributor contract in `packages/lint/README.md`.
-
-### Evidence Benchmark Operation
-
-Setting up, launching, supervising, recovering, and reporting an `@ttsc/evidence` benchmark campaign, `.agents/skills/benchmark/evidence/SKILL.md`. Read whenever operating, supervising, or reporting one of its runs. It is separate from the `benchmark` skill, which owns ttsc's own performance and graph harnesses; this one measures how a coding agent behaves with and without the evidence graph, and its measurement and intervention perspectives are never interchangeable.
-
-### Benchmark Measurement
-
-Benchmark runners, fixture repositories, measurement integrity, and publication, `.agents/skills/benchmark/SKILL.md`. Read before running, modifying, or publishing benchmark results. `ttsc` has no benchmark-campaign skill; benchmark-driven issue-to-implementation work enters the issue-campaign skill.
+- **`project`**: the product contract, package ownership, and the graph and evidence contracts. Read when a task crosses packages or needs the owning package, and before changing `packages/graph` or `@ttsc/evidence` semantics.
+- **`development`**: implementation rules, testing, validation, and change integrity. Read before changing source, tests, fixtures, workflows, or package wiring.
+- **`typescript-go-sync`**: the `packages/ttsc/shim` bridge to typescript-go. Read before adding a shim re-export, bumping typescript-go, or chasing a missing compiler API.
+- **`documentation`**: READMEs, website guides, `AGENTS.md`, skills, and prose. Read before writing or changing any of them.
+- **`review`**: the review law, Overall Self-Review, and Individual Self-Review. Read for every review request.
+- **`issue-campaign`**: repeated full-scope discovery, issue publication, and one pull request per cycle. Read for a broad audit or repeated issue-to-pull-request work, not for one defined issue.
+- **`pull-request`**: branch, commit, pull request, checks, and merge. Read only when the user asks to open, update, or merge one, or a standing autonomous mandate covers delivery.
+- **`benchmark`**: the performance, graph, and evidence benchmarks. Read before running, changing, or publishing a benchmark or its fixtures.
 
 ## Maintenance
 
-### Writing style
-
-`AGENTS.md` and `SKILL.md` files are read by humans as well as agents. Read the documentation skill before editing either; it defines concise, clear operational writing and prose-line rules.
-
-### AGENTS.md
-
-This is the single shared entry point for both Claude Code (via `CLAUDE.md -> @AGENTS.md`) and Codex CLI. Keep it to the brief product identity, global attitude, and skill index. The H2s are `## Attitude`, `## Skills`, and `## Maintenance`; `## Attitude` is the one place global agent-behavior rules live.
-
-Update AGENTS.md only for repository-contract changes: a new skill area, a renamed or merged skill, a workflow that no longer fits an existing skill, a release-process change, or a coding-agent rule that applies globally before any skill loads.
-
-### Skills
-
-- **Location.** `.agents/skills/<kebab-name>/SKILL.md`. No numeric prefix. Each file opens with YAML frontmatter whose `name` matches its path below `.agents/skills/` and whose third-person `description` states what the skill covers and when to use it.
-- **A vendored skill nests under the skill that owns its subject.** `project/evidence` and `benchmark/evidence` come from `samchon/lint-plugin-evidence`, and nesting them one level below their host lets upstream's own shape survive a re-copy with every relative link inside it intact. Their `name` is that path, because two skills called `evidence` would collide.
-- **Core in SKILL.md, conditional topics as sibling documents.** Keep always-applicable procedure in SKILL.md. Move a topic needed only under a specific condition to a one-level-deep sibling document and link it with that read condition.
-- **Two trigger surfaces, one scope.** The frontmatter description is the full trigger contract, including exclusions. The AGENTS.md pointer mirrors that scope more briefly. Correct the frontmatter first when the scope changes.
-- **Create or merge.** Add a skill when a substantial repository concern would otherwise inflate AGENTS.md beyond an index. Merge sibling concerns when they share most of their structure.
-- **Repository skill files only.** Keep repository skills to `SKILL.md` and conditionally loaded sibling documents. Do not add `agents/openai.yaml` UI metadata or separate `multi-agent-*` skills.
-- **Headings are plain.** No chapter numbers in skill or AGENTS.md headings. Use descriptive titles.
-- **Current set.** The repository skills are `project`, `development`, `typescript-go-sync`, `documentation`, `issue-campaign`, `review`, `multi-agent`, `discussion`, `pull-request`, `benchmark`, and the two vendored ones, `project/evidence` and `benchmark/evidence`.
+Before changing this file or any skill, read [the documentation skill's skills.md](.agents/skills/documentation/skills.md).

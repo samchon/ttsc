@@ -6,9 +6,9 @@ This is what **you**, operating the campaign from this repository, may not chang
 
 Under `benchmarks/evidence/template/**`, in either arm, at any nesting level:
 
-- **`tsconfig.json`** — any file, any property.
-- **`lint.config.ts`** — any file, any property, including a claim, a selector, a severity, or a `disabled`.
-- **`package.json`** — `main`, `exports`, and `publishConfig`. Adding a top-level `types` or a new `exports` subpath is equally forbidden.
+- **`tsconfig.json`:** any file, any property.
+- **`lint.config.ts`:** any file, any property, including a claim, a selector, a severity, or a `disabled`.
+- **`package.json`:** `main`, `exports`, and `publishConfig`. Adding a top-level `types` or a new `exports` subpath is equally forbidden.
 
 Creating or deleting one of those files counts as changing it.
 
