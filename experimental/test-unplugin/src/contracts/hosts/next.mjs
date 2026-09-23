@@ -294,11 +294,10 @@ export async function openSession(bundler, project) {
     // (`observe-pass`), and a pass still running is not that pass, since the
     // delivery inside it is what writes the record.
     //
-    // Against the record on disk, never the stamps a pass logged: a signal
-    // the host answered from its cache, running no module and so registering
-    // nothing, keeps repeating on its own schedule, and a session closed
-    // between such a move and the pass that follows it stores a cache older
-    // than the record.
+    // Against the record on disk, never the stamps a pass logged: the record
+    // can move after the pass that logged it, as the bridge's later moves of
+    // a signal do, and a session closed between such a move and the pass
+    // that follows it stores a cache older than the record.
     cacheSettled: () => {
       const passes = [...output.matchAll(/ pass (\d+)\.\.\d+ done at \d+/g)];
       if (passes.length === 0) return false;
