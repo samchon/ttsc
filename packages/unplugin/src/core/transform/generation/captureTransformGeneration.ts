@@ -35,7 +35,6 @@ import { createTransformScratchDirectory } from "../tsconfig/createTransformScra
 import { createTransformTsconfig } from "../tsconfig/createTransformTsconfig";
 import { readTransformTsconfigState } from "../tsconfig/readTransformTsconfigState";
 import { transformScratchEnvironment } from "../tsconfig/transformScratchEnvironment";
-import { withTransformScratchEnvironment } from "../tsconfig/withTransformScratchEnvironment";
 import { hashText } from "../utils/hashText";
 import { captureExternalInputSnapshot } from "../validation/captureExternalInputSnapshot";
 import { captureUniversalHostInputValidation } from "../validation/captureUniversalHostInputValidation";
@@ -225,29 +224,28 @@ export async function captureTransformGeneration(props: {
       adopted?.scratchDirectory ?? scratchDirectory;
     const envelopeTemporaryTsconfig =
       adopted === undefined ? temporaryTsconfig : adopted.temporaryTsconfig;
-    // The compile runs on a worker thread that adopts the environment as it is
-    // at the call, so the scratch scope covers the whole compile yet ends as
-    // soon as the call returns, and the host keeps serving other work while it
-    // runs (samchon/ttsc#1391).
+    // The compile runs on a worker thread under the compiler's environment,
+    // the host's with the scratch directory as its temporary directory, so the
+    // scratch covers the whole compile while the host's own environment is
+    // never touched (samchon/ttsc#1488), and the host keeps serving other work
+    // while it runs (samchon/ttsc#1391).
     const result =
       adopted?.result ??
-      (await withTransformScratchEnvironment(scratchDirectory, () =>
-        new TtscCompiler({
-          cwd: projectRoot,
-          // The generated tsconfig (if any) lives outside the project directory,
-          // so declare the real project as the plugin config anchor: utility
-          // plugin config discovery (banner.config.*, strip.config.*,
-          // lint.config.*) and relative configFile resolution walk the project,
-          // never the temp tree. In the passthrough case this equals the
-          // tsconfig's own directory, the default anchor, spelled as the
-          // compiler spells it.
-          pluginConfigDir: compilerProject.configDir,
-          plugins: props.plugins,
-          projectRoot,
-          tsconfig: configured.path,
-          env: compilerEnvironment,
-        }).transformAsync(),
-      ));
+      (await new TtscCompiler({
+        cwd: projectRoot,
+        // The generated tsconfig (if any) lives outside the project directory,
+        // so declare the real project as the plugin config anchor: utility
+        // plugin config discovery (banner.config.*, strip.config.*,
+        // lint.config.*) and relative configFile resolution walk the project,
+        // never the temp tree. In the passthrough case this equals the
+        // tsconfig's own directory, the default anchor, spelled as the
+        // compiler spells it.
+        pluginConfigDir: compilerProject.configDir,
+        plugins: props.plugins,
+        projectRoot,
+        tsconfig: configured.path,
+        env: compilerEnvironment,
+      }).transformAsync());
     if (adopted !== undefined && state !== undefined) {
       TRANSFORM_ADOPTED_RESULTS.set(result, state);
     }

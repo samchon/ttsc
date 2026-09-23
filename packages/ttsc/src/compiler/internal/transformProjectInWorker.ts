@@ -27,12 +27,16 @@ const IDLE_RETIREMENTS = new WeakMap<Worker, () => void>();
  * on a worker thread instead, with the same envelope, failures, and
  * descriptor-resilient launches.
  *
- * The worker adopts the calling thread's `process.env` as it is at this call,
- * so a scope the caller put around the call covers the whole transform, and
- * nothing the caller changes afterward reaches it. A worker serves one
- * transform at a time and returns to an idle pool afterward, keeping the
- * in-process caches plugin loading builds warm. Concurrent transforms get
- * workers of their own. An idle worker never keeps the process alive.
+ * The worker runs under the environment the compiler defines for everything it
+ * starts: the calling thread's `process.env` as it is at this call, with the
+ * compiler's own `env` merged over it, the same merge its child processes take
+ * (`inheritedSidecarEnv`). Its in-process work therefore reads what the caller
+ * configured, a temporary directory above all, without the caller rewriting
+ * its own globals around the call, and nothing the caller changes afterward
+ * reaches it (samchon/ttsc#1488). A worker serves one transform at a time and
+ * returns to an idle pool afterward, keeping the in-process caches plugin
+ * loading builds warm. Concurrent transforms get workers of their own. An idle
+ * worker never keeps the process alive.
  *
  * @param context Compiler context of the requesting {@link TtscCompiler}.
  * @returns What {@link transformProjectInMemory} returns, or a rejection with
@@ -43,7 +47,7 @@ export function transformProjectInWorker(
 ): Promise<ReturnType<typeof transformProjectInMemory>> {
   const request: TransformProjectWorkerRequest = {
     context,
-    env: { ...process.env },
+    env: { ...process.env, ...context.env },
   };
   const worker =
     takeIdleWorker() ??

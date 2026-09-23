@@ -7,19 +7,24 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
 
 /**
  * Verifies a whole-project compile neither blocks the host's event loop nor
- * leaks its scratch environment into code that runs meanwhile
- * (samchon/ttsc#1391).
+ * touches the host's environment (samchon/ttsc#1391, samchon/ttsc#1488).
  *
  * The compile used to run synchronously, plugin loading included, inside a
  * scope that pointed `TEMP`, `TMP`, and `TMPDIR` at the compile's scratch
  * directory. A dev server answered no other request for the whole compile. The
- * compile now runs on a worker thread that adopts the scoped environment at the
- * call, so the scope ends as soon as the call returns.
+ * compile then moved to a worker thread, but the adapter still rewrote the
+ * host's own variables around the call, because the worker adopted the host's
+ * `process.env` rather than the compiler's `env`. The worker now takes the
+ * compiler's `env`, which carries the scratch directory, so the host's
+ * environment is never written at all. A sample of `process.env` could not
+ * tell: the rewrite spanned one synchronous call, which no timer interrupts,
+ * so the environment is observed by its writes instead.
  *
  * 1. Compile a project whose native transform holds for a known time, sampling the
- *    timer queue and `process.env.TEMP` until the compile resolves.
- * 2. Assert no stall came near the hold, and every sample saw the host's own
- *    `TEMP`.
+ *    timer queue and recording every write to `process.env` until the compile
+ *    resolves.
+ * 2. Assert no stall came near the hold, and nothing wrote `TEMP`, `TMP`, or
+ *    `TMPDIR`.
  */
 export async function test_transformttsc_compile_leaves_the_event_loop_and_environment_free(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =
@@ -28,13 +33,20 @@ export async function test_transformttsc_compile_leaves_the_event_loop_and_envir
   const project = createCacheProject({ fileCount: 3, transformDelayMs: hold });
   const [file] = projectModules(project.root);
 
-  const original = process.env.TEMP;
-  const seen = new Set<string | undefined>();
+  const environment = process.env;
+  const written: string[] = [];
+  process.env = new Proxy(environment, {
+    deleteProperty: (target, key) => {
+      written.push(String(key));
+      return Reflect.deleteProperty(target, key);
+    },
+    set: (target, key, value) => {
+      written.push(String(key));
+      return Reflect.set(target, key, value);
+    },
+  });
   const ticks: number[] = [];
-  const timer = setInterval(() => {
-    ticks.push(performance.now());
-    seen.add(process.env.TEMP);
-  }, 1);
+  const timer = setInterval(() => ticks.push(performance.now()), 1);
   const started = performance.now();
   try {
     assert.ok(
@@ -48,6 +60,7 @@ export async function test_transformttsc_compile_leaves_the_event_loop_and_envir
     );
   } finally {
     clearInterval(timer);
+    process.env = environment;
   }
   let longestStall = (ticks[0] ?? performance.now()) - started;
   for (let index = 1; index < ticks.length; index += 1) {
@@ -58,8 +71,8 @@ export async function test_transformttsc_compile_leaves_the_event_loop_and_envir
     `the loop ran throughout the compile: longest stall ${longestStall.toFixed(0)} ms`,
   );
   assert.deepEqual(
-    [...seen],
-    [original],
-    "code running during the compile sees the host's own environment",
+    written.filter((key) => ["TEMP", "TMP", "TMPDIR"].includes(key)),
+    [],
+    "the compile's scratch reaches the compiler through its env, never the host's",
   );
 }

@@ -77,13 +77,16 @@ export interface ITtscCompilerContext {
 
   /**
    * Additional environment variables for child compiler and plugin-descriptor
-   * processes.
+   * processes, and for the worker thread of {@link TtscCompiler.transformAsync}.
    *
    * Values are merged over `process.env` before ttsc starts TypeScript-Go,
    * native plugin binaries, isolated descriptor evaluators (including the
    * `ttsx` fallback), or the native compiler host used by
-   * {@link TtscCompiler.compile}. Descriptor output is diagnostic text and is
-   * forwarded to stderr so it cannot corrupt compiler/API protocol stdout.
+   * {@link TtscCompiler.compile}. `transformAsync` runs its whole transform on a
+   * worker thread under the same merge, so its in-process work, such as the
+   * temporary directories it creates, follows it too (samchon/ttsc#1488).
+   * Descriptor output is diagnostic text and is forwarded to stderr so it cannot
+   * corrupt compiler/API protocol stdout.
    */
   env?: NodeJS.ProcessEnv;
 
