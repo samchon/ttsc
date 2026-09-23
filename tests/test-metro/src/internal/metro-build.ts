@@ -8,8 +8,9 @@ import { TestMetroRuntime } from "./metro-runtime";
  * that no virtual-module shim is inlined.
  *
  * Bundling `@ttsc/unplugin` into the Metro output would inflate the artifact
- * and shadow the version the consuming project installed, and a virtual-module
- * shim is the trace a bundling externals plugin leaves behind.
+ * and shadow the version the consuming project installed. A `_virtual` import
+ * is the other sign of a dependency bundled rather than left external: rollup's
+ * CommonJS plugin emits its helper modules there when it inlines one.
  */
 export function assertMetroBuildKeepsRuntimeDependenciesExternal(): void {
   const cjs = readLib("transformer", "js");

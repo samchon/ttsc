@@ -62,11 +62,13 @@ const legendHost = (): { footer: StubElement; document: LegendDocument } => {
 /**
  * Verifies graph viewer: one definition of the edge families.
  *
- * The vocabulary lived in several unenforced places — a display map copied into
- * three reducers, a colour map in the bundled viewer, and a legend written out
- * by hand. `doc_ref` shipped with no legend entry, and `exports` was drawn in
- * the fallback colour under no legend entry at all. This case makes the next
- * family impossible to half-add.
+ * The vocabulary lived in five unenforced places — a display map copied into
+ * three reducers, a colour map in each viewer, and a legend written out by hand
+ * in `packages/graph/src/viewer/index.html`. `doc_ref` shipped with no legend
+ * entry, and `exports` was drawn in the fallback colour under no legend entry
+ * and no filter row at all. This case holds the three reducers and the bundled
+ * viewer's legend to one definition, so a new family cannot be half-added
+ * across them.
  *
  * 1. Reduce a dump carrying one edge of every kind a dump can hold, through all
  *    three reducer copies, and require them to fold it identically.
