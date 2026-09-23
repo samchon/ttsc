@@ -1,6 +1,6 @@
 ---
 name: benchmark/evidence
-description: Defines how an @ttsc/evidence benchmark campaign is set up, launched under frozen inputs, run, supervised, recovered, and reported, from issue creation through pull-request completion. Use whenever operating, supervising, or reporting a benchmark run.
+description: Defines how an @ttsc/evidence benchmark campaign is set up, launched under frozen inputs, run, supervised, recovered, and reported, from issue creation through pull-request completion. Use whenever operating, supervising, or reporting an evidence benchmark run.
 ---
 
 # Benchmark Operation

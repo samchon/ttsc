@@ -32,7 +32,7 @@ Follow the literal request; it is the contract, not a hint at what the user "rea
 
 Each skill is `.agents/skills/<name>/SKILL.md`. Read it when its trigger applies.
 
-- **`project`**: the product contract, package ownership, and the graph and evidence contracts. Read when a task crosses packages or needs the owning package, and before changing `packages/graph` or `@ttsc/evidence` semantics.
+- **`project`**: the product contract, package ownership, and the graph and evidence contracts. Read when a task crosses packages or needs the owning package, and before changing `packages/graph`, graph benchmark prompts, or `@ttsc/evidence` semantics.
 - **`development`**: implementation rules, testing, validation, and change integrity. Read before changing source, tests, fixtures, workflows, or package wiring.
 - **`typescript-go-sync`**: the `packages/ttsc/shim` bridge to typescript-go. Read before adding a shim re-export, bumping typescript-go, or chasing a missing compiler API.
 - **`documentation`**: READMEs, website guides, `AGENTS.md`, skills, and prose. Read before writing or changing any of them.
