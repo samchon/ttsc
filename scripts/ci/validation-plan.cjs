@@ -402,9 +402,9 @@ function withoutUnpluginSurface(entries) {
 /**
  * Compute the expensive validation selected by a set of repository paths.
  *
- * The planner always keeps the shared type/format contract. Known
- * leaf owners add only their direct and verified reverse consumers. Any input
- * that can change dependency topology or is not classified fails open.
+ * The planner always keeps the shared type/format contract. Known leaf owners
+ * add only their direct and verified reverse consumers. Any input that can
+ * change dependency topology or is not classified fails open.
  */
 function planForPaths(files) {
   const normalized = [...new Set(files.map(normalizePath).filter(Boolean))];
