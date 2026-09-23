@@ -25,7 +25,7 @@ test("unplugin scenarios follow the repository test layout", () => {
   // neither a Go host nor a bundler process, `native-plugins` does. The split
   // is pinned per tree because a scenario moved across it changes which CI
   // lane runs it.
-  const trees = { features: 60, "native-plugins": 234 };
+  const trees = { features: 60, "native-plugins": 235 };
   const scenarios = [];
   for (const [tree, count] of Object.entries(trees)) {
     const names = collectFiles(path.join(source, tree)).map((file) => {
