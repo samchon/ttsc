@@ -347,6 +347,28 @@ export function projectRecordMovedAt(project) {
 }
 
 /**
+ * `project`'s records (`projectRecordFiles`) with their modification time and
+ * size, as one line, so a pass's log says whether the record moved while the
+ * pass ran.
+ *
+ * A stamp, not the proof `recordStates` makes: a host's own hooks take it on
+ * every pass, where re-walking the project would cost the host what the
+ * contract is measuring.
+ */
+export function projectRecordStamps(project) {
+  const stamps = [];
+  for (const file of projectRecordFiles(project)) {
+    try {
+      const stats = fs.statSync(file);
+      stamps.push(`${label(file)}@${Math.round(stats.mtimeMs)}:${stats.size}`);
+    } catch {
+      // No record there.
+    }
+  }
+  return stamps.join(",") || "(none)";
+}
+
+/**
  * Every project record the adapter could have written for `project`, each as
  * the adapter reads one: its signal, how many inputs it names, its modification
  * time and size, and the proof a build start makes of it

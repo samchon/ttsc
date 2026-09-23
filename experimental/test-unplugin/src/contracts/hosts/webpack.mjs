@@ -1,7 +1,3 @@
-import {
-  PROJECT_RECORD_DIRECTORY,
-  hostToolDirectory,
-} from "@ttsc/unplugin/api";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -12,6 +8,7 @@ import {
   eventually,
   failedOutput,
   projectRecordMovedAt,
+  projectRecordStamps,
   settledOutput,
   writeRaceLoader,
   writeStripLoader,
@@ -58,11 +55,7 @@ export async function openSession(name, project, { cache = false } = {}) {
   // session stopped before that pass leaves a cache the next session rebuilds
   // once.
   let startedAt = 0;
-  // Where a record of this project can be: below the directory the host runs
-  // in, which is this process, and below the project's own, which a session
-  // the contract runs inside the project shares with it.
-  const roots = [process.cwd(), project.root];
-  const records = () => recordStamps(roots);
+  const records = () => projectRecordStamps(project);
   const compiler = bundler({
     context: project.root,
     mode: "development",
@@ -243,40 +236,4 @@ function cacheCommitted(name, cacheDirectory, since) {
       committedAfter(path.join(cacheDirectory, store, "index.pack")),
     )
   );
-}
-
-/**
- * The record directories of the roots a session's host could have written
- * under: the directory it runs in, which is this process for a host the
- * contract imports, and the project's own for a session the contract runs
- * inside it.
- */
-function recordDirectories(roots) {
-  return [...new Set(roots)].map((root) =>
-    path.join(hostToolDirectory(root), PROJECT_RECORD_DIRECTORY),
-  );
-}
-
-/**
- * Every project record below the project's tool directory with its modification
- * time and size, as one line, so a pass's log says whether the record moved
- * while the pass ran.
- *
- * A stamp, not the proof `recordStates` makes: this runs inside the host's own
- * hooks, on every pass, where re-walking the project would cost the host what
- * the contract is measuring.
- */
-function recordStamps(roots) {
-  const stamps = [];
-  for (const directory of recordDirectories(roots)) {
-    try {
-      for (const entry of fs.readdirSync(directory)) {
-        const stats = fs.statSync(path.join(directory, entry));
-        stamps.push(`${entry}@${Math.round(stats.mtimeMs)}:${stats.size}`);
-      }
-    } catch {
-      // No record there.
-    }
-  }
-  return stamps.join(",") || "(none)";
 }

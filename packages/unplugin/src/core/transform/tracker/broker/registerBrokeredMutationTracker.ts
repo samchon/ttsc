@@ -1,16 +1,16 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { WATCH_BRIDGE_DIRECTORY_PREFIX } from "../../../bridge/WATCH_BRIDGE_DIRECTORY_PREFIX";
-import { sweepAbandonedWatchBridges } from "../../../bridge/sweepAbandonedWatchBridges";
 import type { TtscTransformFilesystemOperations } from "../../filesystem/TtscTransformFilesystemOperations";
 import type { TtscProjectMutationTracker } from "../TtscProjectMutationTracker";
 import { WATCH_BROKER } from "./WATCH_BROKER";
+import { WATCH_PROBE_DIRECTORY_PREFIX } from "./WATCH_PROBE_DIRECTORY_PREFIX";
 import { WATCH_PROBE_TIMEOUT_MS } from "./WATCH_PROBE_TIMEOUT_MS";
 import type { WatchBrokerLocation } from "./WatchBrokerLocation";
 import { drainWatchBroker } from "./drainWatchBroker";
 import { getWatchBroker } from "./getWatchBroker";
 import { probeForLocation } from "./probeForLocation";
+import { sweepAbandonedWatchProbes } from "./sweepAbandonedWatchProbes";
 
 /**
  * Register directory watches in the isolated watch process, and resolve once
@@ -200,18 +200,18 @@ const PROBE_DIRECTORIES = new Map<string, string>();
 /**
  * The directory below `probeRoot`'s tool cache where the broker writes its
  * probes, named after this process so a later process can remove it once this
- * one is gone (`WATCH_BRIDGE_DIRECTORY_PREFIX`). It is removed when this
- * process exits, and a stale one is swept before it is created.
+ * one is gone (`WATCH_PROBE_DIRECTORY_PREFIX`). It is removed when this process
+ * exits, and a stale one is swept before it is named.
  */
 function probeDirectory(probeRoot: string): string {
   const existing = PROBE_DIRECTORIES.get(probeRoot);
   if (existing !== undefined) return existing;
   const parent = path.join(probeRoot, "node_modules", ".cache", "ttsc");
   fs.mkdirSync(parent, { recursive: true });
-  sweepAbandonedWatchBridges(parent);
+  sweepAbandonedWatchProbes(parent);
   const directory = path.join(
     parent,
-    `${WATCH_BRIDGE_DIRECTORY_PREFIX}${process.pid}-probes`,
+    `${WATCH_PROBE_DIRECTORY_PREFIX}${process.pid}`,
   );
   process.once("exit", () => {
     fs.rmSync(directory, { force: true, recursive: true });
