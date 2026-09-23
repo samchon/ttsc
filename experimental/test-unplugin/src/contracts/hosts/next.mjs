@@ -51,7 +51,7 @@ export async function openSession(bundler, project) {
     [
       'import fs from "node:fs";',
       'import path from "node:path";',
-      'import { PROJECT_RECORD_DIRECTORY, hostToolDirectory } from "@ttsc/unplugin/api";',
+      'import { PROJECT_RECORD_DIRECTORY, hostToolDirectory, readTtscTransformSession } from "@ttsc/unplugin/api";',
       'import withTtsc from "@ttsc/unplugin/next";',
       // Every project record with its modification time and size, so a
       // pass's log says whether the record moved while the pass ran. The
@@ -67,7 +67,7 @@ export async function openSession(bundler, project) {
       '    return "(none)";',
       "  }",
       "};",
-      "export default withTtsc({",
+      "const config = withTtsc({",
       "  devIndicators: false,",
       `  turbopack: { root: ${JSON.stringify(workspace)}, rules: ${JSON.stringify(rules)} },`,
       "  webpack(config) {",
@@ -99,6 +99,10 @@ export async function openSession(bundler, project) {
       "    return config;",
       "  },",
       `}, ${JSON.stringify(project.options)});`,
+      // The shared compile store `withTtsc` opened for Turbopack's loader
+      // workers, which a failure to compile an edit once lists.
+      'process.stdout.write(`[ttsc-session] ${readTtscTransformSession() ?? "(none)"}\\n`);',
+      "export default config;",
     ].join("\n"),
   );
   const require = createRequire(import.meta.url);
@@ -259,11 +263,13 @@ export async function openSession(bundler, project) {
             if (compiled === 1) return;
             // A worker that could not adopt the publication compiles for
             // itself (`claimSharedCompile`), and the run alone cannot say
-            // which worker or why. What the server reported and the records
-            // it left name the state each compile read.
+            // which worker or why. The store names what each compile
+            // published, what the server reported and the records it left
+            // name the state each compile read.
             assert.fail(
               [
                 `${name} recompiles an edit once across its workers: ${compiled} compile(s)`,
+                `the pool's shared compile store:\n${sharedStores(output)}`,
                 `records ${JSON.stringify(recordStates(project))}`,
                 `what the host reported:\n${output.split(/\r?\n/).slice(-60).join("\n")}`,
               ].join("\n"),
@@ -438,4 +444,57 @@ function cacheCommits(output) {
     stores.set(store, committed ? mtime : (known ?? -Infinity));
   }
   return [...stores.entries()];
+}
+
+/**
+ * What the shared compile stores a Next server reported (`[ttsc-session]`)
+ * hold: a publication per compiled state, named `<identity>-<state>.json` and
+ * naming the scratch directory of the worker that compiled it, and a lock per
+ * state being compiled, naming its holder (`claimSharedCompile`).
+ *
+ * Two compiles of one edit that left two states read two project states. Two
+ * that left one state are an adopter whose proof of the publication failed,
+ * which compiles again and replaces it, or a waiter that took a lock over from
+ * a holder whose heartbeat stopped.
+ */
+function sharedStores(output) {
+  const stores = new Set(
+    [...output.matchAll(/\[ttsc-session\] ([^\r\n]+)/g)].map((match) =>
+      match[1].trim(),
+    ),
+  );
+  const listed = [...stores].map((store) => {
+    let entries;
+    try {
+      entries = fs.readdirSync(store).sort();
+    } catch (error) {
+      return `${store}: ${error.code ?? error.message}`;
+    }
+    const lines = entries.map((entry) => {
+      const file = path.join(store, entry);
+      try {
+        const stats = fs.statSync(file);
+        if (stats.isDirectory()) {
+          let owner = "no owner yet";
+          try {
+            owner = fs.readFileSync(path.join(file, "owner"), "utf8");
+          } catch {
+            // Between creating the lock and naming its holder.
+          }
+          return `  ${entry} held by ${owner}, beat at ${Math.round(stats.mtimeMs)}`;
+        }
+        let compiledIn = "";
+        try {
+          compiledIn = `, compiled in ${JSON.parse(fs.readFileSync(file, "utf8")).scratchDirectory}`;
+        } catch {
+          // Not a publication, or one being replaced.
+        }
+        return `  ${entry} at ${Math.round(stats.mtimeMs)}${compiledIn}`;
+      } catch (error) {
+        return `  ${entry}: ${error.code ?? error.message}`;
+      }
+    });
+    return [`${store}:`, ...lines].join("\n");
+  });
+  return listed.join("\n") || "no store was reported";
 }

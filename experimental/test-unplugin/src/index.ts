@@ -83,7 +83,16 @@ function resolveTscBinary() {
 }
 const TSC_BINARY = resolveTscBinary();
 
-test_unplugin_package_e2e();
+// A failure ends the process through its exit code rather than as an uncaught
+// exception, which exits at once: macOS takes writes to a pipe
+// asynchronously, so the output `run` writes for a failed command just before
+// it throws, the host matrix's failure detail among it, was cut short there.
+try {
+  test_unplugin_package_e2e();
+} catch (error) {
+  console.error(error);
+  process.exitCode = 1;
+}
 
 /** Run the complete packed-package adapter contract in one consumer install. */
 export function test_unplugin_package_e2e() {
