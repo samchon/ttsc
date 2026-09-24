@@ -23,6 +23,7 @@ import { pluginDescriptorProcessFailure } from "../pluginDescriptorProcessFailur
 import { buildSourcePlugin } from "../source/buildSourcePlugin";
 import { isPathWithin } from "../source/isPathWithin";
 import { pluginBuildVersions } from "../source/pluginBuildVersions";
+import { pluginSourceState } from "../source/pluginSourceState";
 import { COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE } from "./COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE";
 import { PLUGIN_DESCRIPTOR_SHIM_SOURCE } from "./PLUGIN_DESCRIPTOR_SHIM_SOURCE";
 import { PluginPackageResolution } from "./PluginPackageResolution";
@@ -42,9 +43,11 @@ import { realpathHostInputPaths } from "./realpathHostInputPaths";
  * JavaScript-host files that universally influence the loaded selection, and
  * the state of every Go source directory the plugins supplied to the builds
  * (`pluginSources`, samchon/ttsc#1487): each plugin's module root and each
- * contributor's source, with its digest (`pluginSourceDigest`) as the build
- * read it. ttsc's own sources, its overlays and the host it builds for linked
- * plugins, are keyed too but not reported: they change only with ttsc itself.
+ * contributor's source, with its state (`pluginSourceState`), the sources as
+ * the build read them together with the environment a build there is keyed on
+ * (samchon/ttsc#1493). ttsc's own sources, its overlays and the host it builds
+ * for linked plugins, are keyed too but not reported: they change only with
+ * ttsc itself.
  *
  * @param options.binary - Absolute path to the ttsc native helper binary.
  * @param options.cacheDir - Override the plugin binary cache directory.
@@ -372,7 +375,11 @@ export function loadProjectPlugins(options: {
     pluginSources: Object.fromEntries(
       [...sourceDigests]
         .filter(([directory]) => !isPathWithin(directory, ttscPackageRoot()))
-        .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0)),
+        .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+        .map(([directory, sourceDigest]) => [
+          directory,
+          pluginSourceState(directory, { env: effectiveEnv, sourceDigest }),
+        ]),
     ),
     project,
   };

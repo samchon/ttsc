@@ -7,7 +7,7 @@ import type { TtscProjectSpellings } from "../transform/filesystem/TtscProjectSp
 import { pathIsWithin } from "../transform/filesystem/pathIsWithin";
 import { relativeToProject } from "../transform/filesystem/relativeToProject";
 import { pluginSourceCovers } from "../transform/inputs/pluginSourceCovers";
-import { pluginSourceState } from "../transform/inputs/pluginSourceState";
+import { pluginSourceHolds } from "../transform/inputs/pluginSourceHolds";
 import { validateGraphInputObservation } from "../transform/inputs/validateGraphInputObservation";
 import { isProjectWalkDirectory } from "../transform/project/isProjectWalkDirectory";
 import { projectMembershipMatches } from "../transform/project/projectMembershipMatches";
@@ -352,7 +352,7 @@ export function createInputObserver(
           continue;
         }
         if (state?.codec === "tree") {
-          changed = pluginSourceState(entry.file) !== state.digest;
+          changed = !pluginSourceHolds(entry.file, state.digest);
         } else if (state?.codec === "predicates") {
           changed =
             validateGraphInputObservation(entry.file, state.observation)

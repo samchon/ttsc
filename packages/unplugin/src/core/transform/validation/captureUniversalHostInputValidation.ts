@@ -14,7 +14,7 @@ import { hostInputStateHash } from "../inputs/hostInputStateHash";
 import { inputMetadataEvidence } from "../inputs/inputMetadataEvidence";
 import { inputMetadataSignature } from "../inputs/inputMetadataSignature";
 import { missingPathProbe } from "../inputs/missingPathProbe";
-import { pluginSourceState } from "../inputs/pluginSourceState";
+import { pluginSourceHolds } from "../inputs/pluginSourceHolds";
 import { sameHostInputRealpath } from "../inputs/sameHostInputRealpath";
 import type { TtscHostInputValidation } from "./TtscHostInputValidation";
 import { matchesRecordedInput } from "./matchesRecordedInput";
@@ -191,7 +191,7 @@ export function captureUniversalHostInputValidation(
   // was built here or adopted from another worker, is output for a state
   // already gone (samchon/ttsc#1487).
   for (const [directory, digest] of selectPluginSourceInputs(cached.result)) {
-    if (pluginSourceState(directory) !== digest) {
+    if (!pluginSourceHolds(directory, digest)) {
       recordGenerationProofFailure(failures, {
         domain: "host",
         kind: "content-changed",

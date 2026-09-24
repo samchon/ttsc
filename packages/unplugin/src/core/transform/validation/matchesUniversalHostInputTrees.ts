@@ -1,5 +1,5 @@
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
-import { pluginSourceState } from "../inputs/pluginSourceState";
+import { pluginSourceHolds } from "../inputs/pluginSourceHolds";
 import type { TtscHostInputValidation } from "./TtscHostInputValidation";
 import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
 
@@ -23,7 +23,7 @@ export function matchesUniversalHostInputTrees(
   for (const [directory, digest] of validation.trees) {
     if (trackerProvesInputUnchanged(cached.hostInputMutationTracker, directory))
       continue;
-    if (pluginSourceState(directory) !== digest) return false;
+    if (!pluginSourceHolds(directory, digest)) return false;
   }
   return true;
 }

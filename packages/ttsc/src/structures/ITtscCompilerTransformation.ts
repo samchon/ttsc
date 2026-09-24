@@ -278,14 +278,17 @@ export namespace ITtscCompilerTransformation {
      * The state of every Go source directory the transform's plugins supplied
      * to their binaries, by absolute path: each plugin's module root and each
      * contributor's source, with the digest of the files the build keyed its
-     * binary on, as the build read them (samchon/ttsc#1487). ttsc's own
-     * sources, which change only with ttsc itself, are not listed.
+     * binary on, as the build read them, together with the environment a build
+     * there is keyed on, its Go compiler, `go env`, and cgo's toolchain
+     * (samchon/ttsc#1487, samchon/ttsc#1493). ttsc's own sources, which change
+     * only with ttsc itself, are not listed.
      *
-     * A plugin's binary is keyed on its source, so every transformed file is a
-     * function of these directories as much as of {@link hostInputs}, and a
-     * plugin edited in place changes nothing else a consumer can see. A
-     * consumer that caches the output proves each digest still holds by
-     * recomputing it with the same rule, `pluginSourceDigest` from the
+     * A plugin's binary is keyed on its source and its environment, so every
+     * transformed file is a function of these states as much as of
+     * {@link hostInputs}, and a plugin edited in place, or built under another
+     * `GOFLAGS` or Go toolchain, changes nothing else a consumer can see. A
+     * consumer that caches the output proves each state still holds by
+     * recomputing it with the same rule, `pluginSourceState` from the
      * `ttsc/plugin-source` entry, and observes each directory as a whole
      * subtree. Absent when no plugin ran.
      */

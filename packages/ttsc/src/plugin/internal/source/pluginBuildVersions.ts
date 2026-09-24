@@ -8,12 +8,12 @@ import path from "node:path";
  * built from as well.
  *
  * What a transform produces is a function of its inputs, its plugins' sources
- * (`pluginSourceDigest`), and these versions. A consumer that keeps a
- * transform's output beyond the process that produced it, as a persisted shared
- * compile of `@ttsc/unplugin` is (samchon/ttsc#1483), names it by these
- * versions with the rule the build applies instead of a copy of it: ttsc's own
- * package version, and the version of the `typescript` package the project
- * resolves, or `"unknown"` when it resolves none.
+ * and build environment (`pluginSourceState`), and these versions. A consumer
+ * that keeps a transform's output beyond the process that produced it, as a
+ * persisted shared compile of `@ttsc/unplugin` is (samchon/ttsc#1483), names it
+ * by these versions with the rule the build applies instead of a copy of it:
+ * ttsc's own package version, and the version of the `typescript` package the
+ * project resolves, or `"unknown"` when it resolves none.
  *
  * @param projectRoot The project the transform runs for, which resolves its
  *   TypeScript-Go.

@@ -2,9 +2,9 @@ import path from "node:path";
 import { prunesPluginSourceDirectory } from "ttsc/plugin-source";
 
 /**
- * Whether a path below a plugin source directory can bear on the directory's
- * digest (`pluginSourceDigest`, samchon/ttsc#1487), so an observer of the
- * directory as a subtree must hear it.
+ * Whether a path below a plugin source directory can bear on the sources in the
+ * directory's state (`pluginSourceState`, samchon/ttsc#1487), so an observer of
+ * the directory as a subtree must hear it.
  *
  * The digest passes over every directory the plugin build prunes
  * (`prunesPluginSourceDirectory`: a nested `node_modules`, a repository's

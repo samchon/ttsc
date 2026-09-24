@@ -12,8 +12,9 @@ import { GoSourceInputs } from "./GoSourceInputs";
  * build residue (generated workspace files, package tarballs, editor sidecars),
  * and editor backups ending in `~`. The one reading of that rule: the cache key
  * hashes these files (`computeCacheKey`), and the transform envelope reports
- * their state (`pluginSourceDigest`), so the two cannot disagree about what a
- * plugin's source is (samchon/ttsc#1487).
+ * their digest (`pluginSourceDigest`) within each directory's state
+ * (`pluginSourceState`), so the two cannot disagree about what a plugin's
+ * source is (samchon/ttsc#1487).
  *
  * @param root The source directory: a plugin's Go module root, an overlay
  *   module, or a contributor's source.

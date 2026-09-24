@@ -106,7 +106,7 @@ When no transform-stage plugin is configured, the map contains the unmodified fi
 
 Successful and compiler-failure transformations may also carry `hostInputs`: the exact tsconfig ancestry, every package manifest inspected by auto-discovery, the JavaScript descriptor's loaded module graph, absolute paths declared by each plugin descriptor, and inputs a linked native plugin reports while evaluating configuration. First-party plugins use the reporting channels for implicit config candidates and evaluated config dependencies; missing paths are retained because creating a higher-priority candidate changes resolution. `hostInputHashes` carries the matching evaluation-time SHA-256 digest, or `null` for an observed missing candidate, while `hostInputRealpaths` carries its physical path or `null`. Bundler adapters require both when supplied before narrowly reusing a persistent generation, so concurrent content changes and symlink or junction retargeting cannot authorize stale output. Arbitrary unclassified project files remain absent.
 
-A transformation that ran a plugin also carries `pluginSources`: every Go source directory its plugins supplied to their binaries, by absolute path, with the digest the build keyed the binary on. These are each plugin's Go module root and each contributor's source; ttsc's own sources change only with ttsc itself and are not listed. A plugin edited in place changes nothing else a consumer can see, so a consumer that caches the output proves each digest with `pluginSourceDigest` from `ttsc/plugin-source` and observes each directory as a whole subtree.
+A transformation that ran a plugin also carries `pluginSources`: every Go source directory its plugins supplied to their binaries, by absolute path, with the state the build keyed the binary on. That state covers the directory's files and the environment a build there runs in: its Go compiler, what `go env` reports, and cgo's toolchain. These are each plugin's Go module root and each contributor's source; ttsc's own sources change only with ttsc itself and are not listed. A plugin edited in place, or built under another `GOFLAGS` or Go toolchain, changes nothing else a consumer can see, so a consumer that caches the output proves each state with `pluginSourceState` from `ttsc/plugin-source` and observes each directory as a whole subtree.
 
 ### `transformAsync()`
 
@@ -252,19 +252,25 @@ const base = resolveTsconfigExtends("tsconfig.json", "./tsconfig.base");
 
 ## Plugin source
 
-Tool hosts that cache a transform's output prove its `pluginSources` through the `ttsc/plugin-source` subpath, with the rule the plugin build itself applies. `@ttsc/unplugin` and `@ttsc/metro` prove each plugin's Go source this way, so a plugin edited in place invalidates what it produced.
+Tool hosts that cache a transform's output prove its `pluginSources` through the `ttsc/plugin-source` subpath, with the rule the plugin build itself applies. `@ttsc/unplugin` and `@ttsc/metro` prove each plugin's Go source this way, so a plugin edited in place, or built under another environment, invalidates what it produced.
 
 ```ts
-import { pluginSourceDigest } from "ttsc/plugin-source";
+import { pluginSourceStateHolds } from "ttsc/plugin-source";
 
 const stale = Object.entries(t.pluginSources ?? {}).some(
-  ([directory, digest]) => pluginSourceDigest(directory) !== digest,
+  ([directory, state]) => !pluginSourceStateHolds(directory, state),
 );
 ```
 
-- `pluginSourceDigest(directory)` returns the SHA-256 over the relative path and bytes of every file the build keys a binary on, in sorted order. It skips files below a `node_modules`, `.git`, or `.ttsc` directory, generated `go.work` files, package tarballs, editor sidecars, and backups ending in `~`. It throws when a listed file cannot be read, as the build would.
+- `pluginSourceState(directory, options?)` returns the state the build keys a binary on. It is a SHA-256 over two things:
+  - the relative path and bytes of every file below the directory, in sorted order, skipping files below a `node_modules`, `.git`, or `.ttsc` directory, generated `go.work` files, package tarballs, editor sidecars, and backups ending in `~`;
+  - the build environment there: the Go compiler ttsc resolves for the directory, the values `go env` reports for the variables the build keys on (`GOFLAGS`, `GOOS`, `CGO_ENABLED`, the C toolchain's commands by content, GOROOT by content, and the others), and cgo's external toolchain variables.
+
+  The sources are read on every call. Reading the environment costs a `go env` run and a GOROOT walk, so under `process.env` it is read once per process, directory, and set of variables; `options.env` reads it fresh under another environment. It throws when a listed file cannot be read, as the build would.
+
+- `pluginSourceStateHolds(directory, state)` tells whether a state still holds. When the process's reading of the environment does not match, it reads the environment again before it refutes the state. So a change no variable carries, `go env -w` or a toolchain replaced in place, reaches the process through the first proof it fails, and a consumer never keeps refuting output its own compiler just built from a fresh read. Prove a reported state with this rather than by comparing `pluginSourceState`.
 - `pluginBuildVersions(projectRoot)` returns the ttsc version and the version of the `typescript` package the project resolves, the two versions every plugin build is keyed on. A host that keeps output beyond the process that produced it names the output by them, as `@ttsc/unplugin`'s shared compile store does.
-- `prunesPluginSourceDirectory(name)` tells whether the digest passes over a directory of that name. A host watching a plugin source as a subtree skips such a directory, rather than watching a nested package tree or a repository's object store.
+- `prunesPluginSourceDirectory(name)` tells whether the state passes over a directory of that name. A host watching a plugin source as a subtree skips such a directory, rather than watching a nested package tree or a repository's object store.
 
 ## Diagnostics
 

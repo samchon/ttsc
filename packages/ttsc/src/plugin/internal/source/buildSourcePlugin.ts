@@ -1,5 +1,4 @@
 import fs from "node:fs";
-import { createRequire } from "node:module";
 import path from "node:path";
 
 import { findNearestGoMod } from "../../../compiler/internal/findNearestGoMod";
@@ -20,6 +19,7 @@ import { pruneGoBuildCacheRoot } from "./pruneGoBuildCacheRoot";
 import { prunePluginCacheRoot } from "./prunePluginCacheRoot";
 import { reclaimPluginBuildLock } from "./reclaimPluginBuildLock";
 import { releasePluginBuildLock } from "./releasePluginBuildLock";
+import { resolveGoCompiler } from "./resolveGoCompiler";
 import { resolveSourceBuildCachePaths } from "./resolveSourceBuildCachePaths";
 import { spawnGoTool } from "./spawnGoTool";
 import { waitForPluginBinary } from "./waitForPluginBinary";
@@ -893,69 +893,6 @@ function shouldManageSourceBuildCaches(
   return (
     !cacheDir && !env.TTSC_CACHE_DIR && paths.goBuildRootSource === "ttsc-cache"
   );
-}
-
-function resolveGoCompiler(env: NodeJS.ProcessEnv = process.env): {
-  binary: string;
-  bundled: boolean;
-} {
-  const explicit = env.TTSC_GO_BINARY;
-  if (explicit && explicit.length > 0) {
-    return { binary: explicit, bundled: false };
-  }
-
-  try {
-    return {
-      binary: createRequire(__filename).resolve(
-        `@ttsc/${process.platform}-${process.arch}/bin/go/bin/${process.platform === "win32" ? "go.exe" : "go"}`,
-      ),
-      bundled: true,
-    };
-  } catch {
-    /* fall through */
-  }
-
-  const platformPackage = path.resolve(
-    __dirname,
-    "..",
-    "..",
-    "..",
-    "..",
-    "..",
-    `ttsc-${process.platform}-${process.arch}`,
-    "bin",
-    "go",
-    "bin",
-    process.platform === "win32" ? "go.exe" : "go",
-  );
-  if (fs.existsSync(platformPackage)) {
-    return { binary: platformPackage, bundled: true };
-  }
-
-  const local = path.resolve(
-    __dirname,
-    "..",
-    "..",
-    "..",
-    "..",
-    "..",
-    "native",
-    "go",
-    "bin",
-    process.platform === "win32" ? "go.exe" : "go",
-  );
-  if (fs.existsSync(local)) return { binary: local, bundled: true };
-
-  const homeSdk = path.join(
-    env.HOME ?? "",
-    "go-sdk",
-    "go",
-    "bin",
-    process.platform === "win32" ? "go.exe" : "go",
-  );
-  if (fs.existsSync(homeSdk)) return { binary: homeSdk, bundled: false };
-
-  return { binary: "go", bundled: false };
 }
 
 function touchCacheEntry(cacheDir: string): void {

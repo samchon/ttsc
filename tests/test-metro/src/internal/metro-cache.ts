@@ -121,12 +121,6 @@ function workerSnapshotTrees(root: string): string[] {
   return [...union].sort();
 }
 
-/** The Go source directory the fixture's plugin descriptor names. */
-function fixturePluginSource(root: string): string {
-  const descriptor = fs.readFileSync(path.join(root, "plugin.cjs"), "utf8");
-  return JSON.parse(/source: (".*"),/.exec(descriptor)![1]!) as string;
-}
-
 /** Run `prepareSnapshot` the way `withTtsc` does at config load. */
 export async function prepareSnapshot(root: string): Promise<string> {
   const fingerprint = await TestMetroRuntime.loadFingerprint();
@@ -303,7 +297,7 @@ export async function assertCacheKeyChangesWhenRecordedExternalInputChanges(): P
     "exactly the out-of-walk inputs, and never a project source",
   );
   assert.ok(
-    workerSnapshotTrees(root).includes(fixturePluginSource(root)),
+    workerSnapshotTrees(root).includes(TestUnpluginProject.pluginSource(root)),
     "the plugin's Go source is recorded as a tree",
   );
 
@@ -337,7 +331,9 @@ export async function assertCacheKeyChangesWhenARecordedPluginSourceChanges(): P
   // The project's own copy of the plugin's source, edited below; the shared
   // fixture stays as every other test built it.
   const source = path.join(root, "go-plugin");
-  fs.cpSync(fixturePluginSource(root), source, { recursive: true });
+  fs.cpSync(TestUnpluginProject.pluginSource(root), source, {
+    recursive: true,
+  });
   fs.writeFileSync(
     path.join(root, "plugin.cjs"),
     'module.exports = (context) => ({ name: context.plugin.name, source: "./go-plugin" });\n',
@@ -376,6 +372,59 @@ export async function assertCacheKeyChangesWhenARecordedPluginSourceChanges(): P
     before,
     "an edited plugin source re-keys the run",
   );
+}
+
+/**
+ * Asserts a run's key moves with the environment a recorded plugin source's
+ * binary is built in, not only with its files: another `GOFLAGS` builds another
+ * binary, so it re-keys the run as an edit does (samchon/ttsc#1493).
+ */
+export async function assertCacheKeyChangesWhenThePluginBuildEnvironmentChanges(): Promise<void> {
+  const root = TestUnpluginProject.createProject();
+  const source = path.join(root, "go-plugin");
+  fs.cpSync(TestUnpluginProject.pluginSource(root), source, {
+    recursive: true,
+  });
+  fs.writeFileSync(
+    path.join(root, "plugin.cjs"),
+    'module.exports = (context) => ({ name: context.plugin.name, source: "./go-plugin" });\n',
+  );
+  const options = {
+    upstreamTransformer: TestMetroRuntime.fakeUpstreamPathOnDisk(),
+  };
+
+  await prepareSnapshot(root);
+  await TestMetroRuntime.runTransform({
+    options,
+    params: {
+      src: TestUnpluginProject.mainSource(root),
+      filename: "src/main.ts",
+      options: { projectRoot: root },
+    },
+  });
+  await prepareSnapshot(root);
+  assert.ok(
+    readMainSnapshot(root).trees.includes(source),
+    "recorded as a tree",
+  );
+  const before = await cacheKeyForRun(root, options);
+  assert.equal(
+    await cacheKeyForRun(root, options),
+    before,
+    "an unchanged environment keeps the key",
+  );
+  const previous = process.env.GOFLAGS;
+  process.env.GOFLAGS = "-tags=ttsc_metro_environment_probe";
+  try {
+    assert.notEqual(
+      await cacheKeyForRun(root, options),
+      before,
+      "another GOFLAGS re-keys the run",
+    );
+  } finally {
+    if (previous === undefined) delete process.env.GOFLAGS;
+    else process.env.GOFLAGS = previous;
+  }
 }
 
 /**
@@ -1000,7 +1049,7 @@ export async function assertTransformerRecordsImplicitDependencyGuards(): Promis
     "exactly the inputs outside proven static coverage must remain as snapshot guards",
   );
   assert.ok(
-    workerSnapshotTrees(root).includes(fixturePluginSource(root)),
+    workerSnapshotTrees(root).includes(TestUnpluginProject.pluginSource(root)),
     "the plugin's Go source is recorded as a tree",
   );
   const firstWorker = JSON.parse(
@@ -1373,7 +1422,7 @@ export async function assertTransformerRecordsLinkedInput(): Promise<void> {
     "exactly the out-of-walk inputs, and never a project source",
   );
   assert.ok(
-    workerSnapshotTrees(root).includes(fixturePluginSource(root)),
+    workerSnapshotTrees(root).includes(TestUnpluginProject.pluginSource(root)),
     "the plugin's Go source is recorded as a tree",
   );
 }

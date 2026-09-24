@@ -5,7 +5,7 @@ import { graphInputStateHash } from "../inputs/graphInputStateHash";
 import { hostInputRealpath } from "../inputs/hostInputRealpath";
 import { hostInputStateHash } from "../inputs/hostInputStateHash";
 import { matchesGraphInputObservation } from "../inputs/matchesGraphInputObservation";
-import { pluginSourceState } from "../inputs/pluginSourceState";
+import { pluginSourceHolds } from "../inputs/pluginSourceHolds";
 import { sameHostInputRealpath } from "../inputs/sameHostInputRealpath";
 import { MISSING_INPUT_STATE } from "../validation/MISSING_INPUT_STATE";
 import type { TtscWatchInputEvidence } from "./TtscWatchInputEvidence";
@@ -30,7 +30,7 @@ export function watchInputEvidenceMatchesDisk(
   const state = evidence.state;
   if (state === undefined || state.codec === "membership") return false;
   try {
-    if (state.codec === "tree") return pluginSourceState(file) === state.digest;
+    if (state.codec === "tree") return pluginSourceHolds(file, state.digest);
     if (state.codec === "predicates") {
       return matchesGraphInputObservation(
         file,
