@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { pluginSourceState } from "ttsc/plugin-source";
 
 const require_ = createRequire(import.meta.url);
 const ttscLib = path.dirname(require_.resolve("ttsc"));
@@ -27,11 +28,11 @@ interface IKey {
 interface IAnswer {
   hostInputs: string[];
   manifest: string;
+  pluginSources: Record<string, string>;
   projectContext: string | null;
   plugins: {
     binary: string;
     capabilities: Record<string, boolean>;
-    source: string;
   }[];
 }
 
@@ -53,32 +54,52 @@ interface IEntry extends IAnswer {
  * exactly how the artifact channel shipped delivering nothing for a full
  * cycle.
  *
- * So every case here is a negative one. The single positive — an unchanged
- * project answers from the entry — exists to prove the cache is reachable at
- * all, because a cache that never hits would pass every other case in this
- * file.
+ * A recorded binary path is keyed on the whole Go module of its plugin, every
+ * contributor's source, and the Go build environment, and the entry used to
+ * prove only the plugin's `source` by a fingerprint of its own, blind to every
+ * dot directory: an edit to a sibling package, a generated source below a dot
+ * directory, or another `GOFLAGS` kept handing out the old binary, which the
+ * build cache still holds (samchon/ttsc#1492). The entry now records the states
+ * the load reported for those directories (`pluginSources`) and proves them by
+ * the build's own rule.
+ *
+ * So every case here is a negative one but two. An unchanged project answers
+ * from the entry, which proves the cache is reachable at all, because a cache
+ * that never hits would pass every other case in this file; and a write the
+ * build never reads keeps the answer.
  *
  * 1. Record an answer for a project and read it back unchanged.
  * 2. Edit the tsconfig it was recorded against.
  * 3. Add a manifest that discovery would newly read.
  * 4. Delete a recorded input.
- * 5. Edit the plugin's own Go source, which no host input tracks.
- * 6. Remove the built binary the entry names.
- * 7. Corrupt the entry, and bump the build that wrote it.
- * 8. Require every one of those to answer `null`.
+ * 5. Edit the plugin's own package, a sibling package of its module, the module's
+ *    `go.mod`, and a source below a dot directory, add a file, and change the
+ *    Go build environment, none of which any host input tracks.
+ * 6. Write below the module's `node_modules`, and require the entry to still
+ *    answer.
+ * 7. Remove the built binary the entry names.
+ * 8. Corrupt the entry, and bump the build that wrote it.
+ * 9. Require every change but the sixth to answer `null`.
  */
 export const test_capabilityresolutioncache_walks_again_whenever_it_cannot_prove_the_answer =
   (): void => {
     const cwd = TestProject.tmpdir("ttsc-capability-resolution-");
     const cache = path.join(cwd, "cache");
-    const source = path.join(cwd, "plugin-source");
+    const module = path.join(cwd, "plugin-module");
     const binary = path.join(cwd, "plugin.exe");
     const tsconfig = path.join(cwd, "tsconfig.json");
     const manifest = path.join(cwd, "package.json");
 
     write(tsconfig, JSON.stringify({ compilerOptions: {} }));
     write(manifest, JSON.stringify({ name: "fixture" }));
-    write(path.join(source, "main.go"), "package main\n");
+    write(
+      path.join(module, "go.mod"),
+      "module example.com/plugin\n\ngo 1.26\n",
+    );
+    write(path.join(module, "cmd", "plugin", "main.go"), "package main\n");
+    write(path.join(module, "internal", "mark", "mark.go"), "package mark\n");
+    write(path.join(module, ".generated", "gen.go"), "package generated\n");
+    write(path.join(module, "node_modules", "pkg", "index.js"), "\n");
     write(binary, "binary");
 
     const key: IKey = {
@@ -87,16 +108,18 @@ export const test_capabilityresolutioncache_walks_again_whenever_it_cannot_prove
       tsconfig: "tsconfig.json",
       version: "1.2.3",
     };
-    const answer: IAnswer = {
-      hostInputs: [tsconfig, manifest],
-      manifest: '[{"name":"@ttsc/lint","stage":"check"}]',
-      plugins: [{ binary, capabilities: { graphNodes: true }, source }],
-      projectContext: '{"physicalProjectRoot":"/fixture"}',
-    };
-
-    const record = (): void => writeCapabilityResolution(key, answer);
+    // Each record is what a fresh load reports: the module's state now.
+    const record = (): void =>
+      writeCapabilityResolution(key, {
+        hostInputs: [tsconfig, manifest],
+        manifest: '[{"name":"@ttsc/lint","stage":"check"}]',
+        pluginSources: { [module]: pluginSourceState(module) },
+        plugins: [{ binary, capabilities: { graphNodes: true } }],
+        projectContext: '{"physicalProjectRoot":"/fixture"}',
+      });
     const read = (): IEntry | null => readCapabilityResolution(key);
 
+    // 1. A hit.
     record();
     const hit = read();
     assert.notEqual(
@@ -110,6 +133,7 @@ export const test_capabilityresolutioncache_walks_again_whenever_it_cannot_prove
       "the entry came back without the declaration it was recorded with",
     );
 
+    // 2-4. The host inputs.
     verifyWalksAgain(record, read, "the tsconfig it was recorded against", () =>
       write(tsconfig, JSON.stringify({ compilerOptions: { strict: true } })),
     );
@@ -127,16 +151,54 @@ export const test_capabilityresolutioncache_walks_again_whenever_it_cannot_prove
     // be valid.
     write(manifest, JSON.stringify({ name: "fixture" }));
 
-    // The one change no host input can see. The binary path is content-keyed on
-    // this source, so an edit here means the answer names a binary the build
-    // would no longer produce — and the old one is still on disk, so existence
-    // cannot notice it either.
-    verifyWalksAgain(record, read, "the plugin's own Go source", () =>
-      write(path.join(source, "main.go"), "package main\n\nfunc main() {}\n"),
+    // 5. What the binary was keyed on, which no host input can see. The binary
+    // path is keyed on it, so a change here means the answer names a binary
+    // the build would no longer produce, and the old one is still on disk, so
+    // existence cannot notice it either.
+    verifyWalksAgain(record, read, "the plugin's own package", () =>
+      write(
+        path.join(module, "cmd", "plugin", "main.go"),
+        "package main\n\nfunc main() {}\n",
+      ),
     );
-    verifyWalksAgain(record, read, "a new file in the plugin's source", () =>
-      write(path.join(source, "extra.go"), "package main\n"),
+    verifyWalksAgain(record, read, "a sibling package of its module", () =>
+      write(
+        path.join(module, "internal", "mark", "mark.go"),
+        "package mark\n\n// edited\n",
+      ),
     );
+    verifyWalksAgain(record, read, "the module's go.mod", () =>
+      fs.appendFileSync(path.join(module, "go.mod"), "\n// edited\n"),
+    );
+    verifyWalksAgain(record, read, "a source below a dot directory", () =>
+      write(
+        path.join(module, ".generated", "gen.go"),
+        "package generated\n\n// edited\n",
+      ),
+    );
+    verifyWalksAgain(record, read, "a new file in the module", () =>
+      write(path.join(module, "extra.go"), "package main\n"),
+    );
+    const goflags = process.env.GOFLAGS;
+    try {
+      verifyWalksAgain(record, read, "the Go build environment", () => {
+        process.env.GOFLAGS = "-tags=ttsc_capability_cache_probe";
+      });
+    } finally {
+      if (goflags === undefined) delete process.env.GOFLAGS;
+      else process.env.GOFLAGS = goflags;
+    }
+
+    // 6. What the build never reads keeps the answer.
+    record();
+    write(path.join(module, "node_modules", "pkg", "index.js"), "// moved\n");
+    assert.notEqual(
+      read(),
+      null,
+      "a write below node_modules, which the build never reads, discarded the answer",
+    );
+
+    // 7-8. The binary, and the entry itself.
     verifyWalksAgain(record, read, "the binary the entry names", () =>
       fs.rmSync(binary),
     );
@@ -161,12 +223,11 @@ export const test_capabilityresolutioncache_walks_again_whenever_it_cannot_prove
           hostInputs: string[];
           hostInputHashes: Record<string, string | null>;
           hostInputRealpaths: Record<string, string | null>;
-          sources: Record<string, string>;
         };
         entry.hostInputs = [];
         entry.hostInputHashes = {};
         entry.hostInputRealpaths = {};
-        entry.sources = {};
+        entry.pluginSources = {};
         write(entryFile(cache), JSON.stringify(entry));
       },
     );

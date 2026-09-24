@@ -72,6 +72,9 @@ export function resolveCapabilityPlugins(options: {
     const answer = {
       hostInputs: loaded.hostInputs,
       manifest,
+      // What the binaries below were keyed on, which a later read proves before
+      // it hands out a path (samchon/ttsc#1492).
+      pluginSources: loaded.pluginSources,
       plugins: loaded.nativePlugins.map((plugin) => ({
         binary: plugin.binary,
         capabilities: Object.fromEntries(
@@ -79,7 +82,6 @@ export function resolveCapabilityPlugins(options: {
             (plugin.capabilities as Record<string, unknown> | undefined) ?? {},
           ).map(([name, declared]) => [name, declared === true] as const),
         ),
-        source: plugin.source,
       })),
       projectContext: wantsContext
         ? createNativeProjectContextJson(loaded.project)

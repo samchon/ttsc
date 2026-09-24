@@ -19,14 +19,18 @@ export interface ITtscCapabilityResolutionEntry {
   /** Physical identity per host input, so a retargeted link is a change. */
   hostInputRealpaths: Record<string, string | null>;
   /**
-   * Fingerprint per plugin Go source directory.
+   * The state of every directory the plugin binaries were keyed on, as the load
+   * reported it (`pluginSources`: each module root, linked package, and
+   * contributor source, with the Go build environment there).
    *
-   * The binary path is content-keyed on that source, so a source edit produces
-   * a different path — and the cached entry would keep naming the old one,
-   * which still exists because the build cache retains it. Nothing in the host
-   * inputs moves when a plugin's own Go changes, so this is what notices.
+   * A binary path is keyed on exactly these, so any edit below one, or another
+   * `GOFLAGS` or Go toolchain, produces a different path, and the cached entry
+   * would keep naming the old binary, which still exists because the build
+   * cache retains it. Nothing in the host inputs moves then, so these states,
+   * proven by the build's own rule (`pluginSourceStateHolds`), are what notices
+   * (samchon/ttsc#1492).
    */
-  sources: Record<string, string>;
+  pluginSources: Record<string, string>;
   /** The `--plugins-json` payload, verbatim. */
   manifest: string;
   /** The `--project-context-json` payload, or `null` when none was wanted. */

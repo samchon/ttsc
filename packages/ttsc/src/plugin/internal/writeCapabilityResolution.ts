@@ -25,6 +25,11 @@ export function writeCapabilityResolution(
   answer: {
     hostInputs: readonly string[];
     manifest: string;
+    /**
+     * The state of every directory the binaries were keyed on, as the load
+     * reported it (`pluginSources`).
+     */
+    pluginSources: Readonly<Record<string, string>>;
     projectContext: string | null;
     plugins: readonly ITtscCapabilityResolutionPlugin[];
   },
@@ -44,19 +49,12 @@ export function writeCapabilityResolution(
     hostInputRealpaths: realpathHostInputPaths(hostInputs),
     hostInputs,
     manifest: answer.manifest,
-    plugins: [...answer.plugins],
+    pluginSources: { ...answer.pluginSources },
+    plugins: answer.plugins.map((plugin) => ({
+      binary: plugin.binary,
+      capabilities: { ...plugin.capabilities },
+    })),
     projectContext: answer.projectContext,
-    sources: Object.fromEntries(
-      [...new Set(answer.plugins.map((plugin) => plugin.source))]
-        .filter((source) => source !== "")
-        .map(
-          (source) =>
-            [
-              source,
-              CapabilityResolutionFormat.fingerprintDirectory(source),
-            ] as const,
-        ),
-    ),
     version: CapabilityResolutionFormat.formatVersion(options.version),
   };
   try {

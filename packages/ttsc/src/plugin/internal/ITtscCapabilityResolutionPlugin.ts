@@ -9,6 +9,4 @@ export interface ITtscCapabilityResolutionPlugin {
   binary: string;
   /** The capabilities the plugin's descriptor declared, by name. */
   capabilities: Record<string, boolean>;
-  /** The plugin's source directory, fingerprinted to validate the entry. */
-  source: string;
 }

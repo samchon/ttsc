@@ -4,17 +4,24 @@ import { CapabilityResolutionFormat } from "./CapabilityResolutionFormat";
 import type { ITtscCapabilityResolutionEntry } from "./ITtscCapabilityResolutionEntry";
 import { hashHostInputPaths } from "./load/hashHostInputPaths";
 import { realpathHostInputPaths } from "./load/realpathHostInputPaths";
+import { pluginSourceStateHolds } from "./source/pluginSourceStateHolds";
 
 /**
  * Read the recorded answer for a project, or `null` when there is none that is
  * still true.
  *
  * Fail-closed by construction: every path that cannot prove the entry — a
- * missing file, a parse failure, a format bump, a moved input, a rebuilt plugin
- * source, a binary that is gone — returns `null`, and `null` means "walk the
- * project properly". A cache that guessed here would answer "no plugin declares
- * this capability" for a project that had just configured one, which is a wrong
- * answer indistinguishable from the correct answer for the common case.
+ * missing file, a parse failure, a format bump, a moved input, a plugin source
+ * or build environment the binary was not keyed on, a binary that is gone —
+ * returns `null`, and `null` means "walk the project properly". A cache that
+ * guessed here would answer "no plugin declares this capability" for a project
+ * that had just configured one, which is a wrong answer indistinguishable from
+ * the correct answer for the common case.
+ *
+ * Proving a plugin source reads the build environment, a `go env` run, once per
+ * process (`pluginSourceStateHolds`), which is what a walk that finds the
+ * binary costs as well: a hit saves the descriptors' evaluation and discovery,
+ * not the environment the binary path stands for.
  */
 export function readCapabilityResolution(options: {
   cwd: string;
@@ -46,12 +53,24 @@ export function readCapabilityResolution(options: {
     !sameMap(entry.hostInputRealpaths, realpathHostInputPaths(entry.hostInputs))
   )
     return null;
-  for (const [source, fingerprint] of Object.entries(entry.sources))
-    if (CapabilityResolutionFormat.fingerprintDirectory(source) !== fingerprint)
-      return null;
+  // What each binary path was keyed on, proven by the build's own rule: a
+  // module root, linked package, or contributor that moved, or another build
+  // environment, names a binary the build would no longer produce, while the
+  // old one still exists (samchon/ttsc#1492).
+  for (const [directory, state] of Object.entries(entry.pluginSources))
+    if (!pluginSourceProven(directory, state)) return null;
   for (const plugin of entry.plugins)
     if (!fs.existsSync(plugin.binary)) return null;
   return entry;
+}
+
+/** Whether a plugin source still holds its recorded state; unreadable is no. */
+function pluginSourceProven(directory: string, state: string): boolean {
+  try {
+    return pluginSourceStateHolds(directory, state);
+  } catch {
+    return false;
+  }
 }
 
 /** Whether the parsed value has every field the validation reads. */
@@ -64,7 +83,10 @@ function isEntry(value: unknown): value is ITtscCapabilityResolutionEntry {
     entry.hostInputs.every((input) => typeof input === "string") &&
     isRecord(entry.hostInputHashes) &&
     isRecord(entry.hostInputRealpaths) &&
-    isRecord(entry.sources) &&
+    isRecord(entry.pluginSources) &&
+    Object.values(entry.pluginSources).every(
+      (state) => typeof state === "string",
+    ) &&
     typeof entry.manifest === "string" &&
     (entry.projectContext === null ||
       typeof entry.projectContext === "string") &&
@@ -74,7 +96,6 @@ function isEntry(value: unknown): value is ITtscCapabilityResolutionEntry {
         typeof plugin === "object" &&
         plugin !== null &&
         typeof plugin.binary === "string" &&
-        typeof plugin.source === "string" &&
         isRecord(plugin.capabilities),
     )
   );
