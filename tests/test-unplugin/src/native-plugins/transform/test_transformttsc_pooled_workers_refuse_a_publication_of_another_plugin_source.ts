@@ -52,11 +52,10 @@ export async function test_transformttsc_pooled_workers_refuse_a_publication_of_
   });
   // The project's own copy of the plugin's source, edited below; the shared
   // fixture stays as every other test built it.
-  const shared = /source: (".*"),/.exec(
-    fs.readFileSync(path.join(root, "plugin.cjs"), "utf8"),
-  )![1]!;
   const source = path.join(root, "go-plugin");
-  fs.cpSync(JSON.parse(shared) as string, source, { recursive: true });
+  fs.cpSync(TestUnpluginProject.pluginSource(root), source, {
+    recursive: true,
+  });
   fs.writeFileSync(
     path.join(root, "plugin.cjs"),
     'module.exports = (context) => ({ name: context.plugin.name, source: "./go-plugin" });\n',

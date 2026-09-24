@@ -19,8 +19,8 @@ import { farmPersistentCacheWithoutRecords } from "../../../../../packages/unplu
  *
  * 1. Configure a root the adapter can write below, and assert the configuration
  *    comes back unchanged.
- * 2. Configure one with a file standing where `.ttsc` would be, while the user's
- *    temporary directory holds the fallback, and assert it comes back
+ * 2. Configure one with a file standing where `.ttsc` would be, while a temporary
+ *    directory of the test's own holds the fallback, and assert it comes back
  *    unchanged, since the records live in the fallback.
  * 3. Configure another such root while no fallback can be established either, and
  *    assert the cache is turned off, a configuration that turned it off is
@@ -41,29 +41,30 @@ export async function test_farm_turns_its_persistent_cache_off_without_records()
     return root;
   };
   const withFallback = blocked();
-  assert.notEqual(fallbackToolDirectory(withFallback), undefined);
-  assert.deepEqual(
-    farmPersistentCacheWithoutRecords({ ...config, root: withFallback }, "/"),
-    { ...config, root: withFallback },
-    "records in the fallback",
-  );
-
   const warnings: Error[] = [];
   const listen = (warning: Error & { code?: string }) => {
     if (warning.code === "TTSC_PROJECT_RECORD_UNWRITABLE")
       warnings.push(warning);
   };
+  // The system temporary directory is the test's own throughout, so the
+  // fallback it probes is removed with it.
+  const saved = ["TEMP", "TMP", "TMPDIR"].map((key) => [key, process.env[key]]);
+  const temporary = TestProject.tmpdir("ttsc-unplugin-farm-tmp-");
   // No user directory can be established below a temporary directory that is
   // a file.
-  const saved = ["TEMP", "TMP", "TMPDIR"].map((key) => [key, process.env[key]]);
-  const unusable = path.join(
-    TestProject.tmpdir("ttsc-unplugin-farm-tmp-"),
-    "file",
-  );
+  const unusable = path.join(temporary, "file");
   fs.writeFileSync(unusable, "");
   const nowhere = blocked();
   process.on("warning", listen);
   try {
+    for (const [key] of saved) process.env[key!] = temporary;
+    assert.notEqual(fallbackToolDirectory(withFallback), undefined);
+    assert.deepEqual(
+      farmPersistentCacheWithoutRecords({ ...config, root: withFallback }, "/"),
+      { ...config, root: withFallback },
+      "records in the fallback",
+    );
+
     for (const [key] of saved) process.env[key!] = unusable;
     const off = farmPersistentCacheWithoutRecords(
       { ...config, root: nowhere },

@@ -72,6 +72,15 @@ export async function test_a_record_that_cannot_be_written_gives_way_to_the_fall
   assert.deepEqual(await deliver(first), [record], "the record is handed over");
   const before = fs.readFileSync(record);
 
+  // The fallback lives below the user's temporary directory, one directory per
+  // host root, and outlives the test unless it removes what it wrote there.
+  const fallback = projectRecordFile(
+    fallbackToolDirectory(process.cwd())!,
+    options.project,
+  );
+  const fallbackHost = path.dirname(path.dirname(fallback));
+  const fallbackHostExisted = fs.existsSync(fallbackHost);
+
   // Read-only before the pass starts, so the start's own proof cannot move it
   // either, and the bytes say whether the delivery's write landed.
   fs.chmodSync(record, 0o444);
@@ -84,10 +93,6 @@ export async function test_a_record_that_cannot_be_written_gives_way_to_the_fall
       before,
       "the write failed, as this scenario needs",
     );
-    const fallback = projectRecordFile(
-      fallbackToolDirectory(process.cwd())!,
-      options.project,
-    );
     assert.deepEqual(handed, [fallback], "the fallback's record instead");
     assert.notDeepEqual(
       fs.readFileSync(fallback),
@@ -96,6 +101,10 @@ export async function test_a_record_that_cannot_be_written_gives_way_to_the_fall
     );
   } finally {
     fs.chmodSync(record, 0o644);
+    fs.rmSync(fallbackHostExisted ? fallback : fallbackHost, {
+      force: true,
+      recursive: true,
+    });
   }
 
   assert.deepEqual(
