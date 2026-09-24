@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import type { TtscProjectRecord } from "./TtscProjectRecord";
+import { projectRecordDigest } from "./projectRecordDigest";
 
 /**
  * Write a project record (`projectRecordFile`) only when its bytes would
@@ -15,12 +16,13 @@ import type { TtscProjectRecord } from "./TtscProjectRecord";
  * it; the comment below the comparison says why, what that costs, and what
  * answers it.
  *
- * @returns Whether the file was written.
+ * @returns The digest of the bytes the file holds for the record
+ *   (`projectRecordDigest`), whether this call wrote them or found them there.
  */
 export function writeProjectRecordFile(
   file: string,
   record: TtscProjectRecord,
-): boolean {
+): string {
   const text = JSON.stringify(record, (_key, value: unknown) =>
     value !== null && typeof value === "object" && !Array.isArray(value)
       ? Object.fromEntries(
@@ -30,8 +32,9 @@ export function writeProjectRecordFile(
         )
       : value,
   );
+  const digest = projectRecordDigest(text);
   try {
-    if (fs.readFileSync(file, "utf8") === text) return false;
+    if (fs.readFileSync(file, "utf8") === text) return digest;
   } catch {
     // Absent or unreadable: written below.
   }
@@ -54,5 +57,5 @@ export function writeProjectRecordFile(
   // answer a proof that cannot run already gives, and costs at most one
   // rebuild the host did not need.
   fs.writeFileSync(file, text);
-  return true;
+  return digest;
 }

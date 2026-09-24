@@ -118,7 +118,7 @@ export async function test_build_hosts_register_the_project_record_alone(): Prom
   const rollup: string[] = [];
   const rollupContext = {
     addWatchFile: (file: string) => rollup.push(file),
-    meta: { watchMode: true },
+    meta: { rollupVersion: "4", watchMode: true },
   };
   const rollupPlugin = await deliver(rollupContext);
   // A delivery in a new pass, which reads the project again; the pass that

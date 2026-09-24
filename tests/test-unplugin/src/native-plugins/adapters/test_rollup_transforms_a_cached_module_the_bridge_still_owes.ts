@@ -58,13 +58,26 @@ export async function test_rollup_transforms_a_cached_module_the_bridge_still_ow
   const records: string[] = [];
   const context = {
     addWatchFile: (file: string) => records.push(file),
-    meta: { watchMode: true },
+    meta: { rollupVersion: "4", watchMode: true },
+  };
+  // What Rollup's cache holds of each module: the `meta` its last delivery
+  // returned, which Rollup hands back when it asks.
+  const metas = new Map<string, unknown>();
+  const deliver = async (text: string, id: string) => {
+    const result = (await invoke(plugin.transform, context, text, id)) as
+      | { meta?: unknown }
+      | undefined;
+    assert.ok(result);
+    metas.set(id, result.meta);
   };
   const cacheable = (id: string = module) =>
-    invoke(plugin.shouldTransformCachedModule, context, { id });
+    invoke(plugin.shouldTransformCachedModule, context, {
+      id,
+      meta: metas.get(id),
+    });
   try {
     await invoke(plugin.buildStart, {});
-    assert.ok(await invoke(plugin.transform, context, source, module));
+    await deliver(source, module);
     assert.equal(records.length, 1, "Rollup watches the project's record");
     assert.equal(
       cacheable(),
@@ -90,7 +103,7 @@ export async function test_rollup_transforms_a_cached_module_the_bridge_still_ow
       "every module of the project, since a module names no project",
     );
 
-    assert.ok(await invoke(plugin.transform, context, secondSource, second));
+    await deliver(secondSource, second);
     assert.equal(
       cacheable(second),
       true,
@@ -98,21 +111,21 @@ export async function test_rollup_transforms_a_cached_module_the_bridge_still_ow
     );
 
     await invoke(plugin.buildStart, {});
-    assert.ok(await invoke(plugin.transform, context, source, module));
+    await deliver(source, module);
     assert.equal(
       cacheable(second),
       true,
       "the pass that answered the signal transforms its every module",
     );
-    assert.ok(await invoke(plugin.transform, context, secondSource, second));
+    await deliver(secondSource, second);
     await invoke(plugin.buildStart, {});
     assert.equal(
       cacheable(),
       true,
       "the next pass runs every module once more, whatever the first served",
     );
-    assert.ok(await invoke(plugin.transform, context, source, module));
-    assert.ok(await invoke(plugin.transform, context, secondSource, second));
+    await deliver(source, module);
+    await deliver(secondSource, second);
     await invoke(plugin.buildStart, {});
     assert.equal(
       cacheable(),

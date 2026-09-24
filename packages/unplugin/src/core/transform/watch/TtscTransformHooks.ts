@@ -76,7 +76,9 @@ export interface TtscTransformHooks {
    * volatile (the envelope's `volatile` list), or the module was handed over
    * without the project's record, which could not be written. Adapters should
    * mark the module uncacheable where the bundler exposes that control (e.g. a
-   * webpack loader context's `cacheable(false)`).
+   * webpack loader context's `cacheable(false)`), or answer the bundler's cache
+   * for it where the bundler asks instead (Rollup's
+   * `shouldTransformCachedModule`, through the module's `meta`).
    */
   markVolatile?: () => void;
 }

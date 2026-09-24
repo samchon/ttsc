@@ -7,6 +7,14 @@ import type { TtscWatchInput } from "./TtscWatchInput";
  * observes to move it.
  */
 export interface TtscProjectRegistration {
+  /**
+   * The digest of the bytes this process wrote to {@link record} for the
+   * delivery's generation (`projectRecordDigest`), or `undefined` for a record
+   * no write of this process landed on, handed over as it is. A host that keeps
+   * no snapshot of the record compares it with the record's bytes before it
+   * serves the module from a cache (`createRollupCachedModuleProof`).
+   */
+  digest?: string;
   /** Whether the delivery failed and the inputs are the recovery inputs. */
   failed: boolean;
   /**

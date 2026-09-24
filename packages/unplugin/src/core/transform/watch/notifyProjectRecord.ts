@@ -24,8 +24,11 @@ const HANDED = new WeakMap<
   {
     evidenced: readonly TtscWatchInput[];
     inputs: readonly TtscWatchInput[];
-    /** The records written, one per host root the generation reached. */
-    written: Set<string>;
+    /**
+     * The records written, one per host root the generation reached, each with
+     * the digest of the bytes written.
+     */
+    written: Map<string, string>;
   }
 >();
 
@@ -49,7 +52,10 @@ const HANDED = new WeakMap<
  *
  * The record is written before it is handed over, so a host that snapshots the
  * file as the delivery registers it snapshots the generation's state, and a
- * host that compares content on its next start compares against that state.
+ * host that compares content on its next start compares against that state. A
+ * host that keeps no snapshot of the file, Rollup's cache, is handed the digest
+ * of the bytes written for the generation to compare against instead
+ * (`TtscProjectRegistration.digest`).
  *
  * A record lives below the host's tool directory, or, when that cannot be
  * written, below the fallback the host accepts (`fallbackToolDirectory`,
@@ -91,7 +97,7 @@ export function notifyProjectRecord(
     handed = {
       evidenced,
       inputs: membership === undefined ? evidenced : [...evidenced, membership],
-      written: new Set(),
+      written: new Map(),
     };
     HANDED.set(cached, handed);
   }
@@ -109,8 +115,10 @@ export function notifyProjectRecord(
       break;
     }
     try {
-      writeProjectRecordFile(candidate, recordOf(cached, handed.evidenced));
-      handed.written.add(candidate);
+      handed.written.set(
+        candidate,
+        writeProjectRecordFile(candidate, recordOf(cached, handed.evidenced)),
+      );
       record = candidate;
       break;
     } catch (error) {
@@ -126,7 +134,13 @@ export function notifyProjectRecord(
     return false;
   }
   const registered = handed.inputs;
-  project.register({ failed, inputs: () => registered, record });
+  const digest = handed.written.get(record);
+  project.register({
+    ...(digest === undefined ? {} : { digest }),
+    failed,
+    inputs: () => registered,
+    record,
+  });
   return true;
 }
 
