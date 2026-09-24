@@ -36,7 +36,8 @@ interface IAnswer {
   }[];
 }
 
-interface IEntry extends IAnswer {
+interface IEntry extends Omit<IAnswer, "pluginSources"> {
+  pluginSources: Record<string, { state: string }>;
   version: string;
 }
 

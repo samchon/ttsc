@@ -18,6 +18,7 @@
 export * from "../plugin/internal/source/collectPluginSourceFiles";
 export * from "../plugin/internal/source/pluginBuildVersions";
 export * from "../plugin/internal/source/pluginSourceCovers";
+export * from "../plugin/internal/source/pluginSourceFilesSignature";
 export * from "../plugin/internal/source/pluginSourceDigest";
 export * from "../plugin/internal/source/pluginSourceState";
 export * from "../plugin/internal/source/pluginSourceStateHolds";

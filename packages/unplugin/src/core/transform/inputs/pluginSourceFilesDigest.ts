@@ -1,8 +1,7 @@
-import crypto from "node:crypto";
 import path from "node:path";
 import {
-  collectPluginSourceFiles,
   pluginSourceDigest,
+  pluginSourceFilesSignature,
 } from "ttsc/plugin-source";
 
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
@@ -24,11 +23,15 @@ import { inputMetadataEvidence } from "./inputMetadataEvidence";
  * matches the one taken around the read that proved it, and the filesystem's
  * clock had provably left each stamp's tick before that read
  * (`stampSeparable`), no write since can have kept the signature. The signature
- * here covers exactly the files the digest reads (`collectPluginSourceFiles`),
- * each by its path relative to the directory, so a file added, removed, or
+ * covers exactly the files the digest reads, each by its path relative to the
+ * directory (`pluginSourceFilesSignature`), so a file added, removed, or
  * renamed moves it as an edit does. A digest is kept only when the signature
  * taken before its read equals the one taken after and every stamp in it is
- * separable; otherwise the next proof reads the files again.
+ * separable, and reused only while the signature taken now equals it and is
+ * separable from the clock reference minted now: after a clock rollback a write
+ * can land in the tick of a recorded stamp, which only a fresh reference
+ * answers for, as the project walk re-checks its own
+ * (`collectProjectInputSnapshot`).
  *
  * @param directory The source directory.
  * @param filesystem The operations whose clock reference the caller refreshed
@@ -40,13 +43,18 @@ export function pluginSourceFilesDigest(
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
 ): string {
   const key = path.resolve(directory);
-  const before = filesSignature(key, filesystem);
+  const evidence = (file: string) => inputMetadataEvidence(file, filesystem);
+  const before = pluginSourceFilesSignature(key, evidence);
   const known = DIGESTS.get(key);
-  if (before !== undefined && known?.signature === before.signature) {
+  if (
+    before !== undefined &&
+    before.separable &&
+    known?.signature === before.signature
+  ) {
     return known.digest;
   }
   const digest = pluginSourceDigest(key);
-  const after = filesSignature(key, filesystem);
+  const after = pluginSourceFilesSignature(key, evidence);
   if (
     before !== undefined &&
     after !== undefined &&
@@ -58,26 +66,6 @@ export function pluginSourceFilesDigest(
     DIGESTS.delete(key);
   }
   return digest;
-}
-
-/**
- * The metadata of every file the digest of `directory` reads, and whether each
- * stamp in it is separable, or `undefined` when a listed file cannot be
- * stated.
- */
-function filesSignature(
-  directory: string,
-  filesystem: TtscTransformFilesystemOperations,
-): { separable: boolean; signature: string } | undefined {
-  const hash = crypto.createHash("sha256");
-  let separable = true;
-  for (const file of collectPluginSourceFiles(directory)) {
-    const evidence = inputMetadataEvidence(file, filesystem);
-    if (evidence === undefined) return undefined;
-    hash.update(`${path.relative(directory, file)}\0${evidence.signature}\n`);
-    separable &&= evidence.separable;
-  }
-  return { separable, signature: hash.digest("hex") };
 }
 
 /**

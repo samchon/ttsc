@@ -1,9 +1,11 @@
 import fs from "node:fs";
 
 import { CapabilityResolutionFormat } from "./CapabilityResolutionFormat";
+import type { ITtscCapabilityPluginSource } from "./ITtscCapabilityPluginSource";
 import type { ITtscCapabilityResolutionEntry } from "./ITtscCapabilityResolutionEntry";
 import { hashHostInputPaths } from "./load/hashHostInputPaths";
 import { realpathHostInputPaths } from "./load/realpathHostInputPaths";
+import { pluginSourceFilesSignature } from "./source/pluginSourceFilesSignature";
 import { pluginSourceStateHolds } from "./source/pluginSourceStateHolds";
 
 /**
@@ -21,7 +23,9 @@ import { pluginSourceStateHolds } from "./source/pluginSourceStateHolds";
  * Proving a plugin source reads the build environment, a `go env` run, once per
  * process (`pluginSourceStateHolds`), which is what a walk that finds the
  * binary costs as well: a hit saves the descriptors' evaluation and discovery,
- * not the environment the binary path stands for.
+ * not the environment the binary path stands for. The source files themselves
+ * are read again only when their metadata moved since the entry was written
+ * (`ITtscCapabilityPluginSource`).
  */
 export function readCapabilityResolution(options: {
   cwd: string;
@@ -57,17 +61,50 @@ export function readCapabilityResolution(options: {
   // module root, linked package, or contributor that moved, or another build
   // environment, names a binary the build would no longer produce, while the
   // old one still exists (samchon/ttsc#1492).
-  for (const [directory, state] of Object.entries(entry.pluginSources))
-    if (!pluginSourceProven(directory, state)) return null;
+  const sources = Object.entries(entry.pluginSources);
+  const evidence = sources.some(([, source]) => source.signature !== undefined)
+    ? CapabilityResolutionFormat.sourceEvidence(
+        CapabilityResolutionFormat.clockReference(file),
+      )
+    : undefined;
+  for (const [directory, source] of sources)
+    if (!pluginSourceProven(directory, source, evidence)) return null;
   for (const plugin of entry.plugins)
     if (!fs.existsSync(plugin.binary)) return null;
   return entry;
 }
 
-/** Whether a plugin source still holds its recorded state; unreadable is no. */
-function pluginSourceProven(directory: string, state: string): boolean {
+/**
+ * Whether a plugin source still holds its recorded state; unreadable is no.
+ *
+ * The recorded digest stands in for reading the files while their metadata
+ * signature is the recorded one and every stamp is separable from a reference
+ * minted now: after a clock rollback a write can land in a recorded stamp's
+ * tick, which only a fresh reference rules out. The build environment is proven
+ * either way.
+ */
+function pluginSourceProven(
+  directory: string,
+  source: ITtscCapabilityPluginSource,
+  evidence:
+    | ReturnType<typeof CapabilityResolutionFormat.sourceEvidence>
+    | undefined,
+): boolean {
   try {
-    return pluginSourceStateHolds(directory, state);
+    const now =
+      source.signature === undefined || evidence === undefined
+        ? undefined
+        : pluginSourceFilesSignature(directory, evidence);
+    return pluginSourceStateHolds(
+      directory,
+      source.state,
+      now !== undefined &&
+        now.separable &&
+        now.signature === source.signature &&
+        source.digest !== undefined
+        ? { sourceDigest: source.digest }
+        : {},
+    );
   } catch {
     return false;
   }
@@ -84,9 +121,7 @@ function isEntry(value: unknown): value is ITtscCapabilityResolutionEntry {
     isRecord(entry.hostInputHashes) &&
     isRecord(entry.hostInputRealpaths) &&
     isRecord(entry.pluginSources) &&
-    Object.values(entry.pluginSources).every(
-      (state) => typeof state === "string",
-    ) &&
+    Object.values(entry.pluginSources).every(isPluginSource) &&
     typeof entry.manifest === "string" &&
     (entry.projectContext === null ||
       typeof entry.projectContext === "string") &&
@@ -103,6 +138,17 @@ function isEntry(value: unknown): value is ITtscCapabilityResolutionEntry {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Whether a recorded plugin source has a state, and a digest with its signature
+ * or neither.
+ */
+function isPluginSource(value: unknown): value is ITtscCapabilityPluginSource {
+  if (!isRecord(value) || typeof value.state !== "string") return false;
+  return value.digest === undefined && value.signature === undefined
+    ? true
+    : typeof value.digest === "string" && typeof value.signature === "string";
 }
 
 /**

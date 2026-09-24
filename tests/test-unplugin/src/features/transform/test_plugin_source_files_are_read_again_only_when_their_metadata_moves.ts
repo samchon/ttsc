@@ -29,6 +29,10 @@ import { pluginSourceFilesDigest } from "../../../../../packages/unplugin/lib/co
  * 3. Mint a newer clock reference, and assert the digest is read once and then
  *    kept again.
  * 4. Add a file, and remove one, and assert each is read again.
+ * 5. Keep the digest, then leave the filesystem with no clock reference, as a
+ *    failed refresh does, and assert the unchanged signature is not reused: a
+ *    reference minted now is what rules out a write that a clock rollback put
+ *    into a recorded stamp's tick.
  */
 export async function test_plugin_source_files_are_read_again_only_when_their_metadata_moves(): Promise<void> {
   const root = fs.realpathSync.native(
@@ -101,6 +105,17 @@ export async function test_plugin_source_files_are_read_again_only_when_their_me
     const removed = digest();
     assert.equal(removed.read, 3, "a removed file moves it too");
     assert.equal(removed.value, pluginSourceDigest(source));
+
+    // 5. Kept, then no reference: the unchanged signature is not reused.
+    refreshFilesystemClockReference(reference, DEFAULT_FILESYSTEM_OPERATIONS);
+    digest();
+    assert.equal(digest().read, 0, "kept under a reference");
+    refreshFilesystemClockReference(undefined, DEFAULT_FILESYSTEM_OPERATIONS);
+    assert.equal(
+      digest().read,
+      3,
+      "a signature no reference separates is not reused, as after a clock rollback",
+    );
   } finally {
     fs.readFileSync = original;
   }

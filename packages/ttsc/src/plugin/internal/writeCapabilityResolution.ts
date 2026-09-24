@@ -2,10 +2,14 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { CapabilityResolutionFormat } from "./CapabilityResolutionFormat";
+import type { ITtscCapabilityPluginSource } from "./ITtscCapabilityPluginSource";
 import type { ITtscCapabilityResolutionEntry } from "./ITtscCapabilityResolutionEntry";
 import type { ITtscCapabilityResolutionPlugin } from "./ITtscCapabilityResolutionPlugin";
 import { hashHostInputPaths } from "./load/hashHostInputPaths";
 import { realpathHostInputPaths } from "./load/realpathHostInputPaths";
+import { pluginSourceDigest } from "./source/pluginSourceDigest";
+import { pluginSourceFilesSignature } from "./source/pluginSourceFilesSignature";
+import { pluginSourceState } from "./source/pluginSourceState";
 
 /**
  * Record the answer and the state it was true for.
@@ -44,12 +48,20 @@ export function writeCapabilityResolution(
     ),
   ].sort();
   if (hostInputs.length === 0) return;
+  const evidence = CapabilityResolutionFormat.sourceEvidence(
+    CapabilityResolutionFormat.clockReference(file),
+  );
   const entry: ITtscCapabilityResolutionEntry = {
     hostInputHashes: hashHostInputPaths(hostInputs),
     hostInputRealpaths: realpathHostInputPaths(hostInputs),
     hostInputs,
     manifest: answer.manifest,
-    pluginSources: { ...answer.pluginSources },
+    pluginSources: Object.fromEntries(
+      Object.entries(answer.pluginSources).map(([directory, state]) => [
+        directory,
+        recordPluginSource(directory, state, evidence),
+      ]),
+    ),
     plugins: answer.plugins.map((plugin) => ({
       binary: plugin.binary,
       capabilities: { ...plugin.capabilities },
@@ -68,4 +80,40 @@ export function writeCapabilityResolution(
   } catch {
     return;
   }
+}
+
+/**
+ * A plugin source as the entry records it: its state, with the digest of its
+ * files and the metadata signature they were read under when a read can vouch
+ * for both (`ITtscCapabilityPluginSource`).
+ *
+ * The digest is read here, between two signatures, because the load's own
+ * reading is not one this writer can place in time: the digest is kept only
+ * when both signatures agree, every stamp was separable from a reference minted
+ * before the read, and the digest gives the very state the load reported, so
+ * the entry never vouches for sources the binary was not built from. Anything
+ * else records the state alone, which a read proves in full.
+ */
+function recordPluginSource(
+  directory: string,
+  state: string,
+  evidence: ReturnType<typeof CapabilityResolutionFormat.sourceEvidence>,
+): ITtscCapabilityPluginSource {
+  try {
+    const before = pluginSourceFilesSignature(directory, evidence);
+    const digest = pluginSourceDigest(directory);
+    const after = pluginSourceFilesSignature(directory, evidence);
+    if (
+      before !== undefined &&
+      after !== undefined &&
+      before.signature === after.signature &&
+      after.separable &&
+      pluginSourceState(directory, { sourceDigest: digest }) === state
+    ) {
+      return { digest, signature: after.signature, state };
+    }
+  } catch {
+    // A source that cannot be read now is proven in full when the entry is.
+  }
+  return { state };
 }

@@ -1,3 +1,4 @@
+import type { ITtscCapabilityPluginSource } from "./ITtscCapabilityPluginSource";
 import type { ITtscCapabilityResolutionPlugin } from "./ITtscCapabilityResolutionPlugin";
 
 /**
@@ -30,7 +31,7 @@ export interface ITtscCapabilityResolutionEntry {
    * proven by the build's own rule (`pluginSourceStateHolds`), are what notices
    * (samchon/ttsc#1492).
    */
-  pluginSources: Record<string, string>;
+  pluginSources: Record<string, ITtscCapabilityPluginSource>;
   /** The `--plugins-json` payload, verbatim. */
   manifest: string;
   /** The `--project-context-json` payload, or `null` when none was wanted. */
