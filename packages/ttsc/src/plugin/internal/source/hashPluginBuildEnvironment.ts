@@ -20,7 +20,8 @@ import { spawnGoTool } from "./spawnGoTool";
  * for the build and for every consumer that proves the build's output
  * (samchon/ttsc#1493).
  *
- * @param hash The hash the environment is written into.
+ * @param hash What the environment's lines are written into: the key's hash, or
+ *   one that digests the environment alone, or both at once.
  * @param goBinary The Go tool the build runs, resolved for `directory`
  *   (`GoToolResolution.resolveGoToolForBuild`), or `undefined` to key on the
  *   environment's own values alone.
@@ -29,7 +30,7 @@ import { spawnGoTool } from "./spawnGoTool";
  * @param filesystem Reads GOROOT's files for its content identity.
  */
 export function hashPluginBuildEnvironment(
-  hash: crypto.Hash,
+  hash: { update(data: string): unknown },
   goBinary: string | undefined,
   directory: string,
   env: NodeJS.ProcessEnv,
@@ -285,7 +286,7 @@ function hashFile(file: string): string {
 }
 
 function hashGoBuildEnvironment(
-  hash: crypto.Hash,
+  hash: { update(data: string): unknown },
   goBinary: string | undefined,
   cwd: string,
   env: NodeJS.ProcessEnv,
@@ -394,7 +395,7 @@ function firstCommandToken(command: string): string | null {
 }
 
 function hashExternalGoBuildEnvironment(
-  hash: crypto.Hash,
+  hash: { update(data: string): unknown },
   env: NodeJS.ProcessEnv,
 ): void {
   for (const key of EXTERNAL_GO_BUILD_ENV_KEYS) {

@@ -42,6 +42,13 @@ export function buildSourcePlugin(opts: {
   cacheDir?: string;
   contributors?: readonly ITtscBuildContributor[];
   env?: NodeJS.ProcessEnv;
+  /**
+   * Digests of the environment each build directory is keyed on, shared by
+   * every build of the load and filled with this build's (`computeCacheKey`),
+   * so the load reports its plugin sources' states from the same reading
+   * (samchon/ttsc#1493).
+   */
+  environmentDigests?: Map<string, string>;
   filesystem?: Partial<SourceBuildFilesystemOperations>;
   label?: string;
   overlayDirs?: readonly string[];
@@ -75,6 +82,9 @@ export function buildSourcePlugin(opts: {
     filesystem: opts.filesystem,
     goBinary,
     overlayDirs,
+    ...(opts.environmentDigests === undefined
+      ? {}
+      : { environmentDigests: opts.environmentDigests }),
     ...(opts.sourceDigests === undefined
       ? {}
       : { sourceDigests: opts.sourceDigests }),

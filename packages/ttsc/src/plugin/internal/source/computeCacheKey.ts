@@ -18,13 +18,15 @@ import { pluginSourceDigest } from "./pluginSourceDigest";
  * affect the key.
  *
  * Each source directory enters the key as its digest (`pluginSourceDigest`),
- * the state the transform envelope reports for each directory a plugin
- * supplied, so what a consumer proves is exactly what the binary was keyed on
- * (samchon/ttsc#1487). `sourceDigests` carries the digests one load already
- * took: every build of the load keys on one reading of each directory, and the
- * load reports those readings. The environment enters through
- * `hashPluginBuildEnvironment`, the rule that reported state takes it from too
- * (samchon/ttsc#1493).
+ * which the transform envelope reports, with the environment below, as the
+ * state of each directory a plugin supplied (`pluginSourceState`), so what a
+ * consumer proves is exactly what the binary was keyed on (samchon/ttsc#1487).
+ * `sourceDigests` carries the digests one load already took: every build of the
+ * load keys on one reading of each directory, and the load reports those
+ * readings. The environment enters through `hashPluginBuildEnvironment`, the
+ * rule that reported state takes it from too, and `environmentDigests` carries
+ * the digest of each build directory's, so the load reports it without a second
+ * `go env` run (samchon/ttsc#1493).
  *
  * Exposed for testing and for the `ttsc cache` CLI command.
  */
@@ -33,6 +35,12 @@ export function computeCacheKey(inputs: {
   dir: string;
   entry: string;
   env?: NodeJS.ProcessEnv;
+  /**
+   * Digests of the environment each build directory is keyed on
+   * (`pluginBuildEnvironment`), filled with this build's, so the load reports
+   * its plugin sources' states without reading the environment again.
+   */
+  environmentDigests?: Map<string, string>;
   filesystem?: Partial<SourceBuildFilesystemOperations>;
   goBinary?: string;
   overlayDirs?: readonly string[];
@@ -62,7 +70,25 @@ export function computeCacheKey(inputs: {
   hash.update(`tsgo=${inputs.tsgoVersion}\n`);
   hash.update(`platform=${process.platform}/${process.arch}\n`);
   hash.update(`entry=${inputs.entry}\n`);
-  hashPluginBuildEnvironment(hash, goBinary, inputs.dir, env, filesystem);
+  // The same lines go into the key and into a digest of the environment alone,
+  // which is what `pluginBuildEnvironment` reads for this directory.
+  const environment = crypto.createHash("sha256");
+  hashPluginBuildEnvironment(
+    {
+      update: (data: string) => {
+        hash.update(data);
+        environment.update(data);
+      },
+    },
+    goBinary,
+    inputs.dir,
+    env,
+    filesystem,
+  );
+  inputs.environmentDigests?.set(
+    path.resolve(inputs.dir),
+    environment.digest("hex"),
+  );
   hashSourceDirectory(hash, "plugin", inputs.dir, inputs.sourceDigests);
   for (const [index, dir] of [...(inputs.overlayDirs ?? [])].sort().entries()) {
     hashSourceDirectory(hash, `overlay:${index}`, dir, inputs.sourceDigests);

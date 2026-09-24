@@ -286,6 +286,9 @@ export function loadProjectPlugins(options: {
   // One reading of each source directory, shared by every build below and
   // reported as the state the binaries were keyed on.
   const sourceDigests = new Map<string, string>();
+  // And one reading of the environment each build directory is keyed on, which
+  // a plugin module root's state reports as it is (samchon/ttsc#1493).
+  const environmentDigests = new Map<string, string>();
   const builtTransformHosts = new Map<object, string>();
   for (const record of transformHosts) {
     builtTransformHosts.set(
@@ -297,6 +300,7 @@ export function loadProjectPlugins(options: {
         env: effectiveEnv,
         pluginName: record.label,
         source: record.source,
+        environmentDigests,
         sourceDigests,
         ttscVersion,
         tsgoVersion,
@@ -313,6 +317,7 @@ export function loadProjectPlugins(options: {
           label: "linked plugin host",
           pluginName: "linked-plugin-host",
           source: path.join(ttscPackageRoot(), "cmd", "utility-host"),
+          environmentDigests,
           sourceDigests,
           ttscVersion,
           tsgoVersion,
@@ -335,6 +340,7 @@ export function loadProjectPlugins(options: {
               env: effectiveEnv,
               pluginName: record.label,
               source: record.source,
+              environmentDigests,
               sourceDigests,
               ttscVersion,
               tsgoVersion,
@@ -378,7 +384,13 @@ export function loadProjectPlugins(options: {
         .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
         .map(([directory, sourceDigest]) => [
           directory,
-          pluginSourceState(directory, { env: effectiveEnv, sourceDigest }),
+          pluginSourceState(directory, {
+            env: effectiveEnv,
+            sourceDigest,
+            ...(environmentDigests.has(directory)
+              ? { environment: environmentDigests.get(directory)! }
+              : {}),
+          }),
         ]),
     ),
     project,

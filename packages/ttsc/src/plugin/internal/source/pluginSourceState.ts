@@ -32,21 +32,28 @@ import { processPluginBuildEnvironment } from "./processPluginBuildEnvironment";
  *   is read fresh.
  * @param options.sourceDigest The directory's `pluginSourceDigest`, when the
  *   caller already read it.
+ * @param options.environment The directory's `pluginBuildEnvironment`, when the
+ *   caller already read it, as a plugin build's key does.
  * @returns The state, as lowercase hex.
  * @throws When a listed source file cannot be read, as the build itself would.
  */
 export function pluginSourceState(
   directory: string,
-  options: { env?: NodeJS.ProcessEnv; sourceDigest?: string } = {},
+  options: {
+    env?: NodeJS.ProcessEnv;
+    environment?: string;
+    sourceDigest?: string;
+  } = {},
 ): string {
   return crypto
     .createHash("sha256")
     .update(
       `source=${options.sourceDigest ?? pluginSourceDigest(directory)}\n` +
         `environment=${
-          options.env === undefined
+          options.environment ??
+          (options.env === undefined
             ? processPluginBuildEnvironment(directory)
-            : pluginBuildEnvironment(directory, options.env)
+            : pluginBuildEnvironment(directory, options.env))
         }\n`,
     )
     .digest("hex");
