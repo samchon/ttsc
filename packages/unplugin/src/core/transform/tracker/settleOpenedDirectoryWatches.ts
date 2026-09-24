@@ -34,5 +34,3 @@ export async function settleOpenedDirectoryWatches(
   clearTimeout(timer);
   if (!live) tracker.failed = true;
 }
-
-/** How long a tracker waits for its watches to go live. */
