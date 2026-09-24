@@ -1,3 +1,4 @@
+import { refreshScratchClockReference } from "../clock/refreshScratchClockReference";
 import { envelopeDerivation } from "../envelope/envelopeDerivation";
 import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransformFilesystemOperations";
 import { pathIdentityKey } from "../filesystem/pathIdentityKey";
@@ -28,7 +29,11 @@ import { projectWalkFailureFingerprint } from "./projectWalkFailureFingerprint";
  * confirmed once per event-loop turn and shared by that turn's deliveries, and
  * it is proven by metadata first, as live validation does: a file or input
  * whose separable signature still matches carries its recorded state and is not
- * read again (samchon/ttsc#1398).
+ * read again (samchon/ttsc#1398). Separable means against a clock reference the
+ * confirmation mints itself before it reads, as a delivery does, so a write a
+ * clock rollback put into a recorded stamp's tick is read. The generation's own
+ * probe directory was released with it, so the reference is minted in scratch
+ * storage outside the project (`refreshScratchClockReference`).
  *
  * A write made in the same turn as a confirmation is seen from the next turn
  * on. Every host delivers a changed module from a later turn, after its own
@@ -75,6 +80,7 @@ function environmentChanged(
   validation: TtscFailedGenerationValidation,
   filesystem: TtscTransformFilesystemOperations,
 ): boolean {
+  refreshScratchClockReference(validation.cached.projectRoot, filesystem);
   const identities = envelopeDerivation(validation.cached).identityContext;
   const current = collectProjectInputSnapshot(
     validation.cached.projectRoot,

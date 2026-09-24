@@ -18,10 +18,20 @@ import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransf
  * Tools may assign modification times, and a filesystem clock can move
  * backwards independently of the process clock. Neither a passive historical
  * maximum nor `Date.now()` proves what stamp a write would mint now. The probe
- * is therefore rewritten immediately before every validation that may reuse a
+ * is therefore rewritten immediately before every proof that may reuse a
  * content signature, and its previous reference is cleared before the write. A
  * failed refresh or a different reporting device declines the optimization and
- * retains the content comparison (samchon/ttsc#1344).
+ * retains the content comparison (samchon/ttsc#1344). A generation's capture
+ * and deliveries rewrite the probe it retains
+ * (`refreshFilesystemClockReference`); a proof that holds no generation, a
+ * failed generation's replay, a record's proof at a build start, and the
+ * observer's proof of a plugin source, mints in scratch storage it removes at
+ * once (`refreshScratchClockReference`).
+ *
+ * Proofs share one reference per operations object and may interleave across an
+ * await. That is sound because separability is decided when an input's metadata
+ * is taken before its read (`inputMetadataEvidence`): whatever reference is
+ * current then was minted before that read, whichever proof minted it.
  *
  * The probe lives in an adapter-owned temporary directory outside the project.
  * That directory may be on another volume, such as `C:` when a project lives on

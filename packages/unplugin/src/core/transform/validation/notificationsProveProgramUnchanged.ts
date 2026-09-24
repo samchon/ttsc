@@ -1,5 +1,7 @@
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { resultFilesystem } from "../cache/resultFilesystem";
+import { TRANSFORM_CLOCK_REFERENCE_DIRECTORIES } from "../clock/TRANSFORM_CLOCK_REFERENCE_DIRECTORIES";
+import { refreshFilesystemClockReference } from "../clock/refreshFilesystemClockReference";
 import { isProjectWalkPath } from "../project/isProjectWalkPath";
 import { notificationsProveMembership } from "../tracker/notificationsProveMembership";
 import { matchesUniversalHostInputs } from "./matchesUniversalHostInputs";
@@ -50,9 +52,18 @@ export function notificationsProveProgramUnchanged(
       }
     }
   }
-  return (
-    cached.projectMutationTracker !== undefined &&
-    cached.hostInputValidation !== undefined &&
-    matchesUniversalHostInputs(cached, cached.hostInputValidation)
+  if (
+    cached.projectMutationTracker === undefined ||
+    cached.hostInputValidation === undefined
+  ) {
+    return false;
+  }
+  // The universal inputs no tracker vouches for are proven by metadata, which
+  // stands for content only against a reference minted since any rollback, as
+  // every other delivery proof mints before it reads.
+  refreshFilesystemClockReference(
+    TRANSFORM_CLOCK_REFERENCE_DIRECTORIES.get(cached),
+    resultFilesystem(cached.result),
   );
+  return matchesUniversalHostInputs(cached, cached.hostInputValidation);
 }
