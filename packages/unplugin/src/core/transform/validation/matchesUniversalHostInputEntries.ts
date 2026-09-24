@@ -8,10 +8,11 @@ import { MISSING_INPUT_STATE } from "./MISSING_INPUT_STATE";
 import type { TtscHostInputValidation } from "./TtscHostInputValidation";
 import { inputSignatureSlot } from "./inputSignatureSlot";
 import { matchesRecordedInput } from "./matchesRecordedInput";
+import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
 
 /**
  * Validate the universal inputs that exist, by metadata first and content only
- * when that moved.
+ * when that moved, and not at all where the tracker proves them unchanged.
  *
  * Every rejection here is evidence of a change — a vanished path, a moved
  * physical target, a strict blocker's metadata, differing content — so this
@@ -24,6 +25,14 @@ export function matchesUniversalHostInputEntries(
 ): boolean {
   const filesystem = resultFilesystem(cached.result);
   for (const entry of validation.entries.values()) {
+    // An entry whose tracker proves it unchanged needs no read, whatever the
+    // other inputs' watches can vouch for: one input a watch cannot prove, a
+    // plugin source outside the project on macOS (samchon/ttsc#1453), must not
+    // send every other back to the disk.
+    if (
+      trackerProvesInputUnchanged(cached.hostInputMutationTracker, entry.path)
+    )
+      continue;
     const evidence = inputMetadataEvidence(entry.path, filesystem);
     if (
       entry.signature !== undefined &&

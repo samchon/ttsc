@@ -10,6 +10,13 @@ import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
  * module. Existing paths use the same nanosecond metadata manifest that guards
  * GOROOT identity memoization; missing probes are grouped by the nearest
  * existing directory and checked through one exact membership listing.
+ *
+ * While the tracker proves every input the manifest covers unchanged, nothing
+ * is read. Otherwise each input is proven on its own: an entry or a plugin
+ * source its tracker proves is skipped, and the rest are read. One input a
+ * watch cannot prove, a plugin source outside the project on macOS, whose
+ * stream no probe proves delivered (samchon/ttsc#1453), used to send every
+ * universal input back to the disk on every delivery.
  */
 export function matchesUniversalHostInputs(
   cached: TtscCachedProjectTransform,
