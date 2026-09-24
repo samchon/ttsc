@@ -44,19 +44,25 @@ interface IKey {
  * module on every read, where a graph session reads it on every republish. The
  * entry records the digest with the metadata signature of exactly the files it
  * read, taken when every stamp had provably left its clock tick, and a read
- * whose signature still matches hands the digest to the proof. It never trusts
- * a signature it cannot separate from a reference minted at the read.
+ * whose signature still matches hands the recorded digest to the proof. What
+ * the read used is observed through the entry itself: a recorded digest that
+ * does not describe the files refutes the entry exactly when the read trusted
+ * it, and changes nothing when the read went to the files.
  *
  * 1. Record an entry for a module whose stamps lie in the past, and assert a read
- *    answers without reading any of its files.
- * 2. Rewrite a file with the same bytes, which moves its metadata alone, and
- *    assert the read still answers, now reading every file.
- * 3. Record again once the stamps settle, and assert no file is read.
+ *    answers from it.
+ * 2. Replace the recorded digest with one no file produces, keeping its signature,
+ *    and assert the read refuses the entry: it took the digest rather than
+ *    reading the files.
+ * 3. Record again, rewrite a file with the same bytes, which moves its metadata
+ *    alone, replace the recorded digest again, and assert the read answers: it
+ *    read the files, which still give the recorded state.
  * 4. Edit a file, and assert the read refuses the entry.
  */
 export const test_capabilityresolutioncache_reads_plugin_sources_only_when_their_metadata_moved =
   (): void => {
     const cwd = TestProject.tmpdir("ttsc-capability-source-reads-");
+    const cache = path.join(cwd, "cache");
     const module = path.join(cwd, "plugin-module");
     const binary = path.join(cwd, "plugin.exe");
     const tsconfig = path.join(cwd, "tsconfig.json");
@@ -80,7 +86,7 @@ export const test_capabilityresolutioncache_reads_plugin_sources_only_when_their
     };
     const key: IKey = {
       cwd,
-      env: { TTSC_CACHE_DIR: path.join(cwd, "cache") },
+      env: { TTSC_CACHE_DIR: cache },
       tsconfig: "tsconfig.json",
       version: "1.2.3",
     };
@@ -92,48 +98,53 @@ export const test_capabilityresolutioncache_reads_plugin_sources_only_when_their
         plugins: [{ binary, capabilities: { graphNodes: true } }],
         projectContext: null,
       });
-    const reads: string[] = [];
-    const original = fs.readFileSync;
-    /** Read the entry, and count the module's files that read opened. */
-    const read = (): { answered: boolean; read: number } => {
-      reads.length = 0;
-      fs.readFileSync = ((
-        file: fs.PathOrFileDescriptor,
-        ...rest: unknown[]
-      ) => {
-        if (typeof file === "string" && file.startsWith(module))
-          reads.push(file);
-        return (original as (...args: unknown[]) => unknown)(file, ...rest);
-      }) as typeof fs.readFileSync;
-      try {
-        return {
-          answered: readCapabilityResolution(key) !== null,
-          read: reads.length,
-        };
-      } finally {
-        fs.readFileSync = original;
-      }
+    const answers = (): boolean => readCapabilityResolution(key) !== null;
+    /** Replace the recorded digest with one that describes no file. */
+    const misrecord = (): void => {
+      const file = entryFile(cache);
+      const entry = JSON.parse(fs.readFileSync(file, "utf8")) as {
+        pluginSources: Record<string, { digest?: string; signature?: string }>;
+      };
+      const source = entry.pluginSources[module]!;
+      assert.equal(typeof source.signature, "string", "a signature was kept");
+      source.digest = "0".repeat(64);
+      fs.writeFileSync(file, JSON.stringify(entry), "utf8");
     };
 
-    // 1. A hit that reads no source file.
+    // 1. A hit.
     settle();
     record();
-    assert.deepEqual(read(), { answered: true, read: 0 });
+    assert.equal(answers(), true);
 
-    // 2. Metadata moved, bytes did not: the files are read, and the answer
-    // stands.
+    // 2. The hit trusted the recorded digest: a wrong one refutes it.
+    misrecord();
+    assert.equal(answers(), false, "the read went to the files");
+
+    // 3. Moved metadata sends the read to the files, whatever was recorded.
+    settle();
+    record();
     write(files[1]!, "package main\n");
-    assert.deepEqual(read(), { answered: true, read: files.length });
-
-    // 3. Settled and recorded again: no read.
-    settle();
-    record();
-    assert.deepEqual(read(), { answered: true, read: 0 });
+    misrecord();
+    assert.equal(answers(), true, "the read trusted a digest its files moved");
 
     // 4. A real edit refuses the entry.
+    settle();
+    record();
     write(files[2]!, "package mark\n\n// edited\n");
-    assert.equal(read().answered, false);
+    assert.equal(answers(), false);
   };
+
+/** The single entry the fixture writes, whatever its key hashes to. */
+function entryFile(cache: string): string {
+  const directory = path.join(cache, "capabilities");
+  const entries = fs.readdirSync(directory).filter((n) => n.endsWith(".json"));
+  assert.equal(
+    entries.length,
+    1,
+    `expected one entry, got ${entries.join(",")}`,
+  );
+  return path.join(directory, entries[0]!);
+}
 
 function write(file: string, content: string): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });

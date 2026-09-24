@@ -6,6 +6,7 @@ import { pluginSourceDigest } from "ttsc/plugin-source";
 
 import { refreshFilesystemClockReference } from "../../../../../packages/unplugin/lib/core/transform/clock/refreshFilesystemClockReference.mjs";
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/lib/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS.mjs";
+import type { TtscTransformFilesystemOperations } from "../../../../../packages/unplugin/lib/core/transform/filesystem/TtscTransformFilesystemOperations.mjs";
 import { pluginSourceFilesDigest } from "../../../../../packages/unplugin/lib/core/transform/inputs/pluginSourceFilesDigest.mjs";
 
 /**
@@ -20,15 +21,21 @@ import { pluginSourceFilesDigest } from "../../../../../packages/unplugin/lib/co
  * stamp provably left its clock tick before the read, so no later write can
  * keep the metadata; the rule the universal entries' signatures follow.
  *
+ * Whether the digest was kept or read is observed through the filesystem the
+ * adapter is handed: an embedder's operations whose metadata holds still while
+ * the bytes change. A kept digest then still describes the old bytes, and a
+ * read one follows the new, as ttsc's own digest does.
+ *
  * 1. Write a source whose stamps lie in the past, mint the clock reference, and
- *    assert the first digest reads every file and equals ttsc's, and the next
- *    reads none.
- * 2. Edit a file, and assert the next digest reads the files and follows the edit,
- *    and the one after reads them again: the new stamp is not yet separable
- *    from the clock reference.
+ *    assert the digest equals ttsc's. Hold the metadata, edit a file, and
+ *    assert the digest is kept.
+ * 2. Release the metadata, and assert the digest follows the edit. Hold it again
+ *    and edit again, and assert the digest follows that edit too: the edited
+ *    stamp is not yet separable from the clock reference, so nothing was kept.
  * 3. Mint a newer clock reference, and assert the digest is read once and then
  *    kept again.
- * 4. Add a file, and remove one, and assert each is read again.
+ * 4. With every present file's metadata held, add a file, and remove one, and
+ *    assert each is read again: the file set is part of the signature.
  * 5. Keep the digest, then leave the filesystem with no clock reference, as a
  *    failed refresh does, and assert the unchanged signature is not reused: a
  *    reference minted now is what rules out a write that a clock rollback put
@@ -46,6 +53,7 @@ export async function test_plugin_source_files_are_read_again_only_when_their_me
     "internal/rules/rule.go": "package rules\n",
     "main.go": "package main\n\nfunc main() {}\n",
   });
+  const main = path.join(source, "main.go");
   const files = () =>
     fs
       .readdirSync(source, { recursive: true, withFileTypes: true })
@@ -56,67 +64,84 @@ export async function test_plugin_source_files_are_read_again_only_when_their_me
     const past = new Date(Date.now() - 3_600_000);
     for (const file of files()) fs.utimesSync(file, past, past);
   };
-  const reads: string[] = [];
-  const original = fs.readFileSync;
-  fs.readFileSync = ((file: fs.PathOrFileDescriptor, ...rest: unknown[]) => {
-    if (typeof file === "string" && file.startsWith(source)) reads.push(file);
-    return (original as (...args: unknown[]) => unknown)(file, ...rest);
-  }) as typeof fs.readFileSync;
-  /** Take the digest, and how many files it read. */
-  const digest = () => {
-    reads.length = 0;
-    const value = pluginSourceFilesDigest(
-      source,
-      DEFAULT_FILESYSTEM_OPERATIONS,
-    );
-    return { read: reads.length, value };
+
+  const held = new Map<string, fs.BigIntStats>();
+  const filesystem: TtscTransformFilesystemOperations = {
+    ...DEFAULT_FILESYSTEM_OPERATIONS,
+    lstat: (location) =>
+      held.get(path.resolve(location)) ??
+      DEFAULT_FILESYSTEM_OPERATIONS.lstat(location),
   };
-  try {
-    // 1. Read once, then kept.
-    settle();
-    refreshFilesystemClockReference(reference, DEFAULT_FILESYSTEM_OPERATIONS);
-    const first = digest();
-    assert.equal(first.read, 3, "every file is read once");
-    assert.equal(first.value, pluginSourceDigest(source));
-    assert.deepEqual(digest(), { read: 0, value: first.value }, "then kept");
+  /** Hold every present file's metadata where it stands now. */
+  const hold = () => {
+    held.clear();
+    for (const file of files())
+      held.set(path.resolve(file), DEFAULT_FILESYSTEM_OPERATIONS.lstat(file));
+  };
+  const release = () => held.clear();
+  const mint = () => refreshFilesystemClockReference(reference, filesystem);
+  const digest = () => pluginSourceFilesDigest(source, filesystem);
+  const edit = (content: string) => fs.appendFileSync(main, content);
 
-    // 2. An edit is read, and its stamp is not yet separable.
-    fs.appendFileSync(path.join(source, "main.go"), "// edited\n");
-    const edited = digest();
-    assert.equal(edited.read, 3, "an edit moves the metadata");
-    assert.notEqual(edited.value, first.value);
-    assert.equal(edited.value, pluginSourceDigest(source));
-    assert.equal(digest().read, 3, "a stamp inside the reference's tick");
+  // 1. Read, then kept while the metadata holds.
+  settle();
+  mint();
+  const first = digest();
+  assert.equal(first, pluginSourceDigest(source));
+  hold();
+  edit("// one\n");
+  assert.equal(digest(), first, "kept while the metadata holds");
+  assert.notEqual(pluginSourceDigest(source), first);
 
-    // 3. A newer reference lets the digest be kept again.
-    settle();
-    refreshFilesystemClockReference(reference, DEFAULT_FILESYSTEM_OPERATIONS);
-    assert.equal(digest().read, 3);
-    assert.equal(digest().read, 0, "kept again");
+  // 2. An edit is read, and its stamp is not yet separable.
+  release();
+  assert.equal(digest(), pluginSourceDigest(source), "an edit is read");
+  hold();
+  edit("// two\n");
+  assert.equal(
+    digest(),
+    pluginSourceDigest(source),
+    "a stamp inside the reference's tick is not kept",
+  );
+  release();
 
-    // 4. A file added, and one removed.
-    fs.writeFileSync(path.join(source, "extra.go"), "package main\n");
-    settle();
-    const added = digest();
-    assert.equal(added.read, 4, "a new file moves the metadata");
-    assert.equal(added.value, pluginSourceDigest(source));
-    assert.equal(digest().read, 0);
-    fs.rmSync(path.join(source, "internal", "rules", "rule.go"));
-    const removed = digest();
-    assert.equal(removed.read, 3, "a removed file moves it too");
-    assert.equal(removed.value, pluginSourceDigest(source));
+  // 3. A newer reference lets the digest be kept again.
+  settle();
+  mint();
+  const kept = digest();
+  assert.equal(kept, pluginSourceDigest(source));
+  hold();
+  edit("// three\n");
+  assert.equal(digest(), kept, "kept again");
+  release();
 
-    // 5. Kept, then no reference: the unchanged signature is not reused.
-    refreshFilesystemClockReference(reference, DEFAULT_FILESYSTEM_OPERATIONS);
-    digest();
-    assert.equal(digest().read, 0, "kept under a reference");
-    refreshFilesystemClockReference(undefined, DEFAULT_FILESYSTEM_OPERATIONS);
-    assert.equal(
-      digest().read,
-      3,
-      "a signature no reference separates is not reused, as after a clock rollback",
-    );
-  } finally {
-    fs.readFileSync = original;
-  }
+  // 4. A file added, and one removed, under held metadata.
+  settle();
+  mint();
+  digest();
+  hold();
+  fs.writeFileSync(path.join(source, "extra.go"), "package main\n");
+  assert.equal(digest(), pluginSourceDigest(source), "a new file is read");
+  release();
+  settle();
+  mint();
+  digest();
+  hold();
+  fs.rmSync(path.join(source, "internal", "rules", "rule.go"));
+  assert.equal(digest(), pluginSourceDigest(source), "a removal is read");
+  release();
+
+  // 5. Kept, then no reference: the unchanged signature is not reused.
+  settle();
+  mint();
+  const before = digest();
+  hold();
+  edit("// four\n");
+  assert.equal(digest(), before, "kept under a reference");
+  refreshFilesystemClockReference(undefined, filesystem);
+  assert.equal(
+    digest(),
+    pluginSourceDigest(source),
+    "a signature no reference separates is not reused, as after a clock rollback",
+  );
 }
