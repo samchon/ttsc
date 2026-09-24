@@ -5,10 +5,12 @@ import { fixture } from "./common.mjs";
 import { restartContract, restartCycle } from "./restarts.mjs";
 
 /**
- * The restart contract where the host's tool directory cannot be written: a
- * file stands where `.ttsc` would be in the host's root, which makes the
- * record's write fail on every platform without relying on permissions
- * (samchon/ttsc#1480).
+ * The restart contract where the host's record directory cannot be written: a
+ * file stands where `.ttsc/records` would be in the host's root, which makes
+ * the record's write fail on every platform without relying on permissions
+ * (samchon/ttsc#1480). The rest of `.ttsc` stays a directory: the fixture's
+ * plugin counts its compiles in `.ttsc/contract-runs`, and a file standing for
+ * all of `.ttsc` failed every compile before any record was written.
  *
  * A module handed to a host without its project's record depends on its own
  * bytes alone, so the adapter keeps one elsewhere, by what the host accepts:
@@ -32,7 +34,11 @@ import { restartContract, restartCycle } from "./restarts.mjs";
  */
 export async function unwritableContract(host) {
   const project = fixture(`${host}-unwritable`, { plugin: "linked" });
-  fs.writeFileSync(path.join(project.root, ".ttsc"), "not a directory\n");
+  fs.mkdirSync(path.join(project.root, ".ttsc"), { recursive: true });
+  fs.writeFileSync(
+    path.join(project.root, ".ttsc", "records"),
+    "not a directory\n",
+  );
   if (host === "next-turbopack") {
     await restartCycle(project, host, "an unwritable tool directory", {
       kind: "failed",
