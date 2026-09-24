@@ -1,5 +1,6 @@
 import path from "node:path";
-import { prunesPluginSourceDirectory } from "ttsc/plugin-source";
+
+import { prunesPluginSourceDirectory } from "./prunesPluginSourceDirectory";
 
 /**
  * Whether a path below a plugin source directory can bear on the sources in the
@@ -9,8 +10,9 @@ import { prunesPluginSourceDirectory } from "ttsc/plugin-source";
  * The plugin build passes over every directory it prunes
  * (`prunesPluginSourceDirectory`: a nested `node_modules`, a repository's
  * `.git`), so nothing below one moves the state, and an observer that watched
- * them would re-prove the state for every write of a package manager or of
- * Git.
+ * them would re-prove the state, or rebuild, for every write of a package
+ * manager or of Git. `ttsc --watch` and `@ttsc/unplugin`'s observers answer the
+ * question with this one rule (samchon/ttsc#1492).
  *
  * @param root The plugin source directory.
  * @param file The path, absolute.
@@ -26,7 +28,12 @@ export function pluginSourceCovers(
 ): boolean {
   const relative = path.relative(root, file);
   if (relative === "") return true;
-  if (relative.startsWith("..") || path.isAbsolute(relative)) return false;
+  if (
+    relative === ".." ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative)
+  )
+    return false;
   const components = relative.split(path.sep);
   if (kind === "entry") components.pop();
   return !components.some(prunesPluginSourceDirectory);

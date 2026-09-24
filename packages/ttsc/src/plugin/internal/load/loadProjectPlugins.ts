@@ -4,7 +4,6 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { findNearestGoMod } from "../../../compiler/internal/findNearestGoMod";
 import { readJsonFile } from "../../../compiler/internal/project/readJsonFile";
 import { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
@@ -24,6 +23,7 @@ import { buildSourcePlugin } from "../source/buildSourcePlugin";
 import { isPathWithin } from "../source/isPathWithin";
 import { pluginBuildVersions } from "../source/pluginBuildVersions";
 import { pluginSourceState } from "../source/pluginSourceState";
+import { resolvePluginGoModule } from "../source/resolvePluginGoModule";
 import { COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE } from "./COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE";
 import { PLUGIN_DESCRIPTOR_SHIM_SOURCE } from "./PLUGIN_DESCRIPTOR_SHIM_SOURCE";
 import { PluginPackageResolution } from "./PluginPackageResolution";
@@ -211,7 +211,7 @@ export function loadProjectPlugins(options: {
     validatePluginSource(plugin);
     const contributors = validatePluginContributors(plugin);
     const source = resolvePluginSource(plugin.source, context.projectRoot);
-    const kind = resolveNativeSourceKind(
+    const { kind, moduleRoot } = resolveNativeSource(
       source,
       plugin,
       entries[index]!.config,
@@ -261,16 +261,14 @@ export function loadProjectPlugins(options: {
         hostInputs,
       ),
       hostInputs: [...loadedEntries[index]!.hostInputs, ...hostInputs],
+      moduleRoot,
       source,
       stage,
     };
   });
-  options.onWatchInputs?.(
-    records.flatMap((record) => [
-      record.source,
-      ...(record.contributors?.map((contributor) => contributor.source) ?? []),
-    ]),
-  );
+  // Reported before any build runs, so a build that fails still has its inputs
+  // observed and its repair heard.
+  options.onWatchInputs?.(pluginBuildDirectories(records));
   const linkedContributors = records
     .filter((record) => record.stage === "transform")
     .flatMap((record) =>
@@ -375,12 +373,11 @@ export function loadProjectPlugins(options: {
       ),
     ),
     nativePlugins: orderNativePlugins(nativePlugins),
-    // ttsc's own sources change only with ttsc, whose version its consumer
-    // already runs; reporting them would have every consumer read and watch
-    // the whole installed package as if it were a plugin's.
+    // The directories the watch inputs named before the builds, as the builds
+    // read them.
     pluginSources: Object.fromEntries(
       [...sourceDigests]
-        .filter(([directory]) => !isPathWithin(directory, ttscPackageRoot()))
+        .filter(([directory]) => reportsPluginSource(directory))
         .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
         .map(([directory, sourceDigest]) => [
           directory,
@@ -396,8 +393,6 @@ export function loadProjectPlugins(options: {
     project,
   };
 }
-
-const GO_MOD_SEARCH_MAX_DEPTH = 3;
 
 type ProjectHostInputSnapshot = {
   hostInputHashes: Record<string, string | null>;
@@ -1881,31 +1876,72 @@ function resolvePluginSource(source: string, projectRoot: string): string {
   );
 }
 
-function resolveNativeSourceKind(
+/**
+ * Whether a plugin's source builds an executable or is linked into a compiler
+ * host, and the Go module it builds in (`resolvePluginGoModule`).
+ */
+function resolveNativeSource(
   source: string,
   plugin: ITtscPlugin,
   config: ITtscProjectPluginConfig,
   index: number,
-): "executable" | "linked" {
-  const packageDir = resolveGoPackageDir(
-    source,
-    pluginLabel(plugin, config, index),
-  );
-  if (findNearestGoMod(packageDir, GO_MOD_SEARCH_MAX_DEPTH) === null) {
-    throw new Error(
-      `ttsc: plugin "${pluginLabel(plugin, config, index)}" source must be inside a Go module with go.mod within ${GO_MOD_SEARCH_MAX_DEPTH} parent directories: ${source}`,
-    );
-  }
+): { kind: "executable" | "linked"; moduleRoot: string } {
+  const label = pluginLabel(plugin, config, index);
+  requirePluginSource(source, label);
+  const { moduleRoot, packageDir } = resolvePluginGoModule(source, label);
   const packageName = readGoPackageName(packageDir);
   if (packageName === null) {
     throw new Error(
-      `ttsc: plugin "${pluginLabel(plugin, config, index)}" source must contain at least one non-test ".go" file with a package declaration: ${packageDir}`,
+      `ttsc: plugin "${label}" source must contain at least one non-test ".go" file with a package declaration: ${packageDir}`,
     );
   }
-  return packageName === "main" ? "executable" : "linked";
+  return {
+    kind: packageName === "main" ? "executable" : "linked",
+    moduleRoot,
+  };
 }
 
-function resolveGoPackageDir(source: string, label: string): string {
+/**
+ * The directories the plugin builds of one load key their binaries on, which a
+ * watch session observes (samchon/ttsc#1492): the module root of every plugin
+ * built as an executable, since the build copies and keys the whole module
+ * (`computeCacheKey`), the source of every plugin linked into a host, and every
+ * contributor's source, which a host build keys as it is. They are the
+ * directories the load then reports as `pluginSources`, resolved before any
+ * build runs, and ttsc's own sources are left out of both.
+ */
+function pluginBuildDirectories(
+  records: readonly {
+    contributors?: readonly { source: string }[];
+    kind: "executable" | "linked";
+    moduleRoot: string;
+    source: string;
+  }[],
+): string[] {
+  const directories = new Set<string>();
+  for (const record of records) {
+    directories.add(
+      path.resolve(
+        record.kind === "linked" ? record.source : record.moduleRoot,
+      ),
+    );
+    for (const contributor of record.contributors ?? [])
+      directories.add(path.resolve(contributor.source));
+  }
+  return [...directories].filter(reportsPluginSource).sort();
+}
+
+/**
+ * Whether a directory a plugin build keys on is reported, as a watch input and
+ * among `pluginSources`. ttsc's own sources change only with ttsc, whose
+ * version its consumer already runs; reporting them would have every consumer
+ * read and watch the whole installed package as if it were a plugin's.
+ */
+function reportsPluginSource(directory: string): boolean {
+  return !isPathWithin(directory, ttscPackageRoot());
+}
+
+function requirePluginSource(source: string, label: string): void {
   if (!fs.existsSync(source)) {
     // A descriptor factory runs without CommonJS globals when ttsc loads it
     // through ttsx or as ESM — `__dirname`/`__filename`/`require` are undefined,
@@ -1923,16 +1959,6 @@ function resolveGoPackageDir(source: string, label: string): string {
         `.resolve("<your-package>/package.json").`,
     );
   }
-  const stat = fs.statSync(source);
-  if (stat.isFile() && path.basename(source) === "go.mod") {
-    return path.dirname(source);
-  }
-  if (stat.isDirectory()) {
-    return source;
-  }
-  throw new Error(
-    `ttsc: plugin "${label}" source must be a Go package directory or go.mod file: ${source}`,
-  );
 }
 
 function readGoPackageName(dir: string): string | null {

@@ -1,12 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createFilesystemPathIdentityContext } from "ttsc/path-identity";
+import { pluginSourceCovers } from "ttsc/plugin-source";
 
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import type { TtscProjectSpellings } from "../transform/filesystem/TtscProjectSpellings";
 import { pathIsWithin } from "../transform/filesystem/pathIsWithin";
 import { relativeToProject } from "../transform/filesystem/relativeToProject";
-import { pluginSourceCovers } from "../transform/inputs/pluginSourceCovers";
 import { pluginSourceHolds } from "../transform/inputs/pluginSourceHolds";
 import { validateGraphInputObservation } from "../transform/inputs/validateGraphInputObservation";
 import { isProjectWalkDirectory } from "../transform/project/isProjectWalkDirectory";

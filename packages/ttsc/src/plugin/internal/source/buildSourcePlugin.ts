@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { findNearestGoMod } from "../../../compiler/internal/findNearestGoMod";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
 import { GoSourceInputs } from "./GoSourceInputs";
 import { GoToolResolution } from "./GoToolResolution";
@@ -20,6 +19,7 @@ import { prunePluginCacheRoot } from "./prunePluginCacheRoot";
 import { reclaimPluginBuildLock } from "./reclaimPluginBuildLock";
 import { releasePluginBuildLock } from "./releasePluginBuildLock";
 import { resolveGoCompiler } from "./resolveGoCompiler";
+import { resolvePluginGoModule } from "./resolvePluginGoModule";
 import { resolveSourceBuildCachePaths } from "./resolveSourceBuildCachePaths";
 import { spawnGoTool } from "./spawnGoTool";
 import { waitForPluginBinary } from "./waitForPluginBinary";
@@ -156,8 +156,6 @@ export function buildSourcePlugin(opts: {
   }
   return built;
 }
-
-const GO_MOD_SEARCH_MAX_DEPTH = 3;
 
 const TTSC_GO_MODULE_PATH = "github.com/samchon/ttsc/packages/ttsc";
 
@@ -557,33 +555,8 @@ function resolveSourceBuildTarget(opts: {
       `ttsc: plugin "${opts.pluginName}" source does not exist: ${source}`,
     );
   }
-
-  const stat = fs.statSync(source);
-  const packageDir =
-    stat.isFile() && path.basename(source) === "go.mod"
-      ? path.dirname(source)
-      : stat.isDirectory()
-        ? source
-        : null;
-  if (packageDir === null) {
-    throw new Error(
-      `ttsc: plugin "${opts.pluginName}" source must be a Go package directory or go.mod file: ${source}`,
-    );
-  }
-
-  const goMod = findNearestGoMod(packageDir, GO_MOD_SEARCH_MAX_DEPTH);
-  if (goMod === null) {
-    throw new Error(
-      `ttsc: plugin "${opts.pluginName}" source must be inside a Go module with go.mod within ${GO_MOD_SEARCH_MAX_DEPTH} parent directories: ${source}`,
-    );
-  }
-  const dir = path.dirname(goMod);
-  const rel = path.relative(dir, packageDir).replace(/\\/g, "/");
-  return {
-    dir,
-    entry: rel === "" ? "." : `./${rel}`,
-    source,
-  };
+  const { entry, moduleRoot } = resolvePluginGoModule(source, opts.pluginName);
+  return { dir: moduleRoot, entry, source };
 }
 
 function materializeScratchDir(source: string, scratch: string): void {

@@ -12,6 +12,8 @@ import { type ProjectInputPathIdentityContext } from "../../../internal/pathIden
 import { createProjectInputPathIdentityContext } from "../../../internal/pathIdentity/createProjectInputPathIdentityContext";
 import { isProjectInputPathIdentityWithin } from "../../../internal/pathIdentity/isProjectInputPathIdentityWithin";
 import { resolveProjectInputPath } from "../../../internal/pathIdentity/resolveProjectInputPath";
+import { pluginSourceCovers } from "../../../plugin/internal/source/pluginSourceCovers";
+import { prunesPluginSourceDirectory } from "../../../plugin/internal/source/prunesPluginSourceDirectory";
 import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
 import type { ITtscProjectInputSnapshot } from "../../../structures/internal/ITtscProjectInputSnapshot";
 import type { TtscBuildOptions } from "../../../structures/internal/TtscBuildOptions";
@@ -579,6 +581,9 @@ export class WatchTopology {
               filename === null
                 ? undefined
                 : path.resolve(location, filename.toString());
+            // The one decision every watcher that hears a plugin path shares;
+            // here it drops the entry of a directory the build passes over.
+            if (changed !== undefined && !this.isPluginInput(changed)) return;
             this.callbacks.onInputChange({
               kind: "plugin",
               path: changed ?? location,
@@ -1343,12 +1348,27 @@ export class WatchTopology {
       : "compiler";
   }
 
+  /**
+   * Whether a path is one a plugin build keys on: the plugin input itself, or a
+   * path below it outside every directory the build passes over
+   * (`pluginSourceCovers`, samchon/ttsc#1492). A write in a plugin module's
+   * `node_modules` or `.git` is not one, whatever watcher heard it.
+   *
+   * Nor is such a directory's own entry. Windows reports every write inside a
+   * directory as a change of that directory's entry to a watch on its parent,
+   * and nothing of a directory the build passes over, or below it, is a source.
+   * An entry of the same name that is a file is one the build reads.
+   */
   private isPluginInput(location: string): boolean {
     const resolved = path.resolve(location);
-    return this.extraInputs.some(
-      (input) =>
-        WatchPaths.pathKey(input) === WatchPaths.pathKey(resolved) ||
-        WatchPaths.isPathWithin(input, resolved),
+    if (
+      prunesPluginSourceDirectory(path.basename(resolved)) &&
+      WatchPaths.isDirectory(resolved)
+    ) {
+      return false;
+    }
+    return this.extraInputs.some((input) =>
+      pluginSourceCovers(input, resolved, "entry"),
     );
   }
 }
@@ -1901,6 +1921,14 @@ function collectTopologyDirectories(
   return directories;
 }
 
+/**
+ * Every directory of a plugin input a watch observes: the input and the
+ * directories below it, except those the plugin build passes over and all below
+ * them (`prunesPluginSourceDirectory`, samchon/ttsc#1492). The input is a
+ * plugin's whole Go module, which can be a repository with its own
+ * `node_modules` and `.git`; watching those would rebuild for every package
+ * install and commit without the build reading any of it.
+ */
 function collectInputDirectories(input: string): string[] {
   if (WatchPaths.isDirectory(input) === false) return [];
   const directories: string[] = [];
@@ -1916,7 +1944,7 @@ function collectInputDirectories(input: string): string[] {
       throw error;
     }
     for (const entry of entries) {
-      if (entry.isDirectory()) {
+      if (entry.isDirectory() && !prunesPluginSourceDirectory(entry.name)) {
         stack.push(path.join(current, entry.name));
       }
     }

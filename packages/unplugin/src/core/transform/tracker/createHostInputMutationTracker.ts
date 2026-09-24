@@ -1,4 +1,5 @@
 import path from "node:path";
+import { pluginSourceCovers } from "ttsc/plugin-source";
 
 import type { TtscProjectSpellings } from "../filesystem/TtscProjectSpellings";
 import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransformFilesystemOperations";
@@ -8,7 +9,6 @@ import { pathIdentityKey } from "../filesystem/pathIdentityKey";
 import { relativeToProject } from "../filesystem/relativeToProject";
 import { hostInputRealpath } from "../inputs/hostInputRealpath";
 import { missingPathProbe } from "../inputs/missingPathProbe";
-import { pluginSourceCovers } from "../inputs/pluginSourceCovers";
 import type { TtscProjectMutationTracker } from "./TtscProjectMutationTracker";
 import type { TtscTrackedInputScope } from "./TtscTrackedInputScope";
 import { registerBrokeredMutationTracker } from "./broker/registerBrokeredMutationTracker";
