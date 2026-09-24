@@ -191,7 +191,7 @@ export function captureUniversalHostInputValidation(
   // was built here or adopted from another worker, is output for a state
   // already gone (samchon/ttsc#1487).
   for (const [directory, digest] of selectPluginSourceInputs(cached.result)) {
-    if (!pluginSourceHolds(directory, digest)) {
+    if (!pluginSourceHolds(directory, digest, filesystem)) {
       recordGenerationProofFailure(failures, {
         domain: "host",
         kind: "content-changed",

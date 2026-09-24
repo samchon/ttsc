@@ -53,9 +53,11 @@ export interface TtscHostInputValidation {
   /**
    * The plugin source directories of the generation, each with the state its
    * binary was built from, its files and build environment (samchon/ttsc#1487,
-   * samchon/ttsc#1493). No metadata stands for a directory's files, so each is
-   * proven by ttsc's rule (`pluginSourceHolds`) unless its tracker proves it
-   * unchanged.
+   * samchon/ttsc#1493). No one path's metadata stands for a directory's files,
+   * so each is proven by ttsc's rule (`pluginSourceHolds`) unless its tracker
+   * proves it unchanged; the proof reads the files' bytes again only when the
+   * metadata of every one of them no longer vouches for the digest last read
+   * (`pluginSourceFilesDigest`).
    */
   readonly trees: Map<string, string>;
 }

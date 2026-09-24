@@ -30,7 +30,9 @@ export function watchInputEvidenceMatchesDisk(
   const state = evidence.state;
   if (state === undefined || state.codec === "membership") return false;
   try {
-    if (state.codec === "tree") return pluginSourceHolds(file, state.digest);
+    if (state.codec === "tree") {
+      return pluginSourceHolds(file, state.digest, filesystem);
+    }
     if (state.codec === "predicates") {
       return matchesGraphInputObservation(
         file,

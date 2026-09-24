@@ -1,4 +1,5 @@
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
+import { resultFilesystem } from "../cache/resultFilesystem";
 import { pluginSourceHolds } from "../inputs/pluginSourceHolds";
 import type { TtscHostInputValidation } from "./TtscHostInputValidation";
 import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
@@ -10,9 +11,11 @@ import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
  *
  * A directory whose tracker heard nothing below it is proven by that silence;
  * any other is proven by ttsc's rule (`pluginSourceHolds`), since no one path's
- * metadata stands for the files below it. The proof reads the directory as the
- * plugin build reads it, which a delivery pays only after an event below the
- * directory, or where no tracker watches it at all.
+ * metadata stands for the files below it. The proof lists the directory as the
+ * plugin build lists it, which a delivery pays only after an event below the
+ * directory, or where no tracker watches it or its watch cannot vouch for it,
+ * and reads the files' bytes again only when their metadata moved
+ * (`pluginSourceFilesDigest`).
  *
  * @param cached The generation being validated.
  * @param validation Its universal-input manifest.
@@ -24,7 +27,8 @@ export function matchesUniversalHostInputTrees(
   for (const [directory, digest] of validation.trees) {
     if (trackerProvesInputUnchanged(cached.hostInputMutationTracker, directory))
       continue;
-    if (!pluginSourceHolds(directory, digest)) return false;
+    if (!pluginSourceHolds(directory, digest, resultFilesystem(cached.result)))
+      return false;
   }
   return true;
 }

@@ -14,7 +14,9 @@ import { GoSourceInputs } from "./GoSourceInputs";
  * hashes these files (`computeCacheKey`), and the transform envelope reports
  * their digest (`pluginSourceDigest`) within each directory's state
  * (`pluginSourceState`), so the two cannot disagree about what a plugin's
- * source is (samchon/ttsc#1487).
+ * source is (samchon/ttsc#1487). A consumer that keeps a digest while the
+ * metadata of these files holds still, rather than reading their bytes on every
+ * proof, stats exactly this list, through the `ttsc/plugin-source` entry.
  *
  * @param root The source directory: a plugin's Go module root, an overlay
  *   module, or a contributor's source.

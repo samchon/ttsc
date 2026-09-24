@@ -122,7 +122,7 @@ function environmentChanged(
       if (
         recorded.state === MISSING_INPUT_STATE
           ? pluginSourceState(input) !== null
-          : !pluginSourceHolds(input, recorded.state)
+          : !pluginSourceHolds(input, recorded.state, filesystem)
       )
         return true;
       continue;

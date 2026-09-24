@@ -21,8 +21,12 @@ import { collectPluginSourceFiles } from "./collectPluginSourceFiles";
  *
  * Content rather than size and modification time: the build reads every byte
  * anyway, and a consumer's proof must not accept an edit that kept a file's
- * size within one clock tick. A directory that does not exist has the digest of
- * an empty one, as it keys the build.
+ * size within one clock tick. A consumer that proves a source on every delivery
+ * may keep a digest it read while the metadata of every listed file holds still
+ * and each stamp provably left its clock tick before the read, and hand it to
+ * `pluginSourceStateHolds`; that judgment is the consumer's, which owns a clock
+ * reference, and the file list is this one's. A directory that does not exist
+ * has the digest of an empty one, as it keys the build.
  *
  * @param directory The source directory.
  * @returns The digest, as lowercase hex.
