@@ -38,7 +38,7 @@ export function trackedInputScopes(props: {
   const scopes = new Map<string, TtscTrackedInputScope>();
   for (const input of props.inputs) {
     const spelling = path.resolve(input);
-    // A plugin's source is proven by its digest, which any file below it can
+    // A plugin's source is proven by its state, which any file below it can
     // move (samchon/ttsc#1487).
     if (trees.has(spelling)) {
       scopes.set(spelling, "tree");

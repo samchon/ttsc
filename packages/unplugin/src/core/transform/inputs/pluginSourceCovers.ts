@@ -6,16 +6,17 @@ import { prunesPluginSourceDirectory } from "ttsc/plugin-source";
  * directory's state (`pluginSourceState`, samchon/ttsc#1487), so an observer of
  * the directory as a subtree must hear it.
  *
- * The digest passes over every directory the plugin build prunes
+ * The plugin build passes over every directory it prunes
  * (`prunesPluginSourceDirectory`: a nested `node_modules`, a repository's
- * `.git`), so nothing below one moves it, and an observer that watched them
- * would re-prove the digest for every write of a package manager or of Git.
+ * `.git`), so nothing below one moves the state, and an observer that watched
+ * them would re-prove the state for every write of a package manager or of
+ * Git.
  *
  * @param root The plugin source directory.
  * @param file The path, absolute.
  * @param kind `"directory"` for a directory an observer would watch, which is
  *   passed over when any of its own components is pruned; `"entry"` for the
- *   path an event names, whose own name may be a file the digest reads whatever
+ *   path an event names, whose own name may be a file the build reads whatever
  *   it is called, so only the directories above it are checked.
  */
 export function pluginSourceCovers(

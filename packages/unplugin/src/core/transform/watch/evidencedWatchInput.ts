@@ -14,7 +14,7 @@ import type { TtscWatchInputState } from "./TtscWatchInputState";
  * already resolved and the exact state it already recorded for the path: the
  * compiler's predicate observation where it made one, the graph's hash and
  * realpath for a realized input, the host bytes' hash for a walk or
- * dependency-only input, or the digest of a plugin source directory.
+ * dependency-only input, or the state of a plugin source directory.
  *
  * Both are memoized per generation, while a host deriving them itself pays
  * repeated filesystem reads and can attach a later state to an earlier
@@ -33,7 +33,7 @@ export function evidencedWatchInput(
   const external = cached.externalInputHashes ?? {};
   const identity = derivationIdentity(state, input);
   const spelling = path.resolve(input);
-  // A plugin's source directory is proven by the digest its binary was built
+  // A plugin's source directory is proven by the state its binary was built
   // from, whatever else observed the path (samchon/ttsc#1487).
   const digest = selectPluginSourceInputs(cached.result).get(spelling);
   if (digest !== undefined) {

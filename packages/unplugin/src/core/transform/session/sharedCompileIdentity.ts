@@ -20,8 +20,9 @@ import { unpluginVersion } from "./unpluginVersion";
  * TypeScript-Go versions every plugin build is keyed on, by ttsc's own rule
  * (`pluginBuildVersions` from `ttsc/plugin-source`), this adapter's version,
  * whose code decides what an adopter proves, and the platform the binaries were
- * built for. The plugins' own Go sources are not: each is proven by its digest
- * when the envelope is adopted (samchon/ttsc#1487).
+ * built for. The plugins' own Go sources and the environment each builds in are
+ * not: each directory's state is proven when the envelope is adopted
+ * (`pluginSourceHolds`, samchon/ttsc#1487, samchon/ttsc#1493).
  *
  * @param props.projectRoot The project the compile runs for, which resolves its
  *   TypeScript-Go.

@@ -31,7 +31,7 @@ export function isWatchInputKeyBaseline(
     "realpath",
     "stat",
   ];
-  // A plugin source directory's baseline also carries its digest
+  // A plugin source directory's baseline also carries its state
   // (samchon/ttsc#1487).
   const tree = Object.prototype.hasOwnProperty.call(baseline, "tree");
   if (

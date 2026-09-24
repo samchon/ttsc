@@ -63,10 +63,11 @@ import { someSet } from "./someSet";
  * than reloaded, since most new files change no other module.
  *
  * A plugin's Go source directory is one entry too (samchon/ttsc#1487). Its
- * scope admits every directory below it but those its digest passes over, any
- * event below it marks it, and its check recomputes the digest the plugin build
- * keyed the binary on. Its owners are reloaded, since the plugin's output can
- * change for every module.
+ * scope admits every directory below it but those the plugin build passes over
+ * (`pluginSourceCovers`), any event below it marks it, and its check proves the
+ * state the plugin build keyed the binary on, its files and the environment a
+ * build there runs in (`pluginSourceHolds`, samchon/ttsc#1493). Its owners are
+ * reloaded, since the plugin's output can change for every module.
  *
  * @param onChanged Told, once per settled batch of events, which owners' inputs
  *   changed: `reload` for a changed input, and `invalidate` for a membership
@@ -238,7 +239,7 @@ export function createInputObserver(
 
   /**
    * Whether a plugin source in `scope` needs a directory-level watch there:
-   * every directory below it but those its digest passes over.
+   * every directory below it but those the plugin build passes over.
    */
   const admitsTree = (scope: WatchScope, directory: string): boolean => {
     for (const entry of trees) {
@@ -397,7 +398,7 @@ export function createInputObserver(
         pending.add(entry);
       }
     }
-    // Any file below a plugin's source can move its digest, whatever kind of
+    // Any file below a plugin's source can move its state, whatever kind of
     // event names it (samchon/ttsc#1487).
     for (const entry of trees) {
       const named = namedBelow(entry, absolute);
@@ -909,7 +910,7 @@ export function createInputObserver(
       const touched = new Set<InputEntry>();
       // Memberships and plugin sources new to this replacement, checked at
       // once: a root file can have appeared, or a source file changed, after
-      // the reading the digest was taken from.
+      // the reading the state was taken from.
       const recorded = new Set<InputEntry>();
       for (const input of inputs) {
         const file = path.resolve(input.file);
@@ -962,7 +963,7 @@ export function createInputObserver(
             }
           } else if (state?.codec === "tree") {
             // A plugin's source is proven at once, as a membership is: a file
-            // below it can have moved after the capture proved its digest, and
+            // below it can have moved after the capture proved its state, and
             // its scope now admits the directories below it (samchon/ttsc#1487).
             trees.add(entry);
             entry.physical ??= realpath(entry.file) ?? entry.file;

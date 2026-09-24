@@ -287,10 +287,10 @@ export namespace ITtscCompilerTransformation {
      * transformed file is a function of these states as much as of
      * {@link hostInputs}, and a plugin edited in place, or built under another
      * `GOFLAGS` or Go toolchain, changes nothing else a consumer can see. A
-     * consumer that caches the output proves each state still holds by
-     * recomputing it with the same rule, `pluginSourceState` from the
-     * `ttsc/plugin-source` entry, and observes each directory as a whole
-     * subtree. Absent when no plugin ran.
+     * consumer that caches the output proves each state still holds with the
+     * build's own rule, `pluginSourceStateHolds` from the `ttsc/plugin-source`
+     * entry, which reads the environment again before it refutes a state, and
+     * observes each directory as a whole subtree. Absent when no plugin ran.
      */
     pluginSources?: Record<string, string>;
 

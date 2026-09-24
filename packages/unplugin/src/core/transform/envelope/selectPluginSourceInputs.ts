@@ -2,15 +2,16 @@ import path from "node:path";
 import type { ITtscCompilerTransformation } from "ttsc";
 
 /**
- * The plugin source directories of a generation, each with the digest the
+ * The plugin source directories of a generation, each with the state the
  * envelope reported for it, by absolute spelling (samchon/ttsc#1487).
  *
- * A plugin's binary is keyed on its Go source, so the generation's output is a
- * function of these directories as much as of its host inputs: they are
- * universal inputs of every module, proven by digest (`pluginSourceState`) and
- * observed as whole subtrees. A malformed entry is left out, since a digest
- * that is not a string proves nothing. Read once per envelope, since every
- * watch input of every module asks it.
+ * A plugin's binary is keyed on its Go source and the environment a build there
+ * runs in, so the generation's output is a function of these directories as
+ * much as of its host inputs: they are universal inputs of every module, proven
+ * by state (`pluginSourceHolds`, samchon/ttsc#1493) and observed as whole
+ * subtrees. A malformed entry is left out, since a state that is not a string
+ * proves nothing. Read once per envelope, since every watch input of every
+ * module asks it.
  *
  * @param result The generation's envelope.
  */

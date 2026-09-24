@@ -5,18 +5,19 @@ import path from "node:path";
 import { collectPluginSourceFiles } from "./collectPluginSourceFiles";
 
 /**
- * The state of one plugin source directory as a plugin build reads it: a
+ * The files of one plugin source directory as a plugin build reads them: a
  * SHA-256 over the relative path and bytes of every file the build keys its
  * binary on (`collectPluginSourceFiles`), in sorted order.
  *
- * A plugin's binary is keyed on this state, so the output of every transform
- * that ran the binary is a function of it. The cache key folds the digest of
+ * A plugin's binary is keyed on these files, so the output of every transform
+ * that ran the binary is a function of them. The cache key folds the digest of
  * each directory it covers (`computeCacheKey`), and the transform envelope
- * reports the same digests
- * (`ITtscCompilerTransformation.ISuccess.pluginSources`) so a consumer that
- * caches the output proves it still holds by recomputing this digest, through
- * the `ttsc/plugin-source` entry, instead of a copy of the rule
- * (samchon/ttsc#1487).
+ * reports each plugin source directory's state
+ * (`ITtscCompilerTransformation.ISuccess.pluginSources`), this digest together
+ * with the build environment (`pluginSourceState`, samchon/ttsc#1493), so a
+ * consumer that caches the output proves it still holds through the
+ * `ttsc/plugin-source` entry (`pluginSourceStateHolds`) instead of a copy of
+ * the rule (samchon/ttsc#1487).
  *
  * Content rather than size and modification time: the build reads every byte
  * anyway, and a consumer's proof must not accept an edit that kept a file's

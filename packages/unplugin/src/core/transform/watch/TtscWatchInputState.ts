@@ -27,8 +27,8 @@ export type TtscWatchInputState =
        * whole subtree, and its state is the one the build keyed the binary on,
        * the sources with the environment a build there is keyed on
        * (`pluginSourceState` from `ttsc/plugin-source`, samchon/ttsc#1493),
-       * which only recomputing it proves: no one path's metadata stands for the
-       * files below it.
+       * which only ttsc's rule proves (`pluginSourceStateHolds`): no one path's
+       * metadata stands for the files below it.
        */
       codec: "tree";
       digest: string;

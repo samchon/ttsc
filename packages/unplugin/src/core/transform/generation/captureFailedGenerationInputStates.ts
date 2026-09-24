@@ -13,7 +13,8 @@ import { selectPersistentHostInputs } from "./selectPersistentHostInputs";
 
 /**
  * Snapshot every input outside the project walk that could change a retry, each
- * plugin source directory by its digest among them (samchon/ttsc#1487).
+ * plugin source directory by its state among them (`pluginSourceState`,
+ * samchon/ttsc#1487, samchon/ttsc#1493).
  */
 export function captureFailedGenerationInputStates(
   cached: TtscCachedProjectTransform,

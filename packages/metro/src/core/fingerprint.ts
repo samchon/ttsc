@@ -676,7 +676,7 @@ function observeProjectFingerprint(props: {
     throw new Error("Metro's recorded transform snapshot is not reusable.");
   }
   // A plugin's Go source is a recorded input like any other, but no one
-  // path's state stands for the files below it, so the key carries its digest
+  // path's state stands for the files below it, so the key carries its state
   // (samchon/ttsc#1487).
   const trees = new Set(snapshot.trees);
   const recorded: Record<
@@ -705,8 +705,8 @@ function observeProjectFingerprint(props: {
 }
 
 /**
- * Add one lexical path's stable broad state to a key baseline, with its digest
- * when it was recorded as a plugin source directory (`tree`).
+ * Add one lexical path's stable broad state to a key baseline, with its plugin
+ * source state when it was recorded as a plugin source directory (`tree`).
  */
 function addBaselineInput(
   inputs: Record<string, TtscWatchInputKeyBaseline>,
@@ -1291,7 +1291,7 @@ export function createSnapshotRecorder(runId?: string): {
         state.dirty = true;
       }
       // A plugin source directory is recorded as one, so the next run's key
-      // carries its digest (samchon/ttsc#1487).
+      // carries its state (samchon/ttsc#1487).
       if (input.evidence?.state?.codec === "tree" && !state.trees.has(file)) {
         state.trees.add(file);
         state.dirty = true;

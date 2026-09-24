@@ -11,13 +11,14 @@ export interface TtscFailedGenerationInputState {
   signature?: string;
   /**
    * The input's full state: metadata, content, realpath, and listing; or, for a
-   * plugin source directory, its digest (`pluginSourceState`).
+   * plugin source directory, the state its sources and build environment hold
+   * (`pluginSourceState`).
    */
   state: string;
   /**
    * Whether the input is a plugin source directory (samchon/ttsc#1487), whose
-   * state is its digest, since no one path's metadata stands for the files
-   * below it; it carries no signature.
+   * state is proven whole (`pluginSourceHolds`), since no one path's metadata
+   * stands for the files below it; it carries no signature.
    */
   tree?: true;
 }

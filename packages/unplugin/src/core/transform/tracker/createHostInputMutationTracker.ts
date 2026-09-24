@@ -145,7 +145,7 @@ export async function createHostInputMutationTracker(
   const internalDirectories = new Set<string>();
   const internalSubtrees: string[] = [];
   // Every plugin source directory, inside the root or not, whose directories a
-  // directory-level backend watches but for those the digest passes over
+  // directory-level backend watches but for those the plugin build passes over
   // (samchon/ttsc#1487).
   const trees: string[] = [];
   const admitInternal = (
@@ -220,7 +220,7 @@ export async function createHostInputMutationTracker(
       continue;
     }
     // A plugin's source outside the project is watched as a whole subtree of
-    // its own, since any file below it can move its digest; its parent would
+    // its own, since any file below it can move its state; its parent would
     // report only the directory's own entry.
     if (scope === "tree") {
       watchDirectory(probed, undefined, true);
