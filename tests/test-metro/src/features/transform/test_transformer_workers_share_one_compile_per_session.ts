@@ -1,4 +1,4 @@
-import { TestUnpluginProject } from "@ttsc/testing";
+import { TestProject, TestUnpluginProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -15,8 +15,13 @@ import { TestMetroRuntime } from "../../internal/metro-runtime";
  * file. `withTtsc` now opens a transform session in that process, the workers
  * inherit it, and they share each compile through it.
  *
- * 1. In a config process, call `withTtsc`, then fork two workers that transform
- *    the entry through the built transformer at the same time.
+ * The session's store outlives every process and belongs to the user
+ * (samchon/ttsc#1483), so the config process runs under a temporary directory
+ * of the test's own, never the user's, which the runner removes when it exits.
+ *
+ * 1. In a config process with a temporary directory of its own, call `withTtsc`,
+ *    then fork two workers that transform the entry through the built
+ *    transformer at the same time.
  * 2. Assert both received the plugin-transformed source from one compile.
  */
 export const test_transformer_workers_share_one_compile_per_session =
@@ -64,7 +69,11 @@ export const test_transformer_workers_share_one_compile_per_session =
             TestMetroRuntime.fakeUpstreamPathOnDisk(),
           ]),
         ],
-        { cwd: root, windowsHide: true },
+        {
+          cwd: root,
+          env: { ...process.env, ...isolatedTemporaryDirectory() },
+          windowsHide: true,
+        },
       ).toString(),
     ) as string[];
 
@@ -74,3 +83,17 @@ export const test_transformer_workers_share_one_compile_per_session =
     }
     assert.equal(fs.statSync(runLog).size, 1, "the workers compiled once");
   };
+
+/**
+ * `TEMP`, `TMP`, and `TMPDIR`, the variables `os.tmpdir()` reads on every
+ * platform, naming one tracked temporary directory, with no session inherited.
+ */
+function isolatedTemporaryDirectory(): NodeJS.ProcessEnv {
+  const directory = TestProject.tmpdir("ttsc-metro-worker-session-");
+  return {
+    TEMP: directory,
+    TMP: directory,
+    TMPDIR: directory,
+    TTSC_UNPLUGIN_TRANSFORM_SESSION: "",
+  };
+}
