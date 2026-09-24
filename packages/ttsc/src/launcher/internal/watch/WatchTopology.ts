@@ -51,6 +51,8 @@ export class WatchTopology {
   private directoryWatchers = new Map<string, fs.FSWatcher>();
   private extraInputs: readonly string[] = [];
   private extraWatchers = new Map<string, fs.FSWatcher>();
+  /** The plugin inputs whose directories the last sync already watched. */
+  private watchedExtraInputs = new Set<string>();
   private compilerFileSnapshots = new Map<string, CompilerFileSnapshot>();
   private files = new Map<string, string>();
   private fileWatchers = new Map<string, fs.FSWatcher>();
@@ -562,11 +564,35 @@ export class WatchTopology {
     }
   }
 
+  /**
+   * Watch every directory of every plugin input, and report what a directory
+   * that appeared below an input already watched holds by now
+   * (samchon/ttsc#1500).
+   *
+   * Each directory has a watcher of its own, and a directory created below a
+   * plugin module is heard through its parent's, which starts a rebuild; its
+   * own watcher is added only here, when the topology refreshes after that
+   * rebuild. A file written into it in between reaches no watcher on a
+   * platform whose watcher reports a directory's direct entries alone, and the
+   * rebuild may have read the directory before the file landed. So once its
+   * watcher is registered, each entry it holds is reported as a plugin change,
+   * as `@ttsc/unplugin`'s observer announces a directory it starts watching.
+   * The directories of an input new to this sync are not reported: the load
+   * reports its inputs before any build reads them.
+   */
   private syncExtraWatchers(): void {
     const directories = new Map<string, string>();
+    const appeared: string[] = [];
     for (const input of this.extraInputs) {
+      const watchedBefore = this.watchedExtraInputs.has(
+        WatchPaths.pathKey(input),
+      );
       for (const directory of collectInputDirectories(input)) {
-        directories.set(WatchPaths.pathKey(directory), directory);
+        const key = WatchPaths.pathKey(directory);
+        directories.set(key, directory);
+        if (watchedBefore && !this.extraWatchers.has(key)) {
+          appeared.push(directory);
+        }
       }
     }
     syncWatchers(
@@ -593,6 +619,25 @@ export class WatchTopology {
       (location, error) => this.callbacks.onError(location, error),
       () => this.closed === false,
     );
+    this.watchedExtraInputs = new Set(
+      this.extraInputs.map((input) => WatchPaths.pathKey(input)),
+    );
+    for (const directory of appeared) {
+      // Only a directory now watched: one whose registration failed was
+      // reported through `onError`, and one gone meanwhile holds nothing.
+      if (!this.extraWatchers.has(WatchPaths.pathKey(directory))) continue;
+      let entries: string[];
+      try {
+        entries = fs.readdirSync(directory);
+      } catch {
+        continue;
+      }
+      for (const name of entries) {
+        const entry = path.join(directory, name);
+        if (!this.isPluginInput(entry)) continue;
+        this.callbacks.onInputChange({ kind: "plugin", path: entry });
+      }
+    }
   }
 
   private syncProjectInputWatchers(
