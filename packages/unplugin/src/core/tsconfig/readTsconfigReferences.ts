@@ -1,6 +1,5 @@
 import fs from "node:fs";
 import path from "node:path";
-
 import { parseJsonc } from "ttsc/tsconfig";
 
 import { normalizeTypeScriptPathSeparators } from "./normalizeTypeScriptPathSeparators";

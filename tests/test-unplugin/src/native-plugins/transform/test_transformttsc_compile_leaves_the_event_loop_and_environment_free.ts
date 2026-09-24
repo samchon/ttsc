@@ -17,8 +17,8 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  * `process.env` rather than the compiler's `env`. The worker now takes the
  * compiler's `env`, which carries the scratch directory, so the host's
  * environment is never written at all. A sample of `process.env` could not
- * tell: the rewrite spanned one synchronous call, which no timer interrupts,
- * so the environment is observed by its writes instead.
+ * tell: the rewrite spanned one synchronous call, which no timer interrupts, so
+ * the environment is observed by its writes instead.
  *
  * 1. Compile a project whose native transform holds for a known time, sampling the
  *    timer queue and recording every write to `process.env` until the compile

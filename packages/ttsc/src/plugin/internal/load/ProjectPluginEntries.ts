@@ -99,9 +99,7 @@ export namespace ProjectPluginEntries {
       if (typeof transform !== "string") {
         continue;
       }
-      const baseDir = isRelativePluginSpecifier(
-        transform,
-      )
+      const baseDir = isRelativePluginSpecifier(transform)
         ? packageRoot
         : projectPackageRoot;
       const resolved = PluginPackageResolution.resolvePluginRequest(

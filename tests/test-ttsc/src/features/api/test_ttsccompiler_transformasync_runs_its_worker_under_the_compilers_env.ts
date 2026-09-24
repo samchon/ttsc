@@ -13,8 +13,8 @@ import {
  * compiler's `env`, the way it runs its child processes.
  *
  * A bundler adapter gives each compile a scratch directory by handing the
- * compiler an `env` whose `TEMP`, `TMP`, and `TMPDIR` name it. The worker thread
- * used to adopt the caller's `process.env` alone, so the transform's own
+ * compiler an `env` whose `TEMP`, `TMP`, and `TMPDIR` name it. The worker
+ * thread used to adopt the caller's `process.env` alone, so the transform's own
  * temporary directories ignored that `env`, and the adapter rewrote the host
  * process's globals around the call to reach them (samchon/ttsc#1488). The
  * worker now takes the caller's environment with the compiler's `env` merged

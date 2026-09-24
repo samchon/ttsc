@@ -1,8 +1,8 @@
 import { resolveTsconfigExtends } from "ttsc/tsconfig";
 
 /**
- * Resolve an `extends` specifier to the config file it names, or `null` when
- * it names none.
+ * Resolve an `extends` specifier to the config file it names, or `null` when it
+ * names none.
  *
  * The rule is ttsc's, `resolveTsconfigExtends`, written to TypeScript-Go's
  * `getExtendsConfigPath`: separators folded, a file-path specifier kept under

@@ -6,8 +6,8 @@ import { readJsonFile } from "./readJsonFile";
 import { tsconfigExtendsFileCandidates } from "./tsconfigExtendsFileCandidates";
 
 /**
- * Resolve one `extends` specifier of a tsconfig to the config file it names,
- * by TypeScript-Go's rule (`getExtendsConfigPath`).
+ * Resolve one `extends` specifier of a tsconfig to the config file it names, by
+ * TypeScript-Go's rule (`getExtendsConfigPath`).
  *
  * - A specifier naming a file (rooted, `./`, or `../`, after `\` is folded into
  *   `/`) resolves to the first of its candidates that is a regular file
@@ -15,13 +15,14 @@ import { tsconfigExtendsFileCandidates } from "./tsconfigExtendsFileCandidates";
  * - Any other specifier is resolved like a module from the declaring config: a
  *   bare package root selects its preset through `package.json#tsconfig`, then
  *   Node's resolver is asked for the specifier and for the specifier with
- *   `.json` appended. A module resolves to its physical path, as TypeScript-Go's
- *   module resolution does.
+ *   `.json` appended. A module resolves to its physical path, as
+ *   TypeScript-Go's module resolution does.
  *
  * The one rule both of the workspace's config readers use (samchon/ttsc#1489):
  * ttsc's project reader canonicalizes the answer before it reads the chain
  * further, and `@ttsc/unplugin` keeps the spelling, since TypeScript anchors a
- * relatively extended config at the path it was reached by (samchon/ttsc#1455).
+ * relatively extended config at the path it was reached by
+ * (samchon/ttsc#1455).
  *
  * @param tsconfig The declaring config, as the reader named it.
  * @param specifier The `extends` value as written.

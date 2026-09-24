@@ -1,3 +1,4 @@
+import { TestProject } from "@ttsc/testing";
 import {
   isRelativePluginSpecifier,
   parseJsonc,
@@ -6,25 +7,23 @@ import {
 } from "ttsc/tsconfig";
 
 import { assert, fs, path } from "../../internal/compiler";
-import { TestProject } from "@ttsc/testing";
 
 /**
- * Verifies the `ttsc/tsconfig` entry reads a config the way TypeScript-Go
- * does: its JSONC grammar and its `extends` rule, `getExtendsConfigPath`.
+ * Verifies the `ttsc/tsconfig` entry reads a config the way TypeScript-Go does:
+ * its JSONC grammar and its `extends` rule, `getExtendsConfigPath`.
  *
- * ttsc's project reader and `@ttsc/unplugin` each carried a copy of these rules
- * (samchon/ttsc#1489). They now share this one, so its cases are pinned here:
- * a separator fold inside the resolver rather than at each caller, the spelling
- * a relatively extended config was reached by (samchon/ttsc#1455), the `.json`
+ * Ttsc's project reader and `@ttsc/unplugin` each carried a copy of these rules
+ * (samchon/ttsc#1489). They now share this one, so its cases are pinned here: a
+ * separator fold inside the resolver rather than at each caller, the spelling a
+ * relatively extended config was reached by (samchon/ttsc#1455), the `.json`
  * fallback, a preset selected through `package.json#tsconfig`, and the exact
  * candidates a missing file-path base would appear under.
  *
  * 1. Parse JSONC with a byte-order mark, both comment forms, and trailing commas.
  * 2. Resolve a backslash specifier, a specifier through a directory link, a
  *    specifier missing its `.json`, and a bare preset package.
- * 3. Assert a missing base throws naming its first candidate, while its
- *    candidates are the file and the file with `.json`, and a module specifier
- *    has none.
+ * 3. Assert a missing base throws naming its first candidate, while its candidates
+ *    are the file and the file with `.json`, and a module specifier has none.
  * 4. Assert the plugin-path predicate answers relative and bare spellings.
  */
 export const test_tsconfig_entry_reads_configs_by_typescript_gos_rules =

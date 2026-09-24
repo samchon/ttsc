@@ -6,8 +6,8 @@
  * package specifier resolves from the project root (`ProjectPluginEntries`).
  * `@ttsc/unplugin` asks the same question, through the `ttsc/tsconfig` entry,
  * of every path-valued key of a plugin entry it re-states in a wrapper config
- * it writes outside the project, so a value the compiler would resolve from
- * the project keeps that meaning there (samchon/ttsc#1489).
+ * it writes outside the project, so a value the compiler would resolve from the
+ * project keeps that meaning there (samchon/ttsc#1489).
  *
  * @param specifier The value as written in the config.
  */
