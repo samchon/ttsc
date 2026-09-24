@@ -8,14 +8,14 @@ import { createFakeGoBinary } from "../../internal/source-build";
  * package's exports hide it and its entry sits below a nested manifest
  * (samchon/ttsc#1499).
  *
- * Discovery reads each direct dependency's `package.json` for a
- * `ttsc.plugin` declaration. A dependency hoisted to a workspace root is not in
- * the project's own `node_modules`, and one whose `exports` omits
- * `./package.json` cannot resolve its manifest by name, so discovery fell back
- * to the manifest nearest the package's entry. A dual package keeps
- * `dist/cjs/package.json` beside its CommonJS build: discovery read that one,
- * never saw the declaration, and loaded no plugin. The manifest is now the one
- * of the package directory the entry resolved in.
+ * Discovery reads each direct dependency's `package.json` for a `ttsc.plugin`
+ * declaration. A dependency hoisted to a workspace root is not in the project's
+ * own `node_modules`, and one whose `exports` omits `./package.json` cannot
+ * resolve its manifest by name, so discovery fell back to the manifest nearest
+ * the package's entry. A dual package keeps `dist/cjs/package.json` beside its
+ * CommonJS build: discovery read that one, never saw the declaration, and
+ * loaded no plugin. The manifest is now the one of the package directory the
+ * entry resolved in.
  *
  * 1. Hoist two scoped dependencies of that shape to the workspace root, one
  *    declaring a plugin and one declaring none, and depend on both from a
@@ -57,7 +57,10 @@ export const test_loadprojectplugins_discovers_a_hoisted_plugin_whose_exports_hi
         path.join(directory, "dist", "cjs", "package.json"),
         '{ "type": "commonjs" }\n',
       );
-      write(path.join(directory, "dist", "cjs", "index.js"), "module.exports = 1;\n");
+      write(
+        path.join(directory, "dist", "cjs", "index.js"),
+        "module.exports = 1;\n",
+      );
     }
     write(
       path.join(declaring, "plugin.cjs"),
@@ -93,7 +96,8 @@ export const test_loadprojectplugins_discovers_a_hoisted_plugin_whose_exports_hi
     );
     assert.ok(
       manifests.some(
-        (input) => physical(input) === physical(path.join(declaring, "package.json")),
+        (input) =>
+          physical(input) === physical(path.join(declaring, "package.json")),
       ),
       "the package's own manifest is an input",
     );
@@ -119,7 +123,10 @@ function physical(file: string): string {
 
 /** A Go module the fake toolchain accepts. */
 function writeGoModule(directory: string): void {
-  write(path.join(directory, "go.mod"), "module example.com/plugin\n\ngo 1.26\n");
+  write(
+    path.join(directory, "go.mod"),
+    "module example.com/plugin\n\ngo 1.26\n",
+  );
   write(path.join(directory, "main.go"), "package main\n");
   // The files the fake Go build requires of the module it compiles.
   for (const relative of [

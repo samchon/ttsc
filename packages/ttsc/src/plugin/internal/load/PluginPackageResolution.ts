@@ -71,7 +71,8 @@ export namespace PluginPackageResolution {
    * The physical `package.json` of dependency `name` as seen from the project:
    * the project's own `node_modules/<name>` first, then Node resolution of
    * `<name>/package.json`, then, for a package whose exports hide its manifest,
-   * the manifest of the package directory Node resolved the package's entry in.
+   * the manifest of the package directory Node resolved the package's entry
+   * in.
    *
    * That directory is the `node_modules/<name>` of the first search root that
    * selects the entry (`moduleResolutionBaseSelects`), the rule every

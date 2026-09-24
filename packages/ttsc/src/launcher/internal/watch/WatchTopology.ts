@@ -572,13 +572,13 @@ export class WatchTopology {
    * Each directory has a watcher of its own, and a directory created below a
    * plugin module is heard through its parent's, which starts a rebuild; its
    * own watcher is added only here, when the topology refreshes after that
-   * rebuild. A file written into it in between reaches no watcher on a
-   * platform whose watcher reports a directory's direct entries alone, and the
-   * rebuild may have read the directory before the file landed. So once its
-   * watcher is registered, each entry it holds is reported as a plugin change,
-   * as `@ttsc/unplugin`'s observer announces a directory it starts watching.
-   * The directories of an input new to this sync are not reported: the load
-   * reports its inputs before any build reads them.
+   * rebuild. A file written into it in between reaches no watcher on a platform
+   * whose watcher reports a directory's direct entries alone, and the rebuild
+   * may have read the directory before the file landed. So once its watcher is
+   * registered, each entry it holds is reported as a plugin change, as
+   * `@ttsc/unplugin`'s observer announces a directory it starts watching. The
+   * directories of an input new to this sync are not reported: the load reports
+   * its inputs before any build reads them.
    */
   private syncExtraWatchers(): void {
     const directories = new Map<string, string>();

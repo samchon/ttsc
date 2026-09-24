@@ -12,8 +12,8 @@ import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
  * module holds once it starts watching it, so a file written there during the
  * rebuild the directory's creation started is not lost (samchon/ttsc#1500).
  *
- * The session watches each directory of a plugin module on its own, and adds
- * a new directory's watcher only when the topology refreshes after a build. On
+ * The session watches each directory of a plugin module on its own, and adds a
+ * new directory's watcher only when the topology refreshes after a build. On
  * Linux and macOS a watcher reports its directory's direct entries alone, so a
  * file written into the new directory before that refresh reached no watcher,
  * and the session kept the binary the rebuild had built without it. Windows
@@ -25,11 +25,11 @@ import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
  *    until an edit in it is heard.
  * 2. Create a package directory, then write a file and a `node_modules` below it
  *    before refreshing, as a save during the rebuild would.
- * 3. Refresh, as the session does after the build, and require a plugin change
- *    for the file and none for anything below `node_modules`.
- * 4. Start a second session on the same module, refresh it twice, and require
- *    no change at all: directories watched from a session's start are read by
- *    its first build.
+ * 3. Refresh, as the session does after the build, and require a plugin change for
+ *    the file and none for anything below `node_modules`.
+ * 4. Start a second session on the same module, refresh it twice, and require no
+ *    change at all: directories watched from a session's start are read by its
+ *    first build.
  */
 export const test_watch_topology_reports_what_a_new_plugin_directory_holds =
   async (): Promise<void> => {
@@ -41,7 +41,10 @@ export const test_watch_topology_reports_what_a_new_plugin_directory_holds =
     const mark = path.join(plugin, "internal", "mark", "mark.go");
     write(source, "export const value = 1;\n");
     write(config, JSON.stringify({ files: ["src/main.ts"] }));
-    write(path.join(plugin, "go.mod"), "module example.com/plugin\n\ngo 1.26\n");
+    write(
+      path.join(plugin, "go.mod"),
+      "module example.com/plugin\n\ngo 1.26\n",
+    );
     write(mark, "package mark\n");
 
     const changes: WatchInputChange[] = [];
@@ -88,7 +91,6 @@ export const test_watch_topology_reports_what_a_new_plugin_directory_holds =
         [],
         "nothing below a directory the build passes over is reported",
       );
-
     } finally {
       topology.close();
     }
