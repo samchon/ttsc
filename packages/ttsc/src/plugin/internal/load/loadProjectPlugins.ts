@@ -834,6 +834,9 @@ function collectModuleResolutionCandidates(
     }
     return [...inputs];
   }
+  // A `#` specifier is looked up in the importer's own package `imports`, whose
+  // manifest is recorded with the importer, and in no search root.
+  if (specifier.startsWith("#")) return [...inputs];
   const parts = specifier.split("/");
   const packageParts = parts[0]?.startsWith("@")
     ? parts.slice(0, 2)

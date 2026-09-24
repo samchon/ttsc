@@ -56,6 +56,15 @@ export async function test_transformttsc_persistent_validation_uses_per_file_inp
     TestProject.tmpdir("ttsc-unplugin-descriptor-selection-"),
     "selection.cjs",
   );
+  // The selection's own package scope. The descriptor evaluator records the
+  // scope of every module it loads, and without one here that is the shared
+  // temporary directory's, whose absent `package.json` is proven by that
+  // directory's metadata, which every other process writing there moves.
+  fs.writeFileSync(
+    path.join(path.dirname(descriptorSelection), "package.json"),
+    JSON.stringify({ private: true, type: "commonjs" }),
+    "utf8",
+  );
   const descriptorProbes = Array.from({ length: 100 }, (_, index) =>
     path.join(path.dirname(descriptorSelection), `missing-${index}.json`),
   );

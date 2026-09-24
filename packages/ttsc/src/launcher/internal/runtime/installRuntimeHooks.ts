@@ -425,6 +425,9 @@ function observePluginDescriptorResolutionCandidates(
   const inactive = { commit: () => undefined };
   if (process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE !== "1") return inactive;
   if (isBuiltin(specifier) || specifier.startsWith("node:")) return inactive;
+  // A `#` specifier is looked up in the importer's own package `imports`, whose
+  // manifest was recorded with the importer, and in no search root.
+  if (specifier.startsWith("#")) return inactive;
   const parent = runtimeFilePath(parentURL);
   if (parent === undefined) return inactive;
   // Candidates of a relative or absolute specifier, and those of each search
