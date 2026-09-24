@@ -53,7 +53,7 @@ func bannerLoadBannerTypeScriptConfigFile(location, resolutionRoot string) (any,
 func bannerRelativeImportSpecifier(fromDir, location string) (string, error)
 
 //go:linkname bannerTypeScriptConfigLoaderSource github.com/samchon/ttsc/packages/banner/driver.bannerTypeScriptConfigLoaderSource
-func bannerTypeScriptConfigLoaderSource(importLiteral string) string
+func bannerTypeScriptConfigLoaderSource(importLiteral, recorderLiteral string) string
 
 //go:linkname bannerTypeScriptConfigLoaderTsconfig github.com/samchon/ttsc/packages/banner/driver.typeScriptConfigLoaderTsconfig
 func bannerTypeScriptConfigLoaderTsconfig(loader, location, outDir string) string

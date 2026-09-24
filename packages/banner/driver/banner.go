@@ -13,6 +13,7 @@ import (
   "strings"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/driver/resolutioninputs"
   "github.com/samchon/ttsc/packages/ttsc/driver/windowsjunction"
 )
 
@@ -449,198 +450,26 @@ func loadBannerScriptConfigFile(location string) (any, error) {
 func loadBannerScriptConfigFileWithInputs(location string) (bannerLoadedConfig, error) {
   const script = `
 const nodeModule = require("node:module");
-const { createRequire, isBuiltin, registerHooks } = nodeModule;
-const crypto = require("node:crypto");
-const fs = require("node:fs");
+const { registerHooks } = nodeModule;
 const path = require("node:path");
-const { fileURLToPath, pathToFileURL } = require("node:url");
-const inputs = new Set();
-const hashes = new Map();
-const realpaths = new Map();
-const signatures = new Map();
-const unstableHashes = new Set();
+const { pathToFileURL } = require("node:url");
+// Which inputs a resolution read is the one rule ttsc owns
+// (resolutioninputs.Recorder), evaluated before any hook is installed.
+const { createResolutionInputRecorder } = RESOLUTION_INPUT_RECORDER;
+const recorder = createResolutionInputRecorder({ extensions: [".ts", ".tsx", ".mts", ".cts", ".js", ".mjs", ".cjs", ".json", ".node"] });
 
-function existingFile(file) {
-  try { return fs.statSync(file).isFile(); }
-  catch { return false; }
-}
-
-function missingPathError(error) {
-  return error && (error.code === "ENOENT" || error.code === "ENOTDIR");
-}
-
-function inputMetadataSignature(file) {
-  const requested = path.resolve(file);
-  let current = requested;
-  for (;;) {
-    try {
-      const link = fs.lstatSync(current, { bigint: true });
-      let target = link;
-      if (link.isSymbolicLink()) {
-        try { target = fs.statSync(current, { bigint: true }); }
-        catch { return undefined; }
-      }
-      return [path.relative(current, requested), link.dev, link.ino, link.mode, link.size, link.mtimeNs, link.ctimeNs, target.dev, target.ino, target.mode, target.size, target.mtimeNs, target.ctimeNs].join(":");
-    } catch (error) {
-      if (!missingPathError(error)) return undefined;
-      const parent = path.dirname(current);
-      if (parent === current) return undefined;
-      current = parent;
-    }
-  }
-}
-
-function recordInput(file) {
-  file = path.resolve(file);
-  inputs.add(file);
-  if (unstableHashes.has(file)) return;
-  const beforeSignature = inputMetadataSignature(file);
-  let observed;
-  let observedRealpath;
-  try { observed = fs.statSync(file).isDirectory() ? crypto.createHash("sha256").update("ttsc:host-input:directory\0").digest("hex") : crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex"); }
-  catch { observed = null; }
-  try { observedRealpath = fs.realpathSync.native(file); }
-  catch { observedRealpath = null; }
-  const afterSignature = inputMetadataSignature(file);
-  if (beforeSignature === undefined || afterSignature === undefined || beforeSignature !== afterSignature || (signatures.has(file) && signatures.get(file) !== afterSignature) || (hashes.has(file) && hashes.get(file) !== observed) || (realpaths.has(file) && realpaths.get(file) !== observedRealpath)) {
-    hashes.delete(file);
-    realpaths.delete(file);
-    signatures.delete(file);
-    unstableHashes.add(file);
-    return;
-  }
-  signatures.set(file, afterSignature);
-  hashes.set(file, observed);
-  realpaths.set(file, observedRealpath);
-}
-
-function recordFile(file) {
-  const resolvedFile = path.resolve(file);
-  recordInput(resolvedFile);
-  for (let directory = path.dirname(resolvedFile);;) {
-    const manifest = path.join(directory, "package.json");
-    recordInput(manifest);
-    if (existingFile(manifest)) {
-      break;
-    }
-    const parent = path.dirname(directory);
-    if (parent === directory) {
-      break;
-    }
-    directory = parent;
-  }
-}
-
-function recordPackageManifests(file) {
-  for (let directory = path.dirname(path.resolve(file));;) {
-    const manifest = path.join(directory, "package.json");
-    recordInput(manifest);
-    if (existingFile(manifest)) return;
-    const parent = path.dirname(directory);
-    if (parent === directory) return;
-    directory = parent;
-  }
-}
-
-const moduleProbeExtensions = [".ts", ".tsx", ".mts", ".cts", ".js", ".mjs", ".cjs", ".json", ".node"];
-function moduleCandidates(base) {
-  return [
-    base,
-    ...moduleProbeExtensions.map((extension) => base + extension),
-    path.join(base, "package.json"),
-    ...moduleProbeExtensions.map((extension) => path.join(base, "index" + extension)),
-  ];
-}
-const recordedModuleBases = new Set();
-function recordManifestTargets(value, directory, allowBare = false) {
-  if (typeof value === "string") {
-    if (value !== "" && (allowBare || value.startsWith("./") || value.startsWith("../"))) recordModuleCandidates(path.resolve(directory, value));
-    return;
-  }
-  if (Array.isArray(value)) {
-    for (const item of value) recordManifestTargets(item, directory, allowBare);
-    return;
-  }
-  if (value && typeof value === "object") {
-    for (const item of Object.values(value)) recordManifestTargets(item, directory, allowBare);
-  }
-}
-function recordModuleCandidates(base) {
-  const resolvedBase = path.resolve(base);
-  if (recordedModuleBases.has(resolvedBase)) return;
-  recordedModuleBases.add(resolvedBase);
-  for (const candidate of moduleCandidates(resolvedBase)) recordInput(candidate);
-  try {
-    const manifest = JSON.parse(fs.readFileSync(path.join(resolvedBase, "package.json"), "utf8").replace(/^\uFEFF/, ""));
-    recordManifestTargets(manifest.exports, resolvedBase);
-    recordManifestTargets(manifest.module, resolvedBase, true);
-    recordManifestTargets(manifest.main, resolvedBase, true);
-  } catch {}
-}
-function candidateSelected(base, resolvedFile) {
-  for (const candidate of moduleCandidates(base)) {
-    try {
-      const canonical = fs.realpathSync.native(candidate);
-      const relative = path.relative(canonical, resolvedFile);
-      if (relative === "" || (fs.statSync(canonical).isDirectory() && relative !== ".." && !relative.startsWith(".." + path.sep) && !path.isAbsolute(relative))) return true;
-    } catch {}
-  }
-  return false;
-}
-function localBases(specifier, parentDirectory) {
-  if (specifier.startsWith("file:")) return [fileURLToPath(specifier)];
-  const raw = path.resolve(parentDirectory, specifier);
-  const suffixStart = specifier.search(/[?#]/);
-  if (suffixStart === -1) return [raw];
-  const pathname = specifier.slice(0, suffixStart);
-  return pathname === "" ? [raw] : [...new Set([raw, path.resolve(parentDirectory, pathname)])];
-}
-function recordResolutionCandidates(specifier, parentURL, resolvedURL) {
-  if (typeof parentURL !== "string" || !parentURL.startsWith("file:")) return;
-  const parentDirectory = path.dirname(fileURLToPath(parentURL));
-  let resolvedFile;
-  try {
-    resolvedFile = typeof resolvedURL === "string" && resolvedURL.startsWith("file:")
-      ? fs.realpathSync.native(fileURLToPath(resolvedURL))
-      : undefined;
-  } catch {}
-  if (specifier.startsWith(".") || path.isAbsolute(specifier) || specifier.startsWith("file:")) {
-    try {
-      for (const base of localBases(specifier, parentDirectory)) {
-        recordPackageManifests(base);
-        let exact = false;
-        try { exact = resolvedFile === undefined ? fs.statSync(base).isFile() : fs.realpathSync.native(base) === resolvedFile; } catch {}
-        if (exact) recordInput(base);
-        else recordModuleCandidates(base);
-      }
-    } catch {}
-    return;
-  }
-  if (isBuiltin(specifier) || specifier.startsWith("#")) return;
-  const parts = specifier.split("/");
-  const packageParts = parts[0].startsWith("@") ? parts.slice(0, 2) : parts.slice(0, 1);
-  if (packageParts.some((part) => part === undefined || part === "")) return;
-  const packageName = packageParts.join("/");
-  const subpath = parts.slice(packageParts.length);
-  const searchPaths = createRequire(parentURL).resolve.paths(specifier) ?? [];
-  for (const searchPath of searchPaths) {
-    const packageDirectory = path.join(searchPath, packageName);
-    recordModuleCandidates(packageDirectory);
-    if (subpath.length !== 0) recordModuleCandidates(path.join(packageDirectory, ...subpath));
-    if (resolvedFile !== undefined && candidateSelected(packageDirectory, resolvedFile)) break;
-  }
-}
-
-recordFile(process.argv[1]);
+recorder.recordFile(process.argv[1]);
 registerHooks({
   resolve(specifier, context, nextResolve) {
-    recordResolutionCandidates(specifier, context.parentURL, undefined);
-    const resolved = nextResolve(specifier, context);
-    const url = typeof resolved === "string" ? resolved : resolved && resolved.url;
-    recordResolutionCandidates(specifier, context.parentURL, url);
-    if (typeof url === "string" && url.startsWith("file:")) {
-      recordFile(fileURLToPath(url));
+    const resolution = recorder.beginResolution(specifier, context.parentURL);
+    let resolved;
+    try {
+      resolved = nextResolve(specifier, context);
+    } catch (error) {
+      recorder.endResolution(resolution, undefined);
+      throw error;
     }
+    recorder.endResolution(resolution, typeof resolved === "string" ? resolved : resolved && resolved.url);
     return resolved;
   },
 });
@@ -662,13 +491,15 @@ nodeModule._resolveFilename = function resolveFilename(request, parent, isMain, 
     return nextResolveFilename.call(this, request, parent, isMain, options);
   }
   const parentFile = parent && typeof parent.filename === "string" ? parent.filename : undefined;
-  const parentURL = parentFile === undefined ? undefined : pathToFileURL(parentFile).href;
-  recordResolutionCandidates(request, parentURL, undefined);
-  const resolved = nextResolveFilename.call(this, request, parent, isMain, options);
-  if (path.isAbsolute(resolved)) {
-    recordResolutionCandidates(request, parentURL, pathToFileURL(resolved).href);
-    recordFile(resolved);
+  const resolution = recorder.beginResolution(request, parentFile);
+  let resolved;
+  try {
+    resolved = nextResolveFilename.call(this, request, parent, isMain, options);
+  } catch (error) {
+    recorder.endResolution(resolution, undefined);
+    throw error;
   }
+  recorder.endResolution(resolution, path.isAbsolute(resolved) ? resolved : undefined);
   return resolved;
 };
 
@@ -687,8 +518,8 @@ nodeModule._resolveFilename = function resolveFilename(request, parent, isMain, 
   }
   const value = typeof current === "function" ? await current() : current;
   const serializedValue = toSerializableBanner(value);
-  for (const input of [...inputs]) recordInput(input);
-  process.stdout.write(JSON.stringify({ value: serializedValue, hashes: Object.fromEntries(hashes), inputs: [...inputs].sort(), realpaths: Object.fromEntries(realpaths) }));
+  const recorded = recorder.finish();
+  process.stdout.write(JSON.stringify({ value: serializedValue, hashes: recorded.hashes, inputs: recorded.inputs, realpaths: recorded.realpaths }));
 })().catch((error) => {
   process.stderr.write(error && error.stack ? error.stack : String(error));
   process.exitCode = 1;
@@ -714,7 +545,10 @@ function toSerializableBanner(value) {
   // the loader runs. This preserves the historical process.argv layout seen by
   // both the loader and the imported user config without using string eval.
   cmd := exec.CommandContext(ctx, node, "--input-type=commonjs", "-", location)
-  cmd.Stdin = strings.NewReader("process.argv.splice(1, 1);\n" + script)
+  cmd.Stdin = strings.NewReader(
+    "process.argv.splice(1, 1);\nconst RESOLUTION_INPUT_RECORDER = " +
+      resolutioninputs.CommonJSExpression() + ";\n" + script,
+  )
   cmd.Env = nodeConfigLoaderEnv(location)
   // The child's stderr is human output and goes straight to this process's
   // stderr as it is written. Collecting it only to replay it afterwards is what
@@ -801,7 +635,12 @@ func loadBannerTypeScriptConfigFileWithInputs(location, resolutionRoot string) (
     return bannerLoadedConfig{}, err
   }
   importLiteral, _ := json.Marshal(importSpecifier)
-  if err := writeConfigLoaderFile(loader, []byte(bannerTypeScriptConfigLoaderSource(string(importLiteral))), 0o644); err != nil {
+  recorder := filepath.Join(tempDir, "ttsc-resolution-inputs.cjs")
+  if err := writeConfigLoaderFile(recorder, []byte(resolutioninputs.Recorder), 0o644); err != nil {
+    return bannerLoadedConfig{}, fmt.Errorf("@ttsc/banner: write config loader: %w", err)
+  }
+  recorderLiteral, _ := json.Marshal(recorder)
+  if err := writeConfigLoaderFile(loader, []byte(bannerTypeScriptConfigLoaderSource(string(importLiteral), string(recorderLiteral))), 0o644); err != nil {
     return bannerLoadedConfig{}, fmt.Errorf("@ttsc/banner: write config loader: %w", err)
   }
   if err := writeConfigLoaderFile(tsconfig, []byte(typeScriptConfigLoaderTsconfig(loader, location, tempDir)), 0o644); err != nil {
@@ -849,215 +688,31 @@ func loadBannerTypeScriptConfigFileWithInputs(location, resolutionRoot string) (
 // bannerTypeScriptConfigLoaderSource returns the source of a TypeScript loader
 // module that imports the banner config file specified by importLiteral (a
 // JSON-encoded import specifier) and writes the serialized banner value to stdout.
-func bannerTypeScriptConfigLoaderSource(importLiteral string) string {
+// recorderLiteral is the JSON-encoded path of the resolution input recorder
+// written beside the loader (resolutioninputs.Recorder).
+func bannerTypeScriptConfigLoaderSource(importLiteral, recorderLiteral string) string {
   return fmt.Sprintf(`// @ts-nocheck
-import Module, { createRequire, isBuiltin, registerHooks } from "node:module";
-import crypto from "node:crypto";
-import fs from "node:fs";
+import Module, { createRequire, registerHooks } from "node:module";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
 
-const inputs = new Set<string>();
-const hashes = new Map<string, string | null>();
-const realpaths = new Map<string, string | null>();
-const signatures = new Map<string, string>();
-const unstableHashes = new Set<string>();
-
-function existingFile(file: string): boolean {
-  try { return fs.statSync(file).isFile(); }
-  catch { return false; }
-}
-
-function missingPathError(error: unknown): boolean {
-  const code = (error as { code?: unknown } | undefined)?.code;
-  return code === "ENOENT" || code === "ENOTDIR";
-}
-
-function inputMetadataSignature(file: string): string | undefined {
-  const requested = path.resolve(file);
-  let current = requested;
-  for (;;) {
-    try {
-      const link = fs.lstatSync(current, { bigint: true });
-      let target = link;
-      if (link.isSymbolicLink()) {
-        try { target = fs.statSync(current, { bigint: true }); }
-        catch { return undefined; }
-      }
-      return [path.relative(current, requested), link.dev, link.ino, link.mode, link.size, link.mtimeNs, link.ctimeNs, target.dev, target.ino, target.mode, target.size, target.mtimeNs, target.ctimeNs].join(":");
-    } catch (error) {
-      if (!missingPathError(error)) return undefined;
-      const parent = path.dirname(current);
-      if (parent === current) return undefined;
-      current = parent;
-    }
-  }
-}
-
-function recordInput(file: string): void {
-  file = path.resolve(file);
-  inputs.add(file);
-  if (unstableHashes.has(file)) return;
-  const beforeSignature = inputMetadataSignature(file);
-  let observed: string | null;
-  let observedRealpath: string | null;
-  try { observed = fs.statSync(file).isDirectory() ? crypto.createHash("sha256").update("ttsc:host-input:directory\0").digest("hex") : crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex"); }
-  catch { observed = null; }
-  try { observedRealpath = fs.realpathSync.native(file); }
-  catch { observedRealpath = null; }
-  const afterSignature = inputMetadataSignature(file);
-  if (beforeSignature === undefined || afterSignature === undefined || beforeSignature !== afterSignature || (signatures.has(file) && signatures.get(file) !== afterSignature) || (hashes.has(file) && hashes.get(file) !== observed) || (realpaths.has(file) && realpaths.get(file) !== observedRealpath)) {
-    hashes.delete(file);
-    realpaths.delete(file);
-    signatures.delete(file);
-    unstableHashes.add(file);
-    return;
-  }
-  signatures.set(file, afterSignature);
-  hashes.set(file, observed);
-  realpaths.set(file, observedRealpath);
-}
-
-function recordFile(file: string): void {
-  const resolvedFile = path.resolve(file);
-  recordInput(resolvedFile);
-  for (let directory = path.dirname(resolvedFile);;) {
-    const manifest = path.join(directory, "package.json");
-    recordInput(manifest);
-    if (existingFile(manifest)) {
-      break;
-    }
-    const parent = path.dirname(directory);
-    if (parent === directory) {
-      break;
-    }
-    directory = parent;
-  }
-}
-
-function recordPackageManifests(file: string): void {
-  for (let directory = path.dirname(path.resolve(file));;) {
-    const manifest = path.join(directory, "package.json");
-    recordInput(manifest);
-    if (existingFile(manifest)) return;
-    const parent = path.dirname(directory);
-    if (parent === directory) return;
-    directory = parent;
-  }
-}
-
-const moduleProbeExtensions = [".ts", ".tsx", ".mts", ".cts", ".js", ".mjs", ".cjs", ".json", ".node"] as const;
-const jsToTsProbeExtensions = new Map<string, readonly string[]>([
-  [".js", [".ts", ".tsx"]],
-  [".jsx", [".tsx"]],
-  [".mjs", [".mts"]],
-  [".cjs", [".cts"]],
-]);
-function sourceSubstitutionCandidates(base: string): string[] {
-  const extension = path.extname(base).toLowerCase();
-  const substitutions = jsToTsProbeExtensions.get(extension);
-  if (substitutions === undefined) return [];
-  const stem = base.slice(0, base.length - extension.length);
-  return substitutions.map((candidate) => stem + candidate);
-}
-function moduleCandidates(base: string): string[] {
-  return [
-    base,
-    ...sourceSubstitutionCandidates(base),
-    ...moduleProbeExtensions.map((extension) => base + extension),
-    path.join(base, "package.json"),
-    ...moduleProbeExtensions.map((extension) => path.join(base, "index" + extension)),
-  ];
-}
-const recordedModuleBases = new Set<string>();
-function recordManifestTargets(value: unknown, directory: string, allowBare: boolean = false): void {
-  if (typeof value === "string") {
-    if (value !== "" && (allowBare || value.startsWith("./") || value.startsWith("../"))) recordModuleCandidates(path.resolve(directory, value));
-    return;
-  }
-  if (Array.isArray(value)) {
-    for (const item of value) recordManifestTargets(item, directory, allowBare);
-    return;
-  }
-  if (value !== null && typeof value === "object") {
-    for (const item of Object.values(value)) recordManifestTargets(item, directory, allowBare);
-  }
-}
-function recordModuleCandidates(base: string): void {
-  const resolvedBase = path.resolve(base);
-  if (recordedModuleBases.has(resolvedBase)) return;
-  recordedModuleBases.add(resolvedBase);
-  for (const candidate of moduleCandidates(resolvedBase)) recordInput(candidate);
-  try {
-    const manifest = JSON.parse(fs.readFileSync(path.join(resolvedBase, "package.json"), "utf8").replace(/^\uFEFF/, ""));
-    recordManifestTargets(manifest.exports, resolvedBase);
-    recordManifestTargets(manifest.module, resolvedBase, true);
-    recordManifestTargets(manifest.main, resolvedBase, true);
-  } catch {}
-}
-function candidateSelected(base: string, resolvedFile: string): boolean {
-  for (const candidate of moduleCandidates(base)) {
-    try {
-      const canonical = fs.realpathSync.native(candidate);
-      const relative = path.relative(canonical, resolvedFile);
-      if (relative === "" || (fs.statSync(canonical).isDirectory() && relative !== ".." && !relative.startsWith(".." + path.sep) && !path.isAbsolute(relative))) return true;
-    } catch {}
-  }
-  return false;
-}
-function localBases(specifier: string, parentDirectory: string): string[] {
-  if (specifier.startsWith("file:")) return [fileURLToPath(specifier)];
-  const raw = path.resolve(parentDirectory, specifier);
-  const suffixStart = specifier.search(/[?#]/);
-  if (suffixStart === -1) return [raw];
-  const pathname = specifier.slice(0, suffixStart);
-  return pathname === "" ? [raw] : [...new Set([raw, path.resolve(parentDirectory, pathname)])];
-}
-function recordResolutionCandidates(specifier: string, parentURL: string | undefined, resolvedURL: string | undefined): void {
-  if (typeof parentURL !== "string" || !parentURL.startsWith("file:")) return;
-  const parentDirectory = path.dirname(fileURLToPath(parentURL));
-  let resolvedFile: string | undefined;
-  try {
-    resolvedFile = typeof resolvedURL === "string" && resolvedURL.startsWith("file:")
-      ? fs.realpathSync.native(fileURLToPath(resolvedURL))
-      : undefined;
-  } catch {}
-  if (specifier.startsWith(".") || path.isAbsolute(specifier) || specifier.startsWith("file:")) {
-    try {
-      for (const base of localBases(specifier, parentDirectory)) {
-        recordPackageManifests(base);
-        let exact = false;
-        try { exact = resolvedFile === undefined ? fs.statSync(base).isFile() : fs.realpathSync.native(base) === resolvedFile; } catch {}
-        if (exact) recordInput(base);
-        else recordModuleCandidates(base);
-      }
-    } catch {}
-    return;
-  }
-  if (isBuiltin(specifier) || specifier.startsWith("#")) return;
-  const parts = specifier.split("/");
-  const packageParts = parts[0]!.startsWith("@") ? parts.slice(0, 2) : parts.slice(0, 1);
-  if (packageParts.some((part) => part === undefined || part === "")) return;
-  const packageName = packageParts.join("/");
-  const subpath = parts.slice(packageParts.length);
-  const searchPaths = createRequire(parentURL).resolve.paths(specifier) ?? [];
-  for (const searchPath of searchPaths) {
-    const packageDirectory = path.join(searchPath, packageName);
-    recordModuleCandidates(packageDirectory);
-    if (subpath.length !== 0) recordModuleCandidates(path.join(packageDirectory, ...subpath));
-    if (resolvedFile !== undefined && candidateSelected(packageDirectory, resolvedFile)) break;
-  }
-}
+// Which inputs a resolution read is the one rule ttsc owns
+// (resolutioninputs.Recorder), written beside this loader and required before
+// any hook is installed, so the recorder itself is no input.
+const recorderFile: string = %[2]s;
+const { createResolutionInputRecorder } = createRequire(recorderFile)(recorderFile);
+const recorder = createResolutionInputRecorder({ extensions: [".ts", ".tsx", ".mts", ".cts", ".js", ".mjs", ".cjs", ".json", ".node"] });
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
-    recordResolutionCandidates(specifier, context.parentURL, undefined);
-    const resolved = nextResolve(specifier, context);
-    const url = typeof resolved === "string" ? resolved : resolved?.url;
-    recordResolutionCandidates(specifier, context.parentURL, url);
-    if (typeof url === "string" && url.startsWith("file:")) {
-      recordFile(fileURLToPath(url));
+    const resolution = recorder.beginResolution(specifier, context.parentURL);
+    let resolved;
+    try {
+      resolved = nextResolve(specifier, context);
+    } catch (error) {
+      recorder.endResolution(resolution, undefined);
+      throw error;
     }
+    recorder.endResolution(resolution, typeof resolved === "string" ? resolved : resolved?.url);
     return resolved;
   },
 });
@@ -1092,16 +747,16 @@ moduleInternals._resolveFilename = function resolveFilename(
   if (typeof request !== "string") {
     return nextResolveFilename.call(this, request, parent, isMain, options);
   }
-  const parentURL =
-    typeof parent?.filename === "string"
-      ? pathToFileURL(parent.filename).href
-      : undefined;
-  recordResolutionCandidates(request, parentURL, undefined);
-  const resolved = nextResolveFilename.call(this, request, parent, isMain, options);
-  if (path.isAbsolute(resolved)) {
-    recordResolutionCandidates(request, parentURL, pathToFileURL(resolved).href);
-    recordFile(resolved);
+  const parentFile = typeof parent?.filename === "string" ? parent.filename : undefined;
+  const resolution = recorder.beginResolution(request, parentFile);
+  let resolved: string;
+  try {
+    resolved = nextResolveFilename.call(this, request, parent, isMain, options);
+  } catch (error) {
+    recorder.endResolution(resolution, undefined);
+    throw error;
   }
+  recorder.endResolution(resolution, path.isAbsolute(resolved) ? resolved : undefined);
   return resolved;
 };
 
@@ -1119,15 +774,15 @@ declare const process: {
 // left for a trailing handler to settle.
 (async () => {
   try {
-    const importedConfig = await import(%s);
+    const importedConfig = await import(%[1]s);
     const value = await resolveConfig(importedConfig);
     const serializedValue = toSerializableBanner(value);
-    for (const input of [...inputs]) recordInput(input);
+    const recorded = recorder.finish();
     process.stdout.write(JSON.stringify({
       value: serializedValue,
-      hashes: Object.fromEntries(hashes),
-      inputs: [...inputs].sort(),
-      realpaths: Object.fromEntries(realpaths),
+      hashes: recorded.hashes,
+      inputs: recorded.inputs,
+      realpaths: recorded.realpaths,
     }));
   } catch (error) {
     process.stderr.write(error instanceof Error && error.stack ? error.stack : String(error));
@@ -1181,7 +836,7 @@ function toSerializableBanner(value: unknown): unknown {
   }
   throw new Error("config file must export an object with a non-empty \"text\" string");
 }
-`, importLiteral)
+`, importLiteral, recorderLiteral)
 }
 
 // typeScriptConfigLoaderTsconfig returns the JSON content of a tsconfig that

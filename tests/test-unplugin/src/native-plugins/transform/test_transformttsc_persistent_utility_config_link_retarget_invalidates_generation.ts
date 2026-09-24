@@ -43,6 +43,14 @@ export async function test_transformttsc_persistent_utility_config_link_retarget
   fs.mkdirSync(configDirectory, { recursive: true });
   fs.mkdirSync(oldTarget, { recursive: true });
   fs.mkdirSync(newTarget, { recursive: true });
+  // A package scope of its own: without it, the selection's scope lookup reads
+  // the shared temporary directory's missing manifest, a real input any other
+  // process writing there moves.
+  fs.writeFileSync(
+    path.join(selectionRoot, "package.json"),
+    '{ "private": true }\n',
+    "utf8",
+  );
   const selectionSource = 'module.exports = require("./value.cjs");\n';
   fs.writeFileSync(
     path.join(oldTarget, "selection.cjs"),

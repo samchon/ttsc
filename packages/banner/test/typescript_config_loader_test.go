@@ -75,7 +75,7 @@ func TestTypeScriptConfigLoader(t *testing.T) {
     t.Fatalf("default ttsx command mismatch: %#v", cmd.Args)
   }
 
-  source := bannerTypeScriptConfigLoaderSource(`"./banner.config.ts"`)
+  source := bannerTypeScriptConfigLoaderSource(`"./banner.config.ts"`, `"/tmp/ttsc-resolution-inputs.cjs"`)
   if !strings.Contains(source, `const importedConfig = await import("./banner.config.ts");`) ||
     !strings.Contains(source, "registerHooks") ||
     !strings.Contains(source, "resolveConfig") {
@@ -121,10 +121,8 @@ func TestTypeScriptConfigLoader(t *testing.T) {
   if _, err := bannerLoadBannerTypeScriptConfigFile(config, root); err == nil || !strings.Contains(err.Error(), "write config loader") {
     t.Fatalf("expected loader write error, got %v", err)
   }
-  calls := 0
   bannerWriteConfigLoaderFile = func(name string, data []byte, mode os.FileMode) error {
-    calls++
-    if calls == 2 {
+    if filepath.Base(name) == "tsconfig.json" {
       return errors.New("tsconfig write failed")
     }
     return os.WriteFile(name, data, mode)

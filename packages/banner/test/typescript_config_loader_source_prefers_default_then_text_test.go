@@ -16,7 +16,7 @@ import (
 // 2. Locate default-export selection, the banner-object guard, and nested unwrap.
 // 3. Assert the generated flow selects default first, then guards before unwrap.
 func TestTypeScriptConfigLoaderSourcePrefersDefaultThenText(t *testing.T) {
-  source := bannerTypeScriptConfigLoaderSource(`"./banner.config.ts"`)
+  source := bannerTypeScriptConfigLoaderSource(`"./banner.config.ts"`, `"/tmp/ttsc-resolution-inputs.cjs"`)
   initial := strings.Index(source, `let current = isObject(value) && hasOwn(value, "default") ? value.default : value;`)
   guard := strings.Index(source, "isBannerObject(current)")
   nested := -1
