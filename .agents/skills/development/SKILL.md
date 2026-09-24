@@ -23,7 +23,7 @@ These four are never acceptable; choosing any one means the approach is already 
 - **No monkey-patching or hardcoding.** Don't special-case a consumer, a fixture name, or an expected value to make output match. Fix the general logic.
 - **No test-passing-only logic.** Code exists to be correct, not to turn a check green. A branch whose only purpose is to satisfy one assertion is a bug in disguise.
 - **No forcing a broken design.** When the same failure keeps returning under patch after patch, the design is wrong. Stop, find the root cause, and fix the design instead of looping forever on symptoms.
-- **No whack-a-mole.** Don't patch the one case that surfaced and move on. Find every case the same root cause can produce, and seal them all with coverage so the class of failure cannot recur.
+- **No whack-a-mole.** Patching the one case that surfaced is whack-a-mole, and so is repairing one symptom at a time as each rerun reveals the next, which [AGENTS.md's **Collect every symptom before correcting** rule](../../../AGENTS.md#attitude) forbids. Map every case the root cause can produce through the [consequence analysis](#consequence-analysis), and seal them all with coverage so the class of failure cannot recur.
 
 ## Work Rules
 
@@ -46,7 +46,7 @@ These four are never acceptable; choosing any one means the approach is already 
 
 ## Consequence Analysis
 
-Treat a reported example as one witness of a cause, not the complete problem statement. Before changing code, trace the same cause through:
+This is the procedure behind [AGENTS.md's **Trace the consequence surface** and **Collect every symptom before correcting** rules](../../../AGENTS.md#attitude). Group every known symptom by cause, whether an issue reported it or a finished run produced it, and before changing code trace each cause through:
 
 - every caller and downstream consumer;
 - normal, error, and recovery state transitions;
@@ -54,7 +54,11 @@ Treat a reported example as one witness of a cause, not the complete problem sta
 - Windows and POSIX behavior;
 - compatibility constraints and boundary inputs.
 
-Fix the verified class of failure, not only the reported witness. Cover positive, negative, and boundary cases without expanding the user's product goal.
+Derive a case matrix from that trace: every writer and reader of the affected state against each path, state transition, and platform, with the expected outcome in each cell.
+
+Trace the change itself the same way before making it. Every file, directory, write, event, or change in timing or order it introduces is new input to every other path that observes the same location, clock, or event, such as an upward directory walk, a directory listing, a file watcher, a cache key, or a timestamp comparison. Find each of those observers and add its cases to the matrix.
+
+Cover every cell of the matrix with a positive, negative, or boundary test case, without expanding the user's product goal.
 
 ## Plugin Configuration
 
@@ -113,6 +117,8 @@ This is not a formatter-only rule. The same happy-path bias hides autofix corrup
 ## Validation
 
 Run the narrowest command that proves the change first, then a broader command when shared behavior or packaging changed. Report any command that could not be run.
+
+Under [AGENTS.md's **Collect every symptom before correcting** rule](../../../AGENTS.md#attitude), a run has finished only when every case it selects has run, apart from cases blocked by a failure they depend on, such as tests behind a broken build. A runner that stops at its first failure skips cases nothing blocked, so it has not finished: `pnpm test:features` is a recursive `pnpm` run that skips every test package after the first failing one, and `pnpm test` chains its steps with `&&`. Run what they skipped before the [consequence analysis](#consequence-analysis) begins.
 
 Verification shape depends on the change type:
 

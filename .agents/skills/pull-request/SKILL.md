@@ -23,7 +23,7 @@ Stage explicit paths when the worktree is mixed. Never include unrelated user ch
 
 ## Write The Pull Request
 
-Write the body at open as the historical intent statement. Include the intent, scope, deferred items, and exact local verification. State skipped checks and disabled campaign CI honestly.
+Write the body at open as the historical intent statement. Include the intent, scope, deferred items, and exact local verification. State skipped checks honestly.
 
 Do not rewrite the body after every follow-up push. Record later CI fixes, newly discovered design issues, promoted deferred work, Individual Self-Review results, and Overall Self-Review rounds as formal GitHub pull-request reviews with the `COMMENT` event so the thread preserves chronology. Use inline review comments when an observation belongs to a changed line and the review body for commit-wide or round-wide results. Do not use ordinary issue-style pull-request comments for this ledger, and never `APPROVE` or `REQUEST_CHANGES` on your own pull request. The title describes the merged outcome in Conventional Commits style, not the work process.
 
@@ -33,11 +33,13 @@ Push only the topic branch with upstream tracking. Use a file-backed body for mu
 
 An issue campaign pushes and opens its cycle pull request only through [its development procedure](../issue-campaign/development.md), which owns the claim, the formatting points, the check loop, and the review record.
 
-## Watch Checks After Every Ordinary Push
+## Read Checks
 
-After each ordinary push, monitor the pull-request checks until every check settles. On failure, fetch the relevant job log, diagnose the real cause, fix it in place, push a new commit, and resume monitoring. Do not treat a green unrelated job as acceptance for a failed required surface.
+Checks run under [AGENTS.md's **Background work never stops the turn** rule](../../../AGENTS.md#attitude), which sets what to do while they run and how a failed check is read. Do not treat a green unrelated check as acceptance for a failed required surface.
 
-Issue-campaign implementation commits skip that per-push wait and read CI once the integrated head settles, as the development procedure requires.
+Push a correction only after every check of the current head has settled, so the one correction [AGENTS.md's **Collect every symptom before correcting** rule](../../../AGENTS.md#attitude) requires covers every failure the head produced. Every pull-request workflow sets `cancel-in-progress`, so a push cancels the checks the previous head still has running and discards the failures they would have reported.
+
+An issue campaign reads checks this way on its integrated head, not on each implementation commit, as [its development procedure](../issue-campaign/development.md#validate-with-ci-and-overall-self-review) requires.
 
 ## Merge On Explicit Request Or Standing Autonomous Mandate
 

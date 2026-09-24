@@ -47,9 +47,9 @@ The empty pull request prevents overlapping contributor work before code is writ
 
 ## Implement And Write Tests
 
-Work through the DAG on the claimed topic branch. Analyze the full consequence and case surface across every issue before editing, then implement the complete cycle and its tests.
+Work through the DAG on the claimed topic branch. Map the full consequence and case surface across every issue through the development skill's [consequence analysis](../development/SKILL.md#consequence-analysis) before editing, then implement the complete cycle and its tests.
 
-Implement without interruption. Write each piece's tests as that piece lands instead of leaving the tests for the end of the cycle, and keep committing as each unit becomes coherent. Do not pause the sequence for a check run; [CI is read once per settled head](#validate-with-ci-and-overall-self-review).
+Implement without interruption. Write each piece's tests as that piece lands instead of leaving the tests for the end of the cycle, and keep committing as each unit becomes coherent. Do not pause the sequence for a check run; [CI gates the integrated head](#validate-with-ci-and-overall-self-review), not each commit.
 
 Close each issue from the commit that earns it. End the commit message with one `Close #n: <issue title>` line per resolved issue, so a commit that resolves several issues carries several lines. GitHub matches the keyword and the number and ignores the title tail, so the line closes the issue normally while the log stays legible without opening each number.
 
@@ -67,27 +67,28 @@ If implementation disproves, narrows, or externally blocks an issue, reopen the 
 
 ## Validate With CI And Overall Self-Review
 
-After no ready issue remains and every Individual Self-Review is recorded, commit and push the formatted integrated snapshot, then let every ordinary pull-request check run. Start the Overall Self-Review immediately over that exact base-to-head diff while CI executes.
+After no ready issue remains and every Individual Self-Review is recorded, commit and push the formatted integrated snapshot, then let every ordinary pull-request check run. Start the Overall Self-Review immediately over that exact base-to-head diff while CI executes, and read the checks as the pull-request skill's [check procedure](../pull-request/SKILL.md#read-checks) requires.
 
 Submit every Overall Self-Review finding round and the final clean round as a formal GitHub pull-request review with the `COMMENT` event. Attach line-specific findings as inline review comments and summarize round-wide findings or the clean conclusion in the review body. Do not post ordinary issue-style pull-request comments for Self-Review.
 
-Read CI once per settled head. It gates the cycle, not each commit: every pull-request workflow sets `cancel-in-progress`, so the next push cancels an intermediate commit's run and waiting on that run stalls implementation for a discarded result.
+CI gates the integrated head, not each commit. A push cancels the previous head's run, as the [check procedure](../pull-request/SKILL.md#read-checks) explains, so waiting on an intermediate commit's run stalls implementation for a discarded result.
 
 CI and review are independent gates:
 
-- CI must prove every configured build, type-check, test, packaging, and platform lane.
+- CI must prove every configured build, type-check, test, packaging, and platform check.
 - Overall Self-Review must prove requirement fidelity, consequence coverage, issue-by-issue acceptance, test quality, documentation, generated output, and risks not encoded in CI.
 
-When either gate finds a defect:
+When either gate produces defects, apply one correction for the whole set:
 
-1. Diagnose the real cause from the CI log or review evidence.
-2. Correct the source and complete the corresponding regression coverage.
-3. Run `pnpm format`.
-4. Commit and push the correction to the same pull request.
-5. Perform and record the Individual Self-Review of that correction commit.
-6. Let the new CI run to completion, and restart Overall Self-Review as a fresh complete round over the new head.
+1. Collect every finding of the complete Overall Self-Review round and every failed check of the settled head.
+2. Map the whole set through the development skill's [consequence analysis](../development/SKILL.md#consequence-analysis).
+3. Correct the source and complete the regression coverage for every case in the resulting case matrix.
+4. Run `pnpm format`.
+5. Commit and push the correction to the same pull request.
+6. Perform and record the Individual Self-Review of that correction commit.
+7. Restart Overall Self-Review as a fresh complete round over the new head while its CI runs.
 
-Fix every red CI lane in the same pull request even when the failure predates the campaign or is unrelated to the campaign's original issues. Do not dismiss it as another contributor's failure.
+Fix every failed check in the same pull request even when the failure predates the campaign or is unrelated to the campaign's original issues. Do not dismiss it as another contributor's failure.
 
 Do not merge a head whose green checks belong to an older SHA, whose clean Overall Self-Review predates a correction, or whose required Individual Self-Review result remains unrecorded. Continue the loop until the same immutable head has green required checks and a complete Overall Self-Review round with no sound improvement.
 

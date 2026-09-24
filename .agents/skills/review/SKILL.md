@@ -14,7 +14,7 @@ A complete round satisfies all four rules:
 - **Whole surface:** read every changed file and hunk. Never partition a round by file, package, concern, platform, or pass.
 - **Consequence surface:** inspect affected code paths, tests, generated artifacts, CI, packaging, documentation, and consumers. Trace side effects, state transitions, concurrency, platforms, boundaries, compatibility, and failure and recovery paths beyond the named symptom or diff.
 - **Fresh start:** inspect the current state and repeat the whole inspection. Earlier rounds, sampled files, and a recheck of only the latest fix do not count as coverage.
-- **Unlimited rounds, one repair pass each:** a round inspects the whole surface before anything is repaired. Collect every finding it produces, apply them together, and only then begin another complete round. Stopping at the first finding to fix it leaves the rest of that round's surface uninspected. A round that applied anything is followed by another complete round without limit; stop only after a complete round produces nothing that survives verification.
+- **Unlimited rounds, one repair pass each:** a round inspects the whole surface before anything is repaired, and its findings are corrected together under [AGENTS.md's **Collect every symptom before correcting** rule](../../../AGENTS.md#attitude). A round that applied anything is followed by another complete round without limit; the loop ends only after a complete round produces nothing that survives verification.
 
 ## Overall Self-Review
 
