@@ -169,7 +169,7 @@ export namespace TestUnpluginProject {
    */
   export function pluginSource(root: string): string {
     const descriptor = fs.readFileSync(path.join(root, "plugin.cjs"), "utf8");
-    const named = /source: ("(?:[^"\\]|\\.)*"),/.exec(descriptor)?.[1];
+    const named = /source: ("(?:[^"\\]|\\.)*")/.exec(descriptor)?.[1];
     if (named === undefined)
       throw new Error(`plugin.cjs below ${root} names no source literal`);
     return path.resolve(root, JSON.parse(named) as string);
