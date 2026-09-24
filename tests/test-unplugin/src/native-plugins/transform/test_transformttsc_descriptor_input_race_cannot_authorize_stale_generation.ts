@@ -31,6 +31,16 @@ export async function test_transformttsc_descriptor_input_race_cannot_authorize_
     isolatedPluginSource: true,
   });
   const external = TestProject.tmpdir("ttsc-unplugin-descriptor-race-");
+  // The selection's own package scope. Without one, the scope Node reads for
+  // `selection.js` is the shared temporary directory's, whose absent
+  // `package.json` is proven by that directory's metadata, which every other
+  // process writing there moves; the proof then fails for a reason this
+  // scenario is not about.
+  fs.writeFileSync(
+    path.join(external, "package.json"),
+    JSON.stringify({ private: true, type: "commonjs" }),
+    "utf8",
+  );
   const selectionBase = path.join(external, "selection");
   const selectionJson = `${selectionBase}.json`;
   const selectionJs = `${selectionBase}.js`;

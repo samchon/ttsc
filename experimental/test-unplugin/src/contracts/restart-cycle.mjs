@@ -20,7 +20,8 @@ import * as webpack from "./hosts/webpack.mjs";
  * the cache, `live` a value the tsconfig is edited to while the session runs
  * and restored from, and `store: true` when the next session depends on this
  * one's store, which the session then waits for before it stops. A session of a
- * host that cannot open a store cut short waits for it whatever comes next.
+ * host that cannot open a store cut short waits for the stores it writes
+ * whatever comes next.
  * With `refusedWithoutRecords`, a session whose adapter reported that it could
  * write no record anywhere the host accepts, and turned its cache off, must
  * refuse its modules instead (`unwritable.mjs`).
@@ -188,7 +189,8 @@ try {
   // Proven while the host runs, for the state this session settled on: a host
   // stopped by a signal stores nothing more. Next's webpack stores on its idle
   // timeout, a minute after a rebuild. A session that compiled nothing changed
-  // nothing in the cache, and a host stores nothing for it, Farm excepted.
+  // nothing in the cache, and a host stores nothing for it, Farm excepted:
+  // Farm stores after every compile that completes.
   //
   // Every store must be newer than the host's last build, not merely than the
   // session: a host commits on an idle window of its own, and one that
@@ -204,12 +206,13 @@ try {
   // that compiled has anything to add to. And a host that cannot open a store
   // cut short must not be stopped while it writes one, whatever comes next:
   // Farm parses each store's manifest as its next session starts and panics on
-  // a half-written one, and it rewrites every manifest at every session,
-  // compiled or not (`storesEverySession`). A cache the adapter turned off
-  // stores nothing to wait for.
+  // a half-written one, and it rewrites every manifest after every compile
+  // that completes, whether that compile compiled a module or not, while a
+  // session whose compile failed writes none (`writesStores`). A cache the
+  // adapter turned off stores nothing to wait for.
   if (
     ((expectation.store === true && project.runs() !== before) ||
-      session.storesEverySession === true) &&
+      session.writesStores?.() === true) &&
     !cacheTurnedOff
   ) {
     // A host whose cached module snapshots predate the record's last move

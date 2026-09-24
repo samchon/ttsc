@@ -30,6 +30,7 @@ import { PluginPackageResolution } from "./PluginPackageResolution";
 import { ProjectPluginEntries } from "./ProjectPluginEntries";
 import { collectProjectHostInputs } from "./collectProjectHostInputs";
 import { hashHostInputPaths } from "./hashHostInputPaths";
+import { moduleResolutionBaseSelects } from "./moduleResolutionBaseSelects";
 import { realpathHostInput } from "./realpathHostInput";
 import { realpathHostInputPaths } from "./realpathHostInputPaths";
 
@@ -145,19 +146,39 @@ export function loadProjectPlugins(options: {
           `ttsc: plugin entry is missing a string "transform" field`,
         );
       }
-      const entryCandidates = collectModuleResolutionCandidates(
+      const entryParent = path.join(entry.baseDir, "package.json");
+      const probedCandidates = collectModuleResolutionCandidates(
         specifier,
-        path.join(entry.baseDir, "package.json"),
+        entryParent,
         undefined,
       );
       // Capture every candidate before resolution chooses the descriptor entry.
       // A post-resolution snapshot could bless a higher-priority file created
       // after the resolver had already selected the old entry.
-      const entryCandidateHashes = hashHostInputPaths(entryCandidates);
-      const entryCandidateRealpaths = realpathHostInputPaths(entryCandidates);
+      const probedCandidateHashes = hashHostInputPaths(probedCandidates);
+      const probedCandidateRealpaths = realpathHostInputPaths(probedCandidates);
       const request = PluginPackageResolution.resolvePluginRequest(
         specifier,
         entry.baseDir,
+      );
+      // Keep the candidates of the search roots up to the one the entry
+      // resolved in: the lookup never read the roots after it
+      // (`moduleResolutionBaseSelects`).
+      const read = new Set(
+        collectModuleResolutionCandidates(specifier, entryParent, request).map(
+          (candidate) => path.resolve(candidate),
+        ),
+      );
+      const entryCandidates = probedCandidates.filter((candidate) =>
+        read.has(path.resolve(candidate)),
+      );
+      const entryCandidateHashes = pickHostInputEntries(
+        probedCandidateHashes,
+        entryCandidates,
+      );
+      const entryCandidateRealpaths = pickHostInputEntries(
+        probedCandidateRealpaths,
+        entryCandidates,
       );
       const loaded = loadPluginEntry(
         entry.config,
@@ -776,33 +797,6 @@ function collectModuleResolutionCandidates(
       // A malformed selected manifest is reported by normal resolution/load.
     }
   };
-  const selectedBy = (base: string): boolean => {
-    if (resolvedFile === undefined) return false;
-    let selected: string;
-    try {
-      selected = fs.realpathSync.native(resolvedFile);
-    } catch {
-      selected = path.resolve(resolvedFile);
-    }
-    for (const candidate of candidates(base)) {
-      try {
-        const canonical = fs.realpathSync.native(candidate);
-        const relative = path.relative(canonical, selected);
-        if (
-          relative === "" ||
-          (fs.statSync(canonical).isDirectory() &&
-            relative !== ".." &&
-            !relative.startsWith(`..${path.sep}`) &&
-            !path.isAbsolute(relative))
-        ) {
-          return true;
-        }
-      } catch {
-        // Missing candidates are the inputs this function intentionally keeps.
-      }
-    }
-    return false;
-  };
   const localBases = (): string[] => {
     if (specifier.startsWith("file:")) return [fileURLToPath(specifier)];
     const directory = path.dirname(parentFile);
@@ -856,7 +850,14 @@ function collectModuleResolutionCandidates(
     if (subpath.length !== 0) {
       recordBase(path.join(packageDirectory, ...subpath));
     }
-    if (selectedBy(packageDirectory)) break;
+    if (
+      moduleResolutionBaseSelects(
+        packageDirectory,
+        resolvedFile,
+        MODULE_PROBE_EXTENSIONS,
+      )
+    )
+      break;
   }
   return [...inputs];
 }
@@ -1409,6 +1410,21 @@ function mergeObservedHostInputHashes(
 }
 
 const mergeObservedHostInputRealpaths = mergeObservedHostInputHashes;
+
+/** The observations of exactly `inputs`, keyed by resolved path. */
+function pickHostInputEntries(
+  observations: Readonly<Record<string, string | null>>,
+  inputs: readonly string[],
+): Record<string, string | null> {
+  return Object.fromEntries(
+    inputs.flatMap((input) => {
+      const absolute = path.resolve(input);
+      return Object.prototype.hasOwnProperty.call(observations, absolute)
+        ? ([[absolute, observations[absolute]!]] as const)
+        : [];
+    }),
+  );
+}
 
 /** Prevent a later plugin claim from reviving an unstable loader input. */
 function mergePluginHostInputHashes(

@@ -18,6 +18,7 @@ import { resolveOwningProjectConfig } from "../../../compiler/internal/project/r
 import { resolveTsgo } from "../../../compiler/internal/resolveTsgo";
 import { spawnNative } from "../../../compiler/internal/spawnNative";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
+import { moduleResolutionBaseSelects } from "../../../plugin/internal/load/moduleResolutionBaseSelects";
 import { buildSingleRootProject } from "../buildSingleRootProject";
 import { inlineServedSourceMap } from "../inlineServedSourceMap";
 import { parseCommonJsExports } from "../parseCommonJsExports";
@@ -361,61 +362,104 @@ function resolve(
   context: ResolveContext,
   nextResolve: NextResolve,
 ): ResolveResult {
-  recordPluginDescriptorResolutionCandidates(specifier, context.parentURL);
+  const candidates = observePluginDescriptorResolutionCandidates(
+    specifier,
+    context.parentURL,
+  );
+  // The URL the resolution settled on, or `undefined` while it has not: a
+  // resolution that throws probed every candidate, so all of them are kept.
+  let selected: string | undefined;
   try {
-    const result = rememberRuntimeEntry(
-      rememberCommonJsNamedInterop(
-        restoreStrippedNodeBuiltinScheme(
-          specifier,
-          nextResolve(specifier, context),
+    let result: ResolveResult;
+    try {
+      result = rememberRuntimeEntry(
+        rememberCommonJsNamedInterop(
+          restoreStrippedNodeBuiltinScheme(
+            specifier,
+            nextResolve(specifier, context),
+          ),
+          context,
         ),
         context,
-      ),
-      context,
-    );
-    recordPluginDescriptorResolution(specifier, context.parentURL, result.url);
-    return result;
-  } catch (error) {
-    const rescued = probeRescuableSpecifier(specifier, context.parentURL);
-    if (rescued === null) {
-      throw error;
-    }
-    const result = rememberRuntimeEntry(
-      rememberCommonJsNamedInterop(
-        { shortCircuit: true, url: rescued },
+      );
+    } catch (error) {
+      const rescued = probeRescuableSpecifier(specifier, context.parentURL);
+      if (rescued === null) {
+        throw error;
+      }
+      result = rememberRuntimeEntry(
+        rememberCommonJsNamedInterop(
+          { shortCircuit: true, url: rescued },
+          context,
+        ),
         context,
-      ),
-      context,
-    );
+      );
+    }
+    selected = result.url;
     recordPluginDescriptorResolution(specifier, context.parentURL, result.url);
     return result;
+  } finally {
+    candidates.commit(selected);
   }
 }
 
 /**
- * Fingerprint every path whose state can redirect one descriptor import.
+ * Fingerprint every path whose state can redirect one descriptor import, and
+ * report the ones the resolution could have read once it settles.
  *
- * This runs before the real resolver. Reporting candidates only after the
- * descriptor finished would pair an earlier descriptor result with later file
- * state when a higher-priority candidate appeared during evaluation.
+ * The fingerprints are taken before the real resolver runs. Reporting
+ * candidates only after the descriptor finished would pair an earlier
+ * descriptor result with later file state when a higher-priority candidate
+ * appeared during evaluation. They are reported only when the resolution
+ * settles, because a bare specifier's search stops at the first root whose
+ * package it selects (`moduleResolutionBaseSelects`): the roots after it were
+ * never read, and a missing candidate there, proven absent by the metadata of a
+ * directory as busy as a home directory, would cost the descriptor its cache
+ * proof for a path that cannot have steered it. A resolution that fails read
+ * every root, so `commit(undefined)` reports them all.
  */
-function recordPluginDescriptorResolutionCandidates(
+function observePluginDescriptorResolutionCandidates(
   specifier: string,
   parentURL: string | undefined,
-): void {
-  if (process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE !== "1") return;
-  if (isBuiltin(specifier) || specifier.startsWith("node:")) return;
+): { commit(selectedURL: string | undefined): void } {
+  const inactive = { commit: () => undefined };
+  if (process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE !== "1") return inactive;
+  if (isBuiltin(specifier) || specifier.startsWith("node:")) return inactive;
   const parent = runtimeFilePath(parentURL);
-  if (parent === undefined) return;
+  if (parent === undefined) return inactive;
+  // Candidates of a relative or absolute specifier, and those of each search
+  // root of a bare one, in search order.
+  const local: string[] = [];
+  const roots: { directory: string; lines: string[] }[] = [];
+  let lines = local;
   const recorded = new Set<string>();
   const record = (candidate: string): void => {
     const resolved = path.resolve(candidate);
     if (recorded.has(resolved)) return;
     recorded.add(resolved);
-    recordPluginDescriptorInput({
-      parent,
-      resolved,
-    });
+    lines.push(
+      ...observePluginDescriptorInput({
+        parent,
+        resolved,
+      }),
+    );
+  };
+  const commit = (selectedURL: string | undefined): void => {
+    const selected =
+      selectedURL === undefined ? undefined : runtimeFilePath(selectedURL);
+    const reached = roots.findIndex((root) =>
+      moduleResolutionBaseSelects(
+        root.directory,
+        selected,
+        DESCRIPTOR_PROBE_EXTENSIONS,
+      ),
+    );
+    appendPluginDescriptorInputs([
+      ...local,
+      ...(reached === -1 ? roots : roots.slice(0, reached + 1)).flatMap(
+        (root) => root.lines,
+      ),
+    ]);
   };
   const recordManifestTargets = (
     value: unknown,
@@ -511,28 +555,34 @@ function recordPluginDescriptorResolutionCandidates(
     } catch {
       // The real resolver owns invalid URL spellings.
     }
-    return;
+    return { commit };
   }
 
   const parts = specifier.split("/");
   const packageParts = parts[0]?.startsWith("@")
     ? parts.slice(0, 2)
     : parts.slice(0, 1);
-  if (packageParts.some((part) => part === undefined || part === "")) return;
+  if (packageParts.some((part) => part === undefined || part === "")) {
+    return { commit };
+  }
   const packageName = packageParts.join("/");
   const subpath = parts.slice(packageParts.length);
   for (const searchPath of createRequire(parent).resolve.paths(specifier) ??
     []) {
     const packageDirectory = path.join(searchPath, packageName);
+    const root = { directory: packageDirectory, lines: [] as string[] };
+    roots.push(root);
+    lines = root.lines;
     recordBase(packageDirectory);
     if (subpath.length !== 0) {
       recordBase(path.join(packageDirectory, ...subpath));
     }
     // CommonJS resolution continues past an existing but unusable package
-    // directory. Record every search root before the resolver runs so a
+    // directory. Fingerprint every search root before the resolver runs so a
     // farther selected package retains evaluation-time hashes for its
     // superseding candidates.
   }
+  return { commit };
 }
 
 /**
@@ -582,10 +632,30 @@ function recordPluginDescriptorInput(record: {
   specifier?: string;
   unstable?: boolean;
 }): void {
-  if (process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE !== "1") return;
+  appendPluginDescriptorInputs(observePluginDescriptorInput(record));
+}
+
+/**
+ * Observe one path and every symbolic link among its lexical ancestors, as the
+ * lines `appendPluginDescriptorInputs` reports, without reporting them yet.
+ */
+function observePluginDescriptorInput(record: {
+  hash?: string | null;
+  parent?: string;
+  realpath?: string | null;
+  resolved: string;
+  signature?: string;
+  specifier?: string;
+  unstable?: boolean;
+}): string[] {
+  if (process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE !== "1") return [];
   const out = process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_OUT;
-  if (out === undefined || out.length === 0) return;
-  recordPluginDescriptorInputOnce(record);
+  if (out === undefined || out.length === 0) return [];
+  const lines: string[] = [];
+  const observe = (line: string | undefined): void => {
+    if (line !== undefined) lines.push(line);
+  };
+  observe(observePluginDescriptorInputOnce(record));
   const resolved = path.resolve(record.resolved);
   const parsed = path.parse(resolved);
   let current = parsed.root;
@@ -595,16 +665,31 @@ function recordPluginDescriptorInput(record: {
     current = path.join(current, segment);
     try {
       if (fs.lstatSync(current).isSymbolicLink()) {
-        recordPluginDescriptorInputOnce({ resolved: current });
+        observe(observePluginDescriptorInputOnce({ resolved: current }));
       }
     } catch {
       break;
     }
   }
+  return lines;
 }
 
-/** Record one path without recursively revisiting its lexical ancestors. */
-function recordPluginDescriptorInputOnce(record: {
+/** Report observed lines to the parent loader, in the order given. */
+function appendPluginDescriptorInputs(lines: readonly string[]): void {
+  if (lines.length === 0) return;
+  if (process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE !== "1") return;
+  const out = process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_OUT;
+  if (out === undefined || out.length === 0) return;
+  try {
+    fs.appendFileSync(out, lines.join(""), "utf8");
+  } catch {
+    // Dependency reporting is advisory to cache reuse; the selected entry is
+    // still retained by the parent if this best-effort side channel fails.
+  }
+}
+
+/** Observe one path without recursively revisiting its lexical ancestors. */
+function observePluginDescriptorInputOnce(record: {
   hash?: string | null;
   parent?: string;
   realpath?: string | null;
@@ -612,10 +697,7 @@ function recordPluginDescriptorInputOnce(record: {
   signature?: string;
   specifier?: string;
   unstable?: boolean;
-}): void {
-  if (process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE !== "1") return;
-  const out = process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_OUT;
-  if (out === undefined || out.length === 0) return;
+}): string | undefined {
   try {
     const beforeSignature = pluginDescriptorInputMetadataSignature(
       record.resolved,
@@ -633,19 +715,16 @@ function recordPluginDescriptorInputOnce(record: {
       (record.hash !== undefined && record.hash !== observedHash) ||
       (record.realpath !== undefined && record.realpath !== observedRealpath) ||
       (record.signature !== undefined && record.signature !== afterSignature);
-    fs.appendFileSync(
-      out,
-      `${JSON.stringify({
-        ...record,
-        hash: observedHash,
-        realpath: observedRealpath,
-        ...(unstable ? { unstable: true } : { signature: afterSignature }),
-      })}\n`,
-      "utf8",
-    );
+    return `${JSON.stringify({
+      ...record,
+      hash: observedHash,
+      realpath: observedRealpath,
+      ...(unstable ? { unstable: true } : { signature: afterSignature }),
+    })}\n`;
   } catch {
     // Dependency reporting is advisory to cache reuse; the selected entry is
-    // still retained by the parent if this best-effort side channel fails.
+    // still retained by the parent if this side channel cannot observe it.
+    return undefined;
   }
 }
 

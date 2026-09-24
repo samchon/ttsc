@@ -143,7 +143,7 @@ export const RESTART_STEPS = [
  * cache in a process of its own, stopped, the edit, and the next. A session
  * followed by a step that must be served from the cache waits for its store
  * before it stops, and so does every session of a host that cannot open a store
- * cut short (`restart-cycle.mjs`).
+ * cut short, for the stores it writes (`restart-cycle.mjs`).
  *
  * @param project The fixture, on its first value.
  * @param host The host, one `restart-cycle.mjs` knows.
