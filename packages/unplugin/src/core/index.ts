@@ -1,3 +1,4 @@
+export { fallbackToolDirectory } from "./bridge/fallbackToolDirectory";
 export { hostToolDirectory } from "./bridge/hostToolDirectory";
 export { PROJECT_RECORD_DIRECTORY } from "./bridge/PROJECT_RECORD_DIRECTORY";
 export { projectRecordFile } from "./bridge/projectRecordFile";

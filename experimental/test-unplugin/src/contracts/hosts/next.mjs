@@ -49,21 +49,28 @@ export async function openSession(bundler, project) {
     [
       'import fs from "node:fs";',
       'import path from "node:path";',
-      'import { PROJECT_RECORD_DIRECTORY, hostToolDirectory, readTtscTransformSession } from "@ttsc/unplugin/api";',
+      'import { PROJECT_RECORD_DIRECTORY, fallbackToolDirectory, hostToolDirectory, readTtscTransformSession } from "@ttsc/unplugin/api";',
       'import withTtsc from "@ttsc/unplugin/next";',
       // Every project record with its modification time and size, so a
       // pass's log says whether the record moved while the pass ran. The
-      // adapter names where they live; the config composes the same path.
+      // adapter names where they live, below the root or in the fallback it
+      // keeps for a root it cannot write; the config composes the same paths.
       "const records = () => {",
-      `  const directory = path.join(hostToolDirectory(${JSON.stringify(project.root)}), PROJECT_RECORD_DIRECTORY);`,
-      "  try {",
-      "    return fs.readdirSync(directory).map((entry) => {",
-      "      const stats = fs.statSync(path.join(directory, entry));",
-      "      return `${entry}@${Math.round(stats.mtimeMs)}:${stats.size}`;",
-      '    }).join(",") || "(none)";',
-      "  } catch {",
-      '    return "(none)";',
+      `  const root = ${JSON.stringify(project.root)};`,
+      "  const stamps = [];",
+      "  for (const tool of [hostToolDirectory(root), fallbackToolDirectory(root)]) {",
+      "    if (tool === undefined) continue;",
+      "    const directory = path.join(tool, PROJECT_RECORD_DIRECTORY);",
+      "    try {",
+      "      for (const entry of fs.readdirSync(directory)) {",
+      "        const stats = fs.statSync(path.join(directory, entry));",
+      "        stamps.push(`${entry}@${Math.round(stats.mtimeMs)}:${stats.size}`);",
+      "      }",
+      "    } catch {",
+      "      // No record directory there.",
+      "    }",
       "  }",
+      '  return stamps.join(",") || "(none)";',
       "};",
       "const config = withTtsc({",
       "  devIndicators: false,",

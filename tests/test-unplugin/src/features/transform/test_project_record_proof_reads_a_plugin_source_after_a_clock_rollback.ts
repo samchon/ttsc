@@ -19,7 +19,7 @@ import { createClockRollbackFixture } from "../../internal/clock-rollback/create
  * and used to mint none, so it judged against whatever reference was last
  * minted, and a write a rollback put into a recorded stamp's tick left the
  * record unmoved, and the host's cache serving the old output. The proof now
- * mints its own reference first, in scratch storage outside the project.
+ * mints its own reference first, in the probe directory its process keeps.
  *
  * 1. Record a project whose inputs hold a plugin source, after an earlier proof
  *    minted a reference, and assert the proof finds the record current.

@@ -30,9 +30,10 @@ import { readTtscTransformSession } from "./readTtscTransformSession";
  * it lives in this user's own directory under the system temporary directory,
  * outside every project (`userStateDirectory`). Earlier versions kept one store
  * per process in the same root, removed when it exited; one whose process is
- * gone was left behind by a crash, and is removed here. A process whose
- * environment already names a live store, because a parent or an earlier call
- * opened the session, keeps that store.
+ * gone was left behind by a crash, and is removed here, as is the clock probe
+ * directory a crashed process kept there (`refreshProcessClockReference`). A
+ * process whose environment already names a live store, because a parent or an
+ * earlier call opened the session, keeps that store.
  *
  * Sharing is an optimization, so any failure leaves the session closed and the
  * workers compiling for themselves, never an error.

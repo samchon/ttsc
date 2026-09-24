@@ -239,6 +239,11 @@ export async function openSession(project, { cache = false } = {}) {
     // made it, and a store proven newer than the compile that produced it
     // never arrives (measured: every first session waited out its deadline).
     stored: (since) => cacheCommitted(cacheDir, since),
+    // Farm rewrites the manifest of every store at every session, compiled
+    // or not (measured on Farm 1.7, `cacheCommitted`), so a session over its
+    // persistent cache that compiled nothing still has a cache being written
+    // when it would stop.
+    storesEverySession: cache,
     // Farm's Compiler API has no close/dispose method; the process owns it.
     close: () => undefined,
   };

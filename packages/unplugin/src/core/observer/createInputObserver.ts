@@ -3,7 +3,7 @@ import path from "node:path";
 import { createFilesystemPathIdentityContext } from "ttsc/path-identity";
 import { pluginSourceCovers } from "ttsc/plugin-source";
 
-import { refreshScratchClockReference } from "../transform/clock/refreshScratchClockReference";
+import { refreshProcessClockReference } from "../transform/clock/refreshProcessClockReference";
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import type { TtscProjectSpellings } from "../transform/filesystem/TtscProjectSpellings";
 import { pathIsWithin } from "../transform/filesystem/pathIsWithin";
@@ -69,7 +69,7 @@ import { someSet } from "./someSet";
  * state the plugin build keyed the binary on, its files and the environment a
  * build there runs in (`pluginSourceHolds`, samchon/ttsc#1493), trusting its
  * files' metadata only against a clock reference the check mints first
- * (`refreshScratchClockReference`). Its owners are reloaded, since the plugin's
+ * (`refreshProcessClockReference`). Its owners are reloaded, since the plugin's
  * output can change for every module.
  *
  * @param onChanged Told, once per settled batch of events, which owners' inputs
@@ -338,7 +338,7 @@ export function createInputObserver(
     // Minted before the first plugin source this check proves, as a delivery
     // mints before its reads: the source's file metadata stands for its bytes
     // only against a reference minted since any rollback. The observer holds no
-    // generation, so it mints in scratch storage outside the project.
+    // generation, so it mints in the probe directory this process keeps.
     let referenceMinted = false;
     for (const entry of selected) {
       if (entries.get(entry.file) !== entry) continue;
@@ -362,7 +362,7 @@ export function createInputObserver(
         }
         if (state?.codec === "tree") {
           if (!referenceMinted) {
-            refreshScratchClockReference(
+            refreshProcessClockReference(
               projectRoot ?? entry.file,
               DEFAULT_FILESYSTEM_OPERATIONS,
             );

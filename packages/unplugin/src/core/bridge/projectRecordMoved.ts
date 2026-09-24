@@ -1,6 +1,6 @@
 import fs from "node:fs";
 
-import { refreshScratchClockReference } from "../transform/clock/refreshScratchClockReference";
+import { refreshProcessClockReference } from "../transform/clock/refreshProcessClockReference";
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import type { TtscTransformFilesystemOperations } from "../transform/filesystem/TtscTransformFilesystemOperations";
 import { walkProjectInputs } from "../transform/project/walkProjectInputs";
@@ -21,8 +21,8 @@ import { membershipRecordDigest } from "./membershipRecordDigest";
  * plugin source is proven by the metadata of its files where that metadata
  * holds (`pluginSourceFilesDigest`), which stands for their bytes only against
  * a clock reference minted since any rollback, so the proof mints one first, as
- * a delivery does. It holds no generation, so the reference is minted in
- * scratch storage outside the project (`refreshScratchClockReference`).
+ * a delivery does. It holds no generation, so the reference is minted in the
+ * probe directory this process keeps (`refreshProcessClockReference`).
  *
  * @returns The tsconfig when it is gone, which a build start answers by
  *   removing the record rather than moving it, the first input whose state
@@ -33,7 +33,7 @@ export function projectRecordMoved(
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
 ): string | undefined {
   if (!fs.existsSync(record.tsconfig)) return record.tsconfig;
-  refreshScratchClockReference(record.root, filesystem);
+  refreshProcessClockReference(record.root, filesystem);
   for (const [input, evidence] of Object.entries(record.inputs)) {
     if (evidence === null || typeof evidence !== "object") return input;
     if (!watchInputEvidenceMatchesDisk(input, evidence, filesystem))

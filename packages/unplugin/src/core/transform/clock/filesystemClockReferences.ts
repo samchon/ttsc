@@ -25,8 +25,10 @@ import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransf
  * and deliveries rewrite the probe it retains
  * (`refreshFilesystemClockReference`); a proof that holds no generation, a
  * failed generation's replay, a record's proof at a build start, and the
- * observer's proof of a plugin source, mints in scratch storage it removes at
- * once (`refreshScratchClockReference`).
+ * observer's proof of a plugin source, mints in one probe directory the process
+ * keeps below this user's state root (`refreshProcessClockReference`). Once
+ * that directory exists, a mint rewrites the probe in place and adds or removes
+ * no entry in a directory another observer reads.
  *
  * Proofs share one reference per operations object and may interleave across an
  * await. That is sound because separability is decided when an input's metadata

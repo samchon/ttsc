@@ -1,5 +1,6 @@
 import {
   PROJECT_RECORD_DIRECTORY,
+  fallbackToolDirectory,
   hostToolDirectory,
   projectRecordFile,
   projectRecordMoved,
@@ -302,9 +303,13 @@ export function projectAt(
  * The files the adapter can have written as `project`'s record
  * (`projectRecordFile`), named by the adapter's own rule rather than a copy of
  * it: below the tool directory of each root a host can run in, this process's
- * and the project's under either of its spellings, for the tsconfig under
- * either spelling, since a host running inside a project named through a link
- * can name both physically.
+ * and the project's under either of its spellings, and below the fallback the
+ * adapter keeps a root's records in when that root cannot be written
+ * (`fallbackToolDirectory`, samchon/ttsc#1480), for the tsconfig under either
+ * spelling, since a host running inside a project named through a link can name
+ * both physically. A session that waits for a pass after the record moved reads
+ * the record where the adapter wrote it, fallback included, or it stops before
+ * that pass and stores a cache its successor rebuilds from.
  *
  * @param project The fixture, or any object naming a root, its physical
  *   spelling, and its tsconfig.
@@ -316,12 +321,28 @@ export function projectRecordFiles(project) {
     path.join(physical, path.relative(project.root, project.tsconfig)),
   ];
   const files = new Set();
-  for (const root of [process.cwd(), project.root, physical]) {
+  for (const directory of recordToolDirectories(project)) {
     for (const tsconfig of tsconfigs) {
-      files.add(projectRecordFile(hostToolDirectory(root), tsconfig));
+      files.add(projectRecordFile(directory, tsconfig));
     }
   }
   return [...files];
+}
+
+/**
+ * Every tool directory the adapter can keep `project`'s records below: each
+ * root's own (`hostToolDirectory`) and, where this user has one, the fallback
+ * for a root that cannot be written (`fallbackToolDirectory`).
+ */
+function recordToolDirectories(project) {
+  const physical = project.physical ?? project.root;
+  const directories = new Set();
+  for (const root of [process.cwd(), project.root, physical]) {
+    directories.add(hostToolDirectory(root));
+    const fallback = fallbackToolDirectory(root);
+    if (fallback !== undefined) directories.add(fallback);
+  }
+  return [...directories];
 }
 
 /** Whether `file` is one `project`'s record can be (`projectRecordFiles`). */
@@ -386,26 +407,24 @@ export function projectRecordStamps(project) {
  * imports and the project's own for a development CLI the contract spawns
  * there; for Farm, the root the contract configures, which is the project's;
  * or, for Turbopack, the root the contract configures, which is this process's
- * workspace; so both are read. The records that can be this project's
- * (`projectRecordFiles`) are marked, and their absence is said outright, since
- * a report of other projects' records alone reads like a project that has
- * none.
+ * workspace; so both are read, each with the fallback the adapter keeps a
+ * root's records in when the root cannot be written. The records that can be
+ * this project's (`projectRecordFiles`) are marked, and their absence is said
+ * outright, since a report of other projects' records alone reads like a
+ * project that has none.
  *
  * @param project The fixture, which names its tsconfig and its root.
  */
 export function recordStates(project) {
   const states = {};
   const mine = new Set(projectRecordFiles(project));
-  for (const root of new Set([process.cwd(), project.root])) {
-    const directory = path.join(
-      hostToolDirectory(root),
-      PROJECT_RECORD_DIRECTORY,
-    );
+  for (const toolDirectory of recordToolDirectories(project)) {
+    const directory = path.join(toolDirectory, PROJECT_RECORD_DIRECTORY);
     let files = [];
     try {
       files = fs.readdirSync(directory);
     } catch {
-      states[label(directory)] = "no tool directory";
+      states[label(directory)] = "no record directory";
       continue;
     }
     if (!files.some((file) => mine.has(path.join(directory, file)))) {

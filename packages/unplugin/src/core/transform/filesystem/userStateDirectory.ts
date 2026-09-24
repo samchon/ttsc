@@ -11,15 +11,18 @@ import path from "node:path";
  * The adapter keeps there what outlives a process and belongs to no project:
  * the pooled hosts' shared compile store (`openTtscTransformSession`,
  * samchon/ttsc#1483) and the project records of a host whose own tool directory
- * cannot be written (`fallbackToolDirectory`, samchon/ttsc#1480). What the
- * store holds becomes build output, and a record tells a host whether its cache
- * still holds, so only this user may write either: the root is checked where
- * the temporary directory is shared, as `/tmp` is, and so is every directory
- * below it. A platform without user ids checks nothing further, as its
- * temporary directory is the user's own. The long spelling
- * (`fs.realpathSync.native`) keeps a Windows host watching a record from
- * meeting the short name the temporary directory routinely has
- * (`C:\Users\RUNNER~1\...`), on which libuv's backend aborts.
+ * cannot be written (`fallbackToolDirectory`, samchon/ttsc#1480). It also keeps
+ * one probe directory per process for the clock references of proofs that hold
+ * no generation (`refreshProcessClockReference`), named by the process id so
+ * the next session removes one a crashed process left. What the store holds
+ * becomes build output, and a record tells a host whether its cache still
+ * holds, so only this user may write either: the root is checked where the
+ * temporary directory is shared, as `/tmp` is, and so is every directory below
+ * it. A platform without user ids checks nothing further, as its temporary
+ * directory is the user's own. The long spelling (`fs.realpathSync.native`)
+ * keeps a Windows host watching a record from meeting the short name the
+ * temporary directory routinely has (`C:\Users\RUNNER~1\...`), on which libuv's
+ * backend aborts.
  *
  * @param segments The directories below the root, each created and checked.
  */

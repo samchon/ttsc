@@ -27,7 +27,8 @@ import { createClockRollbackFixture } from "../../internal/clock-rollback/create
  * is released with it, so after a clock rollback put a write into a recorded
  * stamp's tick, the old reference still called the stamp finished, and the
  * replay kept serving the old failure. The confirmation now mints its own
- * reference first, in scratch storage outside the project, as a delivery does.
+ * reference first, in the probe directory its process keeps, as a delivery
+ * does.
  *
  * 1. Record a failed generation whose recorded inputs hold a plugin source, after
  *    an earlier proof minted a reference, and assert the confirmation finds

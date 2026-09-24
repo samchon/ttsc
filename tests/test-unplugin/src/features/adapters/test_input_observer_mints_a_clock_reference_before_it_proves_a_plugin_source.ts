@@ -21,7 +21,7 @@ import type { TtscWatchInput } from "../../../../../packages/unplugin/lib/core/t
  * the bytes only against a clock reference minted since any rollback, which the
  * observer, holding no generation, never minted: it proved the source against a
  * delivery's old reference, or against none. It now mints one before the first
- * plugin source a check proves, in scratch storage outside the project. The
+ * plugin source a check proves, in the probe directory its process keeps. The
  * observer reads the host's filesystem, which no scenario can step back, so
  * what is asserted is the reference the check leaves; that a proof trusts
  * metadata only against the current reference is asserted where the digest is
