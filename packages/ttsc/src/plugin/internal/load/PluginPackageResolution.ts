@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { readJsonFile } from "../../../compiler/internal/project/readJsonFile";
 import { isRelativePluginSpecifier } from "./isRelativePluginSpecifier";
+import { moduleResolutionBaseSelects } from "./moduleResolutionBaseSelects";
 
 /**
  * How ttsc finds a plugin package and reads its manifest.
@@ -69,8 +70,16 @@ export namespace PluginPackageResolution {
   /**
    * The physical `package.json` of dependency `name` as seen from the project:
    * the project's own `node_modules/<name>` first, then Node resolution of
-   * `<name>/package.json`, then the manifest nearest to the package's main
-   * entry for a package whose exports hide its manifest.
+   * `<name>/package.json`, then, for a package whose exports hide its manifest,
+   * the manifest of the package directory Node resolved the package's entry in.
+   *
+   * That directory is the `node_modules/<name>` of the first search root that
+   * selects the entry (`moduleResolutionBaseSelects`), the rule every
+   * resolution input of a load stops at. The manifest nearest the entry is not
+   * it: a dual package keeps `dist/cjs/package.json` beside its CommonJS build,
+   * and reading that one lost the package's own `ttsc` declaration, so a
+   * hoisted plugin package of that shape was never discovered
+   * (samchon/ttsc#1499).
    */
   export function resolveDependencyPackageJson(
     name: string,
@@ -86,11 +95,19 @@ export namespace PluginPackageResolution {
     try {
       return resolveRealPath(projectRequire.resolve(`${name}/package.json`));
     } catch {
+      let entry: string;
       try {
-        return findNearestPackageJson(projectRequire.resolve(name));
+        entry = projectRequire.resolve(name);
       } catch {
         return undefined;
       }
+      for (const searchPath of projectRequire.resolve.paths(name) ?? []) {
+        const directory = path.join(searchPath, ...name.split("/"));
+        if (!moduleResolutionBaseSelects(directory, entry, [])) continue;
+        const manifest = path.join(directory, "package.json");
+        return existingFile(manifest) ? resolveRealPath(manifest) : undefined;
+      }
+      return undefined;
     }
   }
 

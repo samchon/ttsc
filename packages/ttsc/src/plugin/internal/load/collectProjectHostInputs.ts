@@ -1,9 +1,9 @@
-import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
 import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
 import { PluginPackageResolution } from "./PluginPackageResolution";
+import { moduleResolutionBaseSelects } from "./moduleResolutionBaseSelects";
 
 /** Return config ancestry and the manifest controlling package discovery. */
 export function collectProjectHostInputs(
@@ -49,34 +49,25 @@ export function collectProjectHostInputs(
   return [...inputs].sort();
 }
 
-/** Record package manifests whose later appearance can redirect discovery. */
+/**
+ * Record package manifests whose later appearance can redirect discovery: the
+ * manifest of each search root's package directory, through the root that
+ * selects the manifest discovery read (`moduleResolutionBaseSelects`), or every
+ * root when none was found.
+ */
 function collectDependencyManifestCandidates(
   packageName: string,
   parentFile: string,
   selectedManifest: string | undefined,
 ): string[] {
   const out: string[] = [];
-  let selectedDirectory: string | undefined;
-  if (selectedManifest !== undefined) {
-    try {
-      selectedDirectory = fs.realpathSync.native(
-        path.dirname(selectedManifest),
-      );
-    } catch {
-      selectedDirectory = path.resolve(path.dirname(selectedManifest));
-    }
-  }
   for (const searchPath of createRequire(parentFile).resolve.paths(
     packageName,
   ) ?? []) {
     const packageDirectory = path.join(searchPath, ...packageName.split("/"));
     out.push(path.join(packageDirectory, "package.json"));
-    if (selectedDirectory === undefined) continue;
-    try {
-      if (fs.realpathSync.native(packageDirectory) === selectedDirectory) break;
-    } catch {
-      // Keep searching until the selected package directory is reached.
-    }
+    if (moduleResolutionBaseSelects(packageDirectory, selectedManifest, []))
+      break;
   }
   return out;
 }
