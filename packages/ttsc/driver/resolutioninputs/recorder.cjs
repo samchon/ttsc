@@ -1,8 +1,8 @@
 "use strict";
 /**
  * The inputs one module resolution reads, recorded where a JavaScript program
- * is evaluated to produce something ttsc caches: a plugin descriptor, a
- * utility plugin's config file (samchon/ttsc#1501).
+ * is evaluated to produce something ttsc caches: a plugin descriptor, a utility
+ * plugin's config file (samchon/ttsc#1501).
  *
  * The evaluator runs in a process of its own, so it reports what it read as a
  * set of inputs, each with the hash of its content (`null` when absent), its
@@ -16,12 +16,16 @@
  * higher-priority candidate that appears while the program evaluates cannot
  * bless the earlier result, and committed once it settles. A bare specifier's
  * search stops at the first search root whose package it selects
- * (`moduleResolutionBaseSelects`): the roots after it were never read, so
- * their candidates are not inputs. A missing candidate is proven absent by
- * the metadata of its nearest existing ancestor, and for a root past the
- * selected one that ancestor can be a directory as busy as a home directory,
- * which would withdraw the proof for a path that cannot have steered the
- * resolution. A resolution that fails read every root, and commits them all.
+ * (`moduleResolutionBaseSelects`): the roots after it were never read, so their
+ * candidates are not inputs. A missing candidate is proven absent by the
+ * metadata of its nearest existing ancestor, and for a root past the selected
+ * one that ancestor can be a directory as busy as a home directory, which would
+ * withdraw the proof for a path that cannot have steered the resolution. A
+ * resolution that fails read every root, and commits them all. A `#` specifier
+ * its package's `imports` maps to a bare package reads that package's roots the
+ * same way; the package is named only once the resolution selected it, so each
+ * root's own metadata is fingerprinted before it instead
+ * (`observeImportSearchRoots`, `visitImportMappedCandidates`).
  */
 const crypto = require("node:crypto");
 const fs = require("node:fs");
@@ -58,9 +62,9 @@ function missingPathError(error) {
 
 /**
  * The metadata identity of a path, which exposes a content-preserving A-B-A
- * replacement: the path's own, and its link target's. A missing path is tied
- * to its nearest existing ancestor, whose metadata moves when the missing
- * branch appears or disappears. `undefined` when it cannot be taken.
+ * replacement: the path's own, and its link target's. A missing path is tied to
+ * its nearest existing ancestor, whose metadata moves when the missing branch
+ * appears or disappears. `undefined` when it cannot be taken.
  */
 function metadataSignature(file) {
   const requested = path.resolve(file);
@@ -221,13 +225,27 @@ function visitManifestTargets(
   }
   if (Array.isArray(value)) {
     for (const item of value) {
-      visitManifestTargets(item, directory, allowBare, extensions, visit, bases);
+      visitManifestTargets(
+        item,
+        directory,
+        allowBare,
+        extensions,
+        visit,
+        bases,
+      );
     }
     return;
   }
   if (value && typeof value === "object") {
     for (const item of Object.values(value)) {
-      visitManifestTargets(item, directory, allowBare, extensions, visit, bases);
+      visitManifestTargets(
+        item,
+        directory,
+        allowBare,
+        extensions,
+        visit,
+        bases,
+      );
     }
   }
 }
@@ -354,16 +372,238 @@ function visitResolutionCandidates(
   }
 }
 
+/** The `node_modules` directories a bare lookup from `parentFile` searches. */
+function searchRoots(parentFile) {
+  return Module.createRequire(parentFile).resolve.paths("x") ?? [];
+}
+
+/**
+ * Fingerprint the search roots a `#` import of `parent` can resolve a bare
+ * package through, before the resolution runs. Which package that is can be
+ * named only once the resolution selected it, so the candidates of the nearer
+ * roots are observed afterwards; each root's own metadata, taken here, is what
+ * shows a nearer package that appeared in between (samchon/ttsc#1498).
+ *
+ * @param {string | undefined} parent The importer, a path or a file URL.
+ * @returns {Map<string, string | undefined> | undefined}
+ */
+function observeImportSearchRoots(parent) {
+  const parentFile = asFile(parent);
+  if (parentFile === undefined) return undefined;
+  return new Map(
+    searchRoots(parentFile).map((root) => [root, metadataSignature(root)]),
+  );
+}
+
+/** The package name a path below a `node_modules` directory begins with. */
+function packageNameBelow(relative) {
+  const parts = relative.split(path.sep);
+  const name = parts.slice(0, parts[0].startsWith("@") ? 2 : 1);
+  return name.every(
+    (part) =>
+      part !== undefined && part !== "" && part !== "." && part !== "..",
+  ) && parts.length > name.length
+    ? name.join("/")
+    : undefined;
+}
+
+/**
+ * Whether `selected` belongs to the importer's own package: below the directory
+ * of its nearest manifest, and below no `node_modules` there. An `imports`
+ * target of that kind is a path, not a package lookup.
+ */
+function withinImporterPackage(parentFile, selected) {
+  for (let directory = path.dirname(parentFile); ; ) {
+    if (existingFile(path.join(directory, "package.json"))) {
+      let owner;
+      try {
+        owner = fs.realpathSync.native(directory);
+      } catch {
+        owner = directory;
+      }
+      const relative = path.relative(owner, selected);
+      return (
+        relative !== ".." &&
+        !relative.startsWith(".." + path.sep) &&
+        !path.isAbsolute(relative) &&
+        !relative.split(path.sep).includes("node_modules")
+      );
+    }
+    const parent = path.dirname(directory);
+    if (parent === directory) return false;
+    directory = parent;
+  }
+}
+
+/**
+ * The names `selected` can have been looked up by: the directory after the last
+ * `node_modules` of its lexical and of its physical spelling, which covers an
+ * installed, an aliased, and a linked-store package.
+ */
+function namesFromPath(files) {
+  const names = [];
+  for (const file of files) {
+    const parts = file.split(path.sep);
+    const index = parts.lastIndexOf("node_modules");
+    if (index === -1) continue;
+    const name = packageNameBelow(parts.slice(index + 1).join(path.sep));
+    if (name !== undefined && !names.includes(name)) names.push(name);
+  }
+  return names;
+}
+
+/**
+ * The name under which one search root links to a package directory holding
+ * `selected`, such as a workspace package, whose physical path carries no
+ * `node_modules`.
+ */
+function linkedNameIn(root, selected, extensions) {
+  let entries;
+  try {
+    entries = fs.readdirSync(root, { withFileTypes: true });
+  } catch {
+    return undefined;
+  }
+  for (const entry of entries) {
+    if (entry.name.startsWith("@") && entry.isDirectory()) {
+      let scoped;
+      try {
+        scoped = fs.readdirSync(path.join(root, entry.name), {
+          withFileTypes: true,
+        });
+      } catch {
+        continue;
+      }
+      for (const inner of scoped) {
+        const name = `${entry.name}/${inner.name}`;
+        if (
+          inner.isSymbolicLink() &&
+          linkSelects(root, name, selected, extensions)
+        )
+          return name;
+      }
+      continue;
+    }
+    if (
+      entry.isSymbolicLink() &&
+      linkSelects(root, entry.name, selected, extensions)
+    )
+      return entry.name;
+  }
+  return undefined;
+}
+
+function linkSelects(root, name, selected, extensions) {
+  const directory = path.join(root, name);
+  let target;
+  try {
+    target = fs.realpathSync.native(directory);
+  } catch {
+    return false;
+  }
+  const relative = path.relative(target, selected);
+  return (
+    relative !== "" &&
+    relative !== ".." &&
+    !relative.startsWith(".." + path.sep) &&
+    !path.isAbsolute(relative) &&
+    moduleResolutionBaseSelects(directory, selected, extensions)
+  );
+}
+
+/**
+ * The package directories a `#` import of `parent` that resolved to `resolved`
+ * looked its target package up in, in search order up to the one that selected
+ * it, each with its search root. Empty for a target inside the importer's own
+ * package or one no search root selects.
+ */
+function importMappedPackageDirectories(parent, resolved, extensions) {
+  const parentFile = asFile(parent);
+  const lexical = asFile(resolved);
+  const selected = selectedFile(resolved);
+  if (
+    parentFile === undefined ||
+    lexical === undefined ||
+    selected === undefined
+  )
+    return [];
+  if (withinImporterPackage(parentFile, selected)) return [];
+  const roots = searchRoots(parentFile);
+  const names = namesFromPath([lexical, selected]);
+  const through = (index, name) =>
+    roots
+      .slice(0, index + 1)
+      .map((root) => ({ directory: path.join(root, name), root }));
+  for (let index = 0; index < roots.length; index += 1) {
+    for (const name of names) {
+      if (
+        moduleResolutionBaseSelects(
+          path.join(roots[index], name),
+          selected,
+          extensions,
+        )
+      )
+        return through(index, name);
+    }
+  }
+  for (let index = 0; index < roots.length; index += 1) {
+    const name = linkedNameIn(roots[index], selected, extensions);
+    if (name !== undefined) return through(index, name);
+  }
+  return [];
+}
+
+/**
+ * Visit the candidates of the package a `#` import resolved into, in every
+ * search root from the importer up to the one that selected it
+ * (samchon/ttsc#1498). A package's `imports` may map a `#` specifier to a bare
+ * package, which Node looks up through the ordinary `node_modules` search from
+ * the importer; a nearer copy would be selected instead. The package is named
+ * by the resolved module itself, so Node's `imports` algorithm is not copied.
+ *
+ * @param {string | undefined} parent The importer, a path or a file URL.
+ * @param {string | undefined} resolved The selected module, or `undefined`.
+ * @param {readonly string[]} extensions The extensions the resolution probes.
+ * @param {Map<string, string | undefined> | undefined} witnesses What
+ *   `observeImportSearchRoots` took before the resolution.
+ * @param {(file: string, moved: boolean) => void} visit Receives each
+ *   candidate, and whether its search root moved since `witnesses`.
+ */
+function visitImportMappedCandidates(
+  parent,
+  resolved,
+  extensions,
+  witnesses,
+  visit,
+) {
+  const bases = new Set();
+  for (const { directory, root } of importMappedPackageDirectories(
+    parent,
+    resolved,
+    extensions,
+  )) {
+    const moved =
+      witnesses !== undefined &&
+      (!witnesses.has(root) || witnesses.get(root) !== metadataSignature(root));
+    visitModuleCandidates(
+      directory,
+      extensions,
+      (file) => visit(file, moved),
+      bases,
+    );
+  }
+}
+
 /**
  * Record the inputs of one evaluation.
  *
  * The caller installs its own resolution hooks and brackets every resolution
- * with `beginResolution` and `endResolution`; `recordFile` records a module
- * the evaluation loaded outside a resolution, such as its entry; `finish`
- * re-reads every input once the evaluation ended and returns the record.
+ * with `beginResolution` and `endResolution`; `recordFile` records a module the
+ * evaluation loaded outside a resolution, such as its entry; `finish` re-reads
+ * every input once the evaluation ended and returns the record.
  *
- * @param {{ extensions: readonly string[] }} options The extensions the
- *   host's resolution probes.
+ * @param {{ extensions: readonly string[] }} options The extensions the host's
+ *   resolution probes.
  */
 function createResolutionInputRecorder(options) {
   const extensions = options.extensions;
@@ -388,7 +628,10 @@ function createResolutionInputRecorder(options) {
     try {
       hash = fs.statSync(file).isDirectory()
         ? DIRECTORY_STATE
-        : crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
+        : crypto
+            .createHash("sha256")
+            .update(fs.readFileSync(file))
+            .digest("hex");
     } catch {
       hash = null;
     }
@@ -480,14 +723,28 @@ function createResolutionInputRecorder(options) {
         },
         new Set(),
       );
-      return { parent, pending, roots, specifier };
+      return {
+        imports:
+          typeof specifier === "string" && specifier.startsWith("#")
+            ? observeImportSearchRoots(parent)
+            : undefined,
+        parent,
+        pending,
+        roots,
+        specifier,
+      };
     },
     /**
      * Settle a resolution: commit the fingerprints of the candidates it could
      * have read, record them again as they are now, and record the module it
      * selected.
      *
-     * @param {{ parent: string | undefined, pending: { observation: object, root: string | undefined }[], roots: string[], specifier: string }} token
+     * @param {{
+     *   parent: string | undefined;
+     *   pending: { observation: object; root: string | undefined }[];
+     *   roots: string[];
+     *   specifier: string;
+     * }} token
      * @param {string | undefined} resolved The selected module, a path or a
      *   file URL, or `undefined` when the resolution failed.
      */
@@ -496,11 +753,25 @@ function createResolutionInputRecorder(options) {
       const reached = roots.findIndex((root) =>
         moduleResolutionBaseSelects(root, resolved, extensions),
       );
-      const read = new Set(reached === -1 ? roots : roots.slice(0, reached + 1));
+      const read = new Set(
+        reached === -1 ? roots : roots.slice(0, reached + 1),
+      );
       for (const { observation, root } of token.pending) {
         if (root === undefined || read.has(root)) commit(observation);
       }
       if (resolved === undefined) return;
+      if (token.imports !== undefined) {
+        visitImportMappedCandidates(
+          token.parent,
+          resolved,
+          extensions,
+          token.imports,
+          (file, moved) => {
+            const observation = observe(file);
+            commit(moved ? { ...observation, before: undefined } : observation);
+          },
+        );
+      }
       visitResolutionCandidates(
         token.specifier,
         token.parent,
@@ -527,5 +798,7 @@ function createResolutionInputRecorder(options) {
 module.exports = {
   createResolutionInputRecorder,
   moduleResolutionBaseSelects,
+  observeImportSearchRoots,
+  visitImportMappedCandidates,
   visitResolutionCandidates,
 };

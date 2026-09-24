@@ -19,6 +19,8 @@ import { resolveTsgo } from "../../../compiler/internal/resolveTsgo";
 import { spawnNative } from "../../../compiler/internal/spawnNative";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
 import { moduleResolutionBaseSelects } from "../../../plugin/internal/load/moduleResolutionBaseSelects";
+import { observeImportSearchRoots } from "../../../plugin/internal/load/observeImportSearchRoots";
+import { visitImportMappedCandidates } from "../../../plugin/internal/load/visitImportMappedCandidates";
 import { buildSingleRootProject } from "../buildSingleRootProject";
 import { inlineServedSourceMap } from "../inlineServedSourceMap";
 import { parseCommonJsExports } from "../parseCommonJsExports";
@@ -425,11 +427,36 @@ function observePluginDescriptorResolutionCandidates(
   const inactive = { commit: () => undefined };
   if (process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE !== "1") return inactive;
   if (isBuiltin(specifier) || specifier.startsWith("node:")) return inactive;
-  // A `#` specifier is looked up in the importer's own package `imports`, whose
-  // manifest was recorded with the importer, and in no search root.
-  if (specifier.startsWith("#")) return inactive;
   const parent = runtimeFilePath(parentURL);
   if (parent === undefined) return inactive;
+  // A `#` specifier is looked up in the importer's own package `imports`, whose
+  // manifest was recorded with the importer. When that maps it to a bare
+  // package, the package's candidates up to the root that selected it are
+  // inputs, named once the resolution settles (samchon/ttsc#1498).
+  if (specifier.startsWith("#")) {
+    const witnesses = observeImportSearchRoots(parent);
+    return {
+      commit: (selectedURL) => {
+        const lines: string[] = [];
+        visitImportMappedCandidates(
+          parent,
+          selectedURL === undefined ? undefined : runtimeFilePath(selectedURL),
+          DESCRIPTOR_PROBE_EXTENSIONS,
+          witnesses,
+          (file, moved) => {
+            lines.push(
+              ...observePluginDescriptorInput({
+                parent,
+                resolved: file,
+                ...(moved ? { unstable: true } : {}),
+              }),
+            );
+          },
+        );
+        appendPluginDescriptorInputs(lines);
+      },
+    };
+  }
   // Candidates of a relative or absolute specifier, and those of each search
   // root of a bare one, in search order.
   const local: string[] = [];

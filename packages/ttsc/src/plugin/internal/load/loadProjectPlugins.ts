@@ -33,6 +33,7 @@ import { hashHostInputPaths } from "./hashHostInputPaths";
 import { moduleResolutionBaseSelects } from "./moduleResolutionBaseSelects";
 import { realpathHostInput } from "./realpathHostInput";
 import { realpathHostInputPaths } from "./realpathHostInputPaths";
+import { visitImportMappedCandidates } from "./visitImportMappedCandidates";
 
 /**
  * Resolve, load, and build all native plugin sidecars for a TypeScript project.
@@ -835,8 +836,19 @@ function collectModuleResolutionCandidates(
     return [...inputs];
   }
   // A `#` specifier is looked up in the importer's own package `imports`, whose
-  // manifest is recorded with the importer, and in no search root.
-  if (specifier.startsWith("#")) return [...inputs];
+  // manifest is recorded with the importer. When that maps it to a bare
+  // package, the package's candidates up to the root that selected it are
+  // inputs (samchon/ttsc#1498).
+  if (specifier.startsWith("#")) {
+    visitImportMappedCandidates(
+      parentFile,
+      resolvedFile,
+      MODULE_PROBE_EXTENSIONS,
+      undefined,
+      (file) => inputs.add(path.resolve(file)),
+    );
+    return [...inputs];
+  }
   const parts = specifier.split("/");
   const packageParts = parts[0]?.startsWith("@")
     ? parts.slice(0, 2)
