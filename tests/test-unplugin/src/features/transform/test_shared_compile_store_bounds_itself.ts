@@ -1,6 +1,7 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -24,9 +25,9 @@ import { claimSharedCompile } from "../../../../../packages/unplugin/lib/core/tr
  * 2. Publish one state of each of 32 more identities, and assert the store keeps
  *    the 32 most recently used publications: the adopted state, used after
  *    every other was published, and the newest 31 of the others.
- * 3. Leave a lock owned by a dead process and a partial write older than any
- *    heartbeat, publish once more, and assert both are removed while a live
- *    worker's lock stays.
+ * 3. Leave a lock and a partial write of a dead process, and a lock and a long
+ *    running partial write of a live one, publish once more, and assert the
+ *    dead process's are removed and the live one's stay.
  */
 export async function test_shared_compile_store_bounds_itself(): Promise<void> {
   const store = TestProject.tmpdir("ttsc-unplugin-shared-bounds-");
@@ -103,12 +104,26 @@ export async function test_shared_compile_store_bounds_itself(): Promise<void> {
   const live = path.join(store, `${"d".repeat(32)}-${"e".repeat(32)}.lock`);
   fs.mkdirSync(live);
   fs.writeFileSync(path.join(live, "owner"), `${process.pid}:here`);
-  const partial = path.join(store, "partial.json.1.tmp");
-  fs.writeFileSync(partial, "{");
-  const stale = new Date(Date.now() - 60_000);
-  fs.utimesSync(partial, stale, stale);
+  // A partial write names its writer: `<publication>.<pid>.<uuid>.tmp`.
+  const partial = (pid: number) =>
+    path.join(
+      store,
+      `${"9".repeat(32)}-${"8".repeat(32)}.json.${pid}.${crypto.randomUUID()}.tmp`,
+    );
+  const deadWrite = partial(dead!);
+  fs.writeFileSync(deadWrite, "{");
+  // However long ago it began, a live writer's write is its own to finish.
+  const liveWrite = partial(process.pid);
+  fs.writeFileSync(liveWrite, "{");
+  const long = new Date(Date.now() - 3_600_000);
+  fs.utimesSync(liveWrite, long, long);
   await publish(others[0]!, "0".repeat(32));
   assert.equal(fs.existsSync(abandoned), false, "a dead worker's lock");
-  assert.equal(fs.existsSync(partial), false, "a dead writer's partial write");
+  assert.equal(
+    fs.existsSync(deadWrite),
+    false,
+    "a dead writer's partial write",
+  );
   assert.equal(fs.existsSync(live), true, "a live worker keeps its lock");
+  assert.equal(fs.existsSync(liveWrite), true, "and its partial write");
 }

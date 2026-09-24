@@ -150,9 +150,18 @@ async function abandoned(lock: string): Promise<boolean> {
     // The holder is between creating the lock and naming itself.
     return false;
   }
-  if (!Number.isInteger(owner) || owner <= 0) return false;
+  return processGone(owner);
+}
+
+/**
+ * Whether no process with this id exists on this machine, which the store's
+ * locks and partial writes name their writer by. An id that is not a positive
+ * integer names nothing this can tell, and counts as alive.
+ */
+function processGone(pid: number): boolean {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
   try {
-    process.kill(owner, 0);
+    process.kill(pid, 0);
     return false;
   } catch (error) {
     return (error as NodeJS.ErrnoException).code === "ESRCH";
@@ -243,16 +252,15 @@ async function prunePublications(
       await fs.promises
         .rm(file, { force: true, recursive: true })
         .catch(() => undefined);
-    } else if (entry.endsWith(".tmp")) {
-      // A partial write outlives only a writer that died before renaming it.
-      try {
-        const written = (await fs.promises.stat(file)).mtimeMs;
-        if (Date.now() - written > ABANDONED_MS) {
-          await fs.promises.rm(file, { force: true });
-        }
-      } catch {
-        // Renamed or removed meanwhile.
-      }
+    } else if (
+      entry.endsWith(".tmp") &&
+      // A partial write outlives only a writer that died before renaming it,
+      // and its name carries the writer's process id, before the random part
+      // (`<publication>.<pid>.<uuid>.tmp`). A live writer's is left to it,
+      // however long it takes to write.
+      processGone(Number(entry.split(".").at(-3)))
+    ) {
+      await fs.promises.rm(file, { force: true }).catch(() => undefined);
     }
   }
 }
