@@ -9,12 +9,12 @@ import type { TtscWatchInput } from "../../../../../packages/unplugin/lib/core/t
 
 /**
  * Verifies the input observer hears a plugin's Go source as a whole subtree,
- * and reloads its owners exactly when the source's digest moves
+ * and reloads its owners exactly when the source's state moves
  * (samchon/ttsc#1487).
  *
  * A watching session, the Vite dev server or a build host's bridge, observes
  * what each generation depended on. A plugin's source is one directory whose
- * digest any file below it can move, which no event on the directory itself
+ * state any file below it can move, which no event on the directory itself
  * reports; and the directories the plugin build passes over, a nested
  * `node_modules` or a repository's `.git`, can change without moving it.
  *
@@ -23,7 +23,7 @@ import type { TtscWatchInput } from "../../../../../packages/unplugin/lib/core/t
  * 2. Write below its `node_modules` and `.git`, and assert nothing is reported.
  * 3. Edit a Go file two levels below the directory, and assert the owner is
  *    reloaded.
- * 4. Register the new digest, add a Go file, and assert the owner is reloaded
+ * 4. Register the new state, add a Go file, and assert the owner is reloaded
  *    again.
  */
 export async function test_input_observer_reloads_the_owners_of_an_edited_plugin_source(): Promise<void> {

@@ -9,7 +9,7 @@ import { assertCacheKeyChangesWhenARecordedPluginSourceChanges } from "../../int
  * but Metro's key hashed each recorded path's own state, and a directory's is
  * only its presence: after a plugin edit, a restart reused every module the old
  * binary produced. A recorded plugin source is now marked as one, and the key
- * carries its digest. Exercises the real native compiler, so it runs where the
+ * carries its state. Exercises the real native compiler, so it runs where the
  * Go toolchain is present.
  *
  * 1. Run a transform whose plugin's Go source is the project's own copy, and

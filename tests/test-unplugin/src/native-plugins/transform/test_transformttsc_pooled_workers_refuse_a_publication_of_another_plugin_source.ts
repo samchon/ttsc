@@ -17,7 +17,7 @@ import { runPooledWorker } from "../../internal/pooled-session/runPooledWorker";
  * A publication is named by the project's state and adopted after the adopter
  * proves it against its own disk. The plugin's source was in neither, so a
  * worker adopted output the old plugin produced after the plugin was edited.
- * The envelope now carries the source's digest, and the adopter proves it like
+ * The envelope now carries the source's state, and the adopter proves it like
  * any universal input: a publication built from another source is refuted, and
  * the retry compiles the state and replaces it.
  *

@@ -85,7 +85,7 @@ export function createInputObserver(
   const pending = new Set<InputEntry>();
   // Entries holding a project's root-file membership (samchon/ttsc#1419).
   const memberships = new Set<InputEntry>();
-  // Entries holding a plugin's Go source directory, whose digest any file
+  // Entries holding a plugin's Go source directory, whose state any file
   // below it can move (samchon/ttsc#1487).
   const trees = new Set<InputEntry>();
   const polled = new Set<InputEntry>();

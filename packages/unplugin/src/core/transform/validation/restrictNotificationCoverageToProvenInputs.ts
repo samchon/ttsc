@@ -20,12 +20,12 @@ import type { TtscHostInputValidation } from "./TtscHostInputValidation";
  * such input continues through the recorded predicate or directory-list proof.
  *
  * A plugin source directory has no entry, and is kept all the same: capture
- * records it among the manifest's trees only once recomputing its state proved
- * it (samchon/ttsc#1487), and the tracker watches it as a whole subtree, so its
- * silence proves the directory as a readable entry's proves the entry. Dropping
- * it left every delivery unable to take the manifest's notification shortcut,
- * re-reading every universal input and recomputing every plugin source's
- * state.
+ * records it among the manifest's trees only once its state was proven
+ * (`pluginSourceHolds`, samchon/ttsc#1487), and the tracker watches it as a
+ * whole subtree, so its silence proves the directory as a readable entry's
+ * proves the entry. Dropping it left every delivery unable to take the
+ * manifest's notification shortcut, re-reading every universal input and
+ * proving every plugin source's state again.
  */
 export function restrictNotificationCoverageToProvenInputs(
   tracker: TtscProjectMutationTracker | undefined,

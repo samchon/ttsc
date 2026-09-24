@@ -41,7 +41,7 @@ export function matchesCompleteInputSnapshot(
   // requires with it. Only the graph half of the out-of-walk snapshot records
   // realpaths, so without this the fallback would quietly hold a lower standard
   // than the narrow path it stands in for. A plugin's source is proven by its
-  // digest here too, since no walk reads it (samchon/ttsc#1487).
+  // state here too, since no walk reads it (samchon/ttsc#1487).
   const state = envelopeDerivation(cached);
   const hostValidation = cached.hostInputValidation;
   if (

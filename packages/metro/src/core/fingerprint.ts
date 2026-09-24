@@ -110,7 +110,7 @@ interface SnapshotState {
   files: string[];
   /**
    * The recorded inputs that are plugin source directories, each also in
-   * `files`, whose digest the static key carries (samchon/ttsc#1487).
+   * `files`, whose state the static key carries (samchon/ttsc#1487).
    */
   trees: string[];
   /** Whether any recorded transform declared volatile output. */

@@ -36,7 +36,7 @@ export function watchInputEvidenceMatchesBaseline(
   // A key baseline records one path's own state, and the project's root-file
   // membership is a walk over many; it never stands for one.
   if (evidence.state.codec === "membership") return false;
-  // A plugin source directory's digest is a walk over many files too, and a
+  // A plugin source directory's state is a walk over many files too, and a
   // key baseline carries it only where it was captured as one.
   if (evidence.state.codec === "tree") {
     return broad !== undefined && broad.tree === evidence.state.digest;

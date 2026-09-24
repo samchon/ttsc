@@ -16,7 +16,7 @@ import path from "node:path";
  * A plugin's binary is keyed on its source, so a plugin edited in place changes
  * the output of every module, but the envelope carried only the JavaScript-host
  * files around it: the generation compiled by the old binary kept being served
- * until an unrelated input moved. The envelope now reports the source's digest,
+ * until an unrelated input moved. The envelope now reports the source's state,
  * and the generation proves it like any universal input.
  *
  * 1. Copy the fixture plugin's Go source into the project and point its descriptor

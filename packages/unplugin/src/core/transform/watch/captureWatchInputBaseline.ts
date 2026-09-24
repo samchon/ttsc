@@ -18,7 +18,7 @@ import type { TtscWatchInputBaseline } from "./TtscWatchInputBaseline";
  * required so a cache key never publishes a torn path state.
  *
  * @param options.tree Whether the path was recorded as a plugin source
- *   directory, whose digest the baseline then carries (samchon/ttsc#1487).
+ *   directory, whose state the baseline then carries (samchon/ttsc#1487).
  */
 export function captureWatchInputBaseline(
   file: string,

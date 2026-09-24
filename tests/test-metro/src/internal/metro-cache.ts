@@ -322,7 +322,7 @@ export async function assertCacheKeyChangesWhenRecordedExternalInputChanges(): P
 }
 
 /**
- * Asserts the next run's key carries the digest of every plugin source a run
+ * Asserts the next run's key carries the state of every plugin source a run
  * recorded, so editing a plugin's Go source in place re-keys the run while a
  * write the plugin build never keys on does not (samchon/ttsc#1487).
  */
