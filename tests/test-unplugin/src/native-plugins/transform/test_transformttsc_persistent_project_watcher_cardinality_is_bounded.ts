@@ -1,4 +1,4 @@
-import { TestUnpluginRuntime } from "@ttsc/testing";
+import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -13,12 +13,14 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  * A per-directory watcher would exhaust descriptors on a large tree. Project
  * membership and host inputs may own at most one observer each, sharing the one
  * physical project root, and a build-scoped generation may keep none once its
- * bounded compile-race observer closes.
+ * bounded compile-race observer closes. A plugin's Go source outside the
+ * project is watched as a whole subtree of its own (samchon/ttsc#1487): one
+ * observer per plugin source, however large the project.
  *
  * 1. Compile a project with 250 unrelated directories through a persistent cache
  *    that records each opened watch.
- * 2. Assert at most two observers on the project root, and a cache reset closes
- *    them all.
+ * 2. Assert at most two observers on the project root and one on the plugin's
+ *    source, and a cache reset closes them all.
  * 3. Compile through a build-scoped cache and assert one compile-race observer
  *    that is released before delivery.
  */
@@ -60,19 +62,27 @@ export async function test_transformttsc_persistent_project_watcher_cardinality_
         cache,
       ),
     );
+    const physical = (directory: string) =>
+      fs.realpathSync.native(directory).toLowerCase();
+    const source = physical(TestUnpluginProject.pluginSource(project.root));
     const recursive = opened.filter((watcher) => watcher.recursive);
+    const projectObservers = recursive.filter(
+      (watcher) => physical(watcher.directory) !== source,
+    );
     assert.ok(
-      recursive.length <= 2,
+      projectObservers.length <= 2,
       "project membership and host inputs may own at most one observer each",
     );
     assert.equal(
-      new Set(
-        recursive.map((watcher) =>
-          fs.realpathSync.native(watcher.directory).toLowerCase(),
-        ),
-      ).size,
+      new Set(projectObservers.map((watcher) => physical(watcher.directory)))
+        .size,
       1,
       "both logical observers must share the one physical project root",
+    );
+    assert.equal(
+      recursive.length - projectObservers.length,
+      1,
+      "the plugin's source is one subtree observer",
     );
   } finally {
     resetTtscTransformCache(cache);

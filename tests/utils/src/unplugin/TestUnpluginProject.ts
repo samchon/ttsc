@@ -159,6 +159,22 @@ export namespace TestUnpluginProject {
       .join("\n");
   }
 
+  /**
+   * The Go source directory the project's plugin descriptor names, resolved
+   * from the project root: the directory a transform reports among its plugin
+   * sources, and every host watches, once the plugin runs (samchon/ttsc#1487).
+   *
+   * Read from the descriptor this namespace or a scenario wrote, whose `source`
+   * is a string literal.
+   */
+  export function pluginSource(root: string): string {
+    const descriptor = fs.readFileSync(path.join(root, "plugin.cjs"), "utf8");
+    const named = /source: ("(?:[^"\\]|\\.)*"),/.exec(descriptor)?.[1];
+    if (named === undefined)
+      throw new Error(`plugin.cjs below ${root} names no source literal`);
+    return path.resolve(root, JSON.parse(named) as string);
+  }
+
   /** Write the local CommonJS plugin descriptor consumed by ttsc. */
   export function writePluginEntry(root: string): void {
     const source = sharedGoPluginSource();

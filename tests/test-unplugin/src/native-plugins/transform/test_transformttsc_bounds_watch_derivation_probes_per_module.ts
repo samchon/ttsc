@@ -1,4 +1,4 @@
-import { TestUnpluginRuntime } from "@ttsc/testing";
+import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -68,7 +68,8 @@ export async function test_transformttsc_bounds_watch_derivation_probes_per_modu
   }
 
   // Derivation parity: each module registers its own reach union, minus
-  // itself, plus the universal config chain.
+  // itself, plus the universal config chain and the plugin's Go source
+  // (samchon/ttsc#1487).
   const expected = (file: string) =>
     [
       ...modules.filter((other) => other !== file),
@@ -78,6 +79,7 @@ export async function test_transformttsc_bounds_watch_derivation_probes_per_modu
       path.join(project.root, "package.json"),
       path.join(project.root, "plugin.cjs"),
       path.join(project.root, "tsconfig.json"),
+      TestUnpluginProject.pluginSource(project.root),
     ].sort();
   for (const file of modules) {
     assert.deepEqual([...(watched.get(file) ?? [])].sort(), expected(file));

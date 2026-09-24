@@ -18,6 +18,14 @@ import type { TtscHostInputValidation } from "./TtscHostInputValidation";
  * while bytes become readable. Missing resolver candidates inside the project
  * retain their separate component-aware candidate tracker, while every other
  * such input continues through the recorded predicate or directory-list proof.
+ *
+ * A plugin source directory has no entry, and is kept all the same: capture
+ * records it among the manifest's trees only once recomputing its state proved
+ * it (samchon/ttsc#1487), and the tracker watches it as a whole subtree, so its
+ * silence proves the directory as a readable entry's proves the entry. Dropping
+ * it left every delivery unable to take the manifest's notification shortcut,
+ * re-reading every universal input and recomputing every plugin source's
+ * state.
  */
 export function restrictNotificationCoverageToProvenInputs(
   tracker: TtscProjectMutationTracker | undefined,
@@ -29,6 +37,7 @@ export function restrictNotificationCoverageToProvenInputs(
   const state = envelopeDerivation(cached);
   for (const input of [...covered]) {
     const absolute = path.resolve(input);
+    if (hostValidation?.trees.has(absolute) === true) continue;
     const hostEntry = hostValidation?.entries.get(absolute);
     if (
       (hostValidation?.covered.has(absolute) === true &&
