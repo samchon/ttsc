@@ -40,7 +40,7 @@ export const test_buildlock_release_never_replaces_the_outcome_it_protected =
 
     // 2. A failed build keeps its own error.
     const buildFailure = new Error('"go build" failed');
-    reported.length = 0;
+    const reportedOnFailure: unknown[] = [];
     assert.throws(
       () =>
         runHoldingLock(
@@ -48,11 +48,11 @@ export const test_buildlock_release_never_replaces_the_outcome_it_protected =
             throw buildFailure;
           },
           failingRelease,
-          (error) => reported.push(error),
+          (error) => reportedOnFailure.push(error),
         ),
       (error: unknown) => error === buildFailure,
     );
-    assert.deepEqual(reported, [releaseFailure]);
+    assert.deepEqual(reportedOnFailure, [releaseFailure]);
 
     // 3. An ordinary release.
     const order: string[] = [];
