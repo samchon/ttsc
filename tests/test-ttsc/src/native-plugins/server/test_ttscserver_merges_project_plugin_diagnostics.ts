@@ -5,10 +5,11 @@ import { pathToFileURL } from "node:url";
 
 import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
+  PLUGIN_BUILD_TIMEOUT,
   TtscserverClient,
   assert,
   initializeTtscserverClient,
-  shutdownTtscserverClient,
+  runTtscserverSession,
 } from "../../internal/ttscserver";
 
 type PublishDiagnosticsParams = {
@@ -47,42 +48,40 @@ export const test_ttscserver_merges_project_plugin_diagnostics = async () => {
   });
 
   try {
-    await initializeTtscserverClient(client, project.tmpdir);
-    const diagnostics = client.waitForNotification<PublishDiagnosticsParams>(
-      "textDocument/publishDiagnostics",
-      (params) =>
-        params.uri === uri &&
-        (params.diagnostics ?? []).some(
-          (diagnostic) =>
-            diagnostic.source === "@ttsc/lint" && diagnostic.code === "no-var",
-        ),
-      // The shared content-addressed plugin cache means an earlier test has
-      // usually already built `@ttsc/lint`, so this wait normally races a warm
-      // sidecar. The margin still covers the one case where this test happens
-      // to warm the cache first; a cold lint build stays well under it.
-      60_000,
-    );
-    client.notify("textDocument/didOpen", {
-      textDocument: {
-        uri,
-        languageId: "typescript",
-        version: 1,
-        text: fs.readFileSync(file, "utf8"),
-      },
-    });
+    await runTtscserverSession(client, async () => {
+      await initializeTtscserverClient(client, project.tmpdir);
+      const diagnostics = client.waitForNotification<PublishDiagnosticsParams>(
+        "textDocument/publishDiagnostics",
+        (params) =>
+          params.uri === uri &&
+          (params.diagnostics ?? []).some(
+            (diagnostic) =>
+              diagnostic.source === "@ttsc/lint" &&
+              diagnostic.code === "no-var",
+          ),
+        PLUGIN_BUILD_TIMEOUT,
+      );
+      client.notify("textDocument/didOpen", {
+        textDocument: {
+          uri,
+          languageId: "typescript",
+          version: 1,
+          text: fs.readFileSync(file, "utf8"),
+        },
+      });
 
-    const params = await diagnostics;
-    const lintDiagnostic = (params.diagnostics ?? []).find(
-      (diagnostic) =>
-        diagnostic.source === "@ttsc/lint" && diagnostic.code === "no-var",
-    );
-    assert.ok(lintDiagnostic, "expected @ttsc/lint diagnostic");
-    assert.match(
-      lintDiagnostic.message ?? "",
-      /Unexpected var, use let or const instead/,
-    );
+      const params = await diagnostics;
+      const lintDiagnostic = (params.diagnostics ?? []).find(
+        (diagnostic) =>
+          diagnostic.source === "@ttsc/lint" && diagnostic.code === "no-var",
+      );
+      assert.ok(lintDiagnostic, "expected @ttsc/lint diagnostic");
+      assert.match(
+        lintDiagnostic.message ?? "",
+        /Unexpected var, use let or const instead/,
+      );
+    });
   } finally {
-    await shutdownTtscserverClient(client);
     project.cleanup();
   }
 };

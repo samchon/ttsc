@@ -8,7 +8,7 @@ import {
   TtscserverClient,
   assert,
   initializeTtscserverClient,
-  shutdownTtscserverClient,
+  runTtscserverSession,
 } from "../../internal/ttscserver";
 
 type CodeAction = {
@@ -64,57 +64,58 @@ export const test_ttscserver_serves_project_plugin_code_actions_and_executes_com
     });
 
     try {
-      await initializeTtscserverClient(client, project.tmpdir);
-      client.notify("textDocument/didOpen", {
-        textDocument: {
-          uri,
-          languageId: "typescript",
-          version: 1,
-          text: fs.readFileSync(file, "utf8"),
-        },
-      });
-
-      const actions = await client.request<CodeAction[]>(
-        "textDocument/codeAction",
-        {
-          textDocument: { uri },
-          range: {
-            start: { line: 0, character: source.indexOf("var legacy") },
-            end: { line: 0, character: source.indexOf("var legacy") + 3 },
+      await runTtscserverSession(client, async () => {
+        await initializeTtscserverClient(client, project.tmpdir);
+        client.notify("textDocument/didOpen", {
+          textDocument: {
+            uri,
+            languageId: "typescript",
+            version: 1,
+            text: fs.readFileSync(file, "utf8"),
           },
-          context: { diagnostics: [], only: ["source.fixAll.ttsc"] },
-        },
-      );
-      const fixAll = actions.find(
-        (action) => action.command?.command === "ttsc.lint.fixAll",
-      );
-      assert.ok(fixAll, "expected ttsc.lint.fixAll code action");
-      assert.equal(fixAll.kind, "source.fixAll.ttsc");
+        });
 
-      const edit = await client.request<WorkspaceEdit>(
-        "workspace/executeCommand",
-        {
-          command: "ttsc.lint.fixAll",
-          arguments: [uri],
-        },
-      );
-      const edits = edit.changes?.[uri] ?? [];
-      assert.ok(edits.length > 0, "expected WorkspaceEdit changes");
-      const original = fs.readFileSync(file, "utf8");
-      assert.equal(edits[0]?.range?.end?.line, 0);
-      assert.equal(edits[0]?.range?.end?.character, original.length);
-      assert.equal(
-        applyWorkspaceEdits(original, edits),
-        'const icon = "😀"; const legacy = 1; const stable = legacy; if (typeof stable === "number") { console.log(icon, stable); }',
-        "expected fix-all command to reach the lint cascade fixed point",
-      );
-      assert.equal(
-        fs.readFileSync(file, "utf8"),
-        source,
-        "LSP executeCommand should return edits, not write the file",
-      );
+        const actions = await client.request<CodeAction[]>(
+          "textDocument/codeAction",
+          {
+            textDocument: { uri },
+            range: {
+              start: { line: 0, character: source.indexOf("var legacy") },
+              end: { line: 0, character: source.indexOf("var legacy") + 3 },
+            },
+            context: { diagnostics: [], only: ["source.fixAll.ttsc"] },
+          },
+        );
+        const fixAll = actions.find(
+          (action) => action.command?.command === "ttsc.lint.fixAll",
+        );
+        assert.ok(fixAll, "expected ttsc.lint.fixAll code action");
+        assert.equal(fixAll.kind, "source.fixAll.ttsc");
+
+        const edit = await client.request<WorkspaceEdit>(
+          "workspace/executeCommand",
+          {
+            command: "ttsc.lint.fixAll",
+            arguments: [uri],
+          },
+        );
+        const edits = edit.changes?.[uri] ?? [];
+        assert.ok(edits.length > 0, "expected WorkspaceEdit changes");
+        const original = fs.readFileSync(file, "utf8");
+        assert.equal(edits[0]?.range?.end?.line, 0);
+        assert.equal(edits[0]?.range?.end?.character, original.length);
+        assert.equal(
+          applyWorkspaceEdits(original, edits),
+          'const icon = "😀"; const legacy = 1; const stable = legacy; if (typeof stable === "number") { console.log(icon, stable); }',
+          "expected fix-all command to reach the lint cascade fixed point",
+        );
+        assert.equal(
+          fs.readFileSync(file, "utf8"),
+          source,
+          "LSP executeCommand should return edits, not write the file",
+        );
+      });
     } finally {
-      await shutdownTtscserverClient(client);
       project.cleanup();
     }
   };

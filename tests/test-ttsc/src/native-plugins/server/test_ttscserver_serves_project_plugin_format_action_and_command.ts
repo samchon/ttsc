@@ -8,7 +8,7 @@ import {
   TtscserverClient,
   assert,
   initializeTtscserverClient,
-  shutdownTtscserverClient,
+  runTtscserverSession,
 } from "../../internal/ttscserver";
 
 type CodeAction = {
@@ -68,54 +68,55 @@ export const test_ttscserver_serves_project_plugin_format_action_and_command =
     });
 
     try {
-      await initializeTtscserverClient(client, project.tmpdir);
-      client.notify("textDocument/didOpen", {
-        textDocument: {
-          uri,
-          languageId: "typescript",
-          version: 1,
-          text: fs.readFileSync(file, "utf8"),
-        },
-      });
-
-      const actions = await client.request<CodeAction[]>(
-        "textDocument/codeAction",
-        {
-          textDocument: { uri },
-          range: {
-            start: { line: 0, character: 0 },
-            end: { line: 0, character: source.length },
+      await runTtscserverSession(client, async () => {
+        await initializeTtscserverClient(client, project.tmpdir);
+        client.notify("textDocument/didOpen", {
+          textDocument: {
+            uri,
+            languageId: "typescript",
+            version: 1,
+            text: fs.readFileSync(file, "utf8"),
           },
-          context: { diagnostics: [], only: ["source.format"] },
-        },
-      );
-      const format = actions.find(
-        (action) => action.command?.command === "ttsc.format.document",
-      );
-      assert.ok(format, "expected ttsc.format.document code action");
-      assert.equal(format.kind, "source.format");
+        });
 
-      const edit = await client.request<WorkspaceEdit>(
-        "workspace/executeCommand",
-        {
-          command: "ttsc.format.document",
-          arguments: [uri],
-        },
-      );
-      const edits = edit.changes?.[uri] ?? [];
-      assert.ok(edits.length > 0, "expected WorkspaceEdit changes");
-      assert.equal(
-        applyWorkspaceEdits(source, edits),
-        "var legacy = 1;\nJSON.stringify(legacy);\n",
-        "expected format command to apply only formatter edits",
-      );
-      assert.equal(
-        fs.readFileSync(file, "utf8"),
-        source,
-        "LSP executeCommand should return edits, not write the file",
-      );
+        const actions = await client.request<CodeAction[]>(
+          "textDocument/codeAction",
+          {
+            textDocument: { uri },
+            range: {
+              start: { line: 0, character: 0 },
+              end: { line: 0, character: source.length },
+            },
+            context: { diagnostics: [], only: ["source.format"] },
+          },
+        );
+        const format = actions.find(
+          (action) => action.command?.command === "ttsc.format.document",
+        );
+        assert.ok(format, "expected ttsc.format.document code action");
+        assert.equal(format.kind, "source.format");
+
+        const edit = await client.request<WorkspaceEdit>(
+          "workspace/executeCommand",
+          {
+            command: "ttsc.format.document",
+            arguments: [uri],
+          },
+        );
+        const edits = edit.changes?.[uri] ?? [];
+        assert.ok(edits.length > 0, "expected WorkspaceEdit changes");
+        assert.equal(
+          applyWorkspaceEdits(source, edits),
+          "var legacy = 1;\nJSON.stringify(legacy);\n",
+          "expected format command to apply only formatter edits",
+        );
+        assert.equal(
+          fs.readFileSync(file, "utf8"),
+          source,
+          "LSP executeCommand should return edits, not write the file",
+        );
+      });
     } finally {
-      await shutdownTtscserverClient(client);
       project.cleanup();
     }
   };

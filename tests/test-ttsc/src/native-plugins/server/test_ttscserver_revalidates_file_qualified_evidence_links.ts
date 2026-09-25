@@ -5,9 +5,10 @@ import { pathToFileURL } from "node:url";
 
 import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
+  PLUGIN_BUILD_TIMEOUT,
   TtscserverClient,
   assert,
-  shutdownTtscserverClient,
+  runTtscserverSession,
 } from "../../internal/ttscserver";
 
 type Publication = {
@@ -49,71 +50,71 @@ module.exports = { plugins: { evidence }, rules: { "evidence/graph": ["error", {
       env: { TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
     });
     try {
-      const initial = client.waitForNotification<Publication>(
-        "textDocument/publishDiagnostics",
-        (value) =>
-          (value.diagnostics ?? []).some((diagnostic) =>
-            diagnostic.message?.includes("Missing TypeScript evidence export"),
-          ),
-        900_000,
-      );
-      await client.request("initialize", {
-        capabilities: {
-          workspace: {
-            didChangeWatchedFiles: {
-              dynamicRegistration: true,
-              relativePatternSupport: true,
+      await runTtscserverSession(client, async () => {
+        const initial = client.waitForNotification<Publication>(
+          "textDocument/publishDiagnostics",
+          (value) =>
+            (value.diagnostics ?? []).some((diagnostic) =>
+              diagnostic.message?.includes(
+                "Missing TypeScript evidence export",
+              ),
+            ),
+          PLUGIN_BUILD_TIMEOUT,
+        );
+        await client.request("initialize", {
+          capabilities: {
+            workspace: {
+              didChangeWatchedFiles: {
+                dynamicRegistration: true,
+                relativePatternSupport: true,
+              },
             },
           },
-        },
-        processId: process.pid,
-        rootUri: pathToFileURL(project.tmpdir).href,
+          processId: process.pid,
+          rootUri: pathToFileURL(project.tmpdir).href,
+        });
+        client.notify("initialized", {});
+        client.notify("textDocument/didOpen", {
+          textDocument: {
+            uri: pathToFileURL(path.join(project.tmpdir, "src/main.ts")).href,
+            languageId: "typescript",
+            version: 1,
+            text: "export {};\n",
+          },
+        });
+        const first = await initial;
+        const cleared = client.waitForNotification<Publication>(
+          "textDocument/publishDiagnostics",
+          (value) =>
+            value.uri === first.uri &&
+            !(value.diagnostics ?? []).some(
+              (diagnostic) => diagnostic.code === "evidence/graph",
+            ),
+          120_000,
+        );
+        fs.writeFileSync(target, "export const value = 1;\n");
+        client.notify("workspace/didChangeWatchedFiles", {
+          changes: [{ uri: pathToFileURL(target).href, type: 2 }],
+        });
+        await cleared;
+        const deleted = client.waitForNotification<Publication>(
+          "textDocument/publishDiagnostics",
+          (value) =>
+            (value.diagnostics ?? []).some((diagnostic) =>
+              diagnostic.message?.includes("Missing TypeScript evidence file"),
+            ),
+          120_000,
+        );
+        fs.unlinkSync(target);
+        client.notify("workspace/didChangeWatchedFiles", {
+          changes: [{ uri: pathToFileURL(target).href, type: 3 }],
+        });
+        assert.ok(
+          (await deleted).diagnostics?.length,
+          "The editor must observe external deletion.",
+        );
       });
-      client.notify("initialized", {});
-      client.notify("textDocument/didOpen", {
-        textDocument: {
-          uri: pathToFileURL(path.join(project.tmpdir, "src/main.ts")).href,
-          languageId: "typescript",
-          version: 1,
-          text: "export {};\n",
-        },
-      });
-      const first = await initial;
-      const cleared = client.waitForNotification<Publication>(
-        "textDocument/publishDiagnostics",
-        (value) =>
-          value.uri === first.uri &&
-          !(value.diagnostics ?? []).some(
-            (diagnostic) => diagnostic.code === "evidence/graph",
-          ),
-        120_000,
-      );
-      fs.writeFileSync(target, "export const value = 1;\n");
-      client.notify("workspace/didChangeWatchedFiles", {
-        changes: [{ uri: pathToFileURL(target).href, type: 2 }],
-      });
-      await cleared;
-      const deleted = client.waitForNotification<Publication>(
-        "textDocument/publishDiagnostics",
-        (value) =>
-          (value.diagnostics ?? []).some((diagnostic) =>
-            diagnostic.message?.includes("Missing TypeScript evidence file"),
-          ),
-        120_000,
-      );
-      fs.unlinkSync(target);
-      client.notify("workspace/didChangeWatchedFiles", {
-        changes: [{ uri: pathToFileURL(target).href, type: 3 }],
-      });
-      assert.ok(
-        (await deleted).diagnostics?.length,
-        "The editor must observe external deletion.",
-      );
     } finally {
-      try {
-        await shutdownTtscserverClient(client);
-      } finally {
-        project.cleanup();
-      }
+      project.cleanup();
     }
   };

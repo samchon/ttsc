@@ -3,7 +3,7 @@ import { TestProject } from "@ttsc/testing";
 import {
   TtscserverClient,
   initializeTtscserverClient,
-  shutdownTtscserverClient,
+  runTtscserverSession,
 } from "../../internal/ttscserver";
 
 /**
@@ -26,9 +26,7 @@ export const test_ttscserver_launcher_resolves_platform_binary_without_env_overr
     const client = TtscserverClient.startLauncher(cwd, {
       injectTtscserverBinary: false,
     });
-    try {
+    await runTtscserverSession(client, async () => {
       await initializeTtscserverClient(client, cwd);
-    } finally {
-      await shutdownTtscserverClient(client);
-    }
+    });
   };

@@ -8,7 +8,7 @@ import {
   TtscserverClient,
   assert,
   initializeTtscserverClient,
-  shutdownTtscserverClient,
+  runTtscserverSession,
 } from "../../internal/ttscserver";
 
 type PublishDiagnosticsParams = {
@@ -59,41 +59,43 @@ export const test_ttscserver_lsp_honors_explicit_lint_config_file =
     });
 
     try {
-      await initializeTtscserverClient(client, project.tmpdir);
-      // No timeout: on an isolated lane this is the first test to build
-      // `@ttsc/lint` from source, so the diagnostics follow a cold multi-minute
-      // sidecar build. The wait ends when the diagnostics arrive or the server
-      // dies.
-      const diagnostics = client.waitForNotification<PublishDiagnosticsParams>(
-        "textDocument/publishDiagnostics",
-        (params) =>
-          params.uri === uri &&
-          (params.diagnostics ?? []).some(
-            (diagnostic) => diagnostic.source === "@ttsc/lint",
-          ),
-      );
-      client.notify("textDocument/didOpen", {
-        textDocument: {
-          uri,
-          languageId: "typescript",
-          version: 1,
-          text: fs.readFileSync(file, "utf8"),
-        },
-      });
+      await runTtscserverSession(client, async () => {
+        await initializeTtscserverClient(client, project.tmpdir);
+        // No timeout: on an isolated lane this is the first test to build
+        // `@ttsc/lint` from source, so the diagnostics follow a cold multi-minute
+        // sidecar build. The wait ends when the diagnostics arrive or the server
+        // dies.
+        const diagnostics =
+          client.waitForNotification<PublishDiagnosticsParams>(
+            "textDocument/publishDiagnostics",
+            (params) =>
+              params.uri === uri &&
+              (params.diagnostics ?? []).some(
+                (diagnostic) => diagnostic.source === "@ttsc/lint",
+              ),
+          );
+        client.notify("textDocument/didOpen", {
+          textDocument: {
+            uri,
+            languageId: "typescript",
+            version: 1,
+            text: fs.readFileSync(file, "utf8"),
+          },
+        });
 
-      const params = await diagnostics;
-      const codes = new Set(
-        (params.diagnostics ?? [])
-          .filter((diagnostic) => diagnostic.source === "@ttsc/lint")
-          .map((diagnostic) => diagnostic.code),
-      );
-      assert.ok(codes.has("no-var"), "expected explicit config diagnostic");
-      assert.ok(
-        !codes.has("no-console"),
-        "default lint.config.json should not override configFile",
-      );
+        const params = await diagnostics;
+        const codes = new Set(
+          (params.diagnostics ?? [])
+            .filter((diagnostic) => diagnostic.source === "@ttsc/lint")
+            .map((diagnostic) => diagnostic.code),
+        );
+        assert.ok(codes.has("no-var"), "expected explicit config diagnostic");
+        assert.ok(
+          !codes.has("no-console"),
+          "default lint.config.json should not override configFile",
+        );
+      });
     } finally {
-      await shutdownTtscserverClient(client);
       project.cleanup();
     }
   };

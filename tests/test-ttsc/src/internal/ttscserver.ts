@@ -247,6 +247,14 @@ export class TtscserverClient {
     return [...this.serverRequests];
   }
 
+  /**
+   * End the server process at once, as a crash would, so its exit is not clean.
+   * A test uses it to observe what a failed shutdown reports.
+   */
+  terminate(): void {
+    this.child.kill();
+  }
+
   forceClose(): void {
     if (!this.child.killed) {
       this.child.stdin.end();
@@ -443,6 +451,50 @@ export async function shutdownTtscserverClient(
   const code = await client.waitForExit();
   const detail = `shutdownResponse=${shutdownResult}\nstderr=${client.stderrText()}`;
   assert.equal(code, 0, `ttscserver should exit cleanly\n${detail}`);
+}
+
+/**
+ * Bound for a wait that includes a cold `@ttsc/lint` build: long enough for one
+ * on a developer machine, since it only bounds a failure.
+ */
+export const PLUGIN_BUILD_TIMEOUT = 900_000;
+
+/**
+ * Run `body` against a started session, then shut the session down, without
+ * letting the shutdown's failure replace the body's.
+ *
+ * A session shut down from a `finally` block asserted its exit code there, so a
+ * body that failed (a wait that timed out while the launcher was still
+ * building, for one) was reported as a shutdown failure instead
+ * (samchon/ttsc#1513). The body's value is returned and its error is thrown;
+ * when the shutdown fails after the body failed, both are thrown together, the
+ * body's first.
+ *
+ * @param client The started session.
+ * @param body The test's work against it.
+ * @returns What `body` returned.
+ */
+export async function runTtscserverSession<T>(
+  client: TtscserverClient,
+  body: (client: TtscserverClient) => Promise<T>,
+): Promise<T> {
+  let result: T;
+  try {
+    result = await body(client);
+  } catch (error) {
+    try {
+      await shutdownTtscserverClient(client);
+    } catch (shutdownError) {
+      throw new AggregateError(
+        [error, shutdownError],
+        `${error instanceof Error ? error.message : String(error)}\n` +
+          "(the session's shutdown failed after it)",
+      );
+    }
+    throw error;
+  }
+  await shutdownTtscserverClient(client);
+  return result;
 }
 
 function formatUnknown(value: unknown): string {

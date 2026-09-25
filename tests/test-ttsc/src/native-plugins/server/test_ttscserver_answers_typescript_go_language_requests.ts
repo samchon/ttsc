@@ -4,9 +4,10 @@ import { pathToFileURL } from "node:url";
 
 import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
+  PLUGIN_BUILD_TIMEOUT,
   TtscserverClient,
   assert,
-  shutdownTtscserverClient,
+  runTtscserverSession,
 } from "../../internal/ttscserver";
 
 type Diagnostic = { code?: unknown; source?: string };
@@ -101,139 +102,135 @@ export const test_ttscserver_answers_typescript_go_language_requests =
     });
 
     try {
-      // 1. Handshake. Deliberately unbounded, matching the sibling session
-      // test: the launcher builds project plugins before it spawns the server,
-      // so a cold `@ttsc/lint` source build is charged to this one request.
-      const initialized = await client.request<InitializeResult>("initialize", {
-        capabilities: CLIENT_CAPABILITIES,
-        processId: process.pid,
-        rootUri: pathToFileURL(project.tmpdir).href,
-      });
-      const capabilities = initialized.capabilities ?? {};
-      // ttsc rewrites this result to add its own commands and action kinds.
-      // The providers below are TypeScript-Go's alone, and each one is the
-      // capability an editor gates the matching request on.
-      assert.ok(
-        capabilities.hoverProvider,
-        `ttsc must not drop tsgo's hoverProvider: ${JSON.stringify(capabilities)}`,
-      );
-      assert.ok(
-        capabilities.documentSymbolProvider,
-        `ttsc must not drop tsgo's documentSymbolProvider: ${JSON.stringify(capabilities)}`,
-      );
-      assert.ok(
-        capabilities.completionProvider,
-        `ttsc must not drop tsgo's completionProvider: ${JSON.stringify(capabilities)}`,
-      );
-      client.notify("initialized", {});
+      await runTtscserverSession(client, async () => {
+        // 1. Handshake. Deliberately unbounded, matching the sibling session
+        // test: the launcher builds project plugins before it spawns the server,
+        // so a cold `@ttsc/lint` source build is charged to this one request.
+        const initialized = await client.request<InitializeResult>(
+          "initialize",
+          {
+            capabilities: CLIENT_CAPABILITIES,
+            processId: process.pid,
+            rootUri: pathToFileURL(project.tmpdir).href,
+          },
+        );
+        const capabilities = initialized.capabilities ?? {};
+        // ttsc rewrites this result to add its own commands and action kinds.
+        // The providers below are TypeScript-Go's alone, and each one is the
+        // capability an editor gates the matching request on.
+        assert.ok(
+          capabilities.hoverProvider,
+          `ttsc must not drop tsgo's hoverProvider: ${JSON.stringify(capabilities)}`,
+        );
+        assert.ok(
+          capabilities.documentSymbolProvider,
+          `ttsc must not drop tsgo's documentSymbolProvider: ${JSON.stringify(capabilities)}`,
+        );
+        assert.ok(
+          capabilities.completionProvider,
+          `ttsc must not drop tsgo's completionProvider: ${JSON.stringify(capabilities)}`,
+        );
+        client.notify("initialized", {});
 
-      // 2. Open the file and wait for ttsc's own finding. Register the waiter
-      // first: publishDiagnostics races the notification that triggers it.
-      const ready = client.waitForNotification<PublishDiagnosticsParams>(
-        "textDocument/publishDiagnostics",
-        (params) =>
-          params.uri === uri &&
-          (params.diagnostics ?? []).some(
-            (diagnostic) =>
-              diagnostic.source === "@ttsc/lint" &&
-              diagnostic.code === "no-var",
-          ),
-        DIAGNOSTICS_TIMEOUT,
-      );
-      client.notify("textDocument/didOpen", {
-        textDocument: {
-          languageId: "typescript",
-          text: SOURCE,
-          uri,
-          version: 1,
-        },
-      });
-      await ready;
-
-      // 3. Hover. Nothing about it is ttsc's: the proxy neither intercepts nor
-      // enriches it, so the reply is TypeScript-Go's checker talking.
-      //
-      // The wait above cannot order this: the finding it waits for comes from
-      // ttsc's own sidecar, not from TypeScript-Go, so it says nothing about
-      // whether the upstream dispatch loop ever advanced. The failure message
-      // therefore carries the handshake that decides it, and a hang here reads
-      // as "the registration was never answered" rather than a bare timeout.
-      const hover = await client
-        .request<Hover>(
-          "textDocument/hover",
-          { position: HOVER_POSITION, textDocument: { uri } },
-          REQUEST_TIMEOUT,
-        )
-        .catch((error: unknown) => {
-          throw new Error(
-            `hover was never answered (server→client requests received: ${JSON.stringify(client.serverRequestMethods())}): ${
-              error instanceof Error ? (error.stack ?? error.message) : error
-            }`,
-          );
+        // 2. Open the file and wait for ttsc's own finding. Register the waiter
+        // first: publishDiagnostics races the notification that triggers it.
+        const ready = client.waitForNotification<PublishDiagnosticsParams>(
+          "textDocument/publishDiagnostics",
+          (params) =>
+            params.uri === uri &&
+            (params.diagnostics ?? []).some(
+              (diagnostic) =>
+                diagnostic.source === "@ttsc/lint" &&
+                diagnostic.code === "no-var",
+            ),
+          PLUGIN_BUILD_TIMEOUT,
+        );
+        client.notify("textDocument/didOpen", {
+          textDocument: {
+            languageId: "typescript",
+            text: SOURCE,
+            uri,
+            version: 1,
+          },
         });
-      assert.match(
-        hoverText(hover),
-        /legacy: number/,
-        `hover must carry tsgo's inferred type: ${JSON.stringify(hover)}`,
-      );
+        await ready;
 
-      // 4. The handshake that let step 3 happen at all. tsgo issues it from its
-      // `initialized` handler and parks the loop that dispatches every later
-      // request until the client replies, so an answered hover proves it was
-      // answered; asserting it makes the mechanism explicit rather than
-      // incidental.
-      assert.ok(
-        client.serverRequestMethods().includes("client/registerCapability"),
-        `an answered hover implies the registration was answered: ${JSON.stringify(client.serverRequestMethods())}`,
-      );
+        // 3. Hover. Nothing about it is ttsc's: the proxy neither intercepts nor
+        // enriches it, so the reply is TypeScript-Go's checker talking.
+        //
+        // The wait above cannot order this: the finding it waits for comes from
+        // ttsc's own sidecar, not from TypeScript-Go, so it says nothing about
+        // whether the upstream dispatch loop ever advanced. The failure message
+        // therefore carries the handshake that decides it, and a hang here reads
+        // as "the registration was never answered" rather than a bare timeout.
+        const hover = await client
+          .request<Hover>(
+            "textDocument/hover",
+            { position: HOVER_POSITION, textDocument: { uri } },
+            REQUEST_TIMEOUT,
+          )
+          .catch((error: unknown) => {
+            throw new Error(
+              `hover was never answered (server→client requests received: ${JSON.stringify(client.serverRequestMethods())}): ${
+                error instanceof Error ? (error.stack ?? error.message) : error
+              }`,
+            );
+          });
+        assert.match(
+          hoverText(hover),
+          /legacy: number/,
+          `hover must carry tsgo's inferred type: ${JSON.stringify(hover)}`,
+        );
 
-      // 5. documentSymbol. The proxy owns a handler for this method and
-      // forwards it whenever tsgo advertises the capability, so the forwarding
-      // branch — not just the untouched path hover exercises — is covered too.
-      const symbols = await client.request<DocumentSymbol[] | null>(
-        "textDocument/documentSymbol",
-        { textDocument: { uri } },
-        REQUEST_TIMEOUT,
-      );
-      const names = symbolNames(symbols ?? []);
-      assert.ok(
-        names.includes("greet"),
-        `documentSymbol must list tsgo's declarations: ${JSON.stringify(names)}`,
-      );
+        // 4. The handshake that let step 3 happen at all. tsgo issues it from its
+        // `initialized` handler and parks the loop that dispatches every later
+        // request until the client replies, so an answered hover proves it was
+        // answered; asserting it makes the mechanism explicit rather than
+        // incidental.
+        assert.ok(
+          client.serverRequestMethods().includes("client/registerCapability"),
+          `an answered hover implies the registration was answered: ${JSON.stringify(client.serverRequestMethods())}`,
+        );
 
-      // 6. Completion. The proxy merges plugin items into the upstream reply,
-      // so an upstream answer has to survive that merge. `legacy` is in scope
-      // at the caret and no ttsc rule publishes it, which is what separates
-      // tsgo's vocabulary from ttsc's contribution.
-      const completion = await client.request<CompletionResponse>(
-        "textDocument/completion",
-        {
-          context: { triggerKind: 1 },
-          position: COMPLETION_POSITION,
-          textDocument: { uri },
-        },
-        REQUEST_TIMEOUT,
-      );
-      const upstreamLabels = completionItems(completion)
-        .filter((item) => item.data?.$ttsc !== PLUGIN_MARKER)
-        .map((item) => item.label);
-      assert.ok(
-        upstreamLabels.includes("legacy"),
-        `completion must carry tsgo's own items: ${JSON.stringify(upstreamLabels.slice(0, 40))}`,
-      );
+        // 5. documentSymbol. The proxy owns a handler for this method and
+        // forwards it whenever tsgo advertises the capability, so the forwarding
+        // branch — not just the untouched path hover exercises — is covered too.
+        const symbols = await client.request<DocumentSymbol[] | null>(
+          "textDocument/documentSymbol",
+          { textDocument: { uri } },
+          REQUEST_TIMEOUT,
+        );
+        const names = symbolNames(symbols ?? []);
+        assert.ok(
+          names.includes("greet"),
+          `documentSymbol must list tsgo's declarations: ${JSON.stringify(names)}`,
+        );
+
+        // 6. Completion. The proxy merges plugin items into the upstream reply,
+        // so an upstream answer has to survive that merge. `legacy` is in scope
+        // at the caret and no ttsc rule publishes it, which is what separates
+        // tsgo's vocabulary from ttsc's contribution.
+        const completion = await client.request<CompletionResponse>(
+          "textDocument/completion",
+          {
+            context: { triggerKind: 1 },
+            position: COMPLETION_POSITION,
+            textDocument: { uri },
+          },
+          REQUEST_TIMEOUT,
+        );
+        const upstreamLabels = completionItems(completion)
+          .filter((item) => item.data?.$ttsc !== PLUGIN_MARKER)
+          .map((item) => item.label);
+        assert.ok(
+          upstreamLabels.includes("legacy"),
+          `completion must carry tsgo's own items: ${JSON.stringify(upstreamLabels.slice(0, 40))}`,
+        );
+      });
     } finally {
-      await shutdownTtscserverClient(client);
       project.cleanup();
     }
   };
-
-/**
- * Bound for the `@ttsc/lint` finding. `lsp-diagnostics` goes to the resident
- * sidecar daemon, which the proxy bounds at 30s per verb and falls back to a
- * fresh spawn on timeout, so one wait can cost two attempts plus a Program
- * load.
- */
-const DIAGNOSTICS_TIMEOUT = 120_000;
 
 /**
  * Bound for one upstream request. Every one of them is asked after tsgo has

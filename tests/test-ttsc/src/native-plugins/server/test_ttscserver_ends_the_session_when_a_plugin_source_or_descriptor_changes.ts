@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 
 import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
+  PLUGIN_BUILD_TIMEOUT,
   TtscserverClient,
   assert,
   shutdownTtscserverClient,
@@ -14,9 +15,6 @@ type Diagnostic = { code?: unknown; message?: string };
 type PublishDiagnosticsParams = { diagnostics?: Diagnostic[]; uri: string };
 
 const SOURCE = "var legacy = 1;\nexport const kept = legacy;\n";
-
-/** Long enough for a cold `@ttsc/lint` build; it only bounds a failure. */
-const BUILD_TIMEOUT = 900_000;
 
 /** How long a session may take to act on one watched-file notification. */
 const SELECTION_TIMEOUT = 120_000;
@@ -108,7 +106,7 @@ export const test_ttscserver_ends_the_session_when_a_plugin_source_or_descriptor
           (params.diagnostics ?? []).some(
             (diagnostic) => diagnostic.code === "no-var",
           ),
-        BUILD_TIMEOUT,
+        PLUGIN_BUILD_TIMEOUT,
       );
       client.notify("textDocument/didOpen", {
         textDocument: {

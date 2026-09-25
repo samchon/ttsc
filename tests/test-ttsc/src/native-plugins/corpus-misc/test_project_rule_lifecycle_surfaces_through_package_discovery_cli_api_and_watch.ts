@@ -18,7 +18,7 @@ import {
 import {
   TtscserverClient,
   initializeTtscserverClient,
-  shutdownTtscserverClient,
+  runTtscserverSession,
 } from "../../internal/ttscserver";
 
 type PublishDiagnosticsParams = {
@@ -320,7 +320,7 @@ module.exports = {
         TTSC_PLUGIN_CONFIG_DIR: "",
       },
     });
-    try {
+    await runTtscserverSession(client, async () => {
       await initializeTtscserverClient(client, logicalRoot);
       const failedPublication =
         client.waitForNotification<PublishDiagnosticsParams>(
@@ -389,9 +389,7 @@ module.exports = {
         },
       });
       await cleanPublication;
-    } finally {
-      await shutdownTtscserverClient(client);
-    }
+    });
 
     fs.writeFileSync(guardState, "blocked\n");
 
