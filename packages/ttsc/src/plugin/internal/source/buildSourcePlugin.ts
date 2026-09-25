@@ -13,6 +13,7 @@ import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
 import type { SourceBuildFilesystemOperations } from "./SourceBuildFilesystemOperations";
 import { acquirePluginBuildLock } from "./acquirePluginBuildLock";
 import { computeCacheKey } from "./computeCacheKey";
+import { copiesPluginSourceEntry } from "./copiesPluginSourceEntry";
 import { ensureExecutableGoToolchain } from "./ensureExecutableGoToolchain";
 import { formatGoWorkPath } from "./formatGoWorkPath";
 import { pluginModuleReplaceDirectories } from "./pluginModuleReplaceDirectories";
@@ -213,7 +214,12 @@ function compileSourcePlugin(opts: {
   const scratchDir = createCanonicalTempDirectory(`ttsc-plugin-${opts.key}-`);
   try {
     materializeScratchDir(opts.dir, scratchDir);
-    requireKeyedSource(opts.dir, scratchDir, opts.keyedDigests, opts.pluginName);
+    requireKeyedSource(
+      opts.dir,
+      scratchDir,
+      opts.keyedDigests,
+      opts.pluginName,
+    );
     const replacements = pluginModuleReplaceDirectories(
       opts.dir,
       opts.env,
@@ -480,12 +486,7 @@ function mergeContributors(opts: {
     }
     fs.cpSync(contributor.source, target, {
       recursive: true,
-      filter: (src) => {
-        const base = path.basename(src);
-        if (GoSourceInputs.shouldPruneDirectory(base)) return false;
-        if (GoSourceInputs.shouldOmitSourceFile(base)) return false;
-        return true;
-      },
+      filter: (src) => copiesPluginSourceEntry(contributor.source, src),
     });
     requireKeyedSource(
       contributor.source,
@@ -602,12 +603,7 @@ function materializeScratchDir(source: string, scratch: string): void {
   fs.mkdirSync(scratch, { recursive: true });
   fs.cpSync(source, scratch, {
     recursive: true,
-    filter: (src) => {
-      const base = path.basename(src);
-      if (GoSourceInputs.shouldPruneDirectory(base)) return false;
-      if (GoSourceInputs.shouldOmitSourceFile(base)) return false;
-      return true;
-    },
+    filter: (src) => copiesPluginSourceEntry(source, src),
   });
 }
 
@@ -615,9 +611,9 @@ function materializeScratchDir(source: string, scratch: string): void {
  * Point every relative `replace` target outside the module at the directory it
  * names from the module itself.
  *
- * The build runs in a scratch copy of the module, where `../dep` names a sibling
- * of the copy instead of the module's sibling that `go build` in the module
- * compiles (samchon/ttsc#1506). The copy's `go.mod` is rewritten to the
+ * The build runs in a scratch copy of the module, where `../dep` names a
+ * sibling of the copy instead of the module's sibling that `go build` in the
+ * module compiles (samchon/ttsc#1506). The copy's `go.mod` is rewritten to the
  * absolute directory through `go mod edit`, Go's own editor of the file. A
  * target inside the module moved with the copy and is left as it is.
  */
@@ -655,11 +651,11 @@ function anchorReplaceDirectories(
 /**
  * Refuse a build whose caches lie among the sources its key digests.
  *
- * Every build writes its binary, its lock, and Go's objects below those
- * caches, so a cache inside a keyed source directory changes the source while
- * the build runs: the binary could never be published under the key it was
- * built for (samchon/ttsc#1505), and each later build would key a new state. A
- * cache below a directory the sources never include, such as the default one in
+ * Every build writes its binary, its lock, and Go's objects below those caches,
+ * so a cache inside a keyed source directory changes the source while the build
+ * runs: the binary could never be published under the key it was built for
+ * (samchon/ttsc#1505), and each later build would key a new state. A cache
+ * below a directory the sources never include, such as the default one in
  * `node_modules`, is outside them by the rule the key itself uses
  * (`pluginSourceCovers`).
  *
@@ -685,13 +681,13 @@ function requireCachesOutsideSources(
 /**
  * Require the sources a build compiled to be the ones its key digested.
  *
- * The key reads each source directory before the build, which copies the
- * module and its contributors after any wait for the build lock and reads an
- * overlay or an outside replace target in place for the whole build. A source
- * edited in between is built into the binary, which would then be published,
- * permanently, under the key of the state before the edit, and served once the
- * source returned to it (samchon/ttsc#1505). The copy, or the directory read in
- * place once the build ended, is digested by the rule the key used
+ * The key reads each source directory before the build, which copies the module
+ * and its contributors after any wait for the build lock and reads an overlay
+ * or an outside replace target in place for the whole build. A source edited in
+ * between is built into the binary, which would then be published, permanently,
+ * under the key of the state before the edit, and served once the source
+ * returned to it (samchon/ttsc#1505). The copy, or the directory read in place
+ * once the build ended, is digested by the rule the key used
  * (`pluginSourceDigest`), and a difference publishes nothing.
  *
  * @param source The directory the key covers.
