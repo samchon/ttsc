@@ -159,12 +159,16 @@ export const test_loadprojectplugins_ttsx_descriptor_tracks_runtime_inputs =
         compilerOptions: { plugins: [{ transform: entry }] },
       }),
     );
+    // The plugin module is the whole test root, so the caches live outside it:
+    // a cache among the sources the binary is keyed on is refused
+    // (samchon/ttsc#1505).
+    const caches = TestProject.tmpdir("ttsc-ttsx-descriptor-caches-");
     const worker = path.join(root, "load-worker.cjs");
     fs.writeFileSync(
       worker,
       [
         `const { loadProjectPlugins } = require(${JSON.stringify(path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "lib", "plugin", "internal", "load", "loadProjectPlugins.js"))});`,
-        `const loaded = loadProjectPlugins({ binary: "", cacheDir: ${JSON.stringify(path.join(root, "cache"))}, tsconfig: ${JSON.stringify(projectConfig)} });`,
+        `const loaded = loadProjectPlugins({ binary: "", cacheDir: ${JSON.stringify(path.join(caches, "cache"))}, tsconfig: ${JSON.stringify(projectConfig)} });`,
         `process.stdout.write(JSON.stringify({ hostInputHashes: loaded.hostInputHashes, hostInputs: loaded.hostInputs }));`,
         "",
       ].join("\n"),
@@ -174,7 +178,7 @@ export const test_loadprojectplugins_ttsx_descriptor_tracks_runtime_inputs =
       env: {
         TTSC_BINARY: TestProject.NATIVE_BINARY,
         TTSC_GO_BINARY: createFakeGoBinary(root),
-        TTSC_GO_CACHE_DIR: path.join(root, "go-cache"),
+        TTSC_GO_CACHE_DIR: path.join(caches, "go-cache"),
         TTSC_TSGO_BINARY: TestProject.TSGO_BINARY,
         NODE_PATH: [nearModules, farModules].join(path.delimiter),
       },
