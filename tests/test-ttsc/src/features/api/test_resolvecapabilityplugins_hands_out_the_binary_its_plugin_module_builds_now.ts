@@ -48,6 +48,12 @@ export const test_resolvecapabilityplugins_hands_out_the_binary_its_plugin_modul
       write(path.join(module, relative), "package generated\n");
     }
     write(path.join(module, "node_modules", "pkg", "index.js"), "\n");
+    // A package scope above the project. Without one, the load reads the
+    // missing `root/package.json`, proven absent by the metadata of `root`,
+    // which the cold build moves by creating the caches below it: that answer
+    // has an unproven input, and a cache records no answer it cannot prove
+    // (samchon/ttsc#1504).
+    write(path.join(root, "package.json"), '{ "private": true }\n');
     write(
       path.join(project, "plugin.cjs"),
       [

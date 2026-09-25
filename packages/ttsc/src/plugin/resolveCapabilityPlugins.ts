@@ -69,8 +69,15 @@ export function resolveCapabilityPlugins(options: {
         (plugin.capabilities as Record<string, unknown> | undefined)
           ?.projectContextArgs === true,
     );
+    // The files the answer was computed from, with the proof the load took of
+    // each while the descriptors evaluated (samchon/ttsc#1504). A plugin's
+    // `configFile` that no descriptor read is forwarded to the native plugin
+    // and deferred to its transform's own proof: the answer never read it.
+    const deferred = new Set(loaded.deferredHostInputs);
     const answer = {
-      hostInputs: loaded.hostInputs,
+      hostInputHashes: loaded.hostInputHashes,
+      hostInputRealpaths: loaded.hostInputRealpaths,
+      hostInputs: loaded.hostInputs.filter((input) => !deferred.has(input)),
       manifest,
       // What the binaries below were keyed on, which a later read proves before
       // it hands out a path (samchon/ttsc#1492).

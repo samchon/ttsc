@@ -5,14 +5,22 @@ import { CapabilityResolutionFormat } from "./CapabilityResolutionFormat";
 import type { ITtscCapabilityPluginSource } from "./ITtscCapabilityPluginSource";
 import type { ITtscCapabilityResolutionEntry } from "./ITtscCapabilityResolutionEntry";
 import type { ITtscCapabilityResolutionPlugin } from "./ITtscCapabilityResolutionPlugin";
-import { hashHostInputPaths } from "./load/hashHostInputPaths";
-import { realpathHostInputPaths } from "./load/realpathHostInputPaths";
 import { pluginSourceDigest } from "./source/pluginSourceDigest";
 import { pluginSourceFilesSignature } from "./source/pluginSourceFilesSignature";
 import { pluginSourceState } from "./source/pluginSourceState";
 
 /**
  * Record the answer and the state it was true for.
+ *
+ * The state is the one the plugin load read, not the one found now: each input
+ * is recorded with the evaluation-time hash and physical path the load proved
+ * (`hostInputHashes`, `hostInputRealpaths`). A later read proves the entry by
+ * comparing those with the filesystem, so hashing the inputs again here would
+ * pair an answer computed from one state with another state, and an input that
+ * moved while the descriptors evaluated would bless the stale answer for as
+ * long as it held still afterwards (samchon/ttsc#1504). An answer with an input
+ * the load could not prove is not recorded at all: nothing could prove it
+ * later either, and the next resolution walks again.
  *
  * A write failure is not reported. The cache is an optimization over a walk
  * that still works, and a read-only or full disk is a reason to be slower, not
@@ -27,6 +35,17 @@ export function writeCapabilityResolution(
     env?: NodeJS.ProcessEnv;
   },
   answer: {
+    /**
+     * The evaluation-time content hash of each input, `null` for one proven
+     * absent, as the load reported it. An input without one was not proven.
+     */
+    hostInputHashes: Readonly<Record<string, string | null>>;
+    /**
+     * The evaluation-time physical path of each input, `null` for one proven
+     * absent, as the load reported it. An input without one was not proven.
+     */
+    hostInputRealpaths: Readonly<Record<string, string | null>>;
+    /** The files the answer was computed from, as absolute paths. */
     hostInputs: readonly string[];
     manifest: string;
     /**
@@ -48,12 +67,23 @@ export function writeCapabilityResolution(
     ),
   ].sort();
   if (hostInputs.length === 0) return;
+  const hostInputHashes: Record<string, string | null> = {};
+  const hostInputRealpaths: Record<string, string | null> = {};
+  for (const input of hostInputs) {
+    if (
+      !Object.prototype.hasOwnProperty.call(answer.hostInputHashes, input) ||
+      !Object.prototype.hasOwnProperty.call(answer.hostInputRealpaths, input)
+    )
+      return;
+    hostInputHashes[input] = answer.hostInputHashes[input]!;
+    hostInputRealpaths[input] = answer.hostInputRealpaths[input]!;
+  }
   const evidence = CapabilityResolutionFormat.sourceEvidence(
     CapabilityResolutionFormat.clockReference(file),
   );
   const entry: ITtscCapabilityResolutionEntry = {
-    hostInputHashes: hashHostInputPaths(hostInputs),
-    hostInputRealpaths: realpathHostInputPaths(hostInputs),
+    hostInputHashes,
+    hostInputRealpaths,
     hostInputs,
     manifest: answer.manifest,
     pluginSources: Object.fromEntries(

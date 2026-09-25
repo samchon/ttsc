@@ -18,6 +18,8 @@ const { writeCapabilityResolution } = require_(
   writeCapabilityResolution(
     options: IKey,
     answer: {
+      hostInputHashes: Record<string, string | null>;
+      hostInputRealpaths: Record<string, string | null>;
       hostInputs: string[];
       manifest: string;
       pluginSources: Record<string, string>;
@@ -27,6 +29,18 @@ const { writeCapabilityResolution } = require_(
   ): void;
 };
 
+const { hashHostInputPaths } = require_(
+  path.join(ttscLib, "plugin", "internal", "load", "hashHostInputPaths.js"),
+) as {
+  hashHostInputPaths(inputs: readonly string[]): Record<string, string | null>;
+};
+const { realpathHostInputPaths } = require_(
+  path.join(ttscLib, "plugin", "internal", "load", "realpathHostInputPaths.js"),
+) as {
+  realpathHostInputPaths(
+    inputs: readonly string[],
+  ): Record<string, string | null>;
+};
 interface IKey {
   cwd: string;
   env?: NodeJS.ProcessEnv;
@@ -92,6 +106,9 @@ export const test_capabilityresolutioncache_reads_plugin_sources_only_when_their
     };
     const record = (): void =>
       writeCapabilityResolution(key, {
+        // What a fresh load reports: each input with the proof it took.
+        hostInputHashes: hashHostInputPaths([tsconfig]),
+        hostInputRealpaths: realpathHostInputPaths([tsconfig]),
         hostInputs: [tsconfig],
         manifest: "[]",
         pluginSources: { [module]: pluginSourceState(module) },

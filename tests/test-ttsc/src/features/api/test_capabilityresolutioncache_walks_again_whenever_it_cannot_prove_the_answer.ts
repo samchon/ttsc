@@ -18,6 +18,18 @@ const { writeCapabilityResolution } = require_(
   writeCapabilityResolution(options: IKey, answer: IAnswer): void;
 };
 
+const { hashHostInputPaths } = require_(
+  path.join(ttscLib, "plugin", "internal", "load", "hashHostInputPaths.js"),
+) as {
+  hashHostInputPaths(inputs: readonly string[]): Record<string, string | null>;
+};
+const { realpathHostInputPaths } = require_(
+  path.join(ttscLib, "plugin", "internal", "load", "realpathHostInputPaths.js"),
+) as {
+  realpathHostInputPaths(
+    inputs: readonly string[],
+  ): Record<string, string | null>;
+};
 interface IKey {
   cwd: string;
   tsconfig: string;
@@ -26,6 +38,8 @@ interface IKey {
 }
 
 interface IAnswer {
+  hostInputHashes: Record<string, string | null>;
+  hostInputRealpaths: Record<string, string | null>;
   hostInputs: string[];
   manifest: string;
   pluginSources: Record<string, string>;
@@ -112,6 +126,8 @@ export const test_capabilityresolutioncache_walks_again_whenever_it_cannot_prove
     // Each record is what a fresh load reports: the module's state now.
     const record = (): void =>
       writeCapabilityResolution(key, {
+        hostInputHashes: hashHostInputPaths([tsconfig, manifest]),
+        hostInputRealpaths: realpathHostInputPaths([tsconfig, manifest]),
         hostInputs: [tsconfig, manifest],
         manifest: '[{"name":"@ttsc/lint","stage":"check"}]',
         pluginSources: { [module]: pluginSourceState(module) },
@@ -221,7 +237,9 @@ export const test_capabilityresolutioncache_walks_again_whenever_it_cannot_prove
         const entry = JSON.parse(
           fs.readFileSync(entryFile(cache), "utf8"),
         ) as IEntry & {
-          hostInputs: string[];
+          hostInputHashes: Record<string, string | null>;
+      hostInputRealpaths: Record<string, string | null>;
+      hostInputs: string[];
           hostInputHashes: Record<string, string | null>;
           hostInputRealpaths: Record<string, string | null>;
         };
