@@ -10,7 +10,6 @@ import { resolveBinary } from "../../../compiler/internal/resolveBinary";
 import { resolveTsgo } from "../../../compiler/internal/resolveTsgo";
 import { spawnNative } from "../../../compiler/internal/spawnNative";
 import { resolveNodeBinary } from "../../../internal/resolveNodeBinary";
-import { hasProjectPluginEntries } from "../../../plugin/internal/load/hasProjectPluginEntries";
 import { loadProjectPlugins } from "../../../plugin/internal/load/loadProjectPlugins";
 import type { ITtscLoadedNativePlugin } from "../../../structures/internal/ITtscLoadedNativePlugin";
 import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
@@ -304,22 +303,16 @@ function loadLSPProjectPlugins(
   cwd: string,
   pluginConfigOrigin: string | undefined,
 ): ReturnType<typeof loadProjectPlugins> {
-  return hasProjectPluginEntries(project)
-    ? loadProjectPlugins({
-        binary: resolveBinary() ?? "",
-        cwd,
-        pluginConfigDir: pluginConfigOrigin,
-        tsconfig: project.identity.logicalConfigPath,
-      })
-    : {
-        deferredHostInputs: [],
-        hostInputHashes: {},
-        hostInputRealpaths: {},
-        hostInputs: [...project.configPaths],
-        nativePlugins: [],
-        pluginSources: {},
-        project,
-      };
+  // Loaded even for a project that declares no plugin: what selects the
+  // plugins, the config chain and the manifests plugin discovery reads, is an
+  // input of the session all the same, so adding a plugin later ends it
+  // (samchon/ttsc#1511). A load that finds no entry returns before any build.
+  return loadProjectPlugins({
+    binary: resolveBinary() ?? "",
+    cwd,
+    pluginConfigDir: pluginConfigOrigin,
+    tsconfig: project.identity.logicalConfigPath,
+  });
 }
 
 function captureInitialLSPProjectInputs(options: {

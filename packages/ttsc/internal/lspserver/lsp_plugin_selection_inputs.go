@@ -22,9 +22,11 @@ import (
 // well, counted by the build's own rule, which the launcher hands over as data
 // rather than the host keeping a copy of it.
 type NativePluginSelectionInputs struct {
-  // DescriptorFiles maps every directory holding a file the descriptors'
-  // load read or probed to the name of each such file, with its digest. Only
-  // those files count; the rest of the directory is not an input.
+  // DescriptorFiles maps every directory holding a file the plugin load read
+  // or probed to the name of each such file, with its digest: the project's
+  // config chain, the manifests plugin discovery reads, the descriptors, and
+  // what they resolved. Only those files count; the rest of the directory is
+  // not an input.
   DescriptorFiles map[string]map[string]string `json:"descriptorFiles,omitempty"`
   // SourceFiles maps every plugin source directory to the name of every file
   // directly inside it that the build keys on, with its digest. A directory

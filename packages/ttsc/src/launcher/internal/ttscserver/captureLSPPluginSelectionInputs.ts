@@ -21,9 +21,12 @@ import { LSPProjectInputDigest } from "./LSPProjectInputDigest";
  * ends the session through its reload path when one changes, and the editor
  * starts the next. The shape each travels in is `ILSPPluginSelectionInputs`.
  *
- * Left out are the project's own configuration files, which the session already
- * hears as a Program refresh, and a plugin's `configFile` that no descriptor
- * read, which its plugin declares among its own project inputs.
+ * What selects the plugins is among them: the project's config chain, whose
+ * `compilerOptions.plugins` names them, and the manifests plugin discovery
+ * reads. A change there is a selection change, as `ttsc --watch` treats it,
+ * rather than only a Program refresh (samchon/ttsc#1511). Left out is a
+ * plugin's `configFile` that no descriptor read, which its plugin declares
+ * among its own project inputs.
  *
  * Everything is fingerprinted now, and then required to agree with what the
  * load proved: every input the load hashed still has that hash, and every
@@ -40,12 +43,9 @@ export function captureLSPPluginSelectionInputs(loaded: {
   hostInputHashes: Readonly<Record<string, string | null>>;
   hostInputs: readonly string[];
   pluginSources: Readonly<Record<string, string>>;
-  project: { configPaths: readonly string[] };
 }): ILSPPluginSelectionInputs | undefined {
   const excluded = new Set(
-    [...loaded.project.configPaths, ...loaded.deferredHostInputs].map((file) =>
-      path.resolve(file),
-    ),
+    loaded.deferredHostInputs.map((file) => path.resolve(file)),
   );
   const descriptorInputs = loaded.hostInputs
     .map((file) => path.resolve(file))

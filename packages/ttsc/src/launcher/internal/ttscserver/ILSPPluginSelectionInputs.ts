@@ -15,8 +15,10 @@
  */
 export interface ILSPPluginSelectionInputs {
   /**
-   * Every directory holding a file the descriptors' load read or probed, with
-   * the name of each such file and its digest. Only those files count.
+   * Every directory holding a file the plugin load read or probed, with the
+   * name of each such file and its digest: the project's config chain, the
+   * manifests plugin discovery reads, the descriptors, and what they resolved.
+   * Only those files count.
    */
   descriptorFiles: Record<string, Record<string, string>>;
   /**
