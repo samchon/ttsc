@@ -22,6 +22,7 @@ import { pluginDescriptorProcessFailure } from "../pluginDescriptorProcessFailur
 import { buildSourcePlugin } from "../source/buildSourcePlugin";
 import { isPathWithin } from "../source/isPathWithin";
 import { pluginBuildVersions } from "../source/pluginBuildVersions";
+import { pluginModuleReplaceDirectories } from "../source/pluginModuleReplaceDirectories";
 import { pluginSourceState } from "../source/pluginSourceState";
 import { resolvePluginGoModule } from "../source/resolvePluginGoModule";
 import { COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE } from "./COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE";
@@ -290,7 +291,7 @@ export function loadProjectPlugins(options: {
   });
   // Reported before any build runs, so a build that fails still has its inputs
   // observed and its repair heard.
-  options.onWatchInputs?.(pluginBuildDirectories(records));
+  options.onWatchInputs?.(pluginBuildDirectories(records, effectiveEnv));
   const linkedContributors = records
     .filter((record) => record.stage === "transform")
     .flatMap((record) =>
@@ -1939,7 +1940,10 @@ function resolveNativeSource(
  * (`computeCacheKey`), the source of every plugin linked into a host, and every
  * contributor's source, which a host build keys as it is. They are the
  * directories the load then reports as `pluginSources`, resolved before any
- * build runs, and ttsc's own sources are left out of both.
+ * build runs, and ttsc's own sources are left out of both. An executable
+ * plugin's module also names, through its `go.mod`, every directory outside it
+ * that it replaces a module with, which the build compiles in place
+ * (`pluginModuleReplaceDirectories`, samchon/ttsc#1506).
  */
 function pluginBuildDirectories(
   records: readonly {
@@ -1948,6 +1952,7 @@ function pluginBuildDirectories(
     moduleRoot: string;
     source: string;
   }[],
+  env: NodeJS.ProcessEnv,
 ): string[] {
   const directories = new Set<string>();
   for (const record of records) {
@@ -1956,6 +1961,18 @@ function pluginBuildDirectories(
         record.kind === "linked" ? record.source : record.moduleRoot,
       ),
     );
+    if (record.kind === "executable") {
+      let replacements: readonly { directory: string }[];
+      try {
+        replacements = pluginModuleReplaceDirectories(record.moduleRoot, env);
+      } catch {
+        // A `go.mod` Go cannot read fails the build below; its repair lands in
+        // the module root, which is observed already.
+        replacements = [];
+      }
+      for (const replacement of replacements)
+        directories.add(replacement.directory);
+    }
     for (const contributor of record.contributors ?? [])
       directories.add(path.resolve(contributor.source));
   }

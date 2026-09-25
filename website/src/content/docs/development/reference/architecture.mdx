@@ -28,8 +28,11 @@ The cache key for a built plugin binary is `sha256` of, in order:
 5. `go=${resolveGoCompilerIdentity(goBinary)}`: the resolved Go binary's file content hash and `go version` text, not the install path.
 6. Every effective Go build env value in `GO_BUILD_ENV_KEYS`: `GOOS`, `GOARCH`, `GOAMD64`, `GOARM`, `GOARM64`, `GO386`, `GOMIPS`, `GOMIPS64`, `GOPPC64`, `GORISCV64`, `GOWASM`, `GOFLAGS`, `GOEXPERIMENT`, `GOFIPS140`, `GO_EXTLINK_ENABLED`, `GCCGO`, `GCCGOTOOLDIR`, `CGO_ENABLED`, the cgo compiler/linker variables, `GOTOOLCHAIN`, and `GOROOT` by toolchain-content fingerprint. Command-valued cgo settings also include the resolved tool binary identity.
 7. Plugin source-directory hash. Skipped paths: `node_modules`, `.git`, `.ttsc`, `go.work`, `go.work.sum`, `*.tgz`, `*.tar.gz`, `.DS_Store`, `Thumbs.db`, and editor backup files ending in `~`.
-8. Overlay-directory hashes, sorted by directory name (`ttsc` and shim source under the host's `node_modules`).
-9. Contributor source-directory hashes, sorted by contributor name.
+8. The hash of every directory outside the module that the plugin's `go.mod` replaces a module with (`replace example.com/dep => ../dep`), sorted by module path. `go build` compiles such a directory in place, so it is keyed, reported among `pluginSources`, and watched like the module itself. A relative target resolves from the module's own directory, as it does for `go build` there; a module without such a target keys exactly as before.
+9. Overlay-directory hashes, sorted by directory name (`ttsc` and shim source under the host's `node_modules`).
+10. Contributor source-directory hashes, sorted by contributor name.
+
+A link (a symbolic link or a Windows junction) inside a plugin source directory, outside the skipped paths, is refused before any build. The build would compile what it names, which no key or watch covers, and a Go module zip excludes links from a module's content for the same reason. Replace the link with the files it names, or give the linked directory a `go.mod` of its own and name it through a `replace` directive.
 
 The Go-binary identity (5) and `GO_BUILD_ENV_KEYS` (6) are the load-bearing reason `GOOS=linux GOARCH=arm64 ttsc` does not poison the native-platform cache slot. Pathless Go identity also lets pnpm installs with different virtual-store paths share the same cached binary when the bundled compiler content is identical.
 

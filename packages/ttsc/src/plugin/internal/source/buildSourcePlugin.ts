@@ -14,6 +14,7 @@ import { acquirePluginBuildLock } from "./acquirePluginBuildLock";
 import { computeCacheKey } from "./computeCacheKey";
 import { ensureExecutableGoToolchain } from "./ensureExecutableGoToolchain";
 import { formatGoWorkPath } from "./formatGoWorkPath";
+import { pluginModuleReplaceDirectories } from "./pluginModuleReplaceDirectories";
 import { pruneGoBuildCacheRoot } from "./pruneGoBuildCacheRoot";
 import { prunePluginCacheRoot } from "./prunePluginCacheRoot";
 import { reclaimPluginBuildLock } from "./reclaimPluginBuildLock";
@@ -201,6 +202,7 @@ function compileSourcePlugin(opts: {
   const scratchDir = createCanonicalTempDirectory(`ttsc-plugin-${opts.key}-`);
   try {
     materializeScratchDir(opts.dir, scratchDir);
+    anchorReplaceDirectories(opts.dir, scratchDir, opts.goBinary, opts.env);
     const goModReader = createGoModReader(
       opts.goBinary,
       opts.pluginName,
@@ -570,6 +572,51 @@ function materializeScratchDir(source: string, scratch: string): void {
       return true;
     },
   });
+}
+
+/**
+ * Point every relative `replace` target outside the module at the directory it
+ * names from the module itself.
+ *
+ * The build runs in a scratch copy of the module, where `../dep` names a sibling
+ * of the copy instead of the module's sibling that `go build` in the module
+ * compiles (samchon/ttsc#1506). The copy's `go.mod` is rewritten to the
+ * absolute directory through `go mod edit`, Go's own editor of the file. A
+ * target inside the module moved with the copy and is left as it is.
+ */
+function anchorReplaceDirectories(
+  moduleRoot: string,
+  scratchDir: string,
+  goBinary: string,
+  env: NodeJS.ProcessEnv,
+): void {
+  for (const replacement of pluginModuleReplaceDirectories(
+    moduleRoot,
+    env,
+    goBinary,
+  )) {
+    if (path.isAbsolute(replacement.spelled)) continue;
+    const old =
+      replacement.version === undefined
+        ? replacement.modulePath
+        : `${replacement.modulePath}@${replacement.version}`;
+    const result = spawnGoTool(
+      goBinary,
+      ["mod", "edit", `-replace=${old}=${replacement.directory}`],
+      {
+        cwd: scratchDir,
+        encoding: "utf8",
+        env: GoSourceInputs.goBuildEnv(goBinary, undefined, env),
+        windowsHide: true,
+      },
+    );
+    if (result.error !== undefined || result.status !== 0)
+      throw new Error(
+        `ttsc: anchoring the replacement of ${old} failed: ${
+          result.error?.message ?? (result.stderr || result.stdout)
+        }`,
+      );
+  }
 }
 
 function writeGoWork(

@@ -6,6 +6,7 @@ import { GoToolResolution } from "./GoToolResolution";
 import type { ITtscBuildContributor } from "./ITtscBuildContributor";
 import type { SourceBuildFilesystemOperations } from "./SourceBuildFilesystemOperations";
 import { hashPluginBuildEnvironment } from "./hashPluginBuildEnvironment";
+import { pluginModuleReplaceDirectories } from "./pluginModuleReplaceDirectories";
 import { pluginSourceDigest } from "./pluginSourceDigest";
 
 /**
@@ -13,8 +14,9 @@ import { pluginSourceDigest } from "./pluginSourceDigest";
  *
  * The key covers every input that can produce a different binary: ttsc/tsgo
  * versions, platform, entry package, Go compiler identity, Go build environment
- * variables, overlay module sources, plugin source files, and contributor
- * source files. Contributors are sorted by name so declaration order does not
+ * variables, overlay module sources, plugin source files, the local
+ * directories outside the module that its `go.mod` replaces modules with
+ * (`pluginModuleReplaceDirectories`), and contributor source files. Contributors are sorted by name so declaration order does not
  * affect the key.
  *
  * Each source directory enters the key as its digest (`pluginSourceDigest`),
@@ -90,6 +92,23 @@ export function computeCacheKey(inputs: {
     environment.digest("hex"),
   );
   hashSourceDirectory(hash, "plugin", inputs.dir, inputs.sourceDigests);
+  // A `replace` target outside the module is compiled in place, so it is as
+  // much a source of the binary as the module itself (samchon/ttsc#1506). A
+  // module without one keys exactly as before.
+  for (const replacement of pluginModuleReplaceDirectories(
+    inputs.dir,
+    env,
+    goBinary,
+  )) {
+    hashSourceDirectory(
+      hash,
+      `replace:${replacement.modulePath}${
+        replacement.version === undefined ? "" : `@${replacement.version}`
+      }`,
+      replacement.directory,
+      inputs.sourceDigests,
+    );
+  }
   for (const [index, dir] of [...(inputs.overlayDirs ?? [])].sort().entries()) {
     hashSourceDirectory(hash, `overlay:${index}`, dir, inputs.sourceDigests);
   }
