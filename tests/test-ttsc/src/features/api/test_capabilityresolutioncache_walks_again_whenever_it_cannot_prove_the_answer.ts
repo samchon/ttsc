@@ -237,8 +237,6 @@ export const test_capabilityresolutioncache_walks_again_whenever_it_cannot_prove
         const entry = JSON.parse(
           fs.readFileSync(entryFile(cache), "utf8"),
         ) as IEntry & {
-          hostInputHashes: Record<string, string | null>;
-          hostInputRealpaths: Record<string, string | null>;
           hostInputs: string[];
           hostInputHashes: Record<string, string | null>;
           hostInputRealpaths: Record<string, string | null>;
