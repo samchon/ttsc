@@ -61,11 +61,11 @@ export function waitForPluginBinary(opts: {
       });
       nextStatusAt = now + PLUGIN_BUILD_LOCK_STATUS_MS;
     }
-    PluginBuildLockProtocol.sleepSync(PLUGIN_BUILD_LOCK_POLL_MS);
+    PluginBuildLockProtocol.sleepSync(
+      PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_POLL_MS,
+    );
   }
 }
-
-const PLUGIN_BUILD_LOCK_POLL_MS = 50;
 
 const PLUGIN_BUILD_LOCK_STATUS_MS = 30_000;
 

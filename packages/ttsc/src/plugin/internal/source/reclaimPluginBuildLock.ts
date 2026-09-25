@@ -1,6 +1,6 @@
-import fs from "node:fs";
 import path from "node:path";
 
+import { retireLockDirectory } from "../../../internal/retireLockDirectory";
 import type { PluginBuildLockFence } from "./PluginBuildLockFence";
 import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
 
@@ -37,17 +37,9 @@ function retireLegacyPluginBuildLock(
   if (captured?.fence.generation !== generation) {
     return false;
   }
-  const destination = `${lockDir}.retired-${generation}`;
-  try {
-    fs.renameSync(lockDir, destination);
-    return true;
-  } catch (error) {
-    if (
-      PluginBuildLockProtocol.isMissingPathError(error) ||
-      PluginBuildLockProtocol.isRenameDestinationOccupied(error, destination)
-    ) {
-      return false;
-    }
-    throw error;
-  }
+  return retireLockDirectory(lockDir, `${lockDir}.retired-${generation}`, () =>
+    PluginBuildLockProtocol.sleepSync(
+      PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_POLL_MS,
+    ),
+  );
 }

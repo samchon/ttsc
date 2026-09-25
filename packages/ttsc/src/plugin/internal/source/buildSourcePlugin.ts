@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
+import { runHoldingLock } from "../../../internal/runHoldingLock";
 import { GoSourceInputs } from "./GoSourceInputs";
 import { GoToolResolution } from "./GoToolResolution";
 import type { IPluginModuleReplaceDirectory } from "./IPluginModuleReplaceDirectory";
@@ -377,17 +378,35 @@ function buildUnderPluginLock(
       // routine handoff as abandonment (issue #421).
       continue;
     }
-    try {
-      // Re-check under the lock: a previous holder may have just published.
-      if (fs.existsSync(binaryPath)) {
-        touchCacheEntry(cacheDir);
-        return binaryPath;
-      }
-      return build();
-    } finally {
-      releasePluginBuildLock(lockDir, lease);
-    }
+    const held = lease;
+    return runHoldingLock(
+      () => {
+        // Re-check under the lock: a previous holder may have just published.
+        if (fs.existsSync(binaryPath)) {
+          touchCacheEntry(cacheDir);
+          return binaryPath;
+        }
+        return build();
+      },
+      () => releasePluginBuildLock(lockDir, held),
+      (error) => reportPluginLockRelease(lockDir, lockInfo, error),
+    );
   }
+}
+
+function reportPluginLockRelease(
+  lockDir: string,
+  lockInfo: {
+    label: string;
+    pluginName: string;
+  },
+  error: unknown,
+): void {
+  process.stderr.write(
+    `ttsc: could not release the ${lockInfo.label} "${lockInfo.pluginName}" ` +
+      `cache lock at ${lockDir} (${error instanceof Error ? error.message : String(error)}); ` +
+      `other builds reclaim it once this process exits\n`,
+  );
 }
 
 function reportPluginLockSteal(

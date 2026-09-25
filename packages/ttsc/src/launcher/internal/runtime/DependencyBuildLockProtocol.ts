@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { retireLockDirectory } from "../../../internal/retireLockDirectory";
 import { DependencyBuildGeneration } from "./DependencyBuildGeneration";
 import { RuntimeFilesystem } from "./RuntimeFilesystem";
 
@@ -23,6 +24,13 @@ export namespace DependencyBuildLockProtocol {
 
   /** File inside a generation directory holding its hex id. */
   export const DEP_BUILD_LOCK_GENERATION_FILE = "generation";
+
+  /**
+   * How long one wait of the lock protocol yields: a waiter's poll of the
+   * holder, and a retire's wait for a peer's read of the held generation to end
+   * (`retireLockDirectory`).
+   */
+  export const DEP_BUILD_LOCK_POLL_MS = 50;
 
   /** File inside a generation directory recording the holder's pid and host. */
   export const DEP_BUILD_LOCK_OWNER_FILE = "owner.json";
@@ -50,22 +58,17 @@ export namespace DependencyBuildLockProtocol {
         throw error;
       }
     }
-    const destination = path.join(retiredDir, generation);
-    try {
-      fs.renameSync(
-        path.join(lockDir, DEP_BUILD_LOCK_CURRENT_DIR),
-        destination,
-      );
-      return true;
-    } catch (error) {
-      if (
-        RuntimeFilesystem.isMissingPathError(error) ||
-        RuntimeFilesystem.isRenameDestinationOccupied(error, destination)
-      ) {
-        return false;
-      }
-      throw error;
-    }
+    return retireLockDirectory(
+      path.join(lockDir, DEP_BUILD_LOCK_CURRENT_DIR),
+      path.join(retiredDir, generation),
+      () =>
+        Atomics.wait(
+          new Int32Array(new SharedArrayBuffer(4)),
+          0,
+          0,
+          DEP_BUILD_LOCK_POLL_MS,
+        ),
+    );
   }
 
   /**

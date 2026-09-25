@@ -18,6 +18,7 @@ import { resolveOwningProjectConfig } from "../../../compiler/internal/project/r
 import { resolveTsgo } from "../../../compiler/internal/resolveTsgo";
 import { spawnNative } from "../../../compiler/internal/spawnNative";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
+import { runHoldingLock } from "../../../internal/runHoldingLock";
 import { moduleResolutionBaseSelects } from "../../../plugin/internal/load/moduleResolutionBaseSelects";
 import { observeImportSearchRoots } from "../../../plugin/internal/load/observeImportSearchRoots";
 import { visitImportMappedCandidates } from "../../../plugin/internal/load/visitImportMappedCandidates";
@@ -2139,12 +2140,15 @@ function withBuildLock(
       // retry the ordinary acquisition.
       continue;
     }
-    try {
-      const reuseUnderLock = readDependencyCache(cacheDir, metaPath);
-      return reuseUnderLock ?? build();
-    } finally {
-      releaseDependencyBuildLock(lockDir, lease);
-    }
+    const held = lease;
+    return runHoldingLock(
+      () => readDependencyCache(cacheDir, metaPath) ?? build(),
+      () => releaseDependencyBuildLock(lockDir, held),
+      // The runtime writes nothing of its own into the program's output; the
+      // generation left held is reclaimed as abandoned once this process
+      // exits.
+      () => undefined,
+    );
   }
 }
 
@@ -2310,8 +2314,6 @@ function publishDependencyMeta(
 
 const DEP_BUILD_LOCK_STEAL_MS = 600_000;
 
-const DEP_BUILD_LOCK_POLL_MS = 50;
-
 /** Outcome of one waiting session on another process's dependency build lock. */
 type DependencyBuildWaitResult =
   | { outcome: "built"; built: DependencyBuildGeneration.BuiltProject }
@@ -2352,7 +2354,7 @@ function waitForDependencyBuild(
         fence: lock.fence,
       };
     }
-    sleepSync(DEP_BUILD_LOCK_POLL_MS);
+    sleepSync(DependencyBuildLockProtocol.DEP_BUILD_LOCK_POLL_MS);
   }
 }
 

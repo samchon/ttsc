@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { retireLockDirectory } from "../../../internal/retireLockDirectory";
 import type { PluginBuildLockFence } from "./PluginBuildLockFence";
 
 /**
@@ -28,6 +29,13 @@ export namespace PluginBuildLockProtocol {
    * longer than ten minutes.
    */
   export const PLUGIN_BUILD_LOCK_STEAL_MS = 600_000;
+
+  /**
+   * How long one wait of the lock protocol yields: a waiter's poll of the
+   * holder, and a retire's wait for a peer's read of the held generation to end
+   * (`retireLockDirectory`).
+   */
+  export const PLUGIN_BUILD_LOCK_POLL_MS = 50;
 
   /** File inside a generation directory recording the holder's pid and host. */
   export const PLUGIN_BUILD_LOCK_OWNER_FILE = "owner.json";
@@ -99,22 +107,11 @@ export namespace PluginBuildLockProtocol {
       }
     }
 
-    const destination = path.join(retiredDir, generation);
-    try {
-      fs.renameSync(
-        path.join(lockDir, PLUGIN_BUILD_LOCK_CURRENT_DIR),
-        destination,
-      );
-      return true;
-    } catch (error) {
-      if (
-        isMissingPathError(error) ||
-        isRenameDestinationOccupied(error, destination)
-      ) {
-        return false;
-      }
-      throw error;
-    }
+    return retireLockDirectory(
+      path.join(lockDir, PLUGIN_BUILD_LOCK_CURRENT_DIR),
+      path.join(retiredDir, generation),
+      () => sleepSync(PLUGIN_BUILD_LOCK_POLL_MS),
+    );
   }
 
   /** Whether an error means the path, or one of its parents, does not exist. */
