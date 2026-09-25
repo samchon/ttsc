@@ -1264,9 +1264,9 @@ function emitOrphanSource(
   // it a program that fans out into many processes (the automated test corpus
   // imports the same vendored `.ts` deps from thousands of generated files) would
   // re-spawn tsgo per file per process and crawl.
-  const cacheFile = orphanCacheFile(filename, tsgo, format);
-  if (cacheFile !== null) {
-    const hit = readFileOrNull(cacheFile);
+  const cache = orphanCacheFile(filename, tsgo, format);
+  if (cache !== null) {
+    const hit = readFileOrNull(cache.file);
     if (hit !== null) {
       return hit;
     }
@@ -1293,8 +1293,12 @@ function emitOrphanSource(
       source === null
         ? null
         : inlineServedSourceMap(source, emitted!, filename);
-    if (lowered !== null && cacheFile !== null) {
-      writeOrphanCache(cacheFile, lowered);
+    // The key names the bytes read for it, and the emit read the file again.
+    // Only a source that held still across both reads is what the key names;
+    // otherwise the lowering serves this run and is not recorded
+    // (samchon/ttsc#1508).
+    if (lowered !== null && cache !== null && orphanSourceHeld(filename, cache)) {
+      writeOrphanCache(cache.file, lowered);
     }
     return lowered;
   } catch {
@@ -1443,12 +1447,18 @@ let ownPackageVersionCache: string | undefined;
  * it is, not where it is: a flat `node_modules` upgrade replaces the binary at
  * the same path, and a key of the path alone kept serving the old compiler's
  * output.
+ *
+ * The source is read here, and the emit reads it again. The answer carries the
+ * bytes and the file's metadata before they were read, so `orphanSourceHeld` can
+ * prove the emit read the same source (samchon/ttsc#1508).
  */
 function orphanCacheFile(
   filename: string,
   tsgo: string,
   format: "commonjs" | "module",
-): string | null {
+): { file: string; signature: string; source: Buffer } | null {
+  const signature = orphanSourceSignature(filename);
+  if (signature === undefined) return null;
   let source: Buffer;
   try {
     source = fs.readFileSync(filename);
@@ -1469,7 +1479,35 @@ function orphanCacheFile(
     .update(source)
     .digest("hex")
     .slice(0, 32);
-  return path.join(orphanCacheRoot(), `${key}.js`);
+  return { file: path.join(orphanCacheRoot(), `${key}.js`), signature, source };
+}
+
+/**
+ * Whether an orphan source held still from the read that keyed its cache entry
+ * through the emit that lowered it: the same bytes, and the same metadata, whose
+ * change time moves with every write even when the bytes return to what they
+ * were.
+ */
+function orphanSourceHeld(
+  filename: string,
+  cache: { signature: string; source: Buffer },
+): boolean {
+  if (orphanSourceSignature(filename) !== cache.signature) return false;
+  try {
+    return fs.readFileSync(filename).equals(cache.source);
+  } catch {
+    return false;
+  }
+}
+
+/** The metadata identity of an orphan source, or `undefined` when unreadable. */
+function orphanSourceSignature(filename: string): string | undefined {
+  try {
+    const stat = fs.statSync(filename, { bigint: true });
+    return [stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join(":");
+  } catch {
+    return undefined;
+  }
 }
 
 /**
