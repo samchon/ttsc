@@ -19,8 +19,8 @@ import { pluginSourceState } from "./source/pluginSourceState";
  * pair an answer computed from one state with another state, and an input that
  * moved while the descriptors evaluated would bless the stale answer for as
  * long as it held still afterwards (samchon/ttsc#1504). An answer with an input
- * the load could not prove is not recorded at all: nothing could prove it
- * later either, and the next resolution walks again.
+ * the load could not prove is not recorded at all: nothing could prove it later
+ * either, and the next resolution walks again.
  *
  * A write failure is not reported. The cache is an optimization over a walk
  * that still works, and a read-only or full disk is a reason to be slower, not

@@ -1297,7 +1297,11 @@ function emitOrphanSource(
     // Only a source that held still across both reads is what the key names;
     // otherwise the lowering serves this run and is not recorded
     // (samchon/ttsc#1508).
-    if (lowered !== null && cache !== null && orphanSourceHeld(filename, cache)) {
+    if (
+      lowered !== null &&
+      cache !== null &&
+      orphanSourceHeld(filename, cache)
+    ) {
       writeOrphanCache(cache.file, lowered);
     }
     return lowered;
@@ -1449,8 +1453,8 @@ let ownPackageVersionCache: string | undefined;
  * output.
  *
  * The source is read here, and the emit reads it again. The answer carries the
- * bytes and the file's metadata before they were read, so `orphanSourceHeld` can
- * prove the emit read the same source (samchon/ttsc#1508).
+ * bytes and the file's metadata before they were read, so `orphanSourceHeld`
+ * can prove the emit read the same source (samchon/ttsc#1508).
  */
 function orphanCacheFile(
   filename: string,
@@ -1484,9 +1488,9 @@ function orphanCacheFile(
 
 /**
  * Whether an orphan source held still from the read that keyed its cache entry
- * through the emit that lowered it: the same bytes, and the same metadata, whose
- * change time moves with every write even when the bytes return to what they
- * were.
+ * through the emit that lowered it: the same bytes, and the same metadata,
+ * whose change time moves with every write even when the bytes return to what
+ * they were.
  */
 function orphanSourceHeld(
   filename: string,
@@ -1504,7 +1508,9 @@ function orphanSourceHeld(
 function orphanSourceSignature(filename: string): string | undefined {
   try {
     const stat = fs.statSync(filename, { bigint: true });
-    return [stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join(":");
+    return [stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join(
+      ":",
+    );
   } catch {
     return undefined;
   }

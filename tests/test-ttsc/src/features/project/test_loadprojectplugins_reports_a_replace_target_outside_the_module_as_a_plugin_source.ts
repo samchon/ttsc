@@ -4,8 +4,8 @@ import { assert, fs, loadProjectPlugins, path } from "../../internal/project";
 import { createFakeGoBinary } from "../../internal/source-build";
 
 /**
- * Verifies a plugin load reports a directory outside the plugin's Go module that
- * its `go.mod` replaces a module with, both as a watch input and among
+ * Verifies a plugin load reports a directory outside the plugin's Go module
+ * that its `go.mod` replaces a module with, both as a watch input and among
  * `pluginSources`.
  *
  * `go build` compiles such a directory in place, so it is as much a source of
@@ -107,7 +107,11 @@ export const test_loadprojectplugins_reports_a_replace_target_outside_the_module
         relative = reported;
       }),
     );
-    assert.deepEqual(relative, expected, "the watch inputs of a relative target");
+    assert.deepEqual(
+      relative,
+      expected,
+      "the watch inputs of a relative target",
+    );
   };
 
 function write(file: string, content: string): void {

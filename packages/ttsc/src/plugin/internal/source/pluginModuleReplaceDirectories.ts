@@ -2,8 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { GoSourceInputs } from "./GoSourceInputs";
-import type { IPluginModuleReplaceDirectory } from "./IPluginModuleReplaceDirectory";
 import { GoToolResolution } from "./GoToolResolution";
+import type { IPluginModuleReplaceDirectory } from "./IPluginModuleReplaceDirectory";
 import { resolveGoCompiler } from "./resolveGoCompiler";
 import { spawnGoTool } from "./spawnGoTool";
 
@@ -16,10 +16,10 @@ import { spawnGoTool } from "./spawnGoTool";
  * replaced module. One inside the module is copied and keyed with it. One
  * outside is neither, yet the build compiles it, so its sources are part of
  * what the binary is built from: the cache key digests them, the load reports
- * their state among `pluginSources`, and a watch observes them, exactly like the
- * module's own (samchon/ttsc#1506). A relative target also has to resolve from
- * the module's own directory, as it does for `go build` there, and not from the
- * scratch copy the build runs in.
+ * their state among `pluginSources`, and a watch observes them, exactly like
+ * the module's own (samchon/ttsc#1506). A relative target also has to resolve
+ * from the module's own directory, as it does for `go build` there, and not
+ * from the scratch copy the build runs in.
  *
  * The directives are read through `go mod edit -json`, Go's own reading of
  * `go.mod`, not a copy of its grammar. Only the main module's directives count,
@@ -30,8 +30,8 @@ import { spawnGoTool } from "./spawnGoTool";
  * @param goBinary The Go tool the build runs, or `undefined` to resolve it as
  *   the build does.
  * @returns Each replacement outside the module, sorted by module path: the
- *   replaced module path and version, the target as `go.mod` spells it, and
- *   the target's absolute path.
+ *   replaced module path and version, the target as `go.mod` spells it, and the
+ *   target's absolute path.
  * @throws When `go.mod` exists and Go cannot read it, as the build would fail.
  */
 export function pluginModuleReplaceDirectories(

@@ -30,8 +30,8 @@ const { resolveGoCompiler } = require_(
  * The key read the file, and the emit read it again, so an edit landing in
  * between stored the newer source's lowering under the older bytes' key. Once
  * the file held the older bytes again, every run executed the other version's
- * code (samchon/ttsc#1508). An entry is now recorded only for a source that held
- * still across both reads.
+ * code (samchon/ttsc#1508). An entry is now recorded only for a source that
+ * held still across both reads.
  *
  * 1. Build a compiler wrapper that rewrites the orphan source to `"two"` when, and
  *    only when, it is asked to emit that source, then runs the real compiler.
@@ -138,7 +138,11 @@ export const test_ttsx_orphan_cache_records_no_lowering_of_a_source_that_moved_d
 
     const first = run();
     assert.equal(first.status, 0, first.stderr);
-    assert.equal(first.stdout.trim(), "two", "the emit read the rewritten source");
+    assert.equal(
+      first.stdout.trim(),
+      "two",
+      "the emit read the rewritten source",
+    );
 
     fs.writeFileSync(orphan, `export const value: string = "one";\n`, "utf8");
     const second = run();

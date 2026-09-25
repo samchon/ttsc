@@ -14,10 +14,11 @@ import { pluginSourceDigest } from "./pluginSourceDigest";
  *
  * The key covers every input that can produce a different binary: ttsc/tsgo
  * versions, platform, entry package, Go compiler identity, Go build environment
- * variables, overlay module sources, plugin source files, the local
- * directories outside the module that its `go.mod` replaces modules with
- * (`pluginModuleReplaceDirectories`), and contributor source files. Contributors are sorted by name so declaration order does not
- * affect the key.
+ * variables, overlay module sources, plugin source files, the local directories
+ * outside the module that its `go.mod` replaces modules with
+ * (`pluginModuleReplaceDirectories`), and contributor source files.
+ * Contributors are sorted by name so declaration order does not affect the
+ * key.
  *
  * Each source directory enters the key as its digest (`pluginSourceDigest`),
  * which the transform envelope reports, with the environment below, as the

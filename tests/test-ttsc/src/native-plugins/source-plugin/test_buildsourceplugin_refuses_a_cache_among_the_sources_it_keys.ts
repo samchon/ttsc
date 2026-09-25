@@ -20,7 +20,8 @@ import {
  * sources never include, and so does any cache placed there.
  *
  * 1. Build a plugin whose explicit cache is a directory of its own module: the
- *    build fails naming the cache and the module, and nothing is written there.
+ *    build fails naming the cache and the module, and nothing is written
+ *    there.
  * 2. Build it with its Go build cache there instead: the same refusal.
  * 3. Build it with both caches below the module's `node_modules`: it succeeds.
  */
@@ -75,7 +76,11 @@ export const test_buildsourceplugin_refuses_a_cache_among_the_sources_it_keys =
       () => build(pluginCache, path.join(outside, "go")),
       refused(pluginCache),
     );
-    assert.equal(fs.existsSync(pluginCache), false, "nothing was written there");
+    assert.equal(
+      fs.existsSync(pluginCache),
+      false,
+      "nothing was written there",
+    );
 
     // 2. The Go build cache inside the module.
     const goCache = path.join(plugin, "go-cache");

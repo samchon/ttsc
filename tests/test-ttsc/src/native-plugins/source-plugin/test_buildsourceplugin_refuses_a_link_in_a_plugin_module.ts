@@ -13,15 +13,15 @@ import {
  * any build.
  *
  * The file list a build keys on skipped every link, while the build's copy of
- * the module recreated it: on POSIX, `go build` then compiled the linked sources
- * and an edit to them kept serving the first binary; on Windows, the copy threw
- * `EPERM` recreating a junction as a symlink (samchon/ttsc#1506). A plugin's Go
- * sources are its own files, as a Go module zip holds them, so a link the build
- * would read is refused by name. One below a directory the build passes over,
- * such as `node_modules`, still changes nothing.
+ * the module recreated it: on POSIX, `go build` then compiled the linked
+ * sources and an edit to them kept serving the first binary; on Windows, the
+ * copy threw `EPERM` recreating a junction as a symlink (samchon/ttsc#1506). A
+ * plugin's Go sources are its own files, as a Go module zip holds them, so a
+ * link the build would read is refused by name. One below a directory the build
+ * passes over, such as `node_modules`, still changes nothing.
  *
- * 1. Write a plugin module whose package directory `shared` is a link to a
- *    sibling directory, and a link inside its `node_modules`.
+ * 1. Write a plugin module whose package directory `shared` is a link to a sibling
+ *    directory, and a link inside its `node_modules`.
  * 2. Build it.
  * 3. Assert the build fails naming the link, and never runs `go build`.
  * 4. Replace the link with the files and build again: it succeeds, and the link in

@@ -26,8 +26,8 @@ import {
  * 2. Pause `go build`, edit the overlay from another process, and resume: the
  *    build fails naming the overlay, and no binary is cached.
  * 3. Restore the overlay and build: the binary carries the restored text.
- * 4. Pause the key computation after it digested the module, edit the module
- *    from another process, and resume: the build fails naming the module.
+ * 4. Pause the key computation after it digested the module, edit the module from
+ *    another process, and resume: the build fails naming the module.
  */
 export const test_buildsourceplugin_publishes_no_binary_built_from_a_source_edited_during_its_build =
   () => {
@@ -166,7 +166,10 @@ export const test_buildsourceplugin_publishes_no_binary_built_from_a_source_edit
     // 3. The restored overlay builds under its own key.
     write(overlayFile, "package overlay // FIRST\n");
     const restored = build({});
-    assert.equal(fs.readFileSync(restored, "utf8"), "package overlay // FIRST\n");
+    assert.equal(
+      fs.readFileSync(restored, "utf8"),
+      "package overlay // FIRST\n",
+    );
 
     // 4. A module edited after the key digested it, before the build copied it.
     // A state no binary was built for yet, so the build runs rather than serving

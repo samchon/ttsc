@@ -7,8 +7,8 @@ import { resolveCapabilityPlugins } from "ttsc";
 import { createFakeGoBinary } from "../../internal/source-build";
 
 /**
- * Verifies the capability cache records its answer against the state the
- * plugin load read, not the state it finds afterwards.
+ * Verifies the capability cache records its answer against the state the plugin
+ * load read, not the state it finds afterwards.
  *
  * `resolveCapabilityPlugins` records which configured plugins declare a
  * capability, and a later call answers from that record while every recorded
