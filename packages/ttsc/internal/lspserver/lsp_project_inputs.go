@@ -22,6 +22,11 @@ type LSPProjectInputSnapshot struct {
   ReloadDirectories      []string          `json:"reloadDirectories,omitempty"`
   ReloadFileDigests      map[string]string `json:"reloadFileDigests,omitempty"`
   ReloadDirectoryDigests map[string]string `json:"reloadDirectoryDigests,omitempty"`
+  // WatchDirectories are directories whose entries the client must report
+  // without their listing being a reload input of its own: the directories of
+  // the plugin selection inputs, which judge their own changes
+  // (samchon/ttsc#1507). Never read from a contributor.
+  WatchDirectories []string `json:"-"`
 }
 
 type projectInputRecord struct {
@@ -50,8 +55,9 @@ func (s *NativePluginSource) ProjectInputReloadFingerprintsAreCurrent() bool {
   }
   s.projectInputsMu.RLock()
   snapshot := copyProjectInputSnapshot(s.projectInputs)
+  selection := s.selection
   s.projectInputsMu.RUnlock()
-  return projectInputReloadFingerprintsAreCurrent(snapshot)
+  return projectInputReloadFingerprintsAreCurrent(snapshot) && selection.current()
 }
 
 // ProjectInputMatchesURI reports whether a watched-file URI belongs to a
@@ -130,7 +136,13 @@ func (s *NativePluginSource) ProjectInputReloadMatchesChange(
   candidateEntryKey := projectInputPathKey(candidateEntry)
   s.projectInputsMu.RLock()
   snapshot := copyProjectInputSnapshot(s.projectInputs)
+  selection := s.selection
   s.projectInputsMu.RUnlock()
+  // What the plugin selection was loaded from is a reload input too
+  // (samchon/ttsc#1507).
+  if selection.matchesChange(location) {
+    return true
+  }
   for _, file := range snapshot.ReloadFiles {
     // The candidate is resolved physically, so the declaration has to be too;
     // a Windows short component or a symlinked ancestor otherwise never matches.
@@ -383,10 +395,12 @@ func (s *NativePluginSource) flattenProjectInputsLocked() LSPProjectInputSnapsho
   for _, directory := range reloadDirectories {
     out.ReloadDirectories = append(out.ReloadDirectories, directory)
   }
+  out.WatchDirectories = s.selection.watchDirectories()
   sort.Strings(out.Files)
   sort.Strings(out.Globs)
   sort.Strings(out.ReloadFiles)
   sort.Strings(out.ReloadDirectories)
+  sort.Strings(out.WatchDirectories)
   return out
 }
 
@@ -591,6 +605,7 @@ func copyProjectInputSnapshot(
     Globs:             append([]string(nil), snapshot.Globs...),
     ReloadFiles:       append([]string(nil), snapshot.ReloadFiles...),
     ReloadDirectories: append([]string(nil), snapshot.ReloadDirectories...),
+    WatchDirectories:  append([]string(nil), snapshot.WatchDirectories...),
   }
   if snapshot.ReloadFileDigests != nil {
     copied.ReloadFileDigests = make(
@@ -817,7 +832,10 @@ func projectInputReloadDirectoryTopologyDigest(directory string) string {
       return fmt.Sprintf("%x", missing[:])
     }
     switch {
-    case info.Mode()&os.ModeSymlink != 0:
+    case projectInputEntryIsLink(
+      filepath.Join(projectInputFilesystemPath(directory), entry.Name()),
+      info.Mode(),
+    ):
       kind = "symlink"
     case info.IsDir():
       kind = "directory"
@@ -852,7 +870,7 @@ func projectInputReloadFileDigest(location string) string {
     missing := sha256.Sum256([]byte("missing\x00"))
     return fmt.Sprintf("%x", missing[:])
   }
-  if info.Mode()&os.ModeSymlink != 0 {
+  if projectInputEntryIsLink(native, info.Mode()) {
     target, err := os.Readlink(native)
     if err != nil {
       target = "<unreadable>"
@@ -881,6 +899,23 @@ func projectInputReloadFileDigest(location string) string {
   }
   other := sha256.Sum256([]byte("other\x00"))
   return fmt.Sprintf("%x", other[:])
+}
+
+// projectInputEntryIsLink reports whether the entry at location, of mode, is a
+// link: a symbolic link, or on Windows a junction, which Go reports as
+// irregular while the launcher's Node reads it as a symbolic link with the same
+// target. The launcher fingerprints the initial inputs and the host checks
+// them, so both have to read a junction alike, or every input that is or holds
+// one looks changed from the start.
+func projectInputEntryIsLink(location string, mode os.FileMode) bool {
+  if mode&os.ModeSymlink != 0 {
+    return true
+  }
+  if runtime.GOOS != "windows" || mode&os.ModeIrregular == 0 {
+    return false
+  }
+  _, err := os.Readlink(location)
+  return err == nil
 }
 
 func realProjectInputPath(location string) string {

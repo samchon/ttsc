@@ -351,7 +351,11 @@ func projectInputFileWatchers(
     watcher := newProjectInputFileWatcher(base, pattern)
     unique[projectInputFileWatcherKey(watcher)] = watcher
   }
-  for _, directory := range snapshot.ReloadDirectories {
+  directories := append(
+    append([]string(nil), snapshot.ReloadDirectories...),
+    snapshot.WatchDirectories...,
+  )
+  for _, directory := range directories {
     native := filepath.FromSlash(directory)
     identityBase := nearestExistingProjectInputDirectory(filepath.Dir(native))
     identityPattern := escapeLSPGlobLiteral(

@@ -24,6 +24,10 @@ type NativePluginManifest struct {
   Plugins              []NativePluginConfigEntry          `json:"plugins"`
   LSPPlugins           []NativeLSPPluginEntry             `json:"lspPlugins"`
   ProjectContext       json.RawMessage                    `json:"projectContext,omitempty"`
+  // SelectionInputs are what the plugin selection itself was loaded from. A
+  // change to one ends the session like a plugin's own reload input
+  // (samchon/ttsc#1507).
+  SelectionInputs *NativePluginSelectionInputs `json:"selectionInputs,omitempty"`
 }
 
 // NativePluginConfigEntry mirrors the compact sidecar protocol used by
@@ -101,8 +105,12 @@ type NativePluginSource struct {
   owners       map[string]NativeLSPPluginEntry
   logMu        sync.Mutex
 
-  projectInputsMu       sync.RWMutex
-  projectInputs         LSPProjectInputSnapshot
+  projectInputsMu sync.RWMutex
+  projectInputs   LSPProjectInputSnapshot
+  // selection is fixed for the session: its directories are watched in every
+  // flattened snapshot, whatever the plugins later rediscover, and checked
+  // beside its reload inputs.
+  selection             pluginSelectionInputs
   pluginProjectInputs   map[string]projectInputRecord
   projectInputsObserver func()
   projectInputsRefresh  coalescingRefresh
@@ -242,6 +250,24 @@ func NewNativePluginSource(opts NativePluginSourceOptions) (*NativePluginSource,
   }
   if missingInitialProjectInputs {
     source.discoverProjectInputs(1)
+  }
+  if manifest.SelectionInputs != nil {
+    selection, err := newPluginSelectionInputs(*manifest.SelectionInputs)
+    if err != nil {
+      return nil, fmt.Errorf(
+        "ttscserver: plugin selection inputs are invalid: %w",
+        err,
+      )
+    }
+    if !selection.current() {
+      return nil, fmt.Errorf(
+        "ttscserver: plugin selection inputs changed during startup",
+      )
+    }
+    source.projectInputsMu.Lock()
+    source.selection = selection
+    source.projectInputs = source.flattenProjectInputsLocked()
+    source.projectInputsMu.Unlock()
   }
   // The corpus fetch loads a Program, so it runs off the construction path.
   // Blocking here would delay initialize — and therefore the editor's first

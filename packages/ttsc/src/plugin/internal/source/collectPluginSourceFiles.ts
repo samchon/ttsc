@@ -50,8 +50,7 @@ function walk(root: string, dir: string, out: string[]): void {
       // recreate a link without the symlink privilege on Windows.
       if (
         GoSourceInputs.shouldPruneDirectory(entry.name) ||
-        GoSourceInputs.shouldOmitSourceFile(entry.name) ||
-        entry.name.endsWith("~")
+        GoSourceInputs.shouldOmitSourceFile(entry.name)
       )
         continue;
       throw new Error(
@@ -68,7 +67,6 @@ function walk(root: string, dir: string, out: string[]): void {
     }
     if (!entry.isFile()) continue;
     if (GoSourceInputs.shouldOmitSourceFile(entry.name)) continue;
-    if (entry.name.endsWith("~")) continue;
     out.push(full);
   }
 }

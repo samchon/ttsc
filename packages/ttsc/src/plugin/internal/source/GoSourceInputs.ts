@@ -10,7 +10,19 @@ import path from "node:path";
  * and the build must run with the same toolchain environment the key hashed.
  */
 export namespace GoSourceInputs {
-  const PRUNE_DIRS = new Set(["node_modules", ".git", ".ttsc"]);
+  /**
+   * Names of directories that never contribute plugin source: a nested
+   * `node_modules`, a repository's `.git`, and ttsc's own `.ttsc`. An observer
+   * outside this package, such as `ttscserver`'s native host, is handed this
+   * list rather than a copy of it (samchon/ttsc#1507).
+   */
+  export const PRUNED_SOURCE_DIRECTORY_NAMES: readonly string[] = [
+    "node_modules",
+    ".git",
+    ".ttsc",
+  ];
+
+  const PRUNE_DIRS = new Set(PRUNED_SOURCE_DIRECTORY_NAMES);
 
   const GENERATED_WORKSPACE_FILES = new Set(["go.work", "go.work.sum"]);
 
@@ -61,17 +73,37 @@ export namespace GoSourceInputs {
   }
 
   /**
-   * Whether a file is local build residue rather than plugin source: generated
-   * workspace files, package tarballs, and editor sidecars.
+   * Names of files that are local build residue rather than plugin source:
+   * generated workspace files and operating-system sidecars. They drift
+   * independently of the Go source and would otherwise enter the cache key and
+   * bust the cached binary on every unrelated editor or file-browser visit. An
+   * observer that runs outside this package, such as `ttscserver`'s native
+   * host, is handed this list rather than a copy of it (samchon/ttsc#1507).
+   */
+  export const OMITTED_SOURCE_FILE_NAMES: readonly string[] = [
+    ...GENERATED_WORKSPACE_FILES,
+    ".DS_Store",
+    "Thumbs.db",
+  ];
+
+  /**
+   * Suffixes of files that are local build residue rather than plugin source:
+   * `npm pack` tarballs and editor backups ending in `~`.
+   */
+  export const OMITTED_SOURCE_FILE_SUFFIXES: readonly string[] = [
+    ".tgz",
+    ".tar.gz",
+    "~",
+  ];
+
+  /**
+   * Whether a file is local build residue rather than plugin source
+   * (`OMITTED_SOURCE_FILE_NAMES`, `OMITTED_SOURCE_FILE_SUFFIXES`).
    */
   export function shouldOmitSourceFile(name: string): boolean {
-    if (GENERATED_WORKSPACE_FILES.has(name)) return true;
-    // npm-pack tarballs and macOS/Windows editor sidecars are local
-    // build artifacts that drift independently of the Go source. They
-    // would otherwise enter the cache key and bust the cached binary on
-    // every unrelated `npm pack` or editor save.
-    if (name.endsWith(".tgz") || name.endsWith(".tar.gz")) return true;
-    if (name === ".DS_Store" || name === "Thumbs.db") return true;
-    return false;
+    return (
+      OMITTED_SOURCE_FILE_NAMES.includes(name) ||
+      OMITTED_SOURCE_FILE_SUFFIXES.some((suffix) => name.endsWith(suffix))
+    );
   }
 }

@@ -12,6 +12,7 @@ import { type ProjectInputPathIdentityContext } from "../../../internal/pathIden
 import { createProjectInputPathIdentityContext } from "../../../internal/pathIdentity/createProjectInputPathIdentityContext";
 import { isProjectInputPathIdentityWithin } from "../../../internal/pathIdentity/isProjectInputPathIdentityWithin";
 import { resolveProjectInputPath } from "../../../internal/pathIdentity/resolveProjectInputPath";
+import { collectPluginSourceDirectories } from "../../../plugin/internal/source/collectPluginSourceDirectories";
 import { pluginSourceCovers } from "../../../plugin/internal/source/pluginSourceCovers";
 import { prunesPluginSourceDirectory } from "../../../plugin/internal/source/prunesPluginSourceDirectory";
 import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
@@ -1975,26 +1976,7 @@ function collectTopologyDirectories(
  * install and commit without the build reading any of it.
  */
 function collectInputDirectories(input: string): string[] {
-  if (WatchPaths.isDirectory(input) === false) return [];
-  const directories: string[] = [];
-  const stack = [input];
-  while (stack.length !== 0) {
-    const current = stack.pop()!;
-    directories.push(current);
-    let entries: fs.Dirent[];
-    try {
-      entries = fs.readdirSync(current, { withFileTypes: true });
-    } catch (error) {
-      if (isVanishedFilesystemEntry(error)) continue;
-      throw error;
-    }
-    for (const entry of entries) {
-      if (entry.isDirectory() && !prunesPluginSourceDirectory(entry.name)) {
-        stack.push(path.join(current, entry.name));
-      }
-    }
-  }
-  return directories;
+  return collectPluginSourceDirectories(input);
 }
 
 function isVanishedFilesystemEntry(error: unknown): boolean {

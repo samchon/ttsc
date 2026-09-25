@@ -17,7 +17,9 @@ import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITts
 import type { ITtscProjectIdentity } from "../../../structures/internal/ITtscProjectIdentity";
 import type { ITtscProjectInputSnapshot } from "../../../structures/internal/ITtscProjectInputSnapshot";
 import { resolveTtscserverBinary } from "../resolveTtscserverBinary";
+import type { ILSPPluginSelectionInputs } from "./ILSPPluginSelectionInputs";
 import { LSPProjectInputDigest } from "./LSPProjectInputDigest";
+import { captureLSPPluginSelectionInputs } from "./captureLSPPluginSelectionInputs";
 import { fingerprintInitialLSPProjectInputSnapshot } from "./fingerprintInitialLSPProjectInputSnapshot";
 import { initialLSPProjectInputSnapshotIsCurrent } from "./initialLSPProjectInputSnapshotIsCurrent";
 import { materializeLSPPluginManifest } from "./materializeLSPPluginManifest";
@@ -98,6 +100,11 @@ type LSPExecutionContext = {
   >;
   nativePlugins: readonly ITtscLoadedNativePlugin[];
   projectContext?: ITtscProjectIdentity;
+  /**
+   * What the plugin selection was loaded from, which ends the session when it
+   * changes (`captureLSPPluginSelectionInputs`, samchon/ttsc#1507).
+   */
+  selectionInputs?: ILSPPluginSelectionInputs;
   tsgoBinary: string;
 };
 
@@ -135,7 +142,13 @@ function resolveTtscserverEnv(argv: readonly string[]): TtscserverEnvironment {
   const lspPlugins = context.nativePlugins.filter(
     (plugin) => plugin.capabilities?.lsp === true,
   );
-  if (lspPlugins.length === 0) {
+  const selectionInputs =
+    context.selectionInputs !== undefined &&
+    (Object.keys(context.selectionInputs.descriptorFiles).length !== 0 ||
+      Object.keys(context.selectionInputs.sourceFiles).length !== 0)
+      ? context.selectionInputs
+      : undefined;
+  if (lspPlugins.length === 0 && selectionInputs === undefined) {
     // Nothing would be lost by an older native host, so keep it startable.
     return { args: [], dispose() {}, env };
   }
@@ -143,6 +156,7 @@ function resolveTtscserverEnv(argv: readonly string[]): TtscserverEnvironment {
     initialProjectInputs: Object.fromEntries(context.initialProjectInputs),
     plugins: serializeNativePlugins(context.nativePlugins),
     projectContext: context.projectContext,
+    ...(selectionInputs === undefined ? {} : { selectionInputs }),
     lspPlugins: lspPlugins.map((plugin) => ({
       binary: plugin.binary,
       ...(plugin.capabilities?.projectInputs === true
@@ -254,7 +268,9 @@ function resolveLspExecutionContext(
       project: confirmedProject,
       tsgoBinary: confirmedTsgo.binary,
     });
+    const selectionInputs = captureLSPPluginSelectionInputs(confirmation);
     if (
+      selectionInputs !== undefined &&
       lspSelectionSignature(selectedProject, loaded.nativePlugins) ===
         lspSelectionSignature(confirmedProject, confirmation.nativePlugins) &&
       initialLSPProjectInputsEqual(
@@ -268,6 +284,7 @@ function resolveLspExecutionContext(
       return {
         initialProjectInputs: confirmedProjectInputs,
         nativePlugins: confirmation.nativePlugins,
+        selectionInputs,
         projectContext: {
           ...confirmedProject.identity,
           ...(pluginConfigOrigin === undefined ? {} : { pluginConfigOrigin }),

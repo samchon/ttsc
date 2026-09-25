@@ -71,7 +71,7 @@ Plugin diagnostics and code actions use the saved project state. Save before rel
 
 Project rules may declare exact local files and glob populations derived from their options. When one of those inputs changes on disk, `ttscserver` recomputes the project publication after a short debounce and updates the Problems panel without requiring a TypeScript save or even an open source document. Unrelated workspace watcher events stay quiet. If a TypeScript buffer is dirty, the refresh waits for the next save rather than diagnosing stale disk text.
 
-"Saved project state" means the project as it is on disk right now, not as it was when the language server started. A file that changed on disk while it was closed is re-read when you open it, and a `tsconfig.json` or `jsconfig.json` edit is picked up from the editor's file watcher, so a branch switch, a `git pull`, a generator run, or a config change takes effect without restarting the language server.
+"Saved project state" means the project as it is on disk right now, not as it was when the language server started. A file that changed on disk while it was closed is re-read when you open it, and a `tsconfig.json` or `jsconfig.json` edit is picked up from the editor's file watcher, so a branch switch, a `git pull`, a generator run, or a config change takes effect without restarting the language server. A change to a plugin itself, its descriptor, a file the descriptor reads, or its Go sources, which a package update or a plugin under development makes, ends the language server session, and the editor starts a new one that builds and runs the current plugin.
 
 ## Suggestions, fixes, and format
 
