@@ -4,16 +4,25 @@ import { RESOLUTION_INPUT_RECORDER_PATH } from "./RESOLUTION_INPUT_RECORDER_PATH
  * CommonJS evaluator emitted into a clean Node process for every load.
  *
  * What the descriptor's resolutions read is recorded by the resolution input
- * recorder (`RESOLUTION_INPUT_RECORDER_PATH`), required before any hook is
- * installed so the recorder itself is no input, and bracketing every resolution
- * the hooks see (samchon/ttsc#1501).
+ * recorder (`RESOLUTION_INPUT_RECORDER_PATH`), bracketing every resolution the
+ * hooks see (samchon/ttsc#1501). The process starts with ttsx's runtime hooks
+ * preloaded and recording descriptor inputs, so a `require` of the recorder
+ * would be recorded as one of them. The recorder is read and evaluated as a
+ * module of its own instead, as a Go config loader evaluates the copy it
+ * embeds: nothing resolves it, so nothing records it.
  */
 export const COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE = [
   `const fs = require("node:fs");`,
   `const Module = require("node:module");`,
   `const path = require("node:path");`,
+  `const vm = require("node:vm");`,
   `const { fileURLToPath } = require("node:url");`,
-  `const { createResolutionInputRecorder } = require(${JSON.stringify(RESOLUTION_INPUT_RECORDER_PATH)});`,
+  `const { createResolutionInputRecorder } = (() => {`,
+  `  const file = ${JSON.stringify(RESOLUTION_INPUT_RECORDER_PATH)};`,
+  `  const recorder = { exports: {} };`,
+  `  vm.runInThisContext("(function (exports, require, module, __filename, __dirname) {\\n" + fs.readFileSync(file, "utf8") + "\\n})", { filename: file })(recorder.exports, require, recorder, file, path.dirname(file));`,
+  `  return recorder.exports;`,
+  `})();`,
   `const out = process.env.TTSC_PLUGIN_DESCRIPTOR_OUT;`,
   `let retryWithTtsx = false;`,
   `const moduleLoadFailures = new WeakMap();`,
