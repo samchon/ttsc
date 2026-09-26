@@ -4,6 +4,7 @@ import type { ResolvedTtscUnpluginOptions } from "../options/ResolvedTtscUnplugi
 import type { TtscTransformResult } from "./TtscTransformResult";
 import { createAliasPaths } from "./alias/createAliasPaths";
 import { TERMINAL_TRANSFORM_GENERATIONS } from "./cache/TERMINAL_TRANSFORM_GENERATIONS";
+import { TRANSFORM_CACHE_DEPENDENCY_WITNESSES } from "./cache/TRANSFORM_CACHE_DEPENDENCY_WITNESSES";
 import { TRANSFORM_RESULT_FILESYSTEM } from "./cache/TRANSFORM_RESULT_FILESYSTEM";
 import type { TtscTransformCache } from "./cache/TtscTransformCache";
 import { awaitOrEvict } from "./cache/awaitOrEvict";
@@ -250,6 +251,10 @@ export async function transformTtsc(
           cache === undefined ? undefined : TRANSFORM_CACHE_SESSIONS.get(cache),
         trackProjectMembership: cache !== undefined,
         tsconfig,
+        witnessedDependencies:
+          cache === undefined
+            ? undefined
+            : TRANSFORM_CACHE_DEPENDENCY_WITNESSES.get(cache)?.get(key),
       });
       cache?.set(key, transformed);
     }
@@ -262,6 +267,14 @@ export async function transformTtsc(
     );
     if (cache !== undefined && cache.get(key) !== generation) {
       continue;
+    }
+    if (cache !== undefined) {
+      let witnesses = TRANSFORM_CACHE_DEPENDENCY_WITNESSES.get(cache);
+      if (witnesses === undefined) {
+        witnesses = new Map();
+        TRANSFORM_CACHE_DEPENDENCY_WITNESSES.set(cache, witnesses);
+      }
+      witnesses.set(key, cached.externalDependencyInputs ?? []);
     }
     const { projectRoot, result } = cached;
     reportSuccessDiagnostics(cached, epoch);

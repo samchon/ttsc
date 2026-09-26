@@ -42,6 +42,7 @@ import { captureUniversalHostInputValidation } from "../validation/captureUniver
 import { compilerGraphInputProofFailures } from "../validation/compilerGraphInputProofFailures";
 import { restrictNotificationCoverageToProvenInputs } from "../validation/restrictNotificationCoverageToProvenInputs";
 import { walkSnapshotComplete } from "../validation/walkSnapshotComplete";
+import { witnessExternalDependencies } from "../validation/witnessExternalDependencies";
 import { TRANSFORM_FAILED_GENERATION_VALIDATIONS } from "./TRANSFORM_FAILED_GENERATION_VALIDATIONS";
 import { TRANSFORM_GENERATION_FAILURES } from "./TRANSFORM_GENERATION_FAILURES";
 import { captureFailedGenerationInputStates } from "./captureFailedGenerationInputStates";
@@ -95,6 +96,12 @@ export async function captureTransformGeneration(props: {
   rejected?: string;
   trackProjectMembership: boolean;
   tsconfig: string;
+  /**
+   * Dependency-only paths an earlier compile of this project reported, read
+   * before this compile so the state read after it can be certified
+   * (samchon/ttsc#1541).
+   */
+  witnessedDependencies?: readonly string[];
 }): Promise<TtscCachedProjectTransform> {
   const projectRoot = path.dirname(props.tsconfig);
   const scratchDirectory = createTransformScratchDirectory(
@@ -187,6 +194,14 @@ export async function captureTransformGeneration(props: {
           membershipPolicy,
         )
       : undefined;
+    // The paths a plugin reports as dependencies carry no compiler-time proof,
+    // so what they held when the compile began is read now, and a reading
+    // after the compile certifies only the state this one saw
+    // (samchon/ttsc#1541).
+    const dependencyWitness = witnessExternalDependencies(
+      props.witnessedDependencies ?? [],
+      props.filesystem,
+    );
     // A pooled worker takes another worker's compile of exactly this project
     // state instead of compiling the whole project again (samchon/ttsc#1390).
     // Only a complete snapshot names a state. The adopted envelope is then
@@ -457,10 +472,14 @@ export async function captureTransformGeneration(props: {
     if (diskHash !== undefined && diskHash !== deliveredHash) {
       reportDivergentDelivery(cached, props.currentFile);
     }
+    // An adopted compile was certified by its publisher, and is matched below
+    // against the state that publisher recorded.
     const externalInputSnapshot = captureExternalInputSnapshot(
       cached,
       externalInputPaths,
+      adopted === undefined ? dependencyWitness : undefined,
     );
+    cached.externalDependencyInputs = externalInputSnapshot.dependencies;
     cached.externalInputHashes = externalInputSnapshot.hashes;
     cached.externalInputObservations = externalInputSnapshot.observations;
     cached.externalInputRealpaths = externalInputSnapshot.realpaths;
@@ -481,6 +500,11 @@ export async function captureTransformGeneration(props: {
       adopted !== undefined &&
       (adoptionFailure !== undefined || !externalInputSnapshot.complete)
     ) {
+      cached.projectHeldStill = false;
+    }
+    // A dependency the compile read in a state no witness can confirm leaves
+    // even a verdict of diagnostics about a state that may be gone.
+    if (!externalInputSnapshot.dependenciesProven) {
       cached.projectHeldStill = false;
     }
     // Evaluate every half, rather than short-circuiting, so a generation that
@@ -562,7 +586,8 @@ export async function captureTransformGeneration(props: {
     // (samchon/ttsc#1458). An exception stays local: it may come from a
     // transient plugin crash, which each worker must be free to attempt again,
     // as without sharing. The external inputs a plugin reports carry no
-    // compile-time proof, only the state recorded right after the compile, so
+    // compile-time proof, only the state recorded right after the compile and
+    // certified against the witness read before it (samchon/ttsc#1541), so
     // that state travels with the publication for every adopter to match
     // (samchon/ttsc#1390). Releasing the lock without publishing lets the next
     // waiter compile.
@@ -570,7 +595,9 @@ export async function captureTransformGeneration(props: {
       if (
         result.type === "success"
           ? stableProjectSnapshot
-          : result.type === "failure" && walkStable
+          : result.type === "failure" &&
+            walkStable &&
+            externalInputSnapshot.dependenciesProven
       ) {
         await sharedClaim.publish({
           externalInputHashes: externalInputSnapshot.hashes,

@@ -19,19 +19,48 @@ import { inputMetadataSignature } from "../inputs/inputMetadataSignature";
 import { sameHostInputRealpath } from "../inputs/sameHostInputRealpath";
 import { isDeclarationFile } from "../utils/isDeclarationFile";
 import { MISSING_INPUT_STATE } from "./MISSING_INPUT_STATE";
+import type { TtscExternalDependencyWitness } from "./TtscExternalDependencyWitness";
 
 /**
  * Capture external-input hashes without attaching post-compile state to an
  * earlier graph. Graph members and out-of-walk transformed sources must carry
- * compiler-time proof and still match it now; plugin-declared dependency-only
- * paths retain the historical post-compile snapshot because their own protocol
- * does not claim generation fingerprints.
+ * compiler-time proof and still match it now.
+ *
+ * A path a plugin reports in the envelope's `dependencies`, and no graph
+ * proves, carries no such proof, so a reading taken here certifies nothing by
+ * itself: a plugin that read one state of the path while it changed before the
+ * compile returned would publish its output beside the newer state
+ * (samchon/ttsc#1541). Such a path is certified only when the witness read
+ * before the compile still holds, its bytes, physical target, and metadata. A
+ * path with no witness, first reported by this compile, and one whose witness
+ * moved both leave the dependencies unproven, and the attempt is compiled
+ * again. The other paths without a graph proof keep the reading taken here:
+ * host inputs are proven by their own evaluation-time fingerprints
+ * (`captureUniversalHostInputValidation`), and a resolver input or config is an
+ * observation of the compiler, not a plugin's read.
+ *
+ * @param cached The generation whose envelope names the inputs.
+ * @param paths The generation's out-of-walk input paths.
+ * @param witness The dependency states read before the compile, or `undefined`
+ *   for an adopted compile, whose publisher already proved the state it
+ *   published and whose adopter matches it against that publication.
  */
 export function captureExternalInputSnapshot(
   cached: TtscCachedProjectTransform,
   paths: readonly string[],
+  witness: ReadonlyMap<string, TtscExternalDependencyWitness> | undefined,
 ): {
   complete: boolean;
+  /**
+   * The plugin-reported paths no graph proves, which the next compile's witness
+   * reads.
+   */
+  dependencies: string[];
+  /**
+   * Whether every one of {@link dependencies} had a witness that held across the
+   * compile; always true for an adopted compile.
+   */
+  dependenciesProven: boolean;
   failures: TtscGenerationProofFailures;
   hashes: Record<string, string>;
   observations: Record<string, ITtscCompilerTransformation.IInputObservation>;
@@ -60,7 +89,19 @@ export function captureExternalInputSnapshot(
   const realpaths: Record<string, string | null> = {};
   const signatures: Record<string, string> = {};
   const failures = createGenerationProofFailures();
+  const dependencies: string[] = [];
+  const reported = new Set<string>();
+  if (cached.result.type !== "exception") {
+    for (const entries of Object.values(cached.result.dependencies ?? {})) {
+      if (!Array.isArray(entries)) continue;
+      for (const entry of entries) {
+        if (typeof entry === "string" && entry.length !== 0)
+          reported.add(path.resolve(cached.projectRoot, entry));
+      }
+    }
+  }
   let complete = true;
+  let dependenciesProven = true;
   // Sandwich every read between two metadata signatures. Only a signature that
   // survived its own read, and whose stamp's tick the filesystem's clock has
   // provably left (`stampSeparable`), may stand in for the content
@@ -180,12 +221,50 @@ export function captureExternalInputSnapshot(
     }
     const before = inputMetadataEvidence(input, filesystem);
     const hash = hostInputStateHash(input, filesystem);
+    const realpath = hostInputRealpath(input, filesystem);
     const after = inputMetadataSignature(input, filesystem);
     hashes[identity] = hash ?? MISSING_INPUT_STATE;
+    const pluginDependency = reported.has(spelling);
+    if (pluginDependency) dependencies.push(input);
+    if (pluginDependency && witness !== undefined) {
+      const witnessed = witness.get(spelling);
+      if (witnessed === undefined) {
+        complete = false;
+        dependenciesProven = false;
+        recordGenerationProofFailure(failures, {
+          domain: "external",
+          kind: "dependency-unwitnessed",
+          path: input,
+        });
+        continue;
+      }
+      if (
+        !witnessed.stable ||
+        before?.signature !== after ||
+        witnessed.signature !== after ||
+        witnessed.hash !== hash ||
+        !sameHostInputRealpath(
+          witnessed.realpath,
+          realpath,
+          state.identityContext,
+        )
+      ) {
+        complete = false;
+        dependenciesProven = false;
+        recordGenerationProofFailure(failures, {
+          domain: "external",
+          kind: "dependency-changed",
+          path: input,
+        });
+        continue;
+      }
+    }
     if (hash !== null) record(input, before, after);
   }
   return {
     complete,
+    dependencies,
+    dependenciesProven,
     failures,
     hashes,
     observations,

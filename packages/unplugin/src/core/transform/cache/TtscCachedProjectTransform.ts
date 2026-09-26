@@ -40,9 +40,16 @@ export interface TtscCachedProjectTransform {
   /**
    * Compiler-time physical identities for graph-owned entries in
    * {@link externalInputHashes}. Dependency-only paths have no generation
-   * realpath protocol and therefore omit this evidence.
+   * realpath protocol and therefore omit this evidence; the target a dependency
+   * selected is compared only across its own compile (samchon/ttsc#1541).
    */
   externalInputRealpaths?: Record<string, string | null>;
+  /**
+   * The plugin-reported dependency-only paths among {@link externalInputPaths},
+   * which the next compile of the project reads before it starts, so the state
+   * it reads after can be certified (samchon/ttsc#1541).
+   */
+  externalDependencyInputs?: string[];
   /**
    * Original absolute spellings of {@link externalInputHashes} inputs. These
    * stay separate from their identity keys so validation reads the paths the

@@ -78,7 +78,9 @@ export async function test_transformttsc_pooled_adoption_leaves_the_retry_bound_
 
   const published = await runPooledWorker({ file: main, session });
   assert.equal(published.error, undefined, published.error);
-  assert.equal(compiles(), 1, "the state compiles once and is published");
+  // The worker learns the file the plugin reports from its first compile, and
+  // publishes the second, which witnessed it (samchon/ttsc#1541).
+  assert.equal(compiles(), 2, "the state is compiled and published");
   fs.writeFileSync(external, "second\n", "utf8");
 
   // The project moves as this process reads it back after its own compile,
@@ -89,7 +91,7 @@ export async function test_transformttsc_pooled_adoption_leaves_the_retry_bound_
       const contents = fs.readFileSync(location);
       if (
         movedAt === undefined &&
-        compiles() === 2 &&
+        compiles() === 3 &&
         path.resolve(location) === path.resolve(moved)
       ) {
         movedAt = compiles();
@@ -106,7 +108,7 @@ export async function test_transformttsc_pooled_adoption_leaves_the_retry_bound_
     undefined,
     cache,
   );
-  assert.equal(movedAt, 2, "the project moved under this process's compile");
+  assert.equal(movedAt, 3, "the project moved under this process's compile");
   assert.match(result?.code ?? "", /PLUGIN:SECOND/, "the current content");
-  assert.equal(compiles(), 3, "from the third attempt's compile");
+  assert.equal(compiles(), 4, "from the third attempt's compile");
 }

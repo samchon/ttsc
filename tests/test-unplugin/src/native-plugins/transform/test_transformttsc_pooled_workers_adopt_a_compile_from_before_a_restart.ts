@@ -21,7 +21,8 @@ import path from "node:path";
  * same proof any adopter makes against its own disk.
  *
  * 1. Open a session in a process of its own, transform the entry module there, and
- *    exit: the project compiles once and the compile is published.
+ *    exit: the project compiles, once more with the plugin's reported file
+ *    witnessed, and that compile is published.
  * 2. Do it again in a new process, and assert it serves the same output without
  *    compiling.
  * 3. Edit a file outside the project that a plugin reads, while nothing runs; do
@@ -100,16 +101,19 @@ export async function test_transformttsc_pooled_workers_adopt_a_compile_from_bef
     return run.stdout;
   };
 
-  // 1. The first session compiles and publishes.
+  // 1. The first session compiles and publishes: its first compile learns the
+  // file the plugin reports, and the second, which witnessed it, is published
+  // (samchon/ttsc#1541).
   assert.match(session(), /PLUGIN:FIRST/);
-  assert.equal(compiles(), 1);
+  assert.equal(compiles(), 2);
 
   // 2. A restart adopts it.
   assert.match(session(), /PLUGIN:FIRST/);
-  assert.equal(compiles(), 1, "a restart over an unchanged project");
+  assert.equal(compiles(), 2, "a restart over an unchanged project");
 
-  // 3. An input edited while nothing ran refutes it.
+  // 3. An input edited while nothing ran refutes it, and the refuted
+  // publication names the file, so one compile witnesses it.
   fs.writeFileSync(external, "second\n", "utf8");
   assert.match(session(), /PLUGIN:SECOND/);
-  assert.equal(compiles(), 2, "the current content, compiled");
+  assert.equal(compiles(), 3, "the current content, compiled");
 }

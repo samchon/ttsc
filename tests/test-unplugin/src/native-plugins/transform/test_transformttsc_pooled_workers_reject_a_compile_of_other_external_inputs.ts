@@ -69,13 +69,17 @@ export async function test_transformttsc_pooled_workers_reject_a_compile_of_othe
     return result.code ?? "";
   };
 
+  // A fresh worker learns the reported file from its first compile and
+  // publishes the second, which witnessed it (samchon/ttsc#1541).
   assert.match(await transform(), /PLUGIN:FIRST/);
-  assert.equal(compiles(), 1);
+  assert.equal(compiles(), 2);
 
+  // The refuted publication names the file, so the worker's own compile
+  // witnesses it at once.
   fs.writeFileSync(external, "second\n", "utf8");
   assert.match(await transform(), /PLUGIN:SECOND/);
-  assert.equal(compiles(), 2, "a compile of the old file is not adopted");
+  assert.equal(compiles(), 3, "a compile of the old file is not adopted");
 
   assert.match(await transform(), /PLUGIN:SECOND/);
-  assert.equal(compiles(), 2, "the replacement is adopted");
+  assert.equal(compiles(), 3, "the replacement is adopted");
 }

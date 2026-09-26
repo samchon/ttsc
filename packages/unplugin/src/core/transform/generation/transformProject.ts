@@ -11,6 +11,7 @@ import type { TtscGenerationProofFailures } from "./TtscGenerationProofFailures"
 import { captureTransformGeneration } from "./captureTransformGeneration";
 import { createGenerationProofFailures } from "./createGenerationProofFailures";
 import { createUnstableGenerationError } from "./createUnstableGenerationError";
+import { onlyUnwitnessedDependencies } from "./onlyUnwitnessedDependencies";
 
 /** One retry absorbs a transient watch write without admitting an infinite loop. */
 const TRANSFORM_GENERATION_ATTEMPTS = 2;
@@ -52,6 +53,13 @@ const TRANSFORM_GENERATION_ATTEMPTS = 2;
  * transform returns, as Turbopack does, records the repair as the baseline and
  * never re-runs the module. It is compiled again, and when the project moves
  * under the retry too, the retry's own failure is returned.
+ *
+ * A plugin-reported dependency path is certified only against a witness read
+ * before the compile (samchon/ttsc#1541), and a compile learns such paths only
+ * from its own envelope. An attempt whose one failure is a dependency path it
+ * reported for the first time is retried with that path witnessed. It says
+ * nothing about the project moving, so it does not spend the bound, and the cap
+ * of twice the bound still ends a project whose dependencies never settle.
  */
 export async function transformProject(props: {
   aliasPaths: Record<string, string[]>;
@@ -80,12 +88,23 @@ export async function transformProject(props: {
   session?: string;
   trackProjectMembership: boolean;
   tsconfig: string;
+  /**
+   * Dependency-only paths the last generation of this cache key reported
+   * (`TRANSFORM_CACHE_DEPENDENCY_WITNESSES`), to be witnessed before the
+   * compile; see {@link TtscCachedProjectTransform.externalDependencyInputs}.
+   */
+  witnessedDependencies?: readonly string[];
 }): Promise<TtscCachedProjectTransform> {
   const attempts: TtscGenerationProofFailures[] = [];
   let rejected: string | undefined;
   let moved = 0;
+  const witnessed = new Set(props.witnessedDependencies);
   for (let attempt = 0; ; attempt += 1) {
-    const cached = await captureTransformGeneration({ ...props, rejected });
+    const cached = await captureTransformGeneration({
+      ...props,
+      rejected,
+      witnessedDependencies: [...witnessed],
+    });
     if (
       cached.configStateComplete !== false &&
       (cached.result.type === "success"
@@ -94,10 +113,13 @@ export async function transformProject(props: {
     ) {
       return cached;
     }
-    attempts.push(
+    const failures =
       TRANSFORM_GENERATION_FAILURES.get(cached.result) ??
-        createGenerationProofFailures(),
-    );
+      createGenerationProofFailures();
+    attempts.push(failures);
+    for (const dependency of cached.externalDependencyInputs ?? []) {
+      witnessed.add(dependency);
+    }
     // A publication refuted here would be found again by a retry for the same
     // state, which therefore compiles and replaces it. A retry whose project
     // moved to another state claims that state's publication, and adopts it:
@@ -107,7 +129,7 @@ export async function transformProject(props: {
     // compile it stood in for.
     const adopted = TRANSFORM_ADOPTED_RESULTS.get(cached.result);
     if (adopted?.refuted === true) rejected = adopted.state;
-    else moved += 1;
+    else if (!onlyUnwitnessedDependencies(failures)) moved += 1;
     const last =
       moved === TRANSFORM_GENERATION_ATTEMPTS ||
       attempt + 1 === TRANSFORM_GENERATION_ATTEMPTS * 2;

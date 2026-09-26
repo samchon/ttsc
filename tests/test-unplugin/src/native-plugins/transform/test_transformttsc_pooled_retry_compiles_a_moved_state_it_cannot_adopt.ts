@@ -84,7 +84,9 @@ export async function test_transformttsc_pooled_retry_compiles_a_moved_state_it_
     const result = await runPooledWorker({ file: main, session });
     assert.equal(result.error, undefined, result.error);
   }
-  assert.equal(compiles(), 2, "each state compiles once and is published");
+  // Each fresh worker learns the file the plugin reports from its first
+  // compile, and publishes the second, which witnessed it (samchon/ttsc#1541).
+  assert.equal(compiles(), 4, "each state is compiled and published");
   fs.writeFileSync(moved, "export const extra = 1;\n");
   fs.writeFileSync(external, "second\n", "utf8");
 
@@ -109,5 +111,5 @@ export async function test_transformttsc_pooled_retry_compiles_a_moved_state_it_
     cache,
   );
   assert.match(result?.code ?? "", /PLUGIN:SECOND/, "the current content");
-  assert.equal(compiles(), 3, "from a compile of its own");
+  assert.equal(compiles(), 5, "from a compile of its own");
 }
