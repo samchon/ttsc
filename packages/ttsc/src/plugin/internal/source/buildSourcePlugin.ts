@@ -226,7 +226,29 @@ function compileSourcePlugin(opts: {
       opts.env,
       opts.goBinary,
     );
-    anchorReplaceDirectories(replacements, scratchDir, opts.goBinary, opts.env);
+    // Every source the build would otherwise read in place, an overlay and
+    // each replace target outside the module, is copied and proven against the
+    // key before Go reads it, as the module and its contributors are: a check
+    // after the build cannot tell a source that held still from one that
+    // changed and changed back while Go was reading it (samchon/ttsc#1527).
+    const external = snapshotExternalSources(
+      scratchDir,
+      [
+        ...opts.overlayDirs,
+        ...replacements.map((replacement) => replacement.directory),
+      ],
+      opts.keyedDigests,
+      opts.pluginName,
+    );
+    anchorReplaceDirectories(
+      replacements.map((replacement) => ({
+        ...replacement,
+        directory: external.get(path.resolve(replacement.directory))!,
+      })),
+      scratchDir,
+      opts.goBinary,
+      opts.env,
+    );
     const goModReader = createGoModReader(
       opts.goBinary,
       opts.pluginName,
@@ -244,7 +266,7 @@ function compileSourcePlugin(opts: {
     }
     writeGoWork(
       scratchDir,
-      opts.overlayDirs,
+      opts.overlayDirs.map((directory) => external.get(path.resolve(directory))!),
       opts.goBinary,
       opts.pluginName,
       opts.env,
@@ -279,18 +301,6 @@ function compileSourcePlugin(opts: {
         pruneGoBuildCacheRoot(attemptedGoBuildCacheRoot, { force: true });
       }
     }
-    // What the build read in place, it read during the build: an overlay and
-    // every replace target outside the module.
-    for (const directory of [
-      ...opts.overlayDirs,
-      ...replacements.map((replacement) => replacement.directory),
-    ])
-      requireKeyedSource(
-        directory,
-        directory,
-        opts.keyedDigests,
-        opts.pluginName,
-      );
     const builtBinary = path.join(scratchDir, scratchBinaryName);
     publishBuiltBinary(builtBinary, opts.binaryPath);
     touchCacheEntry(opts.cacheDir);
@@ -627,14 +637,54 @@ function materializeScratchDir(source: string, scratch: string): void {
 }
 
 /**
- * Point every relative `replace` target outside the module at the directory it
- * names from the module itself.
+ * The path, below a build's scratch directory, of the tree holding its copies
+ * of the sources outside the module.
+ */
+const EXTERNAL_SOURCES_DIRECTORY = path.join(".ttsc", "external");
+
+/**
+ * Copy each source directory outside the module into the scratch directory and
+ * prove the copy against the key's digest, returning each copy by the
+ * directory it was taken from.
+ *
+ * The copies keep their absolute layout below one root, so a relative path
+ * between two of them, such as a driver's `replace` of the shims beside it,
+ * still names the copy of what it named. A directory below another is copied
+ * with it and again on its own path, which is the same place.
+ */
+function snapshotExternalSources(
+  scratchDir: string,
+  directories: readonly string[],
+  keyedDigests: ReadonlyMap<string, string>,
+  pluginName: string,
+): Map<string, string> {
+  const root = path.join(scratchDir, EXTERNAL_SOURCES_DIRECTORY);
+  const copies = new Map<string, string>();
+  for (const directory of new Set(directories.map((dir) => path.resolve(dir)))) {
+    const parsed = path.parse(directory);
+    const copy = path.join(
+      root,
+      // A volume's letters alone: a drive, a UNC share, or a `\\?\` prefix
+      // leaves nothing that cannot name a directory.
+      parsed.root.replace(/[^A-Za-z0-9]+/g, "") || "root",
+      path.relative(parsed.root, directory),
+    );
+    materializeScratchDir(directory, copy);
+    requireKeyedSource(directory, copy, keyedDigests, pluginName);
+    copies.set(directory, copy);
+  }
+  return copies;
+}
+
+/**
+ * Point every `replace` target outside the module at the build's copy of it.
  *
  * The build runs in a scratch copy of the module, where `../dep` names a
  * sibling of the copy instead of the module's sibling that `go build` in the
- * module compiles (samchon/ttsc#1506). The copy's `go.mod` is rewritten to the
- * absolute directory through `go mod edit`, Go's own editor of the file. A
- * target inside the module moved with the copy and is left as it is.
+ * module compiles (samchon/ttsc#1506), and an absolute target would be read in
+ * place (samchon/ttsc#1527). The copy's `go.mod` is rewritten to the absolute
+ * directory of the proven copy through `go mod edit`, Go's own editor of the
+ * file. A target inside the module moved with the copy and is left as it is.
  */
 function anchorReplaceDirectories(
   replacements: readonly IPluginModuleReplaceDirectory[],
@@ -643,7 +693,6 @@ function anchorReplaceDirectories(
   env: NodeJS.ProcessEnv,
 ): void {
   for (const replacement of replacements) {
-    if (path.isAbsolute(replacement.spelled)) continue;
     const old =
       replacement.version === undefined
         ? replacement.modulePath

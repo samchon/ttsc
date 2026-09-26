@@ -15,17 +15,21 @@ import {
  *
  * The cache key digests each source directory before the build reads it: the
  * build copies the module after any wait for the build lock, and `go build`
- * reads an overlay in place for the whole build. A source edited in between was
+ * read an overlay in place for the whole build. A source edited in between was
  * built into the binary, which was published under the key of the state before
  * the edit, permanently, and served once the source returned to that state
- * (samchon/ttsc#1505). The build now digests what it compiled by the key's own
- * rule and publishes nothing when the two differ.
+ * (samchon/ttsc#1505). The build now compiles copies of the module and of every
+ * overlay, each proven against the key before Go reads it, so an overlay edit
+ * during `go build` cannot reach the binary (samchon/ttsc#1527), and a source
+ * that changed before its copy publishes nothing.
  *
- * 1. Wrap the fake Go toolchain so a build writes the overlay's text into the
- *    binary, and so it can pause at the key's own `go mod edit -json` read.
+ * 1. Wrap the fake Go toolchain so a build writes into the binary the text of
+ *    the overlay the workspace names, and so it can pause at the key's own
+ *    `go mod edit -json` read.
  * 2. Pause `go build`, edit the overlay from another process, and resume: the
- *    build fails naming the overlay, and no binary is cached.
- * 3. Restore the overlay and build: the binary carries the restored text.
+ *    build compiled the proven copy, so the binary carries the text the key
+ *    names.
+ * 3. Restore the overlay and build: the same binary is reused.
  * 4. Pause the key computation after it digested the module, edit the module from
  *    another process, and resume: the build fails naming the module.
  */
@@ -78,7 +82,9 @@ export const test_buildsourceplugin_publishes_no_binary_built_from_a_source_edit
         "if (result.status !== 0) process.exit(result.status ?? 1);",
         'if (args[0] === "build") {',
         '  const out = args[args.indexOf("-o") + 1];',
-        `  fs.writeFileSync(path.resolve(out), fs.readFileSync(${JSON.stringify(overlayFile)}, "utf8"));`,
+        // The overlay the build reads is the one the workspace names.
+        '  const used = fs.readFileSync("go.work", "utf8").split(/\\r?\\n/).map((line) => line.trim().replace(/^"|"$/g, "")).find((entry) => path.basename(entry) === "overlay");',
+        '  fs.writeFileSync(path.resolve(out), fs.readFileSync(path.join(used, "value.go"), "utf8"));',
         "}",
         "",
       ].join("\n"),
@@ -140,7 +146,7 @@ export const test_buildsourceplugin_publishes_no_binary_built_from_a_source_edit
             .filter((name) => /plugin(\.exe)?$/.test(name))
         : [];
 
-    // 2. An overlay edited while `go build` reads it in place.
+    // 2. An overlay edited while `go build` runs.
     const buildBarrier = path.join(root, "build-barrier");
     const buildRelease = path.join(root, "build-release");
     const overlayEditor = editWhenPaused(
@@ -149,27 +155,21 @@ export const test_buildsourceplugin_publishes_no_binary_built_from_a_source_edit
       overlayFile,
       "package overlay // SECOND\n",
     );
-    assert.throws(
-      () =>
-        build({
-          FAKE_GO_BUILD_BARRIER_FILE: buildBarrier,
-          FAKE_GO_BUILD_RELEASE_FILE: buildRelease,
-        }),
-      (error: unknown) =>
-        String(error instanceof Error ? error.message : error).includes(
-          `source ${overlay} changed while it was being built`,
-        ),
-    );
+    const snapshot = build({
+      FAKE_GO_BUILD_BARRIER_FILE: buildBarrier,
+      FAKE_GO_BUILD_RELEASE_FILE: buildRelease,
+    });
     overlayEditor.kill();
-    assert.deepEqual(cachedBinaries(), [], "no binary was cached");
-
-    // 3. The restored overlay builds under its own key.
-    write(overlayFile, "package overlay // FIRST\n");
-    const restored = build({});
     assert.equal(
-      fs.readFileSync(restored, "utf8"),
+      fs.readFileSync(snapshot, "utf8"),
       "package overlay // FIRST\n",
+      "the build compiled the proven copy, not the edit",
     );
+    assert.equal(cachedBinaries().length, 1);
+
+    // 3. The restored overlay names the same key and reuses the binary.
+    write(overlayFile, "package overlay // FIRST\n");
+    assert.equal(build({}), snapshot);
 
     // 4. A module edited after the key digested it, before the build copied it.
     // A state no binary was built for yet, so the build runs rather than serving

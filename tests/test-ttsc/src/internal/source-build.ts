@@ -95,6 +95,21 @@ function createFakeGoBinary(
       "  console.log(JSON.stringify(parseGoMod(goMod)));",
       "  process.exit(0);",
       "}",
+      // `go mod edit -replace=old=new`, as Go applies it: the directive for the
+      // replaced module is dropped and the new one added.
+      'if (args[0] === "mod" && args[1] === "edit" && args[2]?.startsWith("-replace=")) {',
+      '  const spec = args[2].slice("-replace=".length);',
+      '  const split = spec.indexOf("=");',
+      "  const old = spec.slice(0, split);",
+      '  const module = old.split("@")[0];',
+      '  const file = path.join(process.cwd(), "go.mod");',
+      '  const kept = fs.readFileSync(file, "utf8").split("\\n").filter((line) => {',
+      "    const trimmed = line.trim();",
+      '    return !(trimmed.startsWith("replace " + module + " ") || trimmed.startsWith("replace " + module + "@") || trimmed.startsWith(module + " ") || trimmed.startsWith(module + "@"));',
+      "  });",
+      '  fs.writeFileSync(file, kept.join("\\n") + "\\nreplace " + old + " => " + spec.slice(split + 1) + "\\n");',
+      "  process.exit(0);",
+      "}",
       // `go work use` sets the scratch workspace's `go` directive; a fake
       // toolchain has no version rule to apply, so it leaves the file as written.
       'if (args[0] === "work" && args[1] === "use") process.exit(0);',

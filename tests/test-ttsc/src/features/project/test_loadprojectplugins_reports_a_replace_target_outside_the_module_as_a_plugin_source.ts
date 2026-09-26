@@ -17,8 +17,8 @@ import { createFakeGoBinary } from "../../internal/source-build";
  * 1. Load a project whose executable plugin's `go.mod` replaces a module with an
  *    absolute sibling directory, and assert the watch inputs and the load's
  *    `pluginSources` both name the module root and that directory.
- * 2. Load one whose `go.mod` spells the target relatively, with a build that
- *    fails, and assert the watch inputs name the target before the failure.
+ * 2. Load one whose `go.mod` spells the target relatively, and assert the watch
+ *    inputs name the target.
  */
 export const test_loadprojectplugins_reports_a_replace_target_outside_the_module_as_a_plugin_source =
   () => {
@@ -98,15 +98,12 @@ export const test_loadprojectplugins_reports_a_replace_target_outside_the_module
       "the reported plugin sources",
     );
 
-    // 2. A relative target. The fake toolchain edits no go.mod, so the build
-    // fails once it anchors the target; the inputs were reported before it.
+    // 2. A relative target: the inputs are reported before the build anchors it.
     writeModule("../dep");
     let relative: readonly string[] | undefined;
-    assert.throws(() =>
-      load("relative-cache", (reported) => {
-        relative = reported;
-      }),
-    );
+    load("relative-cache", (reported) => {
+      relative = reported;
+    });
     assert.deepEqual(
       relative,
       expected,
