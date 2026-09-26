@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { findNearestProjectTsconfig } from "../../discovery/findNearestProjectTsconfig";
+import { discoverNearestProjectTsconfig } from "../../discovery/discoverNearestProjectTsconfig";
 import { selectReferencedProject } from "../../tsconfig/selectReferencedProject";
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransformFilesystemOperations";
@@ -16,6 +16,11 @@ import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransf
  * admits the file (samchon/ttsc#1397). With no ancestor config the answer is
  * `<cwd>/tsconfig.json`; the compiler will error if that file does not exist,
  * which is the correct behavior for a mis-configured project.
+ *
+ * Every nearer candidate the walk passed over on its way to a config is
+ * consulted too, as missing: a `tsconfig.json` appearing beside the file
+ * re-routes it to another project, and nothing else it read would change
+ * (samchon/ttsc#1543).
  */
 export function resolveProjectSelection(
   file: string,
@@ -30,10 +35,22 @@ export function resolveProjectSelection(
         : path.resolve(process.cwd(), tsconfig),
     };
   }
-  const discovered = findNearestProjectTsconfig(path.dirname(file), filesystem);
-  if (discovered !== undefined) {
-    return selectReferencedProject(file, discovered);
+  const discovery = discoverNearestProjectTsconfig(
+    path.dirname(file),
+    filesystem,
+  );
+  const passedOver = discovery.candidates
+    .filter((candidate) => !candidate.fileExists)
+    .map((candidate) => candidate.file);
+  if (discovery.file !== undefined) {
+    const selection = selectReferencedProject(file, discovery.file);
+    return {
+      consulted: [...passedOver, ...selection.consulted],
+      tsconfig: selection.tsconfig,
+    };
   }
+  // With no config at all the walk reached the volume root, and watching
+  // every ancestor up to it would watch directories far outside any project.
   return {
     consulted: [],
     tsconfig: path.resolve(process.cwd(), "tsconfig.json"),
