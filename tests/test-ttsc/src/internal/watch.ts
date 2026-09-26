@@ -77,6 +77,23 @@ export class WatchSession {
     });
   }
 
+  /**
+   * Wait until every started build has completed and none starts for `quiet`
+   * milliseconds, so a rerun queued while a long build ran has run too.
+   */
+  public async waitForSettled(quiet = 2_000, timeout = 300_000): Promise<void> {
+    const deadline = Date.now() + timeout;
+    for (;;) {
+      const starts = this.buildStarts;
+      await new Promise((resolve) => setTimeout(resolve, quiet));
+      if (this.buildStarts === starts && this.builds >= starts) return;
+      assert.ok(
+        Date.now() < deadline,
+        `ttsc --watch never settled:\n${this.output}`,
+      );
+    }
+  }
+
   /** Assert that no additional build lands during a deliberate idle period. */
   public waitForQuiet(duration = 900): Promise<void> {
     const initialBuilds = this.builds;

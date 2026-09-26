@@ -1,3 +1,6 @@
+import fs from "node:fs";
+
+import { touchPluginCacheEntryInUse } from "../../../plugin/internal/source/touchPluginCacheEntryInUse";
 import type { ITtscProjectInputSnapshot } from "../../../structures/internal/ITtscProjectInputSnapshot";
 import type { TtscBuildResult } from "../../../structures/internal/TtscBuildResult";
 import { ResidentCheckProcess } from "../ResidentCheckProcess";
@@ -88,6 +91,19 @@ export class ResidentCheckWatchSession {
       }
       this.execution = execution;
     } else {
+      // The session keeps running the plugin binaries it resolved without
+      // resolving them again, so it records each cycle's use in their cache
+      // entries, and a binary the cache removed anyway sends the session back
+      // through resolution, which builds it again, rather than failing a
+      // sidecar respawn (samchon/ttsc#1556).
+      if (
+        execution.nativePlugins.some((plugin) => !fs.existsSync(plugin.binary))
+      ) {
+        this.reset();
+        return this.run(options);
+      }
+      for (const plugin of execution.nativePlugins)
+        touchPluginCacheEntryInUse(plugin.binary);
       buildOptions = BuildExecution.applyProjectNoEmit(options, execution);
     }
     if (
