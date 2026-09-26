@@ -1294,14 +1294,16 @@ function emitOrphanSource(
       source === null
         ? null
         : inlineServedSourceMap(source, emitted!, filename);
-    // The key names the bytes read for it, and the emit read the file again.
-    // Only a source that held still across both reads is what the key names;
-    // otherwise the lowering serves this run and is not recorded
-    // (samchon/ttsc#1508).
+    // The key names the bytes read for it and the compiler it was taken under,
+    // and the emit read the file and ran the compiler again. Only a source that
+    // held still across both reads, lowered by a compiler that is still the
+    // keyed one, is what the key names; otherwise the lowering serves this run
+    // and is not recorded (samchon/ttsc#1508, samchon/ttsc#1521).
     if (
       lowered !== null &&
       cache !== null &&
-      orphanSourceHeld(filename, cache)
+      orphanSourceHeld(filename, cache) &&
+      compilerIdentity(tsgo) === cache.compiler
     ) {
       writeOrphanCache(cache.file, lowered);
     }
@@ -1398,26 +1400,33 @@ function orphanCacheRoot(): string {
 
 /**
  * What a compiler binary is, as far as the filesystem can say without reading
- * its whole content: its physical path, size, modification time, and file
- * identity. Replacing the binary, whether by a package upgrade or by a rebuilt
- * wrapper at the same path, changes at least one of them.
+ * its whole content: its physical path, file identity, size, and modification
+ * and change times. Replacing the binary, whether by a package upgrade, an
+ * atomic swap, or a rewrite of a wrapper at the same path, changes at least one
+ * of them; the change time moves with every write even when a rewrite keeps the
+ * size and restores the modification time.
+ *
+ * Read afresh at every use, never remembered by path: a long-lived process can
+ * lower orphans before and after the compiler at that path is replaced, and an
+ * entry lowered by the new one must not be recorded under the old one's key
+ * for a later process to adopt (samchon/ttsc#1521).
  */
 function compilerIdentity(binary: string): string {
-  let identity = compilerIdentities.get(binary);
-  if (identity === undefined) {
-    try {
-      const real = realPath(binary);
-      const stat = fs.statSync(real);
-      identity = [real, stat.size, stat.mtimeMs, stat.ino, stat.dev].join("\0");
-    } catch {
-      identity = binary;
-    }
-    compilerIdentities.set(binary, identity);
+  try {
+    const real = realPath(binary);
+    const stat = fs.statSync(real, { bigint: true });
+    return [
+      real,
+      stat.dev,
+      stat.ino,
+      stat.size,
+      stat.mtimeNs,
+      stat.ctimeNs,
+    ].join("\0");
+  } catch {
+    return binary;
   }
-  return identity;
 }
-
-const compilerIdentities = new Map<string, string>();
 
 /** The version of this ttsc package, which owns the orphan post-processing. */
 function ownPackageVersion(): string {
@@ -1461,7 +1470,7 @@ function orphanCacheFile(
   filename: string,
   tsgo: string,
   format: "commonjs" | "module",
-): { file: string; signature: string; source: Buffer } | null {
+): { compiler: string; file: string; signature: string; source: Buffer } | null {
   const signature = orphanSourceSignature(filename);
   if (signature === undefined) return null;
   let source: Buffer;
@@ -1470,9 +1479,10 @@ function orphanCacheFile(
   } catch {
     return null;
   }
+  const compiler = compilerIdentity(tsgo);
   const key = crypto
     .createHash("sha256")
-    .update(compilerIdentity(tsgo))
+    .update(compiler)
     .update(`\0ttsc@${ownPackageVersion()}`)
     // The emit policy decides the lowering, so it is part of the key: a cache
     // filled under an earlier policy must not answer for the current one.
@@ -1484,7 +1494,12 @@ function orphanCacheFile(
     .update(source)
     .digest("hex")
     .slice(0, 32);
-  return { file: path.join(orphanCacheRoot(), `${key}.js`), signature, source };
+  return {
+    compiler,
+    file: path.join(orphanCacheRoot(), `${key}.js`),
+    signature,
+    source,
+  };
 }
 
 /**
