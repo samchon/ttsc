@@ -27,6 +27,7 @@ import { pluginSourceState } from "../source/pluginSourceState";
 import { resolvePluginGoModule } from "../source/resolvePluginGoModule";
 import { COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE } from "./COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE";
 import { PLUGIN_DESCRIPTOR_SHIM_SOURCE } from "./PLUGIN_DESCRIPTOR_SHIM_SOURCE";
+import { PluginDescriptorEvaluationCache } from "./PluginDescriptorEvaluationCache";
 import { PluginPackageResolution } from "./PluginPackageResolution";
 import { ProjectPluginEntries } from "./ProjectPluginEntries";
 import { collectProjectHostInputs } from "./collectProjectHostInputs";
@@ -140,6 +141,12 @@ export function loadProjectPlugins(options: {
     projectRoot: project.root,
     tsconfig: project.path,
   };
+  // Where isolated descriptor evaluations keep their answers across launches
+  // (`PluginDescriptorEvaluationCache`, samchon/ttsc#1497).
+  const descriptorCache: DescriptorCacheOptions = {
+    cacheDir: options.cacheDir,
+    version: pluginBuildVersions(project.root).ttsc,
+  };
   const loadedEntries = withPluginLoaderEnv(() =>
     entries.map((entry) => {
       const specifier = entry.config.transform;
@@ -187,6 +194,7 @@ export function loadProjectPlugins(options: {
         { ...context, plugin: entry.config },
         request,
         effectiveEnv,
+        descriptorCache,
       );
       const loadedHostInputHashes = mergeObservedHostInputHashes(
         loaded.hostInputHashes,
@@ -1007,6 +1015,7 @@ function loadPluginEntry(
   base: Omit<ITtscPluginFactoryContext, "dirname" | "filename">,
   request: string,
   effectiveEnv: NodeJS.ProcessEnv,
+  descriptorCache: DescriptorCacheOptions,
 ): {
   hostInputHashes: Record<string, string | null>;
   hostInputRealpaths: Record<string, string | null>;
@@ -1028,7 +1037,12 @@ function loadPluginEntry(
     dirname: path.dirname(request),
     filename: request,
   };
-  const loaded = loadPluginDescriptor(request, context, effectiveEnv);
+  const loaded = loadPluginDescriptor(
+    request,
+    context,
+    effectiveEnv,
+    descriptorCache,
+  );
   if (isTtscPlugin(loaded.descriptor)) {
     rejectJsTransformFunctions(specifier, loaded.descriptor);
     return {
@@ -1062,9 +1076,15 @@ function loadPluginDescriptor(
   request: string,
   context: ITtscPluginFactoryContext,
   effectiveEnv: NodeJS.ProcessEnv,
+  descriptorCache: DescriptorCacheOptions,
 ): IsolatedPluginDescriptor {
   try {
-    return loadCommonJsDescriptor(request, context, effectiveEnv);
+    return loadCommonJsDescriptor(
+      request,
+      context,
+      effectiveEnv,
+      descriptorCache,
+    );
   } catch (error) {
     if (
       !TS_SOURCE_PATTERN.test(request) ||
@@ -1079,6 +1099,14 @@ function loadPluginDescriptor(
     }
     return loaded;
   }
+}
+
+/** What an isolated descriptor evaluation's cache entry is keyed under. */
+interface DescriptorCacheOptions {
+  /** The plugin cache directory the caller selected, if any. */
+  cacheDir: string | undefined;
+  /** This ttsc build's version. */
+  version: string;
 }
 
 interface IsolatedPluginDescriptor {
@@ -1107,13 +1135,33 @@ class CommonJsDescriptorLoadError extends Error {
  * gives every descriptor load current bytes without mutating the host's cache.
  * The child invokes the factory before walking its graph, so lazy `require()`
  * calls are included, and a failed first load cannot strand poisoned children.
+ *
+ * The answer is kept across launches while every input the evaluation proved
+ * still holds (`PluginDescriptorEvaluationCache`, samchon/ttsc#1497): an
+ * unchanged project pays a proof of its descriptor inputs instead of a runtime
+ * start and a graph load.
  */
 function loadCommonJsDescriptor(
   request: string,
   context: ITtscPluginFactoryContext,
   effectiveEnv: NodeJS.ProcessEnv,
+  descriptorCache: DescriptorCacheOptions,
 ): IsolatedPluginDescriptor {
   const runtime = pluginDescriptorRuntimeBinary(effectiveEnv);
+  const ttsx = effectiveEnv.TTSC_TTSX_BINARY ?? process.env.TTSC_TTSX_BINARY;
+  const cacheFile = PluginDescriptorEvaluationCache.locate({
+    cacheDir: descriptorCache.cacheDir,
+    context,
+    // Everything the child receives besides the per-evaluation output paths.
+    env: { ...effectiveEnv, TTSC_TTSX_BINARY: ttsx },
+    projectRoot: context.projectRoot,
+    request,
+    runtime,
+    version: descriptorCache.version,
+  });
+  const cached =
+    cacheFile === null ? null : PluginDescriptorEvaluationCache.read(cacheFile);
+  if (cached !== null) return cached;
   const runtimeCapabilities = javascriptRuntimeCapabilities(
     runtime,
     effectiveEnv,
@@ -1176,8 +1224,7 @@ function loadCommonJsDescriptor(
             // The direct evaluator may be Bun, but ttsx and native config
             // loaders require a real Node runtime with synchronous hooks.
             ...(node === undefined ? {} : { TTSC_NODE_BINARY: node }),
-            TTSC_TTSX_BINARY:
-              effectiveEnv.TTSC_TTSX_BINARY ?? process.env.TTSC_TTSX_BINARY,
+            TTSC_TTSX_BINARY: ttsx,
             TTSC_PLUGIN_CONTEXT: JSON.stringify(context),
             TTSC_PLUGIN_DESCRIPTOR_LOAD: "1",
             TTSC_PLUGIN_DESCRIPTOR_OUT: out,
@@ -1267,7 +1314,7 @@ function loadCommonJsDescriptor(
       }
     }
     const runtimeInputs = readTtsxDescriptorInputs(inputsOut, request);
-    return {
+    const evaluation: IsolatedPluginDescriptor = {
       descriptor: parsed.descriptor,
       hostInputHashes: omitUnstableHostInputHashes(
         mergeObservedHostInputHashes(
@@ -1287,6 +1334,12 @@ function loadCommonJsDescriptor(
         ]),
       ].sort(),
     };
+    // A hit replays nothing, so only an evaluation that printed nothing is
+    // kept.
+    if (cacheFile !== null && fs.statSync(diagnostics).size === 0) {
+      PluginDescriptorEvaluationCache.write(cacheFile, evaluation);
+    }
+    return evaluation;
   } finally {
     removeEvaluationTempDir(dir);
   }

@@ -8,6 +8,8 @@ If you only want to know where the cache lives locally or how to delete it, [Com
 
 `ttsc` compiles source plugins to native binaries. A plugin such as `typia` ships Go source, and the first build in a fresh environment compiles it, which is the cost this cache exists to remove. The cache holds two things: the compiled plugin binaries under `<root>/plugins`, and the Go object cache used while building them under `<root>/go-build`.
 
+The same root also keeps the answers of plugin descriptor evaluations under `<root>/descriptors`. A CommonJS descriptor runs in a separate runtime process on every launch, which costs seconds on Windows, so its answer is kept together with the content and physical path of every module it loaded and every candidate it probed. A later launch reuses the answer only when the descriptor, its factory context, the complete environment, the runtime executable, and the `ttsc` version all match and every one of those inputs is still in the state it was read in. An evaluation that printed anything is not kept, because a reused answer prints nothing.
+
 Both are build outputs, not inputs. Deleting the cache is always safe. The next build recompiles.
 
 ## The cache is content-addressed
