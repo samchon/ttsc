@@ -1,6 +1,19 @@
 import cp from "node:child_process";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
+
+const { isPlatformPackage, listPublishablePackages } = createRequire(
+  import.meta.url,
+)("../../scripts/publishable-packages.cjs") as {
+  isPlatformPackage(manifest: Record<string, unknown>): boolean;
+  listPublishablePackages(root: string): {
+    directory: string;
+    entry: string;
+    error?: Error;
+    manifest?: Record<string, unknown>;
+  }[];
+};
 
 // Two modes:
 //
@@ -18,31 +31,6 @@ import path from "node:path";
 const CURRENT_ONLY =
   process.argv.includes("--current") ||
   process.env.TTSC_TARBALLS_CURRENT === "1";
-
-/**
- * Non-platform packages the release rehearsal packs, by directory name.
- *
- * Full mode is the rehearsal for `pnpm run package:latest:publish`, so this is
- * the whole publishable set of `packages/*`: every one of them reaches a
- * consumer through the registry, and a `files` gap, a missing `exports` target,
- * or an unbuilt `lib` only shows up in a real `pnpm pack`. Platform packages
- * are not listed here — `listTargets` discovers them from disk.
- */
-const FULL_PACKAGES = [
-  "ttsc",
-  "banner",
-  "evidence",
-  "factory",
-  "graph",
-  "lint",
-  "metro",
-  "paths",
-  "playground",
-  "strip",
-  "unplugin",
-  "vscode",
-  "wasm",
-];
 
 /**
  * The deliberately narrow current-platform set, by directory name.
@@ -66,7 +54,7 @@ const root = path.resolve(import.meta.dirname, "../..");
 const outputDir = import.meta.dirname;
 const platformKey = `${process.platform}-${process.arch}`;
 
-const targets = listTargets(path.join(root, "packages"));
+const targets = listTargets();
 preparePackages();
 clearOutputDirectory();
 for (const target of targets) build(target);
@@ -84,7 +72,12 @@ function preparePackages() {
   });
 }
 
-function build(target: { dir: string; name: string; tarballName: string }) {
+function build(target: {
+  dir: string;
+  name: string;
+  platform: boolean;
+  tarballName: string;
+}) {
   for (const entry of fs.readdirSync(target.dir)) {
     if (entry.endsWith(".tgz")) {
       fs.rmSync(path.join(target.dir, entry), { force: true });
@@ -128,7 +121,7 @@ function build(target: { dir: string; name: string; tarballName: string }) {
       stdio: "inherit",
     });
   }
-  if (/^ttsc-(linux|darwin|win32)-(x64|arm|arm64)$/.test(target.tarballName)) {
+  if (target.platform) {
     cp.execFileSync("node", ["scripts/assert-platform-package.cjs", out], {
       cwd: root,
       stdio: "inherit",
@@ -144,34 +137,52 @@ function clearOutputDirectory() {
   }
 }
 
-function listTargets(baseDir: string) {
-  const platformDirs = fs
-    .readdirSync(baseDir)
-    .filter((entry) =>
-      /^ttsc-(linux|darwin|win32)-(x64|arm|arm64)$/.test(entry),
-    );
-  const selectedPlatforms = CURRENT_ONLY
-    ? platformDirs.filter((entry) => entry === `ttsc-${platformKey}`)
-    : platformDirs.slice().sort();
-  if (CURRENT_ONLY && selectedPlatforms.length === 0) {
+/**
+ * The packages this mode packs, each with its directory, name, and whether it
+ * is a platform package.
+ *
+ * Full mode is the rehearsal for `pnpm run package:latest:publish`, so it packs
+ * the set that command publishes (`listPublishablePackages`): every one of them
+ * reaches a consumer through the registry, and a `files` gap, a missing
+ * `exports` target, or an unbuilt `lib` only shows up in a real `pnpm pack`.
+ * Platform packages are the ones whose manifest restricts an OS and a CPU, so a
+ * platform added to the release is packed without a second list naming it.
+ * Current mode keeps its narrow set and the platform package of this host.
+ */
+function listTargets() {
+  const publishable = listPublishablePackages(root);
+  for (const { entry, error } of publishable) {
+    if (error !== undefined) {
+      throw new Error(`packages/${entry}/package.json is not valid JSON: ${error.message}`);
+    }
+  }
+  const targets = publishable.map(({ directory, entry, manifest }) => ({
+    dir: directory,
+    manifest: manifest!,
+    name: manifest!.name as string,
+    platform: isPlatformPackage(manifest!),
+    tarballName: entry,
+  }));
+  if (!CURRENT_ONLY) {
+    return targets;
+  }
+  const hostPlatform = targets.filter(
+    (target) =>
+      target.platform &&
+      (target.manifest.os as string[]).includes(process.platform) &&
+      (target.manifest.cpu as string[]).includes(process.arch),
+  );
+  if (hostPlatform.length === 0) {
     throw new Error(
-      `Unsupported current-only platform: no packages/ttsc-${platformKey} directory`,
+      `Unsupported current-only platform: no platform package for ${platformKey}`,
     );
   }
-  const corePackages = CURRENT_ONLY ? CURRENT_PACKAGES : FULL_PACKAGES;
-  const names = [...corePackages, ...selectedPlatforms];
-  return names.map((name) => {
-    const dir = path.join(baseDir, name);
-    if (!fs.existsSync(path.join(dir, "package.json"))) {
+  const core = CURRENT_PACKAGES.map((name) => {
+    const target = targets.find((candidate) => candidate.tarballName === name);
+    if (target === undefined) {
       throw new Error(`package target does not exist: ${name}`);
     }
-    const manifest = JSON.parse(
-      fs.readFileSync(path.join(dir, "package.json"), "utf8"),
-    );
-    return {
-      dir,
-      name: manifest.name,
-      tarballName: name,
-    };
+    return target;
   });
+  return [...core, ...hostPlatform];
 }

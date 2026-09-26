@@ -27,6 +27,8 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
+const { listPublishablePackages } = require("./publishable-packages.cjs");
+
 // Official SemVer 2.0.0 grammar (https://semver.org). Captures the core version
 // and optional prerelease/build-metadata; anchored so garbage tags are rejected.
 const SEMVER =
@@ -73,22 +75,16 @@ function runPreflight(options) {
 
   const published = [];
   let vscodeChecked = false;
-  for (const entry of fs.readdirSync(packagesDir).sort()) {
-    const manifestPath = path.join(packagesDir, entry, "package.json");
-    if (!fs.existsSync(manifestPath)) continue;
-    let manifest;
-    try {
-      manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-    } catch (cause) {
+  // `package:latest:publish` runs `pnpm -r publish`, which skips private
+  // packages; the preflight takes that exact selection from the one rule the
+  // tarball rehearsal also reads.
+  for (const { entry, error, manifest } of listPublishablePackages(root)) {
+    if (error !== undefined) {
       errors.push(
-        `release-preflight: packages/${entry}/package.json is not valid JSON: ${cause.message}`,
+        `release-preflight: packages/${entry}/package.json is not valid JSON: ${error.message}`,
       );
       continue;
     }
-    // `package:latest:publish` runs `pnpm -r publish`, which skips private
-    // packages; the preflight must mirror that selection exactly.
-    if (manifest.private === true) continue;
-    if (typeof manifest.name !== "string") continue;
 
     published.push(manifest.name);
     if (typeof manifest.version !== "string") {
