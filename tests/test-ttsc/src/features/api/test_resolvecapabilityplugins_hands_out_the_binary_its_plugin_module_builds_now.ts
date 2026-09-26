@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { resolveCapabilityPlugins } from "ttsc";
 
+import { CapabilityResolutionFormat } from "../../../../../packages/ttsc/lib/plugin/internal/CapabilityResolutionFormat.js";
 import { createFakeGoBinary } from "../../internal/source-build";
 import { nativeBinary } from "../../internal/toolchain";
 
@@ -17,8 +18,10 @@ import { nativeBinary } from "../../internal/toolchain";
  * environment. The cache proved only the plugin's `source` directory, so after
  * an edit to a sibling package of the module, or under another `GOFLAGS`, it
  * kept handing `@ttsc/graph` the old binary, which the build cache still holds.
- * The descriptor here counts its evaluations, which only a walk makes, so each
- * call shows whether the cache answered.
+ * A walk records its answer anew and an answer from the cache writes nothing,
+ * so the entry's file identity shows whether the cache answered. The descriptor
+ * reads nothing the module edit touches, so that walk reuses its evaluation,
+ * while another environment evaluates it again (samchon/ttsc#1497).
  *
  * 1. Resolve a project whose plugin is a subpackage of its module and declares
  *    `graphNodes`, and resolve again from the cache.
@@ -94,7 +97,17 @@ export const test_resolvecapabilityplugins_hands_out_the_binary_its_plugin_modul
         else process.env[name] = value;
       }
     };
-    const resolve = (): { binary: string; walks: number } => {
+    // The file identity of the recorded answer: a walk renames a new entry
+    // into place, while an answer from the cache leaves it untouched.
+    const recorded = (): string => {
+      const file = CapabilityResolutionFormat.resolutionFile({
+        cwd: project,
+        tsconfig: "tsconfig.json",
+      })!;
+      const stat = fs.statSync(file, { bigint: true });
+      return [stat.ino, stat.mtimeNs, stat.ctimeNs].join(":");
+    };
+    const resolve = (): { binary: string; entry: string } => {
       const plugins = resolveCapabilityPlugins({
         capability: "graphNodes",
         cwd: project,
@@ -104,14 +117,13 @@ export const test_resolvecapabilityplugins_hands_out_the_binary_its_plugin_modul
       assert.ok(fs.existsSync(plugins[0]!.binary), plugins[0]!.binary);
       return {
         binary: plugins[0]!.binary,
-        walks: fs.readFileSync(evaluations, "utf8").split("\n").length - 1,
+        entry: recorded(),
       };
     };
     apply(overrides);
     try {
       // 1. A walk, then the cache.
       const first = resolve();
-      assert.equal(first.walks, 1);
       assert.deepEqual(resolve(), first, "an unchanged project walked again");
 
       // 2. A sibling package of the module.
@@ -120,14 +132,30 @@ export const test_resolvecapabilityplugins_hands_out_the_binary_its_plugin_modul
         "package mark\n\n// edited\n",
       );
       const sibling = resolve();
-      assert.equal(sibling.walks, 2, "a sibling package edit was not proven");
+      assert.notEqual(
+        sibling.entry,
+        first.entry,
+        "a sibling package edit was not proven",
+      );
       assert.notEqual(sibling.binary, first.binary);
+      const evaluated = (): number =>
+        fs.readFileSync(evaluations, "utf8").split("\n").length - 1;
+      assert.equal(
+        evaluated(),
+        1,
+        "the unchanged descriptor was evaluated again",
+      );
 
       // 3. The Go build environment.
       apply({ GOFLAGS: "-tags=ttsc_capability_probe" });
       const flagged = resolve();
-      assert.equal(flagged.walks, 3, "another GOFLAGS was not proven");
+      assert.notEqual(
+        flagged.entry,
+        sibling.entry,
+        "another GOFLAGS was not proven",
+      );
       assert.notEqual(flagged.binary, sibling.binary);
+      assert.equal(evaluated(), 2, "another environment reused the descriptor");
 
       // 4. What the build never reads keeps the answer.
       write(path.join(module, "node_modules", "pkg", "index.js"), "// moved\n");

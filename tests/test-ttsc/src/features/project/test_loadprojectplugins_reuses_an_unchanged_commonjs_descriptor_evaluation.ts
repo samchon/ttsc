@@ -64,7 +64,7 @@ export const test_loadprojectplugins_reuses_an_unchanged_commonjs_descriptor_eva
       TTSC_GO_BINARY: createFakeGoBinary(fakeGo),
       TTSC_GO_CACHE_DIR: path.join(root, "go-cache"),
     };
-    const load = (env: NodeJS.ProcessEnv = baseEnv): string =>
+    const load = (env: NodeJS.ProcessEnv = baseEnv): string | undefined =>
       loadProjectPlugins({
         binary: "",
         cacheDir: path.join(root, "cache"),
