@@ -13,6 +13,7 @@ import { replaysTerminalGeneration } from "./cache/replaysTerminalGeneration";
 import { selectOrEvict } from "./cache/selectOrEvict";
 import { transformCacheEpoch } from "./cache/transformCacheEpoch";
 import { transformCacheTrustsNotifications } from "./cache/transformCacheTrustsNotifications";
+import { withdrawGenerationNotifications } from "./cache/withdrawGenerationNotifications";
 import { transformFilesystem } from "./cache/transformFilesystem";
 import { reportMissingProgramOutput } from "./diagnostics/reportMissingProgramOutput";
 import { reportSuccessDiagnostics } from "./diagnostics/reportSuccessDiagnostics";
@@ -159,6 +160,13 @@ export async function transformTtsc(
       // invalidated it and installed a newer authoritative generation.
       if (cache?.get(key) !== transformed) {
         continue;
+      }
+      // A generation captured while native notifications were trusted keeps
+      // their watchers. Once the host or the environment declares polling,
+      // their silence proves nothing, so the generation gives them up and is
+      // proven from its recorded state from here on (samchon/ttsc#1542).
+      if (!transformCacheTrustsNotifications(cache)) {
+        withdrawGenerationNotifications(cached);
       }
       if (epoch === undefined) {
         await settleProjectMutationEvents(cached);
