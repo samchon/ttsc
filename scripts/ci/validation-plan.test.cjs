@@ -1,8 +1,13 @@
 const assert = require("node:assert/strict");
 const { test } = require("node:test");
 
+const fs = require("node:fs");
+const path = require("node:path");
+
 const {
   FULL_LANE_IDS,
+  NODE_FLOOR,
+  nodeFloor,
   normalizePath,
   planForPaths,
 } = require("./validation-plan.cjs");
@@ -353,7 +358,7 @@ test("package-owned tests select only their topology owner", () => {
     ids([
       "tests/test-ttsc/src/features/ttsx-runtime/test_ttsx_commonjs_loads_prefix_only_node_builtins.ts",
     ]),
-    ["typecheck", "ttsc-core"],
+    ["typecheck", "ttsc-core", "runtime-node-floor", "runtime-node-current"],
   );
   const watch = planForPaths([
     "tests/test-ttsc/src/features/watch/test_example.ts",
@@ -414,4 +419,74 @@ test("portable path normalization accepts git and Windows spellings", () => {
     normalizePath("./packages\\factory\\src\\index.ts"),
     "packages/factory/src/index.ts",
   );
+});
+
+test("the runtime lanes pin the engines floor and the newest release", () => {
+  // The floor comes from the manifest users install, so raising it there moves
+  // the lane, and nothing else in the repository spells the number
+  // (samchon/ttsc#1564).
+  const manifest = JSON.parse(
+    fs.readFileSync(
+      path.join(__dirname, "..", "..", "packages", "ttsc", "package.json"),
+      "utf8",
+    ),
+  );
+  assert.equal(NODE_FLOOR, nodeFloor(manifest));
+  assert.equal(
+    `>=${NODE_FLOOR}`,
+    manifest.engines.node.replace(/s+/g, ""),
+  );
+  assert.equal(nodeFloor({ engines: { node: ">=24.1.2" } }), "24.1.2");
+  assert.equal(nodeFloor({ engines: { node: ">= 22.15.0" } }), "22.15.0");
+  for (const node of [undefined, "22.15.0", ">=22", "^22.15.0", ">=22.15.0 <27"])
+    assert.throws(() => nodeFloor({ engines: { node } }), /engines.node/);
+
+  const plan = planForPaths([
+    "packages/ttsc/src/launcher/internal/runtime/installRuntimeHooks.ts",
+  ]);
+  const lanes = Object.fromEntries(
+    plan.matrix.include.map((lane) => [lane.id, lane]),
+  );
+  assert.equal(lanes["runtime-node-floor"].node, NODE_FLOOR);
+  assert.equal(lanes["runtime-node-current"].node, "current");
+  // Node 24 runs the same suite in the core lane.
+  assert.equal(lanes["ttsc-core"].node, "");
+  for (const id of ["runtime-node-floor", "runtime-node-current"]) {
+    assert.equal(
+      lanes[id].dirs,
+      "features/ttsx-runtime,features/project,native-plugins/utility",
+      id,
+    );
+    assert.match(lanes[id].run, /test-go-utility-plugins.cjs/, id);
+  }
+});
+
+test("Node-release code selects the runtime lanes and nothing else does", () => {
+  for (const file of [
+    "packages/ttsc/src/launcher/internal/runtime/installRuntimeHooks.ts",
+    "packages/ttsc/src/plugin/internal/load/PluginDescriptorEvaluationCache.ts",
+    "packages/ttsc/driver/resolutioninputs/recorder.cjs",
+    "packages/banner/driver/config.go",
+    "packages/strip/driver/config.go",
+    "scripts/test-go-utility-plugins.cjs",
+    "tests/test-ttsc/src/features/ttsx-runtime/test_example.ts",
+    "tests/test-ttsc/src/features/project/test_example.ts",
+    "tests/test-ttsc/src/native-plugins/utility/test_example.ts",
+  ]) {
+    const selected = ids([file]);
+    assert.ok(selected.includes("runtime-node-floor"), file);
+    assert.ok(selected.includes("runtime-node-current"), file);
+  }
+  for (const file of [
+    "packages/banner/src/index.ts",
+    "packages/strip/src/index.ts",
+    "packages/unplugin/src/index.ts",
+    "tests/test-ttsc/src/features/api/test_example.ts",
+    "tests/test-ttsc/src/native-plugins/server/test_example.ts",
+    "README.md",
+  ]) {
+    const selected = ids([file]);
+    assert.ok(!selected.includes("runtime-node-floor"), file);
+    assert.ok(!selected.includes("runtime-node-current"), file);
+  }
 });

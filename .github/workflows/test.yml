@@ -291,6 +291,14 @@ jobs:
         env:
           TTSC_BUILD_SCOPE: ${{ matrix.scope }}
 
+      # Install and build run on the Node above; a lane that pins another
+      # release (the `engines.node` floor or the newest one) runs its suites on
+      # that release, which every Node spawned from them inherits through PATH.
+      - uses: actions/setup-node@v7
+        if: matrix.node != ''
+        with:
+          node-version: ${{ matrix.node }}
+
       - name: Run ${{ matrix.name }}
         run: ${{ matrix.run }}
         env:

@@ -7,6 +7,35 @@ const { discoverNodeTests, nodeTestLane } = require("./node-tests.cjs");
 const root = path.resolve(__dirname, "..", "..");
 
 /**
+ * The oldest Node release the packages support, the lower bound of
+ * `packages/ttsc/package.json` `engines.node`, so raising the floor there
+ * moves the floor lane with it.
+ *
+ * @throws When `engines.node` is not a plain `>=major.minor.patch` floor, the
+ *   one shape a lane can pin.
+ */
+const NODE_FLOOR = nodeFloor(
+  JSON.parse(
+    fs.readFileSync(path.join(root, "packages", "ttsc", "package.json"), "utf8"),
+  ),
+);
+
+/**
+ * The suites whose code paths change with the Node release rather than the
+ * platform: the runtime's module hooks, descriptor evaluation and its cache,
+ * the resolution recorder, and the utility plugins whose config loaders spawn
+ * Node. Every other lane runs Node 24, where a hook-served CommonJS module's
+ * own `require()` and `require.resolve` reach `module.registerHooks`, so the
+ * paths ttsc keeps for the other supported releases would never run
+ * (samchon/ttsc#1564).
+ */
+const RUNTIME_NODE_DIRS = [
+  "features/ttsx-runtime",
+  "features/project",
+  "native-plugins/utility",
+];
+
+/**
  * One repository-owned description of every main test job.
  *
  * `dirs` are relative to the owning test package's `src/` directory. Several
@@ -139,6 +168,34 @@ const LANES = [
     ],
   },
   {
+    // The floor is where a missing API shows, so the lane pins the exact
+    // `engines.node` minimum rather than the newest release of its line.
+    id: "runtime-node-floor",
+    name: `runtime (Node ${NODE_FLOOR})`,
+    node: NODE_FLOOR,
+    needsGo: true,
+    scope: "test-ttsc",
+    build: "pnpm run build:current",
+    run:
+      "pnpm --filter @ttsc/test-ttsc start && " +
+      "node scripts/test-go-utility-plugins.cjs",
+    dirs: RUNTIME_NODE_DIRS,
+  },
+  {
+    // The newest release, whatever its number, so a major that changes loader
+    // behavior, as 25 and 26 did, is caught when it ships.
+    id: "runtime-node-current",
+    name: "runtime (newest Node)",
+    node: "current",
+    needsGo: true,
+    scope: "test-ttsc",
+    build: "pnpm run build:current",
+    run:
+      "pnpm --filter @ttsc/test-ttsc start && " +
+      "node scripts/test-go-utility-plugins.cjs",
+    dirs: RUNTIME_NODE_DIRS,
+  },
+  {
     id: "lint-1",
     name: "lint defense 1",
     needsGo: true,
@@ -255,6 +312,7 @@ const LANES = [
 const LANE_BY_ID = new Map(LANES.map((lane) => [lane.id, lane]));
 const FULL_LANE_IDS = LANES.map((lane) => lane.id);
 const LINT_LANE_IDS = ["lint-1", "lint-2"];
+const RUNTIME_NODE_LANE_IDS = ["runtime-node-floor", "runtime-node-current"];
 const E2E_LANE_IDS = [
   "package-defenses",
   "ttsc-core",
@@ -451,7 +509,7 @@ function planForPaths(files) {
     if (isFullPlanInput(file)) return fullPlan(`fail-open input: ${file}`);
 
     if (file.startsWith("packages/ttsc/")) {
-      add(TTSC_DOWNSTREAM_IDS, file);
+      add([...TTSC_DOWNSTREAM_IDS, ...RUNTIME_NODE_LANE_IDS], file);
       watch = true;
       runtime = true;
       if (file.startsWith("packages/ttsc/shim/")) selected.add("shim-audit");
@@ -509,6 +567,9 @@ function planForPaths(files) {
     }
     if (file.startsWith("packages/banner/")) {
       add(["package-defenses", "ttsc-native", "bundler-defenses"], file);
+      // The TypeScript config loader spawns Node, so it is Node-release code.
+      if (file.startsWith("packages/banner/driver/"))
+        add(RUNTIME_NODE_LANE_IDS, file);
       continue;
     }
     if (file.startsWith("packages/paths/")) {
@@ -520,6 +581,8 @@ function planForPaths(files) {
         ["package-defenses", "ttsc-core", "ttsc-native", "bundler-defenses"],
         file,
       );
+      if (file.startsWith("packages/strip/driver/"))
+        add(RUNTIME_NODE_LANE_IDS, file);
       continue;
     }
     if (file.startsWith("packages/factory/")) {
@@ -642,6 +705,8 @@ function planForPaths(files) {
     }
     if (file.startsWith("scripts/test-go") || file === "scripts/go.cjs") {
       add(["go", "windows-go"], file);
+      if (file === "scripts/test-go-utility-plugins.cjs")
+        add(RUNTIME_NODE_LANE_IDS, file);
       continue;
     }
     if (
@@ -716,9 +781,33 @@ function planTtscTest(file) {
     return { lanes: [], watch: true, runtime: false };
   // The runtime suite runs in the core lane on Linux and again on the
   // representative macOS and Windows rows, where its process, path, and
-  // signal behavior differs.
+  // signal behavior differs, and on the Node floor and the newest release,
+  // where its loader paths differ.
   if (file.includes("/features/ttsx-runtime/"))
-    return { lanes: ["ttsc-core"], watch: false, runtime: true };
+    return {
+      lanes: ["ttsc-core", ...RUNTIME_NODE_LANE_IDS],
+      watch: false,
+      runtime: true,
+    };
+  if (
+    RUNTIME_NODE_DIRS.some((directory) =>
+      file.startsWith(`tests/test-ttsc/src/${directory}/`),
+    )
+  )
+    return {
+      lanes: [
+        ...LANES.filter(
+          (lane) =>
+            lane.id.startsWith("ttsc-") &&
+            lane.dirs?.some((directory) =>
+              file.startsWith(`tests/test-ttsc/src/${directory}/`),
+            ),
+        ).map((lane) => lane.id),
+        ...RUNTIME_NODE_LANE_IDS,
+      ],
+      watch: false,
+      runtime: false,
+    };
   if (file.includes("/features/"))
     return { lanes: ["ttsc-core"], watch: false, runtime: false };
   for (const lane of LANES.filter((item) => item.id.startsWith("ttsc-"))) {
@@ -885,6 +974,8 @@ function workflowLane(lane) {
   return {
     id: lane.id,
     name: lane.name,
+    // Empty for the lanes that run on the Node the job installs and builds with.
+    node: lane.node ?? "",
     os: lane.os ?? "ubuntu-latest",
     needsGo: lane.needsGo ?? false,
     build: lane.build ?? "",
@@ -892,6 +983,24 @@ function workflowLane(lane) {
     scope: lane.scope ?? "",
     dirs: lane.dirs?.join(",") ?? "",
   };
+}
+
+/**
+ * The `major.minor.patch` lower bound of a package manifest's `engines.node`.
+ *
+ * @param {{ engines?: { node?: unknown } }} manifest
+ */
+function nodeFloor(manifest) {
+  const range = manifest.engines?.node;
+  const match =
+    typeof range === "string"
+      ? /^>=\s*(\d+\.\d+\.\d+)$/.exec(range.trim())
+      : null;
+  if (match === null)
+    throw new Error(
+      `packages/ttsc/package.json engines.node must be a ">=major.minor.patch" floor, got ${JSON.stringify(range)}`,
+    );
+  return match[1];
 }
 
 function changedPaths(base, head, eventName) {
@@ -993,10 +1102,12 @@ module.exports = {
   E2E_LANE_IDS,
   FULL_LANE_IDS,
   LANES,
+  NODE_FLOOR,
   PLATFORM_INTEGRATION_PATHS,
   PLATFORM_ROWS,
   changedPaths,
   fullPlan,
+  nodeFloor,
   normalizePath,
   planForPaths,
 };
