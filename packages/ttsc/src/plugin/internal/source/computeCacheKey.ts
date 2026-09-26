@@ -46,9 +46,9 @@ export function computeCacheKey(inputs: {
    */
   environmentDigests?: Map<string, string>;
   /**
-   * Receives the metadata of every toolchain path the environment was read
-   * from (`PluginBuildEnvironmentWitness`), so the build can prove the
-   * toolchain it ran is still the one this key read.
+   * Receives the metadata of every toolchain path the environment was read from
+   * (`PluginBuildEnvironmentWitness`), so the build can prove the toolchain it
+   * ran is still the one this key read.
    */
   environmentWitness?: PluginBuildEnvironmentWitness.Record;
   filesystem?: Partial<SourceBuildFilesystemOperations>;

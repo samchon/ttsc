@@ -255,4 +255,3 @@ function pluginBuildLockAgeMs(lockDir: string, now: number): number | null {
     return code === "ENOENT" || code === "ENOTDIR" ? null : 0;
   }
 }
-

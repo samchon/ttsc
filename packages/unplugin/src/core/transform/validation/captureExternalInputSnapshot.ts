@@ -17,6 +17,7 @@ import { hostInputStateHash } from "../inputs/hostInputStateHash";
 import { inputMetadataEvidence } from "../inputs/inputMetadataEvidence";
 import { inputMetadataSignature } from "../inputs/inputMetadataSignature";
 import { sameHostInputRealpath } from "../inputs/sameHostInputRealpath";
+import { toProjectKey } from "../project/toProjectKey";
 import { isDeclarationFile } from "../utils/isDeclarationFile";
 import { MISSING_INPUT_STATE } from "./MISSING_INPUT_STATE";
 import type { TtscExternalDependencyWitness } from "./TtscExternalDependencyWitness";
@@ -224,7 +225,15 @@ export function captureExternalInputSnapshot(
     const realpath = hostInputRealpath(input, filesystem);
     const after = inputMetadataSignature(input, filesystem);
     hashes[identity] = hash ?? MISSING_INPUT_STATE;
-    const pluginDependency = reported.has(spelling);
+    // A spelling that selects a walked project file, as through a linked
+    // root, is proven by the walks before and after the compile, which
+    // compare it among the declared inputs, so it needs no witness of its own.
+    const pluginDependency =
+      reported.has(spelling) &&
+      !Object.prototype.hasOwnProperty.call(
+        cached.inputHashes,
+        toProjectKey(cached.projectRoot, input, state.identityContext),
+      );
     if (pluginDependency) dependencies.push(input);
     if (pluginDependency && witness !== undefined) {
       const witnessed = witness.get(spelling);

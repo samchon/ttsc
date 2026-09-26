@@ -20,7 +20,8 @@ import {
  * 2. Seed a future-dated GC marker hard-linked to an external sentinel, as can
  *    happen in a pre-populated project cache.
  * 3. Resolve the default plugin cache root (no cacheDir/TTSC_CACHE_DIR override).
- * 4. Assert the stale entry is removed while fresh data and fences remain.
+ * 4. Assert the stale entry is removed with its inactive build-lock state
+ *    (samchon/ttsc#1558), while fresh data and the legacy fence remain.
  * 5. Point another default plugin-cache leaf at an external directory and assert
  *    opportunistic GC never follows the junction to delete its entries.
  */
@@ -71,8 +72,12 @@ export const test_resolveplugincacheroot_prunes_stale_cache_entries = () => {
     assert.equal(resolvePluginCacheRoot(root), pluginCache);
     assert.equal(fs.existsSync(stale), false);
     assert.equal(fs.existsSync(fresh), true);
-    assert.equal(fs.existsSync(lock), true);
-    assert.equal(fs.existsSync(v2Lock), true);
+    assert.equal(
+      fs.existsSync(lock),
+      false,
+      "the evicted entry takes its lock",
+    );
+    assert.equal(fs.existsSync(v2Lock), false);
     assert.equal(fs.existsSync(retiredLegacy), true);
     assert.equal(
       fs.readFileSync(externalMarker, "utf8"),

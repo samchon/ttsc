@@ -3,8 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { GoSourceInputs } from "./GoSourceInputs";
-import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import { GoToolResolution } from "./GoToolResolution";
+import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import type { SourceBuildFilesystemOperations } from "./SourceBuildFilesystemOperations";
 import { spawnGoTool } from "./spawnGoTool";
 

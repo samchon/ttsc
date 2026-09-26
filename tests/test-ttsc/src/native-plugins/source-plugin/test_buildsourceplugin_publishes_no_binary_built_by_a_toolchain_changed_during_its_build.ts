@@ -30,7 +30,10 @@ export const test_buildsourceplugin_publishes_no_binary_built_by_a_toolchain_cha
   () => {
     const root = TestProject.tmpdir("ttsc-plugin-toolchain-race-");
     const plugin = path.join(root, "plugin");
-    write(path.join(plugin, "go.mod"), "module example.com/plugin\n\ngo 1.26\n");
+    write(
+      path.join(plugin, "go.mod"),
+      "module example.com/plugin\n\ngo 1.26\n",
+    );
     write(path.join(plugin, "main.go"), "package main\n");
     // The files the fake Go build requires of the module it compiles.
     for (const relative of [

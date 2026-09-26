@@ -50,7 +50,10 @@ export function processPluginBuildEnvironment(
   const key = `${directory}\0${variables.digest("hex")}`;
   if (!refresh) {
     const known = read.get(key);
-    if (known !== undefined && PluginBuildEnvironmentWitness.holds(known.witness))
+    if (
+      known !== undefined &&
+      PluginBuildEnvironmentWitness.holds(known.witness)
+    )
       return known.environment;
   }
   const witness: PluginBuildEnvironmentWitness.Record = new Map();

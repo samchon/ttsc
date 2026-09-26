@@ -16,15 +16,15 @@ import {
  *
  * Releasing a build lock renames the held generation onto a
  * `retired/<generation>` tombstone, which fences a late release of that
- * generation. The collector skipped every lock directory, so an evicted
- * entry's lock state, and the tombstones of repeated builds, stayed forever
+ * generation. The collector skipped every lock directory, so an evicted entry's
+ * lock state, and the tombstones of repeated builds, stayed forever
  * (samchon/ttsc#1558). An evicted entry now takes its inactive lock state with
  * it, and a tombstone goes once its recorded holder is provably gone.
  *
  * 1. Build and release a generation for an old entry, and evict it.
  * 2. Assert the entry and its lock directory are both gone.
- * 3. For a live entry, retire one generation recorded for a dead process and
- *    one for this process, and assert only the dead holder's tombstone goes.
+ * 3. For a live entry, retire one generation recorded for a dead process and one
+ *    for this process, and assert only the dead holder's tombstone goes.
  */
 export const test_pruneplugincacheroot_bounds_retired_lock_state = (): void => {
   const root = path.join(
