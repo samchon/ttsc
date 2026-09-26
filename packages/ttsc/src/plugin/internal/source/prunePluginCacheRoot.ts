@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 import type { IPluginCachePruneOptions } from "./IPluginCachePruneOptions";
+import { PluginBuildLockOwner } from "./PluginBuildLockOwner";
+import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
 import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
 import { inspectPluginBuildLock } from "./inspectPluginBuildLock";
 
@@ -15,6 +17,14 @@ import { inspectPluginBuildLock } from "./inspectPluginBuildLock";
  * keeps the root over the ceiling, the daily marker is backdated so another
  * pass runs soon instead of a day later. Failures are swallowed: pruning must
  * never fail a build.
+ *
+ * An evicted entry takes its build-lock state with it, and every pass drops the
+ * retired-generation tombstones whose recorded holder is provably gone, so the
+ * coordination state of keys no longer built stays bounded too
+ * (samchon/ttsc#1558). A tombstone fences a late release of its generation, and
+ * the lock only keeps two processes from building one key at once: publication
+ * is an atomic rename of a complete binary, so a fence given up this way can at
+ * worst let a key be built twice, never publish a partial or foreign binary.
  */
 export function prunePluginCacheRoot(
   root: string,
@@ -43,6 +53,7 @@ export function prunePluginCacheRoot(
       protectedAgeMs: options.protectedAgeMs ?? PLUGIN_CACHE_PROTECTED_AGE_MS,
       targetBytes: options.targetBytes ?? PLUGIN_CACHE_TARGET_BYTES,
     });
+    pruneRetiredLockGenerations(cacheRoot);
     const maxBytes = options.maxBytes ?? PLUGIN_CACHE_MAX_BYTES;
     const protectedAgeMs =
       options.protectedAgeMs ?? PLUGIN_CACHE_PROTECTED_AGE_MS;
@@ -244,9 +255,58 @@ function directorySize(dir: string): number {
 function removeCacheEntry(entry: PluginCacheEntry): boolean {
   try {
     fs.rmSync(entry.dir, { recursive: true, force: true });
-    return !fs.existsSync(entry.dir);
+    if (fs.existsSync(entry.dir)) return false;
   } catch {
     // Windows may reject removal while a plugin binary is still running.
     return false;
+  }
+  // The key's lock was inactive when the entry was chosen, so its protocol
+  // directory, with its tombstones, and a released legacy lock go with it.
+  for (const lock of [`${entry.dir}.lock.v2`, `${entry.dir}.lock`]) {
+    try {
+      fs.rmSync(lock, { recursive: true, force: true });
+    } catch {
+      // Left for the next pass.
+    }
+  }
+  return true;
+}
+
+/**
+ * Remove every retired-generation tombstone whose recorded holder is provably
+ * gone (`PluginBuildLockOwner.gone`): a holder that cannot run cannot release
+ * its generation late, which is all its tombstone fences. A tombstone whose
+ * holder is on another host, alive, or unrecorded is kept.
+ */
+function pruneRetiredLockGenerations(root: string): void {
+  let names: string[];
+  try {
+    names = fs.readdirSync(root);
+  } catch {
+    return;
+  }
+  for (const name of names) {
+    if (!name.endsWith(".lock.v2")) continue;
+    const retired = path.join(
+      root,
+      name,
+      PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_RETIRED_DIR,
+    );
+    let tombstones: string[];
+    try {
+      tombstones = fs.readdirSync(retired);
+    } catch {
+      continue;
+    }
+    for (const tombstone of tombstones) {
+      const location = path.join(retired, tombstone);
+      const owner = PluginBuildLockOwner.read(location);
+      if (owner === null || !PluginBuildLockOwner.gone(owner)) continue;
+      try {
+        fs.rmSync(location, { recursive: true, force: true });
+      } catch {
+        // Left for the next pass.
+      }
+    }
   }
 }

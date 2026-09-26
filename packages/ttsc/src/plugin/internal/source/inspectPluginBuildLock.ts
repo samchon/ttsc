@@ -1,10 +1,10 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import type { PluginBuildLockFence } from "./PluginBuildLockFence";
 import type { PluginBuildLockObservation } from "./PluginBuildLockObservation";
+import { PluginBuildLockOwner } from "./PluginBuildLockOwner";
 import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
 import { formatDuration } from "./formatDuration";
 
@@ -58,10 +58,10 @@ function inspectV2PluginBuildLock(
     );
   }
   const fence: PluginBuildLockFence = { protocol: "v2", generation };
-  const owner = readPluginBuildLockOwner(generationDir);
+  const owner = PluginBuildLockOwner.read(generationDir);
   if (owner !== null) {
-    const label = describePluginBuildLockOwner(owner);
-    if (isLocalHostName(owner.hostname) && !isProcessAlive(owner.pid)) {
+    const label = PluginBuildLockOwner.describe(owner);
+    if (PluginBuildLockOwner.gone(owner)) {
       return {
         state: "abandoned",
         reason: `${label} is no longer running`,
@@ -100,10 +100,10 @@ function inspectLegacyPluginBuildLock(
   now: number,
   legacy: PluginBuildLockProtocol.LegacyPluginBuildLockFence,
 ): PluginBuildLockObservation {
-  const owner = readPluginBuildLockOwner(lockDir);
+  const owner = PluginBuildLockOwner.read(lockDir);
   if (owner !== null) {
-    const label = describePluginBuildLockOwner(owner);
-    if (isLocalHostName(owner.hostname) && !isProcessAlive(owner.pid)) {
+    const label = PluginBuildLockOwner.describe(owner);
+    if (PluginBuildLockOwner.gone(owner)) {
       return {
         state: "abandoned",
         reason: `${label} is no longer running`,
@@ -236,38 +236,6 @@ function readPluginBuildLockGeneration(generationDir: string): string | null {
   }
 }
 
-function readPluginBuildLockOwner(
-  lockDir: string,
-): { hostname: string; pid: number; startedAt?: string } | null {
-  try {
-    const parsed = JSON.parse(
-      fs.readFileSync(
-        path.join(
-          lockDir,
-          PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_OWNER_FILE,
-        ),
-        "utf8",
-      ),
-    ) as Record<string, unknown>;
-    if (
-      typeof parsed.hostname !== "string" ||
-      !Number.isInteger(parsed.pid) ||
-      typeof parsed.pid !== "number" ||
-      parsed.pid <= 0
-    ) {
-      return null;
-    }
-    return {
-      hostname: parsed.hostname,
-      pid: parsed.pid,
-      startedAt:
-        typeof parsed.startedAt === "string" ? parsed.startedAt : undefined,
-    };
-  } catch {
-    return null;
-  }
-}
-
 /**
  * Age of an observed lock directory, or `null` when it no longer exists. The
  * holder may have retired it between the caller's checks. "Missing" is a
@@ -288,25 +256,3 @@ function pluginBuildLockAgeMs(lockDir: string, now: number): number | null {
   }
 }
 
-function isLocalHostName(hostname: string): boolean {
-  return hostname.toLowerCase() === os.hostname().toLowerCase();
-}
-
-function isProcessAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    return (error as NodeJS.ErrnoException).code === "EPERM";
-  }
-}
-
-function describePluginBuildLockOwner(owner: {
-  hostname: string;
-  pid: number;
-  startedAt?: string;
-}): string {
-  const started =
-    owner.startedAt === undefined ? "" : ` started at ${owner.startedAt}`;
-  return `pid ${owner.pid} on ${owner.hostname}${started}`;
-}
