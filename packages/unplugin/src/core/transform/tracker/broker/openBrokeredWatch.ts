@@ -189,7 +189,11 @@ export function openBrokeredWatch(
       broker.child.channel?.unref?.();
     }
   });
-  return { close, drain: () => drainWatchBroker(broker), ready };
+  return {
+    close,
+    drain: () => drainWatchBroker(broker, undefined, id),
+    ready,
+  };
 }
 
 /** Probe directories already prepared by this process, by project root. */

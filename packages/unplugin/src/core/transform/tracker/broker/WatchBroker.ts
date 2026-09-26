@@ -19,8 +19,19 @@ export interface WatchBroker {
    * whether the child answered it.
    */
   drains: Map<number, (answered: boolean) => void>;
-  /** The acknowledgement currently in flight, shared by every waiter. */
+  /**
+   * The acknowledgement currently in flight, shared by every waiter whose
+   * registration it covers.
+   */
   draining?: Promise<boolean>;
+  /**
+   * The registrations each outstanding drain covers, by request id: those that
+   * existed when its request was sent, and so were registered with the child
+   * before the request reached it (samchon/ttsc#1546).
+   */
+  drainScopes?: Map<number, ReadonlySet<number>>;
+  /** The registrations {@link draining} covers. */
+  drainingScope?: ReadonlySet<number>;
   /** Next request id, shared by registrations and drains. */
   nextId: number;
   /**

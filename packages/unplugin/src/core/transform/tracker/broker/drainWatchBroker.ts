@@ -21,25 +21,56 @@ import type { WatchBroker } from "./WatchBroker";
  * ms and resolve as if answered, so a busy host or a child forwarding a burst
  * lost the edit a delivery was about to serve.
  *
+ * A reply speaks only for the registrations the child held when the request
+ * reached it, which are those registered before the request was sent. A
+ * registration opened after an in-flight drain was sent therefore does not
+ * share it: its watches were never probed by that drain, so it starts one that
+ * covers it (samchon/ttsc#1546).
+ *
  * @param timeout How long to wait for the reply; the default is what the child
  *   is given plus the same again, and a test of the wait itself passes less.
+ * @param registration The registration asking, when one is; it shares the
+ *   in-flight drain only when that drain covers it.
  */
 export function drainWatchBroker(
   broker: WatchBroker,
   timeout: number = 2 * WATCH_PROBE_TIMEOUT_MS,
+  registration?: number,
 ): Promise<boolean> {
   // Every tracker of a generation lives in one broker, so one acknowledgement
   // answers for all of them. Sharing the in-flight round-trip keeps a settle to
   // a single crossing.
-  broker.draining ??= startWatchBrokerDrain(broker, timeout).finally(() => {
-    broker.draining = undefined;
+  if (
+    broker.draining !== undefined &&
+    (registration === undefined ||
+      broker.drainingScope?.has(registration) === true)
+  ) {
+    return broker.draining;
+  }
+  const scope = new Set(
+    [...broker.registrations]
+      .filter(([, entry]) => entry.drains)
+      .map(([id]) => id),
+  );
+  const draining: Promise<boolean> = startWatchBrokerDrain(
+    broker,
+    timeout,
+    scope,
+  ).finally(() => {
+    if (broker.draining === draining) {
+      broker.draining = undefined;
+      broker.drainingScope = undefined;
+    }
   });
-  return broker.draining;
+  broker.draining = draining;
+  broker.drainingScope = scope;
+  return draining;
 }
 
 function startWatchBrokerDrain(
   broker: WatchBroker,
   timeout: number,
+  scope: ReadonlySet<number>,
 ): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
     const id = broker.nextId++;
@@ -49,6 +80,7 @@ function startWatchBrokerDrain(
       settled = true;
       clearTimeout(timer);
       broker.drains.delete(id);
+      broker.drainScopes?.delete(id);
       broker.pendingDrains -= 1;
       if (broker.pendingDrains === 0 && broker.pendingRegistrations === 0) {
         broker.child.unref();
@@ -66,6 +98,7 @@ function startWatchBrokerDrain(
     broker.child.channel?.ref?.();
     const timer = setTimeout(() => release(false), timeout);
     broker.drains.set(id, release);
+    (broker.drainScopes ??= new Map()).set(id, scope);
     if (broker.child.send?.({ id, op: "drain" }) !== true) {
       release(false);
     }

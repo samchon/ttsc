@@ -11,9 +11,9 @@ import type { WatchBroker } from "./WatchBroker";
  * - A malformed message, or one without an id, is ignored.
  * - A `drained` reply releases the drain waiting on that id. The channel is
  *   ordered, so every event the child sent before it has already been applied.
- *   Every draining registration is told which of its watches the child could
- *   not prove delivered (samchon/ttsc#1453), in its own spelling, or that none
- *   was unproven.
+ *   Every draining registration the request covered is told which of its
+ *   watches the child could not prove delivered (samchon/ttsc#1453), in its own
+ *   spelling, or that none was unproven (samchon/ttsc#1546).
  * - A message for an id with no live registration is ignored. It is the late
  *   event of a registration already closed.
  * - `gap` says a native watch of the registration reported that events were
@@ -32,7 +32,7 @@ import type { WatchBroker } from "./WatchBroker";
  * @param message The message as the IPC channel delivered it.
  */
 export function routeWatchBrokerMessage(
-  broker: Pick<WatchBroker, "drains" | "registrations">,
+  broker: Pick<WatchBroker, "drainScopes" | "drains" | "registrations">,
   message: unknown,
 ): void {
   if (message === null || typeof message !== "object") return;
@@ -68,8 +68,14 @@ export function routeWatchBrokerMessage(
         unproven.set(id, directories);
       }
     }
+    // Only a registration the request covered hears it. One registered after
+    // the request was sent had no watch probed by it, and must keep waiting for
+    // a drain of its own rather than read this one's silence as proof.
+    const scope = broker.drainScopes?.get(record.id);
     for (const [id, registration] of broker.registrations) {
-      if (registration.drains) registration.sink.unproven(unproven.get(id));
+      if (!registration.drains) continue;
+      if (scope !== undefined && !scope.has(id)) continue;
+      registration.sink.unproven(unproven.get(id));
     }
     const release = broker.drains.get(record.id);
     broker.drains.delete(record.id);
