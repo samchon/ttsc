@@ -11,7 +11,7 @@ import type { TtscGenerationProofFailures } from "./TtscGenerationProofFailures"
 import { captureTransformGeneration } from "./captureTransformGeneration";
 import { createGenerationProofFailures } from "./createGenerationProofFailures";
 import { createUnstableGenerationError } from "./createUnstableGenerationError";
-import { onlyUnwitnessedDependencies } from "./onlyUnwitnessedDependencies";
+import { onlyLearnedCompileFacts } from "./onlyLearnedCompileFacts";
 
 /** One retry absorbs a transient watch write without admitting an infinite loop. */
 const TRANSFORM_GENERATION_ATTEMPTS = 2;
@@ -59,7 +59,10 @@ const TRANSFORM_GENERATION_ATTEMPTS = 2;
  * from its own envelope. An attempt whose one failure is a dependency path it
  * reported for the first time is retried with that path witnessed. It says
  * nothing about the project moving, so it does not spend the bound, and the cap
- * of twice the bound still ends a project whose dependencies never settle.
+ * of twice the bound still ends a project whose dependencies never settle. The
+ * compiler's case policy is learned the same way: a walk primed with another
+ * policy is taken again under the one the compile reported
+ * (samchon/ttsc#1545).
  */
 export async function transformProject(props: {
   aliasPaths: Record<string, string[]>;
@@ -94,15 +97,22 @@ export async function transformProject(props: {
    * compile; see {@link TtscCachedProjectTransform.externalDependencyInputs}.
    */
   witnessedDependencies?: readonly string[];
+  /**
+   * The case policy the last generation of this cache key reported
+   * (`TRANSFORM_CACHE_CASE_POLICIES`, samchon/ttsc#1545).
+   */
+  useCaseSensitiveFileNames?: boolean;
 }): Promise<TtscCachedProjectTransform> {
   const attempts: TtscGenerationProofFailures[] = [];
   let rejected: string | undefined;
   let moved = 0;
   const witnessed = new Set(props.witnessedDependencies);
+  let useCaseSensitiveFileNames = props.useCaseSensitiveFileNames;
   for (let attempt = 0; ; attempt += 1) {
     const cached = await captureTransformGeneration({
       ...props,
       rejected,
+      useCaseSensitiveFileNames,
       witnessedDependencies: [...witnessed],
     });
     if (
@@ -120,6 +130,9 @@ export async function transformProject(props: {
     for (const dependency of cached.externalDependencyInputs ?? []) {
       witnessed.add(dependency);
     }
+    useCaseSensitiveFileNames =
+      cached.membershipPolicy.useCaseSensitiveFileNames ??
+      useCaseSensitiveFileNames;
     // A publication refuted here would be found again by a retry for the same
     // state, which therefore compiles and replaces it. A retry whose project
     // moved to another state claims that state's publication, and adopts it:
@@ -129,7 +142,7 @@ export async function transformProject(props: {
     // compile it stood in for.
     const adopted = TRANSFORM_ADOPTED_RESULTS.get(cached.result);
     if (adopted?.refuted === true) rejected = adopted.state;
-    else if (!onlyUnwitnessedDependencies(failures)) moved += 1;
+    else if (!onlyLearnedCompileFacts(failures)) moved += 1;
     const last =
       moved === TRANSFORM_GENERATION_ATTEMPTS ||
       attempt + 1 === TRANSFORM_GENERATION_ATTEMPTS * 2;

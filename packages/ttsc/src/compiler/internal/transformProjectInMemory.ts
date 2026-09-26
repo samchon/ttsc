@@ -917,6 +917,7 @@ function parseReferenceGraph(
     inputProofFailures?: unknown;
     inputRealpaths?: unknown;
     resolutionInputs?: unknown;
+    useCaseSensitiveFileNames?: unknown;
   };
   const candidates = parseDependencyLists(section.candidates) ?? {};
   const edges = parseGraphEdges(section.edges) ?? {};
@@ -958,6 +959,11 @@ function parseReferenceGraph(
       ? {}
       : { inputProofFailures }),
     ...(inputRealpaths === undefined ? {} : { inputRealpaths }),
+    // The compiler's case policy, kept only as the boolean it reports
+    // (samchon/ttsc#1545).
+    ...(typeof section.useCaseSensitiveFileNames === "boolean"
+      ? { useCaseSensitiveFileNames: section.useCaseSensitiveFileNames }
+      : {}),
   };
 }
 

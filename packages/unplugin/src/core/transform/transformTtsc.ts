@@ -4,6 +4,7 @@ import type { ResolvedTtscUnpluginOptions } from "../options/ResolvedTtscUnplugi
 import type { TtscTransformResult } from "./TtscTransformResult";
 import { createAliasPaths } from "./alias/createAliasPaths";
 import { TERMINAL_TRANSFORM_GENERATIONS } from "./cache/TERMINAL_TRANSFORM_GENERATIONS";
+import { TRANSFORM_CACHE_CASE_POLICIES } from "./cache/TRANSFORM_CACHE_CASE_POLICIES";
 import { TRANSFORM_CACHE_DEPENDENCY_WITNESSES } from "./cache/TRANSFORM_CACHE_DEPENDENCY_WITNESSES";
 import { TRANSFORM_RESULT_FILESYSTEM } from "./cache/TRANSFORM_RESULT_FILESYSTEM";
 import type { TtscTransformCache } from "./cache/TtscTransformCache";
@@ -251,6 +252,10 @@ export async function transformTtsc(
           cache === undefined ? undefined : TRANSFORM_CACHE_SESSIONS.get(cache),
         trackProjectMembership: cache !== undefined,
         tsconfig,
+        useCaseSensitiveFileNames:
+          cache === undefined
+            ? undefined
+            : TRANSFORM_CACHE_CASE_POLICIES.get(cache)?.get(key),
         witnessedDependencies:
           cache === undefined
             ? undefined
@@ -275,6 +280,15 @@ export async function transformTtsc(
         TRANSFORM_CACHE_DEPENDENCY_WITNESSES.set(cache, witnesses);
       }
       witnesses.set(key, cached.externalDependencyInputs ?? []);
+      const reported = cached.membershipPolicy.useCaseSensitiveFileNames;
+      if (reported !== undefined) {
+        let policies = TRANSFORM_CACHE_CASE_POLICIES.get(cache);
+        if (policies === undefined) {
+          policies = new Map();
+          TRANSFORM_CACHE_CASE_POLICIES.set(cache, policies);
+        }
+        policies.set(key, reported);
+      }
     }
     const { projectRoot, result } = cached;
     reportSuccessDiagnostics(cached, epoch);

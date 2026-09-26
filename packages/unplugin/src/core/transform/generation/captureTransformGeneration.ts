@@ -3,7 +3,9 @@ import path from "node:path";
 import { TtscCompiler } from "ttsc";
 
 import type { ResolvedTtscUnpluginOptions } from "../../options/ResolvedTtscUnpluginOptions";
+import type { ITtscProjectMembershipPolicy } from "../../tsconfig/ITtscProjectMembershipPolicy";
 import { mergeMembershipPolicyOverlay } from "../../tsconfig/mergeMembershipPolicyOverlay";
+import { policyUsesCaseSensitiveFileNames } from "../../tsconfig/policyUsesCaseSensitiveFileNames";
 import { readTsconfigSourceSnapshot } from "../../tsconfig/readTsconfigSourceSnapshot";
 import { TRANSFORM_RESULT_FILESYSTEM } from "../cache/TRANSFORM_RESULT_FILESYSTEM";
 import { TRANSFORM_RESULT_MEMBERSHIP } from "../cache/TRANSFORM_RESULT_MEMBERSHIP";
@@ -102,6 +104,12 @@ export async function captureTransformGeneration(props: {
    * (samchon/ttsc#1541).
    */
   witnessedDependencies?: readonly string[];
+  /**
+   * The case policy an earlier compile of this project reported
+   * (samchon/ttsc#1545), which primes this attempt's walk before its own
+   * compile reports one.
+   */
+  useCaseSensitiveFileNames?: boolean;
 }): Promise<TtscCachedProjectTransform> {
   const projectRoot = path.dirname(props.tsconfig);
   const scratchDirectory = createTransformScratchDirectory(
@@ -170,17 +178,27 @@ export async function captureTransformGeneration(props: {
     // relative `outDir` is anchored at the config that declares it, and the
     // generated config lives in a system temp directory. The caller's
     // compiler-options overlay still wins, since it wins for the compile too.
-    const membershipPolicy = mergeMembershipPolicyOverlay(
+    const mergedPolicy = mergeMembershipPolicyOverlay(
       tsconfigState.membershipPolicy,
       props.compilerOptions,
       projectRoot,
     );
+    // The walk before the compile matches root specs under the case policy an
+    // earlier compile reported, the compiler's own answer, and under the
+    // platform's ordinary answer until one has (samchon/ttsc#1545).
+    const primedPolicy: ITtscProjectMembershipPolicy =
+      props.useCaseSensitiveFileNames === undefined
+        ? mergedPolicy
+        : {
+            ...mergedPolicy,
+            useCaseSensitiveFileNames: props.useCaseSensitiveFileNames,
+          };
     const before = collectProjectInputSnapshot(
       projectRoot,
       identities,
       props.filesystem,
       undefined,
-      { policy: membershipPolicy },
+      { policy: primedPolicy },
     );
     tracker = props.trackProjectMembership
       ? await createProjectMutationTracker(
@@ -191,7 +209,7 @@ export async function captureTransformGeneration(props: {
               .map((key) => path.resolve(projectRoot, key)),
           ),
           props.filesystem,
-          membershipPolicy,
+          primedPolicy,
         )
       : undefined;
     // The paths a plugin reports as dependencies carry no compiler-time proof,
@@ -263,6 +281,24 @@ export async function captureTransformGeneration(props: {
         env: compilerEnvironment,
       }).transformAsync());
     TRANSFORM_RESULT_FILESYSTEM.set(result, props.filesystem);
+    // Everything after the compile matches under the case policy the compiler
+    // reported. A walk before it that primed another policy described another
+    // membership, so the attempt is taken again under the reported one.
+    const reportedCaseSensitivity =
+      result.type === "exception"
+        ? undefined
+        : result.graph?.useCaseSensitiveFileNames;
+    const membershipPolicy: ITtscProjectMembershipPolicy =
+      reportedCaseSensitivity === undefined
+        ? primedPolicy
+        : {
+            ...primedPolicy,
+            useCaseSensitiveFileNames: reportedCaseSensitivity,
+          };
+    const casePolicyLearned =
+      reportedCaseSensitivity !== undefined &&
+      reportedCaseSensitivity !==
+        policyUsesCaseSensitiveFileNames(primedPolicy);
     TRANSFORM_RESULT_MEMBERSHIP.set(result, {
       policy: membershipPolicy,
       projectRoot,
@@ -400,14 +436,16 @@ export async function captureTransformGeneration(props: {
     // settled here so a failed watcher is known before the generation is
     // published.
     await settleMutationTrackers([tracker, hostInputTracker, candidateTracker]);
-    const walkStable = projectWalkStable({
-      before,
-      configStable,
-      declared: declaredInputs,
-      projectRoot,
-      snapshot: inputSnapshot,
-      tracker,
-    });
+    const walkStable =
+      !casePolicyLearned &&
+      projectWalkStable({
+        before,
+        configStable,
+        declared: declaredInputs,
+        projectRoot,
+        snapshot: inputSnapshot,
+        tracker,
+      });
     const notificationsAvailable =
       tracker?.failed !== true &&
       hostInputTracker?.failed !== true &&
@@ -519,7 +557,13 @@ export async function captureTransformGeneration(props: {
         path: props.tsconfig,
       });
     }
-    if (!walkStable) {
+    if (casePolicyLearned) {
+      recordGenerationProofFailure(failures, {
+        domain: "project",
+        kind: "case-policy-learned",
+        path: props.tsconfig,
+      });
+    } else if (!walkStable) {
       recordProjectSnapshotFailures(failures, {
         before,
         declared: declaredInputs,

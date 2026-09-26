@@ -93,6 +93,15 @@ export namespace ITtscCompilerTransformation {
      * diagnostics and still treat the missing proof as authoritative refusal.
      */
     inputProofFailures?: Record<string, string>;
+
+    /**
+     * Whether the compiler compared file names case-sensitively: the policy it
+     * matched the project's root specs with. A host deciding the same
+     * membership takes it rather than guessing from the platform, since the
+     * compiler decides it from the filesystem it runs on. Absent from an
+     * envelope written before it was reported.
+     */
+    useCaseSensitiveFileNames?: boolean;
   }
 
   /** Predicate-preserving compiler filesystem proof for one lexical path. */

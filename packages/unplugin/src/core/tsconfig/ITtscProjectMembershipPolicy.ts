@@ -57,4 +57,14 @@ export interface ITtscProjectMembershipPolicy {
    * this policy gives.
    */
   sources: readonly string[];
+  /**
+   * Whether the compiler compares file names case-sensitively, as the envelope
+   * reported it (`IReferenceGraph.useCaseSensitiveFileNames`,
+   * samchon/ttsc#1545). TypeScript-Go decides it from the filesystem its
+   * executable lives on, not from the platform, so root specs match the way the
+   * compiler matches them only under its own answer. Absent until a compile
+   * reported it; `policyUsesCaseSensitiveFileNames` then supplies the
+   * platform's ordinary answer.
+   */
+  useCaseSensitiveFileNames?: boolean;
 }

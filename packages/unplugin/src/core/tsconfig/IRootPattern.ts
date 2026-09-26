@@ -6,6 +6,8 @@
  * entry, which must match a whole path exactly and never a directory prefix.
  */
 export interface IRootPattern {
+  /** Whether segments compare case-sensitively, the compiler's policy. */
+  caseSensitive: boolean;
   /**
    * One matcher per path segment: a literal, the recursive `**` marker, or a
    * compiled expression.

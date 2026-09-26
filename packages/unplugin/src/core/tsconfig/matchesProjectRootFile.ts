@@ -2,6 +2,7 @@ import type { IRootPattern } from "./IRootPattern";
 import type { ITtscProjectMembershipPolicy } from "./ITtscProjectMembershipPolicy";
 import { compile } from "./compile";
 import { matches } from "./matches";
+import { policyUsesCaseSensitiveFileNames } from "./policyUsesCaseSensitiveFileNames";
 import { rootSpellings } from "./rootSpellings";
 
 const compiled = new WeakMap<ITtscProjectMembershipPolicy, IRootPattern[]>();
@@ -26,9 +27,14 @@ export function matchesProjectRootFile(
   if (policy.rootFileSpecs === undefined) return true;
   let patterns = compiled.get(policy);
   if (patterns === undefined) {
+    const caseSensitive = policyUsesCaseSensitiveFileNames(policy);
     patterns = [
-      ...policy.rootFileSpecs.files.map((spec) => compile(spec, true)),
-      ...policy.rootFileSpecs.include.map((spec) => compile(spec, false)),
+      ...policy.rootFileSpecs.files.map((spec) =>
+        compile(spec, true, caseSensitive),
+      ),
+      ...policy.rootFileSpecs.include.map((spec) =>
+        compile(spec, false, caseSensitive),
+      ),
     ].filter((pattern): pattern is IRootPattern => pattern !== undefined);
     compiled.set(policy, patterns);
   }

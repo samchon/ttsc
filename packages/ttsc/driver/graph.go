@@ -43,20 +43,25 @@ const bundledScheme = "bundled:///"
 //     collapsed content/identity projection for older consumers.
 //   - InputProofFailures gives a stable reason when a realized member lacks
 //     proof or a replayed resolver predicate changed.
+//   - UseCaseSensitiveFileNames is the case policy the compiler matched the
+//     project's root specs and compared paths with, so a host deciding the
+//     same membership uses the compiler's policy rather than a guess from the
+//     platform (samchon/ttsc#1545).
 //
 // Keys and values use the same convention as the envelope's `typescript`
 // map: project-relative slash paths, falling back to slash-normalized
 // absolute paths outside the project root (see TransformOutputKey).
 type TransformGraph struct {
-  Edges              map[string][]string                  `json:"edges"`
-  Globals            []string                             `json:"globals"`
-  Configs            []string                             `json:"configs"`
-  Candidates         map[string][]string                  `json:"candidates,omitempty"`
-  ResolutionInputs   []string                             `json:"resolutionInputs,omitempty"`
-  InputObservations  map[string]TransformInputObservation `json:"inputObservations,omitempty"`
-  InputHashes        map[string]*string                   `json:"inputHashes,omitempty"`
-  InputRealpaths     map[string]*string                   `json:"inputRealpaths,omitempty"`
-  InputProofFailures map[string]string                    `json:"inputProofFailures,omitempty"`
+  Edges                     map[string][]string                  `json:"edges"`
+  Globals                   []string                             `json:"globals"`
+  Configs                   []string                             `json:"configs"`
+  Candidates                map[string][]string                  `json:"candidates,omitempty"`
+  ResolutionInputs          []string                             `json:"resolutionInputs,omitempty"`
+  InputObservations         map[string]TransformInputObservation `json:"inputObservations,omitempty"`
+  InputHashes               map[string]*string                   `json:"inputHashes,omitempty"`
+  InputRealpaths            map[string]*string                   `json:"inputRealpaths,omitempty"`
+  InputProofFailures        map[string]string                    `json:"inputProofFailures,omitempty"`
+  UseCaseSensitiveFileNames bool                                 `json:"useCaseSensitiveFileNames"`
 }
 
 // NewTransformGraph computes the reference graph of a loaded program, keyed
@@ -70,11 +75,12 @@ func NewTransformGraph(prog *Program, cwd string) *TransformGraph {
   }
   resolution := ObserveProgramResolutions(prog, cwd)
   graph := &TransformGraph{
-    Edges:            map[string][]string{},
-    Globals:          []string{},
-    Configs:          []string{},
-    Candidates:       resolution.Candidates,
-    ResolutionInputs: resolution.Universal,
+    Edges:                     map[string][]string{},
+    Globals:                   []string{},
+    Configs:                   []string{},
+    Candidates:                resolution.Candidates,
+    ResolutionInputs:          resolution.Universal,
+    UseCaseSensitiveFileNames: prog.TSProgram.UseCaseSensitiveFileNames(),
   }
   for _, file := range prog.TSProgram.SourceFiles() {
     fileName := file.FileName()
