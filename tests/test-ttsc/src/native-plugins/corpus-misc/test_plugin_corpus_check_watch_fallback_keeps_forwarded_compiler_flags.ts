@@ -53,20 +53,32 @@ export const test_plugin_corpus_check_watch_fallback_keeps_forwarded_compiler_fl
     });
     try {
       await session.waitForBuilds(1, 300_000);
+      // A rerun queued during a cold first build would replace the resident
+      // this test is about to stop, so every cycle so far has run first.
+      await session.waitForSettled();
       const healthy = session.transcript();
-      assert.equal(countTs7006(healthy), 1, healthy);
+      const healthyCount = countTs7006(healthy);
+      assert.ok(healthyCount >= 1, healthy);
       const pid = Number(
-        /@ttsc\/lint resident check: pid=(\d+)/.exec(healthy)?.[1],
+        [...healthy.matchAll(/@ttsc\/lint resident check: pid=(\d+)/g)].at(
+          -1,
+        )?.[1],
       );
       assert.ok(Number.isInteger(pid), healthy);
 
       process.kill(pid);
       fs.appendFileSync(source, "// edited after the resident host died\n");
-      await session.waitForBuilds(2);
+      const deadline = Date.now() + 120_000;
+      while (
+        !session.transcript().slice(healthy.length).includes("watch build")
+      ) {
+        assert.ok(Date.now() < deadline, session.transcript());
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
       const recovered = session.transcript();
       assert.equal(
         countTs7006(recovered),
-        2,
+        healthyCount + 1,
         `the fallback cycle must keep --noImplicitAny:\n${recovered}`,
       );
     } finally {

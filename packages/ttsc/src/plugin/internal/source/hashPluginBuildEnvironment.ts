@@ -327,28 +327,9 @@ function resolveGoBuildEnvironment(
 ): Map<string, string> {
   const values = new Map<string, string>();
   if (goBinary !== undefined) {
-    // `GOENV` names the file `go env -w` writes: it decides the reading without
-    // being part of it, so it is only witnessed.
-    const result = spawnGoTool(
-      goBinary,
-      ["env", "-json", ...GO_BUILD_ENV_KEYS, "GOENV"],
-      {
-        cwd,
-        encoding: "utf8",
-        env: GoSourceInputs.goBuildEnv(goBinary, undefined, env),
-        windowsHide: true,
-      },
-    );
-    if (result.error === undefined && result.status === 0) {
+    const parsed = readGoEnvironment(goBinary, cwd, env, witness);
+    if (parsed !== undefined) {
       try {
-        const parsed = JSON.parse(result.stdout) as Record<string, unknown>;
-        if (
-          typeof parsed.GOENV === "string" &&
-          parsed.GOENV !== "" &&
-          parsed.GOENV !== "off"
-        ) {
-          PluginBuildEnvironmentWitness.add(witness, parsed.GOENV);
-        }
         for (const key of GO_BUILD_ENV_KEYS) {
           const raw = parsed[key];
           if (typeof raw === "string" && raw !== "") {
@@ -375,6 +356,81 @@ function resolveGoBuildEnvironment(
     }
   }
   return values;
+}
+
+/**
+ * The Go environment file each Go tool and environment was last seen to name,
+ * which lets a reading witness that file before `go env` reads it.
+ */
+const goEnvironmentFiles = new Map<string, string | null>();
+
+/**
+ * Run `go env -json` for the build keys and `GOENV`, the file `go env -w`
+ * writes, witnessing that file before the run reads it.
+ *
+ * The file decides the reading without being part of it, so only its metadata
+ * is kept, and it must be taken before the read: metadata taken after would
+ * describe an edit that landed between the two, and a reading of the old
+ * content would pass as proven. Which file `go env` reads is known only from
+ * its answer, so the file this Go tool and environment named last is witnessed
+ * first, and a reading that names another is taken again with that one
+ * witnessed. A file that keeps moving between runs leaves the reading
+ * unwitnessable, so a kept reading or a build keyed on it never holds.
+ *
+ * @returns The parsed answer, or `undefined` when `go env` failed.
+ */
+function readGoEnvironment(
+  goBinary: string,
+  cwd: string,
+  env: NodeJS.ProcessEnv,
+  witness: PluginBuildEnvironmentWitness.Record | undefined,
+): Record<string, unknown> | undefined {
+  const memo = crypto.createHash("sha256").update(goBinary);
+  for (const [key, value] of Object.entries(env).sort(([left], [right]) =>
+    left < right ? -1 : left > right ? 1 : 0,
+  )) {
+    if (value !== undefined)
+      memo.update(`\0${key.length}:${key}${value.length}:${value}`);
+  }
+  const memoKey = memo.digest("hex");
+  let named = goEnvironmentFiles.get(memoKey);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (named !== undefined && named !== null)
+      PluginBuildEnvironmentWitness.add(witness, named);
+    const result = spawnGoTool(
+      goBinary,
+      ["env", "-json", ...GO_BUILD_ENV_KEYS, "GOENV"],
+      {
+        cwd,
+        encoding: "utf8",
+        env: GoSourceInputs.goBuildEnv(goBinary, undefined, env),
+        windowsHide: true,
+      },
+    );
+    if (result.error !== undefined || result.status !== 0) return undefined;
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(result.stdout) as Record<string, unknown>;
+    } catch {
+      return undefined;
+    }
+    const reported =
+      typeof parsed.GOENV === "string" &&
+      parsed.GOENV !== "" &&
+      parsed.GOENV !== "off"
+        ? parsed.GOENV
+        : null;
+    if (reported === named) return parsed;
+    if (named !== undefined && named !== null) witness?.delete(named);
+    named = reported;
+    goEnvironmentFiles.set(memoKey, named);
+    // No file to witness: the reading depends on none.
+    if (named === null) return parsed;
+    if (witness === undefined) return parsed;
+  }
+  if (named !== undefined && named !== null)
+    PluginBuildEnvironmentWitness.refuse(witness, named);
+  return undefined;
 }
 
 function normalizeGoBuildEnvValue(

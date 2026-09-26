@@ -23,6 +23,14 @@ export namespace PluginBuildEnvironmentWitness {
     witness.set(file, signature(file));
   }
 
+  /**
+   * Record `file` as a path whose state could not be witnessed, so the record
+   * never holds and nothing kept under it is reused.
+   */
+  export function refuse(witness: Record | undefined, file: string): void {
+    witness?.set(file, UNWITNESSABLE);
+  }
+
   /** Whether every witnessed path still has the metadata it was read with. */
   export function holds(witness: Record): boolean {
     for (const [file, recorded] of witness)
@@ -34,6 +42,9 @@ export namespace PluginBuildEnvironmentWitness {
    * The metadata a replacement moves: identity, size, and modification and
    * change times, following links; `missing` for a path that is not there.
    */
+  /** A recorded state no signature equals. */
+  const UNWITNESSABLE = "unwitnessable";
+
   function signature(file: string): string {
     try {
       const stat = fs.statSync(file, { bigint: true });
