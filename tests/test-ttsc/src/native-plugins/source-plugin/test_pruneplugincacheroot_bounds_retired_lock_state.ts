@@ -41,12 +41,21 @@ export const test_pruneplugincacheroot_bounds_retired_lock_state = (): void => {
     return directory;
   };
   const retire = (entry: string): string => {
+    const retiredBefore = path.join(`${entry}.lock.v2`, "retired");
+    const existing = new Set(
+      fs.existsSync(retiredBefore) ? fs.readdirSync(retiredBefore) : [],
+    );
     const lease = acquirePluginBuildLock(`${entry}.lock`);
     assert.ok(lease, "fixture failed to acquire a generation");
     releasePluginBuildLock(`${entry}.lock`, lease);
     const retired = path.join(`${entry}.lock.v2`, "retired");
-    const tombstones = fs.readdirSync(retired);
-    return path.join(retired, tombstones[tombstones.length - 1]!);
+    // Tombstones are named by random generation ids, so the one this release
+    // wrote is the name that was not there before, not the last in any order.
+    const created = fs
+      .readdirSync(retired)
+      .filter((name) => !existing.has(name));
+    assert.equal(created.length, 1, created.join(", "));
+    return path.join(retired, created[0]!);
   };
 
   const evicted = seed("evicted", now - 31 * 24 * 60 * 60 * 1000);
