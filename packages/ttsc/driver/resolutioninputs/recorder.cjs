@@ -25,7 +25,9 @@
  * its package's `imports` maps to a bare package reads that package's roots the
  * same way; the package is named only once the resolution selected it, so each
  * root's own metadata is fingerprinted before it instead
- * (`observeImportSearchRoots`, `visitImportMappedCandidates`).
+ * (`observeImportSearchRoots`, `visitImportMappedCandidates`). A `#` resolution
+ * that fails names no package; every target the `imports` entry can map it to
+ * is observed before it instead (`visitImportTargetCandidates`).
  */
 const crypto = require("node:crypto");
 const fs = require("node:fs");
@@ -595,6 +597,92 @@ function visitImportMappedCandidates(
 }
 
 /**
+ * Visit the candidates every target of the importer's `imports` entry for a `#`
+ * specifier can name, before the resolution runs (samchon/ttsc#1547).
+ *
+ * A resolution that fails names no module, so nothing afterwards shows which
+ * target it tried, yet a program may catch the failure and produce a value
+ * that changes once that target appears. Every string target of the matching
+ * entry is taken, under every condition, as `exports` targets are
+ * (`visitManifestTargets`): an over-approximation costs a spurious
+ * invalidation, an omission a stale result. A relative target is a path in the
+ * importer's package; a bare one is looked up through every search root.
+ *
+ * @param {string} specifier The `#` specifier as the importer wrote it.
+ * @param {string | undefined} parent The importer, a path or a file URL.
+ * @param {readonly string[]} extensions The extensions the resolution probes.
+ * @param {(file: string) => void} visit Receives each candidate.
+ */
+function visitImportTargetCandidates(specifier, parent, extensions, visit) {
+  const parentFile = asFile(parent);
+  if (parentFile === undefined) return;
+  let manifestPath;
+  visitPackageManifests(parentFile, (manifest) => {
+    manifestPath = manifest;
+  });
+  if (manifestPath === undefined || !existingFile(manifestPath)) return;
+  let imports;
+  try {
+    imports = JSON.parse(
+      fs.readFileSync(manifestPath, "utf8").replace(/^﻿/, ""),
+    ).imports;
+  } catch {
+    return;
+  }
+  if (!imports || typeof imports !== "object" || Array.isArray(imports))
+    return;
+  const directory = path.dirname(manifestPath);
+  const bases = new Set();
+  const visitTarget = (value, capture) => {
+    if (typeof value === "string") {
+      const target =
+        capture === undefined ? value : value.split("*").join(capture);
+      if (target.startsWith("./") || target.startsWith("../")) {
+        visitModuleCandidates(
+          path.resolve(directory, target),
+          extensions,
+          visit,
+          bases,
+        );
+      } else if (target !== "" && !target.startsWith("#")) {
+        visitResolutionCandidates(
+          target,
+          parentFile,
+          undefined,
+          extensions,
+          (file) => visit(file),
+          bases,
+        );
+      }
+    } else if (Array.isArray(value)) {
+      for (const item of value) visitTarget(item, capture);
+    } else if (value && typeof value === "object") {
+      for (const item of Object.values(value)) visitTarget(item, capture);
+    }
+  };
+  for (const [key, value] of Object.entries(imports)) {
+    if (key === specifier) {
+      visitTarget(value, undefined);
+      continue;
+    }
+    const star = key.indexOf("*");
+    if (star === -1 || key.indexOf("*", star + 1) !== -1) continue;
+    const prefix = key.slice(0, star);
+    const suffix = key.slice(star + 1);
+    if (
+      specifier.length >= key.length &&
+      specifier.startsWith(prefix) &&
+      specifier.endsWith(suffix)
+    ) {
+      visitTarget(
+        value,
+        specifier.slice(prefix.length, specifier.length - suffix.length),
+      );
+    }
+  }
+}
+
+/**
  * Record the inputs of one evaluation.
  *
  * The caller installs its own resolution hooks and brackets every resolution
@@ -723,11 +811,22 @@ function createResolutionInputRecorder(options) {
         },
         new Set(),
       );
+      const isImport =
+        typeof specifier === "string" && specifier.startsWith("#");
+      // A failed `#` resolution commits these; a successful one records the
+      // candidates of the target it selected instead.
+      const importPending = [];
+      if (isImport) {
+        visitImportTargetCandidates(specifier, parent, extensions, (file) => {
+          file = path.resolve(file);
+          if (seen.has(file) || inputs.has(file)) return;
+          seen.add(file);
+          importPending.push(observe(file));
+        });
+      }
       return {
-        imports:
-          typeof specifier === "string" && specifier.startsWith("#")
-            ? observeImportSearchRoots(parent)
-            : undefined,
+        imports: isImport ? observeImportSearchRoots(parent) : undefined,
+        importPending,
         parent,
         pending,
         roots,
@@ -740,6 +839,7 @@ function createResolutionInputRecorder(options) {
      * selected.
      *
      * @param {{
+     *   importPending: object[];
      *   parent: string | undefined;
      *   pending: { observation: object; root: string | undefined }[];
      *   roots: string[];
@@ -759,7 +859,10 @@ function createResolutionInputRecorder(options) {
       for (const { observation, root } of token.pending) {
         if (root === undefined || read.has(root)) commit(observation);
       }
-      if (resolved === undefined) return;
+      if (resolved === undefined) {
+        for (const observation of token.importPending ?? []) commit(observation);
+        return;
+      }
       if (token.imports !== undefined) {
         visitImportMappedCandidates(
           token.parent,
