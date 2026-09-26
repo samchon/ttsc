@@ -13,6 +13,7 @@ import { assertSharedHostCompatibility } from "./sharedHost/assertSharedHostComp
 import { clearInheritedSemanticConfigPath } from "./sharedHost/clearInheritedSemanticConfigPath";
 import { clearInheritedTsgoArgs } from "./sharedHost/clearInheritedTsgoArgs";
 import { inheritedSidecarEnv } from "./sharedHost/inheritedSidecarEnv";
+import { publishLinkedTransformPlugins } from "./sharedHost/publishLinkedTransformPlugins";
 import { linkedTransformPlugins } from "./sharedHost/linkedTransformPlugins";
 import { resolvePluginConfigDir } from "./sharedHost/resolvePluginConfigDir";
 import { selectSharedHostPlugin } from "./sharedHost/selectSharedHostPlugin";
@@ -46,7 +47,7 @@ export function startResidentTransform(
     cacheDir: context.cacheDir ?? context.env?.TTSC_CACHE_DIR,
     cwd,
     entries: context.plugins,
-    env: inheritedSidecarEnv(context.env),
+    env: inheritedSidecarEnv(context.env, context.binary),
     pluginConfigDir: context.pluginConfigDir,
     projectRoot: context.projectRoot,
     tsconfig: project.path,
@@ -99,11 +100,13 @@ function residentEnv(
     ...(pluginConfigDir === undefined
       ? {}
       : { TTSC_PLUGIN_CONFIG_DIR: pluginConfigDir }),
-    TTSC_TSGO_BINARY: process.env.TTSC_TSGO_BINARY ?? tsgoBinary,
     TTSC_TTSX_BINARY:
       process.env.TTSC_TTSX_BINARY ??
       path.join(__dirname, "..", "..", "launcher", "ttsx.js"),
     ...context.env,
+    // The compiler this invocation resolved wins over inherited and caller
+    // values, so the resident host compiles with the parent's compiler.
+    TTSC_TSGO_BINARY: tsgoBinary,
   };
   const node = resolveNodeBinary(env, projectRoot);
   if (node === undefined) delete env.TTSC_NODE_BINARY;
@@ -122,10 +125,11 @@ function residentEnv(
   // to an outer ttsc run and must not reach the resident sidecar.
   clearInheritedTsgoArgs(env, context.env);
   clearInheritedSemanticConfigPath(env, context.env);
-  const linked = linkedTransformPlugins(nativePlugins);
-  if (linked.length !== 0) {
-    env.TTSC_LINKED_PLUGINS_JSON = serializeNativePlugins(linked);
-  }
+  publishLinkedTransformPlugins(
+    env,
+    context.env,
+    linkedTransformPlugins(nativePlugins),
+  );
   return env;
 }
 

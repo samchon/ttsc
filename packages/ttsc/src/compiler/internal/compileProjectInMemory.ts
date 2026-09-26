@@ -53,7 +53,7 @@ export function compileProjectInMemory(options: ITtscCompilerContext): {
     ["api-compile", "--cwd", project.root, "--tsconfig", tsconfig],
     {
       cwd: project.root,
-      env: inheritedSidecarEnv(options.env),
+      env: inheritedSidecarEnv(options.env, options.binary),
     },
   );
   if (res.error) {

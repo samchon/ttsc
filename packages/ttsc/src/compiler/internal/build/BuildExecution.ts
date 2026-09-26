@@ -18,6 +18,7 @@ import { assertSharedHostCompatibility } from "../sharedHost/assertSharedHostCom
 import { clearInheritedSemanticConfigPath } from "../sharedHost/clearInheritedSemanticConfigPath";
 import { clearInheritedTsgoArgs } from "../sharedHost/clearInheritedTsgoArgs";
 import { inheritedSidecarEnv } from "../sharedHost/inheritedSidecarEnv";
+import { publishLinkedTransformPlugins } from "../sharedHost/publishLinkedTransformPlugins";
 import { linkedTransformPlugins } from "../sharedHost/linkedTransformPlugins";
 import { resolvePluginConfigDir } from "../sharedHost/resolvePluginConfigDir";
 import { selectSharedHostPlugin } from "../sharedHost/selectSharedHostPlugin";
@@ -85,11 +86,15 @@ export namespace BuildExecution {
         ...(execution.pluginConfigDir === undefined
           ? {}
           : { TTSC_PLUGIN_CONFIG_DIR: execution.pluginConfigDir }),
-        TTSC_TSGO_BINARY: process.env.TTSC_TSGO_BINARY ?? execution.tsgo.binary,
         TTSC_TTSX_BINARY:
           process.env.TTSC_TTSX_BINARY ??
           path.join(__dirname, "..", "..", "..", "launcher", "ttsx.js"),
         ...extra,
+        // The compiler this invocation resolved, which already honours an
+        // environment override when no explicit binary was given. Placed after
+        // every inherited and caller value so a child compiles with the same
+        // compiler as its parent.
+        TTSC_TSGO_BINARY: execution.tsgo.binary,
       },
       execution.projectRoot,
     );
@@ -112,13 +117,13 @@ export namespace BuildExecution {
     ) {
       delete env.TTSC_PLUGIN_CONFIG_DIR;
     }
-    if (plugin?.stage === "transform") {
-      const linked = linkedTransformPlugins(execution.nativePlugins);
-      if (linked.length !== 0) {
-        env.TTSC_LINKED_PLUGINS_JSON =
-          NativePluginArguments.serializeNativePlugins(linked);
-      }
-    }
+    publishLinkedTransformPlugins(
+      env,
+      extra,
+      plugin?.stage === "transform"
+        ? linkedTransformPlugins(execution.nativePlugins)
+        : [],
+    );
     return env;
   }
 
@@ -767,7 +772,7 @@ export namespace BuildExecution {
           cacheDir: options.cacheDir ?? options.env?.TTSC_CACHE_DIR,
           cwd,
           entries: options.plugins,
-          env: inheritedSidecarEnv(options.env),
+          env: inheritedSidecarEnv(options.env, options.binary),
           onWatchInputs: options.onWatchInputs,
           pluginConfigDir: options.pluginConfigDir,
           projectRoot,

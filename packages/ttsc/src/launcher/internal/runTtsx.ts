@@ -403,7 +403,9 @@ async function runPreparedEntry(
         process.env.NODE_OPTIONS,
         `--require ${JSON.stringify(path.join(__dirname, "runtimeHookPreload.js"))}`,
       ),
-      TTSC_TSGO_BINARY: process.env.TTSC_TSGO_BINARY ?? tsgo,
+      // The compiler this run resolved, which already honours an inherited
+      // `TTSC_TSGO_BINARY` when no `--binary` was given.
+      TTSC_TSGO_BINARY: tsgo,
       TTSX_RUNTIME_MANIFEST: manifestPath,
     };
     const child = spawn(process.execPath, args, {
