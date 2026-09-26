@@ -65,13 +65,15 @@ export const test_readprojectconfig_reports_the_parse_position_in_the_original_f
       );
     }
 
-    // Boundary: valid JSON that is not an object parses, and the reader reports
-    // no options rather than failing. Attribution is about parse failures, so
-    // this shape must stay outside it.
+    // Boundary: valid JSON that is not an object is not a configuration, as
+    // the compiler's TS5092 says, and its failure is attributed the same way.
     fs.writeFileSync(file, `"not an object"`, "utf8");
-    assert.deepEqual(
-      readProjectConfig({ tsconfig: file }).compilerOptions.plugins,
-      [],
+    assert.throws(
+      () => readProjectConfig({ tsconfig: file }),
+      (error: unknown) =>
+        error instanceof Error &&
+        error.message.startsWith(`ttsc: failed to parse ${file}: `) &&
+        /must be an object/.test(error.message),
     );
 
     // Negative twin: the length-preserving rewrite must not change what parses.

@@ -34,7 +34,12 @@ export function readProjectConfig(
     configPaths: compilerOptions.configPaths,
     compilerOptions: {
       ...compilerOptions.options,
-      outDir: compilerOptions.outDir,
+      // A null reset merges as `null`, exactly as the compiler reads it; the
+      // parsed shape states an unset output directory as `undefined`.
+      outDir:
+        typeof compilerOptions.options.outDir === "string"
+          ? compilerOptions.options.outDir
+          : undefined,
       plugins: compilerOptions.plugins,
     },
     identity,
@@ -47,10 +52,14 @@ export function readProjectConfig(
 /**
  * Compiler option keys whose values are file-system paths that must be resolved
  * relative to the tsconfig that declares them, not the project root.
+ *
+ * `outDir` merges here like every other path option, so a child's `outDir:
+ * null` resets an inherited one the way the compiler resets it.
  */
 const PATH_OPTIONS = new Set([
   "baseUrl",
   "declarationDir",
+  "outDir",
   "outFile",
   "rootDir",
   "tsBuildInfoFile",
@@ -66,7 +75,6 @@ type ResolvedCompilerOptions = {
   options: Record<string, unknown>;
   /** Directory of the tsconfig that last declared each option key. */
   optionBaseDirs: Record<string, string>;
-  outDir?: string;
   pluginBaseDirs: string[];
   /** True when any tsconfig in the chain explicitly declared `plugins`. */
   pluginsDeclared: boolean;
@@ -129,7 +137,6 @@ function readResolvedCompilerOptions(
     const parsed = readJsoncFile(canonical) as {
       extends?: unknown;
       compilerOptions?: Record<string, unknown> & {
-        outDir?: unknown;
         plugins?: unknown;
       };
     };
@@ -168,10 +175,6 @@ function readResolvedCompilerOptions(
       configPaths: uniquePaths([...base.configPaths, canonical]),
       optionBaseDirs,
       options,
-      outDir:
-        typeof own?.outDir === "string"
-          ? resolveCompilerOptionPath(ownBaseDir, configDir, own.outDir)
-          : base.outDir,
       pluginBaseDirs: pluginsDeclared
         ? plugins.map(() => ownBaseDir)
         : base.pluginBaseDirs,
@@ -243,7 +246,6 @@ function resolveBaseCompilerOptions(
         ...merged.options,
         ...current.options,
       },
-      outDir: current.outDir ?? merged.outDir,
       pluginBaseDirs: current.pluginsDeclared
         ? current.pluginBaseDirs
         : merged.pluginBaseDirs,
