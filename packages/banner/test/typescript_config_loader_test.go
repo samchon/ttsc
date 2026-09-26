@@ -77,7 +77,7 @@ func TestTypeScriptConfigLoader(t *testing.T) {
 
   source := bannerTypeScriptConfigLoaderSource(`"./banner.config.ts"`, `"/tmp/ttsc-resolution-inputs.cjs"`)
   if !strings.Contains(source, `const importedConfig = await import("./banner.config.ts");`) ||
-    !strings.Contains(source, "registerHooks") ||
+    !strings.Contains(source, "observeResolutions(recorder)") ||
     !strings.Contains(source, "resolveConfig") {
     t.Fatalf("loader source mismatch:\n%s", source)
   }

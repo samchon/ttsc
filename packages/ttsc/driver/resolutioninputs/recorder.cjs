@@ -33,7 +33,7 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const Module = require("node:module");
 const path = require("node:path");
-const { fileURLToPath } = require("node:url");
+const { fileURLToPath, pathToFileURL } = require("node:url");
 
 /** The state a directory input is recorded with, whatever it holds. */
 const DIRECTORY_STATE = crypto
@@ -601,9 +601,9 @@ function visitImportMappedCandidates(
  * specifier can name, before the resolution runs (samchon/ttsc#1547).
  *
  * A resolution that fails names no module, so nothing afterwards shows which
- * target it tried, yet a program may catch the failure and produce a value
- * that changes once that target appears. Every string target of the matching
- * entry is taken, under every condition, as `exports` targets are
+ * target it tried, yet a program may catch the failure and produce a value that
+ * changes once that target appears. Every string target of the matching entry
+ * is taken, under every condition, as `exports` targets are
  * (`visitManifestTargets`): an over-approximation costs a spurious
  * invalidation, an omission a stale result. A relative target is a path in the
  * importer's package; a bare one is looked up through every search root.
@@ -629,8 +629,7 @@ function visitImportTargetCandidates(specifier, parent, extensions, visit) {
   } catch {
     return;
   }
-  if (!imports || typeof imports !== "object" || Array.isArray(imports))
-    return;
+  if (!imports || typeof imports !== "object" || Array.isArray(imports)) return;
   const directory = path.dirname(manifestPath);
   const bases = new Set();
   const visitTarget = (value, capture) => {
@@ -860,7 +859,8 @@ function createResolutionInputRecorder(options) {
         if (root === undefined || read.has(root)) commit(observation);
       }
       if (resolved === undefined) {
-        for (const observation of token.importPending ?? []) commit(observation);
+        for (const observation of token.importPending ?? [])
+          commit(observation);
         return;
       }
       if (token.imports !== undefined) {
@@ -898,8 +898,106 @@ function createResolutionInputRecorder(options) {
   };
 }
 
+/**
+ * Record every module resolution the evaluation makes into `recorder`.
+ *
+ * A resolve hook registered through `module.registerHooks`, the supported
+ * customization API, sees every `import` and `require()` (samchon/ttsc#1523).
+ * The one resolution it does not see on every release is `require.resolve`,
+ * which on some releases answers from Node's resolver alone. Whether it does is
+ * asked of the runtime once, by a hook registered only for the probe, and only
+ * where it does not is the single entry point `require.resolve` reaches,
+ * `Module._resolveFilename`, wrapped to record the same two observations. A
+ * resolution the hook also saw is then recorded twice with the same state,
+ * which changes nothing.
+ *
+ * @param {ReturnType<typeof createResolutionInputRecorder>} recorder
+ */
+function observeResolutions(recorder) {
+  const hooked = requireResolveConsultsHooks();
+  Module.registerHooks({
+    resolve(specifier, context, nextResolve) {
+      const resolution = recorder.beginResolution(specifier, context.parentURL);
+      let resolved;
+      try {
+        resolved = nextResolve(specifier, context);
+      } catch (error) {
+        recorder.endResolution(resolution, undefined);
+        throw error;
+      }
+      recorder.endResolution(
+        resolution,
+        typeof resolved === "string" ? resolved : resolved && resolved.url,
+      );
+      return resolved;
+    },
+  });
+  if (hooked) return;
+  const next = Module._resolveFilename;
+  Module._resolveFilename = function resolveFilename(
+    request,
+    parent,
+    isMain,
+    options,
+  ) {
+    // An internal entry point anything may call: a non-string request keeps
+    // Node's own argument error rather than a TypeError from here.
+    if (typeof request !== "string") {
+      return next.call(this, request, parent, isMain, options);
+    }
+    const resolution = recorder.beginResolution(
+      request,
+      parent && typeof parent.filename === "string"
+        ? parent.filename
+        : undefined,
+    );
+    let resolved;
+    try {
+      resolved = next.call(this, request, parent, isMain, options);
+    } catch (error) {
+      recorder.endResolution(resolution, undefined);
+      throw error;
+    }
+    recorder.endResolution(
+      resolution,
+      path.isAbsolute(resolved) ? resolved : undefined,
+    );
+    return resolved;
+  };
+}
+
+/**
+ * Whether `require.resolve` consults resolve hooks registered with
+ * `module.registerHooks`, asked of the runtime rather than read from its
+ * version: a sentinel only a probe hook answers is resolved, and the hook is
+ * removed after.
+ */
+function requireResolveConsultsHooks() {
+  const sentinel = `./.ttsc-require-resolve-probe-${process.pid}`;
+  let consulted = false;
+  const probe = Module.registerHooks({
+    resolve(specifier, context, nextResolve) {
+      if (specifier !== sentinel) return nextResolve(specifier, context);
+      consulted = true;
+      return {
+        shortCircuit: true,
+        url: pathToFileURL(process.execPath).href,
+      };
+    },
+  });
+  try {
+    Module.createRequire(path.join(process.cwd(), "noop.js")).resolve(sentinel);
+  } catch {
+    // A runtime that never consulted the hook refuses the sentinel.
+  } finally {
+    probe.deregister();
+  }
+  return consulted;
+}
+
 module.exports = {
   createResolutionInputRecorder,
+  observeResolutions,
   moduleResolutionBaseSelects,
   observeImportSearchRoots,
   visitImportMappedCandidates,

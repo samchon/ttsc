@@ -449,59 +449,17 @@ func loadBannerScriptConfigFile(location string) (any, error) {
 
 func loadBannerScriptConfigFileWithInputs(location string) (bannerLoadedConfig, error) {
   const script = `
-const nodeModule = require("node:module");
-const { registerHooks } = nodeModule;
-const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 // Which inputs a resolution read is the one rule ttsc owns
 // (resolutioninputs.Recorder), evaluated before any hook is installed.
-const { createResolutionInputRecorder } = RESOLUTION_INPUT_RECORDER;
+const { createResolutionInputRecorder, observeResolutions } = RESOLUTION_INPUT_RECORDER;
 const recorder = createResolutionInputRecorder({ extensions: [".ts", ".tsx", ".mts", ".cts", ".js", ".mjs", ".cjs", ".json", ".node"] });
 
 recorder.recordFile(process.argv[1]);
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    const resolution = recorder.beginResolution(specifier, context.parentURL);
-    let resolved;
-    try {
-      resolved = nextResolve(specifier, context);
-    } catch (error) {
-      recorder.endResolution(resolution, undefined);
-      throw error;
-    }
-    recorder.endResolution(resolution, typeof resolved === "string" ? resolved : resolved && resolved.url);
-    return resolved;
-  },
-});
-
-// The hook above never sees a require() made from inside a CommonJS module the
-// ESM loader evaluated, which on Node 22 is every require the config makes:
-// module.registerHooks observes the import() of that module and nothing within
-// it. A config's own dependencies would then be reported without the candidates
-// that decide them, so a spelling appearing later could change what the config
-// resolves to with nothing in the envelope to notice it (samchon/ttsc#1280).
-// Wrapping the CommonJS resolver records the same two observations the hook
-// does, on the graph the hook cannot reach.
-const nextResolveFilename = nodeModule._resolveFilename;
-nodeModule._resolveFilename = function resolveFilename(request, parent, isMain, options) {
-  // _resolveFilename is an internal entry point anything may call, so a
-  // non-string request arrives here as readily as a specifier does. Reading it
-  // would replace Node's own argument error with a TypeError from this loader.
-  if (typeof request !== "string") {
-    return nextResolveFilename.call(this, request, parent, isMain, options);
-  }
-  const parentFile = parent && typeof parent.filename === "string" ? parent.filename : undefined;
-  const resolution = recorder.beginResolution(request, parentFile);
-  let resolved;
-  try {
-    resolved = nextResolveFilename.call(this, request, parent, isMain, options);
-  } catch (error) {
-    recorder.endResolution(resolution, undefined);
-    throw error;
-  }
-  recorder.endResolution(resolution, path.isAbsolute(resolved) ? resolved : undefined);
-  return resolved;
-};
+// Every resolution the config makes is recorded: through a resolve hook, and
+// on a runtime whose require.resolve bypasses the hooks, through the one
+// entry point it reaches (resolutioninputs.Recorder, samchon/ttsc#1523).
+observeResolutions(recorder);
 
 (async () => {
   const mod = await import(pathToFileURL(process.argv[1]).href);
@@ -692,73 +650,19 @@ func loadBannerTypeScriptConfigFileWithInputs(location, resolutionRoot string) (
 // written beside the loader (resolutioninputs.Recorder).
 func bannerTypeScriptConfigLoaderSource(importLiteral, recorderLiteral string) string {
   return fmt.Sprintf(`// @ts-nocheck
-import Module, { createRequire, registerHooks } from "node:module";
-import path from "node:path";
+import { createRequire } from "node:module";
 
 // Which inputs a resolution read is the one rule ttsc owns
 // (resolutioninputs.Recorder), written beside this loader and required before
 // any hook is installed, so the recorder itself is no input.
 const recorderFile: string = %[2]s;
-const { createResolutionInputRecorder } = createRequire(recorderFile)(recorderFile);
+const { createResolutionInputRecorder, observeResolutions } = createRequire(recorderFile)(recorderFile);
 const recorder = createResolutionInputRecorder({ extensions: [".ts", ".tsx", ".mts", ".cts", ".js", ".mjs", ".cjs", ".json", ".node"] });
 
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    const resolution = recorder.beginResolution(specifier, context.parentURL);
-    let resolved;
-    try {
-      resolved = nextResolve(specifier, context);
-    } catch (error) {
-      recorder.endResolution(resolution, undefined);
-      throw error;
-    }
-    recorder.endResolution(resolution, typeof resolved === "string" ? resolved : resolved?.url);
-    return resolved;
-  },
-});
-
-// The hook above never sees a require() made from inside a CommonJS module the
-// ESM loader evaluated, which on Node 22 is every require the config makes:
-// module.registerHooks observes the import() of that module and nothing within
-// it. A config's own dependencies would then be reported without the candidates
-// that decide them, so a spelling appearing later could change what the config
-// resolves to with nothing in the envelope to notice it (samchon/ttsc#1280).
-// Wrapping the CommonJS resolver records the same two observations the hook
-// does, on the graph the hook cannot reach.
-const moduleInternals = Module as unknown as {
-  _resolveFilename(
-    request: string,
-    parent: { filename?: string | null } | null | undefined,
-    isMain: boolean,
-    options?: unknown,
-  ): string;
-};
-const nextResolveFilename = moduleInternals._resolveFilename;
-moduleInternals._resolveFilename = function resolveFilename(
-  this: unknown,
-  request: string,
-  parent: { filename?: string | null } | null | undefined,
-  isMain: boolean,
-  options?: unknown,
-): string {
-  // _resolveFilename is an internal entry point anything may call, so a
-  // non-string request arrives here as readily as a specifier does. Reading it
-  // would replace Node's own argument error with a TypeError from this loader.
-  if (typeof request !== "string") {
-    return nextResolveFilename.call(this, request, parent, isMain, options);
-  }
-  const parentFile = typeof parent?.filename === "string" ? parent.filename : undefined;
-  const resolution = recorder.beginResolution(request, parentFile);
-  let resolved: string;
-  try {
-    resolved = nextResolveFilename.call(this, request, parent, isMain, options);
-  } catch (error) {
-    recorder.endResolution(resolution, undefined);
-    throw error;
-  }
-  recorder.endResolution(resolution, path.isAbsolute(resolved) ? resolved : undefined);
-  return resolved;
-};
+// Every resolution the config makes is recorded: through a resolve hook, and
+// on a runtime whose require.resolve bypasses the hooks, through the one
+// entry point it reaches (resolutioninputs.Recorder, samchon/ttsc#1523).
+observeResolutions(recorder);
 
 declare const process: {
   exitCode?: number;
