@@ -38,13 +38,13 @@ export namespace PluginBuildEnvironmentWitness {
     return true;
   }
 
+  /** A recorded state no signature equals. */
+  const UNWITNESSABLE = "unwitnessable";
+
   /**
    * The metadata a replacement moves: identity, size, and modification and
    * change times, following links; `missing` for a path that is not there.
    */
-  /** A recorded state no signature equals. */
-  const UNWITNESSABLE = "unwitnessable";
-
   function signature(file: string): string {
     try {
       const stat = fs.statSync(file, { bigint: true });
