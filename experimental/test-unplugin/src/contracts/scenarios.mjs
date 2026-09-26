@@ -166,7 +166,7 @@ export const SCENARIOS = [
   {
     name: "saved by an editor",
     async run({ project, session }) {
-      project.save("TWELFTH");
+      await project.save("TWELFTH");
       await session.settled("saved by an editor", "TWELFTH", [project.input]);
     },
   },

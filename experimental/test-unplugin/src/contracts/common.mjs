@@ -238,12 +238,13 @@ export function projectAt(
     /**
      * Save the input the way an editor does: write the whole file beside it and
      * rename it over the old one, so the watcher hears a creation and a rename,
-     * never a write to the input's own path.
+     * never a write to the input's own path. The rename waits out a host still
+     * holding the input (`rename`), as Windows refuses it with `EPERM` then.
      */
-    save(value) {
+    async save(value) {
       const temporary = `${input}.${process.pid}.tmp`;
       fs.writeFileSync(temporary, contractInput(value));
-      fs.renameSync(temporary, input);
+      await rename(temporary, input, "save the input");
     },
     /** A second input the module depends on for the first time. */
     sibling(name, value) {
@@ -473,13 +474,13 @@ function label(file) {
  * Rename `from` to `to`, waiting out a host that still holds the path.
  *
  * Windows refuses a rename while any process has the path or an entry below it
- * open, with `EPERM` for a directory and `EBUSY` for a file, and the hosts
- * under contract hold what they watch: Turbopack refused `src/deps.moved ->
- * src/deps` on a CI runner while its watcher still had the directory. The edit
- * is the contract's, not the host's, so it is made rather than abandoned: the
- * rename is retried until the host lets go, and a path it never lets go of
- * fails at the deadline, which is what a host that cannot be edited under looks
- * like.
+ * open, with `EPERM` or `EBUSY`, and the hosts under contract hold what they
+ * watch: Turbopack refused `src/deps.moved -> src/deps` on a CI runner while
+ * its watcher still had the directory, and a save renamed over the input while
+ * a Next.js build held it was refused with `EPERM`. The edit is the contract's,
+ * not the host's, so it is made rather than abandoned: the rename is retried
+ * until the host lets go, and a path it never lets go of fails at the deadline,
+ * which is what a host that cannot be edited under looks like.
  *
  * Only the refusals a held path produces are waited out. Any other error is the
  * contract's own mistake, a source that is not there above all, and it fails at
