@@ -190,6 +190,9 @@ function createGoWorkCapturingGoBinary(root: string): string {
       "  console.log(JSON.stringify(m ? { Module: { Path: m[1] } } : {}));",
       "  process.exit(0);",
       "}",
+      // `go work use` sets the directive only; the captured paths are the
+      // builder's own spelling.
+      'if (args[0] === "work" && args[1] === "use") process.exit(0);',
       'if (args[0] === "build") {',
       "  const capture = process.env.FAKE_GO_WORK_CAPTURE;",
       "  if (capture) {",

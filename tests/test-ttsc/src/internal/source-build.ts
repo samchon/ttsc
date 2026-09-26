@@ -95,6 +95,9 @@ function createFakeGoBinary(
       "  console.log(JSON.stringify(parseGoMod(goMod)));",
       "  process.exit(0);",
       "}",
+      // `go work use` sets the scratch workspace's `go` directive; a fake
+      // toolchain has no version rule to apply, so it leaves the file as written.
+      'if (args[0] === "work" && args[1] === "use") process.exit(0);',
       'if (args[0] !== "build") {',
       '  console.error(`unexpected go command: ${args.join(" ")}`);',
       "  process.exit(1);",
