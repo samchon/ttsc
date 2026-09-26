@@ -17,7 +17,9 @@ const project = {
   run(root: string) {
     const result = spawn(ttscBin, ["--cwd", root, "--emit"], { cwd: root });
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /Unexpected end of JSON input|Expected/);
+    // The reader reports a truncated config with the compiler's own TS1005
+    // wording, at the line and column where the text ended.
+    assert.match(result.stderr, /'\}' expected \(line 1 column \d+\)/);
     assert.equal(fs.existsSync(path.join(root, "dist", "main.js")), false);
   },
 };
