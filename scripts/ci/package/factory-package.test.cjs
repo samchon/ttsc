@@ -7,7 +7,7 @@ const { createRequire } = require("node:module");
 const { pathToFileURL } = require("node:url");
 const test = require("node:test");
 
-const root = path.resolve(__dirname, "..", "..");
+const root = path.resolve(__dirname, "..", "..", "..");
 const factoryRoot = path.join(root, "packages", "factory");
 const typescriptManifestPath = require.resolve("typescript/package.json");
 const typescriptTscPath = path.resolve(

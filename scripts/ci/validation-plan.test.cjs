@@ -391,13 +391,13 @@ test("documentation keeps only the lightweight shared contract", () => {
 });
 
 test("CI support files select their actual executors", () => {
-  assert.deepEqual(ids(["scripts/ci/factory-package.test.cjs"]), [
+  assert.deepEqual(ids(["scripts/ci/package/factory-package.test.cjs"]), [
     "typecheck",
     "package-defenses",
   ]);
   for (const file of [
     "scripts/ci/go-test-overlay.cjs",
-    "scripts/ci/go-test-runners.test.cjs",
+    "scripts/go-test-runners.test.cjs",
   ])
     assert.deepEqual(ids([file]), ["go", "windows-go", "typecheck"], file);
   // The gofmt wrapper's completeness gate runs beside the format check it

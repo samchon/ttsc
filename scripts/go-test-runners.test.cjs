@@ -12,8 +12,8 @@ const os = require("node:os");
 const path = require("node:path");
 const { test } = require("node:test");
 
-const { copyGoTestsFlat } = require("./go-test-overlay.cjs");
-const { runAll } = require("../test-go.cjs");
+const { copyGoTestsFlat } = require("./ci/go-test-overlay.cjs");
+const { runAll } = require("./test-go.cjs");
 
 function tmpdir(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-runner-harness-"));

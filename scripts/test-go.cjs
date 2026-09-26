@@ -9,6 +9,8 @@
 const cp = require("node:child_process");
 const path = require("node:path");
 
+const { discoverNodeTests } = require("./ci/node-tests.cjs");
+
 const root = path.resolve(__dirname, "..");
 
 const runners = [
@@ -24,13 +26,11 @@ const runners = [
 ];
 
 // Fast Node checks run before the long Go suites so both CI Go lanes cover the
-// runner harness and the Go build helpers.
-const harnessTests = [
-  "scripts/ci/go-test-runners.test.cjs",
-  "scripts/go-build-cache-builders.test.cjs",
-  "scripts/go-build-cache.test.cjs",
-  "scripts/go-wasm-exec.test.cjs",
-].map((relative) => path.join(root, ...relative.split("/")));
+// runner harness and the Go build helpers: every `scripts/*.test.cjs`,
+// discovered, so a new one runs without editing a list (`ci/node-tests.cjs`).
+const harnessTests = discoverNodeTests(root, "go").map((relative) =>
+  path.join(root, ...relative.split("/")),
+);
 
 // runAll invokes every entry through `spawn` and returns the list that failed.
 // `spawn` is injected so the meta-test can assert each runner is invoked even

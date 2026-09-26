@@ -2,6 +2,8 @@ const cp = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 
+const { discoverNodeTests, nodeTestLane } = require("./node-tests.cjs");
+
 const root = path.resolve(__dirname, "..", "..");
 
 /**
@@ -71,11 +73,9 @@ const LANES = [
       "pnpm --filter @ttsc/unplugin build",
     run:
       "pnpm run check:flags && pnpm run check:dependencies && " +
-      "node --test packages/ttsc/scripts/check-flags.test.cjs && " +
-      "node --test scripts/ci/validation-plan.test.cjs " +
-      "scripts/ci/dependency-audit.test.cjs " +
-      "scripts/ci/gofmt-wrapper.test.cjs && " +
-      "node --test scripts/ci/unplugin-test-contract.test.cjs && " +
+      // Every Node test this lane owns, discovered (`node-tests.cjs`), so a
+      // new one runs without editing this command.
+      `node --test ${discoverNodeTests(root, "typecheck").join(" ")} && ` +
       "node scripts/ci/format-check.cjs && " +
       "pnpm --filter @ttsc/test-unplugin start && " +
       "pnpm run test:typecheck",
@@ -90,7 +90,7 @@ const LANES = [
     scope: "test-packages",
     build: "pnpm run build:current",
     run:
-      "node --test scripts/ci/factory-package.test.cjs && " +
+      `node --test ${discoverNodeTests(root, "package-defenses").join(" ")} && ` +
       "pnpm --filter @ttsc/test-banner start && " +
       "pnpm --filter @ttsc/test-paths start && " +
       "pnpm --filter @ttsc/test-strip start && " +
@@ -651,10 +651,18 @@ function planForPaths(files) {
       add(["shim-audit"], file);
       continue;
     }
-    if (file === "scripts/ci/factory-package.test.cjs") {
+    // A Node test of the scripts selects the lane that owns it by where it
+    // lives (`node-tests.cjs`); a typecheck one is in every plan already.
+    const nodeLane = nodeTestLane(file);
+    if (nodeLane === "package-defenses") {
       add(["package-defenses"], file);
       continue;
     }
+    if (nodeLane === "go") {
+      add(["go", "windows-go"], file);
+      continue;
+    }
+    if (nodeLane === "typecheck") continue;
     if (
       [
         "scripts/assert-vscode-package.cjs",
@@ -664,10 +672,7 @@ function planForPaths(files) {
       continue;
     }
     if (
-      [
-        "scripts/ci/go-test-overlay.cjs",
-        "scripts/ci/go-test-runners.test.cjs",
-      ].includes(file)
+      file === "scripts/ci/go-test-overlay.cjs"
     ) {
       add(["go", "windows-go"], file);
       continue;
@@ -675,11 +680,9 @@ function planForPaths(files) {
     if (
       [
         "scripts/ci/dependency-audit.cjs",
-        "scripts/ci/dependency-audit.test.cjs",
         "scripts/ci/format-check.cjs",
-        "scripts/ci/gofmt-wrapper.test.cjs",
+        "scripts/ci/node-tests.cjs",
         "scripts/ci/plugin-cache-persistence.mjs",
-        "scripts/ci/unplugin-test-contract.test.cjs",
       ].includes(file)
     ) {
       continue;
