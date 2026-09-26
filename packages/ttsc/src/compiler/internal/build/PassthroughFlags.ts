@@ -1,3 +1,4 @@
+import type { FlagSpec } from "../../../flags/FlagSpec";
 import { resolveFlagSpec } from "../../../flags/resolveFlagSpec";
 import type { TtscCommonOptions } from "../../../structures/internal/TtscCommonOptions";
 
@@ -9,68 +10,44 @@ import type { TtscCommonOptions } from "../../../structures/internal/TtscCommonO
  * whether a flag turns the build into a terminal command, whether a flag is one
  * ttsc consumes internally. Every answer resolves the token through the flag
  * schema, so a question is decided by the flag's identity (any case, one or two
- * dashes, inline `=value`) exactly as the compiler would decide it.
+ * dashes) and, for a boolean flag, by the value TypeScript-Go gives it.
  */
 export namespace PassthroughFlags {
   /**
-   * Whether `--diagnostics` or `--extendedDiagnostics` was forwarded and not
-   * disabled by an explicit `false` value.
+   * Whether `--diagnostics` or `--extendedDiagnostics` is in effect after every
+   * forwarded occurrence, read the way TypeScript-Go reads them.
    */
   export function hasDiagnosticsFlag(options: TtscCommonOptions): boolean {
-    return (
-      hasEnabledPassthroughFlag(options, "--diagnostics") ||
-      hasEnabledPassthroughFlag(options, "--extendedDiagnostics")
+    const enabled = effectiveBooleanFlags(options);
+    return enabled.some(
+      (flag) =>
+        flag.name === "--diagnostics" || flag.name === "--extendedDiagnostics",
     );
-  }
-
-  function hasEnabledPassthroughFlag(
-    options: TtscCommonOptions,
-    flag: string,
-  ): boolean {
-    const passthrough = options.passthrough ?? [];
-    for (let i = 0; i < passthrough.length; i++) {
-      const token = passthrough[i]!;
-      // Identity, not spelling: the user forwards their own casing and ttsc must
-      // read `--DIAGNOSTICS` the way tsgo does.
-      if (resolveFlagSpec(token)?.name !== flag) continue;
-      const equalsIndex = token.indexOf("=");
-      if (equalsIndex !== -1) {
-        return token.slice(equalsIndex + 1).toLowerCase() !== "false";
-      }
-      if (i + 1 < passthrough.length && isBooleanLiteral(passthrough[i + 1]!)) {
-        return passthrough[i + 1]!.toLowerCase() !== "false";
-      }
-      return true;
-    }
-    return false;
   }
 
   /**
    * Report whether the caller forwarded a print-and-exit tsgo flag
-   * (`--showConfig`, `--listFilesOnly`, `--all`, `--init`, `-?`), so ttsc can
-   * avoid adding compile-only flags to a command that is not going to compile.
+   * (`--showConfig`, `--listFilesOnly`, `--all`, `--init`, `-?`) that is in
+   * effect, so ttsc can avoid adding compile-only flags to a command that is
+   * not going to compile.
    *
    * Schema-derived, and resolved by flag identity rather than by exact
-   * spelling: `resolveFlagSpec` applies the one normalization the parsing
-   * engine and the generated Go allow-lists use, so `--showconfig` classifies
-   * exactly like `--showConfig`. Adding a new terminal flag means editing
-   * `FLAG_SCHEMA.ts` and re-running `pnpm run gen:flags`; this predicate needs
-   * no edit, and it grows no normalization of its own for the next consumer to
-   * forget.
+   * spelling: adding a new terminal flag means editing `FLAG_SCHEMA.ts` and
+   * re-running `pnpm run gen:flags`; this predicate needs no edit. A terminal
+   * flag the user turned off (`--showConfig false`) is an ordinary compile to
+   * TypeScript-Go, so it must not lift the emit guards of one.
    */
   export function forwardsTerminalTsgoFlag(
     options: TtscCommonOptions,
   ): boolean {
-    return (
-      options.passthrough?.some(
-        (token) => resolveFlagSpec(token)?.terminal === true,
-      ) ?? false
+    return effectiveBooleanFlags(options).some(
+      (flag) => flag.terminal === true,
     );
   }
 
   /**
-   * Report whether the caller forwarded a terminal flag whose meaning does not
-   * presuppose a resolved project (`--init`, `--all`, `-?`).
+   * Report whether the caller forwarded a terminal flag, in effect, whose
+   * meaning does not presuppose a resolved project (`--init`, `--all`, `-?`).
    *
    * Derived from `FLAG_SCHEMA[*].projectFree`, through the same identity
    * resolution as every other classification — never a literal list of flag
@@ -80,11 +57,8 @@ export namespace PassthroughFlags {
   export function forwardsProjectFreeTerminalTsgoFlag(
     options: TtscCommonOptions,
   ): boolean {
-    return (
-      options.passthrough?.some((token) => {
-        const flag = resolveFlagSpec(token);
-        return flag?.terminal === true && flag.projectFree === true;
-      }) ?? false
+    return effectiveBooleanFlags(options).some(
+      (flag) => flag.terminal === true && flag.projectFree === true,
     );
   }
 
@@ -117,21 +91,75 @@ export namespace PassthroughFlags {
   }
 
   /**
-   * Whether one argv token names `--diagnostics` or `--extendedDiagnostics`, in
-   * any spelling the compiler accepts. Used to strip those flags from a native
-   * host's argv, which reports timing through its own channel.
+   * The forwarded argv without the occurrences of the named boolean flags, each
+   * removed together with the value token TypeScript-Go would consume for it.
+   *
+   * Only an occurrence TypeScript-Go itself accepts is removed. A spelling it
+   * rejects (`--diagnostics=false`) or a value it does not consume
+   * (`--diagnostics TRUE`, whose `TRUE` is an input file to it) stays, so the
+   * compiler that receives the rest still reports the malformed argv instead of
+   * ttsc erasing it into a successful build.
    */
-  export function isDiagnosticsPassthroughFlag(token: string): boolean {
-    const name = resolveFlagSpec(token)?.name;
-    return name === "--diagnostics" || name === "--extendedDiagnostics";
+  export function withoutBooleanFlags(
+    passthrough: readonly string[],
+    names: readonly string[],
+  ): string[] {
+    const out: string[] = [];
+    for (let i = 0; i < passthrough.length; i++) {
+      const occurrence = booleanOccurrence(passthrough, i);
+      if (occurrence !== undefined && names.includes(occurrence.flag.name)) {
+        i += occurrence.width - 1;
+        continue;
+      }
+      out.push(passthrough[i]!);
+    }
+    return out;
   }
 
   /**
-   * Whether a token is the explicit value of a boolean flag (`true` or `false`,
-   * any case), so the pair `--flag false` is consumed together.
+   * Every schema boolean flag whose last forwarded occurrence turns it on.
+   * TypeScript-Go assigns an option at each occurrence, so the last one wins.
    */
-  export function isBooleanLiteral(token: string): boolean {
-    const normalized = token.toLowerCase();
-    return normalized === "true" || normalized === "false";
+  function effectiveBooleanFlags(options: TtscCommonOptions): FlagSpec[] {
+    const passthrough = options.passthrough ?? [];
+    const values = new Map<FlagSpec, boolean>();
+    for (let i = 0; i < passthrough.length; i++) {
+      const occurrence = booleanOccurrence(passthrough, i);
+      if (occurrence === undefined) continue;
+      values.set(occurrence.flag, occurrence.value);
+      i += occurrence.width - 1;
+    }
+    return [...values].filter(([, value]) => value).map(([flag]) => flag);
+  }
+
+  /**
+   * Read one argv position the way TypeScript-Go's command-line parser reads a
+   * boolean option.
+   *
+   * The name matches case-insensitively after one or two dashes, and an inline
+   * `=` is not split, so `--flag=false` names no option at all. A following
+   * token is consumed only when it is exactly `true`, `false`, or `null`; only
+   * `false` and `null` turn the option off. Any other following token stays an
+   * argument of its own, and the option is on.
+   */
+  function booleanOccurrence(
+    argv: readonly string[],
+    index: number,
+  ):
+    | {
+        readonly flag: FlagSpec;
+        readonly value: boolean;
+        readonly width: 1 | 2;
+      }
+    | undefined {
+    const token = argv[index]!;
+    if (token.includes("=")) return undefined;
+    const flag = resolveFlagSpec(token);
+    if (flag === undefined || flag.kind !== "boolean") return undefined;
+    const next = argv[index + 1];
+    if (next === "true") return { flag, value: true, width: 2 };
+    if (next === "false" || next === "null")
+      return { flag, value: false, width: 2 };
+    return { flag, value: true, width: 1 };
   }
 }

@@ -226,21 +226,11 @@ export namespace TsgoArguments {
   ): readonly string[] | undefined {
     const passthrough = options.passthrough;
     if (passthrough === undefined) return undefined;
-    const out: string[] = [];
-    for (let i = 0; i < passthrough.length; i++) {
-      const token = passthrough[i]!;
-      if (PassthroughFlags.isDiagnosticsPassthroughFlag(token)) {
-        if (
-          !token.includes("=") &&
-          i + 1 < passthrough.length &&
-          PassthroughFlags.isBooleanLiteral(passthrough[i + 1]!)
-        ) {
-          i++;
-        }
-        continue;
-      }
-      out.push(token);
-    }
-    return out;
+    // A native host reports timing through its own channel, so the timing
+    // flags themselves never travel in its tsgo payload.
+    return PassthroughFlags.withoutBooleanFlags(passthrough, [
+      "--diagnostics",
+      "--extendedDiagnostics",
+    ]);
   }
 }

@@ -1,6 +1,5 @@
 import path from "node:path";
 
-import { resolveFlagSpec } from "../../../flags/resolveFlagSpec";
 import { resolveNodeBinary } from "../../../internal/resolveNodeBinary";
 import { hasProjectPluginEntries } from "../../../plugin/internal/load/hasProjectPluginEntries";
 import { loadProjectPlugins } from "../../../plugin/internal/load/loadProjectPlugins";
@@ -454,25 +453,12 @@ export namespace BuildExecution {
   function createPluginFailureTypecheckOptions(
     options: RunBuildOptions,
   ): RunBuildOptions {
-    const passthrough: string[] = [];
-    for (let i = 0; i < (options.passthrough?.length ?? 0); i++) {
-      const token = options.passthrough![i]!;
-      if (resolveFlagSpec(token)?.name === "--pretty") {
-        // `--pretty` is boolean: it owns a following token only when that token
-        // is the literal `true`/`false`, and the inline form carries its own.
-        if (
-          !token.includes("=") &&
-          PassthroughFlags.isBooleanLiteral(options.passthrough![i + 1] ?? "")
-        ) {
-          i++;
-        }
-        continue;
-      }
-      passthrough.push(token);
-    }
     return {
       ...options,
-      passthrough,
+      passthrough: PassthroughFlags.withoutBooleanFlags(
+        options.passthrough ?? [],
+        ["--pretty"],
+      ),
       structuredDiagnostics: true,
     };
   }

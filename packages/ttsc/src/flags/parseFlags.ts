@@ -276,14 +276,19 @@ function parseBooleanLiteral(raw: string): boolean | undefined {
  * Validate a `positiveInt` value. Mirrors tsgo's `--checkers minValue:1`
  * constraint so a typo fails loudly at the launcher rather than reaching tsgo
  * with an invalid argument.
+ *
+ * The lexical rule is tsgo's too: it reads a number option with Go's
+ * `strconv.Atoi`, which takes an optional sign and decimal digits only. A
+ * broader JavaScript conversion would turn `1e3`, `0x10`, or `2.0`, which tsgo
+ * rejects, into a different valid worker count.
  */
 function validatePositiveInt(
   flag: string,
   raw: string,
   errorPrefix: string,
 ): number {
-  const value = Number(raw);
-  if (!Number.isInteger(value) || value < 1) {
+  const value = /^[+-]?[0-9]+$/.test(raw) ? Number(raw) : NaN;
+  if (!Number.isSafeInteger(value) || value < 1) {
     throw new Error(
       `${errorPrefix} ${flag} expects a positive integer, got ${JSON.stringify(raw)}`,
     );
