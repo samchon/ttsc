@@ -5,7 +5,7 @@
   "description": "Compiler, API, plugin host, platform, and utility plugin integration tests for ttsc.",
   "type": "module",
   "scripts": {
-    "start": "node --disable-warning=ExperimentalWarning --import ../../scripts/register-extensionless-ts-loader.mjs --experimental-transform-types src/index.ts"
+    "start": "node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../scripts/register-typescript-loader.mjs src/index.ts"
   },
   "devDependencies": {
     "@ttsc/banner": "workspace:*",

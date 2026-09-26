@@ -69,7 +69,7 @@ export const test_vscode_expected_plugin_restarts_do_not_spend_crash_budget =
       process.execPath,
       [
         "--disable-warning=ExperimentalWarning",
-        "--experimental-transform-types",
+        "--experimental-strip-types",
         "--input-type=module",
         "--eval",
         script,

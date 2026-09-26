@@ -2,7 +2,9 @@ import { spawnSync } from "node:child_process";
 import type { SpawnSyncReturns } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
+import { TtscBenchmarkConstant } from "./TtscBenchmarkConstant.ts";
 import type { ITtscBenchmarkPerformanceCommand } from "./structures/ITtscBenchmarkPerformanceCommand.ts";
 import type { ITtscBenchmarkPerformanceProject } from "./structures/ITtscBenchmarkPerformanceProject.ts";
 
@@ -292,7 +294,8 @@ export class TtscBenchmarkPerformanceProcess {
       .map((project: string): string => `-p ${this.quote(project)}`)
       .join(" ");
     return [
-      "node --experimental-transform-types",
+      "node --experimental-strip-types --import",
+      this.quote(pathToFileURL(TtscBenchmarkConstant.TYPESCRIPT_LOADER).href),
       this.quote(this.options.tsconfigFiles),
       arguments_,
       output,

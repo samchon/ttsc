@@ -64,7 +64,7 @@ export const test_vscode_server_resolution_finds_package_ttsc_without_root_insta
       process.execPath,
       [
         "--disable-warning=ExperimentalWarning",
-        "--experimental-transform-types",
+        "--experimental-strip-types",
         "--input-type=module",
         "--eval",
         script,

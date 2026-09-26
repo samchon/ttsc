@@ -81,6 +81,9 @@ importers:
       rollup:
         specifier: catalog:rollup
         version: 4.60.4
+      ts-legacy:
+        specifier: catalog:typescript
+        version: typescript@6.0.3
       typescript:
         specifier: catalog:typescript
         version: 7.0.2

@@ -49,7 +49,7 @@ export const test_vscode_server_resolution_prefers_nearest_project_config =
       process.execPath,
       [
         "--disable-warning=ExperimentalWarning",
-        "--experimental-transform-types",
+        "--experimental-strip-types",
         "--input-type=module",
         "--eval",
         script,

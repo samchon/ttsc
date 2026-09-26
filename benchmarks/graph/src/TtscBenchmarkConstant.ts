@@ -1,4 +1,5 @@
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 /** Filesystem and Node execution constants for the graph benchmark runners. */
 export namespace TtscBenchmarkConstant {
@@ -15,13 +16,29 @@ export namespace TtscBenchmarkConstant {
   export const REPOSITORY_ROOT = path.resolve(ROOT, "..", "..");
 
   /**
-   * Builds Node arguments that execute a TypeScript entrypoint with namespace
-   * transformation enabled.
+   * The repository's TypeScript loader, which compiles the namespaces these
+   * harness sources declare on every supported Node (samchon/ttsc#1574).
+   */
+  export const TYPESCRIPT_LOADER = path.join(
+    REPOSITORY_ROOT,
+    "scripts",
+    "register-typescript-loader.mjs",
+  );
+
+  /**
+   * Builds Node arguments that execute a TypeScript entrypoint through the
+   * repository's TypeScript loader.
    */
   export function nodeTypeScriptArguments(
     script: string,
     arguments_: readonly string[] = [],
   ): string[] {
-    return ["--experimental-transform-types", script, ...arguments_];
+    return [
+      "--experimental-strip-types",
+      "--import",
+      pathToFileURL(TYPESCRIPT_LOADER).href,
+      script,
+      ...arguments_,
+    ];
   }
 }

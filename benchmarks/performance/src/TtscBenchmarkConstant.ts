@@ -15,4 +15,14 @@ export namespace TtscBenchmarkConstant {
 
   /** Absolute path of the ttsc repository containing the benchmark package. */
   export const REPOSITORY_ROOT = path.resolve(ROOT, "..", "..");
+
+  /**
+   * The repository's TypeScript loader, which compiles the namespaces the
+   * harness sources declare on every supported Node (samchon/ttsc#1574).
+   */
+  export const TYPESCRIPT_LOADER = path.join(
+    REPOSITORY_ROOT,
+    "scripts",
+    "register-typescript-loader.mjs",
+  );
 }

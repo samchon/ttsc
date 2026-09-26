@@ -37,7 +37,7 @@ export const test_vscode_server_resolution_plans_open_document_roots_determinist
       process.execPath,
       [
         "--disable-warning=ExperimentalWarning",
-        "--experimental-transform-types",
+        "--experimental-strip-types",
         "--input-type=module",
         "--eval",
         script,

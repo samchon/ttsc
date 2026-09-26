@@ -35,7 +35,7 @@ export const test_vscode_server_resolution_stops_unplanned_roots_when_no_documen
       process.execPath,
       [
         "--disable-warning=ExperimentalWarning",
-        "--experimental-transform-types",
+        "--experimental-strip-types",
         "--input-type=module",
         "--eval",
         script,

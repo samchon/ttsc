@@ -17,7 +17,7 @@ const STRIP_TYPES_NODE_ARGS = Object.freeze([
   "--disable-warning=MODULE_TYPELESS_PACKAGE_JSON",
   "--experimental-strip-types",
   "--import",
-  pathToFileURL(path.join(__dirname, "register-extensionless-ts-loader.mjs"))
+  pathToFileURL(path.join(__dirname, "register-typescript-loader.mjs"))
     .href,
 ]);
 

@@ -61,7 +61,7 @@ export const test_vscode_multi_root_client_specs_scope_document_selectors =
       process.execPath,
       [
         "--disable-warning=ExperimentalWarning",
-        "--experimental-transform-types",
+        "--experimental-strip-types",
         "--input-type=module",
         "--eval",
         script,

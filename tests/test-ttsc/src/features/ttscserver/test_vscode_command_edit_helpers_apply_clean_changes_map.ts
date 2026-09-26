@@ -128,7 +128,7 @@ export const test_vscode_command_edit_helpers_apply_clean_changes_map = () => {
     process.execPath,
     [
       "--disable-warning=ExperimentalWarning",
-      "--experimental-transform-types",
+      "--experimental-strip-types",
       "--input-type=module",
       "--eval",
       script,

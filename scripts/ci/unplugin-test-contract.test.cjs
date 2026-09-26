@@ -169,7 +169,7 @@ function spawnPublisher({ files, helper, label, parent, ready, release }) {
     process.execPath,
     [
       "--disable-warning=ExperimentalWarning",
-      "--experimental-transform-types",
+      "--experimental-strip-types",
       "--input-type=module",
       "--eval",
       PUBLISHER_SOURCE,

@@ -35,7 +35,7 @@ export const test_vscode_server_resolution_removes_descendant_workspace_roots =
       process.execPath,
       [
         "--disable-warning=ExperimentalWarning",
-        "--experimental-transform-types",
+        "--experimental-strip-types",
         "--input-type=module",
         "--eval",
         script,

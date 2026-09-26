@@ -10,16 +10,16 @@
   },
   "scripts": {
     "check": "tsc --noEmit -p tsconfig.json",
-    "start": "node --experimental-transform-types src/executable/index.ts",
-    "agent:claude": "node --experimental-transform-types src/executable/agent-ab.ts",
-    "agent:codex": "node --experimental-transform-types src/executable/agent-ab-codex.ts",
-    "analyze": "node --experimental-transform-types src/executable/analyze-traces.ts",
-    "audit": "node --experimental-transform-types src/executable/audit-codex-traces.ts",
-    "index-time": "node --experimental-transform-types src/executable/index-time.ts",
-    "manifest": "node --experimental-transform-types src/executable/generate-manifest.ts",
-    "publish": "node --experimental-transform-types src/executable/publish.ts",
-    "reduce": "node --experimental-transform-types src/executable/reduce.ts",
-    "structural": "node --experimental-transform-types src/executable/bench.ts",
-    "suite": "node --experimental-transform-types src/executable/run-suite.ts"
+    "start": "node --experimental-strip-types --import ../../scripts/register-typescript-loader.mjs src/executable/index.ts",
+    "agent:claude": "node --experimental-strip-types --import ../../scripts/register-typescript-loader.mjs src/executable/agent-ab.ts",
+    "agent:codex": "node --experimental-strip-types --import ../../scripts/register-typescript-loader.mjs src/executable/agent-ab-codex.ts",
+    "analyze": "node --experimental-strip-types --import ../../scripts/register-typescript-loader.mjs src/executable/analyze-traces.ts",
+    "audit": "node --experimental-strip-types --import ../../scripts/register-typescript-loader.mjs src/executable/audit-codex-traces.ts",
+    "index-time": "node --experimental-strip-types --import ../../scripts/register-typescript-loader.mjs src/executable/index-time.ts",
+    "manifest": "node --experimental-strip-types --import ../../scripts/register-typescript-loader.mjs src/executable/generate-manifest.ts",
+    "publish": "node --experimental-strip-types --import ../../scripts/register-typescript-loader.mjs src/executable/publish.ts",
+    "reduce": "node --experimental-strip-types --import ../../scripts/register-typescript-loader.mjs src/executable/reduce.ts",
+    "structural": "node --experimental-strip-types --import ../../scripts/register-typescript-loader.mjs src/executable/bench.ts",
+    "suite": "node --experimental-strip-types --import ../../scripts/register-typescript-loader.mjs src/executable/run-suite.ts"
   }
 }

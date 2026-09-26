@@ -37,7 +37,7 @@ test("the strip-types loader suppresses only the deliberate module warning", () 
     "--experimental-strip-types",
     "--import",
     pathToFileURL(
-      path.join(__dirname, "..", "..", "..", "scripts", "register-extensionless-ts-loader.mjs"),
+      path.join(__dirname, "..", "..", "..", "scripts", "register-typescript-loader.mjs"),
     ).href,
   ]);
   const root = createCanonicalTempDirectory("ttsc-strip-types-");

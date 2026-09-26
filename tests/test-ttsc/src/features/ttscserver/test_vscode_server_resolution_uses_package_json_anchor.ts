@@ -66,7 +66,7 @@ export const test_vscode_server_resolution_uses_package_json_anchor = () => {
     process.execPath,
     [
       "--disable-warning=ExperimentalWarning",
-      "--experimental-transform-types",
+      "--experimental-strip-types",
       "--input-type=module",
       "--eval",
       script,
