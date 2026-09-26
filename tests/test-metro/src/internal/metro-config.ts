@@ -392,8 +392,15 @@ export async function assertWithTtscResolvesUpstreamFromTheProject(): Promise<vo
     );
 
     const explicitRoot = tempProjectRoot();
-    const explicitTarget = writePackage(explicitRoot, "app-upstream", "main.js");
-    withTtsc({ projectRoot: explicitRoot }, { upstreamTransformer: "app-upstream" });
+    const explicitTarget = writePackage(
+      explicitRoot,
+      "app-upstream",
+      "main.js",
+    );
+    withTtsc(
+      { projectRoot: explicitRoot },
+      { upstreamTransformer: "app-upstream" },
+    );
     assert.equal(
       publishedUpstream(ENV_KEY),
       explicitTarget,

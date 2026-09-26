@@ -1,11 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 
-import {
-  assert,
-  fs,
-  path,
-  readProjectConfig,
-} from "../../internal/project";
+import { assert, fs, path, readProjectConfig } from "../../internal/project";
 
 /**
  * Verifies a child tsconfig's `outDir: null` resets an inherited output

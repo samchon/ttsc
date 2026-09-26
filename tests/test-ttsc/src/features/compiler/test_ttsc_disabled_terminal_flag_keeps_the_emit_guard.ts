@@ -38,11 +38,9 @@ export const test_ttsc_disabled_terminal_flag_keeps_the_emit_guard = () => {
     "src/main.ts": `export const value: string = 1;\n`,
   });
 
-  const disabled = spawn(
-    ttscBin,
-    ["--cwd", root, "--showConfig", "false"],
-    { cwd: root },
-  );
+  const disabled = spawn(ttscBin, ["--cwd", root, "--showConfig", "false"], {
+    cwd: root,
+  });
   assert.notEqual(disabled.status, 0, disabled.stdout);
   assert.match(disabled.stdout + disabled.stderr, /TS2322/);
   assert.equal(

@@ -23,9 +23,9 @@ import {
  * during `go build` cannot reach the binary (samchon/ttsc#1527), and a source
  * that changed before its copy publishes nothing.
  *
- * 1. Wrap the fake Go toolchain so a build writes into the binary the text of
- *    the overlay the workspace names, and so it can pause at the key's own
- *    `go mod edit -json` read.
+ * 1. Wrap the fake Go toolchain so a build writes into the binary the text of the
+ *    overlay the workspace names, and so it can pause at the key's own `go mod
+ *    edit -json` read.
  * 2. Pause `go build`, edit the overlay from another process, and resume: the
  *    build compiled the proven copy, so the binary carries the text the key
  *    names.

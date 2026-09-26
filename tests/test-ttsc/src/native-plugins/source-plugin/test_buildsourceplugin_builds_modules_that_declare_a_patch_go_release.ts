@@ -37,7 +37,10 @@ export const test_buildsourceplugin_builds_modules_that_declare_a_patch_go_relea
       path.join(plugin, "cmd", "plugin", "main.go"),
       'package main\n\nimport "example.com/overlay"\n\nfunc main() { println(overlay.Value) }\n',
     );
-    write(path.join(overlay, "go.mod"), "module example.com/overlay\n\ngo 1.26.0\n");
+    write(
+      path.join(overlay, "go.mod"),
+      "module example.com/overlay\n\ngo 1.26.0\n",
+    );
     write(
       path.join(overlay, "overlay.go"),
       'package overlay\n\nconst Value = "patch-release"\n',
@@ -61,7 +64,10 @@ export const test_buildsourceplugin_builds_modules_that_declare_a_patch_go_relea
       "patch-release",
     );
 
-    write(path.join(overlay, "go.mod"), "module example.com/overlay\n\ngo 1.99.0\n");
+    write(
+      path.join(overlay, "go.mod"),
+      "module example.com/overlay\n\ngo 1.99.0\n",
+    );
     assert.throws(
       () => build({ ...process.env, GOTOOLCHAIN: "local" }),
       /go >= 1\.99\.0/,

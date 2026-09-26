@@ -21,9 +21,8 @@ import { EmitOwnershipIndex } from "../../../../../packages/ttsc/lib/compiler/in
  *    `preserve`), write both sources and one output whose map names the
  *    JavaScript source.
  * 2. Ask the index for each source.
- * 3. Assert the JavaScript source owns the output and the TypeScript one does
- *    not, and that with the map removed the TypeScript source wins by
- *    precedence.
+ * 3. Assert the JavaScript source owns the output and the TypeScript one does not,
+ *    and that with the map removed the TypeScript source wins by precedence.
  */
 export const test_emit_ownership_index_refuses_an_uncompiled_sibling_of_another_language =
   () => {
@@ -49,7 +48,10 @@ export const test_emit_ownership_index_refuses_an_uncompiled_sibling_of_another_
         JSON.stringify({
           version: 3,
           sources: [
-            path.relative(emit, path.join(root, javascript)).split(path.sep).join("/"),
+            path
+              .relative(emit, path.join(root, javascript))
+              .split(path.sep)
+              .join("/"),
           ],
           mappings: "",
         }),
@@ -70,7 +72,8 @@ export const test_emit_ownership_index_refuses_an_uncompiled_sibling_of_another_
       );
     }
 
-    for (const [, , output] of pairs) fs.rmSync(path.join(emit, `${output}.map`));
+    for (const [, , output] of pairs)
+      fs.rmSync(path.join(emit, `${output}.map`));
     const unmapped = new EmitOwnershipIndex({ emitDir: emit, rootDir: root });
     for (const [typescript, javascript, output] of pairs) {
       assert.equal(

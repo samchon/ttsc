@@ -98,9 +98,7 @@ export const test_writegowork_quotes_workspace_paths_with_spaces = () => {
   // directory in their original layout (samchon/ttsc#1527), so each path ends
   // with the overlay's own segments, spaces included.
   const useEntry = (suffix: string): RegExpMatchArray | null =>
-    goWork.match(
-      new RegExp(`\\n\\t("?)([^"\\n]*${escape(suffix)})\\1\\n`),
-    );
+    goWork.match(new RegExp(`\\n\\t("?)([^"\\n]*${escape(suffix)})\\1\\n`));
   const spacedUse = useEntry("space dir/ttsc");
   const bareUse = useEntry("nospace/shim");
   const commentPrefixUse = useEntry("comment-prefix/shim");

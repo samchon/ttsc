@@ -165,8 +165,8 @@ async function abandoned(lock: string): Promise<string | undefined> {
  * do, and the moved lock's owner is compared with the one judged abandoned.
  * When another reclaimer's fresh lock was moved instead, it is put back; if a
  * third worker already locked the path, the moved holder has lost its lock,
- * which its own ownership checks then find, so it neither publishes nor
- * removes the lock that replaced it.
+ * which its own ownership checks then find, so it neither publishes nor removes
+ * the lock that replaced it.
  */
 async function reclaim(lock: string, stale: string): Promise<void> {
   const aside = `${lock}.${process.pid}.${crypto.randomUUID()}.retired`;

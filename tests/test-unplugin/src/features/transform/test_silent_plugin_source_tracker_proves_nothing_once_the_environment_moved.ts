@@ -37,7 +37,10 @@ export async function test_silent_plugin_source_tracker_proves_nothing_once_the_
   });
   const source = path.join(root, "plugin");
   const result = { type: "success", typescript: {} };
-  TRANSFORM_RESULT_FILESYSTEM.set(result as never, DEFAULT_FILESYSTEM_OPERATIONS);
+  TRANSFORM_RESULT_FILESYSTEM.set(
+    result as never,
+    DEFAULT_FILESYSTEM_OPERATIONS,
+  );
   const tracker: TtscProjectMutationTracker = {
     changes: new Set(),
     changesOmitted: false,

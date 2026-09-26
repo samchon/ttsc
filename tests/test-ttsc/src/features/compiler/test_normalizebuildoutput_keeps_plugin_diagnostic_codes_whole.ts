@@ -4,9 +4,9 @@ import { assert } from "../../internal/toolchain";
 /**
  * Verifies structured diagnostics keep a plugin-defined code whole.
  *
- * The public diagnostic code is a number for TypeScript's `TSnnnn` and a
- * stable string for a native plugin's own identifier. The line parser consumed
- * an optional run of letters before every code, so `FOO123` became TypeScript's
+ * The public diagnostic code is a number for TypeScript's `TSnnnn` and a stable
+ * string for a native plugin's own identifier. The line parser consumed an
+ * optional run of letters before every code, so `FOO123` became TypeScript's
  * `123`, `MY_RULE` became `Y_RULE`, and a plugin error could be deduplicated
  * against an unrelated TypeScript diagnostic.
  *

@@ -13,8 +13,8 @@ import { assertSharedHostCompatibility } from "./sharedHost/assertSharedHostComp
 import { clearInheritedSemanticConfigPath } from "./sharedHost/clearInheritedSemanticConfigPath";
 import { clearInheritedTsgoArgs } from "./sharedHost/clearInheritedTsgoArgs";
 import { inheritedSidecarEnv } from "./sharedHost/inheritedSidecarEnv";
-import { publishLinkedTransformPlugins } from "./sharedHost/publishLinkedTransformPlugins";
 import { linkedTransformPlugins } from "./sharedHost/linkedTransformPlugins";
+import { publishLinkedTransformPlugins } from "./sharedHost/publishLinkedTransformPlugins";
 import { resolvePluginConfigDir } from "./sharedHost/resolvePluginConfigDir";
 import { selectSharedHostPlugin } from "./sharedHost/selectSharedHostPlugin";
 

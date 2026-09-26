@@ -7,19 +7,19 @@
  * ECMAScript line terminator (`\n`, `\r`, U+2028, U+2029), every character it
  * counts as whitespace (a byte-order mark, a no-break space, the Unicode space
  * separators), trailing commas, hexadecimal, octal, binary, fractional and
- * separated numbers, the full string escape set, and a file holding no value
- * at all, which reads as an empty object. It rejects what its conversion
- * reports: a key or string that is not double-quoted (TS1327), a value that is
- * not a literal (TS1328), a legacy octal number (TS1121), a missing comma, and
- * text after the root value. Layering comment stripping over `JSON.parse` left
- * a narrower grammar that refused CR-only line comments and every form above.
+ * separated numbers, the full string escape set, and a file holding no value at
+ * all, which reads as an empty object. It rejects what its conversion reports:
+ * a key or string that is not double-quoted (TS1327), a value that is not a
+ * literal (TS1328), a legacy octal number (TS1121), a missing comma, and text
+ * after the root value. Layering comment stripping over `JSON.parse` left a
+ * narrower grammar that refused CR-only line comments and every form above.
  *
  * The one reading of that grammar in the workspace. ttsc's own project reader
  * reads every config through it (`readJsoncFile`), and `@ttsc/unplugin` reads
  * the configs it builds its membership policy and alias overlay from through
  * the `ttsc/tsconfig` entry, so the two cannot disagree about what a config
- * says (samchon/ttsc#1489). A failure names the line and column of the
- * original text, counting lines the way the compiler does.
+ * says (samchon/ttsc#1489). A failure names the line and column of the original
+ * text, counting lines the way the compiler does.
  *
  * @param input The file's text as read.
  * @returns The parsed value.

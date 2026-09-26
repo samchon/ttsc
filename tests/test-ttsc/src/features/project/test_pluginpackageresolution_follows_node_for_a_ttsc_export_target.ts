@@ -12,15 +12,15 @@ import { PluginPackageResolution } from "../../../../../packages/ttsc/lib/plugin
  *
  * The plugin resolver reads the `ttsc` condition itself, so a package can point
  * plugin bootstrap at a runtime-free descriptor without redirecting its
- * ordinary imports. It fell back to the runtime entry for an explicitly
- * blocked (`null`) target and for a selected file that is missing, and it
- * accepted a target that climbs out of the package, where Node refuses all
- * three. Node itself, run with `--conditions=ttsc`, is the oracle for every row.
+ * ordinary imports. It fell back to the runtime entry for an explicitly blocked
+ * (`null`) target and for a selected file that is missing, and it accepted a
+ * target that climbs out of the package, where Node refuses all three. Node
+ * itself, run with `--conditions=ttsc`, is the oracle for every row.
  *
- * 1. Install one package per exports shape: a valid descriptor, a blocked
- *    target, a missing target, an escaping target, a blocked target nested in
- *    another condition, an array whose first entry is invalid, and an array of
- *    only blocked entries.
+ * 1. Install one package per exports shape: a valid descriptor, a blocked target,
+ *    a missing target, an escaping target, a blocked target nested in another
+ *    condition, an array whose first entry is invalid, and an array of only
+ *    blocked entries.
  * 2. Resolve each through the plugin resolver and through Node.
  * 3. Assert both select the same file or both refuse with the same code.
  */

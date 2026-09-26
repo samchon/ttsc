@@ -20,8 +20,8 @@ import { publishLinkedTransformPlugins } from "../../../../../packages/ttsc/lib/
  * 1. Put an outer compiler and an invalid linked manifest in `process.env`.
  * 2. Build a check-host env, a transform-host env with no linked plugins, and a
  *    descriptor-evaluation env with an explicit compiler.
- * 3. Assert each carries the resolved compiler and no inherited manifest, while
- *    a caller-named manifest and this invocation's own linked list survive.
+ * 3. Assert each carries the resolved compiler and no inherited manifest, while a
+ *    caller-named manifest and this invocation's own linked list survive.
  */
 export const test_ttsc_sidecar_env_owns_the_compiler_and_linked_plugin_manifest =
   (): void => {
@@ -67,7 +67,11 @@ export const test_ttsc_sidecar_env_owns_the_compiler_and_linked_plugin_manifest 
       );
 
       const named: NodeJS.ProcessEnv = { TTSC_LINKED_PLUGINS_JSON: "[]" };
-      publishLinkedTransformPlugins(named, { TTSC_LINKED_PLUGINS_JSON: "[]" }, []);
+      publishLinkedTransformPlugins(
+        named,
+        { TTSC_LINKED_PLUGINS_JSON: "[]" },
+        [],
+      );
       assert.equal(named.TTSC_LINKED_PLUGINS_JSON, "[]");
 
       const own: NodeJS.ProcessEnv = { TTSC_LINKED_PLUGINS_JSON: "{not json" };

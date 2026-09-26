@@ -15,9 +15,9 @@ import { WatchSession } from "../../internal/watch";
  * A resident check host receives the forwarded tsgo flags through
  * `TTSC_TSGO_ARGS` when it starts. When a request to it fails, the cycle falls
  * back to the one-shot check command, which omitted that payload, so its
- * environment constructor cleared the variable and the recovery cycle checked
- * a different program than the user asked for: `--noImplicitAny` vanished and
- * its diagnostic with it.
+ * environment constructor cleared the variable and the recovery cycle checked a
+ * different program than the user asked for: `--noImplicitAny` vanished and its
+ * diagnostic with it.
  *
  * 1. Start `ttsc --noEmit --watch --noImplicitAny` on a non-strict lint project
  *    whose source has an implicitly typed parameter.
@@ -39,7 +39,10 @@ export const test_plugin_corpus_check_watch_fallback_keeps_forwarded_compiler_fl
       JSON.stringify({ rules: {} }),
     );
     const source = path.join(root, "src", "main.ts");
-    fs.writeFileSync(source, "export function echo(value) {\n  return value;\n}\n");
+    fs.writeFileSync(
+      source,
+      "export function echo(value) {\n  return value;\n}\n",
+    );
 
     const session = new WatchSession(root, {
       args: ["--noEmit", "--diagnostics", "--noImplicitAny"],

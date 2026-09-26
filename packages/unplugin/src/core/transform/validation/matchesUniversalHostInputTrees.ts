@@ -16,12 +16,13 @@ import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
  * process's reading (`processPluginBuildEnvironment`), which holds only while
  * the Go tool, its environment file, and the C toolchain it names hold: the
  * tracker watches the sources, not the toolchain outside them
- * (samchon/ttsc#1516). Any other is proven by ttsc's rule (`pluginSourceHolds`),
- * since no one path's metadata stands for the files below it. The proof lists
- * the directory as the plugin build lists it, which a delivery pays only after
- * an event below the directory, a changed environment, or where no tracker
- * watches it or its watch cannot vouch for it, and reads the files' bytes again
- * only when their metadata moved (`pluginSourceFilesDigest`).
+ * (samchon/ttsc#1516). Any other is proven by ttsc's rule
+ * (`pluginSourceHolds`), since no one path's metadata stands for the files
+ * below it. The proof lists the directory as the plugin build lists it, which a
+ * delivery pays only after an event below the directory, a changed environment,
+ * or where no tracker watches it or its watch cannot vouch for it, and reads
+ * the files' bytes again only when their metadata moved
+ * (`pluginSourceFilesDigest`).
  *
  * @param cached The generation being validated.
  * @param validation Its universal-input manifest.

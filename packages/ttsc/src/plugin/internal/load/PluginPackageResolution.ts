@@ -225,8 +225,8 @@ export namespace PluginPackageResolution {
    *
    * Returns `null` to fall back to the normal `require.resolve` when the
    * package does not opt in — no `exports`, or no `ttsc` branch for the
-   * requested subpath — so such a package resolves exactly as it did before.
-   * A package that opts in gets Node's answer for its target: the file it
+   * requested subpath — so such a package resolves exactly as it did before. A
+   * package that opts in gets Node's answer for its target: the file it
    * selects, or the rejection Node would report for it.
    */
   function resolvePluginExportCondition(
@@ -498,7 +498,8 @@ export namespace PluginPackageResolution {
 
   /**
    * A path segment an `exports` target may not name: `.`, `..`, or
-   * `node_modules`, each also percent-encoded, as Node's resolver rejects them.
+   * `node_modules`, each also percent-encoded, as Node's resolver rejects
+   * them.
    */
   const INVALID_TARGET_SEGMENT =
     /(^|\\|\/)((\.|%2e)(\.|%2e)?|(n|%6e|%4e)(o|%6f|%4f)(d|%64|%44)(e|%65|%45)(_|%5f)(m|%6d|%4d)(o|%6f|%4f)(d|%64|%44)(u|%75|%55)(l|%6c|%4c)(e|%65|%45)(s|%73|%53))(\\|\/|$)/i;

@@ -266,7 +266,9 @@ function compileSourcePlugin(opts: {
     }
     writeGoWork(
       scratchDir,
-      opts.overlayDirs.map((directory) => external.get(path.resolve(directory))!),
+      opts.overlayDirs.map(
+        (directory) => external.get(path.resolve(directory))!,
+      ),
       opts.goBinary,
       opts.pluginName,
       opts.env,
@@ -644,8 +646,8 @@ const EXTERNAL_SOURCES_DIRECTORY = path.join(".ttsc", "external");
 
 /**
  * Copy each source directory outside the module into the scratch directory and
- * prove the copy against the key's digest, returning each copy by the
- * directory it was taken from.
+ * prove the copy against the key's digest, returning each copy by the directory
+ * it was taken from.
  *
  * The copies keep their absolute layout below one root, so a relative path
  * between two of them, such as a driver's `replace` of the shims beside it,
@@ -660,7 +662,9 @@ function snapshotExternalSources(
 ): Map<string, string> {
   const root = path.join(scratchDir, EXTERNAL_SOURCES_DIRECTORY);
   const copies = new Map<string, string>();
-  for (const directory of new Set(directories.map((dir) => path.resolve(dir)))) {
+  for (const directory of new Set(
+    directories.map((dir) => path.resolve(dir)),
+  )) {
     const parsed = path.parse(directory);
     const copy = path.join(
       root,

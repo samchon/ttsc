@@ -11,13 +11,13 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  * Verifies a generation captured with native watchers stops trusting their
  * silence once polling is declared for its cache.
  *
- * A polling declaration only kept watchers off generations captured after it.
- * A Vite plugin instance reused across servers, or a build-scoped cache kept
- * into the next session, carried a generation captured while notifications
- * were trusted; after the host declared polling, its accepted but silent
- * watchers still proved a newly added source absent, and the old transform was
- * served (samchon/ttsc#1542). The environment's `CHOKIDAR_USEPOLLING` is the
- * same transition.
+ * A polling declaration only kept watchers off generations captured after it. A
+ * Vite plugin instance reused across servers, or a build-scoped cache kept into
+ * the next session, carried a generation captured while notifications were
+ * trusted; after the host declared polling, its accepted but silent watchers
+ * still proved a newly added source absent, and the old transform was served
+ * (samchon/ttsc#1542). The environment's `CHOKIDAR_USEPOLLING` is the same
+ * transition.
  *
  * 1. Compile through a cache whose watches are accepted and stay silent, with no
  *    polling declared, and assert the generation keeps its watchers.
@@ -75,7 +75,11 @@ export async function test_transformttsc_polling_declared_later_withdraws_watche
       const recompiled = await [...cache.values()][0]!;
       assert.equal(recompiled.projectMutationTracker, undefined);
       assert.ok(await deliver(modules[0]!));
-      assert.equal(pluginRuns(), 2, `${declare}: an unchanged project is reused`);
+      assert.equal(
+        pluginRuns(),
+        2,
+        `${declare}: an unchanged project is reused`,
+      );
       delete process.env.CHOKIDAR_USEPOLLING;
     }
   } finally {

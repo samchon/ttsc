@@ -2,8 +2,8 @@ import type { ITtscLoadedNativePlugin } from "../../../structures/internal/ITtsc
 import { NativePluginArguments } from "../build/NativePluginArguments";
 
 /**
- * Publish this invocation's linked transform plugins to a sidecar
- * environment, or drop a manifest inherited from an outer ttsc run.
+ * Publish this invocation's linked transform plugins to a sidecar environment,
+ * or drop a manifest inherited from an outer ttsc run.
  *
  * `TTSC_LINKED_PLUGINS_JSON` names the plugins linked into the host binary this
  * invocation selected. Every sidecar env starts from `process.env`, so a ttsc
@@ -20,7 +20,8 @@ export function publishLinkedTransformPlugins(
   linked: readonly ITtscLoadedNativePlugin[],
 ): void {
   if (linked.length !== 0) {
-    env[LINKED_PLUGINS_ENV] = NativePluginArguments.serializeNativePlugins(linked);
+    env[LINKED_PLUGINS_ENV] =
+      NativePluginArguments.serializeNativePlugins(linked);
   } else if (callerEnv?.[LINKED_PLUGINS_ENV] === undefined) {
     delete env[LINKED_PLUGINS_ENV];
   }

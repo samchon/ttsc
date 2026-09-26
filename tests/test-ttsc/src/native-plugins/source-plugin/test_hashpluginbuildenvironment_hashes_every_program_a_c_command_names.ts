@@ -12,13 +12,12 @@ import { hashPluginBuildEnvironment } from "../../../../../packages/ttsc/lib/plu
  *
  * Go runs `CC` and its siblings as a command and arguments split by its own
  * quoting rule, so `wrapper compiler` runs a launcher that delegates to a
- * compiler named later. The key hashed only the first program, so replacing
- * the delegated compiler kept serving a binary built by the old one
+ * compiler named later. The key hashed only the first program, so replacing the
+ * delegated compiler kept serving a binary built by the old one
  * (samchon/ttsc#1555). A flag, which names no file, stays part of the command's
  * text.
  *
- * 1. Hash an environment whose `CC` is a quoted launcher, a flag, and a
- *    compiler.
+ * 1. Hash an environment whose `CC` is a quoted launcher, a flag, and a compiler.
  * 2. Change only the compiler's bytes, then only the flag.
  * 3. Assert each change moves the digest, and an unchanged environment keeps it.
  */

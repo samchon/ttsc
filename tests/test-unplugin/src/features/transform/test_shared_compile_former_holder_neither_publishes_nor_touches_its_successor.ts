@@ -17,12 +17,12 @@ import { claimSharedCompile } from "../../../../../packages/unplugin/lib/core/tr
  * heartbeat kept touching the successor's lock. Two reclaimers removed the lock
  * by path, so the second removed the first's fresh lock (samchon/ttsc#1515).
  *
- * 1. Claim A, age its lock past the takeover bound, and claim B, which takes
- *    it over.
+ * 1. Claim A, age its lock past the takeover bound, and claim B, which takes it
+ *    over.
  * 2. Publish B, then A, and release A.
  * 3. Assert B's publication and B's lock remain.
- * 4. Age a lock again and let two claims race to reclaim it: one holds the
- *    lock, the other waits for it, and takes it only once it is released.
+ * 4. Age a lock again and let two claims race to reclaim it: one holds the lock,
+ *    the other waits for it, and takes it only once it is released.
  */
 export async function test_shared_compile_former_holder_neither_publishes_nor_touches_its_successor(): Promise<void> {
   const store = TestProject.tmpdir("ttsc-unplugin-shared-fence-");

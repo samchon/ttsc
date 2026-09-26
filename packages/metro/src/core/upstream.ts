@@ -41,14 +41,13 @@ export const UPSTREAM_CANDIDATES = [
  * 2. Each of {@link UPSTREAM_CANDIDATES} in turn.
  *
  * `withTtsc` resolves an explicit specifier and the automatic candidates from
- * the consuming project in the Metro config process, and publishes the
- * absolute path it found (see {@link locateProjectUpstreamTransformer}). This
- * worker-side lookup, rooted in the adapter's own location, is what remains for
- * a specifier the project could not resolve, so the adapter carries no
- * Metro/Expo dependency itself. Resolution is not memoised: Node's own module
- * cache already makes the
- * repeated `require` a cheap lookup, and keeping no module-level state lets a
- * changed `upstreamTransformer` always take effect.
+ * the consuming project in the Metro config process, and publishes the absolute
+ * path it found (see {@link locateProjectUpstreamTransformer}). This worker-side
+ * lookup, rooted in the adapter's own location, is what remains for a specifier
+ * the project could not resolve, so the adapter carries no Metro/Expo
+ * dependency itself. Resolution is not memoised: Node's own module cache
+ * already makes the repeated `require` a cheap lookup, and keeping no
+ * module-level state lets a changed `upstreamTransformer` always take effect.
  *
  * `load` is injectable purely so the resolution order and the not-found path
  * can be tested deterministically; production always uses the real `require`.

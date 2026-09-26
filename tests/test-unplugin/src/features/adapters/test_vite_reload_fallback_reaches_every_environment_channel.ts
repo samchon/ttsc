@@ -10,9 +10,9 @@ import { reloadImporters } from "../../../../../packages/unplugin/lib/core/vite/
  * importers and sends a full reload. It sent through the first of `ws`, `hot`,
  * and the client environment's `hot` that accepted the payload, so a custom
  * environment with its own transport never heard it and kept running stale
- * modules. Vite sends a full reload to each environment; the server-level
- * `ws` and `hot` are aliases of the client environment's channel there, while a
- * Vite 5 server has one mixed graph and one channel.
+ * modules. Vite sends a full reload to each environment; the server-level `ws`
+ * and `hot` are aliases of the client environment's channel there, while a Vite
+ * 5 server has one mixed graph and one channel.
  *
  * 1. Attach a Vite 6-shaped server whose client channel is also `ws` and `hot`,
  *    and whose `edge` environment has its own channel and a failing reload.
@@ -35,7 +35,11 @@ export async function test_vite_reload_fallback_reaches_every_environment_channe
   reloadImporters(
     {
       environments: {
-        client: { hot: client, moduleGraph: graph, reloadModule: async () => {} },
+        client: {
+          hot: client,
+          moduleGraph: graph,
+          reloadModule: async () => {},
+        },
         edge: {
           hot: channel("edge"),
           moduleGraph: graph,

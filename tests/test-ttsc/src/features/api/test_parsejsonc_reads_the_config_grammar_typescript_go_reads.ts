@@ -29,10 +29,16 @@ export const test_parsejsonc_reads_the_config_grammar_typescript_go_reads =
       ['{ "a":　 1}', { a: 1 }],
       [' ﻿{"a": 1}', { a: 1 }],
       ['{"a": 0x1F, "b": 0o7, "c": 0B11}', { a: 31, b: 7, c: 3 }],
-      ['{"a": .5, "b": 5., "c": 1e2, "d": 1_000, "e": 0x1_0}', { a: 0.5, b: 5, c: 100, d: 1000, e: 16 }],
+      [
+        '{"a": .5, "b": 5., "c": 1e2, "d": 1_000, "e": 0x1_0}',
+        { a: 0.5, b: 5, c: 100, d: 1000, e: 16 },
+      ],
       ['{"a": - 1, "b": -0x2}', { a: -1, b: -2 }],
       [`{"a": "${B}x61${B}u0062${B}u{63}${B}0"}`, { a: "abc\0" }],
-      [`{"a": "x${B}\ny", "b": "${B}q", "c": "${B}101"}`, { a: "xy", b: "q", c: "A" }],
+      [
+        `{"a": "x${B}\ny", "b": "${B}q", "c": "${B}101"}`,
+        { a: "xy", b: "q", c: "A" },
+      ],
       [`{"a": "${B}xZ1"}`, { a: `${B}xZ1` }],
       ['{"a": [1, 2,], "b": {"c": null,},}', { a: [1, 2], b: { c: null } }],
       ['{"a": 1, "a": 2}', { a: 2 }],
@@ -50,7 +56,7 @@ export const test_parsejsonc_reads_the_config_grammar_typescript_go_reads =
     const rejected: [string, string][] = [
       ["{'a': 1}", "TS1327"],
       ["{a: 1}", "TS1327"],
-      ['{"a": \'x\'}', "TS1327"],
+      ["{\"a\": 'x'}", "TS1327"],
       ['{"a": +1}', "TS1328"],
       ['{"a": Infinity}', "TS1328"],
       ['{"a": [1,,]}', "TS1328"],
@@ -62,7 +68,7 @@ export const test_parsejsonc_reads_the_config_grammar_typescript_go_reads =
       ['{"a": 1 "b": 2}', "TS1005"],
       ['{,"a": 1}', "TS1136"],
       ['{"a": 1} x', "TS1012"],
-      ['{/* open', "TS1010"],
+      ["{/* open", "TS1010"],
       ['{"a": "x\ny"}', "unterminated string"],
     ];
     for (const [text, diagnostic] of rejected)

@@ -153,7 +153,9 @@ function listTargets() {
   const publishable = listPublishablePackages(root);
   for (const { entry, error } of publishable) {
     if (error !== undefined) {
-      throw new Error(`packages/${entry}/package.json is not valid JSON: ${error.message}`);
+      throw new Error(
+        `packages/${entry}/package.json is not valid JSON: ${error.message}`,
+      );
     }
   }
   const targets = publishable.map(({ directory, entry, manifest }) => ({

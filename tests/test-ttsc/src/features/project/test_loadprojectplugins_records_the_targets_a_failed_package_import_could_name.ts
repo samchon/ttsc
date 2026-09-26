@@ -4,8 +4,8 @@ import { assert, fs, loadProjectPlugins, path } from "../../internal/project";
 import { createFakeGoBinary } from "../../internal/source-build";
 
 /**
- * Verifies a descriptor's failed `#` import records every target it could
- * have resolved to, so the target appearing later invalidates the descriptor.
+ * Verifies a descriptor's failed `#` import records every target it could have
+ * resolved to, so the target appearing later invalidates the descriptor.
  *
  * A descriptor may catch a failed `#` import and fall back to another value.
  * The failed resolution names no module, and the recorder committed nothing for
@@ -94,7 +94,12 @@ export const test_loadprojectplugins_records_the_targets_a_failed_package_import
       );
       assert.ok(
         provenAbsent(
-          path.join(project, "node_modules", "optional-package", "package.json"),
+          path.join(
+            project,
+            "node_modules",
+            "optional-package",
+            "package.json",
+          ),
         ),
         `${format}: the missing package target is a proven absent input`,
       );

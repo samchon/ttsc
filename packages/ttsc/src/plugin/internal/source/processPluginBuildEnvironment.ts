@@ -52,7 +52,9 @@ export function processPluginBuildEnvironment(
     const known = read.get(key);
     if (
       known !== undefined &&
-      [...known.witness].every(([file, signature]) => metadata(file) === signature)
+      [...known.witness].every(
+        ([file, signature]) => metadata(file) === signature,
+      )
     ) {
       return known.environment;
     }
@@ -66,13 +68,15 @@ export function processPluginBuildEnvironment(
 }
 
 /**
- * The metadata a replacement moves: identity, size, and modification and
- * change times, following links; `missing` for a path that is not there.
+ * The metadata a replacement moves: identity, size, and modification and change
+ * times, following links; `missing` for a path that is not there.
  */
 function metadata(file: string): string {
   try {
     const stat = fs.statSync(file, { bigint: true });
-    return [stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join(":");
+    return [stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join(
+      ":",
+    );
   } catch {
     return "missing";
   }

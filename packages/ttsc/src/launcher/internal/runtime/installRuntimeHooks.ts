@@ -1408,8 +1408,8 @@ function orphanCacheRoot(): string {
  *
  * Read afresh at every use, never remembered by path: a long-lived process can
  * lower orphans before and after the compiler at that path is replaced, and an
- * entry lowered by the new one must not be recorded under the old one's key
- * for a later process to adopt (samchon/ttsc#1521).
+ * entry lowered by the new one must not be recorded under the old one's key for
+ * a later process to adopt (samchon/ttsc#1521).
  */
 function compilerIdentity(binary: string): string {
   try {
@@ -1470,7 +1470,12 @@ function orphanCacheFile(
   filename: string,
   tsgo: string,
   format: "commonjs" | "module",
-): { compiler: string; file: string; signature: string; source: Buffer } | null {
+): {
+  compiler: string;
+  file: string;
+  signature: string;
+  source: Buffer;
+} | null {
   const signature = orphanSourceSignature(filename);
   if (signature === undefined) return null;
   let source: Buffer;

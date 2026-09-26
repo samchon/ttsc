@@ -51,7 +51,9 @@ export async function test_watch_broker_drain_speaks_only_for_the_registrations_
         gap: () => undefined,
         unattributed: () => undefined,
         unproven: (directories) =>
-          verdicts.push(`${id}:${directories === undefined ? "proven" : "unproven"}`),
+          verdicts.push(
+            `${id}:${directories === undefined ? "proven" : "unproven"}`,
+          ),
       },
       spellings: new Map(),
     });

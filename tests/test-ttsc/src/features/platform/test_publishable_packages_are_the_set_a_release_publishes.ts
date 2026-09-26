@@ -24,9 +24,9 @@ const { isPlatformPackage, listPublishablePackages } = createRequire(
  * platform package for a new platform, could be published without ever being
  * packed by the rehearsal (samchon/ttsc#1518). Both now read one rule.
  *
- * 1. Lay out a workspace with a public package, a private one, a platform
- *    package for a platform no earlier pattern named, a directory without a
- *    manifest, and a malformed manifest.
+ * 1. Lay out a workspace with a public package, a private one, a platform package
+ *    for a platform no earlier pattern named, a directory without a manifest,
+ *    and a malformed manifest.
  * 2. List the publishable packages.
  * 3. Assert the public and platform packages are listed, the private one and the
  *    manifest-less directory are not, and the malformed one is reported.
