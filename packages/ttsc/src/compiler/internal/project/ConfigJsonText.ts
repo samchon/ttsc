@@ -1,10 +1,11 @@
 /**
  * Text handling shared by the strict JSON and the JSONC config readers.
  *
- * Both readers must report a failure the same way and must treat a leading
- * byte-order mark the same way, or a `package.json` and a `tsconfig.json` saved
- * by the same editor would be accepted by one reader and rejected by the
- * other.
+ * Both readers must report a failure the same way, and both accept a leading
+ * byte-order mark, or a `package.json` and a `tsconfig.json` saved by the same
+ * editor would be accepted by one reader and rejected by the other. The JSONC
+ * reader counts a byte-order mark as whitespace anywhere, as the compiler
+ * does, so only the strict JSON reader needs {@link stripLeadingBom}.
  */
 export namespace ConfigJsonText {
   /** Render a parse failure's message without the `Error:` noise around it. */
