@@ -376,9 +376,18 @@ function expect(condition, message) {
   }
 }
 
+// A failed expectation throws, so the `finally` in `main` still removes the
+// work directory and the fake HOME; `process.exit` here would skip it.
+class ExpectationFailure extends Error {}
+
 function fail(message) {
-  console.error(`FAIL: ${message}`);
-  process.exit(1);
+  throw new ExpectationFailure(message);
 }
 
-process.exit(main());
+try {
+  process.exitCode = main();
+} catch (error) {
+  if (!(error instanceof ExpectationFailure)) throw error;
+  console.error(`FAIL: ${error.message}`);
+  process.exitCode = 1;
+}

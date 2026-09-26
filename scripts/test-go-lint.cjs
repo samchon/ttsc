@@ -26,6 +26,7 @@ const os = require("node:os");
 const path = require("node:path");
 
 const { copyGoTestsFlat } = require("./ci/go-test-overlay.cjs");
+const { writeGoWork } = require("./go-work.cjs");
 
 const root = path.resolve(__dirname, "..");
 const lintPkgDir = path.join(root, "packages", "lint");
@@ -74,31 +75,33 @@ try {
   }
   walkForGoMod(path.join(ttscDir, "shim"), useDirs);
 
-  fs.writeFileSync(
+  const env = {
+    ...process.env,
+    PATH: fs.existsSync(goRoot)
+      ? `${goRoot}${path.delimiter}${process.env.PATH ?? ""}`
+      : process.env.PATH,
+    TTSC_TSGO_BINARY: process.env.TTSC_TSGO_BINARY ?? tsgoBinary,
+    TTSC_TTSX_BINARY: ttsxBinary,
+    TTSC_PRETTIER_MODULE: process.env.TTSC_PRETTIER_MODULE ?? prettierModule,
+  };
+  writeGoWork(
     path.join(scratch, "go.work"),
-    `go 1.26\n\nuse (\n${useDirs.map((d) => `\t${d.replace(/\\/g, "/")}`).join("\n")}\n)\n`,
-    "utf8",
+    `use (\n${useDirs.map((d) => `\t${d.replace(/\\/g, "/")}`).join("\n")}\n)\n`,
+    env,
   );
 
   const result = cp.spawnSync("go", ["test", "-count=1", "./linthost"], {
     cwd: scratch,
-    env: {
-      ...process.env,
-      PATH: fs.existsSync(goRoot)
-        ? `${goRoot}${path.delimiter}${process.env.PATH ?? ""}`
-        : process.env.PATH,
-      TTSC_TSGO_BINARY: process.env.TTSC_TSGO_BINARY ?? tsgoBinary,
-      TTSC_TTSX_BINARY: ttsxBinary,
-      TTSC_PRETTIER_MODULE:
-        process.env.TTSC_PRETTIER_MODULE ?? prettierModule,
-    },
+    env,
     stdio: "inherit",
     windowsHide: true,
   });
   if (result.error) {
     throw result.error;
   }
-  process.exit(result.status ?? 1);
+  // An exit code, not `process.exit`: exiting here would skip the `finally`
+  // that removes the scratch module.
+  process.exitCode = result.status ?? 1;
 } finally {
   fs.rmSync(scratch, { recursive: true, force: true });
 }

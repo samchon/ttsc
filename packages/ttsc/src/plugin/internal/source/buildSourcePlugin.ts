@@ -755,8 +755,31 @@ function writeGoWork(
   );
   const replaceBlock =
     replaceLines.length === 0 ? "" : `\n\n${replaceLines.join("\n")}\n`;
-  const goWork = `go 1.26\n\nuse (\n${useLines.join("\n")}\n)${replaceBlock}`;
+  const goWork = `use (\n${useLines.join("\n")}\n)${replaceBlock}`;
   fs.writeFileSync(path.join(scratchDir, "go.work"), goWork, "utf8");
+  // The Go tool sets the workspace's `go` directive: `go work use` raises it to
+  // what every listed module declares. A fixed directive rejects a module that
+  // declares a patch release (`go 1.26.0` against `go 1.26`), and a module the
+  // selected toolchain is too old for fails here with Go's own error.
+  const settled = spawnGoTool(goBinary, ["work", "use"], {
+    cwd: scratchDir,
+    encoding: "utf8",
+    env: GoSourceInputs.goBuildEnv(goBinary, undefined, env),
+    windowsHide: true,
+  });
+  if (settled.error) {
+    if ((settled.error as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new Error(goToolchainNotFoundMessage(pluginName));
+    }
+    throw new Error(
+      `ttsc: setting the Go workspace version for plugin "${pluginName}" failed to spawn ${goBinary}: ${settled.error.message}`,
+    );
+  }
+  if (settled.status !== 0) {
+    throw new Error(
+      `ttsc: setting the Go workspace version for plugin "${pluginName}" failed:\n${settled.stderr || settled.stdout}`,
+    );
+  }
 }
 
 function validateSourceReplacements(

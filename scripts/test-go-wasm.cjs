@@ -5,6 +5,8 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
+const { writeGoWork } = require("./go-work.cjs");
+
 const root = path.resolve(__dirname, "..");
 const goRoot = path.join(os.homedir(), "go-sdk", "go", "bin");
 const ttscDir = path.join(root, "packages", "ttsc");
@@ -18,7 +20,7 @@ try {
   fs.mkdirSync(fixtureParent, { recursive: true });
   fixtureRoot = fs.mkdtempSync(path.join(fixtureParent, "ttsc-wasm-fixture-"));
   const goWork = path.join(workdir, "go.work");
-  writeGoWork(goWork);
+  writeWasmGoWork(goWork);
   const goroot = cp
     .execFileSync("go", ["env", "GOROOT"], {
       encoding: "utf8",
@@ -68,14 +70,12 @@ function toWasmAbsolutePath(location) {
   return normalized.slice(2);
 }
 
-function writeGoWork(location) {
+function writeWasmGoWork(location) {
   const useDirs = [wasmDir, ttscDir];
   walkForGoMod(path.join(ttscDir, "shim"), useDirs);
-  fs.writeFileSync(
+  writeGoWork(
     location,
     [
-      "go 1.26",
-      "",
       "use (",
       useDirs.map((dir) => `\t${dir}`).join("\n"),
       ")",
@@ -83,7 +83,12 @@ function writeGoWork(location) {
       `replace github.com/samchon/ttsc/packages/ttsc v0.0.0 => ${ttscDir}`,
       "",
     ].join("\n"),
-    "utf8",
+    {
+      ...process.env,
+      PATH: fs.existsSync(goRoot)
+        ? `${goRoot}${path.delimiter}${process.env.PATH ?? ""}`
+        : process.env.PATH,
+    },
   );
 }
 

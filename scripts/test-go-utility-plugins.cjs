@@ -5,6 +5,8 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
+const { writeGoWork } = require("./go-work.cjs");
+
 const root = path.resolve(__dirname, "..");
 const goRoot = path.join(os.homedir(), "go-sdk", "go", "bin");
 const ttscDir = path.join(root, "packages", "ttsc");
@@ -15,9 +17,11 @@ for (const name of packageNames) {
   const workdir = fs.mkdtempSync(
     path.join(os.tmpdir(), `ttsc-${name}-go-work-`),
   );
+  // A failure ends the run with an exit code and a `break`, never
+  // `process.exit`, which would skip the `finally` that removes the workdir.
   try {
     const goWork = path.join(workdir, "go.work");
-    writeGoWork(goWork, packageDir);
+    writeUtilityGoWork(goWork, packageDir);
     // Prewarm the plugin/driver build outside `go test`: the command tests
     // `go run ./plugin` DURING test execution, so on a cold cache (fresh CI
     // runner) the full typescript-go compile counts against the 10-minute
@@ -38,7 +42,8 @@ for (const name of packageNames) {
       throw warm.error;
     }
     if (warm.status !== 0) {
-      process.exit(warm.status ?? 1);
+      process.exitCode = warm.status ?? 1;
+      break;
     }
     const result = cp.spawnSync("go", ["test", "-count=1", "./test"], {
       cwd: packageDir,
@@ -56,14 +61,15 @@ for (const name of packageNames) {
       throw result.error;
     }
     if (result.status !== 0) {
-      process.exit(result.status ?? 1);
+      process.exitCode = result.status ?? 1;
+      break;
     }
   } finally {
     fs.rmSync(workdir, { recursive: true, force: true });
   }
 }
 
-function writeGoWork(location, packageDir) {
+function writeUtilityGoWork(location, packageDir) {
   const useDirs = [packageDir];
   if (fs.existsSync(path.join(ttscDir, "go.mod"))) {
     useDirs.push(ttscDir);
@@ -73,11 +79,9 @@ function writeGoWork(location, packageDir) {
   // rejects forward-slash `use` paths ("directory ... is not one of the
   // workspace modules"), so a slash-normalized go.work breaks every relative
   // package pattern there. POSIX paths are already native.
-  fs.writeFileSync(
+  writeGoWork(
     location,
     [
-      "go 1.26",
-      "",
       "use (",
       useDirs.map((dir) => `\t${dir}`).join("\n"),
       ")",
@@ -85,7 +89,12 @@ function writeGoWork(location, packageDir) {
       `replace github.com/samchon/ttsc/packages/ttsc v0.0.0 => ${ttscDir}`,
       "",
     ].join("\n"),
-    "utf8",
+    {
+      ...process.env,
+      PATH: fs.existsSync(goRoot)
+        ? `${goRoot}${path.delimiter}${process.env.PATH ?? ""}`
+        : process.env.PATH,
+    },
   );
 }
 

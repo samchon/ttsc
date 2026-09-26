@@ -6,6 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 
 const { copyGoTestsFlat } = require("./ci/go-test-overlay.cjs");
+const { writeGoWork } = require("./go-work.cjs");
 
 const root = path.resolve(__dirname, "..");
 const goRoot = path.join(os.homedir(), "go-sdk", "go", "bin");
@@ -129,7 +130,7 @@ function runUtilityPluginCoverage(name) {
   const coverprofile = path.join(coverageRoot, `${name}.out`);
   try {
     const goWork = path.join(workdir, "go.work");
-    writeGoWork(goWork, packageDir);
+    writeUtilityGoWork(goWork, packageDir);
     fs.mkdirSync(commandCoverDir, { recursive: true });
     run(
       "go",
@@ -185,10 +186,10 @@ function runLintCoverage() {
       useDirs.push(ttscDir);
     }
     walkForGoMod(path.join(ttscDir, "shim"), useDirs);
-    fs.writeFileSync(
+    writeGoWork(
       path.join(scratch, "go.work"),
-      `go 1.26\n\nuse (\n${useDirs.map((dir) => `\t${slash(dir)}`).join("\n")}\n)\n`,
-      "utf8",
+      `use (\n${useDirs.map((dir) => `\t${slash(dir)}`).join("\n")}\n)\n`,
+      goEnv(),
     );
     run(
       "go",
@@ -367,17 +368,15 @@ function goEnv() {
   };
 }
 
-function writeGoWork(location, packageDir) {
+function writeUtilityGoWork(location, packageDir) {
   const useDirs = [packageDir];
   if (fs.existsSync(path.join(ttscDir, "go.mod"))) {
     useDirs.push(ttscDir);
   }
   walkForGoMod(path.join(ttscDir, "shim"), useDirs);
-  fs.writeFileSync(
+  writeGoWork(
     location,
     [
-      "go 1.26",
-      "",
       "use (",
       useDirs.map((dir) => `\t${slash(dir)}`).join("\n"),
       ")",
@@ -385,7 +384,7 @@ function writeGoWork(location, packageDir) {
       `replace github.com/samchon/ttsc/packages/ttsc v0.0.0 => ${slash(ttscDir)}`,
       "",
     ].join("\n"),
-    "utf8",
+    goEnv(),
   );
 }
 
