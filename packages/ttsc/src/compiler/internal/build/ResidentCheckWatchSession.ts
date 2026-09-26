@@ -239,7 +239,9 @@ export class ResidentCheckWatchSession {
           // and a later sidecar starts cold, so neither needs old deltas.
           // A capability-aware host may still disappear or violate framing.
           // Preserve correctness by running the established one-shot command
-          // for this cycle; the next cycle gets one clean respawn attempt.
+          // for this cycle; the next cycle gets one clean respawn attempt. It
+          // carries the same forwarded compiler flags the resident host was
+          // started with: a failed transport is not a request to drop them.
           result = BuildExecution.runNativePluginCommand(
             plugin,
             args,
@@ -248,6 +250,7 @@ export class ResidentCheckWatchSession {
             "ttsc.check",
             { ...timing, enabled: false },
             "",
+            tsgoArgs,
           );
         }
         BuildTiming.recordTiming(
