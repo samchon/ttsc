@@ -192,6 +192,10 @@ export function captureUniversalHostInputValidation(
   // was built here or adopted from another worker, is output for a state
   // already gone (samchon/ttsc#1487).
   for (const [directory, digest] of selectPluginSourceInputs(cached.result)) {
+    // The environment is recorded as read before the proof, so it is never a
+    // reading the proof did not see; one that moved meanwhile only makes the
+    // next delivery prove the tree again.
+    const environment = processPluginBuildEnvironment(directory);
     if (!pluginSourceHolds(directory, digest, filesystem)) {
       recordGenerationProofFailure(failures, {
         domain: "host",
@@ -202,10 +206,7 @@ export function captureUniversalHostInputValidation(
     }
     validation.covered.add(directory);
     validation.trees.set(directory, digest);
-    (validation.treeEnvironments ??= new Map()).set(
-      directory,
-      processPluginBuildEnvironment(directory),
-    );
+    (validation.treeEnvironments ??= new Map()).set(directory, environment);
   }
   cached.hostInputValidation = validation;
   return { failures, validation };

@@ -32,18 +32,17 @@ export function matchesUniversalHostInputTrees(
   validation: TtscHostInputValidation,
 ): boolean {
   for (const [directory, digest] of validation.trees) {
+    // Read before any proof, so the environment recorded below is one the
+    // proof saw or older, never a newer one it did not prove.
+    const environment = processPluginBuildEnvironment(directory);
     if (
       trackerProvesInputUnchanged(cached.hostInputMutationTracker, directory) &&
-      validation.treeEnvironments?.get(directory) ===
-        processPluginBuildEnvironment(directory)
+      validation.treeEnvironments?.get(directory) === environment
     )
       continue;
     if (!pluginSourceHolds(directory, digest, resultFilesystem(cached.result)))
       return false;
-    (validation.treeEnvironments ??= new Map()).set(
-      directory,
-      processPluginBuildEnvironment(directory),
-    );
+    (validation.treeEnvironments ??= new Map()).set(directory, environment);
   }
   return true;
 }
