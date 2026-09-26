@@ -10,7 +10,7 @@ It builds local `.tgz` packages, installs them plus `typia` into a temporary npm
 - the `.js.map` lists the original `main.ts` as a source;
 - the `.js.map` has a non-empty `mappings` string and a `file` pointing at the emitted JavaScript.
 
-The `typia` version is pinned to match `website/package.json`.
+The `typia` version is read from `website/compiler-dependencies/package.json`, the manifest of the in-browser playground compiler, so the check follows that compiler's `typia` when it changes.
 
 Run:
 

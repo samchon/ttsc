@@ -20,8 +20,9 @@ import path from "node:path";
 //   We rely on that auto-discovery only; an explicit `typia/lib/transform`
 //   entry is the ts-patch convention and is not how ttsc resolves the transform.
 //
-// typia version: pinned to match website/package.json so this exercises the
-// same dev build the playground and docs use.
+// typia version: read from website/compiler-dependencies/package.json, the
+// manifest of the in-browser playground compiler, so this exercises the same
+// typia build the playground compiles with and follows it when it changes.
 
 const experimentRoot = path.resolve(import.meta.dirname, "..");
 const root = path.resolve(experimentRoot, "../..");
@@ -32,8 +33,7 @@ const packCurrent = process.argv.includes("--pack-current");
 const platformKey = `${process.platform}-${process.arch}`;
 const platformPackage = `@ttsc/${platformKey}`;
 const platformTarball = `ttsc-${platformKey}`;
-// Keep this aligned with website/package.json's `typia` dependency.
-const TYPIA_VERSION = "13.0.0-dev.20260605.1";
+const TYPIA_VERSION = readPlaygroundTypiaVersion();
 const registryDependencies = ["typescript@^7.0.2", `typia@${TYPIA_VERSION}`];
 
 main();
@@ -75,7 +75,7 @@ function packPackage(packageDirName, tarballName) {
   // Straight into the tarball directory, as `pnpm package:tgz` packs: a
   // tarball packed into the package directory outlives the run there.
   const output = path.join(tarballs, `${tarballName}.tgz`);
-  run(`pnpm pack --out ${JSON.stringify(output)}`, packageDir);
+  run(`pnpm pack --out ${repositoryRelative(packageDir, output)}`, packageDir);
   assert(
     fs.existsSync(output),
     `${packageDirName} package tarball must be created`,
@@ -159,8 +159,8 @@ function installDependencies() {
     "--fetch-retry-mintimeout=10000",
     "--fetch-retry-maxtimeout=60000",
     ...registryDependencies,
-    tarball("ttsc"),
-    tarball(platformTarball),
+    repositoryRelative(workspace, tarball("ttsc")),
+    repositoryRelative(workspace, tarball(platformTarball)),
   ].join(" ");
   run(command, workspace);
 
@@ -233,6 +233,34 @@ function verifySourceMap() {
     `Verified source map: ${map.sources.length} source(s), ` +
       `${map.mappings.length} mapping char(s), file=${map.file}`,
   );
+}
+
+/**
+ * The path from one repository directory to another, with `/` separators.
+ *
+ * Both ends are fixed paths inside the repository, so the result holds only
+ * this repository's own directory and file names. A command line built from it
+ * carries nothing of the checkout's location, whose spaces or `%VAR%` text the
+ * shell would otherwise split or expand.
+ */
+function repositoryRelative(from, to) {
+  return path.relative(from, to).split(path.sep).join("/");
+}
+
+/** The `typia` version the in-browser playground compiler installs. */
+function readPlaygroundTypiaVersion() {
+  const manifest = JSON.parse(
+    fs.readFileSync(
+      path.join(root, "website", "compiler-dependencies", "package.json"),
+      "utf8",
+    ),
+  );
+  const version = manifest.devDependencies?.typia;
+  assert(
+    typeof version === "string" && version.length > 0,
+    "website/compiler-dependencies/package.json must declare typia",
+  );
+  return version;
 }
 
 function tarball(name) {
