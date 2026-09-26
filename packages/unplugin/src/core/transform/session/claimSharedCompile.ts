@@ -96,8 +96,9 @@ export async function claimSharedCompile(
         }
         return claim;
       }
-      if (await abandoned(lock)) {
-        fs.rmSync(lock, { force: true, recursive: true });
+      const stale = await abandoned(lock);
+      if (stale !== undefined) {
+        await reclaim(lock, stale);
         continue;
       }
       await new Promise((resolve) => setTimeout(resolve, wait));
@@ -130,27 +131,77 @@ async function acquire(lock: string): Promise<string | undefined> {
   return token;
 }
 
-/** Whether the holder of `lock` is gone or has stopped working. */
-async function abandoned(lock: string): Promise<boolean> {
+/**
+ * The owner token of `lock` when its holder is gone or has stopped working, or
+ * `undefined` when the lock is live or released. A stale lock whose holder
+ * never named itself answers the empty token.
+ */
+async function abandoned(lock: string): Promise<string | undefined> {
   let modified: number;
   try {
     modified = (await fs.promises.stat(lock)).mtimeMs;
   } catch {
     // Released meanwhile: not abandoned, and the next loop takes it.
-    return false;
+    return undefined;
   }
-  if (Date.now() - modified > ABANDONED_MS) return true;
-  let owner: number;
+  let token: string;
   try {
-    owner = Number.parseInt(
-      await fs.promises.readFile(path.join(lock, "owner"), "utf8"),
-      10,
-    );
+    token = await fs.promises.readFile(path.join(lock, "owner"), "utf8");
   } catch {
-    // The holder is between creating the lock and naming itself.
+    // The holder is between creating the lock and naming itself, unless it
+    // stopped there.
+    return Date.now() - modified > ABANDONED_MS ? "" : undefined;
+  }
+  if (Date.now() - modified > ABANDONED_MS) return token;
+  return processGone(Number.parseInt(token, 10)) ? token : undefined;
+}
+
+/**
+ * Take an abandoned lock away from its holder, and only that holder's.
+ *
+ * Removing the path would remove whatever lock is there by then, and two
+ * reclaimers that saw the same abandoned holder would each remove the other's
+ * fresh lock. The lock is instead moved aside, which one reclaimer alone can
+ * do, and the moved lock's owner is compared with the one judged abandoned.
+ * When another reclaimer's fresh lock was moved instead, it is put back; if a
+ * third worker already locked the path, the moved holder has lost its lock,
+ * which its own ownership checks then find, so it neither publishes nor
+ * removes the lock that replaced it.
+ */
+async function reclaim(lock: string, stale: string): Promise<void> {
+  const aside = `${lock}.${process.pid}.${crypto.randomUUID()}.retired`;
+  try {
+    await fs.promises.rename(lock, aside);
+  } catch {
+    // Released, or reclaimed by another waiter meanwhile.
+    return;
+  }
+  let owner: string | undefined;
+  try {
+    owner = await fs.promises.readFile(path.join(aside, "owner"), "utf8");
+  } catch {
+    owner = "";
+  }
+  if (owner !== stale) {
+    try {
+      await fs.promises.rename(aside, lock);
+      return;
+    } catch {
+      // The path was locked again meanwhile; the moved lock is lost.
+    }
+  }
+  await fs.promises
+    .rm(aside, { force: true, recursive: true })
+    .catch(() => undefined);
+}
+
+/** Whether this claim's token still names the holder of `lock`. */
+function owns(lock: string, token: string): boolean {
+  try {
+    return fs.readFileSync(path.join(lock, "owner"), "utf8") === token;
+  } catch {
     return false;
   }
-  return processGone(owner);
 }
 
 /**
@@ -176,7 +227,11 @@ function holdLock(
   lock: string,
   token: string,
 ): Extract<TtscSharedCompileClaim, { kind: "compile" }> {
+  // Only while this claim still owns the lock: touching the path after a
+  // waiter took it over would keep the successor's lock alive in this holder's
+  // name.
   const heartbeat = setInterval(() => {
+    if (!owns(lock, token)) return;
     const now = new Date();
     fs.promises.utimes(lock, now, now).catch(() => undefined);
   }, HEARTBEAT_MS);
@@ -188,6 +243,15 @@ function holdLock(
       const temporary = `${publication}.${process.pid}.${crypto.randomUUID()}.tmp`;
       try {
         await fs.promises.writeFile(temporary, JSON.stringify(value), "utf8");
+        // A holder that lost the lock while it compiled no longer speaks for
+        // the store: its successor may already have published a newer answer,
+        // which this one must not replace. Checked after the write, right
+        // before the rename, so the window a takeover can still slip into is
+        // the rename itself; an adopter proves whatever it adopts regardless.
+        if (!owns(lock, token)) {
+          await fs.promises.rm(temporary, { force: true });
+          return;
+        }
         try {
           await fs.promises.rename(temporary, publication);
         } catch {
@@ -204,12 +268,8 @@ function holdLock(
       if (released) return;
       released = true;
       clearInterval(heartbeat);
-      try {
-        if (fs.readFileSync(path.join(lock, "owner"), "utf8") === token) {
-          fs.rmSync(lock, { force: true, recursive: true });
-        }
-      } catch {
-        // Gone already, or taken over by a waiter that owns it now.
+      if (owns(lock, token)) {
+        fs.rmSync(lock, { force: true, recursive: true });
       }
     },
   };
@@ -248,10 +308,9 @@ async function prunePublications(
   }
   for (const entry of entries) {
     const file = path.join(store, entry);
-    if (entry.endsWith(".lock") && (await abandoned(file))) {
-      await fs.promises
-        .rm(file, { force: true, recursive: true })
-        .catch(() => undefined);
+    const stale = entry.endsWith(".lock") ? await abandoned(file) : undefined;
+    if (stale !== undefined) {
+      await reclaim(file, stale);
     } else if (
       entry.endsWith(".tmp") &&
       // A partial write outlives only a writer that died before renaming it,
@@ -261,6 +320,15 @@ async function prunePublications(
       processGone(Number(entry.split(".").at(-3)))
     ) {
       await fs.promises.rm(file, { force: true }).catch(() => undefined);
+    } else if (
+      entry.endsWith(".retired") &&
+      // A lock moved aside by a reclaimer that died before removing it; the
+      // name carries that reclaimer's process id the same way.
+      processGone(Number(entry.split(".").at(-3)))
+    ) {
+      await fs.promises
+        .rm(file, { force: true, recursive: true })
+        .catch(() => undefined);
     }
   }
 }
