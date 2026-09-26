@@ -112,7 +112,31 @@ export function installRuntimeHooks(options: RuntimeHookOptions = {}): void {
     !RuntimeLoaderCapabilities.requireResolveConsultsHooks();
   RuntimeLoaderCapabilities.commonJsNamespaceCarriesModuleExports();
   registerHooks({ load, resolve });
+  advertiseTypeScriptExtensions();
   if (rescueRequireResolve) installRequireResolveRescue();
+}
+
+/**
+ * Declare the TypeScript extensions in `require.extensions`, each bound to
+ * Node's own `.js` handler (samchon/ttsc#1560).
+ *
+ * `require.extensions` is how the CommonJS ecosystem learns which files this
+ * process can `require()`: `rechoir`, which `webpack-cli`, `gulp-cli`, and
+ * `knex` use to load a `.ts` config, takes a present key as "a loader is
+ * installed" and otherwise tries to install one of its own, and fails when none
+ * is found. Node defines no TypeScript key on any release, so without this a
+ * config ttsx can serve is refused before it is required. The handler is
+ * Node's, not ttsx's: serving and compiling stay in the hooks, which hand the
+ * `.js` handler the served source. Node also probes these keys, after its own,
+ * for an extensionless request, so `require("./x")` and
+ * `require.resolve("./x")` find a lone `x.ts` while an `x.js` beside it still
+ * wins, as it does for Node.
+ */
+function advertiseTypeScriptExtensions(): void {
+  const extensions = require.extensions;
+  for (const extension of [".ts", ".tsx", ".cts"]) {
+    extensions[extension] ??= extensions[".js"]!;
+  }
 }
 
 /**

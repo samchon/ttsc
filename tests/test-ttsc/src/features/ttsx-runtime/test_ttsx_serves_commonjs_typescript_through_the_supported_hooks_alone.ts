@@ -21,8 +21,9 @@ import { RuntimeLoaderCapabilities } from "../../../../../packages/ttsc/lib/laun
  *    `require.resolve`, relatively and in the `{ paths }` form.
  * 2. Run the entry through ttsx.
  * 3. Assert the require and both resolutions reached the source, the importer saw
- *    the module's named export, no `.ts` handler was installed, and the
- *    resolver is Node's own wherever `require.resolve` consults the hooks.
+ *    the module's named export, the `.ts` key carries Node's own `.js` handler
+ *    rather than a ttsx one (samchon/ttsc#1560), and the resolver is Node's own
+ *    wherever `require.resolve` consults the hooks.
  */
 export const test_ttsx_serves_commonjs_typescript_through_the_supported_hooks_alone =
   () => {
@@ -36,7 +37,7 @@ export const test_ttsx_serves_commonjs_typescript_through_the_supported_hooks_al
         `export const resolvedFromPaths: boolean = require`,
         `  .resolve("./target.js", { paths: [__dirname] })`,
         `  .endsWith("target.ts");`,
-        `export const handler: string = typeof require.extensions[".ts"];`,
+        `export const handler: boolean = require.extensions[".ts"] === require.extensions[".js"];`,
         `export const wrapped: boolean = Module._resolveFilename.name === "resolveFilename";`,
         ``,
       ].join("\n"),
@@ -63,7 +64,7 @@ export const test_ttsx_serves_commonjs_typescript_through_the_supported_hooks_al
     );
     assert.equal(result.status, 0, result.stderr);
     assert.deepEqual(JSON.parse(result.stdout.trim()), {
-      handler: "undefined",
+      handler: true,
       resolved: true,
       resolvedFromPaths: true,
       target: "SERVED",
