@@ -10,13 +10,12 @@ import { processPluginBuildEnvironment } from "./processPluginBuildEnvironment";
  * (`pluginSourceDigest`) from a reading it can vouch for still holding, as a
  * consumer that re-proves a source on every delivery does once the metadata of
  * every file the digest reads (`collectPluginSourceFiles`) is unchanged. The
- * environment is this process's reading (`processPluginBuildEnvironment`), and
- * when the state does not match it is read again before the state is refuted: a
- * change no variable carries, `go env -w` or a toolchain replaced in place,
- * reaches the process's reading through the first proof it fails. A compile
- * keys its binaries on a fresh read, so a state it reported after such a change
- * is matched on the second reading, and no consumer keeps refuting output its
- * own compiler just produced.
+ * environment is this process's reading (`processPluginBuildEnvironment`),
+ * which is read again whenever the Go tool, its environment file, or the C
+ * toolchain it names moved, and read again before a state that does not match
+ * is refuted. A compile keys its binaries on a fresh read, so a state it
+ * reported after a change is matched on the second reading, and no consumer
+ * keeps refuting output its own compiler just produced.
  *
  * @param directory The source directory, as the envelope names it.
  * @param state The state the envelope reported.

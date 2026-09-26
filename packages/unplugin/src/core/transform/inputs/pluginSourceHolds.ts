@@ -10,9 +10,9 @@ import { pluginSourceFilesDigest } from "./pluginSourceFilesDigest";
  * (`pluginSourceStateHolds` from `ttsc/plugin-source`, samchon/ttsc#1493).
  *
  * Every proof compares through here rather than against a state read once: this
- * process reads the build environment once and keeps it, and the proof reads it
- * again before it refutes a state, so a change no variable carries never has
- * the adapter refute the output its own compiler just produced. The sources'
+ * process keeps its reading of the build environment while the toolchain paths
+ * it depended on hold, and the proof reads it again before it refutes a state,
+ * so the adapter never refutes the output its own compiler just produced. The sources'
  * digest is read again only when the metadata of their files moved
  * (`pluginSourceFilesDigest`). A directory a file below could not be read from
  * proves nothing.

@@ -60,4 +60,13 @@ export interface TtscHostInputValidation {
    * (`pluginSourceFilesDigest`).
    */
   readonly trees: Map<string, string>;
+  /**
+   * The build environment (`processPluginBuildEnvironment` from
+   * `ttsc/plugin-source`) each tree was last proven under. A tracker's silence
+   * proves a tree's files, never the Go toolchain and environment outside it,
+   * so a silent tree is skipped only while this process's environment reading,
+   * itself kept only while its toolchain paths hold, is still this one
+   * (samchon/ttsc#1516).
+   */
+  treeEnvironments?: Map<string, string>;
 }

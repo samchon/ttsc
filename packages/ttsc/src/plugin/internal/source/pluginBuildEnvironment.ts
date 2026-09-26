@@ -19,10 +19,13 @@ import { resolveGoCompiler } from "./resolveGoCompiler";
  *
  * @param directory The directory a build runs `go` in.
  * @param env The effective environment, `process.env` by default.
+ * @param witness Receives the paths the reading depends on and no variable
+ *   carries (`hashPluginBuildEnvironment`).
  */
 export function pluginBuildEnvironment(
   directory: string,
   env: NodeJS.ProcessEnv = process.env,
+  witness?: Set<string>,
 ): string {
   const goBinary = GoToolResolution.resolveGoToolForBuild(
     resolveGoCompiler(env).binary,
@@ -30,8 +33,13 @@ export function pluginBuildEnvironment(
     directory,
   );
   const hash = crypto.createHash("sha256");
-  hashPluginBuildEnvironment(hash, goBinary, directory, env, {
-    readFile: (location) => fs.readFileSync(location),
-  });
+  hashPluginBuildEnvironment(
+    hash,
+    goBinary,
+    directory,
+    env,
+    { readFile: (location) => fs.readFileSync(location) },
+    witness,
+  );
   return hash.digest("hex");
 }

@@ -1,4 +1,5 @@
 import path from "node:path";
+import { processPluginBuildEnvironment } from "ttsc/plugin-source";
 
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { resultFilesystem } from "../cache/resultFilesystem";
@@ -201,6 +202,10 @@ export function captureUniversalHostInputValidation(
     }
     validation.covered.add(directory);
     validation.trees.set(directory, digest);
+    (validation.treeEnvironments ??= new Map()).set(
+      directory,
+      processPluginBuildEnvironment(directory),
+    );
   }
   cached.hostInputValidation = validation;
   return { failures, validation };
