@@ -363,3 +363,58 @@ export async function assertWithTtscChainsAnExistingTransformer(): Promise<void>
     );
   });
 }
+
+/**
+ * Asserts `withTtsc` resolves the automatic upstream candidates and an explicit
+ * `upstreamTransformer` package name from the project, not from this package.
+ *
+ * The worker's own lookup is rooted in `@ttsc/metro`, which under pnpm or a
+ * linked workspace sits outside the app's `node_modules` ancestry and cannot
+ * see a transformer only the app installed. The config process knows the
+ * project, so it publishes the absolute path it resolved.
+ */
+export async function assertWithTtscResolvesUpstreamFromTheProject(): Promise<void> {
+  await withCleanEnv(async () => {
+    const { ENV_KEY } = await TestMetroRuntime.loadOptions();
+    const { withTtsc } = await TestMetroRuntime.loadIndex();
+
+    const autoRoot = tempProjectRoot();
+    const autoTarget = writePackage(
+      autoRoot,
+      "@react-native/metro-babel-transformer",
+      "index.js",
+    );
+    withTtsc({ projectRoot: autoRoot });
+    assert.equal(
+      publishedUpstream(ENV_KEY),
+      autoTarget,
+      "an automatic candidate only the app installed must be found from the project",
+    );
+
+    const explicitRoot = tempProjectRoot();
+    const explicitTarget = writePackage(explicitRoot, "app-upstream", "main.js");
+    withTtsc({ projectRoot: explicitRoot }, { upstreamTransformer: "app-upstream" });
+    assert.equal(
+      publishedUpstream(ENV_KEY),
+      explicitTarget,
+      "an explicit package name must resolve from the project",
+    );
+
+    withTtsc(
+      { projectRoot: tempProjectRoot() },
+      { upstreamTransformer: "no-such-upstream-anywhere" },
+    );
+    assert.equal(
+      publishedUpstream(ENV_KEY),
+      "no-such-upstream-anywhere",
+      "an unresolvable explicit name travels as written for the worker to name",
+    );
+
+    withTtsc({ projectRoot: tempProjectRoot() });
+    assert.equal(
+      publishedUpstream(ENV_KEY),
+      undefined,
+      "with no candidate installed the worker's own probe still reports it",
+    );
+  });
+}

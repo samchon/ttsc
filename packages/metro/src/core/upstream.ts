@@ -40,9 +40,13 @@ export const UPSTREAM_CANDIDATES = [
  * 1. An explicit `customPath` (the `upstreamTransformer` option);
  * 2. Each of {@link UPSTREAM_CANDIDATES} in turn.
  *
- * These are declared as optional peers and resolved at runtime against the
- * consumer project, so the adapter carries no Metro/Expo dependency itself.
- * Resolution is not memoised: Node's own module cache already makes the
+ * `withTtsc` resolves an explicit specifier and the automatic candidates from
+ * the consuming project in the Metro config process, and publishes the
+ * absolute path it found (see {@link locateProjectUpstreamTransformer}). This
+ * worker-side lookup, rooted in the adapter's own location, is what remains for
+ * a specifier the project could not resolve, so the adapter carries no
+ * Metro/Expo dependency itself. Resolution is not memoised: Node's own module
+ * cache already makes the
  * repeated `require` a cheap lookup, and keeping no module-level state lets a
  * changed `upstreamTransformer` always take effect.
  *
@@ -99,6 +103,34 @@ export function resolveUpstreamTransformer(
       "(React Native), or set the `upstreamTransformer` option to an explicit " +
       "module path.",
   );
+}
+
+/**
+ * Locate the automatic upstream transformer the consuming project installed,
+ * without executing it.
+ *
+ * The candidates belong to the app, not to this adapter: under pnpm or a linked
+ * workspace the adapter sits outside the app's `node_modules` ancestry, so a
+ * lookup rooted in the adapter cannot see a transformer only the app installed.
+ * `resolve` is rooted in the project; each candidate is tried in
+ * {@link UPSTREAM_CANDIDATES} order and an absent one is skipped, exactly as the
+ * worker's probe skips it. Only resolution runs here, so a broken installation
+ * still fails where the worker loads it, with its own error.
+ *
+ * @param resolve Resolves a module specifier from the project.
+ * @returns The absolute path of the first installed candidate, or `undefined`.
+ */
+export function locateProjectUpstreamTransformer(
+  resolve: (specifier: string) => string,
+): string | undefined {
+  for (const candidate of UPSTREAM_CANDIDATES) {
+    try {
+      return resolve(candidate);
+    } catch (error) {
+      if (!isCandidateAbsent(error)) throw error;
+    }
+  }
+  return undefined;
 }
 
 /**

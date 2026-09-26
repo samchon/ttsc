@@ -36,6 +36,7 @@ import { fileURLToPath } from "node:url";
 import { prepareSnapshot } from "./core/fingerprint";
 import type { TtscMetroOptions } from "./core/options";
 import { ENV_KEY, serializeOptions } from "./core/options";
+import { locateProjectUpstreamTransformer } from "./core/upstream";
 
 export type {
   ResolvedTtscMetroOptions,
@@ -120,13 +121,31 @@ function inheritConfiguredTransformer(
   config: MetroConfigLike,
   options: TtscMetroOptions,
 ): TtscMetroOptions {
-  const declared = config.transformer?.babelTransformerPath;
+  // An explicit option is the caller's module, so it resolves from the project
+  // as a declared `babelTransformerPath` does; an empty one asks for detection.
   if (
-    options.upstreamTransformer !== undefined ||
-    typeof declared !== "string" ||
-    declared.length === 0
+    options.upstreamTransformer !== undefined &&
+    options.upstreamTransformer.length !== 0
   ) {
-    return options;
+    return {
+      ...options,
+      upstreamTransformer: resolveFromProject(
+        options.upstreamTransformer,
+        config,
+      ),
+    };
+  }
+  const declared = config.transformer?.babelTransformerPath;
+  if (typeof declared !== "string" || declared.length === 0) {
+    // Automatic detection belongs here too: the candidates are the app's
+    // packages, and only this process knows the project to look in. Nothing
+    // found leaves the worker's own probe to report it.
+    const located = locateProjectUpstreamTransformer((specifier) =>
+      projectRequire(config).resolve(specifier),
+    );
+    return located === undefined
+      ? options
+      : { ...options, upstreamTransformer: located };
   }
   // Resolve before judging. Ownership is a property of the module, not of the
   // string, and every spelling has to become one absolute path before either
@@ -165,15 +184,20 @@ function inheritConfiguredTransformer(
  * somewhere less legible.
  */
 function resolveFromProject(declared: string, config: MetroConfigLike): string {
+  try {
+    return projectRequire(config).resolve(declared);
+  } catch {
+    return declared;
+  }
+}
+
+/** A `require` rooted in the Metro project, the owner of its transformers. */
+function projectRequire(config: MetroConfigLike): NodeJS.Require {
   const base =
     typeof config.projectRoot === "string" && config.projectRoot.length !== 0
       ? config.projectRoot
       : process.cwd();
-  try {
-    return createRequire(join(resolve(base), "package.json")).resolve(declared);
-  } catch {
-    return declared;
-  }
+  return createRequire(join(resolve(base), "package.json"));
 }
 
 /**

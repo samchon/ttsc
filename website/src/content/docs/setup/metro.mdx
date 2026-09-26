@@ -51,7 +51,7 @@ const { withTtsc } = require("@ttsc/metro");
 module.exports = withTtsc(getDefaultConfig(__dirname));
 ```
 
-`withTtsc` sets `transformer.babelTransformerPath` and leaves the rest of your config untouched. It auto-detects the upstream Babel transformer to delegate to: `@expo/metro-config/babel-transformer` for Expo, then `@react-native/metro-babel-transformer`, then the legacy `metro-react-native-babel-transformer`.
+`withTtsc` sets `transformer.babelTransformerPath` and leaves the rest of your config untouched. It auto-detects the upstream Babel transformer to delegate to: `@expo/metro-config/babel-transformer` for Expo, then `@react-native/metro-babel-transformer`, then the legacy `metro-react-native-babel-transformer`. Those candidates, and a package name passed as `upstreamTransformer`, resolve from your project (`projectRoot`), so a transformer only the app installed is found even when the adapter itself lives outside the app's `node_modules`, as it does under pnpm or a linked workspace.
 
 If your config already set `transformer.babelTransformerPath`, that transformer is **chained rather than replaced**: the `ttsc` pass runs first and then delegates to it, so wrapping a working config keeps what it configured. This is what makes [`react-native-svg-transformer`](https://github.com/kristerkari/react-native-svg-transformer), whose entire installation is that one assignment, keep working after you adopt `@ttsc/metro`. Pass `upstreamTransformer` explicitly to override both that and auto-detection.
 
