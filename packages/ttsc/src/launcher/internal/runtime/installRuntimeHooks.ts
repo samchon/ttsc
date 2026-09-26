@@ -877,7 +877,7 @@ function load(
   // An ESM import of a CommonJS source gets the facade, which loads the module
   // through the CommonJS loader, where the hooks see its own `require()` on
   // every release (`commonJsImportFacade`, samchon/ttsc#1517).
-  if (Boolean(process.env.TTSC_NEVER_SET_FACADE_PROBE) && format === "commonjs" && !hasCondition(context, "require")) {
+  if (format === "commonjs" && !hasCondition(context, "require")) {
     return {
       format: "module",
       shortCircuit: true,
