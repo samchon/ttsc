@@ -250,17 +250,18 @@ func (inputs pluginSelectionInputs) pruned(name string) bool {
   return false
 }
 
-// has reports whether a file is recorded under the name a listing spells,
-// folding case where the platform's filesystems conventionally do.
+// has reports whether a file is recorded under the name a listing spells, by
+// the case semantics of the directory itself (projectInputPathKey): a Windows
+// directory opted into case sensitivity, or a case-sensitive macOS volume,
+// holds Foo.go and foo.go as two files, and folding by platform alone took a
+// new foo.go for the recorded Foo.go (samchon/ttsc#1532).
 func (directory *pluginSelectionDirectory) has(name string) bool {
   if _, ok := directory.files[name]; ok {
     return true
   }
-  if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
-    return false
-  }
+  key := projectInputPathKey(filepath.Join(directory.path, name))
   for candidate := range directory.files {
-    if strings.EqualFold(candidate, name) {
+    if projectInputPathKey(filepath.Join(directory.path, candidate)) == key {
       return true
     }
   }
