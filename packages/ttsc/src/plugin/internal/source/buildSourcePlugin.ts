@@ -8,6 +8,7 @@ import { GoToolResolution } from "./GoToolResolution";
 import type { IPluginModuleReplaceDirectory } from "./IPluginModuleReplaceDirectory";
 import type { ITtscBuildContributor } from "./ITtscBuildContributor";
 import type { ITtscSourceBuildCachePaths } from "./ITtscSourceBuildCachePaths";
+import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import type { PluginBuildLockLease } from "./PluginBuildLockLease";
 import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
 import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
@@ -83,11 +84,13 @@ export function buildSourcePlugin(opts: {
   // The digest of every directory the key covers, as the key read it, which
   // the build proves against what it compiled (samchon/ttsc#1505).
   const sourceDigests = opts.sourceDigests ?? new Map<string, string>();
+  const environmentWitness: PluginBuildEnvironmentWitness.Record = new Map();
   const key = computeCacheKey({
     contributors,
     dir,
     entry,
     env,
+    environmentWitness,
     filesystem: opts.filesystem,
     goBinary,
     overlayDirs,
@@ -144,6 +147,7 @@ export function buildSourcePlugin(opts: {
         dir,
         entry,
         env,
+        environmentWitness,
         goBinary,
         normalizeGoToolPermissions: compiler.bundled,
         key,
@@ -185,6 +189,8 @@ function compileSourcePlugin(opts: {
   dir: string;
   entry: string;
   env: NodeJS.ProcessEnv;
+  /** The toolchain paths the key read, with their metadata at that read. */
+  environmentWitness: PluginBuildEnvironmentWitness.Record;
   goBinary: string;
   goBuildCacheRoot: string;
   manageGoBuildCache: boolean;
@@ -302,6 +308,18 @@ function compileSourcePlugin(opts: {
         // grow the cache unchecked behind a fresh daily marker.
         pruneGoBuildCacheRoot(attemptedGoBuildCacheRoot, { force: true });
       }
+    }
+    // The toolchain was read for the key before the lock wait and the build,
+    // and Go ran it by path. Every path the key's environment read must still
+    // hold the metadata it was read with, or the binary may be another
+    // toolchain's; a tool that changed and changed back still moved its change
+    // time (samchon/ttsc#1534).
+    if (!PluginBuildEnvironmentWitness.holds(opts.environmentWitness)) {
+      throw new Error(
+        `ttsc: the Go toolchain of plugin "${opts.pluginName}" changed while it ` +
+          `was being built, so the binary was not cached under the key of its ` +
+          `earlier toolchain. Build again once the change is complete.`,
+      );
     }
     const builtBinary = path.join(scratchDir, scratchBinaryName);
     publishBuiltBinary(builtBinary, opts.binaryPath);

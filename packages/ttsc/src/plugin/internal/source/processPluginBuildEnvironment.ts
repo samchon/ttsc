@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
-import fs from "node:fs";
 
+import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import { pluginBuildEnvironment } from "./pluginBuildEnvironment";
 
 /**
@@ -9,7 +9,7 @@ import { pluginBuildEnvironment } from "./pluginBuildEnvironment";
  */
 const read = new Map<
   string,
-  { environment: string; witness: ReadonlyMap<string, string> }
+  { environment: string; witness: PluginBuildEnvironmentWitness.Record }
 >();
 
 /**
@@ -24,12 +24,12 @@ const read = new Map<
  * delivery would pay that each time, for an environment that changes with the
  * process's variables and otherwise almost never. The read is therefore kept
  * under the variables it was taken with, all of them, so a changed variable
- * reads it again, and with the metadata of every path the reading depended on
- * that no variable carries: the Go tool, the Go environment file `go env -w`
- * writes, the executables the C toolchain commands name, and GOROOT
- * (`hashPluginBuildEnvironment`). A kept read is reused only while each of them
- * holds its metadata, so a toolchain replaced in place or a `go env -w` is read
- * at the next use, not after a proof has already accepted the old reading
+ * reads it again, and with the metadata of every path it depended on that no
+ * variable carries (`PluginBuildEnvironmentWitness`): the Go tool, the Go
+ * environment file `go env -w` writes, the executables the C toolchain commands
+ * name, and GOROOT. A kept read is reused only while each of them holds its
+ * metadata, so a toolchain replaced in place or a `go env -w` is read at the
+ * next use, not after a proof has already accepted the old reading
  * (samchon/ttsc#1516). The build itself never reads through here: it keys each
  * binary on a fresh read.
  *
@@ -50,34 +50,11 @@ export function processPluginBuildEnvironment(
   const key = `${directory}\0${variables.digest("hex")}`;
   if (!refresh) {
     const known = read.get(key);
-    if (
-      known !== undefined &&
-      [...known.witness].every(
-        ([file, signature]) => metadata(file) === signature,
-      )
-    ) {
+    if (known !== undefined && PluginBuildEnvironmentWitness.holds(known.witness))
       return known.environment;
-    }
   }
-  const paths = new Set<string>();
-  const before = new Map<string, string>();
-  const environment = pluginBuildEnvironment(directory, process.env, paths);
-  for (const file of paths) before.set(file, metadata(file));
-  read.set(key, { environment, witness: before });
+  const witness: PluginBuildEnvironmentWitness.Record = new Map();
+  const environment = pluginBuildEnvironment(directory, process.env, witness);
+  read.set(key, { environment, witness });
   return environment;
-}
-
-/**
- * The metadata a replacement moves: identity, size, and modification and change
- * times, following links; `missing` for a path that is not there.
- */
-function metadata(file: string): string {
-  try {
-    const stat = fs.statSync(file, { bigint: true });
-    return [stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join(
-      ":",
-    );
-  } catch {
-    return "missing";
-  }
 }

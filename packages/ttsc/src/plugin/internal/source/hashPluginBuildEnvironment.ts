@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { GoSourceInputs } from "./GoSourceInputs";
+import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import { GoToolResolution } from "./GoToolResolution";
 import type { SourceBuildFilesystemOperations } from "./SourceBuildFilesystemOperations";
 import { spawnGoTool } from "./spawnGoTool";
@@ -39,7 +40,7 @@ export function hashPluginBuildEnvironment(
   directory: string,
   env: NodeJS.ProcessEnv,
   filesystem: SourceBuildFilesystemOperations,
-  witness?: Set<string>,
+  witness?: PluginBuildEnvironmentWitness.Record,
 ): void {
   if (goBinary !== undefined) {
     hash.update(
@@ -147,14 +148,14 @@ function resolveGoCompilerIdentity(
   goBinary: string,
   env: NodeJS.ProcessEnv = process.env,
   cwd: string = process.cwd(),
-  witness?: Set<string>,
+  witness?: PluginBuildEnvironmentWitness.Record,
 ): string {
   const selected = GoToolResolution.resolveGoToolForBuild(goBinary, env, cwd);
   const resolved =
     process.platform === "win32"
       ? resolveRealPath(selected)
       : resolveExecutableIdentityPath(selected, env, cwd);
-  witness?.add(resolved);
+  PluginBuildEnvironmentWitness.add(witness, resolved);
   const compilerEnv = GoSourceInputs.goBuildEnv(selected, undefined, env);
   const memoKey = goCompilerIdentityMemoKey(
     goBinary,
@@ -300,7 +301,7 @@ function hashGoBuildEnvironment(
   cwd: string,
   env: NodeJS.ProcessEnv,
   filesystem: SourceBuildFilesystemOperations,
-  witness?: Set<string>,
+  witness?: PluginBuildEnvironmentWitness.Record,
 ): void {
   const values = resolveGoBuildEnvironment(
     goBinary,
@@ -322,7 +323,7 @@ function resolveGoBuildEnvironment(
   cwd: string,
   env: NodeJS.ProcessEnv,
   filesystem: SourceBuildFilesystemOperations,
-  witness?: Set<string>,
+  witness?: PluginBuildEnvironmentWitness.Record,
 ): Map<string, string> {
   const values = new Map<string, string>();
   if (goBinary !== undefined) {
@@ -346,7 +347,7 @@ function resolveGoBuildEnvironment(
           parsed.GOENV !== "" &&
           parsed.GOENV !== "off"
         ) {
-          witness?.add(parsed.GOENV);
+          PluginBuildEnvironmentWitness.add(witness, parsed.GOENV);
         }
         for (const key of GO_BUILD_ENV_KEYS) {
           const raw = parsed[key];
@@ -381,13 +382,13 @@ function normalizeGoBuildEnvValue(
   value: string,
   env: NodeJS.ProcessEnv,
   filesystem: SourceBuildFilesystemOperations,
-  witness?: Set<string>,
+  witness?: PluginBuildEnvironmentWitness.Record,
 ): string {
   if (key === "GOROOT") {
     // The root and its version file move with a toolchain replaced in place;
     // its full content identity is read afresh through its own manifest.
-    witness?.add(value);
-    witness?.add(path.join(value, "VERSION"));
+    PluginBuildEnvironmentWitness.add(witness, value);
+    PluginBuildEnvironmentWitness.add(witness, path.join(value, "VERSION"));
     return resolveGoRootCacheIdentity(value, filesystem);
   }
   if (GO_BUILD_COMMAND_ENV_KEYS.has(key)) {
@@ -412,7 +413,7 @@ function normalizeGoBuildEnvValue(
 function resolveCommandCacheIdentity(
   command: string,
   env: NodeJS.ProcessEnv,
-  witness?: Set<string>,
+  witness?: PluginBuildEnvironmentWitness.Record,
 ): string {
   const tokens = splitGoCommand(command);
   if (tokens === null) {
@@ -423,7 +424,7 @@ function resolveCommandCacheIdentity(
     return "command:empty";
   }
   const resolved = resolveExecutableIdentityPath(executable, env);
-  witness?.add(resolved);
+  PluginBuildEnvironmentWitness.add(witness, resolved);
   if (!fs.existsSync(resolved)) {
     return `command:missing:${executable}`;
   }
@@ -436,7 +437,7 @@ function resolveCommandCacheIdentity(
   args.forEach((arg, index) => {
     const operand = resolveExecutableIdentityPath(arg, env);
     if (!GoToolResolution.isExecutableFile(operand)) return;
-    witness?.add(operand);
+    PluginBuildEnvironmentWitness.add(witness, operand);
     try {
       identity += `;${index + 1}:sha256:${hashFile(operand)}`;
     } catch {

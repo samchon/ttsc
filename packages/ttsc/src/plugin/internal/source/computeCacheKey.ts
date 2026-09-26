@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { GoToolResolution } from "./GoToolResolution";
 import type { ITtscBuildContributor } from "./ITtscBuildContributor";
+import type { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import type { SourceBuildFilesystemOperations } from "./SourceBuildFilesystemOperations";
 import { hashPluginBuildEnvironment } from "./hashPluginBuildEnvironment";
 import { pluginModuleReplaceDirectories } from "./pluginModuleReplaceDirectories";
@@ -44,6 +45,12 @@ export function computeCacheKey(inputs: {
    * its plugin sources' states without reading the environment again.
    */
   environmentDigests?: Map<string, string>;
+  /**
+   * Receives the metadata of every toolchain path the environment was read
+   * from (`PluginBuildEnvironmentWitness`), so the build can prove the
+   * toolchain it ran is still the one this key read.
+   */
+  environmentWitness?: PluginBuildEnvironmentWitness.Record;
   filesystem?: Partial<SourceBuildFilesystemOperations>;
   goBinary?: string;
   overlayDirs?: readonly string[];
@@ -87,6 +94,7 @@ export function computeCacheKey(inputs: {
     inputs.dir,
     env,
     filesystem,
+    inputs.environmentWitness,
   );
   inputs.environmentDigests?.set(
     path.resolve(inputs.dir),

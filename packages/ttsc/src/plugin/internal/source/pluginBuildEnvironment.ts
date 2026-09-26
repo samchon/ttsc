@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 
 import { GoToolResolution } from "./GoToolResolution";
+import type { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import { hashPluginBuildEnvironment } from "./hashPluginBuildEnvironment";
 import { resolveGoCompiler } from "./resolveGoCompiler";
 
@@ -25,7 +26,7 @@ import { resolveGoCompiler } from "./resolveGoCompiler";
 export function pluginBuildEnvironment(
   directory: string,
   env: NodeJS.ProcessEnv = process.env,
-  witness?: Set<string>,
+  witness?: PluginBuildEnvironmentWitness.Record,
 ): string {
   const goBinary = GoToolResolution.resolveGoToolForBuild(
     resolveGoCompiler(env).binary,
