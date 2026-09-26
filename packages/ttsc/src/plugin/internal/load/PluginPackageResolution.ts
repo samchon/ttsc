@@ -223,10 +223,11 @@ export namespace PluginPackageResolution {
    * process-wide `--conditions=ttsc` would also redirect the package's normal
    * `import`s to the descriptor and break its runtime, so it must not be used.
    *
-   * Returns an absolute path when the package opts in, or `null` to fall back
-   * to the normal `require.resolve` — no `exports`, no `ttsc` branch for the
-   * requested subpath, or an unresolved/missing target — so a package that does
-   * not opt in resolves exactly as it did before.
+   * Returns `null` to fall back to the normal `require.resolve` when the
+   * package does not opt in — no `exports`, or no `ttsc` branch for the
+   * requested subpath — so such a package resolves exactly as it did before.
+   * A package that opts in gets Node's answer for its target: the file it
+   * selects, or the rejection Node would report for it.
    */
   function resolvePluginExportCondition(
     specifier: string,
@@ -254,12 +255,32 @@ export namespace PluginPackageResolution {
     if (target === undefined || !containsCondition(target, "ttsc")) {
       return null;
     }
-    const resolved = resolveConditionalTarget(target, PLUGIN_EXPORT_CONDITIONS);
-    if (resolved === null || !resolved.startsWith("./")) {
-      return null;
+    // From here the package has opted in, so Node's rules for the selected
+    // target decide, and nothing falls back to the ordinary runtime entry: a
+    // blocked (`null`) or unmatched target is not exported, an invalid target
+    // is refused, and a selected file that is missing is not found. Falling
+    // back would load the runtime barrel the package kept away from plugin
+    // bootstrap, or a file Node itself would never resolve.
+    const packageDir = path.dirname(packageJson);
+    const file = resolvePackageTarget(
+      target,
+      new Set(PLUGIN_EXPORT_CONDITIONS),
+      packageDir,
+      packageJson,
+    );
+    if (file === null || file === undefined) {
+      throw packageResolutionError(
+        "ERR_PACKAGE_PATH_NOT_EXPORTED",
+        `ttsc: package subpath "${split.subpath}" is not exported for plugin resolution by ${packageJson}`,
+      );
     }
-    const file = path.resolve(path.dirname(packageJson), resolved);
-    return existingFile(file) ? resolveRealPath(file) : null;
+    if (!existingFile(file)) {
+      throw packageResolutionError(
+        "MODULE_NOT_FOUND",
+        `ttsc: cannot find module ${file}, the plugin entry selected for "${specifier}" by ${packageJson}`,
+      );
+    }
+    return resolveRealPath(file);
   }
 
   /**
@@ -398,45 +419,116 @@ export namespace PluginPackageResolution {
   }
 
   /**
-   * Resolve a (possibly conditional) export target to a relative file string,
-   * honouring `conditions` — a string is the target, an array is a fallback
-   * list, an object picks the first key in the active condition set (package
-   * key order wins, as Node does), and an explicit `null` blocks the target.
+   * Node's `PACKAGE_TARGET_RESOLVE` for an `exports` target whose pattern is
+   * already substituted: the absolute file it selects, `null` when a matched
+   * branch blocks it, or `undefined` when no branch matches.
+   *
+   * A string must be a `./` path whose segments name no `.`, `..`, or
+   * `node_modules`, and must stay inside the package; anything else is an
+   * invalid target. An object tries its keys in package order and returns the
+   * first branch that matches, so a matched `null` ends the search instead of
+   * falling through to `default`. An array returns its first matching entry,
+   * passing over entries that are invalid or `null`, and ends with the last of
+   * those outcomes.
    */
-  function resolveConditionalTarget(
+  function resolvePackageTarget(
     target: unknown,
-    conditions: readonly string[],
-  ): string | null {
+    conditions: ReadonlySet<string>,
+    packageDir: string,
+    packageJson: string,
+  ): string | null | undefined {
     if (typeof target === "string") {
-      return target;
-    }
-    if (target === null || target === undefined) {
-      return null;
+      if (
+        !target.startsWith("./") ||
+        INVALID_TARGET_SEGMENT.test(target.slice(2))
+      ) {
+        throw invalidPackageTarget(target, packageJson);
+      }
+      const file = path.resolve(packageDir, target);
+      if (isOutsideDirectory(packageDir, file)) {
+        throw invalidPackageTarget(target, packageJson);
+      }
+      return file;
     }
     if (Array.isArray(target)) {
+      if (target.length === 0) return null;
+      let last: { error: unknown } | null | undefined;
       for (const entry of target) {
-        const resolved = resolveConditionalTarget(entry, conditions);
-        if (resolved !== null) {
-          return resolved;
+        let resolved: string | null | undefined;
+        try {
+          resolved = resolvePackageTarget(
+            entry,
+            conditions,
+            packageDir,
+            packageJson,
+          );
+        } catch (error) {
+          if (!isInvalidPackageTarget(error)) throw error;
+          last = { error };
+          continue;
         }
-      }
-      return null;
-    }
-    if (typeof target !== "object") {
-      return null;
-    }
-    const active = new Set(conditions);
-    for (const [key, value] of Object.entries(
-      target as Record<string, unknown>,
-    )) {
-      if (active.has(key)) {
-        const resolved = resolveConditionalTarget(value, conditions);
-        if (resolved !== null) {
-          return resolved;
+        if (resolved === undefined) continue;
+        if (resolved === null) {
+          last = null;
+          continue;
         }
+        return resolved;
       }
+      if (last === undefined || last === null) return last;
+      throw last.error;
     }
-    return null;
+    if (target === null) return null;
+    if (typeof target === "object") {
+      for (const [key, value] of Object.entries(
+        target as Record<string, unknown>,
+      )) {
+        if (key !== "default" && !conditions.has(key)) continue;
+        const resolved = resolvePackageTarget(
+          value,
+          conditions,
+          packageDir,
+          packageJson,
+        );
+        if (resolved !== undefined) return resolved;
+      }
+      return undefined;
+    }
+    throw invalidPackageTarget(String(target), packageJson);
+  }
+
+  /**
+   * A path segment an `exports` target may not name: `.`, `..`, or
+   * `node_modules`, each also percent-encoded, as Node's resolver rejects them.
+   */
+  const INVALID_TARGET_SEGMENT =
+    /(^|\\|\/)((\.|%2e)(\.|%2e)?|(n|%6e|%4e)(o|%6f|%4f)(d|%64|%44)(e|%65|%45)(_|%5f)(m|%6d|%4d)(o|%6f|%4f)(d|%64|%44)(u|%75|%55)(l|%6c|%4c)(e|%65|%45)(s|%73|%53))(\\|\/|$)/i;
+
+  function isOutsideDirectory(directory: string, file: string): boolean {
+    const relative = path.relative(directory, file);
+    return (
+      relative === ".." ||
+      relative.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(relative)
+    );
+  }
+
+  function invalidPackageTarget(target: string, packageJson: string): Error {
+    return packageResolutionError(
+      "ERR_INVALID_PACKAGE_TARGET",
+      `ttsc: invalid "exports" target ${JSON.stringify(target)} for plugin resolution in ${packageJson}`,
+    );
+  }
+
+  function isInvalidPackageTarget(error: unknown): boolean {
+    return (
+      (error as { code?: unknown } | null)?.code ===
+      "ERR_INVALID_PACKAGE_TARGET"
+    );
+  }
+
+  /** An error carrying the code Node's resolver reports for the same case. */
+  function packageResolutionError(code: string, message: string): Error {
+    return Object.assign(new Error(message), { code });
   }
 
   /** `location` through its symlinks, or unchanged when it does not resolve. */
