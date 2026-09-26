@@ -34,11 +34,13 @@ import type { OwningModuleOptions } from "./OwningModuleOptions";
 import type { ResolveResult } from "./ResolveResult";
 import { RuntimeFilesystem } from "./RuntimeFilesystem";
 import type { RuntimeHookOptions } from "./RuntimeHookOptions";
+import { RuntimeLoaderCapabilities } from "./RuntimeLoaderCapabilities";
 import type { RuntimeManifest } from "./RuntimeManifest";
 import { RuntimeManifestRegistry } from "./RuntimeManifestRegistry";
 import { RuntimeModuleFormat } from "./RuntimeModuleFormat";
 import { acquireDependencyBuildLock } from "./acquireDependencyBuildLock";
 import { checkNodeRuntimeSupport } from "./checkNodeRuntimeSupport";
+import { commonJsImportFacade } from "./commonJsImportFacade";
 import { dependencyCacheKey } from "./dependencyCacheKey";
 import { dependencyCacheRoot } from "./dependencyCacheRoot";
 import { inspectDependencyBuildLock } from "./inspectDependencyBuildLock";
@@ -77,20 +79,16 @@ import { restoreStrippedNodeBuiltinScheme } from "./restoreStrippedNodeBuiltinSc
  * that is what lets a CommonJS `require("./x")` chain reach them and what makes
  * `require.resolve(..., { paths })` inside `runBuild`'s plugin loader behave.
  *
- * Two hooks are needed, because `module.registerHooks` does not intercept a
- * `require()` made from inside a CommonJS module that was itself reached
- * through an ESM `import` (the interop translator loads it on the raw CJS
- * path). The ESM graph goes through `registerHooks`; the CommonJS `require`
- * graph goes through `Module._extensions` and `Module._resolveFilename` — the
- * canonical loader extension points `ts-node`/`tsx` use for the same reason.
- *
- * Both halves of that second graph are required, and they answer different
- * questions. `_extensions` decides how a file that was _found_ is compiled, and
- * Node reuses its keys when it probes an extensionless request, so
- * `require("./x")` reaches `x.ts` for free. Nothing there resolves a request
- * that already carries an extension: `require("./x.js")` backed only by `x.ts`
- * is a resolution failure before any compiler is consulted, which is why the
- * rescue is installed on `_resolveFilename` as well (samchon/ttsc#1280).
+ * Both graphs go through `registerHooks`, the supported customization API, on
+ * every supported release (samchon/ttsc#1517). A `require()` reaches the hooks
+ * on its own. A CommonJS module an ESM `import` reaches is served as an ESM
+ * facade that loads it through the CommonJS loader (`commonJsImportFacade`):
+ * handed to the ESM loader with source, the module's own `require()` bypasses
+ * the hooks on some releases, so a nested `require("./x.js")` backed only by
+ * `x.ts` failed there (samchon/ttsc#1280). The one reach the API lacks on some
+ * releases is `require.resolve`, which is probed at installation
+ * (`RuntimeLoaderCapabilities`) and rescued only where the hooks miss it
+ * (`installRequireResolveRescue`).
  */
 export function installRuntimeHooks(options: RuntimeHookOptions = {}): void {
   if (options.prepareEntry !== undefined) {
@@ -108,9 +106,13 @@ export function installRuntimeHooks(options: RuntimeHookOptions = {}): void {
   if (typeof process.setSourceMapsEnabled === "function") {
     process.setSourceMapsEnabled(true);
   }
+  // Probed before the runtime's hooks exist, so nothing the probes load is
+  // served or recorded as an input of the program.
+  const rescueRequireResolve =
+    !RuntimeLoaderCapabilities.requireResolveConsultsHooks();
+  RuntimeLoaderCapabilities.commonJsNamespaceCarriesModuleExports();
   registerHooks({ load, resolve });
-  installCommonJsHook();
-  installCommonJsResolveHook();
+  if (rescueRequireResolve) installRequireResolveRescue();
 }
 
 /**
@@ -210,69 +212,21 @@ let installed = false;
 let prepareRuntimeEntry: ((filename: string) => RuntimeManifest) | undefined;
 
 /**
- * Register a CommonJS `require` handler for each TypeScript source extension so
- * a `require("./x")` chain compiles `.ts` the same way the ESM `load` hook
- * does.
- */
-function installCommonJsHook(): void {
-  const extensions = (
-    Module as unknown as {
-      _extensions: Record<
-        string,
-        (
-          module: {
-            _compile(source: string, filename: string): void;
-            parent?: { filename?: string | null } | null;
-          },
-          filename: string,
-        ) => void
-      >;
-    }
-  )._extensions;
-  const compile = (
-    module: {
-      _compile(source: string, filename: string): void;
-      parent?: { filename?: string | null } | null;
-    },
-    filename: string,
-  ): void => {
-    const parent = module.parent?.filename;
-    module._compile(
-      resolveServedSource(
-        filename,
-        pathToFileURL(filename).href,
-        typeof parent !== "string" || !isTypeScriptSource(parent),
-      ).source,
-      filename,
-    );
-  };
-  for (const extension of [".ts", ".tsx", ".cts"]) {
-    extensions[extension] = compile;
-  }
-}
-
-/**
- * Map a JavaScript spelling back to its TypeScript source on the CommonJS
- * resolution path, so `require("./x.js")` finds `x.ts` when nothing emitted
- * `x.js`.
+ * Rescue on `require.resolve` what the resolve hook rescues everywhere else, on
+ * a runtime whose `require.resolve` does not consult `module.registerHooks`
+ * (`RuntimeLoaderCapabilities.requireResolveConsultsHooks`).
  *
  * TypeScript asks authors to write the emitted `.js` extension in a relative
- * specifier, so this spelling is the documented one rather than a mistake, and
- * the ESM `resolve` hook has always rescued it. The CommonJS graph could not,
- * and on Node 22 that graph is reached by every `require()` inside a CommonJS
- * module the ESM loader evaluated — `module.registerHooks` sees the `import()`
- * of that module and nothing within it. Node 24 routes the same `require`
- * through the hooks, which is why the gap was only ever visible on the oldest
- * runtime ttsx supports (`engines.node` is `>=22.15.0`).
- *
- * The wrapper only ever answers a request Node's own resolver already refused,
- * so a resolution that succeeds is never perturbed, and a request no candidate
- * satisfies rethrows Node's original error with its `MODULE_NOT_FOUND` code and
- * `requireStack` intact. `require.resolve` shares this entry point and is
- * rescued with it, except in its `{ paths }` form, which resolves against the
- * caller's list rather than the parent this reads.
+ * specifier, and an extensionless one names a source by its stem, so
+ * `require.resolve("./x.js")` and `require.resolve("./x")` must find `x.ts` as
+ * `require()` does. Where the hooks see `require.resolve`, they answer it and
+ * nothing is installed. Where they do not, the one entry point
+ * `require.resolve` reaches, `Module._resolveFilename`, answers only a request
+ * Node's own resolver already refused, so a resolution that succeeds is never
+ * perturbed, and a request no candidate satisfies rethrows Node's original
+ * error with its `MODULE_NOT_FOUND` code and `requireStack` intact.
  */
-function installCommonJsResolveHook(): void {
+function installRequireResolveRescue(): void {
   const internals = Module as unknown as {
     _resolveFilename(
       request: string,
@@ -289,64 +243,80 @@ function installCommonJsResolveHook(): void {
     isMain: boolean,
     options?: unknown,
   ): string {
-    try {
+    if (typeof request !== "string") {
       return original.call(this, request, parent, isMain, options);
-    } catch (error) {
-      const rescued = rescueCommonJsRequest(request, parent, options);
-      if (rescued === null) {
-        throw error;
+    }
+    // What the resolve hook records of a descriptor's resolution, recorded
+    // here for the resolutions the hooks do not see.
+    const parentURL =
+      typeof parent?.filename === "string"
+        ? pathToFileURL(parent.filename).href
+        : undefined;
+    const candidates = observePluginDescriptorResolutionCandidates(
+      request,
+      parentURL,
+    );
+    let selected: string | undefined;
+    try {
+      let resolved: string;
+      try {
+        resolved = original.call(this, request, parent, isMain, options);
+      } catch (error) {
+        const rescued = rescueCommonJsRequest(request, parent, options);
+        if (rescued === null) {
+          throw error;
+        }
+        resolved = rescued;
       }
-      return rescued;
+      if (path.isAbsolute(resolved)) {
+        selected = pathToFileURL(resolved).href;
+        recordPluginDescriptorResolution(request, parentURL, selected);
+      }
+      return resolved;
+    } finally {
+      candidates.commit(selected);
     }
   };
 }
 
 /**
- * The TypeScript source a refused CommonJS request names, or `null`.
+ * The TypeScript source a refused CommonJS request names, or `null`, by the
+ * rescue the resolve hook applies (`probeRescuableSpecifier`).
  *
- * Only a relative or absolute request can be rescued: a bare specifier is a
- * package lookup, whose own resolver already probed every extension the
- * installed `_extensions` keys declare.
- *
- * Two shapes decline before that. `_resolveFilename` is an internal entry point
- * anything may call, so a non-string request reaches here as readily as a
- * specifier does, and reading it would replace Node's own argument error with a
- * `TypeError` from this file. And `require.resolve(request, { paths })`
- * resolves against the caller's list, which this rescue does not consult, so
- * answering it from the parent's directory would be a different question's
- * answer.
+ * A relative request resolves from the parent's directory, or, in the
+ * `require.resolve(request, { paths })` form, from each listed directory in
+ * order, as Node resolves it; an absolute request names its own location either
+ * way. A bare specifier is a package lookup Node already made, and a non-string
+ * request reaches this internal entry point as readily as a specifier does, so
+ * both decline and keep Node's own error.
  */
 function rescueCommonJsRequest(
-  request: string,
+  request: unknown,
   parent: { filename?: string | null } | null | undefined,
   options?: unknown,
 ): string | null {
-  if (typeof request !== "string") {
-    return null;
-  }
-  if (
+  if (typeof request !== "string") return null;
+  const paths =
     typeof options === "object" &&
     options !== null &&
     Array.isArray((options as { paths?: unknown }).paths)
-  ) {
-    return null;
-  }
-  let base: string;
-  if (path.isAbsolute(request)) {
-    base = request;
-  } else if (isRelativeSpecifier(request)) {
-    const from = parent?.filename;
-    if (typeof from !== "string") {
-      return null;
-    }
-    base = path.resolve(path.dirname(from), request);
-  } else {
-    return null;
-  }
-  for (const candidate of typescriptSourcesForJavaScriptSpecifier(base)) {
-    if (RuntimeFilesystem.isFile(candidate)) {
-      return candidate;
-    }
+      ? (options as { paths: unknown[] }).paths
+      : undefined;
+  const parents: (string | undefined)[] = path.isAbsolute(request)
+    ? [undefined]
+    : paths !== undefined
+      ? paths
+          .filter((entry): entry is string => typeof entry === "string")
+          .map(
+            (entry) =>
+              pathToFileURL(path.join(path.resolve(entry), "index.js")).href,
+          )
+      : typeof parent?.filename === "string"
+        ? [pathToFileURL(parent.filename).href]
+        : [];
+  for (const parentURL of parents) {
+    const rescued = probeRescuableSpecifier(request, parentURL);
+    if (rescued !== null) return fileURLToPath(rescued);
   }
   return null;
 }
@@ -376,12 +346,9 @@ function resolve(
     let result: ResolveResult;
     try {
       result = rememberRuntimeEntry(
-        rememberCommonJsNamedInterop(
-          restoreStrippedNodeBuiltinScheme(
-            specifier,
-            nextResolve(specifier, context),
-          ),
-          context,
+        restoreStrippedNodeBuiltinScheme(
+          specifier,
+          nextResolve(specifier, context),
         ),
         context,
       );
@@ -391,10 +358,7 @@ function resolve(
         throw error;
       }
       result = rememberRuntimeEntry(
-        rememberCommonJsNamedInterop(
-          { shortCircuit: true, url: rescued },
-          context,
-        ),
+        { shortCircuit: true, url: rescued },
         context,
       );
     }
@@ -863,9 +827,6 @@ function rememberRuntimeEntry(
 
 const builtProjects = new Map<string, DependencyBuildGeneration.BuiltProject>();
 
-/** File URLs whose CommonJS source was reached from an ESM parent import. */
-const commonJsNamedInteropUrls = new Set<string>();
-
 const commonJsNameScanSources = new Map<string, string | null>();
 
 function load(
@@ -880,39 +841,45 @@ function load(
   if (!isTypeScriptSource(filename)) {
     return nextLoad(url, context);
   }
-  const { format, source } = resolveRuntimeSource(
+  const served = resolveServedSource(
     filename,
     url,
     runtimeEntryUrls.delete(url) || isProcessEntry(filename),
   );
-  return {
-    format,
-    shortCircuit: true,
-    source,
-  };
-}
-
-function resolveRuntimeSource(
-  filename: string,
-  url: string = pathToFileURL(filename).href,
-  prepareAsEntry: boolean = false,
-): { format: string; source: string } {
-  const served = resolveServedSource(filename, url, prepareAsEntry);
   const format = RuntimeModuleFormat.moduleFormat(
     filename,
     served.moduleOptions,
   );
-  return {
-    format,
-    source:
-      format === "commonjs" && commonJsNamedInteropUrls.has(url)
-        ? exposeCommonJsStarExports(
-            served.source,
-            served.emittedFile,
-            served.sourceFile,
-          )
-        : served.source,
-  };
+  // An ESM import of a CommonJS source gets the facade, which loads the module
+  // through the CommonJS loader, where the hooks see its own `require()` on
+  // every release (`commonJsImportFacade`, samchon/ttsc#1517).
+  if (format === "commonjs" && !hasCondition(context, "require")) {
+    return {
+      format: "module",
+      shortCircuit: true,
+      source: commonJsImportFacade(
+        url,
+        filename,
+        commonJsExportNames(
+          served.source,
+          served.emittedFile,
+          served.sourceFile,
+        ),
+        RuntimeLoaderCapabilities.commonJsNamespaceCarriesModuleExports(),
+      ),
+    };
+  }
+  return { format, shortCircuit: true, source: served.source };
+}
+
+/**
+ * Whether a load context carries `condition`. The conditions arrive as an array
+ * on some releases and as a set on others.
+ */
+function hasCondition(context: LoadContext, condition: string): boolean {
+  for (const entry of context.conditions ?? [])
+    if (entry === condition) return true;
+  return false;
 }
 
 /** Whether `filename` is the TypeScript main module named on Node's argv. */
@@ -923,93 +890,6 @@ function isProcessEntry(filename: string): boolean {
     isTypeScriptSource(entry) &&
     realPath(path.resolve(entry)) === realPath(filename)
   );
-}
-
-function rememberCommonJsNamedInterop(
-  result: ResolveResult,
-  context: ResolveContext,
-): ResolveResult {
-  if (shouldExposeCommonJsNamedExports(result.url, context.parentURL)) {
-    commonJsNamedInteropUrls.add(result.url);
-  }
-  return result;
-}
-
-/**
- * Whether a CommonJS-classified TypeScript source reached from an ESM parent
- * needs its nested `export *` names exposed.
- *
- * Only the parent side is decided here. The child's own format is re-checked
- * authoritatively in `resolveRuntimeSource` against the format its served
- * source actually carries, so this predicate deliberately does not repeat that
- * check: doing so would need the child's owning project, which is not known
- * until the source is served, and an answer guessed from the nearest tsconfig
- * silently under-exposes a file that tsconfig does not compile.
- */
-function shouldExposeCommonJsNamedExports(
-  url: string,
-  parentURL: string | undefined,
-): boolean {
-  if (
-    parentURL === undefined ||
-    !url.startsWith("file:") ||
-    !parentURL.startsWith("file:")
-  ) {
-    return false;
-  }
-  const parentFile = fileURLToPath(parentURL);
-  if (
-    RuntimeModuleFormat.moduleFormat(
-      parentFile,
-      owningModuleOptions(parentFile),
-    ) !== "module"
-  ) {
-    return false;
-  }
-  return isTypeScriptSource(fileURLToPath(url));
-}
-
-/**
- * The emit-deciding compiler options of the project that owns `filename`, or
- * `null` when none does.
- *
- * The entry project owns a file only when it actually emitted it. Testing
- * whether the file lies under `rootDir` would claim every file under a wide
- * `rootDir` — including the volume-root `rootDir` a config-loader project uses
- * — and hand them the entry project's options even though the dependency or
- * orphan lane is what serves them.
- */
-function owningModuleOptions(filename: string): OwningModuleOptions | null {
-  if (!isTypeScriptSource(filename)) {
-    return null;
-  }
-  const real = realPath(filename);
-  const owner = RuntimeManifestRegistry.findEntryEmit(real)?.manifest;
-  if (owner !== undefined) {
-    return owner.moduleOptions ?? {};
-  }
-  const tsconfig = owningTsconfig(real);
-  if (tsconfig === null) {
-    return null;
-  }
-  const cached = moduleOptionsCache.get(tsconfig);
-  if (cached !== undefined) {
-    return cached;
-  }
-  let options: OwningModuleOptions = {};
-  try {
-    const project = readPluginDescriptorProjectConfig(tsconfig);
-    options = projectModuleOptions(project.compilerOptions);
-  } catch {
-    // The owning project cannot be read, so nothing is known about the format
-    // it would have emitted. That is the same state as having no project at
-    // all, and it is what the dependency lane will conclude too when its build
-    // fails and the file falls through to the isolated orphan emit.
-    moduleOptionsCache.set(tsconfig, null);
-    return null;
-  }
-  moduleOptionsCache.set(tsconfig, options);
-  return options;
 }
 
 /**
@@ -1568,44 +1448,33 @@ function isolatedEmitOf(input: string, outDir: string): string | null {
 }
 
 /**
- * Make TypeScript-Go's CommonJS `export *` output visible to Node's
- * ESM-from-CJS named export scanner.
+ * The names an ESM importer of a served CommonJS module sees besides `default`,
+ * by Node's own static detection (`cjs-module-lexer`, the lexer Node runs): the
+ * module's detected exports, and the names of each star re-export's target.
  *
- * Tsgo lowers star re-exports to `__exportStar(require("./x"), exports)`.
- * Runtime CommonJS consumers see the getters that helper installs, but Node's
- * ESM linker only exposes named imports it can statically identify from
- * `exports.name = ...` assignments. For relative star re-exports whose emitted
- * target is available, advertise its names through inert assignments that
- * Node's static lexer recognizes. The original helper still owns every runtime
- * binding, including values static discovery cannot enumerate.
+ * Tsgo lowers `export *` to `__exportStar(require("./x"), exports)`, whose
+ * target Node would lex from disk, where only `x.ts` exists. The target's names
+ * are therefore read from its emit, or from the source's own name scan, as Node
+ * would read them had the emitted file been there. The helper still owns every
+ * runtime binding.
  */
-function exposeCommonJsStarExports(
+function commonJsExportNames(
   source: string,
   emittedFile: string | undefined,
   sourceFile: string | undefined,
-): string {
+): string[] {
   const parsed = parseCommonJsExports(source);
-  const reserved = new Set(parsed.exports);
-  const names = new Set<string>();
+  const names = new Set(parsed.exports);
   for (const specifier of parsed.reexports) {
     for (const name of collectStarExportNames(
       emittedFile,
       sourceFile,
       specifier,
     )) {
-      if (name !== "default" && name !== "__esModule" && !reserved.has(name)) {
-        names.add(name);
-      }
+      if (name !== "default" && name !== "__esModule") names.add(name);
     }
   }
-  if (names.size === 0) return source;
-  // Node's lexer reads these assignments statically. Nothing executes, and no
-  // existing statement, source position, control-flow body or runtime export
-  // is changed. Keep all specifier/literal parsing in the same lexer Node uses.
-  const hints = [...names]
-    .map((name) => `exports[${JSON.stringify(name)}] = void 0;`)
-    .join(" ");
-  return source + `\nif (false) { ${hints} }\n`;
+  return [...names];
 }
 
 function collectStarExportNames(
@@ -2409,8 +2278,6 @@ function owningTsconfig(real: string): string | null {
 const owningTsconfigCache = new Map<string, string>();
 
 const tsconfigCache = new Map<string, ITsconfigLookup>();
-
-const moduleOptionsCache = new Map<string, OwningModuleOptions | null>();
 
 /**
  * The nearest `tsconfig.json` at or above `file`'s directory, or `null`. The
