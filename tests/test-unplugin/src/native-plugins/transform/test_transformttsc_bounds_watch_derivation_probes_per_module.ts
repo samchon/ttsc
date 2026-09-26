@@ -68,8 +68,9 @@ export async function test_transformttsc_bounds_watch_derivation_probes_per_modu
   }
 
   // Derivation parity: each module registers its own reach union, minus
-  // itself, plus the universal config chain and the plugin's Go source
-  // (samchon/ttsc#1487).
+  // itself, plus the universal config chain, the plugin's Go source
+  // (samchon/ttsc#1487), and the nearer config its selection looked for
+  // (samchon/ttsc#1543).
   const expected = (file: string) =>
     [
       ...modules.filter((other) => other !== file),
@@ -78,6 +79,7 @@ export async function test_transformttsc_bounds_watch_derivation_probes_per_modu
       ),
       path.join(project.root, "package.json"),
       path.join(project.root, "plugin.cjs"),
+      path.join(path.dirname(file), "tsconfig.json"),
       path.join(project.root, "tsconfig.json"),
       TestUnpluginProject.pluginSource(project.root),
     ].sort();

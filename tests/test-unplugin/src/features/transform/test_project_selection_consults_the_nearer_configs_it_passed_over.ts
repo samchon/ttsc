@@ -5,6 +5,7 @@ import path from "node:path";
 
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/lib/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS.mjs";
 import { resolveProjectSelection } from "../../../../../packages/unplugin/lib/core/transform/tsconfig/resolveProjectSelection.mjs";
+import type { TtscWatchInput } from "../../../../../packages/unplugin/lib/core/transform/watch/TtscWatchInput.js";
 import { selectionInputs } from "../../../../../packages/unplugin/lib/core/transform/watch/selectionInputs.mjs";
 
 /**
@@ -45,9 +46,7 @@ export async function test_project_selection_consults_the_nearer_configs_it_pass
     (input: string) => input,
   );
   assert.deepEqual(
-    inputs.map(
-      (input: { evidence: { missing: boolean } }) => input.evidence.missing,
-    ),
+    inputs.map((input: TtscWatchInput) => input.evidence?.missing),
     [true, true],
   );
 
@@ -61,7 +60,7 @@ export async function test_project_selection_consults_the_nearer_configs_it_pass
     (input: string) => input,
   );
   assert.equal(
-    reread[1].evidence.missing,
+    reread[1]?.evidence?.missing,
     false,
     "the created config no longer matches its recorded absence",
   );

@@ -67,7 +67,7 @@ export async function test_transformttsc_forwards_plugin_dependencies_to_the_wat
       absolute,
       TestUnpluginProject.mainFile(root),
       secondAliasedMain,
-      ...fixtureHostInputs(root),
+      ...fixtureHostInputs(root, firstAliasedMain),
     ].sort(),
   );
   const watched: string[] = [];

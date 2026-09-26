@@ -14,8 +14,9 @@ import path from "node:path";
  * no longer be the one at that path (samchon/ttsc#1521). The change time moves
  * with every write and cannot be restored, so it is part of the identity now.
  *
- * 1. Copy the compiler to a fixed path and run an entry that requires a raw
- *    TypeScript package with no tsconfig, with a private `TTSC_CACHE_DIR`.
+ * 1. Copy the compiler to a fixed path, pin its modification time to a whole
+ *    second, and run an entry that requires a raw TypeScript package with no
+ *    tsconfig, with a private `TTSC_CACHE_DIR`.
  * 2. Plant a marker in the one cached lowering and run again.
  * 3. Rewrite the compiler with the same bytes and restore its modification time,
  *    then run a third time.
@@ -59,6 +60,10 @@ export const test_ttsx_orphan_cache_misses_a_compiler_rewritten_with_its_modific
       path.basename(TestProject.TSGO_BINARY),
     );
     fs.chmodSync(compiler, 0o755);
+    // A whole second every filesystem stores exactly, so the restore below
+    // reproduces the modification time to the nanosecond.
+    const stamp = 1_700_000_000;
+    fs.utimesSync(compiler, stamp, stamp);
     const cacheDir = path.join(root, "orphan-cache");
     const run = () =>
       TestProject.spawn(TestProject.TTSX_BIN, ["--cwd", root, "src/main.ts"], {
@@ -83,12 +88,12 @@ export const test_ttsx_orphan_cache_misses_a_compiler_rewritten_with_its_modific
     assert.equal(second.status, 0, second.stderr);
     assert.match(second.stdout, /served from cache/);
 
-    const before = fs.statSync(compiler);
+    const before = fs.statSync(compiler, { bigint: true });
     fs.writeFileSync(compiler, fs.readFileSync(compiler));
-    // Seconds with a fraction keep the sub-millisecond part a `Date` drops.
-    fs.utimesSync(compiler, before.atimeMs / 1000, before.mtimeMs / 1000);
-    assert.equal(fs.statSync(compiler).mtimeMs, before.mtimeMs);
-    assert.equal(fs.statSync(compiler).size, before.size);
+    fs.utimesSync(compiler, stamp, stamp);
+    const after = fs.statSync(compiler, { bigint: true });
+    assert.equal(after.mtimeNs, before.mtimeNs);
+    assert.equal(after.size, before.size);
     const third = run();
     assert.equal(third.status, 0, third.stderr);
     assert.equal(third.stdout.trim(), "lowered");

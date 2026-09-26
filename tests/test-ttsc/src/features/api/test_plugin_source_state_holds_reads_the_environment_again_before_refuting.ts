@@ -5,24 +5,25 @@ import path from "node:path";
 import { pluginSourceState, pluginSourceStateHolds } from "ttsc/plugin-source";
 
 /**
- * Verifies a plugin source's state proof reads the build environment again
- * before it refutes a state, so a change no variable carries reaches this
- * process through the first proof it fails (samchon/ttsc#1493).
+ * Verifies a plugin source's state proof follows a build environment changed
+ * through the Go environment file, so a change no variable carries never makes
+ * it refute the state a compile reports (samchon/ttsc#1493).
  *
  * The state a transform reports covers the environment a build is keyed on,
- * which costs a `go env` run and a GOROOT walk to read, so a process reads it
- * once and keeps it under its variables. `go env -w` changes that environment
- * through a file, with no variable moving. A compile keys its binaries on a
- * fresh read and reports the state it built from; a proof holding on to the
- * process's first reading would refute that state on every delivery and
- * recompile forever.
+ * which costs a `go env` run and a GOROOT walk to read, so a process keeps its
+ * reading under its variables. `go env -w` changes that environment through a
+ * file, with no variable moving. A compile keys its binaries on a fresh read
+ * and reports the state it built from; a proof holding on to the process's
+ * first reading would refute that state on every delivery and recompile
+ * forever. The kept reading now holds only while the environment file keeps its
+ * metadata (samchon/ttsc#1516), and the proof reads the environment again
+ * before it refutes a state all the same.
  *
  * 1. Point `GOENV` at a Go environment file of the test's own, and read a plugin
  *    source's state.
  * 2. Write `GOFLAGS` into that file, moving no variable, and assert the process's
- *    reading still gives the old state while a fresh read gives another.
- * 3. Assert the proof accepts the fresh state, the process's reading is the fresh
- *    one from then on, and the old state is refuted.
+ *    reading follows it to the state a fresh read gives.
+ * 3. Assert the proof accepts the fresh state and refutes the old one.
  */
 export const test_plugin_source_state_holds_reads_the_environment_again_before_refuting =
   () => {
@@ -43,24 +44,19 @@ export const test_plugin_source_state_holds_reads_the_environment_again_before_r
 
       // 2. A change no variable carries.
       fs.writeFileSync(goenv, "GOFLAGS=-tags=ttsc_goenv_probe\n");
-      assert.equal(
-        pluginSourceState(source),
-        before,
-        "the process keeps its reading",
-      );
       const fresh = pluginSourceState(source, { env: process.env });
       assert.notEqual(fresh, before, "the environment file moved the state");
+      assert.equal(
+        pluginSourceState(source),
+        fresh,
+        "the process's reading follows the environment file",
+      );
 
-      // 3. The proof reads it again before it refutes.
+      // 3. The proof accepts what a compile would report now.
       assert.equal(
         pluginSourceStateHolds(source, fresh),
         true,
         "the state a compile would report now holds",
-      );
-      assert.equal(
-        pluginSourceState(source),
-        fresh,
-        "and is kept from then on",
       );
       assert.equal(pluginSourceStateHolds(source, before), false);
     } finally {
