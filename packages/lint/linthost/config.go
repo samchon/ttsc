@@ -4704,12 +4704,13 @@ func resolveDirLink(dir string) string {
 // project being linted, with an explicit environment variable winning and a
 // last resort that invents no path.
 //
-// The three Go copies are held identical by the gate named at the top of this
-// block. The JS original — `resolveConfigTsgo` / `resolveTtsxLauncher` in
-// packages/lint/src/index.ts — is a fourth copy in another language that no Go
-// gate can reach; the two evaluators must keep one policy, because it was a
-// divergence between them that made a TypeScript lint config unevaluable
-// outside a `ttsx`-launched host.
+// No automated check holds the three Go copies identical: a change lands in
+// all three by hand, and each package's own config-loader tests exercise it.
+// The JS original — `resolveConfigTsgo` / `resolveTtsxLauncher` in
+// packages/lint/src/index.ts — is a fourth copy in another language; the two
+// evaluators must keep one policy, because it was a divergence between them
+// that made a TypeScript lint config unevaluable outside a `ttsx`-launched
+// host.
 //
 // The environment alone is the wrong place to ask. `ttsx` exports
 // TTSC_TSGO_BINARY and TTSC_TTSX_BINARY to its own descendants, so a host

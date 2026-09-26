@@ -1028,11 +1028,11 @@ func realpathIfPossible(location string) string {
 // the project being compiled, with an explicit environment variable winning
 // and a last resort that invents no path.
 //
-// The three Go copies are held identical by the gate named at the top of this
-// block. The JS original — `resolveConfigTsgo` / `resolveTtsxLauncher` in
-// packages/lint/src/index.ts — is a fourth copy in another language that no Go
-// gate can reach; what it owes is that both policies stay describable in one
-// sentence.
+// No automated check holds the three Go copies identical: a change lands in
+// all three by hand, and each package's own config-loader tests exercise it.
+// The JS original — `resolveConfigTsgo` / `resolveTtsxLauncher` in
+// packages/lint/src/index.ts — is a fourth copy in another language; what it
+// owes is that both policies stay describable in one sentence.
 //
 // The environment alone is the wrong place to ask. `ttsx` exports
 // TTSC_TSGO_BINARY and TTSC_TTSX_BINARY to its own descendants, so a host
