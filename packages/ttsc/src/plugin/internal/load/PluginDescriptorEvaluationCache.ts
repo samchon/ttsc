@@ -121,10 +121,14 @@ export namespace PluginDescriptorEvaluationCache {
    *
    * The state is the one the evaluation proved while it ran, never a reading
    * taken now: hashing the inputs here would pair the answer with a state it
-   * may not have been computed from (samchon/ttsc#1504). An input without both
-   * proofs, or a declared input whose fingerprint the evaluation did not give,
-   * leaves nothing that could prove the entry later, so nothing is recorded. A
-   * write failure only costs the next launch an evaluation.
+   * may not have been computed from (samchon/ttsc#1504). An evaluation input
+   * without both proofs leaves nothing that could prove the entry later, so
+   * nothing is recorded, and neither is a fingerprint declaration no proof can
+   * use. A declared host input without a fingerprint is one the descriptor did
+   * not read, since the protocol asks a descriptor to fingerprint what it
+   * reads: it stays in the answer for its consumers to track and does not
+   * decide the answer. A write failure only costs the next launch an
+   * evaluation.
    */
   export function write(file: string, evaluation: IEvaluation): void {
     const hashes: Record<string, string | null> = {};
