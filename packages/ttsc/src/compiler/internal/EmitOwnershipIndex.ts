@@ -194,22 +194,24 @@ export class EmitOwnershipIndex {
    *
    * The output's name admits a few sources: `a.js` comes from `a.ts` or `a.tsx`
    * (or, under `allowJs`, `a.js` or `a.jsx`). The asked source must be one of
-   * those that exists. When it is the only TypeScript one, that settles it.
+   * those that exists. When it is the only one that exists, that settles it.
    *
-   * When `a.ts` and `a.tsx` both exist, only one of them can be in the output.
-   * The build's source map names it: its `sources` entry is the file the
-   * compiler read. Without a map, the compiler's own precedence decides, the
-   * one it applies when it expands `include` and when it resolves `./a`: `.ts`
-   * before `.tsx`, which is the order {@link sourceExtensions} lists them in.
+   * When several exist, only one of them can be in the output, and a sibling of
+   * another language counts: a project whose `files` lists only `a.js` compiles
+   * it into `a.js` beside an uncompiled `a.ts`. The build's source map names
+   * the source: its `sources` entry is the file the compiler read. Without a
+   * map, the compiler's own precedence decides, the one it applies when it
+   * expands `include` and when it resolves `./a`: `.ts` before `.tsx`, and
+   * TypeScript before JavaScript, which is the order {@link sourceExtensions}
+   * lists them in.
    */
   private owns(output: string, key: string): boolean {
     const sources = this.existingSources(output);
     if (!sources.some((source) => source.key === key)) return false;
-    const typescript = sources.filter((source) => source.typescript);
-    if (typescript.every((source) => source.key === key)) return true;
+    if (sources.every((source) => source.key === key)) return true;
     const mapped = this.mappedSource(output);
     if (mapped !== undefined) return mapped === key;
-    return typescript[0]!.key === key;
+    return sources[0]!.key === key;
   }
 
   /**
@@ -271,7 +273,6 @@ export class EmitOwnershipIndex {
         .filter(isFile)
         .map((source) => ({
           key: this.identities.resolve(source).key,
-          typescript: /\.[cm]?tsx?$/i.test(source),
         }));
       this.sourceKeys.set(output, sources);
     }
@@ -355,8 +356,6 @@ export class EmitOwnershipIndex {
 interface SourceCandidate {
   /** Its filesystem identity. */
   key: string;
-  /** Whether it is TypeScript rather than JavaScript under `allowJs`. */
-  typescript: boolean;
 }
 
 /** Bucket of outputs whose own name may be a Windows 8.3 short name. */
