@@ -14,6 +14,7 @@ import { isProjectInputPathIdentityWithin } from "../../../internal/pathIdentity
 import { resolveProjectInputPath } from "../../../internal/pathIdentity/resolveProjectInputPath";
 import { collectPluginSourceDirectories } from "../../../plugin/internal/source/collectPluginSourceDirectories";
 import { pluginSourceCovers } from "../../../plugin/internal/source/pluginSourceCovers";
+import { pluginSourceDigest } from "../../../plugin/internal/source/pluginSourceDigest";
 import { prunesPluginSourceDirectory } from "../../../plugin/internal/source/prunesPluginSourceDirectory";
 import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
 import type { ITtscProjectInputSnapshot } from "../../../structures/internal/ITtscProjectInputSnapshot";
@@ -51,6 +52,18 @@ export class WatchTopology {
   private directories = new Map<string, string>();
   private directoryWatchers = new Map<string, fs.FSWatcher>();
   private extraInputs: readonly string[] = [];
+  /**
+   * What each plugin input held when last observed, by path key: the digest a
+   * plugin build keys it on (`pluginInputState`). A notification about an input
+   * whose state did not move is not a plugin change.
+   */
+  private pluginInputStates = new Map<string, string>();
+  /**
+   * The plugin inputs notifications named since the last decision, by path key,
+   * each with the first location noted for it (`notePluginNotification`).
+   */
+  private pendingPluginNotifications = new Map<string, string>();
+  private pluginNotificationsScheduled = false;
   private extraWatchers = new Map<string, fs.FSWatcher>();
   /** The plugin inputs whose directories the last sync already watched. */
   private watchedExtraInputs = new Set<string>();
@@ -284,6 +297,19 @@ export class WatchTopology {
     const next = uniqueExistingPaths(inputs);
     if (arraysEqual(this.extraInputs, next)) return;
     this.extraInputs = next;
+    // The load reports its inputs before any build reads them, so the state
+    // recorded here precedes every read, and an edit after it moves the state.
+    // An input already tracked keeps its baseline: restamping it would absorb
+    // a change nobody reported.
+    const states = new Map<string, string>();
+    for (const input of next) {
+      const key = WatchPaths.pathKey(input);
+      states.set(
+        key,
+        this.pluginInputStates.get(key) ?? pluginInputState(input),
+      );
+    }
+    this.pluginInputStates = states;
     this.refresh(false);
   }
 
@@ -424,10 +450,7 @@ export class WatchTopology {
                 : path.resolve(location, filename.toString());
             const pluginInput = changed ?? location;
             if (this.isPluginInput(pluginInput)) {
-              this.callbacks.onInputChange({
-                kind: "plugin",
-                path: pluginInput,
-              });
+              this.notePluginNotification(pluginInput);
               return;
             }
             const plan = planCompilerDirectoryWatchEvent({
@@ -643,10 +666,7 @@ export class WatchTopology {
             // The one decision every watcher that hears a plugin path shares;
             // here it drops the entry of a directory the build passes over.
             if (changed !== undefined && !this.isPluginInput(changed)) return;
-            this.callbacks.onInputChange({
-              kind: "plugin",
-              path: changed ?? location,
-            });
+            this.notePluginNotification(changed ?? location);
           },
         ),
       (location, error) => this.callbacks.onError(location, error),
@@ -667,8 +687,7 @@ export class WatchTopology {
       }
       for (const name of entries) {
         const entry = path.join(directory, name);
-        if (!this.isPluginInput(entry)) continue;
-        this.callbacks.onInputChange({ kind: "plugin", path: entry });
+        if (this.isPluginInput(entry)) this.notePluginNotification(entry);
       }
     }
   }
@@ -1424,6 +1443,61 @@ export class WatchTopology {
     return this.reloadFiles.has(WatchPaths.pathKey(location))
       ? "config"
       : "compiler";
+  }
+
+  /**
+   * Note a notification at `location` against the plugin inputs it may have
+   * moved, to be decided once the delivery it came in has reached every
+   * listener (`decidePluginNotifications`).
+   *
+   * A watcher reports more than an edit. Windows reports a directory's entry as
+   * changed when only its metadata moved, such as its access time after a build
+   * enumerated it, and a notification taken at its word restarted the resident
+   * check host for a plugin whose sources nobody edited. An input is decided by
+   * what its build reads, which is every one of its source files, so the
+   * notifications of one delivery are decided together: an install or a
+   * checkout brings hundreds, and each input they name is read once. A location
+   * no input covers, such as a directory above one, names every input.
+   */
+  private notePluginNotification(location: string): void {
+    const resolved = path.resolve(location);
+    const covering = this.extraInputs.filter((input) =>
+      pluginSourceCovers(input, resolved, "entry"),
+    );
+    for (const input of covering.length === 0 ? this.extraInputs : covering) {
+      const key = WatchPaths.pathKey(input);
+      if (!this.pendingPluginNotifications.has(key))
+        this.pendingPluginNotifications.set(key, location);
+    }
+    if (this.pluginNotificationsScheduled) return;
+    this.pluginNotificationsScheduled = true;
+    // A watcher backend hands one delivery to its listeners within one turn
+    // of the event loop, so the check phase after that turn holds all of it.
+    setImmediate(() => this.decidePluginNotifications());
+  }
+
+  /**
+   * Report each noted plugin input whose state moved, naming the first location
+   * noted for it, and record the state it moved to. A notification that moved
+   * no input is dropped.
+   */
+  private decidePluginNotifications(): void {
+    this.pluginNotificationsScheduled = false;
+    const pending = this.pendingPluginNotifications;
+    this.pendingPluginNotifications = new Map();
+    if (this.closed) return;
+    const reported = new Set<string>();
+    for (const input of this.extraInputs) {
+      const key = WatchPaths.pathKey(input);
+      const location = pending.get(key);
+      if (location === undefined) continue;
+      const state = pluginInputState(input);
+      if (this.pluginInputStates.get(key) === state) continue;
+      this.pluginInputStates.set(key, state);
+      if (reported.has(location)) continue;
+      reported.add(location);
+      this.callbacks.onInputChange({ kind: "plugin", path: location });
+    }
   }
 
   /**
@@ -2379,6 +2453,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * either. Resolving here keeps every backend comparing two canonical spellings
  * while callers keep resolving events against what they declared.
  */
+/**
+ * What a plugin build keys a plugin input on: the digest of the files its build
+ * reads from a source directory (`pluginSourceDigest`), or a file's bytes. An
+ * input that cannot be read has a state of its own, so the change that made it
+ * unreadable is reported and the build names the failure.
+ */
+function pluginInputState(input: string): string {
+  try {
+    return WatchPaths.isDirectory(input)
+      ? `directory:${pluginSourceDigest(input)}`
+      : `file:${fingerprintProjectInputFile(input)}`;
+  } catch (error) {
+    return `unreadable:${error instanceof Error ? error.message : String(error)}`;
+  }
+}
+
 function watcherRegistrationPath(location: string): string {
   try {
     return fs.realpathSync.native?.(location) ?? fs.realpathSync(location);

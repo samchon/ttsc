@@ -5,6 +5,11 @@ import path from "node:path";
 
 import { type WatchInputChange } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
 import { WatchTopology } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
+import {
+  deliverWatchEvent,
+  recordWatchers,
+  settleWatchEvents,
+} from "../../internal/recorded-watchers";
 
 /**
  * Verifies a named change notification that arrives after a refresh admitted
@@ -47,31 +52,7 @@ export const test_watch_topology_drops_a_late_notification_for_an_admitted_file 
       "utf8",
     );
 
-    const watchers: IRecordedWatcher[] = [];
-    const originalWatch = fs.watch;
-    Object.defineProperty(fs, "watch", {
-      configurable: true,
-      value: ((location: fs.PathLike, ...rest: unknown[]) => {
-        const listener = rest.find(
-          (value): value is WatchListener => typeof value === "function",
-        );
-        const options = rest.find(
-          (value): value is { recursive?: boolean } =>
-            typeof value === "object" && value !== null,
-        );
-        const watcher: IRecordedWatcher = {
-          close: () => undefined,
-          listener: listener ?? (() => undefined),
-          location: path.resolve(String(location)),
-          on: () => watcher,
-          recursive: options?.recursive === true,
-        };
-        watchers.push(watcher);
-        return watcher as unknown as fs.FSWatcher;
-      }) as typeof fs.watch,
-      writable: true,
-    });
-
+    const { restore, watchers } = recordWatchers();
     const changes: WatchInputChange[] = [];
     let topologyChanges = 0;
     const topology = new WatchTopology(
@@ -93,20 +74,20 @@ export const test_watch_topology_drops_a_late_notification_for_an_admitted_file 
     );
     try {
       topology.refresh(false);
-      await settle();
+      await settleWatchEvents();
       changes.length = 0;
       topologyChanges = 0;
 
       const value = path.join(root, "src", "later", "value.ts");
       fs.mkdirSync(path.dirname(value));
       fs.writeFileSync(value, "export const value = 1;\n", "utf8");
-      deliver(watchers, path.dirname(value), "rename");
-      await settle();
+      deliverWatchEvent(watchers, path.dirname(value), "rename");
+      await settleWatchEvents();
       assert.equal(topologyChanges, 1, "the creation did not admit the file");
       assert.deepEqual([...changes], []);
 
-      deliver(watchers, value, "change");
-      await settle();
+      deliverWatchEvent(watchers, value, "change");
+      await settleWatchEvents();
       assert.deepEqual(
         [...changes],
         [],
@@ -114,8 +95,8 @@ export const test_watch_topology_drops_a_late_notification_for_an_admitted_file 
       );
 
       fs.writeFileSync(value, "export const value = 2;\n", "utf8");
-      deliver(watchers, value, "change");
-      await settle();
+      deliverWatchEvent(watchers, value, "change");
+      await settleWatchEvents();
       assert.deepEqual(
         changes.map((change) => change.path),
         [value],
@@ -123,52 +104,6 @@ export const test_watch_topology_drops_a_late_notification_for_an_admitted_file 
       );
     } finally {
       topology.close();
-      Object.defineProperty(fs, "watch", {
-        configurable: true,
-        value: originalWatch,
-        writable: true,
-      });
+      restore();
     }
   };
-
-type WatchListener = (event: string, filename: string | null) => void;
-
-interface IRecordedWatcher {
-  close(): void;
-  listener: WatchListener;
-  location: string;
-  on(): IRecordedWatcher;
-  recursive: boolean;
-}
-
-/**
- * Deliver an event for `entry` to every registered watcher that observes it,
- * named as each backend names it: a watcher of the entry itself and a watcher
- * of its parent directory by its base name, and a recursive watcher of an
- * ancestor by its path below that ancestor.
- */
-function deliver(
-  watchers: readonly IRecordedWatcher[],
-  entry: string,
-  event: string,
-): void {
-  let delivered = 0;
-  for (const watcher of watchers) {
-    const relative = path.relative(watcher.location, entry);
-    const observed =
-      relative === "" ||
-      relative === path.basename(entry) ||
-      (watcher.recursive &&
-        !relative.startsWith("..") &&
-        !path.isAbsolute(relative));
-    if (!observed) continue;
-    watcher.listener(event, relative === "" ? path.basename(entry) : relative);
-    delivered += 1;
-  }
-  assert.ok(delivered !== 0, `no registered watcher observes ${entry}`);
-}
-
-/** Let queued microtasks and timers run once. */
-async function settle(): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, 20));
-}
