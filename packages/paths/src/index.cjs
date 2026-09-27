@@ -5,6 +5,9 @@ const path = require("node:path");
 
 module.exports = function createTtscPaths(context) {
   return {
+    // The descriptor reads no file outside its module graph, which lets a
+    // launch reuse its evaluation (samchon/ttsc#1561).
+    hostInputHashes: {},
     name: "@ttsc/paths",
     // `context.dirname` is this descriptor's own directory in every load mode —
     // the ESM-safe replacement for `__dirname`.

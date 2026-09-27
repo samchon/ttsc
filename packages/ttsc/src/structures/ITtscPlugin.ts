@@ -45,6 +45,12 @@ export interface ITtscPlugin {
    * generation. The map is optional: ttsc still watches unhashed inputs, but
    * persistent adapters conservatively decline narrow generation reuse because
    * a later host snapshot cannot prove which state produced the descriptor.
+   *
+   * Returning the map also declares that its files are every file the factory
+   * read outside its module graph; `{}` declares that it read none. Only such a
+   * descriptor, with a fingerprint for each {@link hostInputs} entry, has its
+   * evaluation reused by a later launch, since ttsc cannot observe a plain `fs`
+   * read on every Node release it supports (samchon/ttsc#1561).
    */
   hostInputHashes?: Record<string, string | null>;
 

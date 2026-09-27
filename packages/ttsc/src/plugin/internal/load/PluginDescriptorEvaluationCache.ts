@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { resolveSourceBuildCachePaths } from "../source/resolveSourceBuildCachePaths";
+import { declaresHostInputReads } from "./declaresHostInputReads";
 import { hashHostInputPaths } from "./hashHostInputPaths";
 import { realpathHostInputPaths } from "./realpathHostInputPaths";
 
@@ -21,10 +22,12 @@ import { realpathHostInputPaths } from "./realpathHostInputPaths";
  * the state it was read in.
  *
  * The files a descriptor reads outside its module graph are its own to declare
- * (`hostInputs` with `hostInputHashes`), the contract every host input cache
- * relies on; a declared fingerprint is proven like a module the graph loaded.
- * An evaluation that could not prove an input is not recorded, and neither is
- * one that printed anything, since a hit replays nothing.
+ * (`hostInputHashes`), and no runtime ttsc supports can observe one it leaves
+ * out, so only the answer of a descriptor that declares them is recorded
+ * (`declaresHostInputReads`, samchon/ttsc#1561); a declared fingerprint is
+ * proven like a module the graph loaded. An evaluation that could not prove an
+ * input is not recorded, and neither is one that printed anything, since a hit
+ * replays nothing.
  */
 export namespace PluginDescriptorEvaluationCache {
   /** One evaluation's answer and the state it was computed from. */
@@ -124,13 +127,12 @@ export namespace PluginDescriptorEvaluationCache {
    * may not have been computed from (samchon/ttsc#1504). An evaluation input
    * without both proofs leaves nothing that could prove the entry later, so
    * nothing is recorded, and neither is a fingerprint declaration no proof can
-   * use. A declared host input without a fingerprint is one the descriptor did
-   * not read, since the protocol asks a descriptor to fingerprint what it
-   * reads: it stays in the answer for its consumers to track and does not
-   * decide the answer. A write failure only costs the next launch an
+   * use, nor the answer of a descriptor that did not declare every file it read
+   * (`declaresHostInputReads`). A write failure only costs the next launch an
    * evaluation.
    */
   export function write(file: string, evaluation: IEvaluation): void {
+    if (!declaresHostInputReads(evaluation.descriptor)) return;
     const hashes: Record<string, string | null> = {};
     const realpaths: Record<string, string | null> = {};
     for (const input of new Set(
@@ -188,7 +190,7 @@ export namespace PluginDescriptorEvaluationCache {
    * Entry format tag. Moves when the entry shape or its proof rule changes, so
    * an entry written under another rule is evaluated again.
    */
-  const FORMAT = "ttsc-descriptor-evaluation-v1";
+  const FORMAT = "ttsc-descriptor-evaluation-v2";
 
   interface IEntry {
     evaluation: IEvaluation;
@@ -223,16 +225,14 @@ export namespace PluginDescriptorEvaluationCache {
 
   /**
    * The fingerprints a descriptor declared for the files it read itself
-   * (`hostInputHashes`), keyed by resolved path; `{}` when it declared none,
-   * and `null` when the declaration is not one a proof can use.
+   * (`hostInputHashes`), keyed by resolved path, or `null` when the declaration
+   * is not one a proof can use.
    */
   function declaredFingerprints(
     descriptor: unknown,
   ): Record<string, string | null> | null {
-    if (typeof descriptor !== "object" || descriptor === null) return {};
     const declared = (descriptor as { hostInputHashes?: unknown })
       .hostInputHashes;
-    if (declared === undefined) return {};
     if (typeof declared !== "object" || declared === null) return null;
     const output: Record<string, string | null> = {};
     for (const [file, hash] of Object.entries(declared)) {

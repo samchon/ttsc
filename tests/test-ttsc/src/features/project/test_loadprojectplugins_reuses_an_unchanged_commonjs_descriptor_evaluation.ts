@@ -11,7 +11,9 @@ import { createFakeGoBinary } from "../../internal/source-build";
  * launch on Windows, although the descriptor, its dependencies, and the
  * environment were identical to the previous launch's (samchon/ttsc#1497). The
  * evaluation's answer is now kept with the state of every input it read, and
- * handed out while each still holds that state.
+ * handed out while each still holds that state. The descriptor reads no file
+ * outside its module graph and says so with an empty `hostInputHashes`, which
+ * is what lets its answer be recorded (samchon/ttsc#1561).
  *
  * 1. Load a project whose descriptor requires a helper and appends to a counter
  *    file each time its factory runs, twice with the same cache.
@@ -42,7 +44,11 @@ export const test_loadprojectplugins_reuses_an_unchanged_commonjs_descriptor_eva
         `const helper = require("./helper.cjs");`,
         `module.exports = (context) => {`,
         `  fs.appendFileSync(process.env.DESCRIPTOR_COUNTER, "x");`,
-        `  return { name: helper.name, source: context.dirname + "/go-plugin" };`,
+        `  return {`,
+        `    hostInputHashes: {},`,
+        `    name: helper.name,`,
+        `    source: context.dirname + "/go-plugin",`,
+        `  };`,
         `};`,
         ``,
       ].join("\n"),

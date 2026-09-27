@@ -31,6 +31,7 @@ import { PluginDescriptorEvaluationCache } from "./PluginDescriptorEvaluationCac
 import { PluginPackageResolution } from "./PluginPackageResolution";
 import { ProjectPluginEntries } from "./ProjectPluginEntries";
 import { collectProjectHostInputs } from "./collectProjectHostInputs";
+import { declaresHostInputReads } from "./declaresHostInputReads";
 import { hashHostInputPaths } from "./hashHostInputPaths";
 import { moduleResolutionBaseSelects } from "./moduleResolutionBaseSelects";
 import { realpathHostInput } from "./realpathHostInput";
@@ -81,6 +82,12 @@ export function loadProjectPlugins(options: {
   tsconfig?: string;
 }): {
   deferredHostInputs: string[];
+  /**
+   * Whether every descriptor declared the files it read outside its module
+   * graph (`declaresHostInputReads`). When one did not, the host inputs cannot
+   * prove the load's answer to a later launch (samchon/ttsc#1561).
+   */
+  descriptorReadsDeclared: boolean;
   hostInputHashes: Record<string, string | null>;
   hostInputRealpaths: Record<string, string | null>;
   hostInputs: string[];
@@ -125,6 +132,7 @@ export function loadProjectPlugins(options: {
           projectHostInputs,
         ),
       ),
+      descriptorReadsDeclared: true,
       nativePlugins: [],
       pluginSources: {},
       project,
@@ -402,6 +410,9 @@ export function loadProjectPlugins(options: {
         projectHostInputRealpaths,
         projectHostInputs,
       ),
+    ),
+    descriptorReadsDeclared: loadedEntries.every((entry) =>
+      declaresHostInputReads(entry.plugin),
     ),
     nativePlugins: orderNativePlugins(nativePlugins),
     // The directories the watch inputs named before the builds, as the builds
@@ -1136,8 +1147,9 @@ class CommonJsDescriptorLoadError extends Error {
  * The child invokes the factory before walking its graph, so lazy `require()`
  * calls are included, and a failed first load cannot strand poisoned children.
  *
- * The answer is kept across launches while every input the evaluation proved
- * still holds (`PluginDescriptorEvaluationCache`, samchon/ttsc#1497): an
+ * The answer of a descriptor that declares the files it reads is kept across
+ * launches while every input the evaluation proved still holds
+ * (`PluginDescriptorEvaluationCache`, samchon/ttsc#1497, samchon/ttsc#1561): an
  * unchanged project pays a proof of its descriptor inputs instead of a runtime
  * start and a graph load.
  */

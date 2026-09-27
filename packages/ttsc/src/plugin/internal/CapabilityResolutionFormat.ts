@@ -19,9 +19,10 @@ export namespace CapabilityResolutionFormat {
    * entry is discarded rather than read under new rules. The second format
    * proves the directories the binaries were keyed on by the build's own rule,
    * where the first fingerprinted each plugin's `source` alone
-   * (samchon/ttsc#1492).
+   * (samchon/ttsc#1492). The third records only the answer of a load whose
+   * descriptors declared every file they read (samchon/ttsc#1561).
    */
-  const FORMAT = "ttsc-capability-resolution-v2";
+  const FORMAT = "ttsc-capability-resolution-v3";
 
   /**
    * The character that joins fields a path could otherwise forge.

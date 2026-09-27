@@ -10,6 +10,8 @@ If you only want to know where the cache lives locally or how to delete it, [Com
 
 The same root also keeps the answers of plugin descriptor evaluations under `<root>/descriptors`. A CommonJS descriptor runs in a separate runtime process on every launch, which costs seconds on Windows, so its answer is kept together with the content and physical path of every module it loaded and every candidate it probed. A later launch reuses the answer only when the descriptor, its factory context, the complete environment, the runtime executable, and the `ttsc` version all match and every one of those inputs is still in the state it was read in. An evaluation that printed anything is not kept, because a reused answer prints nothing.
 
+Only a descriptor that declares the files it reads outside its module graph has its answer kept. It declares them by returning `hostInputHashes`, with a fingerprint for each file it read, or `{}` when it read none. A descriptor without that declaration may have read anything, and Node 22 has no way to report such a read to `ttsc`, so it is evaluated again by every launch on every Node release. The same holds for a descriptor that lists a `hostInputs` entry without a fingerprint, which is how the protocol reports an input whose state it could not prove. The capability answers under `<root>/capabilities` follow the same rule. The declaration is described in [the plugin protocol](/docs/development/concepts/protocol).
+
 Both are build outputs, not inputs. Deleting the cache is always safe. The next build recompiles.
 
 ## The cache is content-addressed

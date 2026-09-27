@@ -94,7 +94,10 @@ export function resolveCapabilityPlugins(options: {
         ? createNativeProjectContextJson(loaded.project)
         : null,
     };
-    writeCapabilityResolution({ cwd, tsconfig, version }, answer);
+    // A descriptor that did not declare what it read computed an answer no
+    // recorded input can prove to a later call (samchon/ttsc#1561).
+    if (loaded.descriptorReadsDeclared)
+      writeCapabilityResolution({ cwd, tsconfig, version }, answer);
     return select(answer, options.capability);
   } catch {
     // A project whose plugin configuration does not load is a project the user
