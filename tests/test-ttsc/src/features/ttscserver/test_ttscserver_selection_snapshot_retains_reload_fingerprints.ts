@@ -160,6 +160,12 @@ export const test_ttscserver_selection_snapshot_retains_reload_fingerprints =
       let rawTargetSupported = true;
       try {
         fs.symlinkSync(invalidTarget, Buffer.from(invalidLink));
+        // Windows stores a link target as UTF-16, so the bytes that are not
+        // UTF-8 come back as a replacement character and there is no raw
+        // target left to digest.
+        rawTargetSupported = fs
+          .readlinkSync(Buffer.from(invalidLink), { encoding: "buffer" })
+          .equals(invalidTarget);
       } catch {
         rawTargetSupported = false;
       }

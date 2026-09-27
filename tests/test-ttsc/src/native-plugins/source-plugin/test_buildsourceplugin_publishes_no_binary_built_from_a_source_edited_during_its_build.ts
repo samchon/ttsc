@@ -5,6 +5,7 @@ import {
   buildSourcePlugin,
   child_process,
   createFakeGoBinary,
+  fakeGoScript,
   fs,
   path,
 } from "../../internal/source-build";
@@ -62,7 +63,8 @@ export const test_buildsourceplugin_publishes_no_binary_built_from_a_source_edit
 
     const fakeDir = path.join(root, "fake");
     fs.mkdirSync(fakeDir, { recursive: true });
-    const inner = createFakeGoBinary(fakeDir);
+    createFakeGoBinary(fakeDir);
+    const inner = fakeGoScript(fakeDir);
     const wrapperScript = path.join(fakeDir, "wrap.cjs");
     write(
       wrapperScript,
@@ -78,7 +80,7 @@ export const test_buildsourceplugin_publishes_no_binary_built_from_a_source_edit
         "    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20);",
         "  }",
         "}",
-        `const result = cp.spawnSync(${JSON.stringify(inner)}, args, { stdio: "inherit", shell: process.platform === "win32" });`,
+        `const result = cp.spawnSync(process.execPath, [${JSON.stringify(inner)}, ...args], { stdio: "inherit" });`,
         "if (result.status !== 0) process.exit(result.status ?? 1);",
         'if (args[0] === "build") {',
         '  const out = args[args.indexOf("-o") + 1];',

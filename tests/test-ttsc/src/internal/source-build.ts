@@ -64,7 +64,7 @@ function createFakeGoBinary(
   root: string,
   opts: { executable?: boolean } = {},
 ): string {
-  const script = path.join(root, "fake-go.cjs");
+  const script = fakeGoScript(root);
   fs.writeFileSync(
     script,
     [
@@ -237,6 +237,20 @@ function createFakeGoBinary(
 }
 
 /**
+ * Return the Node.js script `createFakeGoBinary(root)` writes into `root`.
+ *
+ * A caller that runs the fake toolchain from its own Node.js process runs this
+ * script with `process.execPath`, as the returned wrapper does. Running the
+ * Windows `.cmd` wrapper takes a shell, and Node.js 24 prints a DEP0190 warning
+ * carrying the process id to the stderr of a process that passes arguments to
+ * one, where it becomes part of the `go version` output a compiler identity is
+ * keyed on.
+ */
+function fakeGoScript(root: string): string {
+  return path.join(root, "fake-go.cjs");
+}
+
+/**
  * Single-quotes a shell argument, escaping any embedded single quotes with the
  * `'\''` idiom. Used when embedding Node.js executable paths into POSIX shell
  * wrapper scripts.
@@ -389,6 +403,7 @@ export {
   computeCacheKey,
   createFakeGoBinary,
   ensureExecutableGoToolchain,
+  fakeGoScript,
   createSourcePluginWorkerScript,
   formatDuration,
   formatGoWorkPath,
