@@ -6,6 +6,7 @@ import path from "node:path";
 import { TtscService } from "../../../../../packages/ttsc/lib/index.js";
 import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
 import { tsgo } from "../../internal/compiler";
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 
 /**
  * Verifies `TtscService` transforms and updates a file named through the link
@@ -33,7 +34,9 @@ export const test_ttscservice_answers_a_file_named_through_a_linked_project_root
       cwd: link,
       env: {
         PATH: TestUtilityPlugins.goPath(),
-        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-resident-link-"),
+        // The case observes path resolution, not a cold build, so it shares the
+        // suite's plugin cache instead of compiling one more host.
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
       },
     });
     try {
