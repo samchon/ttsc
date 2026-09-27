@@ -134,10 +134,11 @@ module.exports = (context) => ({
   name: "my-transform-plugin",
   source: path.resolve(context.dirname, "plugin"),
   stage: "transform",
+  hostInputHashes: {},
 });
 ```
 
-`context.dirname` is the descriptor module's own directory, the load-mode-independent replacement for `__dirname` (undefined when `ttsc` loads the descriptor through `ttsx` or as ESM).
+`context.dirname` is the descriptor module's own directory, the load-mode-independent replacement for `__dirname` (undefined when `ttsc` loads the descriptor through `ttsx` or as ESM). `hostInputHashes: {}` declares that the factory reads no file, so a later launch reuses its evaluation; a factory that reads one declares it instead ([Plugin protocol → Shape](/docs/development/concepts/protocol#shape)).
 
 Accept the transform-stage command set:
 
@@ -158,6 +159,7 @@ module.exports = (context) => ({
   name: "my-transform-plugin",
   source: path.resolve(context.dirname, "driver"),
   stage: "transform",
+  hostInputHashes: {},
 });
 ```
 
@@ -184,6 +186,7 @@ module.exports = (context) => ({
   name: "my-check-plugin",
   source: path.resolve(context.dirname, "plugin"),
   stage: "check",
+  hostInputHashes: {},
 });
 ```
 

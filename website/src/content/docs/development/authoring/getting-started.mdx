@@ -50,6 +50,7 @@ module.exports = function createHelloPlugin(context) {
     name: "ttsc-plugin-hello",
     source: path.resolve(context.dirname, "plugin"),
     stage: "transform",
+    hostInputHashes: {},
   };
 };
 ```
@@ -57,6 +58,7 @@ module.exports = function createHelloPlugin(context) {
 - `name`: human-readable name shown in errors and logs.
 - `source`: Go command package directory. Absolute, derived from `context.dirname` (the directory of this descriptor module, the load-mode-independent replacement for `__dirname`, which is undefined when `ttsc` loads the descriptor through `ttsx` or as ESM).
 - `stage: "transform"`: participate in the AST transform path. Because this example points at an executable `package main` sidecar, the host can spawn `check`, `transform`, and `build` subcommands.
+- `hostInputHashes: {}`: declares that the factory read no file outside its module graph, so a later launch reuses this evaluation instead of running the factory again. Without it, every launch evaluates the descriptor again, because `ttsc` cannot observe a plain `fs` read. A factory that reads a file, such as a config file, lists each one with its fingerprint instead: see [Plugin protocol → Shape](/docs/development/concepts/protocol#shape) and the [banner descriptor](/docs/development/walkthroughs/banner#the-js-descriptor-srcindexts).
 
 ## 3. Write the Go Module
 

@@ -48,11 +48,12 @@ module.exports = function createDebuggerStripPlugin(context) {
     name: "ttsc-plugin-debugger-strip",
     source: path.resolve(context.dirname, "plugin"),
     stage: "transform",
+    hostInputHashes: {},
   };
 };
 ```
 
-There is no `output` stage. Generated JavaScript text is not the plugin API.
+`hostInputHashes: {}` declares that the factory reads no file, so a later launch reuses its evaluation ([Getting started → Write the Descriptor](/docs/development/authoring/getting-started#2-write-the-descriptor)). There is no `output` stage. Generated JavaScript text is not the plugin API.
 
 ## 3. Write the Go Module
 

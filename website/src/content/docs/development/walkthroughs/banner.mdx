@@ -84,7 +84,11 @@ The descriptor points at `driver/`, a linked Go package. `ttsc` builds a generic
 
 ## The JS descriptor (`src/index.ts`)
 
+This is the shipped `packages/banner/src/index.ts` with its doc comments elided:
+
 ```ts
+import crypto from "node:crypto";
+import fs from "node:fs";
 import path from "node:path";
 
 import type { ITtscBannerPluginConfig } from "./structures";
@@ -92,6 +96,9 @@ import type { ITtscBannerPluginConfig } from "./structures";
 export * from "./structures/index";
 
 type TtscPluginDescriptor = {
+  hostInputs?: string[];
+  hostInputHashes?: Record<string, string | null>;
+  hostInputRealpaths?: Record<string, string | null>;
   name: string;
   source: string;
   stage?: "check" | "transform";
@@ -102,43 +109,154 @@ type TtscPluginFactoryContext<TConfig> = {
   cwd: string;
   dirname: string;
   filename: string;
+  pluginConfigDir?: string;
   plugin: TConfig;
   projectRoot: string;
   tsconfig: string;
 };
 
-// Keys the ttsc host injects into every plugin entry — not banner-owned.
-const FRAMEWORK_KEYS = new Set(["enabled", "name", "stage", "transform"]);
+const FRAMEWORK_KEYS = new Set<string>([
+  "enabled",
+  "name",
+  "stage",
+  "transform",
+]);
 
 export default function createTtscBanner(
   context: TtscPluginFactoryContext<ITtscBannerPluginConfig>,
 ): TtscPluginDescriptor {
-  // The only banner-specific key the tsconfig entry accepts is `configFile`.
   const entry = context.plugin as Record<string, unknown>;
   for (const key of Object.keys(entry)) {
     if (!FRAMEWORK_KEYS.has(key) && key !== "configFile") {
       throw new Error(
-        `@ttsc/banner: tsconfig plugin entry contains unsupported key ` +
-          `${JSON.stringify(key)}. Banner options must be placed in a ` +
-          `banner.config.* file; the tsconfig entry accepts only "configFile".`,
+        `@ttsc/banner: tsconfig plugin entry contains unsupported key ${JSON.stringify(key)}. ` +
+          `Banner options must be placed in a banner.config.{ts,cts,mts,js,cjs,mjs,json} file. ` +
+          `The only accepted key in the tsconfig entry is "configFile" (optional path to the config file).`,
       );
     }
   }
+
+  const configInputs = bannerConfigInputs(context);
   return {
+    hostInputHashes: configInputs.hashes,
+    hostInputRealpaths: configInputs.realpaths,
+    hostInputs: configInputs.inputs,
     name: "@ttsc/banner",
+    // Point at the `driver/` directory one level above `lib/` in the
+    // installed package tree (where the Go sources live). `context.dirname`
+    // is this descriptor's own directory in every load mode, unlike the
+    // CommonJS `__dirname`, which is undefined under a `.ts`-source or ESM load.
     source: path.resolve(context.dirname, "..", "driver"),
     stage: "transform",
   };
 }
+
+const BANNER_CONFIG_FILENAMES = [
+  "banner.config.json",
+  "banner.config.js",
+  "banner.config.cjs",
+  "banner.config.mjs",
+  "banner.config.ts",
+  "banner.config.cts",
+  "banner.config.mts",
+];
+
+function bannerConfigInputs(
+  context: TtscPluginFactoryContext<ITtscBannerPluginConfig>,
+): {
+  hashes: Record<string, string | null>;
+  inputs: string[];
+  realpaths: Record<string, string | null>;
+} {
+  const configFile = (context.plugin as { configFile?: unknown }).configFile;
+  const base = path.resolve(
+    context.pluginConfigDir ?? path.dirname(context.tsconfig),
+  );
+  if (typeof configFile === "string" && configFile.trim() !== "") {
+    const file = path.isAbsolute(configFile)
+      ? path.resolve(configFile)
+      : path.resolve(base, configFile);
+    return {
+      hashes: { [file]: hostInputHash(file) },
+      inputs: [file],
+      realpaths: { [file]: hostInputRealpath(file) },
+    };
+  }
+  return configDiscoveryInputs(base, BANNER_CONFIG_FILENAMES);
+}
+
+function configDiscoveryInputs(
+  base: string,
+  names: readonly string[],
+): {
+  hashes: Record<string, string | null>;
+  inputs: string[];
+  realpaths: Record<string, string | null>;
+} {
+  const inputs: string[] = [];
+  const hashes: Record<string, string | null> = {};
+  const realpaths: Record<string, string | null> = {};
+  for (let directory = base; ; directory = path.dirname(directory)) {
+    const candidates = names.map((name) => path.join(directory, name));
+    inputs.push(...candidates);
+    for (const candidate of candidates) {
+      hashes[candidate] = hostInputHash(candidate);
+      realpaths[candidate] = hostInputRealpath(candidate);
+    }
+    if (candidates.some(configCandidateExists)) break;
+    const parent = path.dirname(directory);
+    if (parent === directory) break;
+  }
+  return { hashes, inputs, realpaths };
+}
+
+function hostInputRealpath(file: string): string | null {
+  try {
+    return fs.realpathSync.native(file);
+  } catch {
+    return null;
+  }
+}
+
+function hostInputHash(file: string): string | null {
+  try {
+    if (fs.statSync(file).isDirectory()) {
+      return crypto
+        .createHash("sha256")
+        .update("ttsc:host-input:directory\0")
+        .digest("hex");
+    }
+    return crypto
+      .createHash("sha256")
+      .update(fs.readFileSync(file))
+      .digest("hex");
+  } catch {
+    return null;
+  }
+}
+
+function configCandidateExists(file: string): boolean {
+  try {
+    return !fs.statSync(file).isDirectory();
+  } catch {
+    return false;
+  }
+}
 ```
 
-Three load-bearing lines in the returned descriptor:
+The returned descriptor has three routing fields:
 
 - `name: "@ttsc/banner"`: optional diagnostic label. Routing is not based on this value.
 - `source: path.resolve(context.dirname, "..", "driver")`: absolute path to the linked Go package. `context.dirname` is the directory holding the compiled `lib/index.js` (the load-mode-independent replacement for `__dirname`, which is undefined when a descriptor loads as `.ts` source or ESM); `..` steps up to the package root; `driver` is the Go source folder that calls `driver.RegisterPlugin`.
 - `stage: "transform"`: declares this plugin participates in the AST transform path. Because this descriptor points at linked `driver/`, the selected native host receives `check`, `transform`, and `build` while banner participates through `driver.RegisterPlugin`. Omit `stage` and you get the same default.
 
-The factory's one piece of factory-time work is validating `context.plugin`. The original `compilerOptions.plugins[i]` entry. The single banner-specific key the tsconfig entry accepts is `configFile`; any other key (typically a stale inline option) is rejected with a specific error that points the user at the dedicated `banner.config.*` file. The rest of the context, `context.tsconfig`, the absolute path of the active tsconfig; `context.cwd`, the resolved project directory, banner leaves unused. Other plugins specialise the descriptor with it: `@ttsc/lint`'s factory reads `context.plugin.configFile` to locate the lint config and discover contributor packages.
+The other three fields declare the files the native transform reads to find its config. `ttsc` cannot see those reads, because they happen in Go after the descriptor returns:
+
+- `hostInputs`: every candidate the native discovery probes, from the tsconfig directory (or the host's `pluginConfigDir`) up to the first directory that holds one, or the single file `configFile` names. `ttsc` watches each of them, so adding, editing, or removing a `banner.config.*` file rebuilds.
+- `hostInputHashes`: the SHA-256 of each candidate as the factory saw it, and `null` for a missing one. The map also declares these are all the files the factory read outside its module graph, which lets a later launch reuse this evaluation instead of running the factory again. A descriptor that reads nothing returns `{}` ([Plugin protocol → Shape](/docs/development/concepts/protocol#shape)).
+- `hostInputRealpaths`: the physical path of each candidate, so a symlink retargeted to a file with the same bytes still invalidates.
+
+The factory's own work is validating `context.plugin` and fingerprinting the config candidates. `context.plugin` is the original `compilerOptions.plugins[i]` entry. The single banner-specific key the tsconfig entry accepts is `configFile`; any other key (typically a stale inline option) is rejected with a specific error that points the user at the dedicated `banner.config.*` file. The discovery starts from `context.pluginConfigDir` when the host sets one, and from the directory of `context.tsconfig`, the absolute path of the active tsconfig, otherwise. Other plugins specialise the descriptor with the context too: `@ttsc/lint`'s factory reads `context.plugin.configFile` to locate the lint config and discover contributor packages.
 
 Defining `TtscPluginDescriptor` and `TtscPluginFactoryContext` inline (instead of importing them from `ttsc`) keeps banner's `package.json` free of a `ttsc` dependency in the published tarball. The shapes are stable; copying them is the documented escape hatch ([Publishing → Pin against ttsc](/docs/development/authoring/publishing#pin-against-ttsc)).
 
