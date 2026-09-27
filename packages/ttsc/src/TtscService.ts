@@ -32,6 +32,7 @@ import type { ITtscCompilerContext } from "./structures/ITtscCompilerContext";
 export class TtscService {
   private readonly resident: ResidentTransformProcess;
   private readonly projectRoot: string;
+  private readonly logicalProjectRoot: string;
 
   /**
    * Create a service bound to the given project context and launch its resident
@@ -48,6 +49,7 @@ export class TtscService {
     });
     this.resident = started.process;
     this.projectRoot = started.projectRoot;
+    this.logicalProjectRoot = started.logicalProjectRoot;
   }
 
   /**
@@ -105,8 +107,17 @@ export class TtscService {
   }
 
   private absolutePath(fileName: string): string {
-    return path.isAbsolute(fileName)
+    if (!path.isAbsolute(fileName))
+      return path.resolve(this.projectRoot, fileName);
+    // The host loaded the project below its physical root and names its files
+    // there. A path spelled through the root the caller reached the project by,
+    // as macOS spells every temporary directory through `/var`, names the same
+    // file below the physical one.
+    const relative = path.relative(this.logicalProjectRoot, fileName);
+    return relative === ".." ||
+      relative.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(relative)
       ? fileName
-      : path.resolve(this.projectRoot, fileName);
+      : path.join(this.projectRoot, relative);
   }
 }

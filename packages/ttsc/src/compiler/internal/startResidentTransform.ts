@@ -76,7 +76,11 @@ export function startResidentTransform(
     cwd: project.root,
     env: residentEnv(context, project.root, tsgoBinary, loaded.nativePlugins),
   });
-  return { process: resident, projectRoot: project.root };
+  return {
+    logicalProjectRoot: project.identity.logicalProjectRoot,
+    process: resident,
+    projectRoot: project.root,
+  };
 }
 
 /**
