@@ -4,11 +4,12 @@
  *
  * `resolve` accepts the extensionless relative specifiers those sources use
  * (one declaration per file). `load` compiles each `.ts`, `.mts` and `.cts`
- * module with the TypeScript compiler's single-file transpiler, so the namespaces, enums, and parameter
- * properties the repository's conventions use run on every supported Node. Node
- * 26 removed `--experimental-transform-types` and the `transform` mode of
- * `module.stripTypeScriptTypes`, and its type stripping rejects that syntax,
- * so Node alone can no longer run these sources (samchon/ttsc#1574).
+ * module with the TypeScript compiler's single-file transpiler, so the
+ * namespaces, enums, and parameter properties the repository's conventions use
+ * run on every supported Node. Node 26 removed `--experimental-transform-types`
+ * and the `transform` mode of `module.stripTypeScriptTypes`, and its type
+ * stripping rejects that syntax, so Node alone can no longer run these sources
+ * (samchon/ttsc#1574).
  */
 import fs from "node:fs";
 import path from "node:path";
