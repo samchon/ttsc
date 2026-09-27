@@ -12,7 +12,6 @@ import { getNumber } from "../../flags/getNumber";
 import { getString } from "../../flags/getString";
 import { parseFlags } from "../../flags/parseFlags";
 import { resolveFlagSpec } from "../../flags/resolveFlagSpec";
-import { resolvePhysicalPath } from "../../internal/pathIdentity/resolvePhysicalPath";
 import { resolveSafeCacheCleanupTargets } from "../../internal/resolveSafeCacheCleanupTargets";
 import { isPathWithin } from "../../plugin/internal/source/isPathWithin";
 import { legacyGlobalCacheTargets } from "../../plugin/internal/source/legacyGlobalCacheTargets";
@@ -432,13 +431,31 @@ function formatProjectPath(cwd: string, target: string): string {
  * directory. When the cwd reaches the project through a link, relating that
  * physical path to the cwd as spelled walks out through the link and back in,
  * so the cwd is also related as the filesystem names it: the directory the user
- * named, in the spelling the target carries.
+ * named, in the spelling the target carries. That spelling depends on the
+ * resolver that produced the target, since `fs.realpathSync` keeps a Windows
+ * 8.3 short name that `fs.realpathSync.native` expands, so the cwd is tried in
+ * both.
  */
 function relativeToCwd(cwd: string, target: string): string | undefined {
-  const relative = path.relative(cwd, target);
-  if (!isOutsideRelativePath(relative)) return relative;
-  const physical = path.relative(resolvePhysicalPath(cwd), target);
-  return isOutsideRelativePath(physical) ? undefined : physical;
+  for (const spelling of cwdSpellings(cwd)) {
+    const relative = path.relative(spelling, target);
+    if (!isOutsideRelativePath(relative)) return relative;
+  }
+  return undefined;
+}
+
+/** `cwd` as given, then as each realpath flavor names it, without repeats. */
+function cwdSpellings(cwd: string): string[] {
+  const spellings = [cwd];
+  for (const resolve of [fs.realpathSync, fs.realpathSync.native]) {
+    try {
+      const spelling = resolve(cwd);
+      if (!spellings.includes(spelling)) spellings.push(spelling);
+    } catch {
+      // A cwd that cannot be resolved is related as given.
+    }
+  }
+  return spellings;
 }
 
 /**
