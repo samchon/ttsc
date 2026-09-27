@@ -10,6 +10,8 @@ const { DynamicExecutor } = createRequire(import.meta.url)(
   "@nestia/e2e",
 ) as typeof import("@nestia/e2e");
 
+type IReport = import("@nestia/e2e").DynamicExecutor.IReport;
+
 /**
  * Shared feature-test runner used by the package-shaped test projects.
  *
@@ -63,9 +65,9 @@ export namespace TestExecutor {
       }
     });
 
-    const executions: DynamicExecutor.IReport["executions"] = [];
+    const executions: IReport["executions"] = [];
     for (const location of locations) {
-      const report: DynamicExecutor.IReport = await DynamicExecutor.validate({
+      const report: IReport = await DynamicExecutor.validate({
         prefix: "test_",
         location,
         extension: "ts",
