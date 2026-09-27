@@ -241,6 +241,7 @@ function terminalRequest(tokens: readonly string[]): "help" | "version" | null {
 function firstPositionalIndex(argv: readonly string[]): number {
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index]!;
+    if (token.startsWith("@")) continue;
     if (!token.startsWith("-")) return index;
     if (token.includes("=")) continue;
     const flag = resolveFlagSpec(token);
@@ -377,7 +378,9 @@ async function runJavaScriptEntry(
     ...(parsed.checkers !== undefined ? ["--checkers"] : []),
     ...(parsed.noPlugins ? ["--no-plugins"] : []),
     ...(parsed.singleThreaded ? ["--singleThreaded"] : []),
-    ...parsed.tsgoFlags.filter((token) => token.startsWith("-")),
+    ...parsed.tsgoFlags.filter(
+      (token) => token.startsWith("-") || token.startsWith("@"),
+    ),
   ];
   if (unsupported.length !== 0) {
     process.stderr.write(

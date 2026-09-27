@@ -17,7 +17,8 @@ import { parseFlags } from "../../../../../packages/ttsc/lib/flags/parseFlags.js
  *    the way ttsx does, with no positional predicate.
  * 2. Assert `es2020` and the boolean literal went with their options,
  *    `script.js` is the entry, and the rest is the program's tail.
- * 3. Negative twin: after an option the table does not know, the next bare
+ * 3. Assert an `@file` response file goes to the compiler, not to the entry.
+ * 4. Negative twin: after an option the table does not know, the next bare
  *    token is the entry, since nothing says the option takes a value.
  */
 export const test_parseflags_reads_a_compiler_option_arity_from_the_compiler_table =
@@ -50,6 +51,12 @@ export const test_parseflags_reads_a_compiler_option_arity_from_the_compiler_tab
       "false",
     ]);
     assert.deepEqual(known.tail, ["a", "--help"]);
+
+    // A response file is the compiler's argument, read where it stands, so it is
+    // no entry either.
+    const response = parse(["@args.txt", "--target", "es2020", "script.js"]);
+    assert.deepEqual(response.positional, ["script.js"]);
+    assert.deepEqual(response.passthrough, ["@args.txt", "--target", "es2020"]);
 
     const unknown = parse(["--notACompilerOption", "script.js", "a"]);
     assert.deepEqual(unknown.positional, ["script.js"]);

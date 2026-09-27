@@ -161,6 +161,17 @@ export function parseFlags(opts: ParseOptions): ParseResult {
       passthrough.push(current);
       continue;
     }
+    // A caller that forwards arguments to the compiler hands it an `@file`
+    // token in place: the compiler reads a response file's arguments where the
+    // token stands, so it is never the ttsx entry or a positional input.
+    if (
+      current.startsWith("@") &&
+      (opts.forwardAfterFirstPositional === true ||
+        opts.isPositional !== undefined)
+    ) {
+      passthrough.push(current);
+      continue;
+    }
     positional.push(current);
     if (opts.forwardAfterFirstPositional === true && positional.length === 1) {
       forwardingTail = true;
