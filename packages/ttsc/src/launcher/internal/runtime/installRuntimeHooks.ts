@@ -1333,7 +1333,11 @@ function emitOrphanSource(
         "--outDir",
         outDir,
       ],
-      { cwd: path.dirname(filename), encoding: "utf8" },
+      // The emit names its input by absolute path and reads no config, so it
+      // runs from its own output directory rather than from a dependency's,
+      // which below `node_modules` can pass Windows' MAX_PATH for a working
+      // directory (samchon/ttsc#1572).
+      { cwd: outDir, encoding: "utf8" },
     );
     const emitted = isolatedEmitOf(filename, outDir);
     const source = emitted === null ? null : readFileOrNull(emitted);
@@ -1419,7 +1423,7 @@ function emitCommonJsForNameScan(filename: string): string | null {
         "--outDir",
         outDir,
       ],
-      { cwd: path.dirname(real), encoding: "utf8" },
+      { cwd: outDir, encoding: "utf8" },
     );
     const emitted = isolatedEmitOf(input, outDir);
     const lowered = emitted === null ? null : readFileOrNull(emitted);

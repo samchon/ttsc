@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
@@ -839,11 +840,14 @@ function writeGoWork(
     windowsHide: true,
   });
   if (settled.error) {
-    if ((settled.error as NodeJS.ErrnoException).code === "ENOENT") {
-      throw new Error(goToolchainNotFoundMessage(pluginName));
-    }
     throw new Error(
-      `ttsc: setting the Go workspace version for plugin "${pluginName}" failed to spawn ${goBinary}: ${settled.error.message}`,
+      goSpawnFailureMessage(
+        `setting the Go workspace version for plugin "${pluginName}"`,
+        pluginName,
+        goBinary,
+        scratchDir,
+        settled.error,
+      ),
     );
   }
   if (settled.status !== 0) {
@@ -960,18 +964,31 @@ function readGoModInfo(
     return emptyGoModInfo();
   }
 
-  const result = spawnGoTool(goBinary, ["mod", "edit", "-json"], {
-    cwd: dir,
-    encoding: "utf8",
-    env: GoSourceInputs.goBuildEnv(goBinary, undefined, env),
-    windowsHide: true,
-  });
+  // `go mod edit` takes the file as an argument, so the tool runs from the
+  // system temporary directory rather than from `dir`: a copy of an external
+  // source mirrors its absolute path below the build's scratch directory, and
+  // Windows refuses a working directory longer than MAX_PATH even where every
+  // path the build itself opens is fine (samchon/ttsc#1572).
+  const cwd = os.tmpdir();
+  const result = spawnGoTool(
+    goBinary,
+    ["mod", "edit", "-json", path.join(dir, "go.mod")],
+    {
+      cwd,
+      encoding: "utf8",
+      env: GoSourceInputs.goBuildEnv(goBinary, undefined, env),
+      windowsHide: true,
+    },
+  );
   if (result.error) {
-    if ((result.error as NodeJS.ErrnoException).code === "ENOENT") {
-      throw new Error(goToolchainNotFoundMessage(pluginName));
-    }
     throw new Error(
-      `ttsc: reading go.mod for plugin "${pluginName}" failed to spawn ${goBinary}: ${result.error.message}`,
+      goSpawnFailureMessage(
+        `reading go.mod for plugin "${pluginName}"`,
+        pluginName,
+        goBinary,
+        cwd,
+        result.error,
+      ),
     );
   }
   if (result.status !== 0) {
@@ -1058,11 +1075,14 @@ function runGoBuild(
     windowsHide: true,
   });
   if (result.error) {
-    if ((result.error as NodeJS.ErrnoException).code === "ENOENT") {
-      throw new Error(goToolchainNotFoundMessage(pluginName));
-    }
     throw new Error(
-      `ttsc: building plugin "${pluginName}" failed to spawn ${goBinary}: ${result.error.message}`,
+      goSpawnFailureMessage(
+        `building plugin "${pluginName}"`,
+        pluginName,
+        goBinary,
+        cwd,
+        result.error,
+      ),
     );
   }
   if (result.status !== 0) {
@@ -1070,6 +1090,29 @@ function runGoBuild(
       `ttsc: building plugin "${pluginName}" via "go build" failed:\n${result.stderr || result.stdout}`,
     );
   }
+}
+
+/**
+ * Describe a Go tool that could not be started. The operating system reports a
+ * missing working directory, or one Windows refuses as too long, with the same
+ * `ENOENT` as a missing executable, so only an executable that is itself absent
+ * is reported as a missing toolchain; any other failure names the executable,
+ * the working directory, and the system error (samchon/ttsc#1572).
+ */
+function goSpawnFailureMessage(
+  action: string,
+  pluginName: string,
+  goBinary: string,
+  cwd: string,
+  error: Error,
+): string {
+  if (
+    (error as NodeJS.ErrnoException).code === "ENOENT" &&
+    !(path.isAbsolute(goBinary) && fs.existsSync(goBinary))
+  ) {
+    return goToolchainNotFoundMessage(pluginName);
+  }
+  return `ttsc: ${action} failed to spawn ${goBinary} in ${cwd}: ${error.message}`;
 }
 
 function goToolchainNotFoundMessage(pluginName: string): string {
