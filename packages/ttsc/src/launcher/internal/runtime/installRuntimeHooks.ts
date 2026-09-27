@@ -7,7 +7,6 @@ import {
   registerHooks,
   stripTypeScriptTypes,
 } from "node:module";
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -22,6 +21,7 @@ import { runHoldingLock } from "../../../internal/runHoldingLock";
 import { moduleResolutionBaseSelects } from "../../../plugin/internal/load/moduleResolutionBaseSelects";
 import { observeImportSearchRoots } from "../../../plugin/internal/load/observeImportSearchRoots";
 import { visitImportMappedCandidates } from "../../../plugin/internal/load/visitImportMappedCandidates";
+import { recordCacheFileUse } from "../../../plugin/internal/source/recordCacheFileUse";
 import { buildSingleRootProject } from "../buildSingleRootProject";
 import { inlineServedSourceMap } from "../inlineServedSourceMap";
 import { parseCommonJsExports } from "../parseCommonJsExports";
@@ -1316,6 +1316,7 @@ function emitOrphanSource(
   if (cache !== null) {
     const hit = readFileOrNull(cache.file);
     if (hit !== null) {
+      recordCacheFileUse(cache.file);
       return hit;
     }
   }
@@ -1438,15 +1439,25 @@ function emitCommonJsForNameScan(filename: string): string | null {
 }
 
 /**
- * Cache root for lowered orphan sources, shared per run (and across runs when
- * `TTSC_CACHE_DIR` points at a persisted directory).
+ * Cache root for lowered orphan sources.
+ *
+ * A run prepared by ttsx or `ttsc/register` names it in its manifest, under the
+ * run's resolved cache root (`--cache-dir`, `TTSC_CACHE_DIR`, or the default
+ * project-local root), where it outlives the run and is collected and cleaned
+ * with the rest of that root (samchon/ttsc#1562). A runtime without a manifest
+ * has no cache root to name, so its lowerings go where its dependency builds go
+ * (`dependencyCacheRoot`), which is removed with the evaluation or the process
+ * that made them.
  */
 function orphanCacheRoot(): string {
-  const base =
-    process.env.TTSC_CACHE_DIR && process.env.TTSC_CACHE_DIR.length !== 0
-      ? process.env.TTSC_CACHE_DIR
-      : path.join(os.tmpdir(), "ttsc-orphan");
-  return path.join(base, "ttsx-orphan");
+  const owner = RuntimeManifestRegistry.runtimeManifests().find(
+    (candidate) =>
+      typeof candidate.orphanCacheDir === "string" &&
+      candidate.orphanCacheDir.length !== 0,
+  );
+  return owner !== undefined
+    ? owner.orphanCacheDir!
+    : path.join(dependencyCacheRoot(), "orphan");
 }
 
 /**
@@ -1504,7 +1515,7 @@ let ownPackageVersionCache: string | undefined;
  * Content-addressed cache path for isolated orphan lowering, or `null` when the
  * source cannot be read.
  *
- * The cache outlives the run under `TTSC_CACHE_DIR`, so a hit has to prove the
+ * The cache outlives the run in its cache root, so a hit has to prove the
  * current inputs would produce the cached text (samchon/ttsc#1405). The key
  * holds everything that decides it: the source's bytes and path (the inlined
  * map names the path), the module format, the emit arguments, the compiler that

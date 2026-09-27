@@ -7,6 +7,7 @@ import { hashHostInputPaths } from "./load/hashHostInputPaths";
 import { realpathHostInputPaths } from "./load/realpathHostInputPaths";
 import { pluginSourceFilesSignature } from "./source/pluginSourceFilesSignature";
 import { pluginSourceStateHolds } from "./source/pluginSourceStateHolds";
+import { recordCacheFileUse } from "./source/recordCacheFileUse";
 
 /**
  * Read the recorded answer for a project, or `null` when there is none that is
@@ -71,6 +72,7 @@ export function readCapabilityResolution(options: {
     if (!pluginSourceProven(directory, source, evidence)) return null;
   for (const plugin of entry.plugins)
     if (!fs.existsSync(plugin.binary)) return null;
+  recordCacheFileUse(file);
   return entry;
 }
 

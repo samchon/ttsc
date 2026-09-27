@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import type { ITtscSourceBuildCachePaths } from "./ITtscSourceBuildCachePaths";
+import { pruneCacheFileRoot } from "./pruneCacheFileRoot";
 import { pruneGoBuildCacheRoot } from "./pruneGoBuildCacheRoot";
 import { prunePluginCacheRoot } from "./prunePluginCacheRoot";
 
@@ -34,11 +35,30 @@ export namespace SourceBuildCacheLayout {
   /** File inside a plugin cache entry recording when it was last used. */
   export const CACHE_LAST_USED_FILE = ".last-used";
 
+  /** Directory of the descriptor evaluation answers inside the cache root. */
+  export const DESCRIPTOR_CACHE_DIRNAME = "descriptors";
+
+  /** Directory of the capability-resolution answers inside the cache root. */
+  export const CAPABILITY_CACHE_DIRNAME = "capabilities";
+
+  /** Directory of the lowered orphan sources inside the cache root. */
+  export const ORPHAN_CACHE_DIRNAME = "ttsx-orphan";
+
   /**
-   * Run the opportunistic pruning of the plugin cache and of ttsc's Go object
-   * cache, but only for the default workspace-local location. A root the caller
-   * named through `cacheDir` or `TTSC_CACHE_DIR` is theirs, and ttsc never
-   * deletes from it.
+   * The parts of the cache root whose entries are single files, each collected
+   * by `pruneCacheFileRoot` and removed by `ttsc clean` (samchon/ttsc#1562).
+   */
+  export const CACHE_FILE_DIRNAMES: readonly string[] = [
+    DESCRIPTOR_CACHE_DIRNAME,
+    CAPABILITY_CACHE_DIRNAME,
+    ORPHAN_CACHE_DIRNAME,
+  ];
+
+  /**
+   * Run the opportunistic pruning of the plugin cache, of ttsc's Go object
+   * cache, and of the single-file caches (`CACHE_FILE_DIRNAMES`), but only for
+   * the default workspace-local location. A root the caller named through
+   * `cacheDir` or `TTSC_CACHE_DIR` is theirs, and ttsc never deletes from it.
    */
   export function maybePruneSourceBuildCaches(
     paths: ITtscSourceBuildCachePaths,
@@ -55,7 +75,14 @@ export namespace SourceBuildCacheLayout {
       if (paths.goBuildRootSource === "ttsc-cache") {
         pruneGoBuildCacheRoot(paths.goBuildRoot);
       }
+      pruneCacheFiles(paths.root);
     }
+  }
+
+  /** Collect every single-file part (`CACHE_FILE_DIRNAMES`) of `root`. */
+  export function pruneCacheFiles(root: string): void {
+    for (const name of CACHE_FILE_DIRNAMES)
+      pruneCacheFileRoot(path.join(root, name));
   }
 
   /**

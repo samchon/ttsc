@@ -24,6 +24,7 @@ function prepareEntry(filename: string): RuntimeManifest {
     entrySource: execution.entrySource,
     outputs: execution.outputs,
     moduleOptions: execution.moduleOptions,
+    orphanCacheDir: execution.orphanCacheDir,
     projectRoot: execution.projectRoot,
     rootDir: execution.rootDir,
   };

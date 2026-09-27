@@ -2,6 +2,8 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { SourceBuildCacheLayout } from "../source/SourceBuildCacheLayout";
+import { recordCacheFileUse } from "../source/recordCacheFileUse";
 import { resolveSourceBuildCachePaths } from "../source/resolveSourceBuildCachePaths";
 import { declaresHostInputReads } from "./declaresHostInputReads";
 import { hashHostInputPaths } from "./hashHostInputPaths";
@@ -90,7 +92,11 @@ export namespace PluginDescriptorEvaluationCache {
         ]),
       )
       .digest("hex");
-    return path.join(root, "descriptors", `${key}.json`);
+    return path.join(
+      root,
+      SourceBuildCacheLayout.DESCRIPTOR_CACHE_DIRNAME,
+      `${key}.json`,
+    );
   }
 
   /**
@@ -116,6 +122,7 @@ export namespace PluginDescriptorEvaluationCache {
       )
     )
       return null;
+    recordCacheFileUse(file);
     return entry.evaluation;
   }
 

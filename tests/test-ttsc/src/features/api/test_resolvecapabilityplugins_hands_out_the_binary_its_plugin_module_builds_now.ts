@@ -101,14 +101,14 @@ export const test_resolvecapabilityplugins_hands_out_the_binary_its_plugin_modul
       }
     };
     // The file identity of the recorded answer: a walk renames a new entry
-    // into place, while an answer from the cache leaves it untouched.
+    // into place, while an answer from the cache keeps the file and records its
+    // use in the file's times alone (samchon/ttsc#1562).
     const recorded = (): string => {
       const file = CapabilityResolutionFormat.resolutionFile({
         cwd: project,
         tsconfig: "tsconfig.json",
       })!;
-      const stat = fs.statSync(file, { bigint: true });
-      return [stat.ino, stat.mtimeNs, stat.ctimeNs].join(":");
+      return String(fs.statSync(file, { bigint: true }).ino);
     };
     const resolve = (): { binary: string; entry: string } => {
       const plugins = resolveCapabilityPlugins({

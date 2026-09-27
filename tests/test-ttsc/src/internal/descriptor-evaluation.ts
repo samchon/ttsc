@@ -9,6 +9,8 @@ import { fs, loadProjectPlugins, path } from "./project";
 import { createFakeGoBinary } from "./source-build";
 
 export interface IDescriptorEvaluationProject {
+  /** The cache root the loads use. */
+  cacheRoot: string;
   /** The project directory, which holds `plugin.cjs` and `go-plugin`. */
   directory: string;
   /** How many times the descriptor's factory has run. */
@@ -25,11 +27,14 @@ export interface IDescriptorEvaluationProject {
  * @param factory The body of the descriptor's factory, which receives `context`
  *   and returns the descriptor; `fs` and `path` are in scope, and each call is
  *   counted before the body runs.
+ * @param options.defaultCacheRoot Load with the default project-local cache
+ *   root, which ttsc collects, instead of a named one.
  */
 export function createDescriptorEvaluationProject(
   prefix: string,
   files: Record<string, string>,
   factory: string,
+  options: { defaultCacheRoot?: boolean } = {},
 ): IDescriptorEvaluationProject {
   const root = TestProject.tmpdir(prefix);
   const directory = path.join(root, "project");
@@ -64,20 +69,29 @@ export function createDescriptorEvaluationProject(
   );
   const fakeGo = path.join(root, "fake-go");
   fs.mkdirSync(fakeGo, { recursive: true });
-  const env = {
+  // An installation pins the project as the workspace root its default cache
+  // root belongs to.
+  fs.mkdirSync(path.join(directory, "node_modules"), { recursive: true });
+  const cacheRoot =
+    options.defaultCacheRoot === true
+      ? path.join(directory, "node_modules", ".cache", "ttsc")
+      : path.join(root, "cache");
+  const env: NodeJS.ProcessEnv = {
     ...process.env,
     DESCRIPTOR_COUNTER: counter,
     TTSC_GO_BINARY: createFakeGoBinary(fakeGo),
     TTSC_GO_CACHE_DIR: path.join(root, "go-cache"),
   };
+  if (options.defaultCacheRoot === true) delete env.TTSC_CACHE_DIR;
   return {
+    cacheRoot,
     directory,
     evaluations: () =>
       fs.existsSync(counter) ? fs.readFileSync(counter, "utf8").length : 0,
     load: () =>
       loadProjectPlugins({
         binary: "",
-        cacheDir: path.join(root, "cache"),
+        cacheDir: options.defaultCacheRoot === true ? undefined : cacheRoot,
         cwd: directory,
         env,
         tsconfig: path.join(directory, "tsconfig.json"),

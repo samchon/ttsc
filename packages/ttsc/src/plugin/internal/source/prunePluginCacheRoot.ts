@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { CachePrunePolicy } from "./CachePrunePolicy";
 import type { IPluginCachePruneOptions } from "./IPluginCachePruneOptions";
 import { PluginBuildLockOwner } from "./PluginBuildLockOwner";
 import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
@@ -11,12 +12,12 @@ import { inspectPluginBuildLock } from "./inspectPluginBuildLock";
  * Opportunistically bound the plugin binary cache.
  *
  * At most once a day (unless `force`), entries unused for 30 days are evicted
- * and, past a 2 GiB ceiling, the least-recently used down to 80% of it. Entries
- * used within the protection window and entries named in `protectedEntries`
- * (the binary a cold build just returned) survive. When the protected set alone
- * keeps the root over the ceiling, the daily marker is backdated so another
- * pass runs soon instead of a day later. Failures are swallowed: pruning must
- * never fail a build.
+ * and, past a 2 GiB ceiling, the least-recently used down to 80% of it
+ * (`CachePrunePolicy`). Entries used within the protection window and entries
+ * named in `protectedEntries` (the binary a cold build just returned) survive.
+ * When the protected set alone keeps the root over the ceiling, the daily
+ * marker is backdated so another pass runs soon instead of a day later.
+ * Failures are swallowed: pruning must never fail a build.
  *
  * An evicted entry takes its build-lock state with it, and every pass drops the
  * retired-generation tombstones whose recorded holder is provably gone, so the
@@ -32,34 +33,35 @@ export function prunePluginCacheRoot(
 ): void {
   try {
     const cacheRoot = SourceBuildCacheLayout.canonicalPluginCacheRoot(root);
-    const marker = path.join(cacheRoot, CACHE_GC_MARKER_FILE);
+    const marker = path.join(cacheRoot, CachePrunePolicy.GC_MARKER_FILE);
     const now = options.now ?? Date.now();
     const lastRun = SourceBuildCacheLayout.readTimestamp(marker);
     if (
       options.force !== true &&
       lastRun !== null &&
       lastRun <= now &&
-      now - lastRun < PLUGIN_CACHE_GC_INTERVAL_MS
+      now - lastRun < CachePrunePolicy.GC_INTERVAL_MS
     ) {
       return;
     }
     const remainingBytes = prunePluginCacheEntries(cacheRoot, {
-      maxBytes: options.maxBytes ?? PLUGIN_CACHE_MAX_BYTES,
+      maxBytes: options.maxBytes ?? CachePrunePolicy.MAX_BYTES,
       now,
       protectedEntries: canonicalPluginCacheProtectedEntries(
         cacheRoot,
         options.protectedEntries ?? [],
       ),
-      protectedAgeMs: options.protectedAgeMs ?? PLUGIN_CACHE_PROTECTED_AGE_MS,
-      targetBytes: options.targetBytes ?? PLUGIN_CACHE_TARGET_BYTES,
+      protectedAgeMs:
+        options.protectedAgeMs ?? CachePrunePolicy.PROTECTED_AGE_MS,
+      targetBytes: options.targetBytes ?? CachePrunePolicy.TARGET_BYTES,
     });
     pruneRetiredLockGenerations(cacheRoot);
-    const maxBytes = options.maxBytes ?? PLUGIN_CACHE_MAX_BYTES;
+    const maxBytes = options.maxBytes ?? CachePrunePolicy.MAX_BYTES;
     const protectedAgeMs =
-      options.protectedAgeMs ?? PLUGIN_CACHE_PROTECTED_AGE_MS;
+      options.protectedAgeMs ?? CachePrunePolicy.PROTECTED_AGE_MS;
     const markerTimestamp =
       remainingBytes > maxBytes
-        ? now - PLUGIN_CACHE_GC_INTERVAL_MS + protectedAgeMs
+        ? now - CachePrunePolicy.GC_INTERVAL_MS + protectedAgeMs
         : now;
     SourceBuildCacheLayout.replaceCacheMetadataFile(
       marker,
@@ -69,23 +71,6 @@ export function prunePluginCacheRoot(
     // Plugin-cache GC is opportunistic; builds still proceed when it fails.
   }
 }
-
-const CACHE_GC_MARKER_FILE = ".gc-last-run";
-
-// The plugin binary cache is content-keyed, so a project that bumps tsgo/typia
-// many times leaves one stale entry per superseded key. An opportunistic GC
-// (once/day) evicts entries unused for 30 days and, past a 2 GB ceiling, the
-// least-recently-used down to 80%. It is scoped to the resolved cache root only
-// — ttsc never scans a shared or global location.
-const PLUGIN_CACHE_GC_INTERVAL_MS = 24 * 60 * 60 * 1000;
-
-const PLUGIN_CACHE_ENTRY_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
-
-const PLUGIN_CACHE_MAX_BYTES = 2 * 1024 * 1024 * 1024;
-
-const PLUGIN_CACHE_TARGET_BYTES = Math.floor(PLUGIN_CACHE_MAX_BYTES * 0.8);
-
-const PLUGIN_CACHE_PROTECTED_AGE_MS = 60 * 60 * 1000;
 
 /** Resolve explicit GC exclusions without allowing an alias outside root. */
 function canonicalPluginCacheProtectedEntries(
@@ -123,7 +108,7 @@ function prunePluginCacheEntries(
   const entries = collectPluginCacheEntries(root, options.now);
   for (const entry of entries) {
     if (
-      options.now - entry.lastUsedAt <= PLUGIN_CACHE_ENTRY_MAX_AGE_MS ||
+      options.now - entry.lastUsedAt <= CachePrunePolicy.ENTRY_MAX_AGE_MS ||
       options.protectedEntries.has(entry.dir) ||
       pluginCacheEntryHasActiveBuild(entry, options.now)
     ) {

@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { SourceBuildCacheLayout } from "./source/SourceBuildCacheLayout";
 import { resolveSourceBuildCachePaths } from "./source/resolveSourceBuildCachePaths";
 
 /**
@@ -74,7 +75,11 @@ export namespace CapabilityResolutionFormat {
       .update(SEPARATOR)
       .update(options.tsconfig)
       .digest("hex");
-    return path.join(root, "capabilities", `${key}.json`);
+    return path.join(
+      root,
+      SourceBuildCacheLayout.CAPABILITY_CACHE_DIRNAME,
+      `${key}.json`,
+    );
   }
 
   /**

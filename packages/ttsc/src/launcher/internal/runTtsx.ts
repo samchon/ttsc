@@ -449,6 +449,7 @@ async function runPreparedEntry(
         entrySource: execution.entrySource,
         outputs: execution.outputs,
         moduleOptions: execution.moduleOptions,
+        orphanCacheDir: execution.orphanCacheDir,
         ...(parsed.noPlugins ? { plugins: false } : {}),
         projectRoot: execution.projectRoot,
         rootDir: execution.rootDir,

@@ -58,7 +58,7 @@ npx ttsc clean                      # drop the plugin cache
 | `ttsc format` | Ask format-capable check-stage plugins to apply format-only edits. With `@ttsc/lint`, this means format-class rules only. |
 | `ttsc cache paths --json` | Print the cache root, plugin binary cache root, Go build cache root, and cacheable roots for CI. |
 | `ttsc prepare` | Pre-build every plugin binary into the cache. |
-| `ttsc clean` | Delete the plugin binary cache and ttsc-owned Go build cache. |
+| `ttsc clean` | Delete the plugin binary cache, the descriptor, capability, and orphan-lowering caches, and the ttsc-owned Go build cache. |
 | `ttsc version` | Print the CLI version. |
 | `ttsc help` | Print help. |
 
@@ -108,7 +108,7 @@ The plugin binary cache is **project-local**. By default it lives in the workspa
 
 Override the root with `--cache-dir` or `TTSC_CACHE_DIR` (relative `--cache-dir` resolves from `--cwd`, relative `TTSC_CACHE_DIR`/`TTSC_GO_CACHE_DIR` from the project root). Point these at a directory **dedicated to ttsc**, and use `ttsc` as the root's basename when `ttsc clean` should remove its nested `go-build/` as well as `plugins/`. The basename is a deletion-safety boundary, so do not set `TTSC_CACHE_DIR` to a shared cache such as `~/.cache`; use a dedicated path such as `.ttsc-cache/ttsc`. Before deleting anything, `ttsc clean` validates every resolved target, including an external `TTSC_GO_CACHE_DIR`, and refuses a filesystem root or a lexical/physical path that equals or contains the project.
 
-The cache is safe to delete at any time (`ttsc clean`); binaries rebuild on next use. The default cache prunes plugin binaries unused for 30 days and bounds its Go object cache at 8 GiB, pruning toward 6 GiB outside active builds. Explicit cache roots and a user `GOCACHE` remain caller-owned. `ttsc clean` also reclaims the machine-global cache left by pre-0.17 releases.
+The cache is safe to delete at any time (`ttsc clean`); binaries rebuild on next use. The default cache prunes plugin binaries, descriptor evaluations, capability answers, and lowered orphan sources unused for 30 days, and bounds its Go object cache at 8 GiB, pruning toward 6 GiB outside active builds. Explicit cache roots and a user `GOCACHE` remain caller-owned. `ttsc clean` also reclaims the machine-global cache left by pre-0.17 releases, and the `ttsc-orphan` directory earlier releases left in the system temporary directory.
 
 Every CI job and every container build starts from a clean filesystem, so a source plugin recompiles on each one unless the cache is carried across. [Build cache](/docs/ttsc/cache) covers that: what invalidates the cache, why a CI key has to separate architectures and not only operating systems, the `npm ci` ordering trap that silently disables the cache, and worked GitHub Actions and Docker recipes.
 

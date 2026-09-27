@@ -35,6 +35,8 @@ export function prepareExecution(
   outputs: readonly string[];
   entrySource: string;
   moduleOptions: OwningModuleOptions;
+  /** Where the run keeps its lowered orphan sources, under its cache root. */
+  orphanCacheDir: string;
   projectRoot: string;
   rootDir: string;
 } {
@@ -72,6 +74,7 @@ export function prepareExecution(
       entrySource: entry,
       outputs: context.outputs,
       moduleOptions: context.moduleOptions,
+      orphanCacheDir: context.orphanCacheDir,
       projectRoot: context.root,
       rootDir: context.runtimeRootDir,
     };
@@ -212,9 +215,12 @@ function createProjectContext(
   const tsconfig = project.path;
   const root = project.root;
   const explicitCacheDir = resolveCacheDir(cwd, options.cacheDir);
-  const cacheDirSpelling =
-    explicitCacheDir ??
-    defaultRuntimeCacheDir(root, { ...process.env, ...options.env });
+  const env = { ...process.env, ...options.env };
+  const defaultCache =
+    explicitCacheDir === undefined
+      ? defaultRuntimeCacheDir(root, env)
+      : undefined;
+  const cacheDirSpelling = explicitCacheDir ?? defaultCache!.runtime;
   const runtimeCacheKey = resolveRuntimeCacheKey(options.runtimeCacheKey);
   // Resolved once: it now costs a realpath (and, for a missing directory on
   // Windows, a case-sensitivity probe) rather than a string join.
@@ -233,6 +239,15 @@ function createProjectContext(
     createFilesystemPathIdentityContext().resolve(cacheDirSpelling).path;
   const processDir = path.join(cacheDir, "project", runtimeCacheKey);
   const virtualRoot = path.join(processDir, "fs");
+  // The lowered orphan sources outlive the run, so they live in the resolved
+  // cache root beside every other persistent part of it, and a default root
+  // collects them with the rest (samchon/ttsc#1562).
+  const cacheRoot =
+    defaultCache === undefined || defaultCache.runtime === defaultCache.root
+      ? cacheDir
+      : path.dirname(cacheDir);
+  if (defaultCache?.collected === true)
+    SourceBuildCacheLayout.pruneCacheFiles(cacheRoot);
   return {
     project,
     tsconfig,
@@ -241,6 +256,10 @@ function createProjectContext(
     runtimeCacheKey,
     processDir,
     pluginCacheDir: explicitCacheDir === undefined ? undefined : cacheDir,
+    orphanCacheDir: path.join(
+      cacheRoot,
+      SourceBuildCacheLayout.ORPHAN_CACHE_DIRNAME,
+    ),
     virtualRoot,
     emitDir: project.compilerOptions.outDir
       ? virtualPath(virtualRoot, project.compilerOptions.outDir)
@@ -435,7 +454,17 @@ function buildProject(
  * default keeps related projects together. A `--cache-dir` the user named is
  * never replaced: it is the user's choice, and a failure there is reported.
  */
-function defaultRuntimeCacheDir(root: string, env: NodeJS.ProcessEnv): string {
+function defaultRuntimeCacheDir(
+  root: string,
+  env: NodeJS.ProcessEnv,
+): {
+  /** Whether ttsc collects the root, which it does for its own default. */
+  collected: boolean;
+  /** The cache root the runtime directory lives in. */
+  root: string;
+  /** The runtime's own directory. */
+  runtime: string;
+} {
   const paths = resolveSourceBuildCachePaths(root, undefined, env);
   const local = path.join(paths.root, "ttsx");
   try {
@@ -443,7 +472,11 @@ function defaultRuntimeCacheDir(root: string, env: NodeJS.ProcessEnv): string {
       SourceBuildCacheLayout.markDefaultWorkspaceCacheRoot(paths.root);
     }
     fs.mkdirSync(local, { recursive: true });
-    return local;
+    return {
+      collected: !env.TTSC_CACHE_DIR,
+      root: paths.root,
+      runtime: local,
+    };
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
     if (
@@ -453,11 +486,12 @@ function defaultRuntimeCacheDir(root: string, env: NodeJS.ProcessEnv): string {
       throw error;
     }
   }
-  return path.join(
+  const fallback = path.join(
     os.tmpdir(),
     "ttsc-ttsx",
     crypto.createHash("sha256").update(root).digest("hex").slice(0, 16),
   );
+  return { collected: false, root: fallback, runtime: fallback };
 }
 
 function removeRuntimeOutput(directory: string): void {

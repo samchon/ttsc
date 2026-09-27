@@ -6,11 +6,13 @@ import { resolveSourceBuildCachePaths } from "./resolveSourceBuildCachePaths";
 /**
  * Return every directory `ttsc clean` should remove for `projectRoot`.
  *
- * Covers the resolved plugin-binary root, a safely named nested `go-build/`, a
- * ttsc-owned Go build cache that lives OUTSIDE that root (`TTSC_GO_CACHE_DIR`),
- * and the two legacy project-local caches. A user-provided `GOCACHE` is never
- * removed. Pure over `env`, so the CLI passes `process.env` and a programmatic
- * caller can pass an injected environment.
+ * Covers the resolved plugin-binary root, the single-file caches beside it
+ * (descriptor evaluations, capability answers, lowered orphan sources:
+ * `SourceBuildCacheLayout.CACHE_FILE_DIRNAMES`), a safely named nested
+ * `go-build/`, a ttsc-owned Go build cache that lives OUTSIDE that root
+ * (`TTSC_GO_CACHE_DIR`), and the two legacy project-local caches. A
+ * user-provided `GOCACHE` is never removed. Pure over `env`, so the CLI passes
+ * `process.env` and a programmatic caller can pass an injected environment.
  */
 export function resolveCleanTargets(
   projectRoot: string,
@@ -19,7 +21,12 @@ export function resolveCleanTargets(
 ): string[] {
   const paths = resolveSourceBuildCachePaths(projectRoot, cacheDir, env);
   // Remove ttsc-OWNED directories only, never the parent cache root.
-  const targets = [paths.pluginRoot];
+  const targets = [
+    paths.pluginRoot,
+    ...SourceBuildCacheLayout.CACHE_FILE_DIRNAMES.map((name) =>
+      path.join(paths.root, name),
+    ),
+  ];
   // ttsc's nested `<root>/go-build` is only safe to delete when we are certain
   // the root belongs to ttsc: the default `node_modules/.cache/ttsc`, or a root
   // the user explicitly named `ttsc`. Under a shared root (e.g.

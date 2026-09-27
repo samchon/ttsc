@@ -10,6 +10,10 @@ import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
  * clean` offers them for removal to reclaim that disk. Each entry is the whole
  * `<userCacheRoot>/ttsc` directory (both its `plugins` and `go-build`), which
  * was entirely ttsc-owned in those releases and is safe to remove.
+ *
+ * The same holds for `<os.tmpdir()>/ttsc-orphan`, where releases before
+ * samchon/ttsc#1562 lowered orphan sources for every run without
+ * `TTSC_CACHE_DIR` and never collected them.
  */
 export function legacyGlobalCacheTargets(): string[] {
   const roots = new Set<string>();
@@ -48,5 +52,9 @@ export function legacyGlobalCacheTargets(): string[] {
       path.join(home, ".cache", SourceBuildCacheLayout.TTSC_CACHE_DIRNAME),
     );
   }
+  roots.add(path.join(os.tmpdir(), LEGACY_ORPHAN_CACHE_DIRNAME));
   return [...roots];
 }
+
+/** The temporary-directory parent of the orphan cache before samchon/ttsc#1562. */
+const LEGACY_ORPHAN_CACHE_DIRNAME = "ttsc-orphan";

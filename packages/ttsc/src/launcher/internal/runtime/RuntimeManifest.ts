@@ -30,6 +30,11 @@ export interface RuntimeManifest {
   /** Root directory for per-dependency build output. */
   depCacheDir: string;
   /**
+   * Directory of the lowered orphan sources, under the run's resolved cache
+   * root, which outlives the run (samchon/ttsc#1562).
+   */
+  orphanCacheDir?: string;
+  /**
    * `false` when the run disabled transform plugins (`ttsx --no-plugins`). A
    * TypeScript root the program reaches outside every checked build is part of
    * the same run, so it is compiled under the same plugin policy as the entry.
