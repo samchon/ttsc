@@ -3,6 +3,7 @@ package evidence
 import (
   "os"
   "path/filepath"
+  "slices"
   "sort"
   "strings"
 
@@ -47,6 +48,9 @@ func (graphRule) Check(ctx *rule.ProjectContext) {
     ctx.Report("Evidence graph project root '" + root + "' is not a readable directory. Fix the ttsc project identity before evaluating evidence globs.")
     return
   }
+  // The other spellings of the root, which the Program may name its sources
+  // below (`typeScriptMatchBase`).
+  aliases := evidenceProjectRootAliases(ctx.Identity, root)
   diagnostics := graphDiagnostics{}
   // Every population is anchored before anything is read, so a loader, a
   // diagnostic, and the corpus the editor receives all speak of one resolved
@@ -61,6 +65,7 @@ func (graphRule) Check(ctx *rule.ProjectContext) {
     root,
     ctx.Sources,
     claimPopulationConfig(config, artifactTypeScript),
+    aliases...,
   )
   markdownClaims, markdownClaimProblems := loadMarkdownInventories(
     root,
@@ -88,8 +93,8 @@ func (graphRule) Check(ctx *rule.ProjectContext) {
   declared := config
   config = activeGraphConfig(config, markdownClaims, prismaClaims, typescript)
   governed := map[string]bool{}
-  extendTypeScriptInventories(root, ctx.Sources, config, typescript, nil)
-  recordGovernedTypeScriptFiles(ctx.Sources, declared, governed)
+  extendTypeScriptInventories(root, ctx.Sources, config, typescript, nil, aliases...)
+  recordGovernedTypeScriptFiles(root, ctx.Sources, declared, governed, aliases...)
   markdown, markdownProblems := loadMarkdownInventories(root, config)
   prisma, prismaProblems := loadPrismaInventories(root, config)
   swagger, swaggerProblems := loadSwaggerInventories(root, config)
@@ -144,6 +149,40 @@ func evidenceProjectRoot(identity rule.ProjectIdentity) string {
     }
   }
   return ""
+}
+
+// evidenceProjectRootAliases lists the other spellings the project identity
+// gives the directory `evidenceProjectRoot` chose: its physical and logical
+// roots, which name one directory by construction. Each is confirmed to be that
+// directory before it is admitted, so an identity whose roots disagree cannot
+// widen the project to another one.
+func evidenceProjectRootAliases(identity rule.ProjectIdentity, root string) []string {
+  rootInfo, err := os.Stat(root)
+  if err != nil {
+    return nil
+  }
+  aliases := []string{}
+  for _, candidate := range []string{
+    identity.PhysicalProjectRoot,
+    identity.LogicalProjectRoot,
+  } {
+    if candidate == "" {
+      continue
+    }
+    absolute, err := filepath.Abs(candidate)
+    if err != nil {
+      continue
+    }
+    absolute = filepath.Clean(absolute)
+    if absolute == root || slices.Contains(aliases, absolute) {
+      continue
+    }
+    if info, err := os.Stat(absolute); err != nil || !os.SameFile(rootInfo, info) {
+      continue
+    }
+    aliases = append(aliases, absolute)
+  }
+  return aliases
 }
 
 // claimPopulationConfig removes every reference and other artifact kind from

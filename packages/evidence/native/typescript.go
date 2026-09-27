@@ -12,9 +12,10 @@ func loadTypeScriptInventories(
   root string,
   sources []*shimast.SourceFile,
   config graphConfig,
+  aliases ...string,
 ) map[string]*artifactInventory {
   inventories := map[string]*artifactInventory{}
-  extendTypeScriptInventories(root, sources, config, inventories, nil)
+  extendTypeScriptInventories(root, sources, config, inventories, nil, aliases...)
   return inventories
 }
 
@@ -31,8 +32,9 @@ func extendTypeScriptInventories(
   config graphConfig,
   inventories map[string]*artifactInventory,
   governed map[string]bool,
+  aliases ...string,
 ) {
-  bases := typeScriptMatchBases(config)
+  bases := typeScriptMatchBases(config, root, aliases)
   for _, file := range sources {
     if file == nil || !isTypeScriptPath(file.FileName()) {
       continue
@@ -142,12 +144,27 @@ func isTypeScriptPath(path string) bool {
 // through a link is identified exactly as it would be without one. The
 // resolution is per base and the comparison is per source, so the extra spelling
 // costs nothing where no link is involved.
+//
+// The project root itself has the same two spellings the other way round. A
+// host opens its Program from the directory it was handed: `ttsc` hands the
+// physical root, which the base is anchored at, while an editor or a graph
+// session hands the logical one, which reaches the project through a link
+// wherever the checkout does, as macOS's temporary directory does below
+// `/var`. No resolution of the base produces that spelling, so a base at or
+// below the project root is also compared as it sits below each other spelling
+// the project identity gives the root (`aliases`). A base above the project
+// has none: another spelling of the project says nothing about its parent.
 type typeScriptMatchBase struct {
   base     populationBase
   resolved string
+  aliases  []string
 }
 
-func typeScriptMatchBases(config graphConfig) []typeScriptMatchBase {
+func typeScriptMatchBases(
+  config graphConfig,
+  root string,
+  rootAliases []string,
+) []typeScriptMatchBase {
   bases := configuredBases(config, artifactTypeScript)
   entries := make([]typeScriptMatchBase, 0, len(bases))
   for _, base := range bases {
@@ -161,19 +178,51 @@ func typeScriptMatchBases(config graphConfig) []typeScriptMatchBase {
     if !ok {
       resolved = base.Absolute
     }
-    entries = append(entries, typeScriptMatchBase{base: base, resolved: resolved})
+    entries = append(entries, typeScriptMatchBase{
+      base:     base,
+      resolved: resolved,
+      aliases:  aliasedBaseDirectories(base.Absolute, root, rootAliases),
+    })
   }
   return entries
+}
+
+// aliasedBaseDirectories spells a base at or below root below each alias of
+// root, forward-slashed as a Program spells its sources.
+func aliasedBaseDirectories(base string, root string, aliases []string) []string {
+  if len(aliases) == 0 {
+    return nil
+  }
+  relative := ""
+  if filepath.Clean(base) != filepath.Clean(root) {
+    inside, ok := relativeProjectPath(root, base)
+    if !ok {
+      return nil
+    }
+    relative = inside
+  }
+  spelled := make([]string, 0, len(aliases))
+  for _, alias := range aliases {
+    spelled = append(spelled, filepath.ToSlash(filepath.Join(alias, filepath.FromSlash(relative))))
+  }
+  return spelled
 }
 
 func (entry typeScriptMatchBase) relativeOf(name string) (string, bool) {
   if relative, ok := relativeProjectPath(entry.base.Absolute, name); ok {
     return relative, true
   }
-  if entry.resolved == entry.base.Absolute {
-    return "", false
+  if entry.resolved != entry.base.Absolute {
+    if relative, ok := relativeProjectPath(entry.resolved, name); ok {
+      return relative, true
+    }
   }
-  return relativeProjectPath(entry.resolved, name)
+  for _, alias := range entry.aliases {
+    if relative, ok := relativeProjectPath(alias, name); ok {
+      return relative, true
+    }
+  }
+  return "", false
 }
 
 func relativeProjectPath(root string, absolute string) (string, bool) {
@@ -1937,14 +1986,16 @@ func matchesConfiguredTypeScriptFile(
 // silenced a file whose declarations were all commented out, which is exactly
 // the shape the diagnostic's second repair clause exists for.
 func recordGovernedTypeScriptFiles(
+  root string,
   sources []*shimast.SourceFile,
   declared graphConfig,
   governed map[string]bool,
+  aliases ...string,
 ) {
   if governed == nil {
     return
   }
-  bases := typeScriptMatchBases(declared)
+  bases := typeScriptMatchBases(declared, root, aliases)
   for _, file := range sources {
     if file == nil || !isTypeScriptPath(file.FileName()) {
       continue
