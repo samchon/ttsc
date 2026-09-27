@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { createFilesystemPathIdentityContext } from "../../../internal/pathIdentity/createFilesystemPathIdentityContext";
+import { resolvePhysicalPath as resolvePhysicalPathIdentity } from "../../../internal/pathIdentity/resolvePhysicalPath";
 import type { OwningModuleOptions } from "./OwningModuleOptions";
 
 /**
@@ -95,13 +95,7 @@ export namespace DependencyBuildGeneration {
    * fallback.
    */
   export function resolvePhysicalPath(location: string): string {
-    try {
-      return createFilesystemPathIdentityContext({
-        throwOnRealpathError: false,
-      }).resolve(location).path;
-    } catch {
-      return location;
-    }
+    return resolvePhysicalPathIdentity(location);
   }
 
   /**

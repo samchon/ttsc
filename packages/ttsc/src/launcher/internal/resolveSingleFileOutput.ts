@@ -2,6 +2,7 @@ import path from "node:path";
 
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { resolveFlagSpec } from "../../flags/resolveFlagSpec";
+import { resolvePhysicalPath } from "../../internal/pathIdentity/resolvePhysicalPath";
 
 /**
  * Resolves the only file that positional `ttsc <source>` can materialize in the
@@ -37,7 +38,14 @@ export function resolveSingleFileOutput(options: {
   }
 
   if (project?.outDir !== undefined) {
-    const fromRoot = path.relative(project.rootDir, options.file);
+    // The project resolves to its physical directory, while the file is spelled
+    // as the cwd reaches it. Related as spelled through a link, the file lies
+    // outside `rootDir` and its mirrored place is lost, so both are related as
+    // the filesystem names them.
+    const fromRoot = path.relative(
+      resolvePhysicalPath(project.rootDir),
+      resolvePhysicalPath(options.file),
+    );
     if (fromRoot !== "" && !isOutsideSingleFileLayout(fromRoot)) {
       const jsRelative =
         fromRoot.slice(0, fromRoot.length - path.extname(fromRoot).length) +

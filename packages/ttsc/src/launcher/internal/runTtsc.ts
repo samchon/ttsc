@@ -12,6 +12,7 @@ import { getNumber } from "../../flags/getNumber";
 import { getString } from "../../flags/getString";
 import { parseFlags } from "../../flags/parseFlags";
 import { resolveFlagSpec } from "../../flags/resolveFlagSpec";
+import { resolvePhysicalPath } from "../../internal/pathIdentity/resolvePhysicalPath";
 import { resolveSafeCacheCleanupTargets } from "../../internal/resolveSafeCacheCleanupTargets";
 import { isPathWithin } from "../../plugin/internal/source/isPathWithin";
 import { legacyGlobalCacheTargets } from "../../plugin/internal/source/legacyGlobalCacheTargets";
@@ -419,11 +420,33 @@ function resolveCleanProjectRoot(cwd: string, tsconfig?: string): string {
 }
 
 function formatProjectPath(cwd: string, target: string): string {
+  const relative = relativeToCwd(cwd, target);
+  return relative === undefined || relative === "" ? target : relative;
+}
+
+/**
+ * `target` relative to the cwd the user gave, or `undefined` when it lies
+ * outside that directory.
+ *
+ * The project, its caches, and its watch root resolve to their physical
+ * directory. When the cwd reaches the project through a link, relating that
+ * physical path to the cwd as spelled walks out through the link and back in,
+ * so the cwd is also related as the filesystem names it: the directory the user
+ * named, in the spelling the target carries.
+ */
+function relativeToCwd(cwd: string, target: string): string | undefined {
   const relative = path.relative(cwd, target);
-  if (!relative || isOutsideRelativePath(relative)) {
-    return target;
-  }
-  return relative;
+  if (!isOutsideRelativePath(relative)) return relative;
+  const physical = path.relative(resolvePhysicalPath(cwd), target);
+  return isOutsideRelativePath(physical) ? undefined : physical;
+}
+
+/**
+ * `location` as a watch message names it: relative to the cwd, `.` for the cwd
+ * itself, and through `..` when it lies outside.
+ */
+function watchMessagePath(cwd: string, location: string): string {
+  return (relativeToCwd(cwd, location) ?? path.relative(cwd, location)) || ".";
 }
 
 function isOutsideRelativePath(relative: string): boolean {
@@ -639,7 +662,9 @@ function runSingleFile(
     fs.writeFileSync(out, text, "utf8");
   }
   if (out !== undefined) {
-    process.stdout.write(`${path.relative(cwd, out) || path.basename(out)}\n`);
+    process.stdout.write(
+      `${(relativeToCwd(cwd, out) ?? path.relative(cwd, out)) || path.basename(out)}\n`,
+    );
   }
   return 0;
 }
@@ -760,7 +785,7 @@ function runWatch(
           topology?.refresh(true);
         } catch (error) {
           process.stderr.write(
-            `[ttsc] watch error on ${path.relative(cwd, root) || "."}: ${formatError(error)}\n`,
+            `[ttsc] watch error on ${watchMessagePath(cwd, root)}: ${formatError(error)}\n`,
           );
         }
       }
@@ -783,13 +808,13 @@ function runWatch(
   topology = new WatchTopology(invocation, {
     onError: (location, error) => {
       process.stderr.write(
-        `[ttsc] watch error on ${path.relative(cwd, location) || "."}: ${formatError(error)}\n`,
+        `[ttsc] watch error on ${watchMessagePath(cwd, location)}: ${formatError(error)}\n`,
       );
     },
     onProjectInputWatchUnavailable: (roots) => {
       for (const root of roots) {
         process.stderr.write(
-          `[ttsc] project-input watch unavailable on ${path.relative(cwd, root) || "."}; changes under this root are not being observed\n`,
+          `[ttsc] project-input watch unavailable on ${watchMessagePath(cwd, root)}; changes under this root are not being observed\n`,
         );
       }
     },
@@ -798,14 +823,14 @@ function runWatch(
         `change ${change.kind}${change.invalidate === true ? " invalidate" : ""} ${
           change.path === undefined
             ? "(unnamed)"
-            : path.relative(cwd, change.path)
+            : watchMessagePath(cwd, change.path)
         }`,
       );
       trigger(change);
     },
     onProjectInputWatchRoots: (roots) => {
       debugWatchInputs(
-        `roots ${JSON.stringify(roots.map((root) => path.relative(cwd, root) || "."))}`,
+        `roots ${JSON.stringify(roots.map((root) => watchMessagePath(cwd, root)))}`,
       );
     },
     onTopologyChange: () => trigger(undefined, true),
@@ -826,7 +851,7 @@ function runWatch(
     process.exit(toExitCode(lastStatus));
   });
 
-  process.stdout.write(`[ttsc] watching ${path.relative(cwd, root) || "."}\n`);
+  process.stdout.write(`[ttsc] watching ${watchMessagePath(cwd, root)}\n`);
   try {
     void runOnce();
   } catch (error) {
