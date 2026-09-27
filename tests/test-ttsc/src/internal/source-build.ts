@@ -91,7 +91,7 @@ function createFakeGoBinary(
       "  process.exit(0);",
       "}",
       'if (args[0] === "mod" && args[1] === "edit" && args[2] === "-json") {',
-      '  const goMod = fs.readFileSync(path.join(process.cwd(), "go.mod"), "utf8");',
+      '  const goMod = fs.readFileSync(path.resolve(args[3] ?? "go.mod"), "utf8");',
       "  console.log(JSON.stringify(parseGoMod(goMod)));",
       "  process.exit(0);",
       "}",

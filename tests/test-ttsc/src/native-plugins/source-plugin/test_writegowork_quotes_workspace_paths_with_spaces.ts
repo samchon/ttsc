@@ -187,7 +187,7 @@ function createGoWorkCapturingGoBinary(root: string): string {
       "  process.exit(0);",
       "}",
       'if (args[0] === "mod" && args[1] === "edit" && args[2] === "-json") {',
-      '  const text = fs.readFileSync(path.join(process.cwd(), "go.mod"), "utf8");',
+      '  const text = fs.readFileSync(path.resolve(args[3] ?? "go.mod"), "utf8");',
       "  const m = text.match(/^\\s*module\\s+(\\S+)/m);",
       "  console.log(JSON.stringify(m ? { Module: { Path: m[1] } } : {}));",
       "  process.exit(0);",
