@@ -10,6 +10,7 @@
  * module path such a reader imports, so the implementation keeps one
  * declaration per file.
  */
+export * from "../compiler/internal/project/compilerUsesCaseSensitiveFileNames";
 export * from "../compiler/internal/project/parseJsonc";
 export * from "../compiler/internal/project/resolveTsconfigExtends";
 export * from "../compiler/internal/project/tsconfigExtendsFileCandidates";

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { TtscCompiler } from "ttsc";
+import { compilerUsesCaseSensitiveFileNames } from "ttsc/tsconfig";
 
 import type { ResolvedTtscUnpluginOptions } from "../../options/ResolvedTtscUnpluginOptions";
 import type { ITtscProjectMembershipPolicy } from "../../tsconfig/ITtscProjectMembershipPolicy";
@@ -184,15 +185,18 @@ export async function captureTransformGeneration(props: {
       projectRoot,
     );
     // The walk before the compile matches root specs under the case policy an
-    // earlier compile reported, the compiler's own answer, and under the
-    // platform's ordinary answer until one has (samchon/ttsc#1545).
-    const primedPolicy: ITtscProjectMembershipPolicy =
-      props.useCaseSensitiveFileNames === undefined
-        ? mergedPolicy
-        : {
-            ...mergedPolicy,
-            useCaseSensitiveFileNames: props.useCaseSensitiveFileNames,
-          };
+    // earlier compile reported (samchon/ttsc#1545), and until one has, under
+    // the answer the compiler about to run gives by its own rule, for the
+    // project and environment it runs with (samchon/ttsc#1563).
+    const primedPolicy: ITtscProjectMembershipPolicy = {
+      ...mergedPolicy,
+      useCaseSensitiveFileNames:
+        props.useCaseSensitiveFileNames ??
+        compilerUsesCaseSensitiveFileNames({
+          env: compilerEnvironment,
+          projectRoot,
+        }),
+    };
     const before = collectProjectInputSnapshot(
       projectRoot,
       identities,

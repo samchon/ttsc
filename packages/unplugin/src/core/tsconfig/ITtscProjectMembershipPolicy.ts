@@ -63,8 +63,8 @@ export interface ITtscProjectMembershipPolicy {
    * samchon/ttsc#1545). TypeScript-Go decides it from the filesystem its
    * executable lives on, not from the platform, so root specs match the way the
    * compiler matches them only under its own answer. Absent until a compile
-   * reported it; `policyUsesCaseSensitiveFileNames` then supplies the
-   * platform's ordinary answer.
+   * reported it; `policyUsesCaseSensitiveFileNames` then supplies the answer
+   * that compiler gives by TypeScript-Go's own rule (samchon/ttsc#1563).
    */
   useCaseSensitiveFileNames?: boolean;
 }

@@ -6,6 +6,7 @@ import {
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { compilerUsesCaseSensitiveFileNames } from "ttsc/tsconfig";
 
 /**
  * Verifies a transform generation takes the case policy the compiler reported,
@@ -18,8 +19,10 @@ import path from "node:path";
  * reports its policy in the graph, the capture adopts it, and a walk taken
  * before the compile under another policy is taken again.
  *
- * 1. Transform with a plugin whose graph reports the policy this platform does not
- *    ordinarily have, the report of a compiler on the other kind of volume.
+ * 1. Transform with a plugin whose graph reports the policy opposite to the one
+ *    the compiler's own rule answers here
+ *    (`compilerUsesCaseSensitiveFileNames`, samchon/ttsc#1563), the report of a
+ *    compiler on the other kind of volume.
  * 2. Assert the attempt was taken again under the reported policy: two compiles.
  * 3. Edit the module and transform again through the same cache: the policy primes
  *    the walk, so one compile.
@@ -39,7 +42,9 @@ export async function test_transformttsc_learns_the_case_policy_the_compiler_rep
         name: "graph",
         operation: "emit-graph",
         echoTsconfig: true,
-        useCaseSensitiveFileNames: process.platform !== "linux",
+        useCaseSensitiveFileNames: !compilerUsesCaseSensitiveFileNames({
+          projectRoot: root,
+        }),
       },
       {
         transform: "./plugin.cjs",

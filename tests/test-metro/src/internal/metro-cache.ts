@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { compilerUsesCaseSensitiveFileNames } from "ttsc/tsconfig";
 
 import { TestMetroRuntime } from "./metro-runtime";
 
@@ -188,6 +189,48 @@ export async function assertCacheKeyChangesWhenProjectSourceChanges(): Promise<v
   );
   const after = await cacheKeyForRun(root);
   assert.notEqual(before, after);
+}
+
+/**
+ * Asserts the cache key covers a file whose directory differs from an include
+ * spec only by case exactly when the compiler compares names insensitively, as
+ * TypeScript-Go's rule answers for the executable it runs as, not as the
+ * platform ordinarily does (samchon/ttsc#1563).
+ */
+export async function assertCacheKeyCoversRootSpecsUnderTheCompilerCaseRule(): Promise<void> {
+  const root = createBareProject();
+  fs.writeFileSync(
+    path.join(root, "tsconfig.json"),
+    JSON.stringify({
+      compilerOptions: { strict: true },
+      include: ["src", "lib"],
+    }),
+    "utf8",
+  );
+  fs.mkdirSync(path.join(root, "Lib"));
+  fs.writeFileSync(
+    path.join(root, "Lib", "extra.ts"),
+    "export const extra = 1;\n",
+    "utf8",
+  );
+  const insensitive = !compilerUsesCaseSensitiveFileNames({
+    projectRoot: root,
+  });
+  await prepareSnapshot(root);
+  const before = await cacheKeyForRun(root);
+  fs.writeFileSync(
+    path.join(root, "Lib", "extra.ts"),
+    "export const extra = 2;\n",
+    "utf8",
+  );
+  const after = await cacheKeyForRun(root);
+  assert.equal(
+    before !== after,
+    insensitive,
+    insensitive
+      ? "the key missed a root file the compiler matches"
+      : "the key covered a file the compiler leaves out",
+  );
 }
 
 /**
