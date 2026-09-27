@@ -36,11 +36,26 @@ const RUNTIME_NODE_DIRS = [
 ];
 
 /**
+ * The operating systems besides Linux on which a lane marked `everyOs` runs
+ * again, one runner each: what differs between them is the filesystem, the path
+ * rules, and the process model, not the CPU. Such a lane runs whole on each, as
+ * the bundler lanes do, because a suite that ran on Linux alone let a Windows-
+ * or macOS-only defect reach `master` with every check green
+ * (samchon/ttsc#1577).
+ */
+const OTHER_LANE_OSES = [
+  { id: "windows", name: "windows", runner: "windows-latest" },
+  { id: "macos", name: "macOS", runner: "macos-15" },
+];
+
+/**
  * One repository-owned description of every main test job.
  *
  * `dirs` are relative to the owning test package's `src/` directory. Several
  * locations in one lane are scanned in one process so package builds and the
- * content-addressed source-plugin cache stay warm across named subcases.
+ * content-addressed source-plugin cache stay warm across named subcases. A lane
+ * whose suites drive the shipped code against the host's filesystem and
+ * processes is marked `everyOs` and also runs on `OTHER_LANE_OSES`.
  */
 const LANES = [
   {
@@ -114,6 +129,7 @@ const LANES = [
   },
   {
     id: "package-defenses",
+    everyOs: true,
     name: "package defenses",
     needsGo: true,
     scope: "test-packages",
@@ -129,6 +145,7 @@ const LANES = [
   },
   {
     id: "ttsc-core",
+    everyOs: true,
     name: "ttsc core defenses",
     needsGo: true,
     scope: "test-ttsc",
@@ -153,6 +170,7 @@ const LANES = [
   },
   {
     id: "ttsc-native",
+    everyOs: true,
     name: "ttsc native defenses",
     needsGo: true,
     scope: "test-ttsc",
@@ -197,6 +215,7 @@ const LANES = [
   },
   {
     id: "lint-1",
+    everyOs: true,
     name: "lint defense 1",
     needsGo: true,
     scope: "test-lint",
@@ -213,6 +232,7 @@ const LANES = [
   },
   {
     id: "lint-2",
+    everyOs: true,
     name: "lint defense 2",
     needsGo: true,
     scope: "test-lint",
@@ -288,6 +308,7 @@ const LANES = [
   },
   {
     id: "graph",
+    everyOs: true,
     name: "graph",
     needsGo: true,
     scope: "test-graph",
@@ -296,6 +317,7 @@ const LANES = [
   },
   {
     id: "evidence",
+    everyOs: true,
     name: "evidence defenses",
     needsGo: true,
     scope: "test-evidence",
@@ -481,7 +503,6 @@ function planForPaths(files) {
 
   const selected = new Set(["typecheck"]);
   let watch = false;
-  let runtime = false;
   const integrations = {
     bun: matchesAnyPath(normalized, PLATFORM_INTEGRATION_PATHS.bun),
     experimental: matchesAnyPath(
@@ -511,7 +532,6 @@ function planForPaths(files) {
     if (file.startsWith("packages/ttsc/")) {
       add([...TTSC_DOWNSTREAM_IDS, ...RUNTIME_NODE_LANE_IDS], file);
       watch = true;
-      runtime = true;
       if (file.startsWith("packages/ttsc/shim/")) selected.add("shim-audit");
       // The proxy links most of the Go module, so any Go source or module
       // change can move a memory access it races on (samchon/ttsc#1482).
@@ -630,7 +650,6 @@ function planForPaths(files) {
       const ttsc = planTtscTest(file);
       add(ttsc.lanes, file);
       watch ||= ttsc.watch;
-      runtime ||= ttsc.runtime;
       continue;
     }
     const packageTest = /^tests\/test-([^/]+)\//.exec(file);
@@ -685,10 +704,7 @@ function planForPaths(files) {
           : [...LINT_LANE_IDS, "ttsc-native"],
         file,
       );
-      if (file.startsWith("tests/utils/")) {
-        watch = true;
-        runtime = true;
-      }
+      if (file.startsWith("tests/utils/")) watch = true;
       continue;
     }
     if (file.startsWith("tests/projects/")) {
@@ -773,21 +789,18 @@ function planForPaths(files) {
     return fullPlan(`unknown input: ${file}`);
   }
 
-  return createPlan(selected, watch, reasons, { ...integrations, runtime });
+  return createPlan(selected, watch, reasons, integrations);
 }
 
 function planTtscTest(file) {
-  if (file.includes("/features/watch/"))
-    return { lanes: [], watch: true, runtime: false };
-  // The runtime suite runs in the core lane on Linux and again on the
-  // representative macOS and Windows rows, where its process, path, and
-  // signal behavior differs, and on the Node floor and the newest release,
-  // where its loader paths differ.
+  if (file.includes("/features/watch/")) return { lanes: [], watch: true };
+  // The runtime suite runs in the core lane, on every OS that lane covers,
+  // where its process, path, and signal behavior differs, and on the Node
+  // floor and the newest release, where its loader paths differ.
   if (file.includes("/features/ttsx-runtime/"))
     return {
       lanes: ["ttsc-core", ...RUNTIME_NODE_LANE_IDS],
       watch: false,
-      runtime: true,
     };
   if (
     RUNTIME_NODE_DIRS.some((directory) =>
@@ -806,19 +819,18 @@ function planTtscTest(file) {
         ...RUNTIME_NODE_LANE_IDS,
       ],
       watch: false,
-      runtime: false,
     };
   if (file.includes("/features/"))
-    return { lanes: ["ttsc-core"], watch: false, runtime: false };
+    return { lanes: ["ttsc-core"], watch: false };
   for (const lane of LANES.filter((item) => item.id.startsWith("ttsc-"))) {
     if (
       lane.dirs?.some((directory) =>
         file.startsWith(`tests/test-ttsc/src/${directory}/`),
       )
     )
-      return { lanes: [lane.id], watch: false, runtime: false };
+      return { lanes: [lane.id], watch: false };
   }
-  return { lanes: FULL_LANE_IDS, watch: true, runtime: true };
+  return { lanes: FULL_LANE_IDS, watch: true };
 }
 
 function isFullPlanInput(file) {
@@ -854,21 +866,18 @@ function fullPlan(reason) {
     experimental: true,
     unpluginE2e: true,
     pluginCache: true,
-    runtime: true,
     sourceMap: true,
     vscode: true,
   });
 }
 
 function createPlan(selected, watch, reasons, integrations) {
-  const include = LANES.filter((lane) => selected.has(lane.id)).map(
-    workflowLane,
-  );
+  const lanes = LANES.filter((lane) => selected.has(lane.id));
+  const include = lanes.flatMap(laneJobs);
   const platform = createPlatformPlan({
     bun: integrations.bun,
     experimental: integrations.experimental,
     pluginCache: integrations.pluginCache,
-    runtime: integrations.runtime,
     sourceMap: integrations.sourceMap,
     vscode: integrations.vscode,
     watch,
@@ -876,7 +885,7 @@ function createPlan(selected, watch, reasons, integrations) {
   const unpluginHosts = createUnpluginHostPlan(integrations.unpluginE2e);
   return {
     matrix: { include },
-    laneIds: include.map((lane) => lane.id),
+    laneIds: lanes.map((lane) => lane.id),
     platformMatrix: platform.matrix,
     platformSelected: platform.matrix.include.length > 0,
     platformTasks: platform.tasks,
@@ -926,26 +935,18 @@ function createPlatformPlan(tasks) {
         tasks.sourceMap && row.representative && row.os === "linux";
       const vscode = tasks.vscode && row.representative;
       const watch = tasks.watch && row.representative;
-      // Linux already runs the runtime suite in the core lane.
-      const runtime = tasks.runtime && row.representative && row.os !== "linux";
-      const build = !tasks.experimental && (watch || pluginCache || runtime);
+      const build = !tasks.experimental && (watch || pluginCache);
       return {
         name: row.name,
         os: row.os,
         runner: row.runner,
         bun,
         build,
-        build_scope: watch || runtime ? "experimental" : "plugin-cache",
+        build_scope: watch ? "experimental" : "plugin-cache",
         experimental: tasks.experimental,
         needs_go:
-          tasks.experimental ||
-          bun ||
-          pluginCache ||
-          runtime ||
-          sourceMap ||
-          watch,
+          tasks.experimental || bun || pluginCache || sourceMap || watch,
         plugin_cache: pluginCache,
-        runtime,
         setup_bun: bun || (pluginCache && row.os === "linux"),
         source_map: sourceMap,
         watch,
@@ -957,7 +958,6 @@ function createPlatformPlan(tasks) {
         row.experimental ||
         row.bun ||
         row.plugin_cache ||
-        row.runtime ||
         row.source_map ||
         row.watch ||
         row.vscode,
@@ -968,6 +968,23 @@ function createPlatformPlan(tasks) {
       .filter(([, selected]) => selected)
       .map(([task]) => task),
   };
+}
+
+/** The jobs one lane runs as: its own, and one on each other OS it covers. */
+function laneJobs(lane) {
+  return [
+    workflowLane(lane),
+    ...(lane.everyOs === true
+      ? OTHER_LANE_OSES.map((os) =>
+          workflowLane({
+            ...lane,
+            id: `${lane.id}-${os.id}`,
+            name: `${lane.name} (${os.name})`,
+            os: os.runner,
+          }),
+        )
+      : []),
+  ];
 }
 
 function workflowLane(lane) {
@@ -1103,6 +1120,7 @@ module.exports = {
   FULL_LANE_IDS,
   LANES,
   NODE_FLOOR,
+  OTHER_LANE_OSES,
   PLATFORM_INTEGRATION_PATHS,
   PLATFORM_ROWS,
   changedPaths,

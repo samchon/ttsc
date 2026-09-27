@@ -124,8 +124,12 @@ function spawnWithoutTsgoOverride(
  * Installs a fake consumer-local `typescript` (and its platform sub-package)
  * into `root/node_modules`. The `tsc` binary stub runs `scriptBody` as Node.js
  * source, with `fs` and `path` pre-imported, so callers can script emit
- * behavior, capture arguments, or simulate version output without a real Go
- * toolchain.
+ * behavior, capture arguments, or simulate version output without a real
+ * compiler.
+ *
+ * The stub is a real executable, the launcher `scriptLauncher` builds, beside
+ * the script it runs: Windows starts only an executable under the compiler's
+ * name, so a script there, even one with a shebang, never runs.
  */
 function createFakeNativePreview(root: string, scriptBody: string) {
   const nativeRoot = path.join(root, "node_modules", "typescript");
@@ -159,11 +163,104 @@ function createFakeNativePreview(root: string, scriptBody: string) {
     process.platform === "win32" ? "tsc.exe" : "tsc",
   );
   fs.writeFileSync(
-    bin,
-    `#!/usr/bin/env node\nconst fs = require("node:fs");\nconst path = require("node:path");\n${scriptBody}\n`,
+    path.join(platformRoot, "lib", "tsc.cjs"),
+    `const fs = require("node:fs");\nconst path = require("node:path");\n${scriptBody}\n`,
     "utf8",
   );
+  fs.copyFileSync(scriptLauncher(), bin);
   fs.chmodSync(bin, 0o755);
+}
+
+let builtScriptLauncher: string | undefined;
+
+/**
+ * An executable that runs, with this Node, the `.cjs` script beside it that
+ * carries its own name, passing its arguments, standard streams, and exit code
+ * through. Built once per process with the Go toolchain the suite builds
+ * plugins with.
+ */
+function scriptLauncher(): string {
+  if (builtScriptLauncher !== undefined) return builtScriptLauncher;
+  const directory = TestProject.tmpdir("ttsc-script-launcher-");
+  const source = path.join(directory, "launcher.go");
+  fs.writeFileSync(
+    source,
+    [
+      "package main",
+      "",
+      "import (",
+      '\t"errors"',
+      '\t"os"',
+      '\t"os/exec"',
+      '\t"path/filepath"',
+      '\t"strings"',
+      ")",
+      "",
+      "var node string",
+      "",
+      "func main() {",
+      "\tself, err := os.Executable()",
+      "\tif err != nil {",
+      '\t\tos.Stderr.WriteString(err.Error() + "\\n")',
+      "\t\tos.Exit(1)",
+      "\t}",
+      '\tscript := strings.TrimSuffix(self, filepath.Ext(self)) + ".cjs"',
+      "\tcommand := exec.Command(node, append([]string{script}, os.Args[1:]...)...)",
+      "\tcommand.Stdin, command.Stdout, command.Stderr = os.Stdin, os.Stdout, os.Stderr",
+      "\tif err := command.Run(); err != nil {",
+      "\t\tvar exit *exec.ExitError",
+      "\t\tif errors.As(err, &exit) {",
+      "\t\t\tos.Exit(exit.ExitCode())",
+      "\t\t}",
+      '\t\tos.Stderr.WriteString(err.Error() + "\\n")',
+      "\t\tos.Exit(1)",
+      "\t}",
+      "}",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+  const output = path.join(
+    directory,
+    process.platform === "win32" ? "launcher.exe" : "launcher",
+  );
+  const result = child_process.spawnSync(
+    goBinary(),
+    [
+      "build",
+      "-ldflags",
+      // Quoted, because the path may hold spaces; Go splits the flag on them
+      // and takes a quoted field whole, without unescaping it.
+      `-X "main.node=${process.execPath}"`,
+      "-o",
+      output,
+      source,
+    ],
+    { cwd: directory, encoding: "utf8", windowsHide: true },
+  );
+  assert.equal(
+    result.status,
+    0,
+    `building the script launcher failed:\n${result.stderr ?? result.error}`,
+  );
+  builtScriptLauncher = output;
+  return output;
+}
+
+/**
+ * The Go toolchain the suite builds plugins with: `TTSC_GO_BINARY` when set, as
+ * CI sets it, and the one the platform package bundles otherwise.
+ */
+function goBinary(): string {
+  return (
+    process.env.TTSC_GO_BINARY ??
+    path.join(
+      path.dirname(nativeBinary),
+      "go",
+      "bin",
+      process.platform === "win32" ? "go.exe" : "go",
+    )
+  );
 }
 
 /**

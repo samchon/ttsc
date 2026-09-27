@@ -6,7 +6,9 @@ const path = require("node:path");
 
 const {
   FULL_LANE_IDS,
+  LANES,
   NODE_FLOOR,
+  OTHER_LANE_OSES,
   nodeFloor,
   normalizePath,
   planForPaths,
@@ -177,13 +179,14 @@ test("compiler and platform changes select verified reverse consumers", () => {
   assert.equal(compilerWindows.plugin_cache, true);
   assert.equal(compilerWindows.bun, false);
   assert.equal(compilerWindows.source_map, false);
-  assert.deepEqual(
-    compiler.platformMatrix.include
-      .filter((row) => row.runtime)
-      .map((row) => row.name),
-    ["darwin-x64", "win32-x64"],
-    "the ttsx runtime suite runs on the macOS and Windows representatives; Linux runs it in the core lane",
-  );
+  for (const id of ["ttsc-core", "ttsc-native", "package-defenses"])
+    for (const os of ["windows-latest", "macos-15"])
+      assert.ok(
+        compiler.matrix.include.some(
+          (job) => job.id.startsWith(`${id}-`) && job.os === os,
+        ),
+        `a compiler change must run ${id} on ${os}`,
+      );
 
   const platform = ids(["packages/ttsc-linux-x64/package.json"]);
   assert.ok(platform.includes("ttsc-core"));
@@ -228,31 +231,16 @@ test("platform integrations reuse only the physical rows they need", () => {
     watch.every((row) => row.watch && !row.experimental && !row.vscode),
   );
 
-  const runtimeSuite = planForPaths([
+  // The runtime suite runs in the core lane, whose own macOS and Windows jobs
+  // cover the OS behavior, so it takes no platform row.
+  for (const file of [
     "tests/test-ttsc/src/features/ttsx-runtime/test_example.ts",
-  ]);
-  assert.ok(runtimeSuite.laneIds.includes("ttsc-core"));
-  assert.deepEqual(
-    runtimeSuite.platformMatrix.include.map((row) => row.name),
-    ["darwin-x64", "win32-x64"],
-  );
-  assert.ok(
-    runtimeSuite.platformMatrix.include.every(
-      (row) =>
-        row.runtime &&
-        row.build &&
-        row.build_scope === "experimental" &&
-        row.needs_go &&
-        !row.experimental &&
-        !row.watch,
-    ),
-  );
-  assert.equal(
-    planForPaths(["tests/test-ttsc/src/features/api/test_example.ts"])
-      .platformMatrix.include.length,
-    0,
-    "other feature suites keep their Linux-only topology",
-  );
+    "tests/test-ttsc/src/features/api/test_example.ts",
+  ]) {
+    const plan = planForPaths([file]);
+    assert.ok(plan.laneIds.includes("ttsc-core"), file);
+    assert.equal(plan.platformMatrix.include.length, 0, file);
+  }
 
   const vscode = planForPaths(["packages/vscode/src/extension.ts"])
     .platformMatrix.include;
@@ -343,6 +331,79 @@ test("platform integrations reuse only the physical rows they need", () => {
   );
   assert.equal(pluginCache[0].setup_bun, true);
   assert.equal(pluginCache[1].setup_bun, false);
+});
+
+test("a lane that drives the host's filesystem and processes runs on every OS", () => {
+  // Every such lane selected, one job each on Linux and on each other OS, with
+  // the same build, command and directories: a suite that ran on Linux alone
+  // let a Windows- or macOS-only defect reach master (samchon/ttsc#1577).
+  const plan = planForPaths(["packages/ttsc/src/index.ts"]);
+  const everyOs = LANES.filter((lane) => lane.everyOs === true);
+  assert.deepEqual(
+    everyOs.map((lane) => lane.id),
+    [
+      "package-defenses",
+      "ttsc-core",
+      "ttsc-native",
+      "lint-1",
+      "lint-2",
+      "graph",
+      "evidence",
+    ],
+  );
+  for (const lane of everyOs) {
+    const linux = plan.matrix.include.find((job) => job.id === lane.id);
+    assert.ok(linux, lane.id);
+    assert.equal(linux.os, "ubuntu-latest", lane.id);
+    for (const os of OTHER_LANE_OSES) {
+      const job = plan.matrix.include.find(
+        (item) => item.id === `${lane.id}-${os.id}`,
+      );
+      assert.ok(job, `${lane.id} has no ${os.id} job`);
+      assert.equal(job.os, os.runner);
+      assert.equal(job.name, `${lane.name} (${os.name})`);
+      for (const key of ["build", "dirs", "needsGo", "node", "run", "scope"])
+        assert.equal(job[key], linux[key], `${job.id} ${key}`);
+    }
+  }
+  // A lane not marked runs once, and the lane ids name the lanes, not the jobs.
+  assert.equal(
+    plan.matrix.include.filter((job) => job.id.startsWith("typecheck")).length,
+    1,
+  );
+  assert.deepEqual(
+    plan.laneIds,
+    LANES.filter((lane) => plan.laneIds.includes(lane.id)).map(
+      (lane) => lane.id,
+    ),
+  );
+  for (const lane of everyOs)
+    for (const os of OTHER_LANE_OSES)
+      assert.ok(!plan.laneIds.includes(`${lane.id}-${os.id}`));
+
+  // The regression tests of the cache collection and clean (#1562), the
+  // compiler's case policy (#1563) and the source-plugin build (#1572) run on
+  // Windows and macOS when they change.
+  for (const file of [
+    "tests/test-ttsc/src/native-plugins/compiler/test_compiler_corpus_clean_removes_the_single_file_caches.ts",
+    "tests/test-ttsc/src/features/project/test_prunecachefileroot_collects_unused_single_file_entries.ts",
+    "tests/test-ttsc/src/features/api/test_compilerusescasesensitivefilenames_answers_what_the_compiler_reports.ts",
+    "tests/test-ttsc/src/native-plugins/source-plugin/test_buildsourceplugin_builds_a_workspace_module_at_a_deep_path.ts",
+  ]) {
+    const directory = file
+      .slice("tests/test-ttsc/src/".length)
+      .split("/")
+      .slice(0, 2)
+      .join("/");
+    for (const os of OTHER_LANE_OSES)
+      assert.ok(
+        planForPaths([file]).matrix.include.some(
+          (job) =>
+            job.os === os.runner && job.dirs.split(",").includes(directory),
+        ),
+        `${file} does not run on ${os.id}`,
+      );
+  }
 });
 
 test("package-owned tests select only their topology owner", () => {

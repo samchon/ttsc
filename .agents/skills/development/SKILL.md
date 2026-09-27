@@ -73,6 +73,7 @@ Do not add inline option keys to `@ttsc/banner`, `@ttsc/paths`, `@ttsc/strip`, o
 - **Go unit tests:** keep them in `packages/*/test/` with one `Test*` per file. Run the real command entrypoint, such as `go run ./plugin`, so wrapper branches stay covered.
 - **TypeScript e2e tests:** keep ordinary scenarios in `tests/test-*/src/features/`.
 - **Native-plugin lanes:** when a suite builds real Go plugin binaries, put those scenarios in `tests/test-*/src/native-plugins/<category>/` so CI can isolate them. Keep cheap scenarios under `features/`.
+- **Platforms:** a lane marked `everyOs` in `scripts/ci/validation-plan.cjs` runs on Linux, Windows, and macOS. Put a suite whose code reaches the filesystem, paths, or processes in such a lane. A case that holds only where a capability holds, such as a case-insensitive compiler or POSIX executable bits, returns early where it does not, and a lane of a platform that has it must run it: a case that no CI platform runs is not a test.
 - **TypeScript test contract:** export exactly one `test_<snake_case>` function from a matching filename. `DynamicExecutor` discovers that prefix. Materialize a temporary project, spawn the real binary, and assert observable output.
 
 Open every case with a doc comment in the same three-part shape: a one-line `Verifies …` headline, a short paragraph stating the non-obvious _why_ (which branch or regression is being pinned), and a 2–4-step numbered list summarizing the scenario.

@@ -46,8 +46,8 @@ jobs:
     needs: plan
     if: needs.plan.outputs.platform == 'true'
     runs-on: ${{ matrix.runner }}
-    # One OS's shipped-artifact rehearsal and its watch, runtime,
-    # package-manager, source-map and VS Code suites. The adapter's host matrix
+    # One OS's shipped-artifact rehearsal and its watch, package-manager,
+    # source-map and VS Code suites. The adapter's host matrix
     # is a job of its own (`unplugin-hosts`), whose hour does not stand between
     # these and their verdict.
     timeout-minutes: 60
@@ -90,7 +90,7 @@ jobs:
         run: pnpm run experimental:install
 
       - name: Use System Go For Source Plugin Tests
-        if: matrix.watch || matrix.plugin_cache || matrix.runtime
+        if: matrix.watch || matrix.plugin_cache
         shell: bash
         run: echo "TTSC_GO_BINARY=$(go env GOROOT)/bin/go" >> "$GITHUB_ENV"
 
@@ -111,12 +111,6 @@ jobs:
         run: pnpm --filter @ttsc/test-ttsc start
         env:
           TTSC_TEST_DIR: features/watch
-
-      - name: Run ttsx runtime tests
-        if: matrix.runtime
-        run: pnpm --filter @ttsc/test-ttsc start
-        env:
-          TTSC_TEST_DIR: features/ttsx-runtime
 
       - name: Verify Linux Package Managers
         if: matrix.plugin_cache && matrix.os == 'linux'
