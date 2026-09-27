@@ -167,6 +167,7 @@ var ErrLSPUpstreamPanic = lspserver.ErrLSPUpstreamPanic
 var ErrLSPUpstreamRunnerRequired = lspserver.ErrLSPUpstreamRunnerRequired
 var ErrLSPCwdRequired = lspserver.ErrLSPCwdRequired
 var ErrLSPTsgoBinaryRequired = lspserver.ErrLSPTsgoBinaryRequired
+var ErrLSPExitWithoutShutdown = lspserver.ErrLSPExitWithoutShutdown
 
 // Constructor and utility functions forwarded from lspserver.
 var NewProxy = lspserver.NewProxy

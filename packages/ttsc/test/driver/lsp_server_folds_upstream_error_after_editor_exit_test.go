@@ -24,7 +24,10 @@ import (
 //
 //  1. Substitute an upstream runner that fails, but only after it has seen the
 //     editor's `exit` notification arrive through the proxy.
-//  2. Send `exit` from the editor, then close the editor stream.
+//  2. Send `shutdown` and `exit` from the editor, then close the editor
+//     stream. An `exit` no `shutdown` preceded is reported on its own
+//     (TestLSPServerReportsExitWithoutShutdown), so the quit here is the clean
+//     one.
 //  3. Assert RunLSPServer returns nil rather than the runner's error.
 func TestLSPServerFoldsUpstreamErrorAfterEditorExit(t *testing.T) {
   sentinel := errors.New("tsgo --lsp --stdio: exit status 1")
@@ -66,8 +69,13 @@ func TestLSPServerFoldsUpstreamErrorAfterEditorExit(t *testing.T) {
     })
   }()
 
-  if err := driver.WriteFrame(editorInW, []byte(`{"jsonrpc":"2.0","method":"exit"}`)); err != nil {
-    t.Fatal(err)
+  for _, frame := range []string{
+    `{"jsonrpc":"2.0","id":1,"method":"shutdown"}`,
+    `{"jsonrpc":"2.0","method":"exit"}`,
+  } {
+    if err := driver.WriteFrame(editorInW, []byte(frame)); err != nil {
+      t.Fatal(err)
+    }
   }
   editorInW.Close()
 

@@ -51,6 +51,7 @@ const (
   methodCompletionResolve      = "completionItem/resolve"
   methodInitialized            = "initialized"
   methodExit                   = "exit"
+  methodShutdown               = "shutdown"
   methodPluginSelectionChanged = "ttsc/pluginSelectionChanged"
 
   // methodDidChangeWatchedFiles is the only notification an editor sends for a
@@ -141,6 +142,10 @@ type Proxy struct {
   // fault to report or the expected end of an editor-requested shutdown; see
   // editorRequestedExit.
   editorExit atomic.Bool
+  // editorShutdown records that the editor sent the LSP `shutdown` request,
+  // which decides the status an `exit` ends the session with; see
+  // editorRequestedShutdown.
+  editorShutdown atomic.Bool
 
   pendingMu      sync.Mutex
   pendingActions map[string]pendingCodeActionRequest
@@ -296,23 +301,36 @@ func NewProxy(opts ProxyOptions) *Proxy {
 // has already been observed by the upstream/editor closers, or when a
 // pipe write fails. ErrFrameClosed and context.Canceled are folded into
 // a nil result so editor shutdown does not look like a crash.
+//
+// Once the editor has sent `exit` and the upstream has ended, Run returns
+// without waiting for the editor's stream to close: `exit` ends the session,
+// and a read blocked on the editor's stdin is not interrupted by closing it on
+// every platform (a Windows pipe is not), so waiting kept the server running
+// until the editor happened to close the pipe (samchon/ttsc#1575).
 func (p *Proxy) Run(ctx context.Context) error {
   defer p.stopProjectDiagnosticRefresh()
-  errCh := make(chan error, 2)
-  go func() { errCh <- p.pumpEditorToUpstream(ctx) }()
-  go func() { errCh <- p.pumpUpstreamToEditor(ctx) }()
+  editorDone := make(chan error, 1)
+  upstreamDone := make(chan error, 1)
+  go func() { editorDone <- p.pumpEditorToUpstream(ctx) }()
+  go func() { upstreamDone <- p.pumpUpstreamToEditor(ctx) }()
 
   var first error
-  for completed := 0; completed < 2; {
+  editorPending, upstreamPending := true, true
+  for editorPending || upstreamPending {
     var err error
     select {
-    case err = <-errCh:
-      completed++
+    case err = <-editorDone:
+      editorPending = false
+    case err = <-upstreamDone:
+      upstreamPending = false
     case err = <-p.asyncErrCh:
     }
     if first == nil && err != nil && !errors.Is(err, ErrFrameClosed) && !errors.Is(err, context.Canceled) {
       first = err
       p.closeAfterPumpError()
+    }
+    if !upstreamPending && p.editorRequestedExit() {
+      break
     }
   }
   return first
@@ -363,6 +381,13 @@ func (p *Proxy) pumpEditorToUpstream(_ context.Context) error {
     }
     if env.IsNotification() && env.Method == methodInitialized {
       go p.projectInputWatchInitialized()
+    }
+    // Nothing follows `exit` upstream. Ending its input lets a runner that
+    // waits for its stdin to drain before returning, as exec.Cmd.Wait does,
+    // finish once tsgo has quit, instead of waiting on this pump
+    // (samchon/ttsc#1575).
+    if env.IsNotification() && env.Method == methodExit {
+      p.closeUpstreamInput()
     }
   }
 }
@@ -465,6 +490,10 @@ func (p *Proxy) handleEditorEnvelope(env Envelope, body []byte) (bool, error) {
     return p.handleCompletionRequest(env)
   case methodCompletionResolve:
     return p.handleCompletionResolveRequest(env)
+  case methodShutdown:
+    if env.IsRequest() {
+      p.editorShutdown.Store(true)
+    }
   case methodExit:
     if env.IsNotification() {
       p.editorExit.Store(true)
@@ -592,6 +621,13 @@ func offersEncodingOtherThanUTF16(offered []string) bool {
 // side of that race into a failed server.
 func (p *Proxy) editorRequestedExit() bool {
   return p.editorExit.Load()
+}
+
+// editorRequestedShutdown reports whether the editor sent the LSP `shutdown`
+// request. The specification ends the session after `exit` with status 0
+// when `shutdown` came first and 1 when it did not.
+func (p *Proxy) editorRequestedShutdown() bool {
+  return p.editorShutdown.Load()
 }
 
 func (p *Proxy) rememberInitializeRequest(env Envelope) {

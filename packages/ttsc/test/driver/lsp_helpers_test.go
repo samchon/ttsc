@@ -2,14 +2,18 @@ package driver_test
 
 import (
   "bytes"
+  "context"
   "encoding/json"
   "fmt"
+  "io"
   "os"
   "os/exec"
   "path/filepath"
   "runtime"
   "strings"
   "testing"
+
+  "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
 // buildFrame produces a Content-Length-framed LSP wire message from the
@@ -102,4 +106,35 @@ func (w *flakyWriter) Write(p []byte) (int, error) {
   }
   w.written += remaining
   return remaining, w.err
+}
+
+// uncloseableReader hides every method but Read, as a stdin whose blocked read
+// closing cannot interrupt offers nothing that would unblock it.
+type uncloseableReader struct{ io.Reader }
+
+// tsgoLikeUpstream answers `shutdown` with a null result and quits on `exit`,
+// as `tsgo --lsp --stdio` does, then returns once its input ends, as the real
+// runner's exec.Cmd.Wait returns only after the copy into the process's stdin
+// has drained.
+func tsgoLikeUpstream(_ context.Context, in io.Reader, out io.Writer, _ driver.LSPServerOptions) error {
+  fr := driver.NewFrameReader(in)
+  for {
+    _, body, err := fr.Read()
+    if err != nil {
+      return err
+    }
+    env, parseErr := driver.ParseEnvelope(body)
+    if parseErr != nil {
+      continue
+    }
+    switch env.Method {
+    case "shutdown":
+      if err := driver.WriteFrame(out, []byte(`{"jsonrpc":"2.0","id":`+string(env.ID)+`,"result":null}`)); err != nil {
+        return err
+      }
+    case "exit":
+      _, _ = io.Copy(io.Discard, in)
+      return nil
+    }
+  }
 }

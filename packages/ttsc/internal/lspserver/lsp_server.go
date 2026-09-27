@@ -85,6 +85,11 @@ type LSPServerOptions struct {
   Upstream LSPUpstream
 }
 
+// ErrLSPExitWithoutShutdown is returned when the editor ended the session with
+// the LSP `exit` notification without a `shutdown` request before it, which
+// the specification answers with exit status 1.
+var ErrLSPExitWithoutShutdown = errors.New("exit notification received before a shutdown request")
+
 // ErrLSPCwdRequired is returned when LSPServerOptions.Cwd is empty.
 // ttsc surfaces a clean error here instead of starting tsgo from an
 // undefined project directory.
@@ -258,6 +263,9 @@ func RunLSPServer(ctx context.Context, opts LSPServerOptions) error {
       continue
     }
     return err
+  }
+  if proxy.editorRequestedExit() && !proxy.editorRequestedShutdown() {
+    return ErrLSPExitWithoutShutdown
   }
   return nil
 }
