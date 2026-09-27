@@ -351,8 +351,8 @@ const runtimeEntryUrls = new Set<string>();
 /**
  * The process entry, where Node's ESM loader opens it: resolved with no parent
  * and without the `require` condition, as an `--import` preload makes Node run
- * every entry. A CommonJS entry is handed to Node with its source rather than as
- * the facade, so Node loads it as the main module (samchon/ttsc#1571).
+ * every entry. A CommonJS entry is handed to Node with its source rather than
+ * as the facade, so Node loads it as the main module (samchon/ttsc#1571).
  */
 const esmEntryUrls = new Set<string>();
 
@@ -996,8 +996,8 @@ function servesCommonJsFromSource(url: string): boolean {
 /**
  * The names an ESM importer of a JavaScript CommonJS module sees besides
  * `default`, by Node's own static detection: the module's detected exports and
- * those of each re-exported `.js`, `.cjs` or served TypeScript module,
- * resolved as the module's own `require` resolves it.
+ * those of each re-exported `.js`, `.cjs` or served TypeScript module, resolved
+ * as the module's own `require` resolves it.
  */
 function javaScriptExportNames(filename: string, source: string): string[] {
   return [...collectJavaScriptExportNames(filename, source, new Set())];

@@ -12,10 +12,11 @@ import { RuntimeLoaderCapabilities } from "../../../../../packages/ttsc/lib/laun
  * Node runs every entry through its ESM loader once an `--import` preload is
  * present, which is how OpenTelemetry and Sentry are installed. ttsx handed
  * that entry to the loader as the ESM facade, which loads it as an ordinary
- * module, so `require.main` was undefined and a `require.main === module`
- * guard silently ran nothing (samchon/ttsc#1571). The entry is now handed over
- * as CommonJS with its source, as Node hands a JavaScript entry, and the
- * TypeScript it requires is served to whichever `require` the runtime gives it.
+ * module, so `require.main` was undefined and a `require.main === module` guard
+ * silently ran nothing (samchon/ttsc#1571). The entry is now handed over as
+ * CommonJS with its source, as Node hands a JavaScript entry, and the
+ * TypeScript it requires is served to whichever `require` the runtime gives
+ * it.
  *
  * 1. Give a CommonJS project an entry that requires `./dep.js`, backed only by
  *    `dep.ts`, and reports its main-module identity.

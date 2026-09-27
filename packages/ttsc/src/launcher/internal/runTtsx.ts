@@ -355,16 +355,16 @@ function isRelativeSpecifier(specifier: string): boolean {
 }
 
 /**
- * Run a JavaScript entry as Node's main module under the runtime `ttsc/register`
- * installs (samchon/ttsc#1569).
+ * Run a JavaScript entry as Node's main module under the runtime
+ * `ttsc/register` installs (samchon/ttsc#1569).
  *
  * A JavaScript entry, such as a CLI's bin script run so that the TypeScript
  * configuration and sources it loads are served, has no project to check up
  * front: every TypeScript file it reaches enters the runtime as a root and is
  * checked and built through its own project, as under `node --require
  * ttsc/register`. The preload goes on `NODE_OPTIONS`, so the processes the
- * program starts inherit it. The options that only configure the up-front
- * build of a TypeScript entry are refused rather than ignored.
+ * program starts inherit it. The options that only configure the up-front build
+ * of a TypeScript entry are refused rather than ignored.
  */
 async function runJavaScriptEntry(
   parsed: Exclude<ReturnType<typeof parseCLI>, "help" | "version">,
@@ -513,7 +513,9 @@ async function runProgram(
     signal: NodeJS.Signals | null;
     error?: Error;
   }>((resolve) => {
-    child.once("error", (error) => resolve({ code: null, signal: null, error }));
+    child.once("error", (error) =>
+      resolve({ code: null, signal: null, error }),
+    );
     child.once("exit", (code, signal) => resolve({ code, signal }));
   });
   afterExit();

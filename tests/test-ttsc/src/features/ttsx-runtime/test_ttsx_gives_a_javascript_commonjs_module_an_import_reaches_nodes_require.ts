@@ -15,8 +15,8 @@ import { pathToFileURL } from "node:url";
  * would narrow it, with the names Node's static detection gives an importer,
  * re-exports included.
  *
- * 1. Give an ESM project a `.cjs` module that requires a TypeScript sibling by
- *    its source and its `.js` spelling and uses the `require` properties, and a
+ * 1. Give an ESM project a `.cjs` module that requires a TypeScript sibling by its
+ *    source and its `.js` spelling and uses the `require` properties, and a
  *    second `.cjs` that re-exports it.
  * 2. Import both from a TypeScript entry, by default and by name.
  * 3. Run the entry through ttsx and through `node --import ttsc/register`.
@@ -26,13 +26,16 @@ export const test_ttsx_gives_a_javascript_commonjs_module_an_import_reaches_node
   () => {
     const root = TestProject.createProject({
       "package.json": `{ "type": "module", "private": true }\n`,
-      "tsconfig.json": TestProject.tsconfig({
-        target: "ES2022",
-        module: "nodenext",
-        strict: true,
-        skipLibCheck: true,
-        noEmit: true,
-      }, { include: ["*.ts", "*.d.cts"] }),
+      "tsconfig.json": TestProject.tsconfig(
+        {
+          target: "ES2022",
+          module: "nodenext",
+          strict: true,
+          skipLibCheck: true,
+          noEmit: true,
+        },
+        { include: ["*.ts", "*.d.cts"] },
+      ),
       "shared.ts": `export const value: string = "from-ts";\n`,
       "plain.cjs": `module.exports = { plain: 1 };\n`,
       "lib.cjs": [

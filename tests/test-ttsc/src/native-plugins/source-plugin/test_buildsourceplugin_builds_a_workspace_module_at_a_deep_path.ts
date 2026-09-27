@@ -12,18 +12,18 @@ import {
  * Verifies a plugin built with a workspace module outside it builds when that
  * module sits deep below the drive root.
  *
- * The build copies each workspace module (an overlay, as `ttsc`'s own shims
- * are for a linked plugin host) below its scratch directory under the module's
+ * The build copies each workspace module (an overlay, as `ttsc`'s own shims are
+ * for a linked plugin host) below its scratch directory under the module's
  * complete absolute path, then ran `go mod edit -json` with the copy as its
- * working directory. On Windows a working directory longer than
- * MAX_PATH makes process creation fail with `ENOENT`, which the build reported
- * as "the Go toolchain was not found" although the bundled Go was present
+ * working directory. On Windows a working directory longer than MAX_PATH makes
+ * process creation fail with `ENOENT`, which the build reported as "the Go
+ * toolchain was not found" although the bundled Go was present
  * (samchon/ttsc#1572). The tool now takes the `go.mod` path as an argument, and
  * a spawn failure names a missing toolchain only when the executable is
  * missing.
  *
- * 1. Place a module the plugin imports through the build's workspace below
- *    enough nested directories that its copy's path passes 260 characters.
+ * 1. Place a module the plugin imports through the build's workspace below enough
+ *    nested directories that its copy's path passes 260 characters.
  * 2. Build the plugin with the real Go toolchain.
  * 3. Assert the build succeeds and the binary prints the replaced module's
  *    constant.
@@ -60,10 +60,7 @@ export const test_buildsourceplugin_builds_a_workspace_module_at_a_deep_path =
       'package main\n\nimport "example.com/dep"\n\nfunc main() { println(dep.Value) }\n',
     );
     write(path.join(dep, "go.mod"), "module example.com/dep\n\ngo 1.26\n");
-    write(
-      path.join(dep, "dep.go"),
-      'package dep\n\nconst Value = "deep"\n',
-    );
+    write(path.join(dep, "dep.go"), 'package dep\n\nconst Value = "deep"\n');
 
     const binary = buildSourcePlugin({
       baseDir: root,
