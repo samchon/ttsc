@@ -26,7 +26,9 @@ import {
  */
 export const test_loadprojectplugins_ttsx_descriptor_tracks_runtime_inputs =
   async () => {
-    const root = TestProject.tmpdir("ttsc-ttsx-descriptor-inputs-");
+    const root = TestProject.physicalPath(
+      TestProject.tmpdir("ttsc-ttsx-descriptor-inputs-"),
+    );
     const source = root;
     fs.writeFileSync(path.join(root, "go.mod"), "module example/plugin\n");
     for (const file of [

@@ -15,7 +15,7 @@ import { assert, fs, path, readProjectConfig } from "../../internal/project";
  */
 export const test_readprojectconfig_accepts_utf8_bom_in_extended_tsconfig =
   () => {
-    const root = TestProject.tmpdir("ttsc-project-");
+    const root = TestProject.physicalPath(TestProject.tmpdir("ttsc-project-"));
     const shared = path.join(root, "shared");
     const project = path.join(root, "project");
     fs.mkdirSync(shared, { recursive: true });

@@ -66,8 +66,8 @@ export const test_ttsc_lint_descriptor_tracks_external_discovery_candidates =
       false,
     );
 
-    const resolutionWorkspace = TestProject.tmpdir(
-      "ttsc-lint-resolution-inputs-",
+    const resolutionWorkspace = TestProject.physicalPath(
+      TestProject.tmpdir("ttsc-lint-resolution-inputs-"),
     );
     const resolutionProject = path.join(resolutionWorkspace, "apps", "app");
     const outerPackage = path.join(

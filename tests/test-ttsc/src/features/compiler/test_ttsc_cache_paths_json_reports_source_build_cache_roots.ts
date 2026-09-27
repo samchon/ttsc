@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   createProject,
@@ -23,13 +25,15 @@ import {
  */
 export const test_ttsc_cache_paths_json_reports_source_build_cache_roots =
   () => {
-    const root = createProject({
-      "src/main.ts": "export const value = 1;\n",
-      "tsconfig.json": JSON.stringify({
-        compilerOptions: { outDir: "lib" },
-        include: ["src"],
+    const root = TestProject.physicalPath(
+      createProject({
+        "src/main.ts": "export const value = 1;\n",
+        "tsconfig.json": JSON.stringify({
+          compilerOptions: { outDir: "lib" },
+          include: ["src"],
+        }),
       }),
-    });
+    );
     const goBuildCache = path.join(root, ".ci-go-build");
 
     const result = spawn(

@@ -20,7 +20,9 @@ import path from "node:path";
 export const test_vscode_server_process_options_inject_project_tsgo_binary =
   () => {
     const root = TestProject.WORKSPACE_ROOT;
-    const project = TestProject.tmpdir("vscode-server-process-options-");
+    const project = TestProject.physicalPath(
+      TestProject.tmpdir("vscode-server-process-options-"),
+    );
     const nativePreview = path.join(project, "node_modules", "typescript");
     const platformPackage = path.join(
       project,

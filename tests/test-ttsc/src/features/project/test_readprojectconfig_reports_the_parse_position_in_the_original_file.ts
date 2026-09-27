@@ -20,7 +20,7 @@ import { assert, fs, path, readProjectConfig } from "../../internal/project";
  */
 export const test_readprojectconfig_reports_the_parse_position_in_the_original_file =
   () => {
-    const root = TestProject.tmpdir("ttsc-project-");
+    const root = TestProject.physicalPath(TestProject.tmpdir("ttsc-project-"));
     const file = path.join(root, "tsconfig.json");
     fs.writeFileSync(
       file,

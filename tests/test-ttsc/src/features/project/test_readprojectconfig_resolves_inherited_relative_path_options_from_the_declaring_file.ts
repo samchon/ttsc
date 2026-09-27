@@ -25,7 +25,7 @@ import {
  */
 export const test_readprojectconfig_resolves_inherited_relative_path_options_from_the_declaring_file =
   () => {
-    const root = TestProject.tmpdir("ttsc-project-");
+    const root = TestProject.physicalPath(TestProject.tmpdir("ttsc-project-"));
     const shared = path.join(root, "config");
     const project = path.join(root, "project");
     fs.mkdirSync(shared, { recursive: true });

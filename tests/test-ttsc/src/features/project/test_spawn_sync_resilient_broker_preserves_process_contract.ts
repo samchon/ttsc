@@ -1,3 +1,4 @@
+import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -19,7 +20,9 @@ import { spawnSyncWithLowDescriptors } from "../../../../../packages/ttsc/lib/in
  */
 export const test_spawn_sync_resilient_broker_preserves_process_contract =
   (): void => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-spawn-broker-"));
+    const root = TestProject.physicalPath(
+      fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-spawn-broker-")),
+    );
     try {
       const stdout = path.join(root, "stdout");
       const stderr = path.join(root, "stderr");

@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   TtscCompiler,
   assert,
@@ -36,9 +38,11 @@ import {
  */
 export const test_ttsccompiler_prepare_isolates_instances_by_context_env_cache =
   () => {
-    const root = createProject({
-      plugins: [{ transform: "./plugin.cjs" }],
-    });
+    const root = TestProject.physicalPath(
+      createProject({
+        plugins: [{ transform: "./plugin.cjs" }],
+      }),
+    );
     writeSourcePlugin(root);
     const cacheRootA = path.join(root, ".cache", "a", "plugins");
     const cacheRootB = path.join(root, ".cache", "b", "plugins");

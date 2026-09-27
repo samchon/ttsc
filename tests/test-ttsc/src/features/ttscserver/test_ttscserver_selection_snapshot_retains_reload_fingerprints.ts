@@ -35,7 +35,9 @@ import { materializeLSPPluginManifest } from "../../../../../packages/ttsc/lib/l
  */
 export const test_ttscserver_selection_snapshot_retains_reload_fingerprints =
   (): void => {
-    const root = TestProject.tmpdir("ttscserver-selection-snapshot-");
+    const root = TestProject.physicalPath(
+      TestProject.tmpdir("ttscserver-selection-snapshot-"),
+    );
     const reloadFile = path.join(root, "lint.config.cjs");
     const reloadDirectory = path.join(root, "config-deps");
     const child = path.join(reloadDirectory, "selection.cjs");

@@ -23,7 +23,9 @@ import path from "node:path";
 export const test_vscode_server_resolution_finds_package_ttsc_without_root_install =
   () => {
     const repo = TestProject.WORKSPACE_ROOT;
-    const workspace = TestProject.tmpdir("vscode-nested-ttsc-");
+    const workspace = TestProject.physicalPath(
+      TestProject.tmpdir("vscode-nested-ttsc-"),
+    );
     const packageDir = path.join(workspace, "packages", "app");
     const fileDir = path.join(packageDir, "src");
     const ttscPackage = path.join(packageDir, "node_modules", "ttsc");

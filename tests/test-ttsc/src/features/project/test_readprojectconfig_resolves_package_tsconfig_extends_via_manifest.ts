@@ -20,7 +20,7 @@ import { assert, fs, path, readProjectConfig } from "../../internal/project";
  */
 export const test_readprojectconfig_resolves_package_tsconfig_extends_via_manifest =
   () => {
-    const root = TestProject.tmpdir("ttsc-project-");
+    const root = TestProject.physicalPath(TestProject.tmpdir("ttsc-project-"));
     const preset = path.join(root, "node_modules", "example-preset");
     const project = path.join(root, "project");
     fs.mkdirSync(preset, { recursive: true });

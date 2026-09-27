@@ -18,7 +18,9 @@ import { tsgo } from "../../internal/compiler";
  */
 export const test_transform_apis_resolve_relative_node_binary_from_project_root =
   async () => {
-    const root = TestProject.copyProject("ttsc-utility-plugins");
+    const root = TestProject.physicalPath(
+      TestProject.copyProject("ttsc-utility-plugins"),
+    );
     const caller = TestProject.tmpdir("ttsc-relative-node-caller-");
     TestUtilityPlugins.seedPackages(root, ["banner"]);
 

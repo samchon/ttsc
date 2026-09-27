@@ -11,7 +11,9 @@ import {
 /** A descriptor dependency changed A-B-A while loading must lose cache proof. */
 export const test_commonjs_plugin_descriptor_aba_omits_stale_hash_proof =
   (): void => {
-    const root = TestProject.tmpdir("ttsc-descriptor-aba-");
+    const root = TestProject.physicalPath(
+      TestProject.tmpdir("ttsc-descriptor-aba-"),
+    );
     const dependency = path.join(root, "selection.cjs");
     const descriptor = path.join(root, "plugin.cjs");
     const output = path.join(root, "descriptor.json");

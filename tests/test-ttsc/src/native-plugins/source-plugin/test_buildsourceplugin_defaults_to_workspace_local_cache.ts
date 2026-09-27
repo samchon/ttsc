@@ -22,7 +22,9 @@ import {
  * 3. Assert the binary lands under `<root>/node_modules/.cache/ttsc/plugins`.
  */
 export const test_buildsourceplugin_defaults_to_workspace_local_cache = () => {
-  const root = TestProject.tmpdir("ttsc-source-plugin-");
+  const root = TestProject.physicalPath(
+    TestProject.tmpdir("ttsc-source-plugin-"),
+  );
   // A sibling `node_modules` makes `root` the resolved workspace root, so the
   // default cache location is deterministic regardless of the temp-dir tree.
   fs.mkdirSync(path.join(root, "node_modules"), { recursive: true });

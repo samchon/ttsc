@@ -22,7 +22,9 @@ import path from "node:path";
  */
 export const test_vscode_server_resolution_uses_package_json_anchor = () => {
   const root = TestProject.WORKSPACE_ROOT;
-  const project = TestProject.tmpdir("vscode-server-resolution-");
+  const project = TestProject.physicalPath(
+    TestProject.tmpdir("vscode-server-resolution-"),
+  );
   const ttscPackage = path.join(project, "node_modules", "ttsc");
   const launcher = path.join(ttscPackage, "lib", "launcher", "ttscserver.js");
   fs.mkdirSync(path.dirname(launcher), { recursive: true });

@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   assert,
   createProject,
@@ -23,10 +25,12 @@ import {
  *    fail at the cache command boundary.
  */
 export const test_ttsc_cache_paths_resolves_schema_flag_spellings = () => {
-  const root = createProject({
-    "src/main.ts": "export const value = 1;\n",
-    "tsconfig.json": JSON.stringify({ include: ["src"] }),
-  });
+  const root = TestProject.physicalPath(
+    createProject({
+      "src/main.ts": "export const value = 1;\n",
+      "tsconfig.json": JSON.stringify({ include: ["src"] }),
+    }),
+  );
   const canonical = spawn(
     ttscBin,
     ["cache", "paths", "--json", "--cwd", root, "--cache-dir", ".cache"],

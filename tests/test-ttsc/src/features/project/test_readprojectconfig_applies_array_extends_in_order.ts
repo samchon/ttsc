@@ -24,7 +24,7 @@ import {
  *    `base-b`, and `pluginBaseDirs` lists only the `shared` directory.
  */
 export const test_readprojectconfig_applies_array_extends_in_order = () => {
-  const root = TestProject.tmpdir("ttsc-project-");
+  const root = TestProject.physicalPath(TestProject.tmpdir("ttsc-project-"));
   const shared = path.join(root, "config");
   const project = path.join(root, "project");
   fs.mkdirSync(shared, { recursive: true });

@@ -14,7 +14,9 @@ import { readProjectConfig } from "../../../../../packages/ttsc/lib/compiler/int
  */
 export const test_readprojectconfig_substitutes_configdir_from_the_final_consumer =
   (): void => {
-    const root = TestProject.tmpdir("ttsc-config-dir-template-");
+    const root = TestProject.physicalPath(
+      TestProject.tmpdir("ttsc-config-dir-template-"),
+    );
     const preset = path.join(root, "presets", "base.json");
     fs.mkdirSync(path.dirname(preset), { recursive: true });
     fs.writeFileSync(
@@ -65,7 +67,9 @@ export const test_readprojectconfig_substitutes_configdir_from_the_final_consume
     // config and then stays in the path exactly as written. This function
     // reports where the compiler will put the file, so it reproduces both
     // halves rather than the half that reads like the intent.
-    const miscased = TestProject.tmpdir("ttsc-config-dir-miscased-");
+    const miscased = TestProject.physicalPath(
+      TestProject.tmpdir("ttsc-config-dir-miscased-"),
+    );
     fs.writeFileSync(
       path.join(miscased, "tsconfig.json"),
       JSON.stringify({ compilerOptions: { outDir: "${ConfigDir}/dist" } }),

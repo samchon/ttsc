@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   TtscCompiler,
   assert,
@@ -23,12 +25,14 @@ import {
  * 3. Assert only config ancestry, manifest, descriptor, and config path surface.
  */
 export const test_ttsccompiler_transform_surfaces_exact_host_inputs = () => {
-  const root = createProject({
-    plugins: [
-      { transform: "./plugin.cjs", configFile: "missing.plugin.config.json" },
-    ],
-    source: 'export const value = goUpper("plugin");\n',
-  });
+  const root = TestProject.physicalPath(
+    createProject({
+      plugins: [
+        { transform: "./plugin.cjs", configFile: "missing.plugin.config.json" },
+      ],
+      source: 'export const value = goUpper("plugin");\n',
+    }),
+  );
   writeCompilerPlugin(root);
   fs.writeFileSync(path.join(root, "notes.md"), "not a host input\n", "utf8");
 

@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   TtscCompiler,
   assert,
@@ -14,9 +16,11 @@ import {
 export const test_ttsccompiler_transform_omits_host_hash_changed_by_native_execution =
   () => {
     for (const stage of ["transform", "check"] as const) {
-      const root = createProject({
-        plugins: [{ transform: "./plugin.cjs" }],
-      });
+      const root = TestProject.physicalPath(
+        createProject({
+          plugins: [{ transform: "./plugin.cjs" }],
+        }),
+      );
       const config = path.join(root, "native.config.json");
       fs.writeFileSync(config, "old\n", "utf8");
       writeMutatingPlugin(root, stage);

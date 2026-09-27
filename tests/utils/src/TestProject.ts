@@ -96,6 +96,21 @@ export namespace TestProject {
   }
 
   /**
+   * Return the spelling the filesystem names an existing path by.
+   *
+   * The OS temp root is often reached through another spelling: `/var` links to
+   * `/private/var` on macOS, and Windows can hand out an 8.3 short name such as
+   * `RUNNER~1`. ttsc reports a project by its physical location, so a case that
+   * compares a reported path with the fixture root it created starts from this
+   * spelling. It is the spelling both `fs.realpathSync` and
+   * `fs.realpathSync.native` return for it, whichever of them a product path
+   * uses.
+   */
+  export function physicalPath(location: string): string {
+    return fs.realpathSync.native(location);
+  }
+
+  /**
    * Return the process-wide cache root for ordinary source-plugin scenarios.
    *
    * E2E topology lanes intentionally load helpers from several packages and

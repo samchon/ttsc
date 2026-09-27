@@ -13,16 +13,18 @@ import { resolveSingleFileOutput } from "../../../../../packages/ttsc/lib/launch
  * the command line.
  */
 export const test_ttsc_matches_tsgo_only_flag_value_rules = (): void => {
-  const root = TestProject.commonJsProject(
-    {
-      "src/main.ts": "export const value = 1;\n",
-      "src/view.tsx": "export const view = 1;\n",
-    },
-    {
-      compilerOptions: {
-        declaration: true,
+  const root = TestProject.physicalPath(
+    TestProject.commonJsProject(
+      {
+        "src/main.ts": "export const value = 1;\n",
+        "src/view.tsx": "export const view = 1;\n",
       },
-    },
+      {
+        compilerOptions: {
+          declaration: true,
+        },
+      },
+    ),
   );
 
   const inline = TestProject.spawn(

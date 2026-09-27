@@ -23,7 +23,9 @@ import { resolveTsgo } from "../../../../../packages/ttsc/lib/compiler/internal/
  */
 export const test_resolvetsgo_resolves_the_consumer_typescript_platform_package =
   () => {
-    const root = TestProject.tmpdir("ttsc-tsgo-test-");
+    const root = TestProject.physicalPath(
+      TestProject.tmpdir("ttsc-tsgo-test-"),
+    );
     const nativeRoot = path.join(root, "node_modules", "typescript");
     const platformRoot = path.join(
       root,

@@ -7,7 +7,7 @@ import { assert, fs, path, readProjectConfig } from "../../internal/project";
  * sibling, never as a directory's `tsconfig.json`.
  */
 export const test_readprojectconfig_resolves_extends_as_a_file = () => {
-  const root = TestProject.tmpdir("ttsc-project-");
+  const root = TestProject.physicalPath(TestProject.tmpdir("ttsc-project-"));
   const configDirectory = path.join(root, "config");
   const project = path.join(root, "project");
   fs.mkdirSync(configDirectory, { recursive: true });

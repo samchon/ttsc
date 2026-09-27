@@ -14,7 +14,7 @@ import { assert, fs, path, readProjectConfig } from "../../internal/project";
  * 3. Assert the compiler options parse normally.
  */
 export const test_readprojectconfig_accepts_utf8_bom_at_tsconfig_start = () => {
-  const root = TestProject.tmpdir("ttsc-project-");
+  const root = TestProject.physicalPath(TestProject.tmpdir("ttsc-project-"));
   fs.writeFileSync(
     path.join(root, "tsconfig.json"),
     `\uFEFF{

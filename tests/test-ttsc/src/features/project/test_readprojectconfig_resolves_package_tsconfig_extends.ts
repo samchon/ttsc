@@ -23,7 +23,7 @@ import {
  *    values, anchored at the preset's location in node_modules.
  */
 export const test_readprojectconfig_resolves_package_tsconfig_extends = () => {
-  const root = TestProject.tmpdir("ttsc-project-");
+  const root = TestProject.physicalPath(TestProject.tmpdir("ttsc-project-"));
   const preset = path.join(root, "node_modules", "@scope", "tsconfig");
   const project = path.join(root, "project");
   fs.mkdirSync(preset, { recursive: true });

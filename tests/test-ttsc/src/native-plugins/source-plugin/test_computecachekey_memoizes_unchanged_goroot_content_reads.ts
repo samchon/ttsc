@@ -25,7 +25,9 @@ import {
  */
 export const test_computecachekey_memoizes_unchanged_goroot_content_reads =
   () => {
-    const root = TestProject.tmpdir("ttsc-source-plugin-");
+    const root = TestProject.physicalPath(
+      TestProject.tmpdir("ttsc-source-plugin-"),
+    );
     const plugin = path.join(root, "plugin");
     fs.mkdirSync(plugin, { recursive: true });
     fs.writeFileSync(

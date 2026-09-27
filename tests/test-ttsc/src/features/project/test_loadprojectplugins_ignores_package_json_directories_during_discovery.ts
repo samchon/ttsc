@@ -11,7 +11,9 @@ import { assert, fs, loadProjectPlugins, path } from "../../internal/project";
  */
 export const test_loadprojectplugins_ignores_package_json_directories_during_discovery =
   () => {
-    const workspace = TestProject.tmpdir("ttsc-package-json-directory-");
+    const workspace = TestProject.physicalPath(
+      TestProject.tmpdir("ttsc-package-json-directory-"),
+    );
     const project = path.join(workspace, "packages", "app");
     const projectManifest = path.join(project, "package.json");
     const workspaceManifest = path.join(workspace, "package.json");

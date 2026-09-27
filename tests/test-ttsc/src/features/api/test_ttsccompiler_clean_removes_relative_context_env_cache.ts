@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import {
   TtscCompiler,
   assert,
@@ -23,9 +25,11 @@ import {
  */
 export const test_ttsccompiler_clean_removes_relative_context_env_cache =
   () => {
-    const root = createProject({
-      plugins: [{ transform: "./plugin.cjs" }],
-    });
+    const root = TestProject.physicalPath(
+      createProject({
+        plugins: [{ transform: "./plugin.cjs" }],
+      }),
+    );
     writeSourcePlugin(root);
     const compiler = new TtscCompiler({
       binary: tsgo,

@@ -1,3 +1,4 @@
+import { TestProject } from "@ttsc/testing";
 import {
   pluginSourceState,
   prunesPluginSourceDirectory,
@@ -41,10 +42,12 @@ import {
  */
 export const test_ttsccompiler_transform_reports_the_plugin_sources_its_binaries_were_built_from =
   () => {
-    const root = createProject({
-      plugins: [{ transform: "./plugin.cjs" }],
-      source: 'export const value = goUpper("plugin");\n',
-    });
+    const root = TestProject.physicalPath(
+      createProject({
+        plugins: [{ transform: "./plugin.cjs" }],
+        source: 'export const value = goUpper("plugin");\n',
+      }),
+    );
     writeCompilerPlugin(root);
     const source = path.resolve(root, "plugin-go");
     const compiler = new TtscCompiler({ binary: tsgo, cwd: root });
