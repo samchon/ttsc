@@ -88,7 +88,16 @@ export class WatchTopology {
     ProjectInputPathIdentityContext,
     Map<string, boolean>
   >();
-  private projectInputCompilerAcknowledgements = new Map<string, string>();
+  /**
+   * Content fingerprints of tracked compiler files whose next named change
+   * notification is already accounted for, by path key. A notification whose
+   * file still has that content is dropped once, and one with other content is
+   * reported. The project-input layer acknowledges a file it hands to the
+   * compiler, and a refresh acknowledges each file it admits.
+   */
+  private compilerFileAcknowledgements = new Map<string, string>();
+  /** Whether the tracked compiler inputs have been resolved once. */
+  private compilerInputsResolved = false;
   private reloadFiles = new Map<string, string>();
 
   public constructor(
@@ -130,6 +139,7 @@ export class WatchTopology {
       WatchPaths.mapsEqual(this.outputFiles, next.outputFiles) === false ||
       WatchPaths.mapsEqual(this.outputs, next.outputs) === false ||
       WatchPaths.mapsEqual(this.reloadFiles, next.reloadFiles) === false;
+    const previousFiles = this.files;
     this.analysisOnly = next.analysisOnly;
     this.files = next.files;
     // Stamp the tracked set as it is resolved, so the first event that cannot
@@ -150,11 +160,33 @@ export class WatchTopology {
     this.outputFiles = next.outputFiles;
     this.outputs = next.outputs;
     this.reloadFiles = next.reloadFiles;
-    for (const key of this.projectInputCompilerAcknowledgements.keys()) {
+    for (const key of this.compilerFileAcknowledgements.keys()) {
       if (!next.files.has(key)) {
-        this.projectInputCompilerAcknowledgements.delete(key);
+        this.compilerFileAcknowledgements.delete(key);
       }
     }
+    // A file a later refresh admits is compiled by the rebuild that refresh
+    // starts, which reads it after this point. A backend that reports the write
+    // that created the file apart from the entry that named it, as Windows'
+    // recursive watcher does, can deliver that write after the rebuild read it,
+    // and the notification is taken at its word (`compilerChangesToReport`).
+    // The content admitted here acknowledges it: the late notification for these
+    // bytes is dropped, and an edit after admission, with other bytes, is still
+    // reported (samchon/ttsc#1580). The first resolution admits the whole
+    // project before any build and acknowledges nothing.
+    if (this.compilerInputsResolved) {
+      for (const [key, file] of next.files) {
+        if (
+          previousFiles.has(key) ||
+          this.compilerFileAcknowledgements.has(key)
+        )
+          continue;
+        const fingerprint = fingerprintProjectInputFile(file);
+        if (fingerprint !== "")
+          this.compilerFileAcknowledgements.set(key, fingerprint);
+      }
+    }
+    this.compilerInputsResolved = true;
     const projectInputProgramReload =
       projectInputProgramOverlap.length === 0
         ? false
@@ -241,7 +273,7 @@ export class WatchTopology {
       if (!this.files.has(compilerKey)) continue;
       const fingerprint = fingerprints.get(identities.resolve(location).key);
       if (fingerprint !== undefined && fingerprint !== "") {
-        this.projectInputCompilerAcknowledgements.set(compilerKey, fingerprint);
+        this.compilerFileAcknowledgements.set(compilerKey, fingerprint);
       }
     }
     return reload;
@@ -532,8 +564,8 @@ export class WatchTopology {
     if (changed !== undefined && event !== "rename") {
       return changes.filter((file) => {
         const key = WatchPaths.pathKey(file);
-        const acknowledged = this.projectInputCompilerAcknowledgements.get(key);
-        this.projectInputCompilerAcknowledgements.delete(key);
+        const acknowledged = this.compilerFileAcknowledgements.get(key);
+        this.compilerFileAcknowledgements.delete(key);
         this.recordCompilerFileSnapshot(file);
         return (
           acknowledged === undefined ||
