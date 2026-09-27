@@ -33,6 +33,7 @@ import { projectInputReloadEventShouldNotify } from "./projectInputReloadEventSh
 import { projectInputReplacementStrandsWatchers } from "./projectInputReplacementStrandsWatchers";
 import { projectInputTopologyMayAffect } from "./projectInputTopologyMayAffect";
 import { reloadInputsForFailedTopologyRefresh } from "./reloadInputsForFailedTopologyRefresh";
+import { settleWatchBackend } from "./settleWatchBackend";
 import { syncWatchers } from "./syncWatchers";
 
 /**
@@ -49,6 +50,7 @@ export class WatchTopology {
   private compilerPostRegistrationMembershipRefresh = false;
   private compilerPostRegistrationReconciliationScheduled = false;
   private compilerPostRegistrationSkipUnobservedProjectInputWatchRoots = true;
+  private deliveryReconciliationScheduled = false;
   private directories = new Map<string, string>();
   private directoryWatchers = new Map<string, fs.FSWatcher>();
   private extraInputs: readonly string[] = [];
@@ -388,6 +390,7 @@ export class WatchTopology {
         ),
       (location, error) => this.callbacks.onError(location, error),
       () => this.closed === false,
+      () => this.scheduleDeliveryReconciliation(),
     );
     return [...this.fileWatchers].some(
       ([key, watcher]) => previous.get(key) !== watcher,
@@ -477,6 +480,7 @@ export class WatchTopology {
         ),
       (location, error) => this.callbacks.onError(location, error),
       () => this.closed === false,
+      () => this.scheduleDeliveryReconciliation(),
     );
     return [...this.directoryWatchers].some(
       ([key, watcher]) => previous.get(key) !== watcher,
@@ -492,6 +496,35 @@ export class WatchTopology {
    * handoff window. A real event updates the same stamp first and makes this
    * bounded scan a no-op.
    */
+  /**
+   * Re-check every observed input once the watchers opened or closed in this
+   * turn deliver.
+   *
+   * A backend can serve several watches through one stream that opening or
+   * closing any of them re-creates, and the re-created stream reports nothing
+   * from before it started: on macOS every directory watch shares one
+   * FSEventStream (samchon/ttsc#1583). So a change can be lost to watchers of
+   * every kind when any watcher opens or closes, not only to the one that
+   * opened. After the backend has settled (`settleWatchBackend`), the compiler
+   * files, the project inputs, and the plugin inputs are each compared with
+   * their recorded state, so a change that landed in the gap is reported, and
+   * the settled stream delivers every later one.
+   */
+  private scheduleDeliveryReconciliation(): void {
+    if (this.closed || this.deliveryReconciliationScheduled) return;
+    this.deliveryReconciliationScheduled = true;
+    queueMicrotask(() => {
+      this.deliveryReconciliationScheduled = false;
+      if (this.closed) return;
+      settleWatchBackend(this.options.projectRoot ?? this.options.cwd);
+      this.scheduleCompilerPostRegistrationReconciliation(false, true);
+      if (this.projectInputWatchers.size !== 0) {
+        this.scheduleProjectInputPostRegistrationReconciliation();
+      }
+      for (const input of this.extraInputs) this.notePluginNotification(input);
+    });
+  }
+
   private scheduleCompilerPostRegistrationReconciliation(
     refreshMembership: boolean,
     skipUnobservedProjectInputWatchRoots: boolean,
@@ -612,8 +645,11 @@ export class WatchTopology {
   ): void {
     for (const file of files) {
       const key = WatchPaths.pathKey(file);
-      this.fileWatchers.get(key)?.close();
+      const watcher = this.fileWatchers.get(key);
+      if (watcher === undefined) continue;
+      watcher.close();
       this.fileWatchers.delete(key);
+      this.scheduleDeliveryReconciliation();
     }
     if (this.syncFileWatchers(skipMissing)) {
       this.scheduleCompilerPostRegistrationReconciliation(false, true);
@@ -672,6 +708,7 @@ export class WatchTopology {
         ),
       (location, error) => this.callbacks.onError(location, error),
       () => this.closed === false,
+      () => this.scheduleDeliveryReconciliation(),
     );
     this.watchedExtraInputs = new Set(
       this.extraInputs.map((input) => WatchPaths.pathKey(input)),
@@ -801,6 +838,7 @@ export class WatchTopology {
         }
       },
       () => this.closed === false,
+      () => this.scheduleDeliveryReconciliation(),
     );
     if (this.closed) return;
     if (!this.projectInputRecoveryScheduled) {
@@ -874,6 +912,7 @@ export class WatchTopology {
         ),
       (location, error) => this.callbacks.onError(location, error),
       () => this.closed === false,
+      () => this.scheduleDeliveryReconciliation(),
     );
   }
 
@@ -895,6 +934,7 @@ export class WatchTopology {
       if (watcher === undefined) continue;
       watcher.close();
       watchers.delete(key);
+      this.scheduleDeliveryReconciliation();
     }
   }
 
