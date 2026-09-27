@@ -20,10 +20,12 @@ import { WatchTopology } from "../../../../../packages/ttsc/lib/launcher/interna
  *
  * 1. Resolve a project whose `src` holds one file, with watchers that record their
  *    listeners instead of watching.
- * 2. Create `src/later/value.ts` and deliver its creation to the watcher that
- *    covers it: the refresh admits the file and reports a topology change.
- * 3. Deliver a named `change` for the same bytes, and assert nothing is reported.
- * 4. Write other bytes, deliver a named `change` again, and assert it is reported.
+ * 2. Create `src/later/value.ts` and deliver the new directory's creation to the
+ *    watchers that observe it: the refresh admits the file and reports a
+ *    topology change.
+ * 3. Deliver a `change` for the same bytes to every watcher that observes the
+ *    file, and assert nothing is reported.
+ * 4. Write other bytes, deliver a `change` again, and assert it is reported once.
  */
 export const test_watch_topology_drops_a_late_notification_for_an_admitted_file =
   async (): Promise<void> => {
@@ -53,11 +55,16 @@ export const test_watch_topology_drops_a_late_notification_for_an_admitted_file 
         const listener = rest.find(
           (value): value is WatchListener => typeof value === "function",
         );
+        const options = rest.find(
+          (value): value is { recursive?: boolean } =>
+            typeof value === "object" && value !== null,
+        );
         const watcher: IRecordedWatcher = {
           close: () => undefined,
           listener: listener ?? (() => undefined),
           location: path.resolve(String(location)),
           on: () => watcher,
+          recursive: options?.recursive === true,
         };
         watchers.push(watcher);
         return watcher as unknown as fs.FSWatcher;
@@ -93,15 +100,15 @@ export const test_watch_topology_drops_a_late_notification_for_an_admitted_file 
       const value = path.join(root, "src", "later", "value.ts");
       fs.mkdirSync(path.dirname(value));
       fs.writeFileSync(value, "export const value = 1;\n", "utf8");
-      deliver(watchers, value, "rename");
+      deliver(watchers, path.dirname(value), "rename");
       await settle();
       assert.equal(topologyChanges, 1, "the creation did not admit the file");
-      assert.deepEqual(changes, []);
+      assert.deepEqual([...changes], []);
 
       deliver(watchers, value, "change");
       await settle();
       assert.deepEqual(
-        changes,
+        [...changes],
         [],
         "a notification for bytes the refresh admitted was reported",
       );
@@ -131,30 +138,34 @@ interface IRecordedWatcher {
   listener: WatchListener;
   location: string;
   on(): IRecordedWatcher;
+  recursive: boolean;
 }
 
 /**
- * Deliver an event for `file` to the nearest registered directory watcher that
- * covers it, naming the file relative to that directory, as a directory watcher
- * names what changed below it.
+ * Deliver an event for `entry` to every registered watcher that observes it,
+ * named as each backend names it: a watcher of the entry itself and a watcher
+ * of its parent directory by its base name, and a recursive watcher of an
+ * ancestor by its path below that ancestor.
  */
 function deliver(
   watchers: readonly IRecordedWatcher[],
-  file: string,
+  entry: string,
   event: string,
 ): void {
-  const covering = watchers
-    .filter((watcher) => {
-      const relative = path.relative(watcher.location, file);
-      return (
-        relative !== "" &&
+  let delivered = 0;
+  for (const watcher of watchers) {
+    const relative = path.relative(watcher.location, entry);
+    const observed =
+      relative === "" ||
+      relative === path.basename(entry) ||
+      (watcher.recursive &&
         !relative.startsWith("..") &&
-        !path.isAbsolute(relative)
-      );
-    })
-    .sort((left, right) => right.location.length - left.location.length)[0];
-  assert.ok(covering, `no registered watcher covers ${file}`);
-  covering.listener(event, path.relative(covering.location, file));
+        !path.isAbsolute(relative));
+    if (!observed) continue;
+    watcher.listener(event, relative === "" ? path.basename(entry) : relative);
+    delivered += 1;
+  }
+  assert.ok(delivered !== 0, `no registered watcher observes ${entry}`);
 }
 
 /** Let queued microtasks and timers run once. */
