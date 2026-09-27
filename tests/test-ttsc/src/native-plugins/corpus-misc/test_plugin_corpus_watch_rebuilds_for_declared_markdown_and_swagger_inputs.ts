@@ -101,6 +101,7 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
       env: {
         PATH: goPath(),
         TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+        TTSC_WATCH_DEBUG_INPUTS: "1",
       },
     });
     try {
@@ -128,6 +129,7 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
       env: {
         PATH: goPath(),
         TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+        TTSC_WATCH_DEBUG_INPUTS: "1",
       },
     });
     try {
@@ -142,6 +144,7 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
       env: {
         PATH: goPath(),
         TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+        TTSC_WATCH_DEBUG_INPUTS: "1",
         TTSC_TEST_PROJECT_INPUT_MODE: "relative",
       },
     });
@@ -160,6 +163,7 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
         env: {
           PATH: goPath(),
           TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+          TTSC_WATCH_DEBUG_INPUTS: "1",
           TTSC_TEST_PROJECT_INPUT_MODE: "extended",
         },
       });
@@ -201,6 +205,7 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
       env: {
         PATH: goPath(),
         TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+        TTSC_WATCH_DEBUG_INPUTS: "1",
       },
     });
     try {
@@ -241,6 +246,7 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
       env: {
         PATH: goPath(),
         TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+        TTSC_WATCH_DEBUG_INPUTS: "1",
       },
     });
     try {
@@ -278,6 +284,7 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
       env: {
         PATH: goPath(),
         TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+        TTSC_WATCH_DEBUG_INPUTS: "1",
       },
     });
     try {
