@@ -349,6 +349,29 @@ function rescueCommonJsRequest(
 const runtimeEntryUrls = new Set<string>();
 
 /**
+ * The process entry, where Node's ESM loader opens it: resolved with no parent
+ * and without the `require` condition, as an `--import` preload makes Node run
+ * every entry. A CommonJS entry is handed to Node with its source rather than as
+ * the facade, so Node loads it as the main module (samchon/ttsc#1571).
+ */
+const esmEntryUrls = new Set<string>();
+
+/**
+ * CommonJS modules the ESM loader evaluates from their source on a runtime
+ * whose `require` is then Node's narrower one
+ * (`RuntimeLoaderCapabilities.hookedCommonJsImportKeepsRequire`).
+ */
+const narrowRequireUrls = new Set<string>();
+
+/**
+ * Modules a {@link narrowRequireUrls} module asks for. That `require` loads
+ * through the ESM loader and accepts only a module Node evaluates as CommonJS,
+ * so a CommonJS module it asks for is handed to Node with its source, never as
+ * the facade, which is an ES module.
+ */
+const narrowRequestedUrls = new Set<string>();
+
+/**
  * Rescue an extensionless or directory relative specifier that Node's resolver
  * rejected. Only runs after `nextResolve` throws, so a successful resolution is
  * never perturbed; a genuinely missing module finds no candidate and the
@@ -388,6 +411,7 @@ function resolve(
     }
     selected = result.url;
     recordPluginDescriptorResolution(specifier, context.parentURL, result.url);
+    rememberCommonJsImportRole(result.url, context);
     return result;
   } finally {
     candidates.commit(selected);
@@ -832,6 +856,21 @@ function runtimeFilePath(value: string | undefined): string | undefined {
   return path.isAbsolute(value) ? path.resolve(value) : undefined;
 }
 
+/**
+ * Record what a resolution that did not go through `require()` means for how a
+ * CommonJS module it reaches is handed to Node: the process entry, or a module
+ * a narrow `require` asked for ({@link narrowRequestedUrls}).
+ */
+function rememberCommonJsImportRole(
+  url: string,
+  context: ResolveContext,
+): void {
+  if (hasCondition(context, "require")) return;
+  if (context.parentURL === undefined) esmEntryUrls.add(url);
+  else if (narrowRequireUrls.has(context.parentURL))
+    narrowRequestedUrls.add(url);
+}
+
 /** Remember an ESM root until its synchronous load hook prepares the project. */
 function rememberRuntimeEntry(
   result: ResolveResult,
@@ -863,7 +902,7 @@ function load(
   }
   const filename = fileURLToPath(url);
   if (!isTypeScriptSource(filename)) {
-    return nextLoad(url, context);
+    return loadJavaScript(url, filename, context, nextLoad);
   }
   const served = resolveServedSource(
     filename,
@@ -878,6 +917,8 @@ function load(
   // through the CommonJS loader, where the hooks see its own `require()` on
   // every release (`commonJsImportFacade`, samchon/ttsc#1517).
   if (format === "commonjs" && !hasCondition(context, "require")) {
+    if (servesCommonJsFromSource(url))
+      return { format, shortCircuit: true, source: served.source };
     return {
       format: "module",
       shortCircuit: true,
@@ -897,10 +938,112 @@ function load(
 }
 
 /**
- * Whether a load context carries `condition`. The conditions arrive as an array
+ * Load a JavaScript module, handing a CommonJS one an ESM import reaches to the
+ * CommonJS loader through the facade where Node would otherwise evaluate it
+ * with its narrower `require` (samchon/ttsc#1570). A runtime that gives a
+ * hook-served CommonJS module that `require` gives it to every CommonJS module
+ * an import reaches once any load hook exists, so without the facade such a
+ * module had no `require.cache`, `require.extensions` or
+ * `require.resolve.paths`, and could not `require()` a TypeScript source.
+ */
+function loadJavaScript(
+  url: string,
+  filename: string,
+  context: LoadContext,
+  nextLoad: NextLoad,
+): LoadResult {
+  const loaded = nextLoad(url, context);
+  if (
+    loaded.format !== "commonjs" ||
+    hasCondition(context, "require") ||
+    RuntimeLoaderCapabilities.hookedCommonJsImportKeepsRequire() ||
+    servesCommonJsFromSource(url)
+  )
+    return loaded;
+  const source =
+    typeof loaded.source === "string"
+      ? loaded.source
+      : loaded.source !== undefined && loaded.source !== null
+        ? Buffer.from(loaded.source as Uint8Array).toString("utf8")
+        : readFileOrNull(filename);
+  if (source === null) return loaded;
+  return {
+    format: "module",
+    shortCircuit: true,
+    source: commonJsImportFacade(
+      url,
+      filename,
+      javaScriptExportNames(filename, source),
+      RuntimeLoaderCapabilities.commonJsNamespaceCarriesModuleExports(),
+    ),
+  };
+}
+
+/**
+ * Whether a CommonJS module an ESM import reached is handed to Node with its
+ * source rather than as the facade: the process entry, which Node then loads as
+ * the main module, and a module a narrow `require` asked for. Where the source
+ * gets Node's narrower `require`, the module is recorded, so a CommonJS module
+ * it asks for is handed over the same way.
+ */
+function servesCommonJsFromSource(url: string): boolean {
+  if (!esmEntryUrls.has(url) && !narrowRequestedUrls.has(url)) return false;
+  if (!RuntimeLoaderCapabilities.hookedCommonJsImportKeepsRequire())
+    narrowRequireUrls.add(url);
+  return true;
+}
+
+/**
+ * The names an ESM importer of a JavaScript CommonJS module sees besides
+ * `default`, by Node's own static detection: the module's detected exports and
+ * those of each re-exported `.js`, `.cjs` or served TypeScript module,
+ * resolved as the module's own `require` resolves it.
+ */
+function javaScriptExportNames(filename: string, source: string): string[] {
+  return [...collectJavaScriptExportNames(filename, source, new Set())];
+}
+
+function collectJavaScriptExportNames(
+  filename: string,
+  source: string,
+  seen: Set<string>,
+): Set<string> {
+  const real = realPath(filename);
+  if (seen.has(real)) return new Set();
+  seen.add(real);
+  const parsed = parseCommonJsExports(source);
+  const names = new Set(parsed.exports);
+  for (const specifier of parsed.reexports) {
+    let target: string;
+    try {
+      target = createRequire(filename).resolve(specifier);
+    } catch {
+      continue;
+    }
+    if (!path.isAbsolute(target)) continue;
+    let nested: Set<string>;
+    if (isTypeScriptSource(target)) {
+      nested = collectSourceCommonJsExportNames(target, new Set());
+    } else if ([".js", ".cjs"].includes(path.extname(target))) {
+      const text = readFileOrNull(target);
+      if (text === null) continue;
+      nested = collectJavaScriptExportNames(target, text, seen);
+    } else {
+      continue;
+    }
+    for (const name of nested) if (name !== "default") names.add(name);
+  }
+  return names;
+}
+
+/**
+ * Whether a hook context carries `condition`. The conditions arrive as an array
  * on some releases and as a set on others.
  */
-function hasCondition(context: LoadContext, condition: string): boolean {
+function hasCondition(
+  context: ResolveContext | LoadContext,
+  condition: string,
+): boolean {
   for (const entry of context.conditions ?? [])
     if (entry === condition) return true;
   return false;
