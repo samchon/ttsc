@@ -13,20 +13,21 @@ import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
  * rebuild the directory's creation started is not lost (samchon/ttsc#1500).
  *
  * The session watches each directory of a plugin module on its own, and adds a
- * new directory's watcher only when the topology refreshes after a build. On
- * Linux and macOS a watcher reports its directory's direct entries alone, so a
- * file written into the new directory before that refresh reached no watcher,
- * and the session kept the binary the rebuild had built without it. Windows
- * reports such a write as a change of the directory's entry to its parent, so
- * the scenario passes there either way; Linux CI is where it fails without the
- * report.
+ * new directory's watcher only once it hears the directory appear. On Linux and
+ * macOS a watcher reports its directory's direct entries alone, so a file
+ * written into the new directory before that reached no watcher, and the
+ * session kept the binary the rebuild had built without it. Windows reports
+ * such a write as a change of the directory's entry to its parent, so the
+ * scenario passes there either way; Linux CI is where it fails without the
+ * report. An empty directory moves nothing a build reads, so hearing one must
+ * still watch it even though it rebuilds nothing.
  *
  * 1. Watch a plugin module outside the project, as the load reports it, and wait
  *    until an edit in it is heard.
- * 2. Create a package directory, then write a file and a `node_modules` below it
- *    before refreshing, as a save during the rebuild would.
- * 3. Refresh, as the session does after the build, and require a plugin change for
- *    the file and none for anything below `node_modules`.
+ * 2. Create a package directory, and in the same turn write a file and a
+ *    `node_modules` below it, before any watcher of the directory can exist.
+ * 3. Require a plugin change for the file, refresh as the session does after a
+ *    build, and require none for anything below `node_modules`.
  * 4. Start a second session on the same module, refresh it twice, and require no
  *    change at all: directories watched from a session's start are read by its
  *    first build.
@@ -66,19 +67,20 @@ export const test_watch_topology_reports_what_a_new_plugin_directory_holds =
         fs.appendFileSync(mark, "// probe\n"),
       );
 
-      // 2. A new package, and what lands in it before the refresh.
+      // 2. A new package, and what lands in it before any watcher of its own
+      // exists: all of it within the turn that created the directory.
+      const before = changes.length;
       const created = path.join(plugin, "internal", "newpkg");
       fs.mkdirSync(created);
-      await waitForPath(changes, created, () => undefined);
       const file = path.join(created, "x.go");
       const pruned = path.join(created, "node_modules", "pkg");
       write(file, "package newpkg\n");
       write(path.join(pruned, "index.js"), "module.exports = 1;\n");
 
-      // 3. The refresh after the build reports what the directory holds.
-      const before = changes.length;
-      topology.refresh(true);
+      // 3. Hearing the directory watches it and reports what it holds.
       await waitForPath(changes, file, () => undefined);
+      topology.refresh(true);
+      await new Promise((resolve) => setTimeout(resolve, 100));
       assert.deepEqual(
         changes
           .slice(before)

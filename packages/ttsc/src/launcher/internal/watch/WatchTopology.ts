@@ -60,9 +60,9 @@ export class WatchTopology {
   private pluginInputStates = new Map<string, string>();
   /**
    * The plugin inputs notifications named since the last decision, by path key,
-   * each with the first location noted for it (`notePluginNotification`).
+   * each with the locations noted for it (`notePluginNotification`).
    */
-  private pendingPluginNotifications = new Map<string, string>();
+  private pendingPluginNotifications = new Map<string, Set<string>>();
   private pluginNotificationsScheduled = false;
   private extraWatchers = new Map<string, fs.FSWatcher>();
   /** The plugin inputs whose directories the last sync already watched. */
@@ -626,13 +626,14 @@ export class WatchTopology {
    * (samchon/ttsc#1500).
    *
    * Each directory has a watcher of its own, and a directory created below a
-   * plugin module is heard through its parent's, which starts a rebuild; its
-   * own watcher is added only here, when the topology refreshes after that
-   * rebuild. A file written into it in between reaches no watcher on a platform
-   * whose watcher reports a directory's direct entries alone, and the rebuild
-   * may have read the directory before the file landed. So once its watcher is
-   * registered, each entry it holds is reported as a plugin change, as
-   * `@ttsc/unplugin`'s observer announces a directory it starts watching. The
+   * plugin module is heard through its parent's; its own watcher is added only
+   * here, when that notification is decided (`decidePluginNotifications`) or
+   * the topology refreshes. A file written into it in between reaches no
+   * watcher on a platform whose watcher reports a directory's direct entries
+   * alone, and a build may have read the directory before the file landed. So
+   * once its watcher is registered, each entry it holds is noted as a plugin
+   * notification, as `@ttsc/unplugin`'s observer announces a directory it
+   * starts watching, and reported when it moved what a build reads. The
    * directories of an input new to this sync are not reported: the load reports
    * its inputs before any build reads them.
    */
@@ -1466,8 +1467,9 @@ export class WatchTopology {
     );
     for (const input of covering.length === 0 ? this.extraInputs : covering) {
       const key = WatchPaths.pathKey(input);
-      if (!this.pendingPluginNotifications.has(key))
-        this.pendingPluginNotifications.set(key, location);
+      const locations = this.pendingPluginNotifications.get(key) ?? new Set();
+      locations.add(location);
+      this.pendingPluginNotifications.set(key, locations);
     }
     if (this.pluginNotificationsScheduled) return;
     this.pluginNotificationsScheduled = true;
@@ -1477,26 +1479,43 @@ export class WatchTopology {
   }
 
   /**
-   * Report each noted plugin input whose state moved, naming the first location
-   * noted for it, and record the state it moved to. A notification that moved
-   * no input is dropped.
+   * Report every location noted for a plugin input whose state moved, once
+   * each, and record the state it moved to. A notification that moved no input
+   * is dropped.
+   *
+   * Whether a build must rerun and what must be watched are separate questions.
+   * A delivery can name a directory created below an input: while it is empty
+   * it moves nothing a build reads, yet it needs a watcher of its own before a
+   * file lands in it, or on a platform whose watcher reports a directory's
+   * direct entries alone that file reaches no watcher (samchon/ttsc#1500). So
+   * the watchers are synced first, and what a directory they start watching
+   * already holds is noted into this same decision (`syncExtraWatchers`).
    */
   private decidePluginNotifications(): void {
+    if (this.closed) {
+      this.pendingPluginNotifications = new Map();
+      this.pluginNotificationsScheduled = false;
+      return;
+    }
+    // Still scheduled while syncing, so what the sync notes joins this decision
+    // instead of scheduling another.
+    this.syncExtraWatchers();
     this.pluginNotificationsScheduled = false;
     const pending = this.pendingPluginNotifications;
     this.pendingPluginNotifications = new Map();
-    if (this.closed) return;
     const reported = new Set<string>();
     for (const input of this.extraInputs) {
       const key = WatchPaths.pathKey(input);
-      const location = pending.get(key);
-      if (location === undefined) continue;
+      const locations = pending.get(key);
+      if (locations === undefined) continue;
       const state = pluginInputState(input);
       if (this.pluginInputStates.get(key) === state) continue;
       this.pluginInputStates.set(key, state);
-      if (reported.has(location)) continue;
-      reported.add(location);
-      this.callbacks.onInputChange({ kind: "plugin", path: location });
+      for (const location of locations) {
+        if (reported.has(location)) continue;
+        reported.add(location);
+        this.callbacks.onInputChange({ kind: "plugin", path: location });
+      }
     }
   }
 
