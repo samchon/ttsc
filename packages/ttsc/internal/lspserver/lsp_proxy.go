@@ -325,7 +325,10 @@ func (p *Proxy) Run(ctx context.Context) error {
       upstreamPending = false
     case err = <-p.asyncErrCh:
     }
-    if first == nil && err != nil && !errors.Is(err, ErrFrameClosed) && !errors.Is(err, context.Canceled) {
+    // RunLSPServer closes the editor input itself when the session ends, and a
+    // read that closing ends reports os.ErrClosed: ttsc's own teardown, not a
+    // fault of the session (samchon/ttsc#1575).
+    if first == nil && err != nil && !errors.Is(err, ErrFrameClosed) && !errors.Is(err, context.Canceled) && !errors.Is(err, os.ErrClosed) {
       first = err
       p.closeAfterPumpError()
     }

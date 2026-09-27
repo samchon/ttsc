@@ -41,6 +41,6 @@ export const test_ttscserver_exits_on_exit_while_stdin_stays_open =
     assert.equal(
       code,
       0,
-      "ttscserver must exit on the exit notification with stdin still open",
+      `ttscserver must exit on the exit notification with stdin still open (stderr=${client.stderrText()})`,
     );
   };

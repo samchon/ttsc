@@ -5,6 +5,7 @@ import (
   "errors"
   "fmt"
   "io"
+  "os"
   "os/exec"
   "path/filepath"
   "runtime/debug"
@@ -260,6 +261,11 @@ func RunLSPServer(ctx context.Context, opts LSPServerOptions) error {
       continue
     }
     if errors.Is(err, io.ErrClosedPipe) {
+      continue
+    }
+    // The teardown above closes the editor input, and a read it ends reports
+    // os.ErrClosed (samchon/ttsc#1575).
+    if errors.Is(err, os.ErrClosed) {
       continue
     }
     return err
