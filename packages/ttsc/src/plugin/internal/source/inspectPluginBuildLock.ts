@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { isContendedCandidateRename } from "../../../internal/isContendedCandidateRename";
 import type { PluginBuildLockFence } from "./PluginBuildLockFence";
 import type { PluginBuildLockObservation } from "./PluginBuildLockObservation";
 import { PluginBuildLockOwner } from "./PluginBuildLockOwner";
@@ -178,11 +179,13 @@ function captureLegacyPluginBuildLockFence(
           legacyMtimeMs,
         };
       } catch (error) {
-        if (
-          PluginBuildLockProtocol.isRenameDestinationOccupied(error, fenceDir)
-        ) {
+        if (isContendedCandidateRename(error)) {
           captured =
             PluginBuildLockProtocol.readLegacyPluginBuildLockFence(fenceDir);
+          // The fence lives inside the legacy lock, so a fence another
+          // process recorded and that is gone by now went with a lock that
+          // was released or retired meanwhile.
+          if (captured === null && !fs.existsSync(fenceDir)) return null;
         } else if (PluginBuildLockProtocol.isMissingPathError(error)) {
           return null;
         } else {

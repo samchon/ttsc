@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { isContendedCandidateRename } from "../../../internal/isContendedCandidateRename";
 import type { PluginBuildLockLease } from "./PluginBuildLockLease";
 import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
 
@@ -59,13 +60,7 @@ export function acquirePluginBuildLock(
     } catch (error) {
       if (
         PluginBuildLockProtocol.isMissingPathError(error) ||
-        PluginBuildLockProtocol.isRenameDestinationOccupied(
-          error,
-          path.join(
-            protocolDir,
-            PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_CURRENT_DIR,
-          ),
-        )
+        isContendedCandidateRename(error)
       ) {
         return null;
       }

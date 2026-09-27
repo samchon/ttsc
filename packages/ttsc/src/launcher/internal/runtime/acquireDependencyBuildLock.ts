@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { isContendedCandidateRename } from "../../../internal/isContendedCandidateRename";
 import { DependencyBuildGeneration } from "./DependencyBuildGeneration";
 import type { DependencyBuildLockLease } from "./DependencyBuildLockLease";
 import { DependencyBuildLockProtocol } from "./DependencyBuildLockProtocol";
@@ -38,7 +39,7 @@ export function acquireDependencyBuildLock(
     } catch (error) {
       if (
         RuntimeFilesystem.isMissingPathError(error) ||
-        RuntimeFilesystem.isRenameDestinationOccupied(error, currentDir)
+        isContendedCandidateRename(error)
       ) {
         return null;
       }
