@@ -1,5 +1,14 @@
-import { DynamicExecutor } from "@nestia/e2e";
 import fs from "node:fs";
+import { createRequire } from "node:module";
+
+// Loaded through the CommonJS loader rather than an ESM import. The executor
+// `require()`s each test file, and on Node 22 a CommonJS module an ESM import
+// reaches while `module.registerHooks` hooks are installed gets a `require`
+// that cannot load an ES module graph (samchon/ttsc#1570), which is what every
+// test file is. The repository's TypeScript loader installs such hooks.
+const { DynamicExecutor } = createRequire(import.meta.url)(
+  "@nestia/e2e",
+) as typeof import("@nestia/e2e");
 
 /**
  * Shared feature-test runner used by the package-shaped test projects.
