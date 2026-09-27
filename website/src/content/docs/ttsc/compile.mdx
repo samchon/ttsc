@@ -58,7 +58,7 @@ npx ttsc clean                      # drop the plugin cache
 | `ttsc format` | Ask format-capable check-stage plugins to apply format-only edits. With `@ttsc/lint`, this means format-class rules only. |
 | `ttsc cache paths --json` | Print the cache root, plugin binary cache root, Go build cache root, and cacheable roots for CI. |
 | `ttsc prepare` | Pre-build every plugin binary into the cache. |
-| `ttsc clean` | Delete the plugin binary cache, the descriptor, capability, and orphan-lowering caches, and the ttsc-owned Go build cache. |
+| `ttsc clean` | Delete the plugin binary cache, the descriptor, capability, and orphan-lowering caches, the runtime directories of ttsx runs that have ended, and the ttsc-owned Go build cache. |
 | `ttsc version` | Print the CLI version. |
 | `ttsc help` | Print help. |
 

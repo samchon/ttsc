@@ -41,6 +41,15 @@ export namespace SourceBuildCacheLayout {
   /** Directory of the capability-resolution answers inside the cache root. */
   export const CAPABILITY_CACHE_DIRNAME = "capabilities";
 
+  /** Directory of the ttsx runtime inside a default cache root. */
+  export const RUNTIME_CACHE_DIRNAME = "ttsx";
+
+  /**
+   * Directory inside a runtime cache directory that holds one directory per
+   * prepared run, each owned by the process that prepared it.
+   */
+  export const RUNTIME_PROJECT_DIRNAME = "project";
+
   /** Directory of the lowered orphan sources inside the cache root. */
   export const ORPHAN_CACHE_DIRNAME = "ttsx-orphan";
 

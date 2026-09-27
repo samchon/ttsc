@@ -15,6 +15,7 @@ import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOpti
 import { buildSingleRootProject } from "./buildSingleRootProject";
 import { linkVirtualEntry } from "./linkVirtualEntry";
 import { type OwningModuleOptions } from "./runtime/OwningModuleOptions";
+import { ProcessOwnedDirectory } from "./runtime/ProcessOwnedDirectory";
 import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
 import { runtimeEmitProfile } from "./runtimeEmitProfile";
 
@@ -237,7 +238,11 @@ function createProjectContext(
   // physical parent selected here.
   const cacheDir =
     createFilesystemPathIdentityContext().resolve(cacheDirSpelling).path;
-  const processDir = path.join(cacheDir, "project", runtimeCacheKey);
+  const processDir = path.join(
+    cacheDir,
+    SourceBuildCacheLayout.RUNTIME_PROJECT_DIRNAME,
+    runtimeCacheKey,
+  );
   const virtualRoot = path.join(processDir, "fs");
   // The lowered orphan sources outlive the run, so they live in the resolved
   // cache root beside every other persistent part of it, and a default root
@@ -382,7 +387,12 @@ function buildProject(
   if (context.built) return;
 
   fs.mkdirSync(context.cacheDir, { recursive: true });
+  // A run that was killed never removed its directory, and nothing else would:
+  // each run removes the ones whose owners are all provably gone, then records
+  // itself as the owner of its own (samchon/ttsc#1579).
+  ProcessOwnedDirectory.sweep(path.dirname(context.processDir));
   fs.rmSync(context.processDir, { recursive: true, force: true });
+  ProcessOwnedDirectory.claim(context.processDir);
   fs.mkdirSync(path.dirname(context.emitDir), { recursive: true });
   const result = runBuild({
     binary: options.binary,
@@ -466,7 +476,10 @@ function defaultRuntimeCacheDir(
   runtime: string;
 } {
   const paths = resolveSourceBuildCachePaths(root, undefined, env);
-  const local = path.join(paths.root, "ttsx");
+  const local = path.join(
+    paths.root,
+    SourceBuildCacheLayout.RUNTIME_CACHE_DIRNAME,
+  );
   try {
     if (!env.TTSC_CACHE_DIR) {
       SourceBuildCacheLayout.markDefaultWorkspaceCacheRoot(paths.root);

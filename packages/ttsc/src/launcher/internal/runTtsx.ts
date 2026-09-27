@@ -15,6 +15,7 @@ import { assertNoSolutionBuild } from "./assertNoSolutionBuild";
 import { getCompilerVersionText } from "./getCompilerVersionText";
 import { prepareExecution } from "./prepareExecution";
 import { resolveCacheDir } from "./resolveCacheDir";
+import { ProcessOwnedDirectory } from "./runtime/ProcessOwnedDirectory";
 import { checkNodeRuntimeSupport } from "./runtime/checkNodeRuntimeSupport";
 
 /**
@@ -482,9 +483,13 @@ async function runPreparedEntry(
       TTSC_TSGO_BINARY: tsgo,
       TTSX_RUNTIME_MANIFEST: manifestPath,
     };
-    return await runProgram(args, runtimeEnv, cwd, signals, () =>
-      removeRuntimeOutput(execution.cleanupDir),
-    );
+    return await runProgram(args, runtimeEnv, cwd, signals, {
+      afterExit: () => removeRuntimeOutput(execution.cleanupDir),
+      // The program reads the run's directory for as long as it runs, which is
+      // longer than the launcher when only the launcher is killed, so it owns
+      // the directory too (samchon/ttsc#1579).
+      onSpawn: (pid) => ProcessOwnedDirectory.admit(execution.cleanupDir, pid),
+    });
   } finally {
     removeRuntimeOutput(execution.cleanupDir);
   }
@@ -493,14 +498,18 @@ async function runPreparedEntry(
 /**
  * Run the program in a child of the current Node.js runtime and end the way it
  * ended: with its exit code, or by re-raising the signal that killed it.
- * `afterExit` runs once the child is gone, before the signal is re-raised.
+ * `onSpawn` receives the child's pid once it started, and `afterExit` runs once
+ * the child is gone, before the signal is re-raised.
  */
 async function runProgram(
   args: readonly string[],
   env: NodeJS.ProcessEnv,
   cwd: string,
   signals: LauncherSignals,
-  afterExit: () => void = () => {},
+  hooks: {
+    afterExit?: () => void;
+    onSpawn?: (pid: number) => void;
+  } = {},
 ): Promise<number> {
   const child = spawn(process.execPath, args, {
     cwd,
@@ -509,6 +518,14 @@ async function runProgram(
     windowsHide: true,
   });
   signals.forwardTo(child);
+  if (child.pid !== undefined && hooks.onSpawn !== undefined) {
+    try {
+      hooks.onSpawn(child.pid);
+    } catch {
+      // The run goes on: what the hook records only matters once the
+      // launcher is gone.
+    }
+  }
   const outcome = await new Promise<{
     code: number | null;
     signal: NodeJS.Signals | null;
@@ -519,7 +536,7 @@ async function runProgram(
     );
     child.once("exit", (code, signal) => resolve({ code, signal }));
   });
-  afterExit();
+  hooks.afterExit?.();
   if (outcome.error !== undefined) {
     process.stderr.write(`${outcome.error.message}\n`);
     return 1;

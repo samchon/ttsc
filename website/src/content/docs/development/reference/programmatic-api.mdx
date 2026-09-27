@@ -141,8 +141,10 @@ When the context sets an explicit `cacheDir`, `clean()` removes that directory *
 Otherwise — the default workspace-local `node_modules/.cache/ttsc`, or a root resolved from `TTSC_CACHE_DIR` — it removes only the ttsc-owned pieces:
 
 1. the compiled plugin binaries (`<cache-root>/plugins`);
-2. the ttsc-owned Go object cache (`<cache-root>/go-build` when the root is the default or its basename is `ttsc`, plus an explicit `TTSC_GO_CACHE_DIR` when it points elsewhere);
-3. the legacy project-local caches (`node_modules/.ttsc`, `.ttsc`).
+2. the descriptor, capability, and orphan-lowering caches (`<cache-root>/descriptors`, `<cache-root>/capabilities`, `<cache-root>/ttsx-orphan`);
+3. the runtime directories of `ttsx` and `ttsc/register` runs that have ended (`<cache-root>/ttsx`), keeping the directory of a run still in progress;
+4. the ttsc-owned Go object cache (`<cache-root>/go-build` when the root is the default or its basename is `ttsc`, plus an explicit `TTSC_GO_CACHE_DIR` when it points elsewhere);
+5. the legacy project-local caches (`node_modules/.ttsc`, `.ttsc`).
 
 In that case the parent cache root itself is never removed (it may be shared with other tools), and a user-provided `GOCACHE` is treated as external and left untouched. Before deleting anything, `clean()` rejects every resolved target that equals or contains the project or a filesystem root, including physical aliases selected through a symlink or junction.
 

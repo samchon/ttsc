@@ -3,8 +3,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { ProcessOwnedDirectory } from "./ProcessOwnedDirectory";
 import { RuntimeManifestRegistry } from "./RuntimeManifestRegistry";
-import { isLocalProcessGone } from "./isLocalProcessGone";
 
 /**
  * The directory dependency builds are cached under.
@@ -54,9 +54,6 @@ const PROCESS_ROOT_PARENT = path.join(os.tmpdir(), "ttsx-dep");
 /** Prefix of a per-process directory's name, which the sweep recognizes. */
 const PROCESS_ROOT_PREFIX = "process-";
 
-/** Owner record inside a per-process directory. */
-const PROCESS_ROOT_OWNER = "owner.json";
-
 let processRoot: string | undefined;
 
 /**
@@ -66,17 +63,14 @@ let processRoot: string | undefined;
  */
 function processPrivateRoot(): string {
   if (processRoot !== undefined) return processRoot;
-  sweepAbandonedProcessRoots();
+  ProcessOwnedDirectory.sweep(PROCESS_ROOT_PARENT, (name) =>
+    name.startsWith(PROCESS_ROOT_PREFIX),
+  );
   const directory = path.join(
     PROCESS_ROOT_PARENT,
     `${PROCESS_ROOT_PREFIX}${process.pid}-${crypto.randomBytes(8).toString("hex")}`,
   );
-  fs.mkdirSync(directory, { recursive: true });
-  fs.writeFileSync(
-    path.join(directory, PROCESS_ROOT_OWNER),
-    JSON.stringify({ hostname: os.hostname(), pid: process.pid }),
-    "utf8",
-  );
+  ProcessOwnedDirectory.claim(directory);
   process.once("exit", () => {
     try {
       fs.rmSync(directory, { force: true, recursive: true });
@@ -86,36 +80,4 @@ function processPrivateRoot(): string {
   });
   processRoot = directory;
   return directory;
-}
-
-/**
- * Remove the per-process directories whose owner is proven gone. A directory
- * without a readable owner record is left alone: it may belong to a process
- * that has created the directory and not yet written the record.
- */
-function sweepAbandonedProcessRoots(): void {
-  let entries: string[];
-  try {
-    entries = fs.readdirSync(PROCESS_ROOT_PARENT);
-  } catch {
-    return;
-  }
-  for (const entry of entries) {
-    if (!entry.startsWith(PROCESS_ROOT_PREFIX)) continue;
-    const directory = path.join(PROCESS_ROOT_PARENT, entry);
-    try {
-      const owner = JSON.parse(
-        fs.readFileSync(path.join(directory, PROCESS_ROOT_OWNER), "utf8"),
-      ) as { hostname?: unknown; pid?: unknown };
-      if (
-        typeof owner.hostname === "string" &&
-        typeof owner.pid === "number" &&
-        isLocalProcessGone({ hostname: owner.hostname, pid: owner.pid })
-      ) {
-        fs.rmSync(directory, { force: true, recursive: true });
-      }
-    } catch {
-      // Unreadable or concurrently removed: not provably abandoned.
-    }
-  }
 }

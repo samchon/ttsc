@@ -24,6 +24,7 @@ import { assertNoSolutionBuild } from "./assertNoSolutionBuild";
 import { getCompilerVersionText } from "./getCompilerVersionText";
 import { resolveCacheDir } from "./resolveCacheDir";
 import { resolveSingleFileOutput } from "./resolveSingleFileOutput";
+import { resolveRuntimeCleanTargets } from "./runtime/resolveRuntimeCleanTargets";
 import { type WatchInputChange } from "./watch/WatchInputChange";
 import { WatchTopology } from "./watch/WatchTopology";
 
@@ -201,6 +202,14 @@ function runClean(argv: readonly string[]): number {
   const explicitCacheDir = options.cacheDir
     ? path.resolve(cwd, options.cacheDir)
     : undefined;
+  // The runtime directories of runs no process still owns. A run that may
+  // still be in progress keeps its own, and is reported (samchon/ttsc#1579).
+  const runtime =
+    explicitCacheDir === undefined
+      ? resolveRuntimeCleanTargets(
+          resolveSourceBuildCachePaths(projectRoot).root,
+        )
+      : { kept: [], targets: [] };
   const targets = explicitCacheDir
     ? // Explicit `ttsc clean --cache-dir X`: the user names X as the cache to
       // remove for this command, so remove it wholesale plus the legacy
@@ -213,7 +222,11 @@ function runClean(argv: readonly string[]): number {
     : // Default / TTSC_CACHE_DIR: remove only ttsc-owned subdirectories (a
       // possibly-shared root is never deleted) plus the pre-0.17 machine-global
       // cache so upgraders reclaim that disk.
-      [...resolveCleanTargets(projectRoot), ...legacyGlobalCacheTargets()];
+      [
+        ...resolveCleanTargets(projectRoot),
+        ...runtime.targets,
+        ...legacyGlobalCacheTargets(),
+      ];
   // Check the complete deletion set before removing the first directory. An
   // environment-selected TTSC_GO_CACHE_DIR and a legacy-global cache can be as
   // destructive as an explicit --cache-dir when either equals or contains the
@@ -232,10 +245,14 @@ function runClean(argv: readonly string[]): number {
     process.stdout.write(
       `ttsc: no cache directories found under ${projectRoot}\n`,
     );
-    return 0;
   }
   for (const target of removed) {
     process.stdout.write(`ttsc: removed ${formatProjectPath(cwd, target)}\n`);
+  }
+  for (const directory of runtime.kept) {
+    process.stdout.write(
+      `ttsc: kept ${formatProjectPath(cwd, directory)}: a run that may still be in progress owns it\n`,
+    );
   }
   return 0;
 }

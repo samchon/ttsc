@@ -9,8 +9,10 @@ import { transformProjectInMemory } from "./compiler/internal/transformProjectIn
 import { transformProjectInWorker } from "./compiler/internal/transformProjectInWorker";
 import { type SafeCacheCleanupTarget } from "./internal/SafeCacheCleanupTarget";
 import { resolveSafeCacheCleanupTargets } from "./internal/resolveSafeCacheCleanupTargets";
+import { resolveRuntimeCleanTargets } from "./launcher/internal/runtime/resolveRuntimeCleanTargets";
 import { loadProjectPlugins } from "./plugin/internal/load/loadProjectPlugins";
 import { resolveCleanTargets } from "./plugin/internal/source/resolveCleanTargets";
+import { resolveSourceBuildCachePaths } from "./plugin/internal/source/resolveSourceBuildCachePaths";
 import type { ITtscCompilerContext } from "./structures/ITtscCompilerContext";
 import type { ITtscCompilerDiagnostic } from "./structures/ITtscCompilerDiagnostic";
 import type { ITtscCompilerResult } from "./structures/ITtscCompilerResult";
@@ -128,11 +130,19 @@ export class TtscCompiler {
       // ambient `process.env`) makes clean() remove exactly the artifacts this
       // instance owns, including a `TTSC_GO_CACHE_DIR` supplied only in
       // `context.env`.
-      targets = resolveCleanTargets(
-        projectRoot,
-        this.resolvePluginCacheDir(),
-        this.resolveEffectiveEnv(),
-      );
+      const env = this.resolveEffectiveEnv();
+      targets = [
+        ...resolveCleanTargets(projectRoot, this.resolvePluginCacheDir(), env),
+        // The runtime directories of runs no process still owns
+        // (samchon/ttsc#1579).
+        ...resolveRuntimeCleanTargets(
+          resolveSourceBuildCachePaths(
+            projectRoot,
+            this.resolvePluginCacheDir(),
+            env,
+          ).root,
+        ).targets,
+      ];
     }
     // Validate the complete deletion set before removing the first directory.
     // This includes an environment-selected TTSC_GO_CACHE_DIR and project-local
