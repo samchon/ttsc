@@ -11,13 +11,16 @@ import assert from "node:assert/strict";
  * would change nothing, so a run that accepted them would silently differ from
  * what was asked. A TypeScript entry keeps accepting them.
  *
- * 1. Give a project a JavaScript `script.js` and a TypeScript `entry.ts`.
- * 2. Run `ttsx --strict script.js` and `ttsx -P tsconfig.json script.js`.
- * 3. Assert both exit 2 naming the option and never run the script, while `ttsx
+ * 1. Give a project a JavaScript `script.js`, a TypeScript `entry.ts`, and a
+ *    response file `args.txt`.
+ * 2. Run `script.js` after `--strict`, `-P tsconfig.json`, `--no-plugins`, and
+ *    `@args.txt`, the compiler's response file.
+ * 3. Assert each exits 2 naming the option and never runs the script, while `ttsx
  *    --strict entry.ts` runs.
  */
 export const test_ttsx_refuses_build_options_before_a_javascript_entry = () => {
   const root = TestProject.commonJsProject({
+    "args.txt": "--strict\n",
     "script.js": `console.log("ran");\n`,
     "src/entry.ts": `console.log("ran");\n`,
   });
@@ -25,6 +28,8 @@ export const test_ttsx_refuses_build_options_before_a_javascript_entry = () => {
   for (const [args, option] of [
     [["--strict", "script.js"], "--strict"],
     [["-P", "tsconfig.json", "script.js"], "--project"],
+    [["--no-plugins", "script.js"], "--no-plugins"],
+    [["@args.txt", "script.js"], "@args.txt"],
   ] as const) {
     const result = TestProject.spawn(TestProject.TTSX_BIN, [...args], {
       cwd: root,
