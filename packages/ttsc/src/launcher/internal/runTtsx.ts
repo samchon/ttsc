@@ -3,10 +3,12 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
+import { COMPILER_OPTION_KINDS } from "../../flags/COMPILER_OPTION_KINDS";
 import { getBoolean } from "../../flags/getBoolean";
 import { getNumber } from "../../flags/getNumber";
 import { getString } from "../../flags/getString";
 import { getStringList } from "../../flags/getStringList";
+import { normalizeFlagToken } from "../../flags/normalizeFlagToken";
 import { parseFlags } from "../../flags/parseFlags";
 import { resolveFlagSpec } from "../../flags/resolveFlagSpec";
 import { assertNoSolutionBuild } from "./assertNoSolutionBuild";
@@ -88,6 +90,9 @@ async function run(
     process.stderr.write(`ttsx: entry not found: ${entry}\n`);
     return 2;
   }
+  if (!isTypeScriptEntry(entry)) {
+    return runJavaScriptEntry(parsed, cwd, entry, signals);
+  }
 
   const prepared = prepareExecution(entry, {
     binary: parsed.binary,
@@ -149,20 +154,17 @@ function parseCLI(argv: readonly string[]) {
       errorPrefix: "ttsx:",
       forwardAfterFirstPositional: true,
       honorDoubleDashSeparator: true,
-      // Only a TypeScript-extensioned bare token is the entry; every other bare
-      // token before it (e.g. the `es2020` in `--target es2020 entry.ts`) is a
-      // forwarded flag value. Classifying values via the predicate keeps them
-      // in `passthrough` in order AND stops a pre-entry value from being
-      // mistaken for the first positional sentinel — which previously flipped
-      // the parser into tail mode and pushed the real entry into `tail`,
-      // failing with "entry file is required".
-      isPositional: looksLikeEntryFile,
+      // The entry is the first bare token that is no option's value, whatever
+      // its extension: the schema and the compiler's own option table say
+      // which options take a value (the `es2020` of `--target es2020`), so a
+      // JavaScript entry is the entry too rather than a forwarded value
+      // (samchon/ttsc#1569).
       subcommand: "ttsx",
     });
   } catch (error) {
     // Help still prints when the other options do not parse, as long as it was
     // asked for before anything that looks like the entry.
-    const terminal = terminalRequest(argv.slice(0, firstEntryLikeIndex(argv)));
+    const terminal = terminalRequest(argv.slice(0, firstPositionalIndex(argv)));
     if (terminal !== null) return terminal;
     throw error;
   }
@@ -174,17 +176,16 @@ function parseCLI(argv: readonly string[]) {
   assertNoSolutionBuild(result, "ttsx:");
   assertNoWatch(result);
 
-  const entry = result.positional.find(looksLikeEntryFile);
+  const entry = result.positional[0];
   if (entry === undefined) {
     throw new Error("ttsx: entry file is required");
   }
-  // With `forwardAfterFirstPositional: true` and `isPositional:
-  // looksLikeEntryFile`, the parser reports `result.positional` as just the
-  // entry, `result.passthrough` as the tsgo-forwarded flags (and their
-  // in-order space values) arriving BEFORE the entry, and `result.tail` as
-  // every token AFTER the entry — the user program's argv (e.g. the `generate
-  // --input src/input` tail of `ttsx typia.ts generate --input src/input`),
-  // which MUST NOT reach tsgo.
+  // With `forwardAfterFirstPositional: true`, the parser reports
+  // `result.positional` as just the entry, `result.passthrough` as the
+  // tsgo-forwarded flags (and their in-order space values) arriving BEFORE the
+  // entry, and `result.tail` as every token AFTER the entry — the user
+  // program's argv (e.g. the `generate --input src/input` tail of `ttsx
+  // typia.ts generate --input src/input`), which MUST NOT reach tsgo.
   const postEntryArgs: string[] = [...result.tail];
 
   // `--require` is declared `repeatable`, so the engine records every accepted
@@ -192,11 +193,11 @@ function parseCLI(argv: readonly string[]) {
   // result.
   //
   // This replaces a second, hand-written scan over raw argv that re-derived the
-  // pre-entry boundary with `looksLikeEntryFile`. Applied to raw tokens that
-  // predicate cannot tell an entry from a `--require` value carrying a
-  // TypeScript extension, nor from an inline `--require=<x>.ts` token, so the
-  // scan stopped before the tokens it existed to collect and preloads were
-  // dropped silently. The engine already owns that boundary:
+  // pre-entry boundary from the entry's extension. Applied to raw tokens that
+  // test cannot tell an entry from a `--require` value carrying a TypeScript
+  // extension, nor from an inline `--require=<x>.ts` token, so the scan
+  // stopped before the tokens it existed to collect and preloads were dropped
+  // silently. The engine already owns that boundary:
   // `forwardAfterFirstPositional` routes every post-entry token to
   // `result.tail` without parsing it, so `ttsx entry.ts -r preload.cjs` still
   // forwards the pair to the program instead of preloading it.
@@ -232,12 +233,26 @@ function terminalRequest(tokens: readonly string[]): "help" | "version" | null {
   return null;
 }
 
-/** Index of the first bare token that looks like the entry, or the length. */
-function firstEntryLikeIndex(argv: readonly string[]): number {
-  const index = argv.findIndex(
-    (token) => !token.startsWith("-") && looksLikeEntryFile(token),
-  );
-  return index === -1 ? argv.length : index;
+/**
+ * Index of the first bare token that is no option's value, or the length. Used
+ * only where the parser itself failed, to still find the options before the
+ * entry.
+ */
+function firstPositionalIndex(argv: readonly string[]): number {
+  for (let index = 0; index < argv.length; index += 1) {
+    const token = argv[index]!;
+    if (!token.startsWith("-")) return index;
+    if (token.includes("=")) continue;
+    const flag = resolveFlagSpec(token);
+    const next = argv[index + 1];
+    if (next === undefined || next.startsWith("-")) continue;
+    const takesValue =
+      flag !== undefined
+        ? flag.kind !== "boolean"
+        : COMPILER_OPTION_KINDS.get(normalizeFlagToken(token)) === "value";
+    if (takesValue || next === "true" || next === "false") index += 1;
+  }
+  return argv.length;
 }
 
 /**
@@ -263,13 +278,11 @@ function assertNoWatch(result: ReturnType<typeof parseFlags>): void {
   );
 }
 
-/**
- * Report whether a bare CLI token is the TypeScript entry file rather than a
- * forwarded flag's value. ttsx runs a TypeScript entrypoint, so only a token
- * with a TypeScript source extension is treated as the entry.
- */
-function looksLikeEntryFile(token: string): boolean {
-  return [".ts", ".tsx", ".mts", ".cts"].some((ext) => token.endsWith(ext));
+/** Whether the entry is a TypeScript source, which ttsx checks and builds. */
+function isTypeScriptEntry(entry: string): boolean {
+  return [".ts", ".tsx", ".mts", ".cts"].some((extension) =>
+    entry.endsWith(extension),
+  );
 }
 
 function printHelp(): void {
@@ -278,7 +291,7 @@ function printHelp(): void {
       "ttsx — TypeScript runner provided by ttsc.",
       "",
       "Usage:",
-      "  ttsx [options] <entry.ts> [argv...]",
+      "  ttsx [options] <entry> [argv...]",
       "",
       "Options:",
       "  -P, --project <file>   Use an explicit tsconfig.json",
@@ -296,6 +309,9 @@ function printHelp(): void {
       "  --strict apply to the type-check (e.g. ttsx --strict src/index.ts).",
       "  Everything after the entry is the program's own argv, --help and",
       "  --version included. --watch is not supported before the entry.",
+      "  A JavaScript entry runs under the same runtime as node --require",
+      "  ttsc/register: each TypeScript file it reaches is checked and built",
+      "  through its own project.",
       "",
       "Examples:",
       "  ttsx src/index.ts",
@@ -335,6 +351,60 @@ function isRelativeSpecifier(specifier: string): boolean {
     specifier.startsWith(".\\") ||
     specifier.startsWith("..\\")
   );
+}
+
+/**
+ * Run a JavaScript entry as Node's main module under the runtime `ttsc/register`
+ * installs (samchon/ttsc#1569).
+ *
+ * A JavaScript entry, such as a CLI's bin script run so that the TypeScript
+ * configuration and sources it loads are served, has no project to check up
+ * front: every TypeScript file it reaches enters the runtime as a root and is
+ * checked and built through its own project, as under `node --require
+ * ttsc/register`. The preload goes on `NODE_OPTIONS`, so the processes the
+ * program starts inherit it. The options that only configure the up-front
+ * build of a TypeScript entry are refused rather than ignored.
+ */
+async function runJavaScriptEntry(
+  parsed: Exclude<ReturnType<typeof parseCLI>, "help" | "version">,
+  cwd: string,
+  entry: string,
+  signals: LauncherSignals,
+): Promise<number> {
+  const unsupported = [
+    ...(parsed.project !== undefined ? ["--project"] : []),
+    ...(parsed.cacheDir !== undefined ? ["--cache-dir"] : []),
+    ...(parsed.checkers !== undefined ? ["--checkers"] : []),
+    ...(parsed.noPlugins ? ["--no-plugins"] : []),
+    ...(parsed.singleThreaded ? ["--singleThreaded"] : []),
+    ...parsed.tsgoFlags.filter((token) => token.startsWith("-")),
+  ];
+  if (unsupported.length !== 0) {
+    process.stderr.write(
+      `ttsx: ${unsupported.join(", ")} configure${unsupported.length === 1 ? "s" : ""} the up-front build of a TypeScript entry, and ${path.basename(entry)} is JavaScript; set compiler options in the tsconfig.json that owns the TypeScript it loads\n`,
+    );
+    return 2;
+  }
+  const args = [
+    "--disable-warning=ExperimentalWarning",
+    ...parsed.preload.flatMap((preload) => [
+      "-r",
+      resolvePreload(cwd, preload),
+    ]),
+    entry,
+    ...parsed.passthrough,
+  ];
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    NODE_OPTIONS: appendNodeOption(
+      process.env.NODE_OPTIONS,
+      `--require ${JSON.stringify(path.join(__dirname, "..", "..", "register.js"))}`,
+    ),
+    ...(parsed.binary !== undefined
+      ? { TTSC_TSGO_BINARY: path.resolve(cwd, parsed.binary) }
+      : {}),
+  };
+  return runProgram(args, env, cwd, signals);
 }
 
 /**
@@ -408,35 +478,50 @@ async function runPreparedEntry(
       TTSC_TSGO_BINARY: tsgo,
       TTSX_RUNTIME_MANIFEST: manifestPath,
     };
-    const child = spawn(process.execPath, args, {
-      cwd,
-      env: runtimeEnv,
-      stdio: "inherit",
-      windowsHide: true,
-    });
-    signals.forwardTo(child);
-    const outcome = await new Promise<{
-      code: number | null;
-      signal: NodeJS.Signals | null;
-      error?: Error;
-    }>((resolve) => {
-      child.once("error", (error) =>
-        resolve({ code: null, signal: null, error }),
-      );
-      child.once("exit", (code, signal) => resolve({ code, signal }));
-    });
-    removeRuntimeOutput(execution.cleanupDir);
-    if (outcome.error !== undefined) {
-      process.stderr.write(`${outcome.error.message}\n`);
-      return 1;
-    }
-    if (outcome.signal !== null) {
-      signals.raise(outcome.signal);
-    }
-    return outcome.code ?? 1;
+    return await runProgram(args, runtimeEnv, cwd, signals, () =>
+      removeRuntimeOutput(execution.cleanupDir),
+    );
   } finally {
     removeRuntimeOutput(execution.cleanupDir);
   }
+}
+
+/**
+ * Run the program in a child of the current Node.js runtime and end the way it
+ * ended: with its exit code, or by re-raising the signal that killed it.
+ * `afterExit` runs once the child is gone, before the signal is re-raised.
+ */
+async function runProgram(
+  args: readonly string[],
+  env: NodeJS.ProcessEnv,
+  cwd: string,
+  signals: LauncherSignals,
+  afterExit: () => void = () => {},
+): Promise<number> {
+  const child = spawn(process.execPath, args, {
+    cwd,
+    env,
+    stdio: "inherit",
+    windowsHide: true,
+  });
+  signals.forwardTo(child);
+  const outcome = await new Promise<{
+    code: number | null;
+    signal: NodeJS.Signals | null;
+    error?: Error;
+  }>((resolve) => {
+    child.once("error", (error) => resolve({ code: null, signal: null, error }));
+    child.once("exit", (code, signal) => resolve({ code, signal }));
+  });
+  afterExit();
+  if (outcome.error !== undefined) {
+    process.stderr.write(`${outcome.error.message}\n`);
+    return 1;
+  }
+  if (outcome.signal !== null) {
+    signals.raise(outcome.signal);
+  }
+  return outcome.code ?? 1;
 }
 
 /**

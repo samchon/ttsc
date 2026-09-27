@@ -50,10 +50,13 @@ export const test_parseflags_keeps_the_ttsx_entry_after_a_spaced_flag_value =
     ]);
     assert.deepEqual(result.tail, ["generate", "--input", "X"]);
 
-    // Negative twin: without the predicate, `es2020` becomes the sentinel and
-    // the real entry is lost to the tail — the exact failure being fixed.
+    // Negative twin: after an option neither the schema nor the compiler's own
+    // table knows, without the predicate, the value becomes the sentinel and
+    // the real entry is lost to the tail — the failure the predicate prevents.
+    // `--target` itself no longer needs the predicate: the compiler's table
+    // says it takes a value (samchon/ttsc#1569).
     const naive = parseFlags({
-      argv: ["--target", "es2020", "entry.ts"],
+      argv: ["--notACompilerOption", "es2020", "entry.ts"],
       errorPrefix: "ttsx:",
       forwardAfterFirstPositional: true,
       honorDoubleDashSeparator: true,

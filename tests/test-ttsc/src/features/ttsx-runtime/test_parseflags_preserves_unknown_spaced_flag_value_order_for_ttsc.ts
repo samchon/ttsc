@@ -39,14 +39,25 @@ export const test_parseflags_preserves_unknown_spaced_flag_value_order_for_ttsc 
     ]);
     assert.deepEqual(result.positional, ["a.ts"]);
 
-    // Negative twin: without the predicate the bare values fall into
-    // `positional` (the historical behaviour these callers must not use).
-    const naive = parseFlags({
+    // The compiler's own option table decides a documented option's arity, so
+    // `--target` and `--module` keep their values without the predicate too
+    // (samchon/ttsc#1569).
+    const tabled = parseFlags({
       argv: ["--target", "es2020", "--module", "commonjs", "a.ts"],
       errorPrefix: "ttsc:",
       subcommand: "build",
     });
-    assert.deepEqual(naive.positional, ["es2020", "commonjs", "a.ts"]);
+    assert.deepEqual(tabled.positional, ["a.ts"]);
+
+    // Negative twin: after an option neither the schema nor that table knows,
+    // without the predicate the bare value falls into `positional` (the
+    // historical behaviour these callers must not use).
+    const naive = parseFlags({
+      argv: ["--notACompilerOption", "es2020", "a.ts"],
+      errorPrefix: "ttsc:",
+      subcommand: "build",
+    });
+    assert.deepEqual(naive.positional, ["es2020", "a.ts"]);
 
     // Inline `--flag=value` stays a single token; an unknown boolean is not
     // given the following input file as a value.

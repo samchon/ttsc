@@ -29,6 +29,7 @@ const targets = [
   path.join(ttscRoot, "utility/flags_gen.go"),
   path.join(repoRoot, "packages/lint/linthost/flags_gen.go"),
   path.join(repoRoot, "website/src/content/docs/ttsc/flags.mdx"),
+  path.join(ttscRoot, "src/flags/COMPILER_OPTION_KINDS.ts"),
 ];
 
 function main() {

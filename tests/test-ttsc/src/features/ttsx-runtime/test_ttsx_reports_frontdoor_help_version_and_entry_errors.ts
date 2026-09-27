@@ -18,7 +18,7 @@ export const test_ttsx_reports_frontdoor_help_version_and_entry_errors = () => {
   });
   assert.equal(help.status, 0, help.stderr);
   assert.match(help.stdout, /TypeScript runner provided by ttsc\./);
-  assert.match(help.stdout, /ttsx \[options\] <entry\.ts>/);
+  assert.match(help.stdout, /ttsx \[options\] <entry> \[argv\.\.\.\]/);
 
   const version = TestProject.spawn(TestProject.TTSX_BIN, ["--version"], {
     cwd: TestProject.WORKSPACE_ROOT,

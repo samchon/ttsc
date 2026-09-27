@@ -34,10 +34,10 @@ export interface ParseOptions {
    * When provided, a bare token that fails the predicate is appended to
    * `passthrough` in its original position instead of `positional`, so an
    * unknown `--flag value` pair reaches tsgo with its adjacency and relative
-   * order intact. The parser deliberately does not guess a forwarded flag's
-   * arity from the flag itself (it has no schema for a truly unknown flag); the
-   * predicate is the only signal that separates a forwarded value from a real
-   * input file, and both callers key it on the TypeScript source extension.
+   * order intact. A compiler option the pinned compiler documents never reaches
+   * the predicate: its arity comes from `COMPILER_OPTION_KINDS`. The predicate
+   * only decides the token after an option that neither the schema nor the
+   * compiler's table knows.
    *
    * Every path that can move a bare token out of `positional` consults it: the
    * main loop below and `forwardKnownButUnaccepted`, which answers the same
