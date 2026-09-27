@@ -15,7 +15,8 @@ import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
  * expected values for each package.
  *
  * 1. Invoke `createTtscPlugin` for each utility package with a factory context.
- * 2. Assert the returned descriptor's `name`, `source`, and `stage` fields.
+ * 2. Assert the returned descriptor's `name`, `source`, and `stage` fields, and
+ *    the host input declaration each one makes.
  * 3. Assert all four `source` directories are distinct.
  */
 export const test_ttsc_utility_plugins_descriptors_own_separate_native_source_directories =
@@ -37,6 +38,11 @@ export const test_ttsc_utility_plugins_descriptors_own_separate_native_source_di
         };
         reportsTypeScriptDiagnostics?: boolean;
         reportsHostInputs?: boolean;
+        /**
+         * The descriptor reads no file outside its module graph and says so
+         * with an empty `hostInputHashes` (samchon/ttsc#1561).
+         */
+        readsNoHostInputs?: boolean;
       }
     > = {
       lint: {
@@ -64,7 +70,7 @@ export const test_ttsc_utility_plugins_descriptors_own_separate_native_source_di
         source: "driver",
         stage: "transform",
       },
-      paths: { source: "driver", stage: "transform" },
+      paths: { readsNoHostInputs: true, source: "driver", stage: "transform" },
       strip: {
         reportsHostInputs: true,
         source: "driver",
@@ -84,7 +90,9 @@ export const test_ttsc_utility_plugins_descriptors_own_separate_native_source_di
         ...(expectation.capabilities !== undefined ? ["capabilities"] : []),
         ...(expectation.reportsHostInputs === true
           ? ["hostInputHashes", "hostInputRealpaths", "hostInputs"]
-          : []),
+          : expectation.readsNoHostInputs === true
+            ? ["hostInputHashes"]
+            : []),
         "name",
         ...(expectation.reportsTypeScriptDiagnostics !== undefined
           ? ["reportsTypeScriptDiagnostics"]
@@ -92,6 +100,8 @@ export const test_ttsc_utility_plugins_descriptors_own_separate_native_source_di
         "source",
         "stage",
       ]);
+      if (expectation.readsNoHostInputs === true)
+        assert.deepEqual(descriptor.hostInputHashes, {});
       if (expectation.reportsHostInputs === true) {
         assert.ok(Array.isArray(descriptor.hostInputs));
         assert.equal(
