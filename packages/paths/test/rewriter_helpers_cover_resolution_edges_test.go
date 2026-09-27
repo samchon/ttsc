@@ -177,9 +177,6 @@ func TestRewriterHelpersCoverResolutionEdges(t *testing.T) {
   if got := pathsReplaceSourceExtension("src/main.ts", ".js"); got != "src/main.js" {
     t.Fatalf("replace extension mismatch: %q", got)
   }
-  if !pathsIsOutsideRelativePath("..") || !pathsIsOutsideRelativePath(filepath.Join("..", "x")) || pathsIsOutsideRelativePath("..x") {
-    t.Fatal("outside relative path classification mismatch")
-  }
   if pathsEmittedExtension("x.mts", false) != ".mjs" ||
     pathsEmittedExtension("x.mjs", false) != ".mjs" ||
     pathsEmittedExtension("x.cts", false) != ".cjs" ||

@@ -307,11 +307,32 @@ func (r *rewriter) outputPathForSource(source string) string {
   if r.outDir == "" || r.rootDir == "" {
     return ""
   }
-  rel, err := filepath.Rel(r.rootDir, source)
-  if err != nil || isOutsideRelativePath(rel) {
+  rel, ok := r.pathBelowRootDir(source)
+  if !ok {
     return ""
   }
   return normalizePath(filepath.Join(r.outDir, replaceSourceExtension(rel, emittedExtension(rel, r.jsxPreserve))))
+}
+
+// pathBelowRootDir returns source's path below rootDir, decided the way
+// TypeScript-Go places an output under outDir
+// (`outputpaths.GetSourceFilePathInNewDir`): rootDir contains source by the
+// compiler host's case rule, and the rest keeps the source's own spelling. A
+// Program can spell a file the way a paths target named it, such as
+// `SRC/DIRECTORY/index.ts` below `src`, so an operating system's own path
+// comparison, case-sensitive on POSIX even on a case-insensitive volume, would
+// place it outside rootDir.
+func (r *rewriter) pathBelowRootDir(source string) (string, bool) {
+  root := normalizePath(r.rootDir)
+  if !strings.HasSuffix(root, "/") {
+    root += "/"
+  }
+  file := normalizePath(source)
+  if len(file) <= len(root) || file[len(root)-1] != '/' ||
+    r.sourceKey(file[:len(root)]) != r.sourceKey(root) {
+    return "", false
+  }
+  return file[len(root):], true
 }
 
 // emittedExtension returns the output-file extension that TypeScript-Go writes
@@ -480,10 +501,4 @@ func stripKnownSourceExtension(value string) string {
 // appends ext, producing the output file name.
 func replaceSourceExtension(value string, ext string) string {
   return stripKnownSourceExtension(filepath.ToSlash(value)) + ext
-}
-
-// isOutsideRelativePath reports whether a relative path escapes its base
-// directory (i.e. starts with "..").
-func isOutsideRelativePath(rel string) bool {
-  return rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
