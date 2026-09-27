@@ -1,5 +1,7 @@
+import { TestProject } from "@ttsc/testing";
+
 import { goPath } from "../../internal/plugin-corpus";
-import { assert, fs, os, path, workspaceRoot } from "../../internal/toolchain";
+import { assert, fs, path, workspaceRoot } from "../../internal/toolchain";
 import { WatchSession } from "../../internal/watch";
 
 /**
@@ -23,8 +25,10 @@ import { WatchSession } from "../../internal/watch";
  */
 export const test_ttsc_watch_rebuilds_for_a_plugin_module_outside_its_package =
   async (): Promise<void> => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-watch-module-"));
-    const cache = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-watch-cache-"));
+    // Removed when the suite exits: ending the session ends its descendants,
+    // which on Windows go a moment later and hold the directory until then.
+    const root = TestProject.tmpdir("ttsc-watch-module-");
+    const cache = TestProject.tmpdir("ttsc-watch-cache-");
     fs.cpSync(
       path.join(workspaceRoot, "tests", "projects", "go-source-plugin"),
       root,
@@ -86,8 +90,6 @@ export const test_ttsc_watch_rebuilds_for_a_plugin_module_outside_its_package =
       await session.waitForQuiet(3_000);
     } finally {
       await session.close();
-      fs.rmSync(root, { force: true, recursive: true });
-      fs.rmSync(cache, { force: true, recursive: true });
     }
   };
 
