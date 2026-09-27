@@ -176,7 +176,9 @@ export const test_ttsc_lint_descriptor_tracks_external_discovery_candidates =
       );
     }
 
-    const identityWorkspace = TestProject.tmpdir("ttsc-lint-config-identity-");
+    const identityWorkspace = TestProject.physicalPath(
+      TestProject.tmpdir("ttsc-lint-config-identity-"),
+    );
     const oldIdentity = path.join(identityWorkspace, "old");
     const newIdentity = path.join(identityWorkspace, "new");
     const identityLink = path.join(identityWorkspace, "linked");

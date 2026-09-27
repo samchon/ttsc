@@ -25,8 +25,9 @@ import { materializeLSPPluginManifest } from "../../../../../packages/ttsc/lib/l
  *    identity remains part of the selection fingerprint.
  * 6. Retarget a same-topology reload-directory link and prove its physical target
  *    identity invalidates the startup selection.
- * 7. On POSIX, prove directory identity preserves backslashes and raw non-UTF-8
- *    physical target bytes exactly as the Go validator does.
+ * 7. On POSIX, prove directory identity preserves backslashes and, where the
+ *    filesystem stores such names, raw non-UTF-8 physical target bytes exactly
+ *    as the Go validator does.
  * 8. Where the filesystem preserves them, prove raw non-UTF-8 symlink-target bytes
  *    use the same explicit digest framing as the Go validator.
  * 9. Materialize a manifest larger than a practical Windows environment block,
@@ -258,7 +259,14 @@ function verifyRawDirectoryIdentity(root: string): void {
     Buffer.from([0xff, 0x2d, 0x64, 0x69, 0x72]),
   ]);
   const rawLink = path.join(root, "raw-directory-link");
-  fs.mkdirSync(rawTarget);
+  try {
+    fs.mkdirSync(rawTarget);
+  } catch (error) {
+    // A filesystem that stores names only as valid UTF-8, such as macOS's
+    // APFS, refuses the name, and there are no raw bytes to preserve.
+    if ((error as NodeJS.ErrnoException).code === "EILSEQ") return;
+    throw error;
+  }
   fs.symlinkSync(rawTarget, Buffer.from(rawLink), "dir");
   const rawSnapshot = fingerprintInitialLSPProjectInputSnapshot({
     files: [],

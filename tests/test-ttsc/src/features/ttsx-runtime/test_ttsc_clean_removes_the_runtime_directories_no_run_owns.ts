@@ -78,9 +78,18 @@ export const test_ttsc_clean_removes_the_runtime_directories_no_run_owns =
 
       await forceTerminate(running.launcher.pid!);
       await forceTerminate(running.program);
+      // The API reports what it removed by an absolute path, which may spell the
+      // directory through the cwd as given or as the filesystem names it.
       const runtime = path.dirname(runs);
+      const spellings = new Set([
+        runtime,
+        fs.realpathSync(runtime),
+        fs.realpathSync.native(runtime),
+      ]);
       assert.ok(
-        new TtscCompiler({ cwd: root }).clean().includes(runtime),
+        new TtscCompiler({ cwd: root })
+          .clean()
+          .some((removed) => spellings.has(removed)),
         "TtscCompiler.clean() did not report the runtime directory",
       );
       assert.equal(fs.existsSync(runtime), false);
