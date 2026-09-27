@@ -825,6 +825,7 @@ export class WatchTopology {
               filename === null
                 ? undefined
                 : path.resolve(location, filename.toString());
+            this.callbacks.onProjectInputHeard?.(changed ?? location);
             this.refreshProjectInputs(location, changed);
           },
         ),
@@ -907,6 +908,7 @@ export class WatchTopology {
               filename === null
                 ? undefined
                 : path.resolve(location, filename.toString());
+            this.callbacks.onProjectInputHeard?.(changed ?? location);
             this.refreshProjectInputs(location, changed);
           },
         ),
@@ -1603,6 +1605,11 @@ type WatchTopologyCallbacks = {
   onInputChange(change: WatchInputChange): void;
   onProjectInputWatchUnavailable?(roots: readonly string[]): void;
   onProjectInputWatchRoots?(roots: readonly string[]): void;
+  /**
+   * A project-input watcher heard a path, before any decision about it, so a
+   * notification that was declined can be told from one never delivered.
+   */
+  onProjectInputHeard?(location: string): void;
   onTopologyChange(): void;
 };
 

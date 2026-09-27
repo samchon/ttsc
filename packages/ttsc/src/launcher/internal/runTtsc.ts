@@ -853,6 +853,9 @@ function runWatch(
       );
       trigger(change);
     },
+    onProjectInputHeard: (location) => {
+      debugWatchInputs(`heard ${watchMessagePath(cwd, location)}`);
+    },
     onProjectInputWatchRoots: (roots) => {
       debugWatchInputs(
         `roots ${JSON.stringify(roots.map((root) => watchMessagePath(cwd, root)))}`,
@@ -903,12 +906,12 @@ function toExitCode(status: number): number {
  * A watch that goes quiet is indistinguishable from a watch with nothing to
  * say: the build simply never runs again, and the transcript that survives says
  * only that. This separates the causes — an inputs line states what a build
- * published, the roots line states what is covered, and a change line states
- * what was announced — so a missing rebuild can be attributed to inputs that
- * never reached the watch, to the watch that never saw the file, or to the
- * decision that declined to report it. Silent unless asked, and on the same
- * ordered stream as the rest of the watch output so it interleaves with the
- * builds it explains.
+ * published, the roots line states what is covered, a heard line states what a
+ * project-input watcher received, and a change line states what was announced —
+ * so a missing rebuild can be attributed to inputs that never reached the
+ * watch, to the watch that never saw the file, or to the decision that declined
+ * to report it. Silent unless asked, and on the same ordered stream as the rest
+ * of the watch output so it interleaves with the builds it explains.
  */
 function debugWatchInputs(message: string): void {
   if (!process.env.TTSC_WATCH_DEBUG_INPUTS) return;
