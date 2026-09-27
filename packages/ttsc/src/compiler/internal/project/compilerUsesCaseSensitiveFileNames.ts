@@ -22,7 +22,10 @@ import { resolveSourceBuildCachePaths } from "../../../plugin/internal/source/re
  * root). The root is created the way the build creates it and probed at its
  * physical path, the spelling `os.Executable()` reads on Linux and the one the
  * build spawns from a default root. The key directory and the binary are made
- * inside that root by ttsc, so a name there is looked up as the root is.
+ * inside that root by ttsc, so a name there is looked up as the root is. On
+ * darwin, where `os.Executable()` is the spawned spelling, an explicit root
+ * spelled through a link onto a volume of the other case policy is answered for
+ * its target, not for the spelling the compiler sees.
  *
  * A failure other than a missing swapped path is one the compiler would not
  * survive, so the answer is insensitive, which matches every spelling.
@@ -72,10 +75,19 @@ export function compilerUsesCaseSensitiveFileNames(props: {
 const ANSWERS = new Map<string, boolean>();
 
 /**
- * Flip the case of every character, as TypeScript-Go's `swapCase` does with
- * Go's simple case mappings: a character with an upper-case form takes it, and
- * any other takes its lower-case form. A mapping that expands to more than one
- * character, which a simple mapping never is, leaves the character as it is.
+ * Flip the case of every character, as TypeScript-Go's `swapCase` does: a
+ * character with an upper-case form takes it, and any other takes its
+ * lower-case form.
+ *
+ * Go uses the simple case mappings, one character to one, and JavaScript
+ * exposes only the full ones. They differ where a full mapping expands to
+ * several characters: `ß` has no simple upper-case form in either, but `İ`
+ * (U+0130) lower-cases to `i` in Go, and the Greek letters with ypogegrammeni
+ * upper-case to their title-case forms. Such a character is kept as it is here.
+ * A kept character is the path's own, so this swapped path is found whenever
+ * Go's is: the answer can differ only by being insensitive where the compiler
+ * says sensitive, and a host then matches more spellings than the compiler
+ * does, never fewer.
  */
 function swapCase(text: string): string {
   let output = "";
