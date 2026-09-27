@@ -66,7 +66,7 @@ TTSC_GO_CACHE_DIR=/tmp/ttsc-go-build npx ttsc --emit
 
 `ttsc cache paths --json` prints the active cache root, plugin binary cache root, Go build cache root, and `cacheableRoots`. Use that command in CI when the workflow wants to persist the right directories without hardcoding paths.
 
-Clean. Removes the ttsc-owned cache subdirectories (`plugins/`, `go-build/`, and an external `TTSC_GO_CACHE_DIR`) plus the legacy project-local caches (`node_modules/.ttsc`, `.ttsc`) — never the parent cache root (it may be shared with other tools) and never a user `GOCACHE`:
+Clean. Removes the ttsc-owned cache subdirectories (`plugins/`, `descriptors/`, `capabilities/`, `ttsx-orphan/`, the `ttsx/` runtime directories of runs that have ended, `go-build/`, and an external `TTSC_GO_CACHE_DIR`) plus the legacy project-local caches (`node_modules/.ttsc`, `.ttsc`). A run that may still be in progress keeps its runtime directory. It never removes the parent cache root, which may be shared with other tools, or a user `GOCACHE`:
 
 ```bash
 npx ttsc clean
