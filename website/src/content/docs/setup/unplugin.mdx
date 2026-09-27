@@ -89,14 +89,16 @@ ttsc compiles each file from disk. A module that reaches it with different text,
 // rollup.config.ts
 import ttsc from "@ttsc/unplugin/rollup";
 
+import esbuild from "rollup-plugin-esbuild";
+
 export default {
   input: "src/index.ts",
   output: { dir: "dist", format: "esm" },
-  plugins: [ttsc()],
+  plugins: [ttsc(), esbuild()],
 };
 ```
 
-One caveat worth knowing before it costs you an afternoon: the adapter emits transformed **TypeScript**, not JavaScript, and plain Rollup does not compile TypeScript itself. Add an esbuild- or swc-based plugin after `ttsc()`, or the build fails parsing type syntax. Bundlers that strip types on their own (Vite, Rolldown, esbuild, Bun) need no such step.
+The adapter emits transformed **TypeScript**, not JavaScript, and plain Rollup does not compile TypeScript itself, so an esbuild- or swc-based plugin follows `ttsc()`; without it the build fails parsing type syntax. Bundlers that strip types on their own (Vite, Rolldown, esbuild, Farm, Bun, and webpack 5.110 or later) need no such step, and Rspack and older webpack need one too.
 
 ## Rolldown
 
@@ -139,12 +141,27 @@ export default {
 };
 ```
 
+webpack 5.110 and later strip TypeScript on their own: `experiments.typescript` defaults to `"auto"`, which turns on when Node has `module.stripTypeScriptTypes` and no rule already handles `.ts`. An older webpack needs a TypeScript loader after the adapter, for example `module: { rules: [{ test: /\.[cm]?tsx?$/, loader: "esbuild-loader" }] }`.
+
 ## Rspack
 
 ```js
 import ttsc from "@ttsc/unplugin/rspack";
 
-export default { entry: "./src/index.ts", plugins: [ttsc()] };
+export default {
+  entry: "./src/index.ts",
+  module: {
+    rules: [
+      {
+        test: /\.[cm]?tsx?$/,
+        loader: "builtin:swc-loader",
+        options: { jsc: { parser: { syntax: "typescript" } } },
+        type: "javascript/auto",
+      },
+    ],
+  },
+  plugins: [ttsc()],
+};
 ```
 
 ## Next.js

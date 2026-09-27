@@ -19,6 +19,8 @@ npm install -D @ttsc/unplugin
 
 Choose your bundler and add the adapter.
 
+The adapter hands the bundler transformed **TypeScript**, not JavaScript. Vite, Rolldown, esbuild, Farm, Bun, and webpack 5.110 or later strip the types themselves. Rollup, Rspack, and older webpack need a TypeScript step after `ttsc()`, as their examples below show.
+
 ### Vite
 
 ```ts
@@ -36,6 +38,7 @@ export default defineConfig({
 ```ts
 // rollup.config.ts
 import ttsc from "@ttsc/unplugin/rollup";
+import esbuild from "rollup-plugin-esbuild";
 
 export default {
   input: "src/index.ts",
@@ -43,7 +46,7 @@ export default {
     dir: "dist",
     format: "esm",
   },
-  plugins: [ttsc()],
+  plugins: [ttsc(), esbuild()],
 };
 ```
 
@@ -83,15 +86,18 @@ await build({
 ```js
 // webpack.config.mjs
 import ttsc from "@ttsc/unplugin/webpack";
+import { fileURLToPath } from "node:url";
 
 export default {
   entry: "./src/index.ts",
   output: {
-    path: new URL("./dist", import.meta.url).pathname,
+    path: fileURLToPath(new URL("./dist", import.meta.url)),
   },
   plugins: [ttsc()],
 };
 ```
+
+webpack 5.110 and later strip TypeScript on their own. An older webpack needs a TypeScript loader, for example `module: { rules: [{ test: /\.[cm]?tsx?$/, loader: "esbuild-loader" }] }`.
 
 ### Rspack
 
@@ -101,6 +107,16 @@ import ttsc from "@ttsc/unplugin/rspack";
 
 export default {
   entry: "./src/index.ts",
+  module: {
+    rules: [
+      {
+        test: /\.[cm]?tsx?$/,
+        loader: "builtin:swc-loader",
+        options: { jsc: { parser: { syntax: "typescript" } } },
+        type: "javascript/auto",
+      },
+    ],
+  },
   plugins: [ttsc()],
 };
 ```
