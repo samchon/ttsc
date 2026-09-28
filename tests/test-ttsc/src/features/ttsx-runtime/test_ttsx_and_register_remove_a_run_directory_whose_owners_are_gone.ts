@@ -98,8 +98,12 @@ export const test_ttsx_and_register_remove_a_run_directory_whose_owners_are_gone
 /** The id of a process of this host that ran and has ended. */
 function endedProcessId(): number {
   for (;;) {
-    const { pid } = child_process.spawnSync(process.execPath, ["-e", ""]);
-    if (pid === undefined) continue;
+    const { error, pid } = child_process.spawnSync(process.execPath, [
+      "-e",
+      "",
+    ]);
+    if (error !== undefined || pid === undefined)
+      throw error ?? new Error("the process started without an id");
     try {
       process.kill(pid, 0);
     } catch {
