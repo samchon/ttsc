@@ -14,13 +14,18 @@ import { watchDirectoryThroughFsWatch } from "./watchDirectoryThroughFsWatch";
  * @param location The directory, spelled as the filesystem names it.
  * @param recursive Whether entries below subdirectories are heard.
  * @param listener Receives `change` or `rename` and a relative entry name, or
- *   `null` when anything below the directory may have changed.
+ *   `null` when anything below the directory may have changed. The final flag
+ *   marks an observation gap that needs a content recheck.
  * @returns The open watch.
  */
 export function watchDirectory(
   location: string,
   recursive: boolean,
-  listener: (event: "change" | "rename", filename: string | null) => void,
+  listener: (
+    event: "change" | "rename",
+    filename: string | null,
+    gap?: boolean,
+  ) => void,
 ): DirectoryWatcher {
   const streams = fseventsStreams();
   if (streams !== undefined) return streams.open(location, recursive, listener);

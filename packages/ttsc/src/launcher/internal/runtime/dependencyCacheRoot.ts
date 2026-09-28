@@ -63,8 +63,10 @@ let processRoot: string | undefined;
  */
 function processPrivateRoot(): string {
   if (processRoot !== undefined) return processRoot;
-  ProcessOwnedDirectory.sweep(PROCESS_ROOT_PARENT, (name) =>
-    name.startsWith(PROCESS_ROOT_PREFIX),
+  ProcessOwnedDirectory.sweep(
+    PROCESS_ROOT_PARENT,
+    (name) => name.startsWith(PROCESS_ROOT_PREFIX),
+    true,
   );
   const directory = path.join(
     PROCESS_ROOT_PARENT,

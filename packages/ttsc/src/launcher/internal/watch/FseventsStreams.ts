@@ -48,7 +48,8 @@ export class FseventsStreams {
    *
    * @param location The physical directory to watch.
    * @param recursive Whether to receive events below immediate children.
-   * @param listener Receives the event and its relative name, or `null` on a gap.
+   * @param listener Receives the event and its relative name, or `null` with a
+   *   gap flag when every affected input needs a content recheck.
    * @returns A watcher whose close is idempotent.
    */
   public open(
@@ -113,7 +114,7 @@ export class FseventsStreams {
         // stream reports later events, so one read closes that handoff window.
         for (const watch of transferred) {
           if (watch.active && watch.stream === stream) {
-            watch.listener("rename", null);
+            watch.listener("rename", null, true);
           }
         }
       });
@@ -165,7 +166,11 @@ type Watch = {
   active: boolean;
   directory: string;
   emitter: EventEmitter;
-  listener: (event: "change" | "rename", filename: string | null) => void;
+  listener: (
+    event: "change" | "rename",
+    filename: string | null,
+    gap?: boolean,
+  ) => void;
   recursive: boolean;
   stream: Stream;
 };
@@ -242,7 +247,7 @@ function deliverGap(stream: Stream): void {
   const watches = [...stream.watches.values()].flatMap((set) => [...set]);
   for (const watch of watches) {
     if (watch.active && watch.stream === stream) {
-      watch.listener("rename", null);
+      watch.listener("rename", null, true);
     }
   }
 }

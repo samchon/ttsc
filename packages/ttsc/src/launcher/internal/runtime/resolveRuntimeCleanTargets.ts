@@ -11,10 +11,10 @@ import { ProcessOwnedDirectory } from "./ProcessOwnedDirectory";
  * The runtime directory holds one directory per prepared run, owned by the
  * processes of that run (`ProcessOwnedDirectory`). A run still in progress
  * keeps its directory, which clean reports instead of removing. Every other
- * entry goes: one whose owners are all provably gone, and one without an owner
- * record, which a run records the moment it creates its directory, so only an
- * earlier version's run leaves one. When nothing is kept, the whole runtime
- * directory goes.
+ * entry whose owners are all provably gone goes. A run without an owner record
+ * may still belong to an older executable that does not use the lock, so it is
+ * kept alongside live and unreadable owners. When nothing is kept, the whole
+ * runtime directory goes.
  *
  * Call while holding `withRuntimeDirectoryLock` for this runtime root, so a
  * new run cannot appear between inspection and removal.
@@ -49,7 +49,7 @@ export function resolveRuntimeCleanTargets(cacheRoot: string): {
   for (const entry of entries) {
     const directory = path.join(runs, entry);
     const ownership = ProcessOwnedDirectory.ownership(directory);
-    if (ownership === "live" || ownership === "unknown")
+    if (ownership !== "abandoned")
       kept.push(directory);
     else removable.push(directory);
   }

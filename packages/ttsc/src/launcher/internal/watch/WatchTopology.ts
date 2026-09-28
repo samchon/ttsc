@@ -103,16 +103,6 @@ export class WatchTopology {
     ProjectInputPathIdentityContext,
     Map<string, boolean>
   >();
-  /**
-   * Content fingerprints of tracked compiler files whose next named change
-   * notification is already accounted for, by path key. A notification whose
-   * file still has that content is dropped once, and one with other content is
-   * reported. The project-input layer acknowledges a file it hands to the
-   * compiler, and a refresh acknowledges each file it admits.
-   */
-  private compilerFileAcknowledgements = new Map<string, string>();
-  /** Whether the tracked compiler inputs have been resolved once. */
-  private compilerInputsResolved = false;
   private reloadFiles = new Map<string, string>();
 
   /**
@@ -162,7 +152,6 @@ export class WatchTopology {
       WatchPaths.mapsEqual(this.outputFiles, next.outputFiles) === false ||
       WatchPaths.mapsEqual(this.outputs, next.outputs) === false ||
       WatchPaths.mapsEqual(this.reloadFiles, next.reloadFiles) === false;
-    const previousFiles = this.files;
     this.analysisOnly = next.analysisOnly;
     this.files = next.files;
     // Stamp the tracked set as it is resolved, so the first event that cannot
@@ -176,40 +165,16 @@ export class WatchTopology {
       // has a baseline would advance it past a change nobody reported, and the
       // next unnamed event would then read that change as no change at all.
       if (!this.compilerFileSnapshots.has(key)) {
-        this.compilerFileSnapshots.set(key, compilerFileSnapshot(file));
+        this.compilerFileSnapshots.set(
+          key,
+          compilerFileSnapshot(file, fingerprintProjectInputFile(file)),
+        );
       }
     }
     this.directories = next.directories;
     this.outputFiles = next.outputFiles;
     this.outputs = next.outputs;
     this.reloadFiles = next.reloadFiles;
-    for (const key of this.compilerFileAcknowledgements.keys()) {
-      if (!next.files.has(key)) {
-        this.compilerFileAcknowledgements.delete(key);
-      }
-    }
-    // A file a later refresh admits is compiled by the rebuild that refresh
-    // starts, which reads it after this point. A backend that reports the write
-    // that created the file apart from the entry that named it, as Windows'
-    // recursive watcher does, can deliver that write after the rebuild read it,
-    // and the notification is taken at its word (`compilerChangesToReport`).
-    // The content admitted here acknowledges it: the late notification for these
-    // bytes is dropped, and an edit after admission, with other bytes, is still
-    // reported (samchon/ttsc#1580). The first resolution admits the whole
-    // project before any build and acknowledges nothing.
-    if (this.compilerInputsResolved) {
-      for (const [key, file] of next.files) {
-        if (
-          previousFiles.has(key) ||
-          this.compilerFileAcknowledgements.has(key)
-        )
-          continue;
-        const fingerprint = fingerprintProjectInputFile(file);
-        if (fingerprint !== "")
-          this.compilerFileAcknowledgements.set(key, fingerprint);
-      }
-    }
-    this.compilerInputsResolved = true;
     const projectInputProgramReload =
       projectInputProgramOverlap.length === 0
         ? false
@@ -255,17 +220,14 @@ export class WatchTopology {
    * project watcher names the same creation. The rebuild scheduled here already
    * consumes the current project bytes, so publishing their strong fingerprints
    * keeps the later parent event from rediscovering the same population delta.
-   * A newly tracked compiler file also remembers that fingerprint until its
-   * first named content delivery; identical bytes are the delayed creation,
-   * while different bytes are a real later edit and remain observable even
-   * inside filesystem timestamp resolution.
+   * Compiler files keep their own content fingerprints at admission, so a
+   * delayed named event for the same bytes is quiet on every backend.
    */
   private acknowledgeProjectInputCompilerMembership(
     changed: readonly string[],
   ): boolean {
     const matches = this.collectProjectInputMatches();
     const fingerprints = fingerprintProjectInputMatches(matches);
-    const identities = createProjectInputPathIdentityContext();
     const changedInputs = projectInputChangedPaths({
       next: matches,
       nextFingerprints: fingerprints,
@@ -291,14 +253,6 @@ export class WatchTopology {
     // instead of disappearing behind the warm compiler-membership handoff.
     this.projectInputMatches = matches;
     this.projectInputFingerprints = fingerprints;
-    for (const location of changed) {
-      const compilerKey = WatchPaths.pathKey(location);
-      if (!this.files.has(compilerKey)) continue;
-      const fingerprint = fingerprints.get(identities.resolve(location).key);
-      if (fingerprint !== undefined && fingerprint !== "") {
-        this.compilerFileAcknowledgements.set(compilerKey, fingerprint);
-      }
-    }
     return reload;
   }
 
@@ -387,7 +341,7 @@ export class WatchTopology {
             // receives, and it carries no filename to distinguish an edit from
             // a touch. It answers the same question the unnamed directory event
             // answers, so it answers it the same way: from the bytes.
-            const movement = this.compilerFileMovement(location);
+            const movement = this.compilerFileMovement(location, true);
             if (movement.owner) this.rearmFileWatchers([location], true);
             if (!movement.content) return;
             this.callbacks.onInputChange({
@@ -404,15 +358,35 @@ export class WatchTopology {
     );
   }
 
-  /** Compare a tracked file's content and physical owner with its snapshot. */
-  private compilerFileMovement(location: string): CompilerFileMovement {
+  /**
+   * Compare a tracked file with its last observed bytes and physical owner.
+   *
+   * A named event or observation gap reads the bytes even when time and size
+   * stayed still. A broad registration scan reads only a file whose metadata
+   * or owner moved, so an unrelated event does not read the whole Program.
+   */
+  private compilerFileMovement(
+    location: string,
+    strong = false,
+  ): CompilerFileMovement {
     const key = WatchPaths.pathKey(location);
     const previous = this.compilerFileSnapshots.get(key);
-    const next = compilerFileSnapshot(location);
-    this.compilerFileSnapshots.set(key, next);
+    const metadata = compilerFileSnapshot(location, "");
+    const read =
+      strong ||
+      previous === undefined ||
+      previous.content !== metadata.content ||
+      previous.owner !== metadata.owner;
+    const fingerprint = read
+      ? fingerprintProjectInputFile(location)
+      : (previous?.fingerprint ?? "");
+    this.compilerFileSnapshots.set(key, { ...metadata, fingerprint });
     return {
-      content: previous?.content !== next.content,
-      owner: previous?.owner !== next.owner,
+      content:
+        previous === undefined
+          ? fingerprint !== ""
+          : previous.fingerprint !== fingerprint,
+      owner: previous?.owner !== metadata.owner,
     };
   }
 
@@ -450,7 +424,7 @@ export class WatchTopology {
         this.openDirectoryWatch(
           watcherRegistrationPath(location),
           process.platform === "win32",
-          (event, filename) => {
+          (event, filename, gap) => {
             const changed =
               filename === null
                 ? undefined
@@ -472,7 +446,7 @@ export class WatchTopology {
             for (const file of this.compilerChangesToReport(
               plan.changes,
               changed,
-              event,
+              gap === true,
             )) {
               this.callbacks.onInputChange({
                 kind: this.classifyCompilerInput(file),
@@ -567,55 +541,19 @@ export class WatchTopology {
   }
 
   /**
-   * Narrow a plan's changes to the tracked files that actually moved.
+   * Narrow a plan's changes to tracked files whose bytes actually moved.
    *
-   * A backend that cannot name what changed forces the plan to nominate every
-   * tracked file under the watched directory, which is the only safe answer it
-   * can give from an event carrying no filename. macOS delivers such events for
-   * ordinary activity elsewhere in the project, so the compiler lane would wake
-   * for sources nobody touched. Only a content notification passes through: it
-   * is the one event that claims the bytes moved. A rename claims the directory
-   * entry was rewritten and an unnamed event claims nothing, so both are
-   * decided from the bytes, which is the question neither of them answered.
+   * A named event checks its file even when time and size stayed still. A gap
+   * can hide such a rewrite anywhere under the watched root, so every candidate
+   * gets a strong check. Ordinary broad scans still use metadata first.
    */
   private compilerChangesToReport(
     changes: readonly string[],
     changed: string | undefined,
-    event: string,
+    gap: boolean,
   ): string[] {
-    // A content notification is taken at its word: the backend is telling us
-    // these bytes changed, and second-guessing it would lose an edit that
-    // landed inside the clock's resolution. A rename says the directory entry
-    // was rewritten, which is a different claim — a file can be moved back, or
-    // replaced by an identical copy, without its content moving at all — and an
-    // event that cannot name anything makes no claim about content either.
-    // Those two are decided from the bytes, and the rearm they drive is
-    // unaffected, because rebinding is about the inode and not the content.
-    if (changed !== undefined && event !== "rename") {
-      return changes.filter((file) => {
-        const key = WatchPaths.pathKey(file);
-        // A file with a watcher of its own hears the same edit through two
-        // watchers, either of which can miss it (samchon/ttsc#1583). Both
-        // decide from the bytes, so the first to see the edit reports it and
-        // the other finds it recorded.
-        if (this.fileWatchers.has(key))
-          return this.compilerFileMovement(file).content;
-        const acknowledged = this.compilerFileAcknowledgements.get(key);
-        this.compilerFileAcknowledgements.delete(key);
-        this.recordCompilerFileSnapshot(file);
-        return (
-          acknowledged === undefined ||
-          acknowledged !== fingerprintProjectInputFile(file)
-        );
-      });
-    }
-    return changes.filter((file) => this.compilerFileMovement(file).content);
-  }
-
-  private recordCompilerFileSnapshot(file: string): void {
-    this.compilerFileSnapshots.set(
-      WatchPaths.pathKey(file),
-      compilerFileSnapshot(file),
+    return changes.filter((file) =>
+      this.compilerFileMovement(file, changed !== undefined || gap).content,
     );
   }
 
@@ -1592,6 +1530,7 @@ type ResolvedWatchTopology = {
 
 type CompilerFileSnapshot = {
   content: string;
+  fingerprint: string;
   owner: string;
 };
 
@@ -2207,22 +2146,26 @@ function projectInputDeclarationKey(
 }
 
 /**
- * Cheap content and physical-owner identities for a tracked file.
+ * Metadata, fingerprint, and physical-owner identities for a tracked file.
  *
- * Modification time and size answer "did the bytes move" without reading the
- * file. Device and inode answer whether a POSIX per-file watcher still owns the
- * path. Keeping the answers separate lets an identical atomic replacement
- * rebind its watcher without inventing a compiler notification.
+ * Modification time and size avoid a read on an ordinary broad scan. A strong
+ * event compares the fingerprint, so a timestamp collision cannot hide an edit
+ * and a metadata-only notification does not create a build. Device and inode
+ * answer whether a POSIX per-file watcher still owns the path.
  */
-function compilerFileSnapshot(location: string): CompilerFileSnapshot {
+function compilerFileSnapshot(
+  location: string,
+  fingerprint: string,
+): CompilerFileSnapshot {
   try {
     const stats = fs.statSync(location);
     return {
       content: `${stats.mtimeMs}:${stats.size}`,
+      fingerprint,
       owner: `${stats.dev}:${stats.ino}`,
     };
   } catch {
-    return { content: "", owner: "" };
+    return { content: "", fingerprint: "", owner: "" };
   }
 }
 

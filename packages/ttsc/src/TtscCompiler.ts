@@ -96,9 +96,9 @@ export class TtscCompiler {
    *
    * Removes an explicit `cacheDir` wholesale. Otherwise removes the plugin
    * binary subdirectory, the descriptor, capability, and orphan-lowering
-   * caches, the runtime directories of `ttsx` and `ttsc/register` runs that
-   * have ended (a run that may still be in progress keeps its own), a safely
-   * identified ttsc-owned Go build cache (including an external
+   * caches, the runtime directories of `ttsx` and `ttsc/register` runs whose
+   * owners are provably gone (a run that may still be in progress keeps its
+   * own), a safely identified ttsc-owned Go build cache (including an external
    * `TTSC_GO_CACHE_DIR`), and the two legacy project-local caches. A
    * user-provided `GOCACHE` is never removed. Every resolved deletion target is
    * validated before the first removal. The cache location comes from this

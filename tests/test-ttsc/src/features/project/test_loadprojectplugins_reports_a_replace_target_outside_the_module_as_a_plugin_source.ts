@@ -68,7 +68,7 @@ export const test_loadprojectplugins_reports_a_replace_target_outside_the_module
     );
     const fakeGo = path.join(root, "fake-go");
     fs.mkdirSync(fakeGo, { recursive: true });
-    const expected = [fs.realpathSync(dep), fs.realpathSync(module)].sort();
+    const expected = [fs.realpathSync.native(dep), fs.realpathSync(module)].sort();
     const load = (
       cache: string,
       reported: (inputs: readonly string[]) => void,

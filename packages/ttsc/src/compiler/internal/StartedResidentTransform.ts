@@ -12,6 +12,6 @@ export interface StartedResidentTransform {
   /** The live host process; dispose it when the service shuts down. */
   process: ResidentTransformProcess;
 
-  /** Physical project root the host resolved its project against. */
+  /** Project root in the spelling the resident Program uses for its files. */
   projectRoot: string;
 }

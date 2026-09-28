@@ -17,7 +17,7 @@ import (
  * Verifies a linked source outside a TypeScript base is not a claim host.
  *
  * A Program can spell an external file through a link below the project. A
- * lexical containment check admitted it to `src/**/*.ts`, even though the
+ * lexical containment check admitted it to a source glob below `src`, even though the
  * physical source is outside the declared base. A host with no citation then
  * acquired an obligation the population did not own.
  *

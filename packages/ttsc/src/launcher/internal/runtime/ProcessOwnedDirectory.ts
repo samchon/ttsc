@@ -36,10 +36,15 @@ export namespace ProcessOwnedDirectory {
    */
   export function admit(directory: string, pid: number): void {
     fs.writeFileSync(
-      path.join(directory, `${RECORD_PREFIX}${pid}${RECORD_SUFFIX}`),
+      recordPath(directory, pid),
       JSON.stringify({ hostname: os.hostname(), pid }),
       "utf8",
     );
+  }
+
+  /** Relinquish this process's claim while holding the runtime directory lock. */
+  export function relinquish(directory: string, pid = process.pid): void {
+    fs.rmSync(recordPath(directory, pid), { force: true });
   }
 
   /**
@@ -48,8 +53,14 @@ export namespace ProcessOwnedDirectory {
    * unknown ownership. An owner on another host, or a pid something else now
    * holds, counts as alive, since neither is provably gone
    * (`isLocalProcessGone`).
+   *
+   * @param legacyProcessRoot Also read the former `owner.json` record in a
+   *   manifest-less `process-<pid>-<nonce>` dependency cache directory.
    */
-  export function ownership(directory: string): Ownership {
+  export function ownership(
+    directory: string,
+    legacyProcessRoot = false,
+  ): Ownership {
     let names: string[];
     try {
       names = fs.readdirSync(directory);
@@ -62,7 +73,10 @@ export namespace ProcessOwnedDirectory {
     let owned = false;
     let unknown = false;
     for (const name of names) {
-      if (!name.startsWith(RECORD_PREFIX) || !name.endsWith(RECORD_SUFFIX))
+      if (
+        (!name.startsWith(RECORD_PREFIX) || !name.endsWith(RECORD_SUFFIX)) &&
+        !(legacyProcessRoot && name === "owner.json")
+      )
         continue;
       const owner = readRecord(path.join(directory, name));
       if (owner === null) {
@@ -83,10 +97,12 @@ export namespace ProcessOwnedDirectory {
    *
    * @param parent The directory holding owned entries.
    * @param accepts Which entry names are owned directories.
+   * @param legacyProcessRoot Include the prior manifest-less owner format.
    */
   export function sweep(
     parent: string,
     accepts: (name: string) => boolean = () => true,
+    legacyProcessRoot = false,
   ): void {
     let entries: string[];
     try {
@@ -97,7 +113,7 @@ export namespace ProcessOwnedDirectory {
     for (const entry of entries) {
       if (!accepts(entry)) continue;
       const directory = path.join(parent, entry);
-      if (ownership(directory) !== "abandoned") continue;
+      if (ownership(directory, legacyProcessRoot) !== "abandoned") continue;
       try {
         fs.rmSync(directory, { force: true, recursive: true });
       } catch {
@@ -109,6 +125,10 @@ export namespace ProcessOwnedDirectory {
   const RECORD_PREFIX = "owner-";
   const RECORD_SUFFIX = ".json";
 
+  function recordPath(directory: string, pid: number): string {
+    return path.join(directory, `${RECORD_PREFIX}${pid}${RECORD_SUFFIX}`);
+  }
+
   function readRecord(file: string): { hostname: string; pid: number } | null {
     try {
       const owner = JSON.parse(fs.readFileSync(file, "utf8")) as {
@@ -116,11 +136,19 @@ export namespace ProcessOwnedDirectory {
         pid?: unknown;
       };
       const name = path.basename(file);
-      const pidText = name.slice(
-        RECORD_PREFIX.length,
-        name.length - RECORD_SUFFIX.length,
-      );
-      const namedPid = /^\d+$/.test(pidText) ? Number(pidText) : undefined;
+      const pidText =
+        name === "owner.json"
+          ? /^process-(\d+)-[0-9a-f]+$/.exec(
+              path.basename(path.dirname(file)),
+            )?.[1]
+          : name.slice(
+              RECORD_PREFIX.length,
+              name.length - RECORD_SUFFIX.length,
+            );
+      const namedPid =
+        pidText !== undefined && /^\d+$/.test(pidText)
+          ? Number(pidText)
+          : undefined;
       if (
         typeof owner.hostname !== "string" ||
         owner.hostname.length === 0 ||

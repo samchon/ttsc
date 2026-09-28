@@ -5,7 +5,8 @@ import type { DirectoryWatcher } from "./DirectoryWatcher";
 /**
  * Watch a directory through `fs.watch`, with the signature of
  * `watchDirectory`: `change` for an entry whose content moved, `rename` for
- * every other event, and a `null` name when anything below may have changed.
+ * every other event, and a `null` name with a gap flag when anything below may
+ * have changed.
  *
  * This is the backend of every platform but macOS with the `fsevents` binding,
  * and the one a caller chooses to observe the watch set through `fs.watch`.
@@ -18,12 +19,17 @@ import type { DirectoryWatcher } from "./DirectoryWatcher";
 export function watchDirectoryThroughFsWatch(
   location: string,
   recursive: boolean,
-  listener: (event: "change" | "rename", filename: string | null) => void,
+  listener: (
+    event: "change" | "rename",
+    filename: string | null,
+    gap?: boolean,
+  ) => void,
 ): DirectoryWatcher {
   return fs.watch(location, { persistent: true, recursive }, (event, name) => {
     listener(
       event === "change" ? "change" : "rename",
       name === null ? null : name.toString(),
+      name === null,
     );
   });
 }
