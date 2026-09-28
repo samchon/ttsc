@@ -27,7 +27,9 @@
  * take the union of every file, reading the worker files strictly before the
  * main file: the compactor renames the merged main into place strictly before
  * deleting a worker file, so a worker file that disappears mid-read is always
- * already merged into the main the reader loads afterwards.
+ * already merged into the main the reader loads afterwards. A worker file the
+ * compactor could not delete stays, and the main names it as compacted, so no
+ * reader or later compaction merges it twice.
  *
  * Sound degradations, by design:
  *
@@ -121,6 +123,13 @@ interface SnapshotState {
 
 /** Serialized shape of the main and worker snapshot files. */
 interface SnapshotDocument {
+  /**
+   * The claimed worker files this main snapshot already holds, by name. A
+   * compaction removes each claimed file after merging it, and a removal can
+   * fail (a Windows process holding the file); what stays behind is merged
+   * again by no one. Present only on the main snapshot.
+   */
+  compacted?: string[];
   files: string[];
   id?: string;
   tainted: boolean;
@@ -834,7 +843,17 @@ export function prepareSnapshot(projectRoot: string | undefined): string {
     const main = readMainDocument(directory);
     const files = new Set(main?.files ?? []);
     const trees = new Set(main?.trees ?? []);
-    const observations = [...recovery.entries, ...workers.entries];
+    const observations = [
+      ...recovery.entries,
+      ...uncompactedWorkerEntries(workers, main),
+    ];
+    // Every claimed file present is recorded before any is removed, so one
+    // whose removal fails, or a compactor that stops between the two, leaves a
+    // file the next compaction knows it already merged.
+    const compacted = workers.paths
+      .filter(isClaimedWorkerSnapshot)
+      .map((file) => path.basename(file))
+      .sort();
     const tainted = observations.some((entry) => entry.tainted);
     const volatile =
       observations.length === 0
@@ -856,6 +875,7 @@ export function prepareSnapshot(projectRoot: string | undefined): string {
       recovery.paths.length !== 0 ||
       recovery.corruptPaths.length !== 0;
     pending = {
+      ...(compacted.length !== 0 ? { compacted } : {}),
       files: [...files].sort(),
       id:
         !recovering && workers.corruptPaths.length === 0 && !tainted
@@ -1110,7 +1130,7 @@ export function readSnapshotState(base: string): SnapshotState | undefined {
   const trees = new Set(main.trees);
   let volatile = main.volatile;
   let tainted = main.tainted;
-  for (const entry of workers.entries) {
+  for (const entry of uncompactedWorkerEntries(workers, main)) {
     for (const file of entry.files) {
       files.add(file);
     }
@@ -1504,6 +1524,21 @@ function isClaimedWorkerSnapshot(file: string): boolean {
 }
 
 /**
+ * The worker observations the main snapshot does not hold yet: every worker
+ * file except a claimed one it names as compacted, which a removal left
+ * behind.
+ */
+function uncompactedWorkerEntries(
+  workers: SnapshotDocuments,
+  main: SnapshotDocument | undefined,
+): SnapshotDocument[] {
+  const compacted = new Set(main?.compacted ?? []);
+  return workers.entries.filter(
+    (_entry, index) => !compacted.has(path.basename(workers.paths[index]!)),
+  );
+}
+
+/**
  * Read every worker snapshot file in `directory`. A file that disappears
  * mid-read was compacted (merged into the main snapshot first) and is skipped;
  * a file that exists but does not parse is reported in `corruptPaths` so
@@ -1593,10 +1628,12 @@ function parseSnapshotDocument(text: string): SnapshotDocument | undefined {
   const document = value as Record<string, unknown>;
   const keys = Object.keys(document).sort();
   const expectedKeys = ["files", "tainted", "trees", "version", "volatile"];
-  if (Object.prototype.hasOwnProperty.call(document, "id")) {
-    expectedKeys.push("id");
-    expectedKeys.sort();
+  for (const optional of ["compacted", "id"]) {
+    if (Object.prototype.hasOwnProperty.call(document, optional)) {
+      expectedKeys.push(optional);
+    }
   }
+  expectedKeys.sort();
   if (
     stableStringify(keys) !== stableStringify(expectedKeys) ||
     document.version !== SNAPSHOT_VERSION ||
@@ -1621,11 +1658,25 @@ function parseSnapshotDocument(text: string): SnapshotDocument | undefined {
     typeof document.tainted !== "boolean" ||
     typeof document.volatile !== "boolean" ||
     (document.id !== undefined &&
-      (typeof document.id !== "string" || !/^[a-f0-9]{32}$/.test(document.id)))
+      (typeof document.id !== "string" ||
+        !/^[a-f0-9]{32}$/.test(document.id))) ||
+    (document.compacted !== undefined &&
+      (!Array.isArray(document.compacted) ||
+        document.compacted.length === 0 ||
+        document.compacted.some(
+          (entry) =>
+            typeof entry !== "string" ||
+            path.basename(entry) !== entry ||
+            !isClaimedWorkerSnapshot(entry),
+        ) ||
+        new Set(document.compacted).size !== document.compacted.length))
   ) {
     return undefined;
   }
   return {
+    ...(Array.isArray(document.compacted)
+      ? { compacted: document.compacted as string[] }
+      : {}),
     files: document.files as string[],
     ...(typeof document.id === "string" ? { id: document.id } : {}),
     tainted: document.tainted,

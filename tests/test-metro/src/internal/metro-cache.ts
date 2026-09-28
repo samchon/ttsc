@@ -93,6 +93,23 @@ function listWorkerSnapshots(root: string): string[] {
     .map((name) => path.join(directory, name));
 }
 
+/**
+ * The worker snapshot the last run wrote: the one worker file no compaction has
+ * claimed. A claimed file a compaction merged but could not remove stays beside
+ * it on Windows, so the list's first entry is not the run's own.
+ */
+function runWorkerSnapshot(root: string): string {
+  const unclaimed = listWorkerSnapshots(root).filter(
+    (file) => !path.basename(file).startsWith("graph-inputs.worker-claimed-"),
+  );
+  assert.equal(
+    unclaimed.length,
+    1,
+    `one run's worker snapshot: ${JSON.stringify(listWorkerSnapshots(root))}`,
+  );
+  return unclaimed[0]!;
+}
+
 /** Union of the `files` arrays across every worker snapshot on disk. */
 function workerSnapshotFiles(root: string): string[] {
   const trees = new Set(workerSnapshotTrees(root));
@@ -682,6 +699,76 @@ export async function assertCacheKeyFoldsNonceWhileSnapshotVolatile(): Promise<v
 }
 
 /**
+ * Asserts a claimed worker file a compaction merged but could not remove is not
+ * merged again. On Windows a process holding the file, such as an antivirus
+ * scan of a file just written, makes its removal fail, and a tainted leftover
+ * rotated the snapshot epoch at every later compaction.
+ */
+export async function assertCompactionDoesNotMergeALeftoverClaimedFileAgain(): Promise<void> {
+  const root = createBareProject();
+  await prepareSnapshot(root);
+  fs.writeFileSync(
+    path.join(snapshotDirectory(root), "graph-inputs.worker-test.json"),
+    JSON.stringify({
+      files: [],
+      tainted: true,
+      trees: [],
+      version: 3,
+      volatile: false,
+    }),
+    "utf8",
+  );
+  // Removing a claimed file fails the way a held file fails on Windows.
+  const rmSync = fs.rmSync;
+  const replaceRmSync = (value: typeof fs.rmSync): void => {
+    Object.defineProperty(fs, "rmSync", {
+      configurable: true,
+      value,
+      writable: true,
+    });
+  };
+  replaceRmSync(((target: fs.PathLike, options?: fs.RmOptions) => {
+    if (
+      path.basename(String(target)).startsWith("graph-inputs.worker-claimed-")
+    ) {
+      throw Object.assign(new Error("EBUSY: resource busy or locked"), {
+        code: "EBUSY",
+      });
+    }
+    return rmSync(target, options);
+  }) as typeof fs.rmSync);
+  try {
+    await prepareSnapshot(root);
+  } finally {
+    replaceRmSync(rmSync);
+  }
+  const merged = readMainSnapshot(root).id;
+  assert.equal(
+    listWorkerSnapshots(root).length,
+    1,
+    "the claimed file stays where its removal failed",
+  );
+  const observed = (await TestMetroRuntime.loadFingerprint()).readSnapshotState(
+    root,
+  );
+  assert.ok(observed, "the main snapshot and leftover must remain readable");
+  assert.equal(observed.id, merged);
+  assert.equal(observed.tainted, false, "a reader must not replay the taint");
+
+  await prepareSnapshot(root);
+  assert.equal(
+    readMainSnapshot(root).id,
+    merged,
+    "a leftover the main snapshot already holds must not rotate the epoch again",
+  );
+  assert.deepEqual(
+    listWorkerSnapshots(root),
+    [],
+    "the next compaction removes the leftover",
+  );
+}
+
+/**
  * Asserts snapshot compaction: leftover worker files merge into the main
  * snapshot (files unioned, epoch id preserved — compaction is maintenance, not
  * an epoch change) and are deleted afterwards.
@@ -1096,7 +1183,7 @@ export async function assertTransformerRecordsImplicitDependencyGuards(): Promis
     "the plugin's Go source is recorded as a tree",
   );
   const firstWorker = JSON.parse(
-    fs.readFileSync(listWorkerSnapshots(root)[0]!, "utf8"),
+    fs.readFileSync(runWorkerSnapshot(root), "utf8"),
   );
   assert.equal(
     firstWorker.tainted,
@@ -1119,7 +1206,7 @@ export async function assertTransformerRecordsImplicitDependencyGuards(): Promis
     stableRunId,
   );
   assert.equal(
-    JSON.parse(fs.readFileSync(listWorkerSnapshots(root)[0]!, "utf8")).tainted,
+    JSON.parse(fs.readFileSync(runWorkerSnapshot(root), "utf8")).tainted,
     false,
     "a complete unchanged baseline must stabilize instead of disabling cache reuse",
   );
