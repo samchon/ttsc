@@ -88,7 +88,7 @@ export function prepareExecution(
       rootDir: context.runtimeRootDir,
     };
   } catch (error) {
-    removeRuntimeOutput(context.processDir);
+    removeRuntimeOutput(context.processDir, context.cacheDir);
     throw error;
   }
 }
@@ -247,19 +247,6 @@ function createProjectContext(
   // physical parent selected here.
   const cacheDir =
     createFilesystemPathIdentityContext().resolve(cacheDirSpelling).path;
-  // The `project` child can itself be a link. Pin its physical target before
-  // any build, descriptor, or cleanup uses a generation below it. The runtime
-  // lock also keeps default clean from removing it during this handoff.
-  const runsDir = withRuntimeDirectoryLock(cacheDir, () => {
-    const directory = path.join(
-      cacheDir,
-      SourceBuildCacheLayout.RUNTIME_PROJECT_DIRNAME,
-    );
-    fs.mkdirSync(directory, { recursive: true });
-    return fs.realpathSync.native(directory);
-  });
-  const processDir = path.join(runsDir, runtimeCacheKey);
-  const virtualRoot = path.join(processDir, "fs");
   // The lowered orphan sources outlive the run, so they live in the resolved
   // cache root beside every other persistent part of it, and a default root
   // collects them with the rest (samchon/ttsc#1562).
@@ -269,6 +256,29 @@ function createProjectContext(
       : path.dirname(cacheDir);
   if (defaultCache?.collected === true)
     SourceBuildCacheLayout.pruneCacheFiles(cacheRoot);
+  // The `project` child can itself be a link. Pin its physical target, sweep
+  // abandoned runs, and publish this run's owner in one locked transaction.
+  // Clean can never observe a newly selected but still unowned index.
+  const { processDir, virtualRoot, emitDir } = withRuntimeDirectoryLock(
+    cacheDir,
+    () => {
+      const directory = path.join(
+        cacheDir,
+        SourceBuildCacheLayout.RUNTIME_PROJECT_DIRNAME,
+      );
+      fs.mkdirSync(directory, { recursive: true });
+      const runsDir = fs.realpathSync.native(directory);
+      const processDir = path.join(runsDir, runtimeCacheKey);
+      const virtualRoot = path.join(processDir, "fs");
+      const emitDir = project.compilerOptions.outDir
+        ? virtualPath(virtualRoot, project.compilerOptions.outDir)
+        : virtualPath(virtualRoot, runtimeRootDir);
+      ProcessOwnedDirectory.sweep(runsDir);
+      fs.rmSync(processDir, { recursive: true, force: true });
+      ProcessOwnedDirectory.claim(processDir);
+      return { processDir, virtualRoot, emitDir };
+    },
+  );
   return {
     project,
     tsconfig,
@@ -282,9 +292,7 @@ function createProjectContext(
       SourceBuildCacheLayout.ORPHAN_CACHE_DIRNAME,
     ),
     virtualRoot,
-    emitDir: project.compilerOptions.outDir
-      ? virtualPath(virtualRoot, project.compilerOptions.outDir)
-      : virtualPath(virtualRoot, runtimeRootDir),
+    emitDir,
     // The source-tree root the emit mirrors (tsgo strips this prefix). Used to
     // map a source `.ts` back to its emitted `.js` when the runtime hooks serve
     // the built entry under its source URL.
@@ -402,14 +410,6 @@ function buildProject(
 ): void {
   if (context.built) return;
 
-  fs.mkdirSync(context.cacheDir, { recursive: true });
-  withRuntimeDirectoryLock(context.cacheDir, () => {
-    // Clean cannot observe the new directory between its creation and owner
-    // publication. The same transaction removes abandoned earlier runs.
-    ProcessOwnedDirectory.sweep(path.dirname(context.processDir));
-    fs.rmSync(context.processDir, { recursive: true, force: true });
-    ProcessOwnedDirectory.claim(context.processDir);
-  });
   fs.mkdirSync(path.dirname(context.emitDir), { recursive: true });
   const result = runBuild({
     binary: options.binary,
@@ -460,7 +460,7 @@ function buildProject(
     return;
   }
 
-  removeRuntimeOutput(context.processDir);
+  removeRuntimeOutput(context.processDir, context.cacheDir);
   const detail = [
     `ttsx: project check failed for ${context.tsconfig}`,
     result.stderr || result.stdout,
@@ -524,9 +524,12 @@ function defaultRuntimeCacheDir(
   return { collected: false, root: fallback, runtime: fallback };
 }
 
-function removeRuntimeOutput(directory: string): void {
+function removeRuntimeOutput(directory: string, runtimeCacheDir: string): void {
   try {
-    fs.rmSync(directory, { recursive: true, force: true });
+    withRuntimeDirectoryLock(runtimeCacheDir, () => {
+      ProcessOwnedDirectory.relinquish(directory);
+      fs.rmSync(directory, { recursive: true, force: true });
+    });
   } catch {
     // Best effort: cleanup must not hide the original preparation failure.
   }
