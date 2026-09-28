@@ -721,12 +721,13 @@ function runWatch(
     },
     onProjectInputs: (inputs: ITtscProjectInputSnapshot) => {
       debugWatchInputs(
-        `inputs ${JSON.stringify({
-          files: inputs.files.map((file) => watchMessagePath(cwd, file)),
-          globs: inputs.globs,
-          root: watchMessagePath(cwd, inputs.root),
-          topology: topology !== undefined,
-        })}`,
+        () =>
+          `inputs ${JSON.stringify({
+            files: inputs.files.map((file) => watchMessagePath(cwd, file)),
+            globs: inputs.globs,
+            root: watchMessagePath(cwd, inputs.root),
+            topology: topology !== undefined,
+          })}`,
       );
       topology?.setProjectInputs(inputs);
     },
@@ -845,22 +846,25 @@ function runWatch(
     },
     onInputChange: (change) => {
       debugWatchInputs(
-        `change ${change.kind}${change.invalidate === true ? " invalidate" : ""} ${
-          change.path === undefined
-            ? "(unnamed)"
-            : watchMessagePath(cwd, change.path)
-        }`,
+        () =>
+          `change ${change.kind}${change.invalidate === true ? " invalidate" : ""} ${
+            change.path === undefined
+              ? "(unnamed)"
+              : watchMessagePath(cwd, change.path)
+          }`,
       );
       trigger(change);
     },
     onHeard: (watcher, location, detail) => {
       debugWatchInputs(
-        `heard ${watcher} ${watchMessagePath(cwd, location)}${detail === undefined ? "" : ` ${detail}`}`,
+        () =>
+          `heard ${watcher} ${watchMessagePath(cwd, location)}${detail === undefined ? "" : ` ${detail}`}`,
       );
     },
     onProjectInputWatchRoots: (roots) => {
       debugWatchInputs(
-        `roots ${JSON.stringify(roots.map((root) => watchMessagePath(cwd, root)))}`,
+        () =>
+          `roots ${JSON.stringify(roots.map((root) => watchMessagePath(cwd, root)))}`,
       );
     },
     onTopologyChange: () => trigger(undefined, true),
@@ -913,11 +917,13 @@ function toExitCode(status: number): number {
  * so a missing rebuild can be attributed to inputs that never reached the
  * watch, to the watch that never saw the file, or to the decision that declined
  * to report it. Silent unless asked, and on the same ordered stream as the rest
- * of the watch output so it interleaves with the builds it explains.
+ * of the watch output so it interleaves with the builds it explains. The
+ * message is built only when asked, since a heard line comes with every watcher
+ * event.
  */
-function debugWatchInputs(message: string): void {
+function debugWatchInputs(message: () => string): void {
   if (!process.env.TTSC_WATCH_DEBUG_INPUTS) return;
-  process.stdout.write(`[ttsc:debug] ${message}\n`);
+  process.stdout.write(`[ttsc:debug] ${message()}\n`);
 }
 
 function formatError(error: unknown): string {
