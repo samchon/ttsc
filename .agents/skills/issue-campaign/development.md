@@ -61,13 +61,13 @@ Record each Individual Self-Review as one formal GitHub pull-request review with
 
 Each issue remains an evidence and acceptance unit inside the combined diff. Keep its positive, negative, boundary, and regression cases identifiable. Near-100% coverage of changed behavior is required; a green happy path is not completion.
 
-Follow the development skill for test shape and narrow-then-broad local evidence. Do not treat a local build or test result as a substitute for the pull request's ordinary CI acceptance gate. After the source, tests, documentation, fixtures, and generated consequences are ready, run `pnpm format` and include its integrated result in the same pull request.
+Follow the development skill for test shape and narrow-then-broad local evidence. Do not treat a local build or test result as a substitute for the pull request's ordinary CI acceptance gate. [Validation](#validate-with-ci-and-overall-self-review) owns the cycle's formatting pass.
 
 If implementation disproves, narrows, or externally blocks an issue, reopen the evidence and update the issue and campaign ledger before changing the claimed scope. Do not leave an orphan issue or pretend an unresolved accepted issue was completed.
 
 ## Validate With CI And Overall Self-Review
 
-After no ready issue remains and every Individual Self-Review is recorded, commit and push the formatted integrated snapshot, then let every ordinary pull-request check run. Start the Overall Self-Review immediately over that exact base-to-head diff while CI executes, and read the checks as the pull-request skill's [check procedure](../pull-request/SKILL.md#read-checks) requires.
+After no ready issue remains and every Individual Self-Review is recorded, commit and push the integrated snapshot, then let every ordinary pull-request check run. Start the Overall Self-Review immediately over that exact base-to-head diff while CI executes, and read the checks as the pull-request skill's [check procedure](../pull-request/SKILL.md#read-checks) requires.
 
 Submit every Overall Self-Review finding round and the final clean round as a formal GitHub pull-request review with the `COMMENT` event. Attach line-specific findings as inline review comments and summarize round-wide findings or the clean conclusion in the review body. Do not post ordinary issue-style pull-request comments for Self-Review.
 
@@ -83,12 +83,13 @@ When either gate produces defects, apply one correction for the whole set:
 1. Collect every finding of the complete Overall Self-Review round and every failed check of the settled head.
 2. Map the whole set through the development skill's [consequence analysis](../development/SKILL.md#consequence-analysis).
 3. Correct the source and complete the regression coverage for every case in the resulting case matrix.
-4. Run `pnpm format`.
-5. Commit and push the correction to the same pull request.
-6. Perform and record the Individual Self-Review of that correction commit.
-7. Restart Overall Self-Review as a fresh complete round over the new head while its CI runs.
+4. Commit and push the correction to the same pull request.
+5. Perform and record the Individual Self-Review of that correction commit.
+6. Restart Overall Self-Review as a fresh complete round over the new head while its CI runs.
 
 Fix every failed check in the same pull request even when the failure predates the campaign or is unrelated to the campaign's original issues. Do not dismiss it as another contributor's failure.
+
+After all known non-format implementation, CI, and review corrections, run `pnpm format` once for the final merge candidate. Commit and push its output, then collect every required check and complete a fresh Overall Self-Review on that head. If that validation finds another defect, correct it without a second `pnpm format` invocation and let CI's format check verify the correction.
 
 Do not merge a head whose green checks belong to an older SHA, whose clean Overall Self-Review predates a correction, or whose required Individual Self-Review result remains unrecorded. Continue the loop until the same immutable head has green required checks and a complete Overall Self-Review round with no sound improvement.
 

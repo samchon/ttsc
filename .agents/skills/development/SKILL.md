@@ -33,7 +33,7 @@ These four are never acceptable; choosing any one means the approach is already 
 - Plugin descriptors are JS; transform logic is Go. JS transform functions (e.g. `transformSource`, `transformOutput`) are not part of the public contract.
 - `shim.go` files marked `gen_shims:hand-maintained` are not regenerated.
 - When code behavior changes, update the matching page under `website/src/content/docs/` in the same change.
-- Run `pnpm format` before every ordinary commit and stage the result; never commit unformatted output. An issue campaign instead formats at the points its [development procedure](../issue-campaign/development.md) names, the integrated snapshot and each later correction, never each issue commit.
+- For a pull request, run `pnpm format` once on the complete change before the final CI-validated merge head is pushed, then commit its result in that pull request. Do not run it for individual commits or after each correction. If a later correction is necessary, keep it formatted by inspection and the CI format check without another formatter run. A task that does not include a pull request has no formatter invocation from this rule.
 
 ## Source Structure
 
