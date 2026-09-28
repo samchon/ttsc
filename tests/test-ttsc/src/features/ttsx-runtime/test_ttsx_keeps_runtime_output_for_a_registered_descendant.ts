@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { isolatedCacheEnvironment } from "../../internal/isolated-cache-environment";
 import {
   forceTerminate,
   isRunning,
@@ -77,6 +78,7 @@ export const test_ttsx_keeps_runtime_output_for_a_registered_descendant =
       {
         cwd: root,
         env: {
+          ...isolatedCacheEnvironment(root),
           WORKER_READY: ready,
           WORKER_RELEASE: release,
           WORKER_RESULT: result,
@@ -92,7 +94,7 @@ export const test_ttsx_keeps_runtime_output_for_a_registered_descendant =
       const clean = TestProject.spawn(
         TestProject.TTSC_BIN,
         ["clean", "--cwd", root],
-        { cwd: root },
+        { cwd: root, env: isolatedCacheEnvironment(root) },
       );
       assert.equal(clean.status, 0, clean.stderr);
       assert.equal(fs.readdirSync(runs).length, 1, clean.stdout);
@@ -107,7 +109,7 @@ export const test_ttsx_keeps_runtime_output_for_a_registered_descendant =
       const finished = TestProject.spawn(
         TestProject.TTSC_BIN,
         ["clean", "--cwd", root],
-        { cwd: root },
+        { cwd: root, env: isolatedCacheEnvironment(root) },
       );
       assert.equal(finished.status, 0, finished.stderr);
       assert.equal(fs.existsSync(path.dirname(runs)), false);

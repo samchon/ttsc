@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { TtscCompiler } from "../../../../../packages/ttsc/lib/index.js";
+import { isolatedCacheEnvironment } from "../../internal/isolated-cache-environment";
 import {
   WAITING_PROGRAM,
   forceTerminate,
@@ -46,6 +47,7 @@ export const test_ttsc_clean_removes_the_runtime_directories_no_run_owns =
       "src/waiting.ts": WAITING_PROGRAM,
     });
     const runs = runtimeRunsDirectory(root);
+    const env = isolatedCacheEnvironment(root);
     const running = await startWaitingRun(root, "src/waiting.ts");
     try {
       const killed = await startWaitingRun(root, "src/waiting.ts");
@@ -57,7 +59,7 @@ export const test_ttsc_clean_removes_the_runtime_directories_no_run_owns =
       const result = TestProject.spawn(
         TestProject.TTSC_BIN,
         ["clean", "--cwd", root],
-        { cwd: root },
+        { cwd: root, env },
       );
       assert.equal(result.status, 0, result.stderr);
       assert.equal(fs.existsSync(terminated), false, result.stdout);
@@ -82,7 +84,7 @@ export const test_ttsc_clean_removes_the_runtime_directories_no_run_owns =
         fs.realpathSync.native(runtime),
       ]);
       assert.ok(
-        new TtscCompiler({ cwd: root })
+        new TtscCompiler({ cwd: root, env })
           .clean()
           .some((removed) => spellings.has(removed)),
         "TtscCompiler.clean() did not report the runtime directory",

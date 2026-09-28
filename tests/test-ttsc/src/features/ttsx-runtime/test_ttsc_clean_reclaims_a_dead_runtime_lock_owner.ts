@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { isolatedCacheEnvironment } from "../../internal/isolated-cache-environment";
 import { runtimeRunsDirectory } from "../../internal/ttsx-run";
 
 /**
@@ -56,7 +57,7 @@ export const test_ttsc_clean_reclaims_a_dead_runtime_lock_owner = (): void => {
   const clean = TestProject.spawn(
     TestProject.TTSC_BIN,
     ["clean", "--cwd", root],
-    { cwd: root },
+    { cwd: root, env: isolatedCacheEnvironment(root) },
   );
   assert.equal(clean.status, 0, clean.stderr);
   assert.equal(fs.existsSync(runtime), false, clean.stdout);

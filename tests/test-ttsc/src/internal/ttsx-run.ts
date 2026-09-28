@@ -3,6 +3,8 @@ import child_process from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
+import { isolatedCacheEnvironment } from "./isolated-cache-environment";
+
 /** A ttsx run whose program is up and waiting. */
 export interface IWaitingRun {
   /** The launcher process. */
@@ -63,6 +65,7 @@ export function startWaitingRun(
         cwd: root,
         env: {
           ...process.env,
+          ...isolatedCacheEnvironment(root),
           TTSC_BINARY: TestProject.NATIVE_BINARY,
           TTSC_TSGO_BINARY: TestProject.TSGO_BINARY,
         },

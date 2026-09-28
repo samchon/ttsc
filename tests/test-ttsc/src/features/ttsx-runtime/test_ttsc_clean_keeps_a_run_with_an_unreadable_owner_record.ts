@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { isolatedCacheEnvironment } from "../../internal/isolated-cache-environment";
 import { runtimeRunsDirectory } from "../../internal/ttsx-run";
 
 /**
@@ -30,7 +31,7 @@ export const test_ttsc_clean_keeps_a_run_with_an_unreadable_owner_record =
     const result = TestProject.spawn(
       TestProject.TTSC_BIN,
       ["clean", "--cwd", root],
-      { cwd: root },
+      { cwd: root, env: isolatedCacheEnvironment(root) },
     );
     assert.equal(result.status, 0, result.stderr);
     assert.equal(fs.existsSync(directory), true, result.stdout);

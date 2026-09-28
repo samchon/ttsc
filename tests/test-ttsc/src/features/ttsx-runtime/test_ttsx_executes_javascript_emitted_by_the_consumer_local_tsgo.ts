@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { isolatedCacheEnvironment } from "../../internal/isolated-cache-environment";
 import {
   createFakeNativePreview,
   spawnWithoutTsgoOverride,
@@ -63,6 +64,7 @@ if (!noEmit) {
       ["src/index.ts"],
       {
         cwd: root,
+        env: isolatedCacheEnvironment(root),
       },
     );
 

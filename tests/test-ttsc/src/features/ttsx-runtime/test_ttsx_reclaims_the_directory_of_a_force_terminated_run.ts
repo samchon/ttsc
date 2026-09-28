@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { isolatedCacheEnvironment } from "../../internal/isolated-cache-environment";
 import {
   WAITING_PROGRAM,
   forceTerminate,
@@ -53,7 +54,7 @@ export const test_ttsx_reclaims_the_directory_of_a_force_terminated_run =
       const result = TestProject.spawn(
         TestProject.TTSX_BIN,
         ["--cwd", root, "src/done.ts"],
-        { cwd: root },
+        { cwd: root, env: isolatedCacheEnvironment(root) },
       );
       assert.equal(result.status, 0, result.stderr);
       assert.equal(result.stdout.trim(), "done");

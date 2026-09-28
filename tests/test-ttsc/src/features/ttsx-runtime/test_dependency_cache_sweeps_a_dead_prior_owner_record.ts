@@ -6,6 +6,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { isolatedCacheEnvironment } from "../../internal/isolated-cache-environment";
+
 /**
  * Verifies a manifest-less dependency cache still sweeps prior owner records.
  *
@@ -20,13 +22,15 @@ import path from "node:path";
  */
 export const test_dependency_cache_sweeps_a_dead_prior_owner_record =
   (): void => {
+    const root = TestProject.tmpdir("ttsx-legacy-owner-");
+    const env = isolatedCacheEnvironment(root);
     const exited = childProcess.spawnSync(process.execPath, ["-e", ""], {
       windowsHide: true,
     });
     assert.equal(exited.status, 0, exited.stderr?.toString());
     const departedPid = exited.pid;
     assert.ok(departedPid);
-    const parent = path.join(os.tmpdir(), "ttsx-dep");
+    const parent = path.join(env.TMPDIR!, "ttsx-dep");
     const nonce = crypto.randomBytes(8).toString("hex");
     const dead = path.join(parent, `process-${departedPid}-${nonce}`);
     const live = path.join(parent, `process-${process.pid}-${nonce}`);
@@ -52,10 +56,14 @@ export const test_dependency_cache_sweeps_a_dead_prior_owner_record =
       "dependencyCacheRoot.js",
     );
     try {
-      const sweep = TestProject.spawn(process.execPath, [
-        "-e",
-        `delete process.env.TTSX_RUNTIME_MANIFEST; require(${JSON.stringify(modulePath)}).dependencyCacheRoot({});`,
-      ]);
+      const sweep = TestProject.spawn(
+        process.execPath,
+        [
+          "-e",
+          `delete process.env.TTSX_RUNTIME_MANIFEST; require(${JSON.stringify(modulePath)}).dependencyCacheRoot({});`,
+        ],
+        { env },
+      );
       assert.equal(sweep.status, 0, sweep.stderr);
       assert.equal(fs.existsSync(dead), false, "the old dead root remained");
       assert.equal(fs.existsSync(live), true, "the old live root was removed");

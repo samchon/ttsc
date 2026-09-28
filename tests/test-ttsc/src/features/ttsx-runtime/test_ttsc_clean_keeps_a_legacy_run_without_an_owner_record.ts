@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { isolatedCacheEnvironment } from "../../internal/isolated-cache-environment";
 import { runtimeRunsDirectory } from "../../internal/ttsx-run";
 
 /**
@@ -29,21 +30,7 @@ export const test_ttsc_clean_keeps_a_legacy_run_without_an_owner_record =
     const directory = path.join(runs, "legacy");
     fs.mkdirSync(directory, { recursive: true });
     fs.writeFileSync(path.join(directory, "main.js"), "", "utf8");
-    // Default clean also removes old machine-global caches. Confine every such
-    // path to this case, so the no-cache assertion cannot depend on or remove
-    // a developer's global cache.
-    const home = path.join(root, "clean-process-home");
-    const temporary = path.join(home, "tmp");
-    fs.mkdirSync(temporary, { recursive: true });
-    const env = {
-      HOME: home,
-      USERPROFILE: home,
-      LOCALAPPDATA: path.join(home, "AppData", "Local"),
-      XDG_CACHE_HOME: path.join(home, "xdg"),
-      TMPDIR: temporary,
-      TEMP: temporary,
-      TMP: temporary,
-    };
+    const env = isolatedCacheEnvironment(root);
 
     const ordinary = TestProject.spawn(
       TestProject.TTSC_BIN,

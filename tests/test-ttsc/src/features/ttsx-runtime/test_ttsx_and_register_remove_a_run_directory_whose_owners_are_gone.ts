@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { isolatedCacheEnvironment } from "../../internal/isolated-cache-environment";
 import { runtimeRunsDirectory } from "../../internal/ttsx-run";
 
 /**
@@ -41,6 +42,7 @@ export const test_ttsx_and_register_remove_a_run_directory_whose_owners_are_gone
       "src/main.ts": 'const message: string = "ran";\nconsole.log(message);\n',
     });
     const runs = runtimeRunsDirectory(root);
+    const env = isolatedCacheEnvironment(root);
     const plant = (name: string): string => {
       const directory = path.join(runs, name);
       const pid = endedProcessId();
@@ -58,7 +60,7 @@ export const test_ttsx_and_register_remove_a_run_directory_whose_owners_are_gone
     const ttsx = TestProject.spawn(
       TestProject.TTSX_BIN,
       ["--cwd", root, "src/main.ts"],
-      { cwd: root },
+      { cwd: root, env },
     );
     assert.equal(ttsx.status, 0, ttsx.stderr);
     assert.equal(ttsx.stdout.trim(), "ran");
@@ -84,7 +86,7 @@ export const test_ttsx_and_register_remove_a_run_directory_whose_owners_are_gone
         ).href,
         "src/main.ts",
       ],
-      { cwd: root },
+      { cwd: root, env },
     );
     assert.equal(register.status, 0, register.stderr);
     assert.equal(register.stdout.trim(), "ran");

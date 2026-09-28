@@ -1,3 +1,4 @@
+import { isolatedCacheEnvironment } from "../../internal/isolated-cache-environment";
 import {
   assert,
   createProject,
@@ -34,7 +35,10 @@ export const test_ttsc_relates_output_paths_through_a_windows_short_cwd =
     if (short.toLowerCase() === long.toLowerCase()) return;
     fs.mkdirSync(path.join(root, "node_modules", ".ttsc"), { recursive: true });
 
-    const clean = spawn(ttscBin, ["clean", "--cwd", short], { cwd: short });
+    const clean = spawn(ttscBin, ["clean", "--cwd", short], {
+      cwd: short,
+      env: isolatedCacheEnvironment(root),
+    });
     assert.equal(clean.status, 0, clean.stderr);
     assert.ok(
       clean.stdout

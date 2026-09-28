@@ -1,5 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 
+import { isolatedCacheEnvironment } from "../../internal/isolated-cache-environment";
 import {
   assert,
   createProject,
@@ -46,7 +47,10 @@ export const test_ttsc_names_paths_relative_to_a_linked_cwd =
     const link = path.join(TestProject.tmpdir("ttsc-linked-cwd-"), "project");
     fs.symlinkSync(root, link, "junction");
 
-    const clean = spawn(ttscBin, ["clean", "--cwd", link], { cwd: link });
+    const clean = spawn(ttscBin, ["clean", "--cwd", link], {
+      cwd: link,
+      env: isolatedCacheEnvironment(root),
+    });
     assert.equal(clean.status, 0, clean.stderr);
     assert.ok(
       clean.stdout
