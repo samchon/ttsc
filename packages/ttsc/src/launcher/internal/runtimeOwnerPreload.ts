@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { SourceBuildCacheLayout } from "../../plugin/internal/source/SourceBuildCacheLayout";
 import { ProcessOwnedDirectory } from "./runtime/ProcessOwnedDirectory";
 import { withRuntimeDirectoryLock } from "./runtime/withRuntimeDirectoryLock";
 
@@ -17,6 +16,8 @@ import { withRuntimeDirectoryLock } from "./runtime/withRuntimeDirectoryLock";
  */
 const directory = process.env.TTSX_RUNTIME_RUN_DIR;
 const manifest = process.env.TTSX_RUNTIME_MANIFEST;
+const runtime = process.env.TTSX_RUNTIME_CACHE_DIR;
+const runs = process.env.TTSX_RUNTIME_RUNS_DIR;
 if (
   directory !== undefined &&
   manifest !== undefined &&
@@ -24,12 +25,14 @@ if (
 ) {
   if (
     !path.isAbsolute(directory) ||
-    path.basename(path.dirname(directory)) !==
-      SourceBuildCacheLayout.RUNTIME_PROJECT_DIRNAME
+    runtime === undefined ||
+    !path.isAbsolute(runtime) ||
+    runs === undefined ||
+    !path.isAbsolute(runs) ||
+    path.dirname(directory) !== runs
   ) {
     throw new Error(`ttsx: invalid runtime run directory: ${directory}`);
   }
-  const runtime = path.dirname(path.dirname(directory));
   withRuntimeDirectoryLock(runtime, () => {
     const entry = fs.lstatSync(directory);
     if (!entry.isDirectory() || entry.isSymbolicLink()) {

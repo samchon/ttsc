@@ -118,7 +118,7 @@ async function run(
   if (signals.received !== undefined) {
     // The signal arrived while the project was prepared. Preparation has
     // finished cleaning up its own files; the runtime output goes now.
-    removeRuntimeOutput(prepared.cleanupDir);
+    removeRuntimeOutput(prepared.cleanupDir, prepared.runtimeCacheDir);
     signals.raiseReceived();
   }
   return runPreparedEntry(parsed, prepared, cwd, entry, signals);
@@ -449,7 +449,7 @@ async function runPreparedEntry(
   const cleanup = (): void => {
     if (cleaned) return;
     cleaned = true;
-    removeRuntimeOutput(execution.cleanupDir);
+    removeRuntimeOutput(execution.cleanupDir, execution.runtimeCacheDir);
   };
   try {
     const depCacheDir = path.join(execution.cleanupDir, "deps");
@@ -502,7 +502,9 @@ async function runPreparedEntry(
       // `TTSC_TSGO_BINARY` when no `--binary` was given.
       TTSC_TSGO_BINARY: tsgo,
       TTSX_RUNTIME_MANIFEST: manifestPath,
+      TTSX_RUNTIME_CACHE_DIR: execution.runtimeCacheDir,
       TTSX_RUNTIME_RUN_DIR: execution.cleanupDir,
+      TTSX_RUNTIME_RUNS_DIR: execution.runtimeRunsDir,
     };
     return await runProgram(args, runtimeEnv, cwd, signals, {
       afterExit: cleanup,
@@ -657,9 +659,9 @@ const TERMINATION_SIGNALS: readonly NodeJS.Signals[] =
     ? ["SIGINT", "SIGBREAK"]
     : ["SIGINT", "SIGTERM", "SIGHUP"];
 
-function removeRuntimeOutput(directory: string): void {
+function removeRuntimeOutput(directory: string, runtimeCacheDir: string): void {
   try {
-    withRuntimeDirectoryLock(path.dirname(path.dirname(directory)), () => {
+    withRuntimeDirectoryLock(runtimeCacheDir, () => {
       ProcessOwnedDirectory.relinquish(directory);
       const ownership = ProcessOwnedDirectory.ownership(directory);
       if (ownership === "abandoned" || ownership === "unowned") {

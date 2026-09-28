@@ -103,14 +103,18 @@ export namespace ProcessOwnedDirectory {
     legacyProcessRoot = false,
   ): void {
     let entries: string[];
+    let physicalParent: string;
     try {
-      entries = fs.readdirSync(parent);
+      // Pin a linked parent before reading any owner. A retarget between the
+      // listing and rmSync must not select a different same-named entry.
+      physicalParent = fs.realpathSync.native(parent);
+      entries = fs.readdirSync(physicalParent);
     } catch {
       return;
     }
     for (const entry of entries) {
       if (!accepts(entry)) continue;
-      const directory = path.join(parent, entry);
+      const directory = path.join(physicalParent, entry);
       if (ownership(directory, legacyProcessRoot) !== "abandoned") continue;
       try {
         fs.rmSync(directory, { force: true, recursive: true });

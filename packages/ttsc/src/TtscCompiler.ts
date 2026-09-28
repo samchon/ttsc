@@ -8,6 +8,7 @@ import { resolveBinary } from "./compiler/internal/resolveBinary";
 import { transformProjectInMemory } from "./compiler/internal/transformProjectInMemory";
 import { transformProjectInWorker } from "./compiler/internal/transformProjectInWorker";
 import { type SafeCacheCleanupTarget } from "./internal/SafeCacheCleanupTarget";
+import { cacheEntryExists } from "./internal/cacheEntryExists";
 import { resolveSafeCacheCleanupTargets } from "./internal/resolveSafeCacheCleanupTargets";
 import { resolveRuntimeCleanTargets } from "./launcher/internal/runtime/resolveRuntimeCleanTargets";
 import { withRuntimeDirectoryLock } from "./launcher/internal/runtime/withRuntimeDirectoryLock";
@@ -126,7 +127,7 @@ export class TtscCompiler {
         ).root,
         SourceBuildCacheLayout.RUNTIME_CACHE_DIRNAME,
       );
-      if (fs.existsSync(runtimeRoot)) {
+      if (cacheEntryExists(runtimeRoot)) {
         return withRuntimeDirectoryLock(runtimeRoot, () =>
           this.cleanResolved(
             projectRoot,
@@ -342,7 +343,7 @@ function removeExistingDirectories(
   for (const directory of directories) {
     if (visited.has(directory.path)) continue;
     visited.add(directory.path);
-    if (!directory.exists || !fs.existsSync(directory.path)) {
+    if (!directory.exists || !cacheEntryExists(directory.path)) {
       continue;
     }
     fs.rmSync(directory.path, { recursive: true, force: true });

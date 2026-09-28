@@ -35,8 +35,12 @@ export function resolveRuntimeCleanTargets(cacheRoot: string): {
     SourceBuildCacheLayout.RUNTIME_PROJECT_DIRNAME,
   );
   let entries: string[];
+  let physicalRuns: string;
   try {
-    entries = fs.readdirSync(runs);
+    // The run index can be reached through a junction. Inspect and remove its
+    // entries under one physical spelling even if the link moves later.
+    physicalRuns = fs.realpathSync.native(runs);
+    entries = fs.readdirSync(physicalRuns);
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
     if (code === "ENOENT" || code === "ENOTDIR") {
@@ -47,13 +51,16 @@ export function resolveRuntimeCleanTargets(cacheRoot: string): {
   const kept: string[] = [];
   const removable: string[] = [];
   for (const entry of entries) {
-    const directory = path.join(runs, entry);
+    const directory = path.join(physicalRuns, entry);
     const ownership = ProcessOwnedDirectory.ownership(directory);
     if (ownership !== "abandoned") kept.push(directory);
     else removable.push(directory);
   }
   return {
     kept,
-    targets: kept.length === 0 ? [runtime] : removable,
+    // Remove pinned external run targets before removing a runtime link. A
+    // whole-tree removal alone would only unlink the index and strand those
+    // abandoned generations in its old physical target.
+    targets: kept.length === 0 ? [...removable, runtime] : removable,
   };
 }

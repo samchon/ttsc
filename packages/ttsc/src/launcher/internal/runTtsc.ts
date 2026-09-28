@@ -12,6 +12,7 @@ import { getNumber } from "../../flags/getNumber";
 import { getString } from "../../flags/getString";
 import { parseFlags } from "../../flags/parseFlags";
 import { resolveFlagSpec } from "../../flags/resolveFlagSpec";
+import { cacheEntryExists } from "../../internal/cacheEntryExists";
 import { resolvePhysicalPath } from "../../internal/pathIdentity/resolvePhysicalPath";
 import { resolveSafeCacheCleanupTargets } from "../../internal/resolveSafeCacheCleanupTargets";
 import { SourceBuildCacheLayout } from "../../plugin/internal/source/SourceBuildCacheLayout";
@@ -212,7 +213,7 @@ function runClean(argv: readonly string[]): number {
     resolveSourceBuildCachePaths(projectRoot).root,
     SourceBuildCacheLayout.RUNTIME_CACHE_DIRNAME,
   );
-  return fs.existsSync(runtimeRoot)
+  return cacheEntryExists(runtimeRoot)
     ? withRuntimeDirectoryLock(runtimeRoot, () =>
         runCleanWithContext(cwd, projectRoot, undefined, true),
       )
@@ -261,7 +262,7 @@ function runCleanWithContext(
   for (const target of safeTargets) {
     if (visited.has(target.path)) continue;
     visited.add(target.path);
-    if (!target.exists || !fs.existsSync(target.path)) continue;
+    if (!target.exists || !cacheEntryExists(target.path)) continue;
     fs.rmSync(target.path, { recursive: true, force: true });
     removed.push(target.requestedPath);
   }

@@ -47,7 +47,9 @@ export const test_runtime_owner_preload_claims_before_program_and_rejects_a_miss
         env: {
           NODE_OPTIONS: "",
           TTSX_RUNTIME_MANIFEST: inheritedManifest,
+          TTSX_RUNTIME_CACHE_DIR: path.dirname(path.dirname(run)),
           TTSX_RUNTIME_RUN_DIR: run,
+          TTSX_RUNTIME_RUNS_DIR: path.dirname(run),
         },
       });
 

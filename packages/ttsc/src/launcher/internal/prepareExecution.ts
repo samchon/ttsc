@@ -34,6 +34,10 @@ export function prepareExecution(
   cleanupDir: string;
   emitDir: string;
   entryFile: string;
+  /** Physical runtime cache root whose lock serializes this run and clean. */
+  runtimeCacheDir: string;
+  /** Physical directory holding the run, even when `project` is a link. */
+  runtimeRunsDir: string;
   /** The build's record of its outputs, relative to `emitDir`. */
   outputs: readonly string[];
   entrySource: string;
@@ -74,6 +78,8 @@ export function prepareExecution(
       cleanupDir: context.processDir,
       emitDir: context.emitDir,
       entryFile: emittedEntry,
+      runtimeCacheDir: context.cacheDir,
+      runtimeRunsDir: path.dirname(context.processDir),
       entrySource: entry,
       outputs: context.outputs,
       moduleOptions: context.moduleOptions,
@@ -241,11 +247,18 @@ function createProjectContext(
   // physical parent selected here.
   const cacheDir =
     createFilesystemPathIdentityContext().resolve(cacheDirSpelling).path;
-  const processDir = path.join(
-    cacheDir,
-    SourceBuildCacheLayout.RUNTIME_PROJECT_DIRNAME,
-    runtimeCacheKey,
-  );
+  // The `project` child can itself be a link. Pin its physical target before
+  // any build, descriptor, or cleanup uses a generation below it. The runtime
+  // lock also keeps default clean from removing it during this handoff.
+  const runsDir = withRuntimeDirectoryLock(cacheDir, () => {
+    const directory = path.join(
+      cacheDir,
+      SourceBuildCacheLayout.RUNTIME_PROJECT_DIRNAME,
+    );
+    fs.mkdirSync(directory, { recursive: true });
+    return fs.realpathSync.native(directory);
+  });
+  const processDir = path.join(runsDir, runtimeCacheKey);
   const virtualRoot = path.join(processDir, "fs");
   // The lowered orphan sources outlive the run, so they live in the resolved
   // cache root beside every other persistent part of it, and a default root
