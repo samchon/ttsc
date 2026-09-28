@@ -6,9 +6,10 @@ import { planCompilerDirectoryWatchEvent } from "../../../../../packages/ttsc/li
 /**
  * Verifies compiler directory events map deterministically to watch actions.
  *
- * Ordinary POSIX changes stay with the file watcher, named replacements rearm
- * one file, and filename-less events conservatively cover every surviving
- * tracked input on both POSIX and Windows.
+ * A named POSIX change is a candidate for the bytes to decide, since the file's
+ * own watcher can miss it (samchon/ttsc#1583), named replacements rearm one
+ * file, and filename-less events conservatively cover every surviving tracked
+ * input on both POSIX and Windows.
  */
 export const test_compiler_directory_watch_event_planning_is_backend_complete =
   (): void => {
@@ -31,7 +32,7 @@ export const test_compiler_directory_watch_event_planning_is_backend_complete =
         platform: "linux",
         trackedFiles,
       }),
-      { changes: [], rearm: [], refresh: false },
+      { changes: [source], rearm: [], refresh: false },
     );
     assert.deepEqual(
       planCompilerDirectoryWatchEvent({

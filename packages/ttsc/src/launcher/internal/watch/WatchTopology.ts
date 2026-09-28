@@ -647,6 +647,12 @@ export class WatchTopology {
     if (changed !== undefined && event !== "rename") {
       return changes.filter((file) => {
         const key = WatchPaths.pathKey(file);
+        // A file with a watcher of its own hears the same edit through two
+        // watchers, either of which can miss it (samchon/ttsc#1583). Both
+        // decide from the bytes, so the first to see the edit reports it and
+        // the other finds it recorded.
+        if (this.fileWatchers.has(key))
+          return this.compilerFileMovement(file).content;
         const acknowledged = this.compilerFileAcknowledgements.get(key);
         this.compilerFileAcknowledgements.delete(key);
         this.recordCompilerFileSnapshot(file);

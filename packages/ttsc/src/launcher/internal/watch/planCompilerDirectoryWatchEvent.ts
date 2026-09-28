@@ -6,10 +6,14 @@ import { WatchPaths } from "./WatchPaths";
 /**
  * Plan one compiler-directory event without relying on backend timing.
  *
- * POSIX file watchers own ordinary content changes. A named rename re-arms the
- * replaced file; an unnamed event conservatively re-arms and reports every
- * surviving tracked input below the watch root. Windows has no per-file
- * watchers here, so both named and unnamed directory events report inputs.
+ * A named content change of a tracked file is a candidate on every platform. On
+ * POSIX the file has a watcher of its own too, and either can miss what the
+ * other hears: on macOS a directory watch has heard a config edit its file
+ * watch never delivered (samchon/ttsc#1583). Both are decided from the bytes
+ * (`WatchTopology.compilerChangesToReport`), so the first to see the edit
+ * reports it once. A named rename re-arms the replaced file; an unnamed event
+ * conservatively re-arms and reports every surviving tracked input below the
+ * watch root. Windows has no per-file watchers here.
  */
 export function planCompilerDirectoryWatchEvent(input: {
   changed?: string;
@@ -47,5 +51,5 @@ export function planCompilerDirectoryWatchEvent(input: {
   if (input.event === "rename") {
     return { changes: candidates, rearm: candidates, refresh: false };
   }
-  return { changes: [], rearm: [], refresh: false };
+  return { changes: candidates, rearm: [], refresh: false };
 }
