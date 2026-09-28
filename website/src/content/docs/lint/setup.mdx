@@ -37,6 +37,8 @@ Rules with options use an ESLint-style tuple such as `["error", { "allowElseIf":
 
 To exclude generated files from linting entirely, add a top-level `ignores` list (e.g. `ignores: [".next/**/*.ts", "next-env.d.ts"]`). Without a `files` filter it is a global ignore: the matched paths are skipped by every rule, including rules inherited through `extends`.
 
+On a case-insensitive volume, `files` and `ignores` globs also match the spelling the directory tree stores when the Program reaches a file through an import with different letter case.
+
 Check, fix, format, and editor sessions relate project-local files to the directory where the TypeScript Program was opened (`--cwd` when supplied). Reaching that directory through a linked shell `PWD` does not change whether a Program file belongs to the project.
 
 The `format` block configures the formatter, keys mirror `.prettierrc`. Presence of the block (even empty `format: {}`) enables `ttsc format` at Prettier defaults. It does not make `ttsc check` fail on formatting unless you set `format.severity`.

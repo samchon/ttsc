@@ -5099,8 +5099,9 @@ func sortedRuleNames(config RuleConfig, include func(Severity) bool) []string {
 // with "..").
 func matchAnyPattern(baseDir string, patterns []string, fileName string) bool {
   rel := filepath.ToSlash(fileName)
+  base := ""
   if baseDir != "" {
-    base := baseDir
+    base = baseDir
     if abs, err := filepath.Abs(base); err == nil {
       base = abs
     }
@@ -5115,15 +5116,114 @@ func matchAnyPattern(baseDir string, patterns []string, fileName string) bool {
         return false
       }
       rel = filepath.ToSlash(candidate)
+    } else {
+      base = ""
     }
   }
   rel = strings.TrimPrefix(rel, "./")
+  if matchAnyGlob(patterns, rel) {
+    return true
+  }
+  if base == "" {
+    return false
+  }
+  // Most glob misses cannot become matches by changing only case. Rule
+  // overrides test every file, so avoid a directory walk for those misses.
+  // Character classes, escapes, and Unicode use the full on-disk decision:
+  // lowercasing a class range can change which punctuation it admits.
+  if !mayMatchStoredCase(patterns, rel) {
+    return false
+  }
+  stored := storedRelativeSpelling(base, rel)
+  return stored != rel && matchAnyGlob(patterns, stored)
+}
+
+func matchAnyGlob(patterns []string, rel string) bool {
   for _, pattern := range patterns {
     if matchGlob(normalizeGlobPattern(pattern), rel) {
       return true
     }
   }
   return false
+}
+
+// mayMatchStoredCase is only a negative filter. A simple ASCII glob that
+// cannot match rel even without case has no stored-case match to discover.
+// Anything whose case folding or glob grammar needs more than ASCII is read
+// from the tree instead of risking a false negative.
+func mayMatchStoredCase(patterns []string, rel string) bool {
+  if !isASCII(rel) {
+    return true
+  }
+  folded := strings.ToLower(rel)
+  for _, pattern := range patterns {
+    if !isASCII(pattern) || strings.ContainsAny(pattern, "[]\\") {
+      return true
+    }
+    if matchGlob(strings.ToLower(normalizeGlobPattern(pattern)), folded) {
+      return true
+    }
+  }
+  return false
+}
+
+func isASCII(value string) bool {
+  for index := 0; index < len(value); index++ {
+    if value[index] >= 0x80 {
+      return false
+    }
+  }
+  return true
+}
+
+// storedRelativeSpelling returns `rel`, a slash-separated path below `base`,
+// spelled the way each directory stores its names. A Program can name a file
+// the way an import spelled it, and on a volume that ignores case (macOS's
+// default) `SRC/DIRECTORY/index.ts` reaches `src/directory/index.ts` while
+// `filepath.EvalSymlinks` keeps the import's spelling, so a glob written
+// against the tree missed it (samchon/ttsc#1589). Each component its parent
+// does not list exactly is replaced by the one entry equal to it ignoring
+// case; a path that does not exist, or a component with no single such entry,
+// keeps the given spelling.
+func storedRelativeSpelling(base, rel string) string {
+  if _, err := os.Stat(filepath.Join(base, filepath.FromSlash(rel))); err != nil {
+    return rel
+  }
+  current := base
+  components := strings.Split(rel, "/")
+  for index, component := range components {
+    if component == "" || component == "." {
+      continue
+    }
+    components[index] = storedEntryName(current, component)
+    current = filepath.Join(current, components[index])
+  }
+  return strings.Join(components, "/")
+}
+
+// storedEntryName is the name `directory` stores for `name`: `name` itself when
+// the directory lists it, else its single entry equal to it ignoring case.
+func storedEntryName(directory, name string) string {
+  entries, err := os.ReadDir(directory)
+  if err != nil {
+    return name
+  }
+  match := ""
+  for _, entry := range entries {
+    if entry.Name() == name {
+      return name
+    }
+    if strings.EqualFold(entry.Name(), name) {
+      if match != "" {
+        return name
+      }
+      match = entry.Name()
+    }
+  }
+  if match == "" {
+    return name
+  }
+  return match
 }
 
 // normalizeGlobPattern normalizes a user-supplied glob pattern to forward
