@@ -1,5 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 import child_process from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 
 /** A ttsx run whose program is up and waiting. */
@@ -28,6 +29,22 @@ export const WAITING_PROGRAM = [
 /** The directory holding one directory per run under a project's default cache. */
 export function runtimeRunsDirectory(root: string): string {
   return path.join(root, "node_modules", ".cache", "ttsc", "ttsx", "project");
+}
+
+/**
+ * The directory of the run whose launcher is `pid` under `runs`. A run names
+ * its directory by its pid followed by a nonce, so it is found by that prefix;
+ * the path of an absent directory names the pid alone.
+ */
+export function runDirectory(runs: string, pid: number): string {
+  let names: string[];
+  try {
+    names = fs.readdirSync(runs);
+  } catch {
+    names = [];
+  }
+  const name = names.find((entry) => entry.startsWith(`${pid}-`));
+  return path.join(runs, name ?? String(pid));
 }
 
 /**

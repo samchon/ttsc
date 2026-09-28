@@ -4,6 +4,7 @@ import path from "node:path";
 import { prepareExecution } from "./launcher/internal/prepareExecution";
 import { type RuntimeManifest } from "./launcher/internal/runtime/RuntimeManifest";
 import { installRuntimeHooks } from "./launcher/internal/runtime/installRuntimeHooks";
+import { runtimeRunKey } from "./launcher/internal/runtime/runtimeRunKey";
 
 const cleanupDirectories = new Set<string>();
 let runtimeSequence = 0;
@@ -14,7 +15,7 @@ let runtimeSequence = 0;
  */
 function prepareEntry(filename: string): RuntimeManifest {
   const execution = prepareExecution(filename, {
-    runtimeCacheKey: `register-${process.pid}-${++runtimeSequence}`,
+    runtimeCacheKey: `register-${runtimeRunKey()}-${++runtimeSequence}`,
   });
   cleanupDirectories.add(execution.cleanupDir);
   return {

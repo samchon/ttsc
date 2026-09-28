@@ -16,6 +16,7 @@ import { buildSingleRootProject } from "./buildSingleRootProject";
 import { linkVirtualEntry } from "./linkVirtualEntry";
 import { type OwningModuleOptions } from "./runtime/OwningModuleOptions";
 import { ProcessOwnedDirectory } from "./runtime/ProcessOwnedDirectory";
+import { runtimeRunKey } from "./runtime/runtimeRunKey";
 import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
 import { runtimeEmitProfile } from "./runtimeEmitProfile";
 
@@ -185,12 +186,13 @@ function resolveEntrySpelling(cwd: string, entryFile: string): string {
 }
 
 /**
- * Directory-safe identity for one prepared runtime. Direct `ttsx` retains its
- * historical PID directory; the public preload supplies a distinct key for
- * every late TypeScript root so one preparation cannot erase another's emit.
+ * Directory-safe identity for one prepared runtime. Direct `ttsx` names its
+ * directory by this process's run key (`runtimeRunKey`); the public preload
+ * supplies a distinct key for every late TypeScript root so one preparation
+ * cannot erase another's emit.
  */
 function resolveRuntimeCacheKey(runtimeCacheKey: string | undefined): string {
-  const key = runtimeCacheKey ?? String(process.pid);
+  const key = runtimeCacheKey ?? runtimeRunKey();
   if (!/^[A-Za-z0-9._-]+$/.test(key) || key === "." || key === "..") {
     throw new Error(`ttsx: invalid runtime cache key ${JSON.stringify(key)}`);
   }

@@ -7,6 +7,7 @@ import { TtscCompiler } from "../../../../../packages/ttsc/lib/index.js";
 import {
   WAITING_PROGRAM,
   forceTerminate,
+  runDirectory,
   runtimeRunsDirectory,
   startWaitingRun,
 } from "../../internal/ttsx-run";
@@ -55,8 +56,8 @@ export const test_ttsc_clean_removes_the_runtime_directories_no_run_owns =
       fs.mkdirSync(path.join(unrecorded, "fs"), { recursive: true });
       fs.writeFileSync(path.join(unrecorded, "fs", "main.js"), "", "utf8");
 
-      const kept = path.join(runs, String(running.launcher.pid));
-      const terminated = path.join(runs, String(killed.launcher.pid));
+      const kept = runDirectory(runs, running.launcher.pid!);
+      const terminated = runDirectory(runs, killed.launcher.pid!);
       assert.equal(fs.existsSync(terminated), true, killed.output());
       const result = TestProject.spawn(
         TestProject.TTSC_BIN,

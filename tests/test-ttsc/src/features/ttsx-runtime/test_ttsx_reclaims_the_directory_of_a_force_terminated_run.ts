@@ -7,6 +7,7 @@ import {
   WAITING_PROGRAM,
   forceTerminate,
   isRunning,
+  runDirectory,
   runtimeRunsDirectory,
   startWaitingRun,
 } from "../../internal/ttsx-run";
@@ -61,7 +62,7 @@ export const test_ttsx_reclaims_the_directory_of_a_force_terminated_run =
     const killed = await startWaitingRun(root, "src/waiting.ts");
     try {
       await forceTerminate(killed.launcher.pid!);
-      const directory = path.join(runs, String(killed.launcher.pid));
+      const directory = runDirectory(runs, killed.launcher.pid!);
       assert.equal(fs.existsSync(directory), true, killed.output());
 
       runToCompletion();

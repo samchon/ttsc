@@ -62,7 +62,7 @@ TTSC_CACHE_DIR=/tmp/ttsc-cache npx ttsc --emit
 TTSC_GO_CACHE_DIR=/tmp/ttsc-go-build npx ttsc --emit
 ```
 
-`--cache-dir` and `TTSC_CACHE_DIR` set the cache root for source-plugin binaries. A relative `--cache-dir` resolves from the effective ttsc working directory (`--cwd` when set); a relative `TTSC_CACHE_DIR` resolves from the project root; both store plugin binaries below `<root>/plugins`. The Go object cache used while building source plugins defaults to `<root>/go-build`; `TTSC_GO_CACHE_DIR` overrides that path, and an existing user `GOCACHE` is honored (and never treated as ttsc-owned) when `TTSC_GO_CACHE_DIR` is unset. For `ttsx`, only an explicit `--cache-dir` also anchors temporary runtime output below `<cache-dir>/project/<pid>`.
+`--cache-dir` and `TTSC_CACHE_DIR` set the cache root for source-plugin binaries. A relative `--cache-dir` resolves from the effective ttsc working directory (`--cwd` when set); a relative `TTSC_CACHE_DIR` resolves from the project root; both store plugin binaries below `<root>/plugins`. The Go object cache used while building source plugins defaults to `<root>/go-build`; `TTSC_GO_CACHE_DIR` overrides that path, and an existing user `GOCACHE` is honored (and never treated as ttsc-owned) when `TTSC_GO_CACHE_DIR` is unset. For `ttsx`, only an explicit `--cache-dir` also anchors temporary runtime output below `<cache-dir>/project/<pid>-<nonce>`, one directory per run.
 
 `ttsc cache paths --json` prints the active cache root, plugin binary cache root, Go build cache root, and `cacheableRoots`. Use that command in CI when the workflow wants to persist the right directories without hardcoding paths.
 
