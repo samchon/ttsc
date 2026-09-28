@@ -562,19 +562,29 @@ export class WatchTopology {
   }
 
   /**
-   * Reconcile a missing compiler member before reporting its stale file-watch
-   * notification. A project-input JSON can leave the Program and its project
-   * population in the same deletion. The membership refresh hands that one
-   * transition to the project lane, so a later recursive-watch event observes
-   * the acknowledged population instead of scheduling a second build.
+   * Let a selected project input consume its compiler content notification.
+   * Both lanes watch a resolveJsonModule file, but its project fingerprint
+   * decides the resident update once whichever backend hears the edit first. A
+   * missing compiler member instead reconciles Program membership before a
+   * stale file-watch notification can schedule a second build.
    */
   private reportCompilerFileChange(location: string): void {
-    if (
-      this.classifyCompilerInput(location) === "compiler" &&
-      !fs.existsSync(location)
-    ) {
-      this.refreshFromDirectory(path.dirname(location), location);
-      if (!this.files.has(WatchPaths.pathKey(location))) return;
+    if (this.classifyCompilerInput(location) === "compiler") {
+      if (fs.existsSync(location)) {
+        if (this.projectInputMatches.size !== 0) {
+          const key = createProjectInputPathIdentityContext({
+            throwOnRealpathError: false,
+          }).resolve(location).key;
+          if (
+            this.projectInputMatches.has(key) &&
+            this.refreshProjectInputs(path.dirname(location), location)
+          )
+            return;
+        }
+      } else {
+        this.refreshFromDirectory(path.dirname(location), location);
+        if (!this.files.has(WatchPaths.pathKey(location))) return;
+      }
     }
     this.callbacks.onInputChange({
       kind: this.classifyCompilerInput(location),
@@ -1108,7 +1118,7 @@ export class WatchTopology {
     location: string,
     changed?: string,
     skipUnobservedProjectInputWatchRoots = false,
-  ): void {
+  ): boolean {
     try {
       const previous = this.projectInputMatches;
       const identities = createProjectInputPathIdentityContext();
@@ -1133,7 +1143,7 @@ export class WatchTopology {
         (this.isProjectInputCompilerOutput(changed, identities) ||
           (directlyMatched === false && topologyMatched === false))
       ) {
-        return;
+        return false;
       }
       // Rearm before snapshotting. A watcher that has to be replaced stops
       // delivering the moment it is closed, so a scan taken first would become
@@ -1217,6 +1227,7 @@ export class WatchTopology {
               },
         );
       }
+      return true;
     } catch (error) {
       // A rename can invalidate the old filesystem object before the
       // replacement is readable. Rebind ancestor ownership even when the
@@ -1224,6 +1235,7 @@ export class WatchTopology {
       // stranded without a watcher.
       this.syncProjectInputWatchers(skipUnobservedProjectInputWatchRoots);
       this.callbacks.onError(location, error);
+      return false;
     }
   }
 

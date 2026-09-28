@@ -446,9 +446,17 @@ async function verifyWindowsProjectCompilerMembershipHandoff(): Promise<void> {
     compiler.listener("change", path.relative(compiler.location, second));
     await Promise.resolve();
     assert.deepEqual(changes.at(-1), {
-      kind: "compiler",
+      kind: "config",
       path: second,
     });
+    const afterReloadEdit = changes.length;
+    project.listener("change", path.relative(project.location, second));
+    await Promise.resolve();
+    assert.equal(
+      changes.length,
+      afterReloadEdit,
+      "the project watcher repeated a reload edit the compiler watcher consumed",
+    );
 
     fs.writeFileSync(third, '{"name":"created"}\n', "utf8");
     fs.writeFileSync(
