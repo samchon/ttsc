@@ -8,15 +8,18 @@ const root = path.resolve(__dirname, "..", "..");
 
 /**
  * The oldest Node release the packages support, the lower bound of
- * `packages/ttsc/package.json` `engines.node`, so raising the floor there
- * moves the floor lane with it.
+ * `packages/ttsc/package.json` `engines.node`, so raising the floor there moves
+ * the floor lane with it.
  *
  * @throws When `engines.node` is not a plain `>=major.minor.patch` floor, the
  *   one shape a lane can pin.
  */
 const NODE_FLOOR = nodeFloor(
   JSON.parse(
-    fs.readFileSync(path.join(root, "packages", "ttsc", "package.json"), "utf8"),
+    fs.readFileSync(
+      path.join(root, "packages", "ttsc", "package.json"),
+      "utf8",
+    ),
   ),
 );
 
@@ -47,6 +50,8 @@ const OTHER_LANE_OSES = [
   { id: "windows", name: "windows", runner: "windows-latest" },
   { id: "macos", name: "macOS", runner: "macos-15" },
 ];
+
+const GO_LANE_IDS = ["go", "windows-go", "macos-go"];
 
 /**
  * One repository-owned description of every main test job.
@@ -84,6 +89,22 @@ const LANES = [
     run:
       "node --test packages/ttsc/scripts/check-flags.test.cjs && " +
       "pnpm run test:go",
+  },
+  {
+    // macOS is the one platform that pairs a case-insensitive default volume
+    // with POSIX path rules, and it spells temporary directories through the
+    // `/var` link, so the Go code that relates paths runs there too.
+    id: "macos-go",
+    name: "macos-go",
+    os: "macos-15",
+    needsGo: true,
+    // Same reason as the `go` lane: `pnpm run test:go` includes the evidence
+    // rule tests, and those stat `packages/evidence/lib`.
+    build:
+      "pnpm --filter ttsc build && " +
+      "pnpm --filter @ttsc/lint build && " +
+      "pnpm --filter @ttsc/evidence build",
+    run: "pnpm run test:go",
   },
   {
     // The LSP proxy's concurrency under the race detector, on Linux, where cgo
@@ -342,8 +363,7 @@ const E2E_LANE_IDS = [
   "evidence",
 ];
 const TTSC_DOWNSTREAM_IDS = [
-  "go",
-  "windows-go",
+  ...GO_LANE_IDS,
   "package-defenses",
   "ttsc-core",
   "ttsc-native",
@@ -524,6 +544,12 @@ function planForPaths(files) {
   for (const file of normalized) {
     if (isFullPlanInput(file)) return fullPlan(`fail-open input: ${file}`);
 
+    // `test:go` includes the banner, paths, strip, and wasm Go packages too.
+    // Keep their unit tests selected on every OS even when their package's
+    // JavaScript defense lane is the direct owner of the change.
+    if (file.startsWith("packages/") && /\.go$|\/go\.(?:mod|sum)$/.test(file))
+      add(GO_LANE_IDS, file);
+
     if (file.startsWith("packages/ttsc/")) {
       add([...TTSC_DOWNSTREAM_IDS, ...RUNTIME_NODE_LANE_IDS], file);
       watch = true;
@@ -540,8 +566,7 @@ function planForPaths(files) {
     if (file.startsWith("packages/lint/")) {
       add(
         [
-          "go",
-          "windows-go",
+          ...GO_LANE_IDS,
           ...LINT_LANE_IDS,
           "ttsc-core",
           "ttsc-native",
@@ -570,8 +595,10 @@ function planForPaths(files) {
       // side of `os.Readlink`. The doubled terminator Windows writes is pinned
       // from a hand-built error and runs everywhere, so this lane is not what
       // proves that one.
+      // `macos-go` is selected for the same reason on the other side: POSIX
+      // path rules over a volume that ignores case, reached through `/var`.
       // The server lane drives real evidence project diagnostics and watches.
-      add(["evidence", "go", "windows-go", "ttsc-native"], file);
+      add(["evidence", ...GO_LANE_IDS, "ttsc-native"], file);
       continue;
     }
     if (file.startsWith("benchmarks/evidence/")) {
@@ -707,7 +734,7 @@ function planForPaths(files) {
       continue;
     }
     if (file.startsWith("tests/go-transformer/")) {
-      add(["go", "windows-go"], file);
+      add(GO_LANE_IDS, file);
       continue;
     }
     if (file === "scripts/test-go-race.cjs") {
@@ -715,7 +742,7 @@ function planForPaths(files) {
       continue;
     }
     if (file.startsWith("scripts/test-go") || file === "scripts/go.cjs") {
-      add(["go", "windows-go"], file);
+      add(GO_LANE_IDS, file);
       if (file === "scripts/test-go-utility-plugins.cjs")
         add(RUNTIME_NODE_LANE_IDS, file);
       continue;
@@ -735,7 +762,7 @@ function planForPaths(files) {
       continue;
     }
     if (nodeLane === "go") {
-      add(["go", "windows-go"], file);
+      add(GO_LANE_IDS, file);
       continue;
     }
     if (nodeLane === "typecheck") continue;
@@ -747,10 +774,8 @@ function planForPaths(files) {
     ) {
       continue;
     }
-    if (
-      file === "scripts/ci/go-test-overlay.cjs"
-    ) {
-      add(["go", "windows-go"], file);
+    if (file === "scripts/ci/go-test-overlay.cjs") {
+      add(GO_LANE_IDS, file);
       continue;
     }
     if (

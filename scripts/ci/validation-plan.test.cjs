@@ -72,6 +72,7 @@ test("a leaf package selects shared quality and its own executor", () => {
   assert.deepEqual(ids(["packages/lint/src/index.ts"]), [
     "go",
     "windows-go",
+    "macos-go",
     "typecheck",
     "ttsc-core",
     "ttsc-native",
@@ -93,6 +94,7 @@ test("a leaf package selects shared quality and its own executor", () => {
   assert.deepEqual(ids(["packages/evidence/src/index.ts"]), [
     "go",
     "windows-go",
+    "macos-go",
     "typecheck",
     "ttsc-native",
     "evidence",
@@ -100,6 +102,7 @@ test("a leaf package selects shared quality and its own executor", () => {
   assert.deepEqual(ids(["packages/evidence/native/base.go"]), [
     "go",
     "windows-go",
+    "macos-go",
     "typecheck",
     "ttsc-native",
     "evidence",
@@ -144,6 +147,7 @@ test("compiler and platform changes select verified reverse consumers", () => {
   for (const id of [
     "go",
     "windows-go",
+    "macos-go",
     "package-defenses",
     "ttsc-core",
     "ttsc-native",
@@ -213,10 +217,7 @@ test("a Go change of the compiler selects the race lane, a TypeScript one does n
   ])
     assert.ok(!ids([file]).includes("go-race"), file);
   // Its own runner reaches it and nothing else.
-  assert.deepEqual(ids(["scripts/test-go-race.cjs"]), [
-    "go-race",
-    "typecheck",
-  ]);
+  assert.deepEqual(ids(["scripts/test-go-race.cjs"]), ["go-race", "typecheck"]);
 });
 
 test("platform integrations reuse only the physical rows they need", () => {
@@ -406,6 +407,25 @@ test("a lane that drives the host's filesystem and processes runs on every OS", 
   }
 });
 
+test("every Go package source selects the full Go suite on every OS", () => {
+  const missing = [];
+  for (const file of [
+    "packages/banner/driver/banner.go",
+    "packages/paths/driver/paths.go",
+    "packages/paths/go.mod",
+    "packages/strip/driver/strip.go",
+    "packages/wasm/host/plugin.go",
+    "packages/lint/linthost/config.go",
+    "packages/evidence/native/typescript.go",
+    "packages/ttsc/utility/serve.go",
+  ]) {
+    const selected = ids([file]);
+    for (const lane of ["go", "windows-go", "macos-go"])
+      if (!selected.includes(lane)) missing.push(`${file}: ${lane}`);
+  }
+  assert.deepEqual(missing, []);
+});
+
 test("package-owned tests select only their topology owner", () => {
   assert.deepEqual(
     ids(["tests/test-ttsc/src/native-plugins/server/test_example.ts"]),
@@ -465,7 +485,11 @@ test("CI support files select their actual executors", () => {
     "scripts/ci/go-test-overlay.cjs",
     "scripts/go-test-runners.test.cjs",
   ])
-    assert.deepEqual(ids([file]), ["go", "windows-go", "typecheck"], file);
+    assert.deepEqual(
+      ids([file]),
+      ["go", "windows-go", "macos-go", "typecheck"],
+      file,
+    );
   // The gofmt wrapper's completeness gate runs beside the format check it
   // defends, in the lane every plan already selects, so it must not add one.
   assert.deepEqual(ids(["scripts/ci/gofmt-wrapper.test.cjs"]), ["typecheck"]);
@@ -493,13 +517,16 @@ test("the runtime lanes pin the engines floor and the newest release", () => {
     ),
   );
   assert.equal(NODE_FLOOR, nodeFloor(manifest));
-  assert.equal(
-    `>=${NODE_FLOOR}`,
-    manifest.engines.node.replace(/s+/g, ""),
-  );
+  assert.equal(`>=${NODE_FLOOR}`, manifest.engines.node.replace(/\s+/g, ""));
   assert.equal(nodeFloor({ engines: { node: ">=24.1.2" } }), "24.1.2");
   assert.equal(nodeFloor({ engines: { node: ">= 22.15.0" } }), "22.15.0");
-  for (const node of [undefined, "22.15.0", ">=22", "^22.15.0", ">=22.15.0 <27"])
+  for (const node of [
+    undefined,
+    "22.15.0",
+    ">=22",
+    "^22.15.0",
+    ">=22.15.0 <27",
+  ])
     assert.throws(() => nodeFloor({ engines: { node } }), /engines.node/);
 
   const plan = planForPaths([
