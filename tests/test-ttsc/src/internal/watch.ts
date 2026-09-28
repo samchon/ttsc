@@ -9,6 +9,8 @@ import {
 /** A real `ttsc --watch` child with build-count and quiet-period assertions. */
 export class WatchSession {
   private readonly child: ReturnType<typeof child_process.spawn>;
+  /** The session as its failures name it: the command line it runs. */
+  private readonly label: string;
   private readonly listeners = new Set<() => void>();
   private builds = 0;
   private buildStarts = 0;
@@ -39,6 +41,7 @@ export class WatchSession {
       throw new Error("ttsc --watch must expose piped stdout and stderr");
     }
     this.child = child;
+    this.label = ["ttsc", ...(options.args ?? []), "--watch"].join(" ");
     const onChunk = (chunk: Buffer): void => {
       this.output += chunk.toString("utf8");
       this.builds = (
@@ -65,7 +68,7 @@ export class WatchSession {
         this.listeners.delete(check);
         reject(
           new Error(
-            `ttsc --watch did not reach ${count} builds:\n${this.output}`,
+            `${this.label} did not reach ${count} builds:\n${this.output}`,
           ),
         );
       }, timeout);
@@ -89,7 +92,7 @@ export class WatchSession {
       if (this.buildStarts === starts && this.builds >= starts) return;
       assert.ok(
         Date.now() < deadline,
-        `ttsc --watch never settled:\n${this.output}`,
+        `${this.label} never settled:\n${this.output}`,
       );
     }
   }
@@ -114,7 +117,7 @@ export class WatchSession {
         this.listeners.delete(check);
         reject(
           new Error(
-            `ttsc --watch rebuilt during an idle period:\n${this.output}`,
+            `${this.label} rebuilt during an idle period:\n${this.output}`,
           ),
         );
       };
@@ -136,7 +139,7 @@ export class WatchSession {
     const exited = new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.child.kill("SIGKILL");
-        reject(new Error(`ttsc --watch did not exit:\n${this.output}`));
+        reject(new Error(`${this.label} did not exit:\n${this.output}`));
       }, 30_000);
       this.child.on("close", () => {
         clearTimeout(timer);

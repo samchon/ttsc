@@ -380,6 +380,11 @@ export class WatchTopology {
             // a touch. It answers the same question the unnamed directory event
             // answers, so it answers it the same way: from the bytes.
             const movement = this.compilerFileMovement(location);
+            this.callbacks.onHeard?.(
+              "compiler-file",
+              location,
+              `content=${movement.content} owner=${movement.owner}`,
+            );
             if (movement.owner) this.rearmFileWatchers([location], true);
             if (!movement.content) return;
             this.callbacks.onInputChange({
@@ -451,6 +456,11 @@ export class WatchTopology {
               filename === null
                 ? undefined
                 : path.resolve(location, filename.toString());
+            this.callbacks.onHeard?.(
+              "compiler-directory",
+              changed ?? location,
+              event,
+            );
             const pluginInput = changed ?? location;
             if (this.isPluginInput(pluginInput)) {
               this.notePluginNotification(pluginInput);
@@ -702,6 +712,7 @@ export class WatchTopology {
                 : path.resolve(location, filename.toString());
             // The one decision every watcher that hears a plugin path shares;
             // here it drops the entry of a directory the build passes over.
+            this.callbacks.onHeard?.("plugin", changed ?? location);
             if (changed !== undefined && !this.isPluginInput(changed)) return;
             this.notePluginNotification(changed ?? location);
           },
@@ -825,7 +836,7 @@ export class WatchTopology {
               filename === null
                 ? undefined
                 : path.resolve(location, filename.toString());
-            this.callbacks.onProjectInputHeard?.(changed ?? location);
+            this.callbacks.onHeard?.("project-input", changed ?? location);
             this.refreshProjectInputs(location, changed);
           },
         ),
@@ -908,7 +919,7 @@ export class WatchTopology {
               filename === null
                 ? undefined
                 : path.resolve(location, filename.toString());
-            this.callbacks.onProjectInputHeard?.(changed ?? location);
+            this.callbacks.onHeard?.("project-input", changed ?? location);
             this.refreshProjectInputs(location, changed);
           },
         ),
@@ -1606,10 +1617,19 @@ type WatchTopologyCallbacks = {
   onProjectInputWatchUnavailable?(roots: readonly string[]): void;
   onProjectInputWatchRoots?(roots: readonly string[]): void;
   /**
-   * A project-input watcher heard a path, before any decision about it, so a
-   * notification that was declined can be told from one never delivered.
+   * A watcher heard a path, before any decision about it, so a notification
+   * that was declined can be told from one never delivered. `detail` carries
+   * what the watcher saw, where it has more than the path.
    */
-  onProjectInputHeard?(location: string): void;
+  onHeard?(
+    watcher:
+      | "compiler-directory"
+      | "compiler-file"
+      | "plugin"
+      | "project-input",
+    location: string,
+    detail?: string,
+  ): void;
   onTopologyChange(): void;
 };
 
