@@ -82,7 +82,10 @@ export const test_loadprojectplugins_reports_a_linked_replace_target_by_its_phys
       },
       tsconfig: path.join(project, "tsconfig.json"),
     });
-    const expected = [fs.realpathSync(dep), fs.realpathSync(module)].sort();
+    const expected = [
+      fs.realpathSync.native(dep),
+      fs.realpathSync.native(module),
+    ].sort();
     assert.deepEqual(inputs, expected, "the watch inputs");
     assert.deepEqual(
       Object.keys(loaded.pluginSources).sort(),

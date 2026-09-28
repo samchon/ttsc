@@ -241,6 +241,8 @@ In `docs/review.md`, cite `@link ../../api/src/example.ts#Target.property <reaso
 
 A TypeScript `files` glob selects modules, and the population is what those modules publish. A barrel therefore carries in the surface it forwards even when the declaring file sits outside the globs, which is the usual reason a population turns out wider than the directory it names.
 
+The Program may name a source through a linked checkout or a link inside it. The rule resolves both that source and the configured population root to their physical paths before deciding membership. A source reached through a link that leaves the root does not join the population; name the external directory as a separate rooted population when it is intended to be covered.
+
 A unit is addressed the way a consumer reaches it rather than the way its file spells it. `export * as functional` nests a path segment, `export * from` flattens one, and `export { A as B }` is cited as `B`, so a citation written against the local binding matches nothing.
 
 Identity still belongs to the declaring file. A declaration reached through two barrels answers to both addresses and stays one coverage unit rather than two obligations, and containment follows the declaration hierarchy rather than the address text.

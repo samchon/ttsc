@@ -14,10 +14,4 @@ export interface StartedResidentTransform {
 
   /** Physical project root the host resolved its project against. */
   projectRoot: string;
-
-  /**
-   * The same root as the caller's cwd spells it, before its links resolve. A
-   * path below it names the file the host loaded below `projectRoot`.
-   */
-  logicalProjectRoot: string;
 }

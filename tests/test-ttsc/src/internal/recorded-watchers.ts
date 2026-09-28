@@ -12,6 +12,7 @@ export type RecordedWatchListener = (
 
 /** One `fs.watch` registration, recorded instead of watching. */
 export interface IRecordedWatcher {
+  active: boolean;
   close(): void;
   listener: RecordedWatchListener;
   location: string;
@@ -49,8 +50,13 @@ export function recordWatchers(): {
           typeof value === "object" && value !== null,
       );
       const watcher: IRecordedWatcher = {
-        close: () => undefined,
-        listener: listener ?? (() => undefined),
+        active: true,
+        close: () => {
+          watcher.active = false;
+        },
+        listener: (event, filename) => {
+          if (watcher.active) listener?.(event, filename);
+        },
         location: path.resolve(String(location)),
         on: () => watcher,
         recursive: options?.recursive === true,
@@ -85,6 +91,7 @@ export function deliverWatchEvent(
 ): void {
   let delivered = 0;
   for (const watcher of watchers) {
+    if (!watcher.active) continue;
     const relative = path.relative(watcher.location, entry);
     const observed =
       relative === "" ||

@@ -16,6 +16,9 @@ import { ProcessOwnedDirectory } from "./ProcessOwnedDirectory";
  * earlier version's run leaves one. When nothing is kept, the whole runtime
  * directory goes.
  *
+ * Call while holding `withRuntimeDirectoryLock` for this runtime root, so a
+ * new run cannot appear between inspection and removal.
+ *
  * @param cacheRoot The resolved cache root.
  * @returns The directories to remove, and the run directories kept.
  */
@@ -34,14 +37,19 @@ export function resolveRuntimeCleanTargets(cacheRoot: string): {
   let entries: string[];
   try {
     entries = fs.readdirSync(runs);
-  } catch {
-    return { kept: [], targets: [runtime] };
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT" || code === "ENOTDIR") {
+      return { kept: [], targets: [runtime] };
+    }
+    throw error;
   }
   const kept: string[] = [];
   const removable: string[] = [];
   for (const entry of entries) {
     const directory = path.join(runs, entry);
-    if (ProcessOwnedDirectory.ownership(directory) === "live")
+    const ownership = ProcessOwnedDirectory.ownership(directory);
+    if (ownership === "live" || ownership === "unknown")
       kept.push(directory);
     else removable.push(directory);
   }

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { resolvePhysicalPath } from "../../../internal/pathIdentity/resolvePhysicalPath";
 import { GoSourceInputs } from "./GoSourceInputs";
 import { GoToolResolution } from "./GoToolResolution";
 import type { IPluginModuleReplaceDirectory } from "./IPluginModuleReplaceDirectory";
@@ -74,7 +75,7 @@ export function pluginModuleReplaceDirectories(
       Old?: { Path?: string; Version?: string };
     }[];
   };
-  const physicalRoot = physicalDirectory(root);
+  const physicalRoot = resolvePhysicalPath(root);
   const out: IPluginModuleReplaceDirectory[] = [];
   for (const replacement of parsed.Replace ?? []) {
     const modulePath = replacement.Old?.Path;
@@ -86,7 +87,7 @@ export function pluginModuleReplaceDirectories(
       !isFilesystemPath(spelled)
     )
       continue;
-    const directory = physicalDirectory(path.resolve(root, spelled));
+    const directory = resolvePhysicalPath(path.resolve(root, spelled));
     const relative = path.relative(physicalRoot, directory);
     if (
       relative !== ".." &&
@@ -112,22 +113,6 @@ export function pluginModuleReplaceDirectories(
         ? -1
         : 1,
   );
-}
-
-/**
- * A target directory by the path its links lead to, as the module root it is
- * compared with and reported beside is. `go.mod` may spell a target through a
- * link, as macOS spells every temporary directory through `/var`, and a second
- * spelling of one directory is a second plugin source to a consumer and places
- * a target inside the module outside it. A target that does not exist keeps its
- * spelling; the build reports it.
- */
-function physicalDirectory(directory: string): string {
-  try {
-    return fs.realpathSync(directory);
-  } catch {
-    return directory;
-  }
 }
 
 /**

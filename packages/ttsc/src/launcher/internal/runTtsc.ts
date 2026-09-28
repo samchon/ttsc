@@ -16,6 +16,7 @@ import { resolvePhysicalPath } from "../../internal/pathIdentity/resolvePhysical
 import { resolveSafeCacheCleanupTargets } from "../../internal/resolveSafeCacheCleanupTargets";
 import { isPathWithin } from "../../plugin/internal/source/isPathWithin";
 import { legacyGlobalCacheTargets } from "../../plugin/internal/source/legacyGlobalCacheTargets";
+import { SourceBuildCacheLayout } from "../../plugin/internal/source/SourceBuildCacheLayout";
 import { resolveCleanTargets } from "../../plugin/internal/source/resolveCleanTargets";
 import { resolveSourceBuildCachePaths } from "../../plugin/internal/source/resolveSourceBuildCachePaths";
 import type { ITtscProjectInputSnapshot } from "../../structures/internal/ITtscProjectInputSnapshot";
@@ -26,6 +27,7 @@ import { getCompilerVersionText } from "./getCompilerVersionText";
 import { resolveCacheDir } from "./resolveCacheDir";
 import { resolveSingleFileOutput } from "./resolveSingleFileOutput";
 import { resolveRuntimeCleanTargets } from "./runtime/resolveRuntimeCleanTargets";
+import { withRuntimeDirectoryLock } from "./runtime/withRuntimeDirectoryLock";
 import { type WatchInputChange } from "./watch/WatchInputChange";
 import { WatchTopology } from "./watch/WatchTopology";
 
@@ -203,10 +205,31 @@ function runClean(argv: readonly string[]): number {
   const explicitCacheDir = options.cacheDir
     ? path.resolve(cwd, options.cacheDir)
     : undefined;
+  if (explicitCacheDir !== undefined) {
+    return runCleanWithContext(cwd, projectRoot, explicitCacheDir, false);
+  }
+  const runtimeRoot = path.join(
+    resolveSourceBuildCachePaths(projectRoot).root,
+    SourceBuildCacheLayout.RUNTIME_CACHE_DIRNAME,
+  );
+  return fs.existsSync(runtimeRoot)
+    ? withRuntimeDirectoryLock(runtimeRoot, () =>
+        runCleanWithContext(cwd, projectRoot, undefined, true),
+      )
+    : runCleanWithContext(cwd, projectRoot, undefined, false);
+}
+
+/** Resolve and remove the complete safe target set inside the runtime lock. */
+function runCleanWithContext(
+  cwd: string,
+  projectRoot: string,
+  explicitCacheDir: string | undefined,
+  includeRuntime: boolean,
+): number {
   // The runtime directories of runs no process still owns. A run that may
   // still be in progress keeps its own, and is reported (samchon/ttsc#1579).
   const runtime =
-    explicitCacheDir === undefined
+    includeRuntime && explicitCacheDir === undefined
       ? resolveRuntimeCleanTargets(
           resolveSourceBuildCachePaths(projectRoot).root,
         )

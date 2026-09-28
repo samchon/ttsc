@@ -32,6 +32,9 @@ export namespace DependencyBuildLockProtocol {
    */
   export const DEP_BUILD_LOCK_POLL_MS = 50;
 
+  /** Maximum wait for a live generation before a runtime operation fails safe. */
+  export const DEP_BUILD_LOCK_WAIT_MS = 600_000;
+
   /** File inside a generation directory recording the holder's pid and host. */
   export const DEP_BUILD_LOCK_OWNER_FILE = "owner.json";
 

@@ -12,7 +12,7 @@ import { isLocalProcessGone } from "./isLocalProcessGone";
  */
 export namespace ProcessOwnedDirectory {
   /** How an owned directory relates to its owners. */
-  export type Ownership = "abandoned" | "live" | "unowned";
+  export type Ownership = "abandoned" | "live" | "unknown" | "unowned";
 
   /**
    * Create `directory` and record this process as its owner.
@@ -28,8 +28,8 @@ export namespace ProcessOwnedDirectory {
    * Record the process `pid` of this host as an owner of `directory`, as one
    * that uses it and may outlive the process that claimed it, such as a program
    * that process spawned. Each record is written once under a name of its own
-   * and never rewritten, and a record that does not parse, as one being written
-   * does not, counts as absent.
+   * and never rewritten. An unreadable or malformed owner record leaves the
+   * directory's ownership unknown, so cleanup cannot take it as abandoned.
    *
    * @param directory A directory this process claimed.
    * @param pid The process that owns it too.
@@ -44,27 +44,35 @@ export namespace ProcessOwnedDirectory {
 
   /**
    * Whether any owner `directory` records is alive, every one is provably gone,
-   * or none is recorded at all. An owner on another host, or a pid something
-   * else now holds, counts as alive, since neither is provably gone
+   * or none is recorded at all. An unreadable directory or owner record has
+   * unknown ownership. An owner on another host, or a pid something else now
+   * holds, counts as alive, since neither is provably gone
    * (`isLocalProcessGone`).
    */
   export function ownership(directory: string): Ownership {
     let names: string[];
     try {
       names = fs.readdirSync(directory);
-    } catch {
-      return "unowned";
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      return code === "ENOENT" || code === "ENOTDIR"
+        ? "unowned"
+        : "unknown";
     }
     let owned = false;
+    let unknown = false;
     for (const name of names) {
       if (!name.startsWith(RECORD_PREFIX) || !name.endsWith(RECORD_SUFFIX))
         continue;
       const owner = readRecord(path.join(directory, name));
-      if (owner === null) continue;
+      if (owner === null) {
+        unknown = true;
+        continue;
+      }
       if (!isLocalProcessGone(owner)) return "live";
       owned = true;
     }
-    return owned ? "abandoned" : "unowned";
+    return unknown ? "unknown" : owned ? "abandoned" : "unowned";
   }
 
   /**
@@ -107,9 +115,24 @@ export namespace ProcessOwnedDirectory {
         hostname?: unknown;
         pid?: unknown;
       };
-      return typeof owner.hostname === "string" && typeof owner.pid === "number"
-        ? { hostname: owner.hostname, pid: owner.pid }
-        : null;
+      const name = path.basename(file);
+      const pidText = name.slice(
+        RECORD_PREFIX.length,
+        name.length - RECORD_SUFFIX.length,
+      );
+      const namedPid = /^\d+$/.test(pidText) ? Number(pidText) : undefined;
+      if (
+        typeof owner.hostname !== "string" ||
+        owner.hostname.length === 0 ||
+        typeof owner.pid !== "number" ||
+        !Number.isSafeInteger(owner.pid) ||
+        owner.pid <= 0 ||
+        namedPid === undefined ||
+        owner.pid !== namedPid
+      ) {
+        return null;
+      }
+      return { hostname: owner.hostname, pid: owner.pid };
     } catch {
       return null;
     }

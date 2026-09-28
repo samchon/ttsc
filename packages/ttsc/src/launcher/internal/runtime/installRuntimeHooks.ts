@@ -2383,7 +2383,8 @@ function publishDependencyMeta(
 // format to stay compatible with.
 // -----------------------------------------------------------------------------
 
-const DEP_BUILD_LOCK_STEAL_MS = 600_000;
+const DEP_BUILD_LOCK_STEAL_MS =
+  DependencyBuildLockProtocol.DEP_BUILD_LOCK_WAIT_MS;
 
 /** Outcome of one waiting session on another process's dependency build lock. */
 type DependencyBuildWaitResult =

@@ -148,6 +148,8 @@ Otherwise — the default workspace-local `node_modules/.cache/ttsc`, or a root 
 
 In that case the parent cache root itself is never removed (it may be shared with other tools), and a user-provided `GOCACHE` is treated as external and left untouched. Before deleting anything, `clean()` rejects every resolved target that equals or contains the project or a filesystem root, including physical aliases selected through a symlink or junction.
 
+Runtime cleanup and a new run's owner publication use one filesystem lock. A run with an unreadable owner record is kept because its owner cannot be proved gone; an unreadable run index makes cleanup fail without removing the runtime directory.
+
 ## Resident transform service (`TtscService`)
 
 `TtscService` is the resident, incremental counterpart to [`transform()`](#transform). Where `transform()` reloads and recompiles the whole project on every call, `TtscService` compiles the project once into a warm host and then answers per-file requests from it. A single process that transforms many files (a watch server, an editor, a long-running codegen tool) pays the project compile once.
@@ -174,7 +176,7 @@ try {
 
 The constructor takes the same [`ITtscCompilerContext`](#context-options) and launches the host synchronously; the host compiles in the background, so the first `transformFile` resolves once that compile lands. There is no request deadline: the host is running your own project's transforms, and how long that takes is not the service's call. A request still settles the moment the host dies, because the reader closing is what the client waits on.
 
-- `transformFile(name)` → `Promise<string | undefined>`. The file's post-plugin TypeScript source. A relative `name` resolves against the project root. An absolute `name` may spell the root the way the `cwd` reaches it, such as through a link or macOS's `/var`: the host loads the project below its physical directory, and a file named through the link is the same file there. Resolves `undefined` when the file is outside the compiled program. Rejects when the project failed to compile, carrying the host's diagnostics in the rejection.
+- `transformFile(name)` → `Promise<string | undefined>`. The file's post-plugin TypeScript source. A relative `name` resolves against the project root. Both relative and absolute names then follow their filesystem links, including links inside the project, so a file is named as the resident Program loaded it. Resolves `undefined` when the physical file is outside the compiled program. Rejects when the project failed to compile, carrying the host's diagnostics in the rejection.
 - `updateFile(name, content)` → `Promise<boolean>`. Apply new in-memory content for a file and re-transform. `name` resolves as it does for `transformFile`. Returns whether the rebuild succeeded; `false` means the edit did not compile and the previous transform is still in effect.
 - `dispose()`. Terminate the resident host and reject any in-flight requests. Always call it (use `try`/`finally`) so the host process does not leak.
 

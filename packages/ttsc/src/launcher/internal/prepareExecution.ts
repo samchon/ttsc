@@ -17,6 +17,7 @@ import { linkVirtualEntry } from "./linkVirtualEntry";
 import { type OwningModuleOptions } from "./runtime/OwningModuleOptions";
 import { ProcessOwnedDirectory } from "./runtime/ProcessOwnedDirectory";
 import { runtimeRunKey } from "./runtime/runtimeRunKey";
+import { withRuntimeDirectoryLock } from "./runtime/withRuntimeDirectoryLock";
 import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
 import { runtimeEmitProfile } from "./runtimeEmitProfile";
 
@@ -389,12 +390,13 @@ function buildProject(
   if (context.built) return;
 
   fs.mkdirSync(context.cacheDir, { recursive: true });
-  // A run that was killed never removed its directory, and nothing else would:
-  // each run removes the ones whose owners are all provably gone, then records
-  // itself as the owner of its own (samchon/ttsc#1579).
-  ProcessOwnedDirectory.sweep(path.dirname(context.processDir));
-  fs.rmSync(context.processDir, { recursive: true, force: true });
-  ProcessOwnedDirectory.claim(context.processDir);
+  withRuntimeDirectoryLock(context.cacheDir, () => {
+    // Clean cannot observe the new directory between its creation and owner
+    // publication. The same transaction removes abandoned earlier runs.
+    ProcessOwnedDirectory.sweep(path.dirname(context.processDir));
+    fs.rmSync(context.processDir, { recursive: true, force: true });
+    ProcessOwnedDirectory.claim(context.processDir);
+  });
   fs.mkdirSync(path.dirname(context.emitDir), { recursive: true });
   const result = runBuild({
     binary: options.binary,

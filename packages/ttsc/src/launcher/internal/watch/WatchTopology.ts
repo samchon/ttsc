@@ -2107,7 +2107,6 @@ function collectTopologyDirectories(
   return directories;
 }
 
-
 /**
  * Every directory of a plugin input a watch observes: the input and the
  * directories below it, except those the plugin build passes over and all below

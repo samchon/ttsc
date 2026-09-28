@@ -10,7 +10,9 @@ import { transformProjectInWorker } from "./compiler/internal/transformProjectIn
 import { type SafeCacheCleanupTarget } from "./internal/SafeCacheCleanupTarget";
 import { resolveSafeCacheCleanupTargets } from "./internal/resolveSafeCacheCleanupTargets";
 import { resolveRuntimeCleanTargets } from "./launcher/internal/runtime/resolveRuntimeCleanTargets";
+import { withRuntimeDirectoryLock } from "./launcher/internal/runtime/withRuntimeDirectoryLock";
 import { loadProjectPlugins } from "./plugin/internal/load/loadProjectPlugins";
+import { SourceBuildCacheLayout } from "./plugin/internal/source/SourceBuildCacheLayout";
 import { resolveCleanTargets } from "./plugin/internal/source/resolveCleanTargets";
 import { resolveSourceBuildCachePaths } from "./plugin/internal/source/resolveSourceBuildCachePaths";
 import type { ITtscCompilerContext } from "./structures/ITtscCompilerContext";
@@ -115,6 +117,31 @@ export class TtscCompiler {
       path.join(projectRoot, ".ttsc"),
     ];
     const explicitCacheDir = this.resolveCacheDir();
+    if (explicitCacheDir === undefined) {
+      const runtimeRoot = path.join(
+        resolveSourceBuildCachePaths(
+          projectRoot,
+          this.resolvePluginCacheDir(),
+          this.resolveEffectiveEnv(),
+        ).root,
+        SourceBuildCacheLayout.RUNTIME_CACHE_DIRNAME,
+      );
+      if (fs.existsSync(runtimeRoot)) {
+        return withRuntimeDirectoryLock(runtimeRoot, () =>
+          this.cleanResolved(projectRoot, legacyTargets, explicitCacheDir, true),
+        );
+      }
+    }
+    return this.cleanResolved(projectRoot, legacyTargets, explicitCacheDir, false);
+  }
+
+  /** Resolve the deletion set after the runtime directory lock is held. */
+  private cleanResolved(
+    projectRoot: string,
+    legacyTargets: string[],
+    explicitCacheDir: string | undefined,
+    includeRuntime: boolean,
+  ): string[] {
     let targets: string[];
     if (explicitCacheDir !== undefined) {
       // An explicit constructor `cacheDir` names the cache directory for this
@@ -138,13 +165,15 @@ export class TtscCompiler {
         ...resolveCleanTargets(projectRoot, this.resolvePluginCacheDir(), env),
         // The runtime directories of runs no process still owns
         // (samchon/ttsc#1579).
-        ...resolveRuntimeCleanTargets(
-          resolveSourceBuildCachePaths(
-            projectRoot,
-            this.resolvePluginCacheDir(),
-            env,
-          ).root,
-        ).targets,
+        ...(includeRuntime
+          ? resolveRuntimeCleanTargets(
+              resolveSourceBuildCachePaths(
+                projectRoot,
+                this.resolvePluginCacheDir(),
+                env,
+              ).root,
+            ).targets
+          : []),
       ];
     }
     // Validate the complete deletion set before removing the first directory.

@@ -20,10 +20,10 @@ export function watchDirectoryThroughFsWatch(
   recursive: boolean,
   listener: (event: "change" | "rename", filename: string | null) => void,
 ): DirectoryWatcher {
-  return fs.watch(location, { persistent: true, recursive }, (event, name) =>
+  return fs.watch(location, { persistent: true, recursive }, (event, name) => {
     listener(
       event === "change" ? "change" : "rename",
       name === null ? null : name.toString(),
-    ),
-  );
+    );
+  });
 }
