@@ -69,6 +69,8 @@ export class WatchTopology {
   private extraWatchers = new Map<string, fs.FSWatcher>();
   /** The plugin inputs whose directories the last sync already watched. */
   private watchedExtraInputs = new Set<string>();
+  /** The plugin input directories the last sync meant to watch. */
+  private extraDirectories = new Set<string>();
   private compilerFileSnapshots = new Map<string, CompilerFileSnapshot>();
   private files = new Map<string, string>();
   private fileWatchers = new Map<string, fs.FSWatcher>();
@@ -547,12 +549,30 @@ export class WatchTopology {
    * Report each plugin input whose state moved since it was recorded, and
    * record the state it moved to.
    *
-   * Unlike a decision on notifications (`decidePluginNotifications`), this
-   * syncs no watcher. A watcher that failed closes and schedules this re-check,
-   * and a sync here would open it again, so a directory that keeps failing
-   * would keep the two calling each other.
+   * A directory created in the gap moves no state while it is empty, and a
+   * watcher of its parent does not deliver what later lands in it. So a
+   * directory the last sync did not know is watched first, and what it holds is
+   * noted (`syncExtraWatchers`). A known directory without a watcher is not
+   * reopened here: a watcher that failed closes and schedules this re-check, so
+   * reopening it would keep a directory that keeps failing calling the two in
+   * turn.
    */
   private recheckPluginInputs(): void {
+    for (const input of this.extraInputs) {
+      try {
+        if (
+          collectInputDirectories(input).some(
+            (directory) =>
+              !this.extraDirectories.has(WatchPaths.pathKey(directory)),
+          )
+        ) {
+          this.syncExtraWatchers();
+          break;
+        }
+      } catch (error) {
+        this.callbacks.onError(input, error);
+      }
+    }
     for (const input of this.extraInputs) {
       const key = WatchPaths.pathKey(input);
       const state = pluginInputState(input);
@@ -763,6 +783,7 @@ export class WatchTopology {
       () => this.closed === false,
       (location) => this.watchSetChanged(location),
     );
+    this.extraDirectories = new Set(directories.keys());
     this.watchedExtraInputs = new Set(
       this.extraInputs.map((input) => WatchPaths.pathKey(input)),
     );
