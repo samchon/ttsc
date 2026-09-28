@@ -8,8 +8,8 @@ import { runtimeRunsDirectory } from "../../internal/ttsx-run";
 /**
  * Verifies clean keeps a run whose owner record cannot prove abandonment.
  *
- * A torn or unreadable owner file is different from no owner file. Deleting
- * its run would take active output whose owner could not be inspected, so the
+ * A torn or unreadable owner file is different from no owner file. Deleting its
+ * run would take active output whose owner could not be inspected, so the
  * cleanup path keeps it and reports that a run may still be in progress.
  *
  * 1. Create a run directory with a malformed owner record.

@@ -32,9 +32,9 @@ import { withRuntimeDirectoryLock } from "./runtime/withRuntimeDirectoryLock";
  * itself. While the program runs, `SIGTERM` and `SIGHUP`, which a supervisor or
  * container runtime sends to the launcher's pid alone, are forwarded to it;
  * `SIGINT` from a terminal already reaches the whole process group, so it is
- * not delivered a second time. The runtime directory is removed on exit once
- * no descendant still owns it. A program that died of a signal makes ttsx die
- * of the same one, so a shell sees `128 + n` exactly as it would for `node`.
+ * not delivered a second time. The runtime directory is removed on exit once no
+ * descendant still owns it. A program that died of a signal makes ttsx die of
+ * the same one, so a shell sees `128 + n` exactly as it would for `node`.
  *
  * @param argv - Command-line arguments (defaults to `process.argv.slice(2)`).
  * @returns The program's exit code, or `2` on a ttsx-level error. When the

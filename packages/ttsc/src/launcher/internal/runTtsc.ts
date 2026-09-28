@@ -14,9 +14,9 @@ import { parseFlags } from "../../flags/parseFlags";
 import { resolveFlagSpec } from "../../flags/resolveFlagSpec";
 import { resolvePhysicalPath } from "../../internal/pathIdentity/resolvePhysicalPath";
 import { resolveSafeCacheCleanupTargets } from "../../internal/resolveSafeCacheCleanupTargets";
+import { SourceBuildCacheLayout } from "../../plugin/internal/source/SourceBuildCacheLayout";
 import { isPathWithin } from "../../plugin/internal/source/isPathWithin";
 import { legacyGlobalCacheTargets } from "../../plugin/internal/source/legacyGlobalCacheTargets";
-import { SourceBuildCacheLayout } from "../../plugin/internal/source/SourceBuildCacheLayout";
 import { resolveCleanTargets } from "../../plugin/internal/source/resolveCleanTargets";
 import { resolveSourceBuildCachePaths } from "../../plugin/internal/source/resolveSourceBuildCachePaths";
 import type { ITtscProjectInputSnapshot } from "../../structures/internal/ITtscProjectInputSnapshot";
@@ -450,11 +450,11 @@ function formatProjectPath(cwd: string, target: string): string {
 /**
  * `target` relative to `cwd`, both as the filesystem names them.
  *
- * The project, its caches, and its outputs resolve to their physical
- * directory, while the cwd is spelled as the user reached it, possibly through
- * a link or macOS's `/var`. Relating two spellings of one directory walks out
- * through the link and back in, so both sides go through the one resolver that
- * names paths physically (`resolvePhysicalPath`).
+ * The project, its caches, and its outputs resolve to their physical directory,
+ * while the cwd is spelled as the user reached it, possibly through a link or
+ * macOS's `/var`. Relating two spellings of one directory walks out through the
+ * link and back in, so both sides go through the one resolver that names paths
+ * physically (`resolvePhysicalPath`).
  */
 function relativeToCwd(cwd: string, target: string): string {
   return path.relative(resolvePhysicalPath(cwd), resolvePhysicalPath(target));

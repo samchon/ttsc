@@ -17,15 +17,18 @@ import {
  * later TypeScript import in the descendant. Each process claims the run before
  * its own code starts, and cleanup removes it only after those owners end.
  *
- * 1. Run a TypeScript entry that starts a detached Node descendant and waits
- *    until that descendant has claimed the run.
+ * 1. Run a TypeScript entry that starts a detached Node descendant and waits until
+ *    that descendant has claimed the run.
  * 2. Clean while the descendant waits and assert its run remains.
  * 3. Let it import TypeScript, then clean and assert the run is removed.
  */
 export const test_ttsx_keeps_runtime_output_for_a_registered_descendant =
   async (): Promise<void> => {
     const root = TestProject.createProject({
-      "package.json": JSON.stringify({ name: "runtime-descendant", private: true }),
+      "package.json": JSON.stringify({
+        name: "runtime-descendant",
+        private: true,
+      }),
       "tsconfig.json": JSON.stringify({
         compilerOptions: {
           module: "commonjs",

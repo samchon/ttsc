@@ -1,6 +1,7 @@
 package evidence
 
 import (
+  "os"
   "path/filepath"
   "sort"
   "strings"
@@ -215,14 +216,39 @@ func (paths *typeScriptSourcePaths) resolve(name string) string {
 // present. A missing directory keeps the resolved existing prefix and its
 // missing suffix, which lets an unsaved Program source still match its base.
 func canonicalTypeScriptDirectory(directory string) string {
-  resolved, settled := resolveLinkedPath(directory)
-  if !settled {
-    resolved = directory
+  current := filepath.Clean(filepath.FromSlash(directory))
+  missing := []string{}
+  for {
+    info, err := os.Stat(current)
+    if err == nil {
+      if !info.IsDir() {
+        return filepath.ToSlash(directory)
+      }
+      resolved, settled := resolveLinkedPath(current)
+      if !settled {
+        return filepath.ToSlash(directory)
+      }
+      if evaluated, err := filepath.EvalSymlinks(filepath.FromSlash(resolved)); err == nil {
+        resolved = evaluated
+      }
+      parts := append([]string{filepath.FromSlash(resolved)}, missing...)
+      return filepath.ToSlash(filepath.Join(parts...))
+    }
+    if !os.IsNotExist(err) {
+      return filepath.ToSlash(directory)
+    }
+    // A broken link is present but does not name a directory. Do not treat it
+    // as a missing segment that can be placed below another physical parent.
+    if _, linkErr := os.Lstat(current); linkErr == nil || !os.IsNotExist(linkErr) {
+      return filepath.ToSlash(directory)
+    }
+    parent := filepath.Dir(current)
+    if parent == current {
+      return filepath.ToSlash(directory)
+    }
+    missing = append([]string{filepath.Base(current)}, missing...)
+    current = parent
   }
-  if evaluated, err := filepath.EvalSymlinks(filepath.FromSlash(resolved)); err == nil {
-    resolved = evaluated
-  }
-  return filepath.ToSlash(resolved)
 }
 
 func relativeProjectPath(root string, absolute string) (string, bool) {

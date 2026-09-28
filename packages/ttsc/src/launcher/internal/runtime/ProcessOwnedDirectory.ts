@@ -66,9 +66,7 @@ export namespace ProcessOwnedDirectory {
       names = fs.readdirSync(directory);
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
-      return code === "ENOENT" || code === "ENOTDIR"
-        ? "unowned"
-        : "unknown";
+      return code === "ENOENT" || code === "ENOTDIR" ? "unowned" : "unknown";
     }
     let owned = false;
     let unknown = false;

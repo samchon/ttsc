@@ -15,8 +15,8 @@ import {
  *
  * FSEvents reports when it dropped events, but metadata alone cannot answer a
  * same-size rewrite inside a filesystem clock tick. A gap must compare every
- * tracked candidate's content with its last observed fingerprint. A gap with
- * no changed bytes must not start a build.
+ * tracked candidate's content with its last observed fingerprint. A gap with no
+ * changed bytes must not start a build.
  *
  * 1. Stamp a source at a fixed time and start recorded directory watches.
  * 2. Deliver an unnamed gap with no edit and assert no change.
@@ -24,7 +24,9 @@ import {
  */
 export const test_watch_topology_rechecks_file_bytes_after_a_directory_gap =
   async (): Promise<void> => {
-    const root = TestProject.physicalPath(TestProject.tmpdir("ttsc-watch-gap-"));
+    const root = TestProject.physicalPath(
+      TestProject.tmpdir("ttsc-watch-gap-"),
+    );
     const config = path.join(root, "tsconfig.json");
     const source = path.join(root, "src", "main.ts");
     fs.mkdirSync(path.dirname(source), { recursive: true });
@@ -76,7 +78,10 @@ export const test_watch_topology_rechecks_file_bytes_after_a_directory_gap =
       assert.equal(fs.statSync(source).mtimeMs, stamp.getTime());
       gap();
       await settleWatchEvents();
-      assert.deepEqual(changes.map((change) => change.path), [source]);
+      assert.deepEqual(
+        changes.map((change) => change.path),
+        [source],
+      );
     } finally {
       topology.close();
       restore();

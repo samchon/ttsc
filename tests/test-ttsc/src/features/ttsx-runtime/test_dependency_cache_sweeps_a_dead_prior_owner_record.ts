@@ -9,10 +9,10 @@ import path from "node:path";
 /**
  * Verifies a manifest-less dependency cache still sweeps prior owner records.
  *
- * Earlier releases used `owner.json` in each `process-<pid>-<nonce>` root.
- * The shared ownership helper now writes `owner-<pid>.json`; forgetting the old
- * form leaves every force-terminated prior root in the system temp directory.
- * A live prior owner must still be kept.
+ * Earlier releases used `owner.json` in each `process-<pid>-<nonce>` root. The
+ * shared ownership helper now writes `owner-<pid>.json`; forgetting the old
+ * form leaves every force-terminated prior root in the system temp directory. A
+ * live prior owner must still be kept.
  *
  * 1. Seed old-format roots for a departed process and this live process.
  * 2. Start a fresh manifest-less process to trigger the sweep.
@@ -52,13 +52,10 @@ export const test_dependency_cache_sweeps_a_dead_prior_owner_record =
       "dependencyCacheRoot.js",
     );
     try {
-      const sweep = TestProject.spawn(
-        process.execPath,
-        [
-          "-e",
-          `delete process.env.TTSX_RUNTIME_MANIFEST; require(${JSON.stringify(modulePath)}).dependencyCacheRoot({});`,
-        ],
-      );
+      const sweep = TestProject.spawn(process.execPath, [
+        "-e",
+        `delete process.env.TTSX_RUNTIME_MANIFEST; require(${JSON.stringify(modulePath)}).dependencyCacheRoot({});`,
+      ]);
       assert.equal(sweep.status, 0, sweep.stderr);
       assert.equal(fs.existsSync(dead), false, "the old dead root remained");
       assert.equal(fs.existsSync(live), true, "the old live root was removed");

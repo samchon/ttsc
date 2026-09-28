@@ -343,7 +343,7 @@ export class WatchTopology {
             // answers, so it answers it the same way: from the bytes.
             const movement = this.compilerFileMovement(location, true);
             if (movement.owner) this.rearmFileWatchers([location], true);
-            if (!movement.content) return;
+            if (!this.compilerMovementReports(location, movement)) return;
             this.callbacks.onInputChange({
               kind: this.classifyCompilerInput(location),
               path: location,
@@ -362,8 +362,8 @@ export class WatchTopology {
    * Compare a tracked file with its last observed bytes and physical owner.
    *
    * A named event or observation gap reads the bytes even when time and size
-   * stayed still. A broad registration scan reads only a file whose metadata
-   * or owner moved, so an unrelated event does not read the whole Program.
+   * stayed still. A broad registration scan reads only a file whose metadata or
+   * owner moved, so an unrelated event does not read the whole Program.
    */
   private compilerFileMovement(
     location: string,
@@ -388,6 +388,17 @@ export class WatchTopology {
           : previous.fingerprint !== fingerprint,
       owner: previous?.owner !== metadata.owner,
     };
+  }
+
+  /** A config's physical replacement can change resolution with equal bytes. */
+  private compilerMovementReports(
+    location: string,
+    movement: CompilerFileMovement,
+  ): boolean {
+    return (
+      movement.content ||
+      (movement.owner && this.classifyCompilerInput(location) === "config")
+    );
   }
 
   private syncDirectoryWatchers(): boolean {
@@ -426,9 +437,7 @@ export class WatchTopology {
           process.platform === "win32",
           (event, filename, gap) => {
             const changed =
-              filename === null
-                ? undefined
-                : path.resolve(location, filename);
+              filename === null ? undefined : path.resolve(location, filename);
             const pluginInput = changed ?? location;
             if (this.isPluginInput(pluginInput)) {
               this.notePluginNotification(pluginInput);
@@ -500,13 +509,13 @@ export class WatchTopology {
       const rearm: string[] = [];
       for (const file of this.files.values()) {
         const movement = this.compilerFileMovement(file);
-        if (movement.content) changed.push(file);
+        if (this.compilerMovementReports(file, movement)) changed.push(file);
         if (movement.owner) rearm.push(file);
       }
       // A replacement can move the path to a new inode without changing its
-      // cheap content stamp or topology key. Rebind its physical owner without
-      // inventing a content notification. Missing entries remain covered by
-      // their parent directory and are retried when recreation is observed.
+      // bytes. Rebind an ordinary source without inventing a content change;
+      // report a config owner transition because it can change resolution.
+      // Missing entries remain covered by their parent directory.
       this.rearmFileWatchers(rearm, true);
       for (const file of changed) {
         this.callbacks.onInputChange({
@@ -552,9 +561,13 @@ export class WatchTopology {
     changed: string | undefined,
     gap: boolean,
   ): string[] {
-    return changes.filter((file) =>
-      this.compilerFileMovement(file, changed !== undefined || gap).content,
-    );
+    return changes.filter((file) => {
+      const movement = this.compilerFileMovement(
+        file,
+        changed !== undefined || gap,
+      );
+      return this.compilerMovementReports(file, movement);
+    });
   }
 
   private rearmFileWatchers(
@@ -614,9 +627,7 @@ export class WatchTopology {
           false,
           (_event, filename) => {
             const changed =
-              filename === null
-                ? undefined
-                : path.resolve(location, filename);
+              filename === null ? undefined : path.resolve(location, filename);
             // The one decision every watcher that hears a plugin path shares;
             // here it drops the entry of a directory the build passes over.
             if (changed !== undefined && !this.isPluginInput(changed)) return;
@@ -738,9 +749,7 @@ export class WatchTopology {
           true,
           (_event, filename) => {
             const changed =
-              filename === null
-                ? undefined
-                : path.resolve(location, filename);
+              filename === null ? undefined : path.resolve(location, filename);
             this.refreshProjectInputs(location, changed);
           },
         ),
@@ -819,9 +828,7 @@ export class WatchTopology {
           false,
           (_event, filename) => {
             const changed =
-              filename === null
-                ? undefined
-                : path.resolve(location, filename);
+              filename === null ? undefined : path.resolve(location, filename);
             this.refreshProjectInputs(location, changed);
           },
         ),

@@ -48,5 +48,8 @@ export const test_ttsc_relates_output_paths_through_a_windows_short_cwd =
     });
     assert.equal(build.status, 0, `${build.stdout}${build.stderr}`);
     assert.equal(build.stdout.trim(), path.join("lib", "src", "index.js"));
-    assert.equal(fs.existsSync(path.join(root, "lib", "src", "index.js")), true);
+    assert.equal(
+      fs.existsSync(path.join(root, "lib", "src", "index.js")),
+      true,
+    );
   };

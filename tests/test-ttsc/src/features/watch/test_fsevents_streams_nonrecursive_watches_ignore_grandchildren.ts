@@ -7,8 +7,8 @@ import { FakeFseventsBinding } from "../../internal/FakeFseventsBinding";
 /**
  * Verifies a nonrecursive watch receives direct entries but no grandchildren.
  *
- * Its native stream is recursive even when the caller's directory watch is
- * not. Dispatch has to enforce that caller contract after FSEvents delivery.
+ * Its native stream is recursive even when the caller's directory watch is not.
+ * Dispatch has to enforce that caller contract after FSEvents delivery.
  *
  * 1. Open a nonrecursive directory watch.
  * 2. Deliver an event for a direct child and one below a subdirectory.

@@ -56,7 +56,10 @@ export const test_ttscservice_resolves_a_file_through_a_nested_directory_link =
         ),
         true,
       );
-      assert.match((await service.transformFile(file)) ?? "", /NESTED_LINK_EDIT/);
+      assert.match(
+        (await service.transformFile(file)) ?? "",
+        /NESTED_LINK_EDIT/,
+      );
       assert.equal(
         await service.transformFile(path.join(externalAlias, "absent.ts")),
         undefined,

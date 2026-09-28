@@ -19,8 +19,8 @@ import {
  * `ttsc clean` never looked at the runtime directory below the cache root, so
  * the directory a force-terminated run left there outlived every clean
  * (samchon/ttsc#1579). It now removes each run directory whose owners are all
- * gone, while a run still in progress keeps its own; with none in progress,
- * the runtime directory goes whole, through `TtscCompiler.clean()` as well.
+ * gone, while a run still in progress keeps its own; with none in progress, the
+ * runtime directory goes whole, through `TtscCompiler.clean()` as well.
  *
  * 1. Start a waiting run and keep it. Start a second, and force-terminate both of
  *    its processes.

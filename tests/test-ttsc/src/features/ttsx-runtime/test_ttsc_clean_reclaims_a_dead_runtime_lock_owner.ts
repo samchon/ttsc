@@ -8,9 +8,9 @@ import { runtimeRunsDirectory } from "../../internal/ttsx-run";
 /**
  * Verifies clean recovers a runtime transaction whose holder died.
  *
- * A force-terminated process can leave the fenced lock generation behind.
- * The next clean must retire that generation by its recorded owner and enter
- * the transaction, without deleting a successor's lock.
+ * A force-terminated process can leave the fenced lock generation behind. The
+ * next clean must retire that generation by its recorded owner and enter the
+ * transaction, without deleting a successor's lock.
  *
  * 1. Acquire the runtime lock in a child that exits without releasing it.
  * 2. Run the real `ttsc clean` command against the same cache root.
@@ -18,7 +18,10 @@ import { runtimeRunsDirectory } from "../../internal/ttsx-run";
  */
 export const test_ttsc_clean_reclaims_a_dead_runtime_lock_owner = (): void => {
   const root = TestProject.createProject({
-    "package.json": JSON.stringify({ name: "dead-runtime-lock", private: true }),
+    "package.json": JSON.stringify({
+      name: "dead-runtime-lock",
+      private: true,
+    }),
     "tsconfig.json": JSON.stringify({ include: ["src"] }),
     "src/main.ts": "export const value = 1;\n",
   });

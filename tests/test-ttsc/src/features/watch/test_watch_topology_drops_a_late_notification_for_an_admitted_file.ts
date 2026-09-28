@@ -28,8 +28,8 @@ import {
  * 2. Create `src/later/value.ts` and deliver the new directory's creation to the
  *    watchers that observe it: the refresh admits the file and reports a
  *    topology change.
- * 3. Move its metadata without changing its bytes, then deliver a late
- *    `change` to every watcher that observes it. Assert nothing is reported.
+ * 3. Move its metadata without changing its bytes, then deliver a late `change` to
+ *    every watcher that observes it. Assert nothing is reported.
  * 4. Write other bytes, deliver a `change` again, and assert it is reported once.
  */
 export const test_watch_topology_drops_a_late_notification_for_an_admitted_file =

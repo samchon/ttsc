@@ -8,9 +8,9 @@ import { runtimeRunsDirectory } from "../../internal/ttsx-run";
 /**
  * Verifies clean does not take an unreadable run index as an empty one.
  *
- * A failed listing proves nothing about the runs beneath it. Treating
- * `EACCES` as an absent index selected the entire runtime root for removal,
- * including any live run the process lacked permission to inspect.
+ * A failed listing proves nothing about the runs beneath it. Treating `EACCES`
+ * as an absent index selected the entire runtime root for removal, including
+ * any live run the process lacked permission to inspect.
  *
  * 1. Make the run index unreadable on a host that enforces that permission.
  * 2. Run the real `ttsc clean` command.
@@ -33,7 +33,9 @@ export const test_ttsc_clean_refuses_an_unreadable_runtime_index = (): void => {
       return;
     } catch (error) {
       assert.ok(
-        ["EACCES", "EPERM"].includes((error as NodeJS.ErrnoException).code ?? ""),
+        ["EACCES", "EPERM"].includes(
+          (error as NodeJS.ErrnoException).code ?? "",
+        ),
       );
     }
     const result = TestProject.spawn(

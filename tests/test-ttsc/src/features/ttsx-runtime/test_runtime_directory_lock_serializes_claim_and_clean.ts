@@ -5,7 +5,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
- * Verifies a runtime claim and clean enter one filesystem transaction at a time.
+ * Verifies a runtime claim and clean enter one filesystem transaction at a
+ * time.
  *
  * The owner record is written after its run directory is created. Without a
  * shared lock, clean can inspect that interval as an old unowned run and remove
@@ -62,7 +63,9 @@ export const test_runtime_directory_lock_serializes_claim_and_clean =
       ].join("\n"),
       "utf8",
     );
-    const start = (mode: string): Promise<{ code: number | null; output: string }> => {
+    const start = (
+      mode: string,
+    ): Promise<{ code: number | null; output: string }> => {
       const child = childProcess.spawn(process.execPath, [worker, mode], {
         cwd: root,
         stdio: ["ignore", "ignore", "pipe"],
@@ -97,11 +100,17 @@ export const test_runtime_directory_lock_serializes_claim_and_clean =
       await Promise.race([
         waitFor(attempting),
         contender.then(({ code, output }) => {
-          throw new Error(`contender exited before attempting: ${code}\n${output}`);
+          throw new Error(
+            `contender exited before attempting: ${code}\n${output}`,
+          );
         }),
       ]);
       await new Promise((resolve) => setTimeout(resolve, 300));
-      assert.equal(fs.existsSync(entered), false, "the contender bypassed the lock");
+      assert.equal(
+        fs.existsSync(entered),
+        false,
+        "the contender bypassed the lock",
+      );
     } finally {
       fs.writeFileSync(release, "release", "utf8");
     }

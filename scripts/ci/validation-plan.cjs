@@ -115,14 +115,9 @@ const LANES = [
       "pnpm --filter @ttsc/graph exec tsc --emitDeclarationOnly && " +
       "pnpm --filter ttsc build && " +
       "pnpm --filter @ttsc/unplugin build",
-    run:
-      "pnpm run check:flags && pnpm run check:dependencies && " +
-      // Every Node test this lane owns, discovered (`node-tests.cjs`), so a
-      // new one runs without editing this command.
-      `node --test ${discoverNodeTests(root, "typecheck").join(" ")} && ` +
-      "node scripts/ci/format-check.cjs && " +
-      "pnpm --filter @ttsc/test-unplugin start && " +
-      "pnpm run test:typecheck",
+    // Run every gate after the build. The format check is intentionally
+    // independent of unplugin features and TypeScript type tests.
+    run: "node scripts/ci/run-typecheck-lane.cjs",
     // Only the unplugin scenarios that need neither a Go host nor a bundler
     // process; this lane builds no native binary.
     dirs: ["features"],

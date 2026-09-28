@@ -128,11 +128,21 @@ export class TtscCompiler {
       );
       if (fs.existsSync(runtimeRoot)) {
         return withRuntimeDirectoryLock(runtimeRoot, () =>
-          this.cleanResolved(projectRoot, legacyTargets, explicitCacheDir, true),
+          this.cleanResolved(
+            projectRoot,
+            legacyTargets,
+            explicitCacheDir,
+            true,
+          ),
         );
       }
     }
-    return this.cleanResolved(projectRoot, legacyTargets, explicitCacheDir, false);
+    return this.cleanResolved(
+      projectRoot,
+      legacyTargets,
+      explicitCacheDir,
+      false,
+    );
   }
 
   /** Resolve the deletion set after the runtime directory lock is held. */

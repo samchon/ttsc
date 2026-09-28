@@ -7,8 +7,8 @@ import { FakeFseventsBinding } from "../../internal/FakeFseventsBinding";
 /**
  * Verifies a recursive watch receives a grandchild by its relative path.
  *
- * FSEvents names an absolute entry. The watch consumer needs the path below
- * its own root, while a nonrecursive sibling must not hear that grandchild.
+ * FSEvents names an absolute entry. The watch consumer needs the path below its
+ * own root, while a nonrecursive sibling must not hear that grandchild.
  *
  * 1. Open recursive and nonrecursive watches on one directory.
  * 2. Deliver an event below a subdirectory.

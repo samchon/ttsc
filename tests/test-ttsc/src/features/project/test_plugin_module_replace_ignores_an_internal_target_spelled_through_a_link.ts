@@ -35,7 +35,8 @@ export const test_plugin_module_replace_ignores_an_internal_target_spelled_throu
         "",
         "require example.com/internal v0.0.0",
         "",
-        `replace example.com/internal => ${path.join(linked, "internal")
+        `replace example.com/internal => ${path
+          .join(linked, "internal")
           .split(path.sep)
           .join("/")}`,
         "",

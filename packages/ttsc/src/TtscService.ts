@@ -109,7 +109,9 @@ export class TtscService {
   }
 
   private absolutePath(fileName: string): string {
-    const physical = resolvePhysicalPath(path.resolve(this.projectRoot, fileName));
+    const physical = resolvePhysicalPath(
+      path.resolve(this.projectRoot, fileName),
+    );
     const relative = path.relative(this.physicalProjectRoot, physical);
     // Compare both sides physically, then address an in-project file exactly as
     // the resident Program names it. Its source lookup compares names, not

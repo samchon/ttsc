@@ -16,8 +16,8 @@ import { ProcessOwnedDirectory } from "./ProcessOwnedDirectory";
  * kept alongside live and unreadable owners. When nothing is kept, the whole
  * runtime directory goes.
  *
- * Call while holding `withRuntimeDirectoryLock` for this runtime root, so a
- * new run cannot appear between inspection and removal.
+ * Call while holding `withRuntimeDirectoryLock` for this runtime root, so a new
+ * run cannot appear between inspection and removal.
  *
  * @param cacheRoot The resolved cache root.
  * @returns The directories to remove, and the run directories kept.
@@ -49,8 +49,7 @@ export function resolveRuntimeCleanTargets(cacheRoot: string): {
   for (const entry of entries) {
     const directory = path.join(runs, entry);
     const ownership = ProcessOwnedDirectory.ownership(directory);
-    if (ownership !== "abandoned")
-      kept.push(directory);
+    if (ownership !== "abandoned") kept.push(directory);
     else removable.push(directory);
   }
   return {

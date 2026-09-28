@@ -9,8 +9,8 @@ import { FakeFseventsBinding } from "../../internal/FakeFseventsBinding";
  *
  * The binding exposes must-scan, dropped-event, wrapped-id, changed-root,
  * mount, and unmount notices that libuv discards. An unnamed event makes each
- * topology consumer compare its observed bytes rather than trust a file name
- * or a timestamp that may not have moved.
+ * topology consumer compare its observed bytes rather than trust a file name or
+ * a timestamp that may not have moved.
  *
  * 1. Open recursive and nonrecursive watches served by one stream.
  * 2. Deliver each loss flag, then an ordinary named modification.
@@ -22,7 +22,8 @@ export const test_fsevents_streams_recheck_every_watch_after_gap_flags =
     const child = path.join(root, "src");
     const binding = new FakeFseventsBinding();
     const registry = new FseventsStreams(binding);
-    const ancestorEvents: Array<[string, string | null, boolean | undefined]> = [];
+    const ancestorEvents: Array<[string, string | null, boolean | undefined]> =
+      [];
     const childEvents: Array<[string, string | null, boolean | undefined]> = [];
     const ancestor = registry.open(root, true, (event, name, gap) => {
       ancestorEvents.push([event, name, gap]);

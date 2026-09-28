@@ -25,7 +25,9 @@ import {
  */
 export const test_watch_topology_reports_a_same_size_rewrite_within_the_timestamp_granularity =
   async (): Promise<void> => {
-    const root = TestProject.physicalPath(TestProject.tmpdir("ttsc-watch-same-size-"));
+    const root = TestProject.physicalPath(
+      TestProject.tmpdir("ttsc-watch-same-size-"),
+    );
     const config = path.join(root, "tsconfig.json");
     const source = path.join(root, "src", "main.ts");
     fs.mkdirSync(path.dirname(source), { recursive: true });
@@ -67,7 +69,10 @@ export const test_watch_topology_reports_a_same_size_rewrite_within_the_timestam
       assert.equal(fs.statSync(source).mtimeMs, stamp.getTime());
       deliverWatchEvent(watchers, source, "change");
       await settleWatchEvents();
-      assert.deepEqual(changes.map((change) => change.path), [source]);
+      assert.deepEqual(
+        changes.map((change) => change.path),
+        [source],
+      );
     } finally {
       topology.close();
       restore();

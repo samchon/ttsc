@@ -11,10 +11,17 @@ import { withRuntimeDirectoryLock } from "./runtime/withRuntimeDirectoryLock";
  * The launcher can be killed after it starts a child. The child must publish
  * its own owner record under the lock that default clean uses, so either clean
  * sees its live claim or the child fails before user code if clean removed the
- * run first. NODE_OPTIONS passes this preload to descendants as well.
+ * run first. NODE_OPTIONS passes this preload to descendants as well. A child
+ * without the inherited runtime manifest uses its own cache and claims no part
+ * of the parent's run.
  */
 const directory = process.env.TTSX_RUNTIME_RUN_DIR;
-if (directory !== undefined) {
+const manifest = process.env.TTSX_RUNTIME_MANIFEST;
+if (
+  directory !== undefined &&
+  manifest !== undefined &&
+  manifest.length !== 0
+) {
   if (
     !path.isAbsolute(directory) ||
     path.basename(path.dirname(directory)) !==

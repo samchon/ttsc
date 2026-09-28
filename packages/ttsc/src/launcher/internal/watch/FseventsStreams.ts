@@ -7,12 +7,12 @@ import type { DirectoryWatcher } from "./DirectoryWatcher";
  * The FSEventStreams serving this process's macOS directory watches.
  *
  * A stream covers its root recursively. Watches below an open stream join it;
- * opening an ancestor starts its stream before retiring the descendant
- * streams. Each transferred watch then re-reads its inputs once, because the
- * binding aborts callbacks still queued on a stream when it stops. Stream
- * roots and their descendants are indexed, so registration, close, and named
- * event delivery depend on path depth and affected watches rather than every
- * stream in the process.
+ * opening an ancestor starts its stream before retiring the descendant streams.
+ * Each transferred watch then re-reads its inputs once, because the binding
+ * aborts callbacks still queued on a stream when it stops. Stream roots and
+ * their descendants are indexed, so registration, close, and named event
+ * delivery depend on path depth and affected watches rather than every stream
+ * in the process.
  */
 export class FseventsStreams {
   private readonly descendants = new Map<string, Set<Stream>>();
@@ -217,9 +217,7 @@ function deliver(stream: Stream, file: string, flags: number): void {
     return;
   }
   const event =
-    (flags & MODIFIED) !== 0 && (flags & RENAMED) === 0
-      ? "change"
-      : "rename";
+    (flags & MODIFIED) !== 0 && (flags & RENAMED) === 0 ? "change" : "rename";
   const deliveries: Array<{ name: string; watch: Watch }> = [];
   let directory = path.dirname(target);
   let depth = 0;

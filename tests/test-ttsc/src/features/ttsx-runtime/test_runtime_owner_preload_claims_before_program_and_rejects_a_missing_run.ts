@@ -14,6 +14,7 @@ import path from "node:path";
  * 1. Start Node with the owner preload and an existing run directory.
  * 2. Assert user code sees its own completed owner record.
  * 3. Start it against a removed run and assert user code never executes.
+ * 4. Remove the inherited manifest and assert an independent child can run.
  */
 export const test_runtime_owner_preload_claims_before_program_and_rejects_a_missing_run =
   (): void => {
@@ -30,18 +31,24 @@ export const test_runtime_owner_preload_claims_before_program_and_rejects_a_miss
       "runtimeOwnerPreload.js",
     );
     const marker = path.join(root, "executed");
+    const manifest = path.join(run, "runtime-manifest.json");
+    fs.writeFileSync(manifest, "{}", "utf8");
     const program = [
       'const fs = require("node:fs");',
       'const path = require("node:path");',
-      'const run = process.env.TTSX_RUNTIME_RUN_DIR;',
-      'const owner = path.join(run, `owner-${process.pid}.json`);',
+      "const run = process.env.TTSX_RUNTIME_RUN_DIR;",
+      "const owner = path.join(run, `owner-${process.pid}.json`);",
       'if (!fs.existsSync(owner)) throw new Error("owner was not published");',
       `fs.writeFileSync(${JSON.stringify(marker)}, "executed");`,
     ].join("\n");
-    const start = () =>
-      TestProject.spawn(process.execPath, ["-r", preload, "-e", program], {
+    const start = (source = program, inheritedManifest = manifest) =>
+      TestProject.spawn(process.execPath, ["-r", preload, "-e", source], {
         cwd: root,
-        env: { NODE_OPTIONS: "", TTSX_RUNTIME_RUN_DIR: run },
+        env: {
+          NODE_OPTIONS: "",
+          TTSX_RUNTIME_MANIFEST: inheritedManifest,
+          TTSX_RUNTIME_RUN_DIR: run,
+        },
       });
 
     const claimed = start();
@@ -53,4 +60,11 @@ export const test_runtime_owner_preload_claims_before_program_and_rejects_a_miss
     const missing = start();
     assert.notEqual(missing.status, 0, missing.stdout);
     assert.equal(fs.existsSync(marker), false, missing.stderr);
+
+    const independent = start(
+      `require("node:fs").writeFileSync(${JSON.stringify(marker)}, "independent");`,
+      "",
+    );
+    assert.equal(independent.status, 0, independent.stderr);
+    assert.equal(fs.readFileSync(marker, "utf8"), "independent");
   };
