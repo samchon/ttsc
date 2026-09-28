@@ -24,7 +24,6 @@ export const test_benchmark_command_line_runs_from_its_own_entry =
     const result: IRunResult = runScript({
       cwd: benchmarkRoot,
       script: "start",
-      timeout: 300_000,
     });
     if (result.output.includes("Usage: pnpm start codex")) return;
     throw new Error(
