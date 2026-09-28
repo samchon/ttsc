@@ -539,8 +539,27 @@ export class WatchTopology {
       if (this.projectInputWatchers.size !== 0) {
         this.scheduleProjectInputPostRegistrationReconciliation();
       }
-      for (const input of this.extraInputs) this.notePluginNotification(input);
+      this.recheckPluginInputs();
     });
+  }
+
+  /**
+   * Report each plugin input whose state moved since it was recorded, and
+   * record the state it moved to.
+   *
+   * Unlike a decision on notifications (`decidePluginNotifications`), this
+   * syncs no watcher. A watcher that failed closes and schedules this re-check,
+   * and a sync here would open it again, so a directory that keeps failing
+   * would keep the two calling each other.
+   */
+  private recheckPluginInputs(): void {
+    for (const input of this.extraInputs) {
+      const key = WatchPaths.pathKey(input);
+      const state = pluginInputState(input);
+      if (this.pluginInputStates.get(key) === state) continue;
+      this.pluginInputStates.set(key, state);
+      this.callbacks.onInputChange({ kind: "plugin", path: input });
+    }
   }
 
   /**
