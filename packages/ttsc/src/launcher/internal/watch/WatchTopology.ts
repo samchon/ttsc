@@ -498,29 +498,6 @@ export class WatchTopology {
   }
 
   /**
-   * Reconcile tracked compiler files after a newly registered watcher returns.
-   *
-   * A file or directory watcher can be returned before its backend is ready to
-   * deliver the first event. The compiler-file stamps were captured before
-   * registration, so one coalesced microtask can recover a change in that
-   * handoff window. A real event updates the same stamp first and makes this
-   * bounded scan a no-op.
-   */
-  /**
-   * Re-check every observed input once the watchers opened or closed in this
-   * turn deliver.
-   *
-   * A backend can serve several watches through one stream that opening or
-   * closing any of them re-creates, and the re-created stream reports nothing
-   * from before it started: on macOS every directory watch shares one
-   * FSEventStream (samchon/ttsc#1583). So a change can be lost to watchers of
-   * every kind when any watcher opens or closes, not only to the one that
-   * opened. After the backend has settled (`settleWatchBackend`), the compiler
-   * files, the project inputs, and the plugin inputs are each compared with
-   * their recorded state, so a change that landed in the gap is reported, and
-   * the settled stream delivers every later one.
-   */
-  /**
    * A watcher opened or closed at `location`, or at a location no longer known.
    * Only a directory watch shares a stream with others (`settleWatchBackend`),
    * so a file watch opening or closing, as a rename-based save rearms one on
@@ -537,6 +514,20 @@ export class WatchTopology {
     this.scheduleDeliveryReconciliation();
   }
 
+  /**
+   * Re-check every observed input once the watchers opened or closed in this
+   * turn deliver.
+   *
+   * A backend can serve several watches through one stream that opening or
+   * closing any of them re-creates, and the re-created stream reports nothing
+   * from before it started: on macOS every directory watch shares one
+   * FSEventStream (samchon/ttsc#1583). So a change can be lost to watchers of
+   * every kind when any watcher opens or closes, not only to the one that
+   * opened. After the backend has settled (`settleWatchBackend`), the compiler
+   * files, the project inputs, and the plugin inputs are each compared with
+   * their recorded state, so a change that landed in the gap is reported, and
+   * the settled stream delivers every later one.
+   */
   private scheduleDeliveryReconciliation(): void {
     if (this.closed || this.deliveryReconciliationScheduled) return;
     this.deliveryReconciliationScheduled = true;
@@ -552,6 +543,15 @@ export class WatchTopology {
     });
   }
 
+  /**
+   * Reconcile tracked compiler files after a newly registered watcher returns.
+   *
+   * A file or directory watcher can be returned before its backend is ready to
+   * deliver the first event. The compiler-file stamps were captured before
+   * registration, so one coalesced microtask can recover a change in that
+   * handoff window. A real event updates the same stamp first and makes this
+   * bounded scan a no-op.
+   */
   private scheduleCompilerPostRegistrationReconciliation(
     refreshMembership: boolean,
     skipUnobservedProjectInputWatchRoots: boolean,
@@ -2546,6 +2546,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
+ * What a plugin build keys a plugin input on: the digest of the files its build
+ * reads from a source directory (`pluginSourceDigest`), or a file's bytes. An
+ * input that cannot be read has a state of its own, so the change that made it
+ * unreadable is reported and the build names the failure.
+ */
+function pluginInputState(input: string): string {
+  try {
+    return WatchPaths.isDirectory(input)
+      ? `directory:${pluginSourceDigest(input)}`
+      : `file:${fingerprintProjectInputFile(input)}`;
+  } catch (error) {
+    return `unreadable:${error instanceof Error ? error.message : String(error)}`;
+  }
+}
+
+/**
  * Resolve the spelling a filesystem watcher must be registered under.
  *
  * A watch declaration keeps its lexical spelling, because classification,
@@ -2562,22 +2578,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * either. Resolving here keeps every backend comparing two canonical spellings
  * while callers keep resolving events against what they declared.
  */
-/**
- * What a plugin build keys a plugin input on: the digest of the files its build
- * reads from a source directory (`pluginSourceDigest`), or a file's bytes. An
- * input that cannot be read has a state of its own, so the change that made it
- * unreadable is reported and the build names the failure.
- */
-function pluginInputState(input: string): string {
-  try {
-    return WatchPaths.isDirectory(input)
-      ? `directory:${pluginSourceDigest(input)}`
-      : `file:${fingerprintProjectInputFile(input)}`;
-  } catch (error) {
-    return `unreadable:${error instanceof Error ? error.message : String(error)}`;
-  }
-}
-
 function watcherRegistrationPath(location: string): string {
   try {
     return fs.realpathSync.native?.(location) ?? fs.realpathSync(location);
