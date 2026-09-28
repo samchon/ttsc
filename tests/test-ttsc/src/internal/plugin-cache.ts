@@ -20,5 +20,24 @@
  * when another builder wins.
  */
 import { TestProject } from "@ttsc/testing";
+import path from "node:path";
 
 export const SHARED_PLUGIN_CACHE_DIR = TestProject.sharedPluginCache();
+
+/**
+ * The Go object cache of `SHARED_PLUGIN_CACHE_DIR`, for a test that observes a
+ * cold plugin build in a cache of its own.
+ *
+ * A fresh plugin cache also starts a fresh Go object cache below it, which
+ * compiles the whole linked host, typescript-go included, again. That build is
+ * not what such a test observes: it asserts that the plugin binary is built,
+ * and the binary is still built when the Go objects it links are warm. Every
+ * one of those caches stayed on disk until the process exited, and the Windows
+ * runner ran out of disk in the lane that holds them. `TTSC_GO_CACHE_DIR`
+ * pointed here shares the objects, which Go keeps safe to share between
+ * concurrent builds, while the plugin cache stays the test's own.
+ */
+export const SHARED_GO_BUILD_CACHE_DIR = path.join(
+  SHARED_PLUGIN_CACHE_DIR,
+  "go-build",
+);

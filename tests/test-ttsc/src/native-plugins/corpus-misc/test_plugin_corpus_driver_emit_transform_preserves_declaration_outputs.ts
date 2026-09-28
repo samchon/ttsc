@@ -1,5 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 
+import { SHARED_GO_BUILD_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   assert,
   copyProject,
@@ -36,6 +37,7 @@ export const test_plugin_corpus_driver_emit_transform_preserves_declaration_outp
       env: {
         PATH: goPath(),
         TTSC_CACHE_DIR: cacheDir,
+        TTSC_GO_CACHE_DIR: SHARED_GO_BUILD_CACHE_DIR,
       },
     });
     assert.equal(result.status, 0, result.stderr || result.stdout);

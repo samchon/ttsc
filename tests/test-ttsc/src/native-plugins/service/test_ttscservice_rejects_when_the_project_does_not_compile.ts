@@ -6,6 +6,7 @@ import path from "node:path";
 import { TtscService } from "../../../../../packages/ttsc/lib/index.js";
 import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
 import { tsgo } from "../../internal/compiler";
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 
 /**
  * Verifies TtscService.transformFile rejects when the project does not compile.
@@ -38,7 +39,7 @@ export const test_ttscservice_rejects_when_the_project_does_not_compile =
       cwd: root,
       env: {
         PATH: TestUtilityPlugins.goPath(),
-        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-resident-fail-"),
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
       },
     });
     try {

@@ -1,5 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 
+import { SHARED_GO_BUILD_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   assert,
   copyProject,
@@ -38,7 +39,11 @@ export const test_plugin_corpus_driver_emit_error_rejects_publication = () => {
     const manifest = path.join(root, "manifest.json");
     const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
       cwd: root,
-      env: { PATH: goPath(), TTSC_CACHE_DIR: cacheDir },
+      env: {
+        PATH: goPath(),
+        TTSC_CACHE_DIR: cacheDir,
+        TTSC_GO_CACHE_DIR: SHARED_GO_BUILD_CACHE_DIR,
+      },
     });
     assert.notEqual(result.status, 0, result.stdout + result.stderr);
     assert.match(result.stderr, /go-driver-emit-plugin: emit failed/);

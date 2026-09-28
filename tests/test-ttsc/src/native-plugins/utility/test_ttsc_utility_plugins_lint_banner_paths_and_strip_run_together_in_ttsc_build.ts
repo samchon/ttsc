@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
+import { SHARED_GO_BUILD_CACHE_DIR } from "../../internal/plugin-cache";
 
 /**
  * Verifies ttsc utility plugins: lint, banner, paths, and strip run together in
@@ -33,6 +34,7 @@ export const test_ttsc_utility_plugins_lint_banner_paths_and_strip_run_together_
         env: {
           PATH: TestUtilityPlugins.goPath(),
           TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-utility-combo-"),
+          TTSC_GO_CACHE_DIR: SHARED_GO_BUILD_CACHE_DIR,
         },
       },
     );

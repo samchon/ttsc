@@ -5,6 +5,7 @@ import path from "node:path";
 import { TtscService } from "../../../../../packages/ttsc/lib/index.js";
 import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
 import { tsgo } from "../../internal/compiler";
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 
 /**
  * Verifies TtscService transforms files through one resident host.
@@ -35,7 +36,7 @@ export const test_ttscservice_transforms_a_file_through_the_resident_host =
       cwd: root,
       env: {
         PATH: TestUtilityPlugins.goPath(),
-        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-resident-"),
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
       },
     });
     try {

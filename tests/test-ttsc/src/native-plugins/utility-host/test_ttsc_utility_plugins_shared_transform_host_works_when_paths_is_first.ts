@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
+import { SHARED_GO_BUILD_CACHE_DIR } from "../../internal/plugin-cache";
 
 /**
  * Verifies ttsc utility plugins: shared transform host works when paths is
@@ -66,6 +67,7 @@ export const test_ttsc_utility_plugins_shared_transform_host_works_when_paths_is
         env: {
           PATH: TestUtilityPlugins.goPath(),
           TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-utility-paths-first-"),
+          TTSC_GO_CACHE_DIR: SHARED_GO_BUILD_CACHE_DIR,
         },
       },
     );
