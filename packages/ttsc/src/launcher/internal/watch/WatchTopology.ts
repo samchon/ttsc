@@ -395,7 +395,7 @@ export class WatchTopology {
         ),
       (location, error) => this.callbacks.onError(location, error),
       () => this.closed === false,
-      () => this.scheduleDeliveryReconciliation(),
+      (location) => this.watchSetChanged(location),
     );
     return [...this.fileWatchers].some(
       ([key, watcher]) => previous.get(key) !== watcher,
@@ -490,7 +490,7 @@ export class WatchTopology {
         ),
       (location, error) => this.callbacks.onError(location, error),
       () => this.closed === false,
-      () => this.scheduleDeliveryReconciliation(),
+      (location) => this.watchSetChanged(location),
     );
     return [...this.directoryWatchers].some(
       ([key, watcher]) => previous.get(key) !== watcher,
@@ -520,6 +520,23 @@ export class WatchTopology {
    * their recorded state, so a change that landed in the gap is reported, and
    * the settled stream delivers every later one.
    */
+  /**
+   * A watcher opened or closed at `location`, or at a location no longer known.
+   * Only a directory watch shares a stream with others (`settleWatchBackend`),
+   * so a file watch opening or closing, as a rename-based save rearms one on
+   * every save, re-checks nothing; any other change schedules the re-check.
+   */
+  private watchSetChanged(location: string | undefined): void {
+    if (location !== undefined) {
+      try {
+        if (!fs.statSync(location).isDirectory()) return;
+      } catch {
+        // A location that cannot be read is re-checked like one of unknown kind.
+      }
+    }
+    this.scheduleDeliveryReconciliation();
+  }
+
   private scheduleDeliveryReconciliation(): void {
     if (this.closed || this.deliveryReconciliationScheduled) return;
     this.deliveryReconciliationScheduled = true;
@@ -659,7 +676,7 @@ export class WatchTopology {
       if (watcher === undefined) continue;
       watcher.close();
       this.fileWatchers.delete(key);
-      this.scheduleDeliveryReconciliation();
+      this.watchSetChanged(file);
     }
     if (this.syncFileWatchers(skipMissing)) {
       this.scheduleCompilerPostRegistrationReconciliation(false, true);
@@ -719,7 +736,7 @@ export class WatchTopology {
         ),
       (location, error) => this.callbacks.onError(location, error),
       () => this.closed === false,
-      () => this.scheduleDeliveryReconciliation(),
+      (location) => this.watchSetChanged(location),
     );
     this.watchedExtraInputs = new Set(
       this.extraInputs.map((input) => WatchPaths.pathKey(input)),
@@ -850,7 +867,7 @@ export class WatchTopology {
         }
       },
       () => this.closed === false,
-      () => this.scheduleDeliveryReconciliation(),
+      (location) => this.watchSetChanged(location),
     );
     if (this.closed) return;
     if (!this.projectInputRecoveryScheduled) {
@@ -925,7 +942,7 @@ export class WatchTopology {
         ),
       (location, error) => this.callbacks.onError(location, error),
       () => this.closed === false,
-      () => this.scheduleDeliveryReconciliation(),
+      (location) => this.watchSetChanged(location),
     );
   }
 

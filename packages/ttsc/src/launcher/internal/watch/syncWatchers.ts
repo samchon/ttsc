@@ -7,8 +7,9 @@
  * and reports through `onError`.
  *
  * `onChange` hears every watcher this opened or closed, including one an error
- * closed later: a backend may serve several watches through one stream that
- * opening or closing any of them re-creates (`settleWatchBackend`).
+ * closed later, with its location, or `undefined` for one closed because it is
+ * no longer desired: a backend may serve several watches through one stream
+ * that opening or closing any of them re-creates (`settleWatchBackend`).
  *
  * @returns `false` when a creation failed or `shouldContinue` stopped the pass.
  */
@@ -18,7 +19,7 @@ export function syncWatchers<T extends SynchronizedWatcher>(
   create: (location: string, key: string) => T,
   onError: (location: string, error: unknown) => void,
   shouldContinue: () => boolean = () => true,
-  onChange: () => void = () => undefined,
+  onChange: (location: string | undefined) => void = () => undefined,
 ): boolean {
   let complete = true;
   for (const [key, location] of desired) {
@@ -34,11 +35,11 @@ export function syncWatchers<T extends SynchronizedWatcher>(
           watchers.delete(key);
         }
         watcher.close();
-        onChange();
+        onChange(location);
         onError(location, error);
       });
       watchers.set(key, watcher);
-      onChange();
+      onChange(location);
     } catch (error) {
       complete = false;
       onError(location, error);
@@ -49,7 +50,7 @@ export function syncWatchers<T extends SynchronizedWatcher>(
     if (desired.has(key)) continue;
     watcher.close();
     watchers.delete(key);
-    onChange();
+    onChange(undefined);
   }
   return true;
 }
