@@ -20,21 +20,29 @@ function resolveBash() {
   if (git.error || git.status !== 0) {
     throw git.error ?? new Error(`git --exec-path failed: ${git.stderr}`);
   }
-  const installation = path.resolve(git.stdout.trim(), "..", "..", "..");
-  const binary = path.join(installation, "bin", "bash.exe");
-  const tools = path.join(installation, "usr", "bin");
-  if (!fs.existsSync(binary) || !fs.existsSync(path.join(tools, "perl.exe"))) {
-    throw new Error(`Git Bash and Perl were not found under ${installation}`);
+  let installation = path.resolve(git.stdout.trim());
+  for (;;) {
+    const binary = path.join(installation, "bin", "bash.exe");
+    const tools = path.join(installation, "usr", "bin");
+    if (fs.existsSync(binary) && fs.existsSync(path.join(tools, "perl.exe"))) {
+      const searchPath = [
+        tools,
+        path.join(installation, "bin"),
+        process.env.PATH ?? "",
+      ].join(path.delimiter);
+      return {
+        binary,
+        env: {
+          ...process.env,
+          PATH: searchPath,
+        },
+      };
+    }
+    const parent = path.dirname(installation);
+    if (parent === installation) break;
+    installation = parent;
   }
-  return {
-    binary,
-    env: {
-      ...process.env,
-      PATH: [tools, path.join(installation, "bin"), process.env.PATH ?? ""].join(
-        path.delimiter,
-      ),
-    },
-  };
+  throw new Error(`Git Bash and Perl were not found above ${git.stdout.trim()}`);
 }
 
 /** Retry only an OS argument-limit failure by dividing its exact file list. */
