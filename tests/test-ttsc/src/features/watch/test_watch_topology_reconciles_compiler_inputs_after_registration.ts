@@ -6,6 +6,11 @@ import path from "node:path";
 import { type WatchInputChange } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
 import { WatchTopology } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
 import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/lib/launcher/internal/watch/watchDirectoryThroughFsWatch.js";
+import {
+  deliverWatchEvent,
+  recordWatchers,
+  settleWatchEvents,
+} from "../../internal/recorded-watchers";
 
 /**
  * Verifies compiler watchers close their snapshot-to-registration handoff.
@@ -30,6 +35,7 @@ export const test_watch_topology_reconciles_compiler_inputs_after_registration =
     await verifySwallowedConfigDeletion();
     await verifySwallowedCompilerMembership();
     await verifyBackendEventWinsReconciliation();
+    await verifyDeletedProjectMemberReconcilesBeforeFileNotification();
     await verifyWindowsProjectCompilerMembershipHandoff();
     await verifyTransientReloadDirectoryFingerprintRace();
     await verifyAtomicReplacementRebindsPosixFileWatcher();
@@ -191,6 +197,68 @@ async function verifyBackendEventWinsReconciliation(): Promise<void> {
     registrations.every(({ watcher }) => watcher.closeCount === 1),
     "close did not drain every event-wins watcher",
   );
+}
+
+async function verifyDeletedProjectMemberReconcilesBeforeFileNotification(): Promise<void> {
+  if (process.platform === "win32") return;
+
+  const root = TestProject.tmpdir("ttsc-watch-project-delete-handoff-");
+  const source = path.join(root, "src", "main.ts");
+  const json = path.join(root, "api", "openapi.json");
+  fs.mkdirSync(path.dirname(source), { recursive: true });
+  fs.mkdirSync(path.dirname(json), { recursive: true });
+  fs.writeFileSync(
+    source,
+    'import contract from "../api/openapi.json";\nexport const name = contract.name;\n',
+  );
+  fs.writeFileSync(json, '{"name":"before"}\n');
+  fs.writeFileSync(
+    path.join(root, "tsconfig.json"),
+    JSON.stringify({
+      compilerOptions: {
+        esModuleInterop: true,
+        noEmit: true,
+        resolveJsonModule: true,
+      },
+      include: ["src"],
+    }),
+  );
+
+  const changes: WatchInputChange[] = [];
+  const errors: unknown[] = [];
+  const recorded = recordWatchers();
+  const topology = createTopology(root, changes, errors);
+  try {
+    topology.refresh(false);
+    topology.setProjectInputs({
+      files: [],
+      globs: [path.join(root, "api", "**", "*.json")],
+      root,
+    });
+    await settleWatchEvents();
+
+    const physicalJson = fs.realpathSync.native(json);
+    const fileWatcher = recorded.watchers.find(
+      (watcher) => watcher.active && watcher.location === physicalJson,
+    );
+    assert.ok(fileWatcher, "the compiler did not watch its JSON member");
+    fs.rmSync(json);
+    fileWatcher.listener("rename", path.basename(json));
+    deliverWatchEvent(
+      recorded.watchers.filter((watcher) => watcher.recursive),
+      physicalJson,
+      "rename",
+    );
+    await settleWatchEvents();
+
+    assert.deepEqual(changes, [
+      { invalidate: true, kind: "project", path: physicalJson },
+    ]);
+    assert.deepEqual(errors, []);
+  } finally {
+    topology.close();
+    recorded.restore();
+  }
 }
 
 async function verifyWindowsProjectCompilerMembershipHandoff(): Promise<void> {

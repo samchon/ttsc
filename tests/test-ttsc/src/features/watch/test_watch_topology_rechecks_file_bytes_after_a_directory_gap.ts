@@ -71,7 +71,7 @@ export const test_watch_topology_rechecks_file_bytes_after_a_directory_gap =
       changes.length = 0;
       gap();
       await settleWatchEvents();
-      assert.deepEqual(changes, [], "an empty gap caused a rebuild");
+      assert.equal(changes.length, 0, "an empty gap caused a rebuild");
 
       fs.writeFileSync(source, "export const value = 2;\n", "utf8");
       fs.utimesSync(source, stamp, stamp);

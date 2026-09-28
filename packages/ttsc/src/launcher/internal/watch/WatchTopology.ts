@@ -344,10 +344,7 @@ export class WatchTopology {
             const movement = this.compilerFileMovement(location, true);
             if (movement.owner) this.rearmFileWatchers([location], true);
             if (!this.compilerMovementReports(location, movement)) return;
-            this.callbacks.onInputChange({
-              kind: this.classifyCompilerInput(location),
-              path: location,
-            });
+            this.reportCompilerFileChange(location);
           },
         ),
       (location, error) => this.callbacks.onError(location, error),
@@ -457,10 +454,7 @@ export class WatchTopology {
               changed,
               gap === true,
             )) {
-              this.callbacks.onInputChange({
-                kind: this.classifyCompilerInput(file),
-                path: file,
-              });
+              this.reportCompilerFileChange(file);
             }
             if (plan.refresh) this.refreshFromDirectory(location, changed);
           },
@@ -518,10 +512,7 @@ export class WatchTopology {
       // Missing entries remain covered by their parent directory.
       this.rearmFileWatchers(rearm, true);
       for (const file of changed) {
-        this.callbacks.onInputChange({
-          kind: this.classifyCompilerInput(file),
-          path: file,
-        });
+        this.reportCompilerFileChange(file);
       }
       if (!refreshCompilerMembership) return;
       try {
@@ -567,6 +558,27 @@ export class WatchTopology {
         changed !== undefined || gap,
       );
       return this.compilerMovementReports(file, movement);
+    });
+  }
+
+  /**
+   * Reconcile a missing compiler member before reporting its stale file-watch
+   * notification. A project-input JSON can leave the Program and its project
+   * population in the same deletion. The membership refresh hands that one
+   * transition to the project lane, so a later recursive-watch event observes
+   * the acknowledged population instead of scheduling a second build.
+   */
+  private reportCompilerFileChange(location: string): void {
+    if (
+      this.classifyCompilerInput(location) === "compiler" &&
+      !fs.existsSync(location)
+    ) {
+      this.refreshFromDirectory(path.dirname(location), location);
+      if (!this.files.has(WatchPaths.pathKey(location))) return;
+    }
+    this.callbacks.onInputChange({
+      kind: this.classifyCompilerInput(location),
+      path: location,
     });
   }
 

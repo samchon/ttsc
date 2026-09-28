@@ -62,7 +62,7 @@ export const test_watch_topology_reports_a_same_size_rewrite_within_the_timestam
       changes.length = 0;
       deliverWatchEvent(watchers, source, "change");
       await settleWatchEvents();
-      assert.deepEqual(changes, [], "unchanged bytes caused a rebuild");
+      assert.equal(changes.length, 0, "unchanged bytes caused a rebuild");
 
       fs.writeFileSync(source, "export const value = 2;\n", "utf8");
       fs.utimesSync(source, stamp, stamp);
