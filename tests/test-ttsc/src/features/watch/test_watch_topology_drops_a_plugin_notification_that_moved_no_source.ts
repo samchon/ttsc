@@ -58,7 +58,7 @@ export const test_watch_topology_drops_a_plugin_notification_that_moved_no_sourc
     const source = path.join(plugin, "main.go");
     fs.writeFileSync(source, "package main\n", "utf8");
 
-    const { restore, watchers } = recordWatchers();
+    const { openDirectoryWatch, restore, watchers } = recordWatchers();
     const changes: WatchInputChange[] = [];
     const topology = new WatchTopology(
       {
@@ -74,6 +74,7 @@ export const test_watch_topology_drops_a_plugin_notification_that_moved_no_sourc
         onInputChange: (change) => changes.push(change),
         onTopologyChange: () => undefined,
       },
+      openDirectoryWatch,
     );
     try {
       topology.refresh(false);

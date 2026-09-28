@@ -12,6 +12,7 @@ import { getNumber } from "../../flags/getNumber";
 import { getString } from "../../flags/getString";
 import { parseFlags } from "../../flags/parseFlags";
 import { resolveFlagSpec } from "../../flags/resolveFlagSpec";
+import { resolvePhysicalPath } from "../../internal/pathIdentity/resolvePhysicalPath";
 import { resolveSafeCacheCleanupTargets } from "../../internal/resolveSafeCacheCleanupTargets";
 import { isPathWithin } from "../../plugin/internal/source/isPathWithin";
 import { legacyGlobalCacheTargets } from "../../plugin/internal/source/legacyGlobalCacheTargets";
@@ -420,42 +421,20 @@ function resolveCleanProjectRoot(cwd: string, tsconfig?: string): string {
 
 function formatProjectPath(cwd: string, target: string): string {
   const relative = relativeToCwd(cwd, target);
-  return relative === undefined || relative === "" ? target : relative;
+  return !relative || isOutsideRelativePath(relative) ? target : relative;
 }
 
 /**
- * `target` relative to the cwd the user gave, or `undefined` when it lies
- * outside that directory.
+ * `target` relative to `cwd`, both as the filesystem names them.
  *
- * The project, its caches, and its watch root resolve to their physical
- * directory. When the cwd reaches the project through a link, relating that
- * physical path to the cwd as spelled walks out through the link and back in,
- * so the cwd is also related as the filesystem names it: the directory the user
- * named, in the spelling the target carries. That spelling depends on the
- * resolver that produced the target, since `fs.realpathSync` keeps a Windows
- * 8.3 short name that `fs.realpathSync.native` expands, so the cwd is tried in
- * both.
+ * The project, its caches, and its outputs resolve to their physical
+ * directory, while the cwd is spelled as the user reached it, possibly through
+ * a link or macOS's `/var`. Relating two spellings of one directory walks out
+ * through the link and back in, so both sides go through the one resolver that
+ * names paths physically (`resolvePhysicalPath`).
  */
-function relativeToCwd(cwd: string, target: string): string | undefined {
-  for (const spelling of cwdSpellings(cwd)) {
-    const relative = path.relative(spelling, target);
-    if (!isOutsideRelativePath(relative)) return relative;
-  }
-  return undefined;
-}
-
-/** `cwd` as given, then as each realpath flavor names it, without repeats. */
-function cwdSpellings(cwd: string): string[] {
-  const spellings = [cwd];
-  for (const resolve of [fs.realpathSync, fs.realpathSync.native]) {
-    try {
-      const spelling = resolve(cwd);
-      if (!spellings.includes(spelling)) spellings.push(spelling);
-    } catch {
-      // A cwd that cannot be resolved is related as given.
-    }
-  }
-  return spellings;
+function relativeToCwd(cwd: string, target: string): string {
+  return path.relative(resolvePhysicalPath(cwd), resolvePhysicalPath(target));
 }
 
 /**
@@ -463,7 +442,7 @@ function cwdSpellings(cwd: string): string[] {
  * itself, and through `..` when it lies outside.
  */
 function watchMessagePath(cwd: string, location: string): string {
-  return (relativeToCwd(cwd, location) ?? path.relative(cwd, location)) || ".";
+  return relativeToCwd(cwd, location) || ".";
 }
 
 function isOutsideRelativePath(relative: string): boolean {
@@ -679,9 +658,7 @@ function runSingleFile(
     fs.writeFileSync(out, text, "utf8");
   }
   if (out !== undefined) {
-    process.stdout.write(
-      `${(relativeToCwd(cwd, out) ?? path.relative(cwd, out)) || path.basename(out)}\n`,
-    );
+    process.stdout.write(`${relativeToCwd(cwd, out) || path.basename(out)}\n`);
   }
   return 0;
 }
@@ -720,15 +697,6 @@ function runWatch(
       topology?.setExtraInputs(inputs);
     },
     onProjectInputs: (inputs: ITtscProjectInputSnapshot) => {
-      debugWatchInputs(
-        () =>
-          `inputs ${JSON.stringify({
-            files: inputs.files.map((file) => watchMessagePath(cwd, file)),
-            globs: inputs.globs,
-            root: watchMessagePath(cwd, inputs.root),
-            topology: topology !== undefined,
-          })}`,
-      );
       topology?.setProjectInputs(inputs);
     },
     quiet: true,
@@ -846,25 +814,17 @@ function runWatch(
     },
     onInputChange: (change) => {
       debugWatchInputs(
-        () =>
-          `change ${change.kind}${change.invalidate === true ? " invalidate" : ""} ${
-            change.path === undefined
-              ? "(unnamed)"
-              : watchMessagePath(cwd, change.path)
-          }`,
+        `change ${change.kind}${change.invalidate === true ? " invalidate" : ""} ${
+          change.path === undefined
+            ? "(unnamed)"
+            : watchMessagePath(cwd, change.path)
+        }`,
       );
       trigger(change);
     },
-    onHeard: (watcher, location, detail) => {
-      debugWatchInputs(
-        () =>
-          `heard ${watcher} ${watchMessagePath(cwd, location)}${detail === undefined ? "" : ` ${detail}`}`,
-      );
-    },
     onProjectInputWatchRoots: (roots) => {
       debugWatchInputs(
-        () =>
-          `roots ${JSON.stringify(roots.map((root) => watchMessagePath(cwd, root)))}`,
+        `roots ${JSON.stringify(roots.map((root) => watchMessagePath(cwd, root)))}`,
       );
     },
     onTopologyChange: () => trigger(undefined, true),
@@ -911,19 +871,15 @@ function toExitCode(status: number): number {
  *
  * A watch that goes quiet is indistinguishable from a watch with nothing to
  * say: the build simply never runs again, and the transcript that survives says
- * only that. This separates the causes — an inputs line states what a build
- * published, the roots line states what is covered, a heard line states what a
- * watcher of any kind received, and a change line states what was announced —
- * so a missing rebuild can be attributed to inputs that never reached the
- * watch, to the watch that never saw the file, or to the decision that declined
- * to report it. Silent unless asked, and on the same ordered stream as the rest
- * of the watch output so it interleaves with the builds it explains. The
- * message is built only when asked, since a heard line comes with every watcher
- * event.
+ * only that. This separates the two — the roots line states what is covered,
+ * and a change line states what was announced — so a missing rebuild can be
+ * attributed to the watch that never saw the file or to the decision that
+ * declined to report it. Silent unless asked, and on the same ordered stream as
+ * the rest of the watch output so it interleaves with the builds it explains.
  */
-function debugWatchInputs(message: () => string): void {
+function debugWatchInputs(message: string): void {
   if (!process.env.TTSC_WATCH_DEBUG_INPUTS) return;
-  process.stdout.write(`[ttsc:debug] ${message()}\n`);
+  process.stdout.write(`[ttsc:debug] ${message}\n`);
 }
 
 function formatError(error: unknown): string {

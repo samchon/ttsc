@@ -103,7 +103,8 @@
     "@ttsc/darwin-x64": "workspace:*",
     "@ttsc/darwin-arm64": "workspace:*",
     "@ttsc/win32-x64": "workspace:*",
-    "@ttsc/win32-arm64": "workspace:*"
+    "@ttsc/win32-arm64": "workspace:*",
+    "fsevents": "^2.3.3"
   },
   "sideEffects": ["./lib/register.js", "./src/register.ts"],
   "files": [

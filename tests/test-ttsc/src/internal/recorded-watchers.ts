@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { watchDirectoryThroughFsWatch } from "../../../../packages/ttsc/lib/launcher/internal/watch/watchDirectoryThroughFsWatch.js";
+
 /** A listener `fs.watch` was handed. */
 export type RecordedWatchListener = (
   event: string,
@@ -22,10 +24,15 @@ export interface IRecordedWatcher {
  * listener instead of watching, so a case decides which events arrive and in
  * what order.
  *
- * @returns The watchers registered from now on, and the function that puts the
- *   real `fs.watch` back.
+ * A directory watch goes through `fs.watch` only on the backend that uses it,
+ * so a case hands `openDirectoryWatch` to the `WatchTopology` it builds, and
+ * every directory watch is recorded on every platform.
+ *
+ * @returns The watchers registered from now on, the directory-watch backend
+ *   that records them, and the function that puts the real `fs.watch` back.
  */
 export function recordWatchers(): {
+  openDirectoryWatch: typeof watchDirectoryThroughFsWatch;
   restore(): void;
   watchers: IRecordedWatcher[];
 } {
@@ -54,6 +61,7 @@ export function recordWatchers(): {
     writable: true,
   });
   return {
+    openDirectoryWatch: watchDirectoryThroughFsWatch,
     restore: () =>
       Object.defineProperty(fs, "watch", {
         configurable: true,

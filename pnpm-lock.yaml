@@ -376,6 +376,9 @@ importers:
       '@ttsc/win32-x64':
         specifier: workspace:*
         version: link:../ttsc-win32-x64
+      fsevents:
+        specifier: ^2.3.3
+        version: 2.3.3
 
   packages/ttsc-darwin-arm64: {}
 

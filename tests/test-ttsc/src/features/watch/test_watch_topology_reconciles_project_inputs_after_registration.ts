@@ -5,6 +5,7 @@ import path from "node:path";
 
 import { type WatchInputChange } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
 import { WatchTopology } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
+import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/lib/launcher/internal/watch/watchDirectoryThroughFsWatch.js";
 
 /**
  * Verifies project-input publication closes the snapshot-to-watcher handoff.
@@ -191,6 +192,7 @@ async function verifyUncoveredRootDoesNotDisableHealthyReconciliation(): Promise
         );
       },
     },
+    watchDirectoryThroughFsWatch,
   );
   try {
     topology.setProjectInputs({
@@ -321,6 +323,8 @@ function createTopology(
         throw new Error("project-input publication changed compiler topology");
       },
     },
+    // Every directory watch goes through the `fs.watch` this case replaces.
+    watchDirectoryThroughFsWatch,
   );
 }
 

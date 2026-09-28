@@ -47,7 +47,7 @@ export const test_watch_topology_reports_an_edit_only_a_directory_watch_heard =
       "utf8",
     );
 
-    const { restore, watchers } = recordWatchers();
+    const { openDirectoryWatch, restore, watchers } = recordWatchers();
     const changes: WatchInputChange[] = [];
     const topology = new WatchTopology(
       {
@@ -63,6 +63,7 @@ export const test_watch_topology_reports_an_edit_only_a_directory_watch_heard =
         onInputChange: (change) => changes.push(change),
         onTopologyChange: () => undefined,
       },
+      openDirectoryWatch,
     );
     const deliverToDirectoryWatchers = (): void => {
       const directories = watchers.filter(

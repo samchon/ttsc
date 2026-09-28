@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { WatchTopology } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
+import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/lib/launcher/internal/watch/watchDirectoryThroughFsWatch.js";
 
 /**
  * Verifies a rejected project-input watch root is reported and retryable.
@@ -66,6 +67,8 @@ export const test_watch_topology_retries_rejected_project_input_roots =
           throw new Error("watch setup must not report a topology change");
         },
       },
+      // Every directory watch goes through the `fs.watch` this case replaces.
+      watchDirectoryThroughFsWatch,
     );
     const snapshot = {
       files: [input],
@@ -154,6 +157,7 @@ async function verifyFallbackChain(): Promise<void> {
         throw new Error("watch setup must not report a topology change");
       },
     },
+    watchDirectoryThroughFsWatch,
   );
   try {
     topology.setProjectInputs({
@@ -226,6 +230,7 @@ async function verifyCloseDuringFailure(): Promise<void> {
         throw new Error("watch setup must not report a topology change");
       },
     },
+    watchDirectoryThroughFsWatch,
   );
   try {
     topology.setProjectInputs({
@@ -287,6 +292,7 @@ async function verifyLiveRootReportingSurvivesFailedReplacement(): Promise<void>
         throw new Error("watch setup must not report a topology change");
       },
     },
+    watchDirectoryThroughFsWatch,
   );
   try {
     topology.setProjectInputs({

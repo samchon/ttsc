@@ -5,6 +5,7 @@ import path from "node:path";
 
 import { type WatchInputChange } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
 import { WatchTopology } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
+import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/lib/launcher/internal/watch/watchDirectoryThroughFsWatch.js";
 
 /**
  * Verifies compiler watchers close their snapshot-to-registration handoff.
@@ -763,6 +764,8 @@ function createTopology(
       onInputChange: (change) => changes.push(change),
       onTopologyChange,
     },
+    // Every directory watch goes through the `fs.watch` this case replaces.
+    watchDirectoryThroughFsWatch,
   );
 }
 

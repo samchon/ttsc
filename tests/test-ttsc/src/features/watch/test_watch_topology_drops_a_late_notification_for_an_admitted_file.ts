@@ -52,7 +52,7 @@ export const test_watch_topology_drops_a_late_notification_for_an_admitted_file 
       "utf8",
     );
 
-    const { restore, watchers } = recordWatchers();
+    const { openDirectoryWatch, restore, watchers } = recordWatchers();
     const changes: WatchInputChange[] = [];
     let topologyChanges = 0;
     const topology = new WatchTopology(
@@ -71,6 +71,7 @@ export const test_watch_topology_drops_a_late_notification_for_an_admitted_file 
           topologyChanges += 1;
         },
       },
+      openDirectoryWatch,
     );
     try {
       topology.refresh(false);

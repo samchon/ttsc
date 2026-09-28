@@ -20,6 +20,7 @@ import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITts
 import type { ITtscProjectInputSnapshot } from "../../../structures/internal/ITtscProjectInputSnapshot";
 import type { TtscBuildOptions } from "../../../structures/internal/TtscBuildOptions";
 import { resolveSingleFileOutput } from "../resolveSingleFileOutput";
+import type { DirectoryWatcher } from "./DirectoryWatcher";
 import { ProjectInputWatchRules } from "./ProjectInputWatchRules";
 import type { WatchInputChange } from "./WatchInputChange";
 import { WatchPaths } from "./WatchPaths";
@@ -33,8 +34,8 @@ import { projectInputReloadEventShouldNotify } from "./projectInputReloadEventSh
 import { projectInputReplacementStrandsWatchers } from "./projectInputReplacementStrandsWatchers";
 import { projectInputTopologyMayAffect } from "./projectInputTopologyMayAffect";
 import { reloadInputsForFailedTopologyRefresh } from "./reloadInputsForFailedTopologyRefresh";
-import { settleWatchBackend } from "./settleWatchBackend";
 import { syncWatchers } from "./syncWatchers";
+import { watchDirectory } from "./watchDirectory";
 
 /**
  * Keeps the launcher watch set aligned with the compiler's current program.
@@ -50,9 +51,8 @@ export class WatchTopology {
   private compilerPostRegistrationMembershipRefresh = false;
   private compilerPostRegistrationReconciliationScheduled = false;
   private compilerPostRegistrationSkipUnobservedProjectInputWatchRoots = true;
-  private deliveryReconciliationScheduled = false;
   private directories = new Map<string, string>();
-  private directoryWatchers = new Map<string, fs.FSWatcher>();
+  private directoryWatchers = new Map<string, DirectoryWatcher>();
   private extraInputs: readonly string[] = [];
   /**
    * What each plugin input held when last observed, by path key: the digest a
@@ -66,14 +66,10 @@ export class WatchTopology {
    */
   private pendingPluginNotifications = new Map<string, Set<string>>();
   private pluginNotificationsScheduled = false;
-  private extraWatchers = new Map<string, fs.FSWatcher>();
+  private extraWatchers = new Map<string, DirectoryWatcher>();
   /** The plugin inputs whose directories the last sync already watched. */
   private watchedExtraInputs = new Set<string>();
-  /** The plugin input directories the last sync meant to watch. */
-  private extraDirectories = new Set<string>();
   private compilerFileSnapshots = new Map<string, CompilerFileSnapshot>();
-  /** Each watched compiler directory's entries when membership was resolved. */
-  private compilerDirectoryListings = new Map<string, string>();
   private files = new Map<string, string>();
   private fileWatchers = new Map<string, fs.FSWatcher>();
   private observedDirectories = new Map<string, string>();
@@ -101,8 +97,8 @@ export class WatchTopology {
   private projectInputRequiredWatchRoots = new Map<string, string>();
   private projectInputUnobservedWatchRoots = new Map<string, string>();
   private projectInputWatchRoots = new Map<string, string>();
-  private projectInputWatchers = new Map<string, fs.FSWatcher>();
-  private projectInputLinkWatchers = new Map<string, fs.FSWatcher>();
+  private projectInputWatchers = new Map<string, DirectoryWatcher>();
+  private projectInputLinkWatchers = new Map<string, DirectoryWatcher>();
   private projectInputCompilerOutputOverlaps = new WeakMap<
     ProjectInputPathIdentityContext,
     Map<string, boolean>
@@ -119,9 +115,17 @@ export class WatchTopology {
   private compilerInputsResolved = false;
   private reloadFiles = new Map<string, string>();
 
+  /**
+   * @param options What to watch.
+   * @param callbacks What to tell about it.
+   * @param openDirectoryWatch The backend every directory watch goes through:
+   *   `watchDirectory`, which chooses the platform's, unless the caller
+   *   observes the watch set through another.
+   */
   public constructor(
     private readonly options: WatchTopologyOptions,
     private readonly callbacks: WatchTopologyCallbacks,
+    private readonly openDirectoryWatch: typeof watchDirectory = watchDirectory,
   ) {}
 
   /** Re-resolve compiler inputs and notify only when their membership changed. */
@@ -133,22 +137,7 @@ export class WatchTopology {
     notify: boolean,
     skipUnobservedProjectInputWatchRoots: boolean,
   ): void {
-    // Listed before resolving, so an entry that lands during the resolution is
-    // found missing from the record and resolved again, never absorbed. The
-    // record stands even when the resolution fails: that failure is reported
-    // for these entries, and a re-check must not resolve and report it again.
-    const listings = new Map<string, string>();
-    for (const [key, location] of this.compilerWatchedDirectories()) {
-      listings.set(key, directoryListing(location));
-    }
-    this.compilerDirectoryListings = listings;
     const next = resolveWatchTopology(this.options, this.extraInputs);
-    // A directory new to this resolution is listed now. Where it gets a watcher
-    // of its own, that registration resolves membership again, listing it
-    // first; where a recursive watch already covers it, that watch hears it.
-    for (const [key, location] of next.directories) {
-      if (!listings.has(key)) listings.set(key, directoryListing(location));
-    }
     const compilerProgramMembershipChange =
       next.analysisOnly &&
       WatchPaths.mapsEqual(this.reloadFiles, next.reloadFiles) &&
@@ -399,11 +388,6 @@ export class WatchTopology {
             // a touch. It answers the same question the unnamed directory event
             // answers, so it answers it the same way: from the bytes.
             const movement = this.compilerFileMovement(location);
-            this.callbacks.onHeard?.(
-              "compiler-file",
-              location,
-              `content=${movement.content} owner=${movement.owner}`,
-            );
             if (movement.owner) this.rearmFileWatchers([location], true);
             if (!movement.content) return;
             this.callbacks.onInputChange({
@@ -414,7 +398,6 @@ export class WatchTopology {
         ),
       (location, error) => this.callbacks.onError(location, error),
       () => this.closed === false,
-      (location) => this.watchSetChanged(location),
     );
     return [...this.fileWatchers].some(
       ([key, watcher]) => previous.get(key) !== watcher,
@@ -431,26 +414,6 @@ export class WatchTopology {
       content: previous?.content !== next.content,
       owner: previous?.owner !== next.owner,
     };
-  }
-
-  /** The compiler directories the topology watches: resolved and observed. */
-  private compilerWatchedDirectories(): Map<string, string> {
-    return new Map([...this.directories, ...this.observedDirectories]);
-  }
-
-  /**
-   * Whether a watched compiler directory's entries moved since membership was
-   * resolved. A directory observed after that has no record, and its watcher's
-   * registration resolves membership on its own.
-   */
-  private compilerDirectoryListingMoved(): boolean {
-    for (const [key, location] of this.compilerWatchedDirectories()) {
-      const recorded = this.compilerDirectoryListings.get(key);
-      if (recorded !== undefined && recorded !== directoryListing(location)) {
-        return true;
-      }
-    }
-    return false;
   }
 
   private syncDirectoryWatchers(): boolean {
@@ -484,22 +447,14 @@ export class WatchTopology {
       this.directoryWatchers,
       desired,
       (location) =>
-        fs.watch(
+        this.openDirectoryWatch(
           watcherRegistrationPath(location),
-          {
-            persistent: true,
-            recursive: process.platform === "win32",
-          },
+          process.platform === "win32",
           (event, filename) => {
             const changed =
               filename === null
                 ? undefined
-                : path.resolve(location, filename.toString());
-            this.callbacks.onHeard?.(
-              "compiler-directory",
-              changed ?? location,
-              event,
-            );
+                : path.resolve(location, filename);
             const pluginInput = changed ?? location;
             if (this.isPluginInput(pluginInput)) {
               this.notePluginNotification(pluginInput);
@@ -529,99 +484,10 @@ export class WatchTopology {
         ),
       (location, error) => this.callbacks.onError(location, error),
       () => this.closed === false,
-      (location) => this.watchSetChanged(location),
     );
     return [...this.directoryWatchers].some(
       ([key, watcher]) => previous.get(key) !== watcher,
     );
-  }
-
-  /**
-   * A watcher opened or closed at `location`, or at a location no longer known.
-   * Only a directory watch shares a stream with others (`settleWatchBackend`),
-   * so a file watch opening or closing, as a rename-based save rearms one on
-   * every save, re-checks nothing; any other change schedules the re-check.
-   */
-  private watchSetChanged(location: string | undefined): void {
-    if (location !== undefined) {
-      try {
-        if (!fs.statSync(location).isDirectory()) return;
-      } catch {
-        // A location that cannot be read is re-checked like one of unknown kind.
-      }
-    }
-    this.scheduleDeliveryReconciliation();
-  }
-
-  /**
-   * Re-check every observed input once the watchers opened or closed in this
-   * turn deliver.
-   *
-   * A backend can serve several watches through one stream that opening or
-   * closing any of them re-creates, and the re-created stream reports nothing
-   * from before it started: on macOS every directory watch shares one
-   * FSEventStream (samchon/ttsc#1583). So a change can be lost to watchers of
-   * every kind when any watcher opens or closes, not only to the one that
-   * opened. After the backend has settled (`settleWatchBackend`), the compiler
-   * files, the project inputs, and the plugin inputs are each compared with
-   * their recorded state, so a change that landed in the gap is reported, and
-   * the settled stream delivers every later one. A compiler directory whose
-   * entries moved since membership was resolved has its membership resolved
-   * again, so a source created in the gap joins the program.
-   */
-  private scheduleDeliveryReconciliation(): void {
-    if (this.closed || this.deliveryReconciliationScheduled) return;
-    this.deliveryReconciliationScheduled = true;
-    queueMicrotask(() => {
-      this.deliveryReconciliationScheduled = false;
-      if (this.closed) return;
-      settleWatchBackend(this.options.projectRoot ?? this.options.cwd);
-      this.scheduleCompilerPostRegistrationReconciliation(
-        this.compilerDirectoryListingMoved(),
-        true,
-      );
-      if (this.projectInputWatchers.size !== 0) {
-        this.scheduleProjectInputPostRegistrationReconciliation();
-      }
-      this.recheckPluginInputs();
-    });
-  }
-
-  /**
-   * Report each plugin input whose state moved since it was recorded, and
-   * record the state it moved to.
-   *
-   * A directory created in the gap moves no state while it is empty, and a
-   * watcher of its parent does not deliver what later lands in it. So a
-   * directory the last sync did not know is watched first, and what it holds is
-   * noted (`syncExtraWatchers`). A known directory without a watcher is not
-   * reopened here: a watcher that failed closes and schedules this re-check, so
-   * reopening it would keep a directory that keeps failing calling the two in
-   * turn.
-   */
-  private recheckPluginInputs(): void {
-    for (const input of this.extraInputs) {
-      try {
-        if (
-          collectInputDirectories(input).some(
-            (directory) =>
-              !this.extraDirectories.has(WatchPaths.pathKey(directory)),
-          )
-        ) {
-          this.syncExtraWatchers();
-          break;
-        }
-      } catch (error) {
-        this.callbacks.onError(input, error);
-      }
-    }
-    for (const input of this.extraInputs) {
-      const key = WatchPaths.pathKey(input);
-      const state = pluginInputState(input);
-      if (this.pluginInputStates.get(key) === state) continue;
-      this.pluginInputStates.set(key, state);
-      this.callbacks.onInputChange({ kind: "plugin", path: input });
-    }
   }
 
   /**
@@ -763,7 +629,6 @@ export class WatchTopology {
       if (watcher === undefined) continue;
       watcher.close();
       this.fileWatchers.delete(key);
-      this.watchSetChanged(file);
     }
     if (this.syncFileWatchers(skipMissing)) {
       this.scheduleCompilerPostRegistrationReconciliation(false, true);
@@ -806,26 +671,23 @@ export class WatchTopology {
       this.extraWatchers,
       directories,
       (location) =>
-        fs.watch(
+        this.openDirectoryWatch(
           watcherRegistrationPath(location),
-          { persistent: true },
+          false,
           (_event, filename) => {
             const changed =
               filename === null
                 ? undefined
-                : path.resolve(location, filename.toString());
+                : path.resolve(location, filename);
             // The one decision every watcher that hears a plugin path shares;
             // here it drops the entry of a directory the build passes over.
-            this.callbacks.onHeard?.("plugin", changed ?? location);
             if (changed !== undefined && !this.isPluginInput(changed)) return;
             this.notePluginNotification(changed ?? location);
           },
         ),
       (location, error) => this.callbacks.onError(location, error),
       () => this.closed === false,
-      (location) => this.watchSetChanged(location),
     );
-    this.extraDirectories = new Set(directories.keys());
     this.watchedExtraInputs = new Set(
       this.extraInputs.map((input) => WatchPaths.pathKey(input)),
     );
@@ -933,15 +795,14 @@ export class WatchTopology {
       this.projectInputWatchers,
       active,
       (location) =>
-        fs.watch(
+        this.openDirectoryWatch(
           watcherRegistrationPath(location),
-          { persistent: true, recursive: true },
+          true,
           (_event, filename) => {
             const changed =
               filename === null
                 ? undefined
-                : path.resolve(location, filename.toString());
-            this.callbacks.onHeard?.("project-input", changed ?? location);
+                : path.resolve(location, filename);
             this.refreshProjectInputs(location, changed);
           },
         ),
@@ -955,7 +816,6 @@ export class WatchTopology {
         }
       },
       () => this.closed === false,
-      (location) => this.watchSetChanged(location),
     );
     if (this.closed) return;
     if (!this.projectInputRecoveryScheduled) {
@@ -1016,21 +876,19 @@ export class WatchTopology {
       this.projectInputLinkWatchers,
       desired,
       (location) =>
-        fs.watch(
+        this.openDirectoryWatch(
           watcherRegistrationPath(location),
-          { persistent: true },
+          false,
           (_event, filename) => {
             const changed =
               filename === null
                 ? undefined
-                : path.resolve(location, filename.toString());
-            this.callbacks.onHeard?.("project-input", changed ?? location);
+                : path.resolve(location, filename);
             this.refreshProjectInputs(location, changed);
           },
         ),
       (location, error) => this.callbacks.onError(location, error),
       () => this.closed === false,
-      (location) => this.watchSetChanged(location),
     );
   }
 
@@ -1052,7 +910,6 @@ export class WatchTopology {
       if (watcher === undefined) continue;
       watcher.close();
       watchers.delete(key);
-      this.scheduleDeliveryReconciliation();
     }
   }
 
@@ -1721,20 +1578,6 @@ type WatchTopologyCallbacks = {
   onInputChange(change: WatchInputChange): void;
   onProjectInputWatchUnavailable?(roots: readonly string[]): void;
   onProjectInputWatchRoots?(roots: readonly string[]): void;
-  /**
-   * A watcher heard a path, before any decision about it, so a notification
-   * that was declined can be told from one never delivered. `detail` carries
-   * what the watcher saw, where it has more than the path.
-   */
-  onHeard?(
-    watcher:
-      | "compiler-directory"
-      | "compiler-file"
-      | "plugin"
-      | "project-input",
-    location: string,
-    detail?: string,
-  ): void;
   onTopologyChange(): void;
 };
 
@@ -2264,14 +2107,6 @@ function collectTopologyDirectories(
   return directories;
 }
 
-/** A directory's entry names, or `""` when it cannot be read. */
-function directoryListing(location: string): string {
-  try {
-    return fs.readdirSync(location).sort().join("\0");
-  } catch {
-    return "";
-  }
-}
 
 /**
  * Every directory of a plugin input a watch observes: the input and the
@@ -2293,7 +2128,7 @@ function isVanishedFilesystemEntry(error: unknown): boolean {
   );
 }
 
-function closeWatchers(watchers: Map<string, fs.FSWatcher>): void {
+function closeWatchers(watchers: Map<string, DirectoryWatcher>): void {
   for (const watcher of watchers.values()) watcher.close();
   watchers.clear();
 }
