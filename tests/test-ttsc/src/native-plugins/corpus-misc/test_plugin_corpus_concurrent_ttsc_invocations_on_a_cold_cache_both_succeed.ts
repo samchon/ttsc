@@ -1,5 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 
+import { SHARED_GO_BUILD_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   assert,
   child_process,
@@ -34,10 +35,13 @@ export const test_plugin_corpus_concurrent_ttsc_invocations_on_a_cold_cache_both
     const rootA = copyProject("go-source-plugin");
     const rootB = copyProject("go-source-plugin");
     const cacheDir = TestProject.tmpdir("ttsc-source-plugin-race-");
+    // The plugin cache both runs race on is cold; the Go objects they build
+    // from are the suite's, which the case never reads.
     const env = {
       ...process.env,
       PATH: goPath(),
       TTSC_CACHE_DIR: cacheDir,
+      TTSC_GO_CACHE_DIR: SHARED_GO_BUILD_CACHE_DIR,
       TTSC_BINARY: nativeBinary,
       TTSC_TSGO_BINARY: tsgoBinary,
     };

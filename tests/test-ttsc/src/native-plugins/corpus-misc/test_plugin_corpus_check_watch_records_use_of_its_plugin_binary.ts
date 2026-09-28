@@ -1,5 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 
+import { SHARED_GO_BUILD_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   assert,
   fs,
@@ -36,7 +37,13 @@ export const test_plugin_corpus_check_watch_records_use_of_its_plugin_binary =
     const source = path.join(root, "src", "main.ts");
     fs.writeFileSync(source, "var legacy = 1;\nJSON.stringify(legacy);\n");
     const cacheDir = TestProject.tmpdir("ttsc-watch-plugin-use-");
-    const env = { PATH: goPath(), TTSC_CACHE_DIR: cacheDir };
+    // The plugin cache is the case's own; the Go objects it builds from are
+    // the suite's, which the case never reads.
+    const env = {
+      PATH: goPath(),
+      TTSC_CACHE_DIR: cacheDir,
+      TTSC_GO_CACHE_DIR: SHARED_GO_BUILD_CACHE_DIR,
+    };
     const session = new WatchSession(root, {
       args: ["--noEmit", "--diagnostics"],
       env,

@@ -1,5 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 
+import { SHARED_GO_BUILD_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   assert,
   copyProject,
@@ -36,7 +37,8 @@ export const test_plugin_corpus_relative_cache_dir_resolves_from_cwd_option =
       ["--cwd", root, "--emit", "--cache-dir", cacheDir],
       {
         cwd: driverCwd,
-        env: { PATH: goPath() },
+        // The Go objects are the suite's; the case observes the plugin cache.
+        env: { PATH: goPath(), TTSC_GO_CACHE_DIR: SHARED_GO_BUILD_CACHE_DIR },
       },
     );
 

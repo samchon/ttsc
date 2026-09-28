@@ -1,5 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 
+import { SHARED_GO_BUILD_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   assert,
   copyProject,
@@ -31,9 +32,12 @@ export const test_plugin_corpus_prepare_builds_source_plugins_without_emitting_p
   () => {
     const root = copyProject("go-source-plugin");
     const cacheDir = TestProject.tmpdir("ttsc-source-plugin-prepare-");
+    // The plugin cache is the case's own; the Go objects it builds from are
+    // the suite's, which the case never reads.
     const env = {
       PATH: goPath(),
       TTSC_CACHE_DIR: cacheDir,
+      TTSC_GO_CACHE_DIR: SHARED_GO_BUILD_CACHE_DIR,
     };
 
     const prepared = spawn(ttscBin, ["prepare", "--cwd", root], {

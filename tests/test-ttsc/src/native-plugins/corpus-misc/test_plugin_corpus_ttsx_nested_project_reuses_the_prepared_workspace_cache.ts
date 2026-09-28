@@ -1,3 +1,4 @@
+import { SHARED_GO_BUILD_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   assert,
   copyProject,
@@ -46,7 +47,13 @@ export const test_plugin_corpus_ttsx_nested_project_reuses_the_prepared_workspac
       }),
       "utf8",
     );
-    const env = { PATH: goPath(), TTSC_CACHE_DIR: "" };
+    // The Go objects are the suite's; the case observes the default plugin
+    // cache.
+    const env = {
+      PATH: goPath(),
+      TTSC_CACHE_DIR: "",
+      TTSC_GO_CACHE_DIR: SHARED_GO_BUILD_CACHE_DIR,
+    };
 
     const prepared = spawn(
       ttscBin,
