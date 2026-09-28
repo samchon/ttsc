@@ -134,11 +134,14 @@ export class WatchTopology {
     skipUnobservedProjectInputWatchRoots: boolean,
   ): void {
     // Listed before resolving, so an entry that lands during the resolution is
-    // found missing from the record and resolved again, never absorbed.
+    // found missing from the record and resolved again, never absorbed. The
+    // record stands even when the resolution fails: that failure is reported
+    // for these entries, and a re-check must not resolve and report it again.
     const listings = new Map<string, string>();
     for (const [key, location] of this.compilerWatchedDirectories()) {
       listings.set(key, directoryListing(location));
     }
+    this.compilerDirectoryListings = listings;
     const next = resolveWatchTopology(this.options, this.extraInputs);
     // A directory new to this resolution is listed now. Where it gets a watcher
     // of its own, that registration resolves membership again, listing it
@@ -146,7 +149,6 @@ export class WatchTopology {
     for (const [key, location] of next.directories) {
       if (!listings.has(key)) listings.set(key, directoryListing(location));
     }
-    this.compilerDirectoryListings = listings;
     const compilerProgramMembershipChange =
       next.analysisOnly &&
       WatchPaths.mapsEqual(this.reloadFiles, next.reloadFiles) &&
