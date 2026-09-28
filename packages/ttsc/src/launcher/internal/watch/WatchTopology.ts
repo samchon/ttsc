@@ -72,6 +72,8 @@ export class WatchTopology {
   /** The plugin input directories the last sync meant to watch. */
   private extraDirectories = new Set<string>();
   private compilerFileSnapshots = new Map<string, CompilerFileSnapshot>();
+  /** Each watched compiler directory's entries when membership was resolved. */
+  private compilerDirectoryListings = new Map<string, string>();
   private files = new Map<string, string>();
   private fileWatchers = new Map<string, fs.FSWatcher>();
   private observedDirectories = new Map<string, string>();
@@ -131,7 +133,20 @@ export class WatchTopology {
     notify: boolean,
     skipUnobservedProjectInputWatchRoots: boolean,
   ): void {
+    // Listed before resolving, so an entry that lands during the resolution is
+    // found missing from the record and resolved again, never absorbed.
+    const listings = new Map<string, string>();
+    for (const [key, location] of this.compilerWatchedDirectories()) {
+      listings.set(key, directoryListing(location));
+    }
     const next = resolveWatchTopology(this.options, this.extraInputs);
+    // A directory new to this resolution is listed now. Where it gets a watcher
+    // of its own, that registration resolves membership again, listing it
+    // first; where a recursive watch already covers it, that watch hears it.
+    for (const [key, location] of next.directories) {
+      if (!listings.has(key)) listings.set(key, directoryListing(location));
+    }
+    this.compilerDirectoryListings = listings;
     const compilerProgramMembershipChange =
       next.analysisOnly &&
       WatchPaths.mapsEqual(this.reloadFiles, next.reloadFiles) &&
@@ -416,6 +431,26 @@ export class WatchTopology {
     };
   }
 
+  /** The compiler directories the topology watches: resolved and observed. */
+  private compilerWatchedDirectories(): Map<string, string> {
+    return new Map([...this.directories, ...this.observedDirectories]);
+  }
+
+  /**
+   * Whether a watched compiler directory's entries moved since membership was
+   * resolved. A directory observed after that has no record, and its watcher's
+   * registration resolves membership on its own.
+   */
+  private compilerDirectoryListingMoved(): boolean {
+    for (const [key, location] of this.compilerWatchedDirectories()) {
+      const recorded = this.compilerDirectoryListings.get(key);
+      if (recorded !== undefined && recorded !== directoryListing(location)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private syncDirectoryWatchers(): boolean {
     const previous = new Map(this.directoryWatchers);
     const desired = new Map(this.directories);
@@ -528,7 +563,9 @@ export class WatchTopology {
    * opened. After the backend has settled (`settleWatchBackend`), the compiler
    * files, the project inputs, and the plugin inputs are each compared with
    * their recorded state, so a change that landed in the gap is reported, and
-   * the settled stream delivers every later one.
+   * the settled stream delivers every later one. A compiler directory whose
+   * entries moved since membership was resolved has its membership resolved
+   * again, so a source created in the gap joins the program.
    */
   private scheduleDeliveryReconciliation(): void {
     if (this.closed || this.deliveryReconciliationScheduled) return;
@@ -537,7 +574,10 @@ export class WatchTopology {
       this.deliveryReconciliationScheduled = false;
       if (this.closed) return;
       settleWatchBackend(this.options.projectRoot ?? this.options.cwd);
-      this.scheduleCompilerPostRegistrationReconciliation(false, true);
+      this.scheduleCompilerPostRegistrationReconciliation(
+        this.compilerDirectoryListingMoved(),
+        true,
+      );
       if (this.projectInputWatchers.size !== 0) {
         this.scheduleProjectInputPostRegistrationReconciliation();
       }
@@ -2220,6 +2260,15 @@ function collectTopologyDirectories(
     }
   }
   return directories;
+}
+
+/** A directory's entry names, or `""` when it cannot be read. */
+function directoryListing(location: string): string {
+  try {
+    return fs.readdirSync(location).sort().join("\0");
+  } catch {
+    return "";
+  }
 }
 
 /**
