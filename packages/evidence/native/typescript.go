@@ -226,10 +226,16 @@ func canonicalTypeScriptDirectory(directory string) string {
       }
       resolved, settled := resolveLinkedPath(current)
       if !settled {
-        return filepath.ToSlash(directory)
+        // The bounded resolver protects declared roots, but a Program base
+        // can still be reached through a longer chain the host itself opens.
+        // Ask the host to resolve that full chain before falling back to the
+        // declared spelling.
+        resolved = current
       }
       if evaluated, err := filepath.EvalSymlinks(filepath.FromSlash(resolved)); err == nil {
         resolved = evaluated
+      } else if !settled {
+        return filepath.ToSlash(directory)
       }
       parts := append([]string{filepath.FromSlash(resolved)}, missing...)
       return filepath.ToSlash(filepath.Join(parts...))
