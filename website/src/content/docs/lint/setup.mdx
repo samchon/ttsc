@@ -37,6 +37,8 @@ Rules with options use an ESLint-style tuple such as `["error", { "allowElseIf":
 
 To exclude generated files from linting entirely, add a top-level `ignores` list (e.g. `ignores: [".next/**/*.ts", "next-env.d.ts"]`). Without a `files` filter it is a global ignore: the matched paths are skipped by every rule, including rules inherited through `extends`.
 
+Check, fix, format, and editor sessions relate project-local files to the directory where the TypeScript Program was opened (`--cwd` when supplied). Reaching that directory through a linked shell `PWD` does not change whether a Program file belongs to the project.
+
 The `format` block configures the formatter, keys mirror `.prettierrc`. Presence of the block (even empty `format: {}`) enables `ttsc format` at Prettier defaults. It does not make `ttsc check` fail on formatting unless you set `format.severity`.
 
 Executable lint configs are evaluated in an isolated process and cached with their complete local module-resolution graph. The cache fingerprints imported files, package manifests, resolution directories, and package files without publishing package contents as recursively watched project data. Editing a helper, changing a package entry point, adding a higher-priority extension candidate, or replacing a symlink therefore invalidates the prior result without touching the config itself. `TTSC_LINT_DISABLE_CONFIG_CACHE=1` remains available when diagnosing evaluation behavior; it is not required for imported helpers. Config and contributor logs are preserved on stderr so they cannot corrupt JSON CLI output or LSP frames.

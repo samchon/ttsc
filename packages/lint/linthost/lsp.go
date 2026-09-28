@@ -221,6 +221,7 @@ func computeLSPProjectDiagnostics(opts *lspCommandOptions) (*lspProjectDiagnosti
     fmt.Fprintln(os.Stderr, err)
     return nil, 2
   }
+  engine.SetCurrentDirectory(opts.cwd)
   prog, _, closeProgram, err := acquireProgram(opts, engine.NeedsTypeChecker())
   if closeProgram != nil {
     defer closeProgram()
@@ -465,6 +466,7 @@ func lspFindings(opts *lspCommandOptions, includeFormatDefaults bool) ([]*Findin
     fmt.Fprintln(os.Stderr, err)
     return nil, nil, nil, 2
   }
+  engine.SetCurrentDirectory(opts.cwd)
   prog, parseDiags, closeProgram, err := acquireProgram(opts, engine.NeedsTypeChecker())
   if err != nil {
     fmt.Fprintf(os.Stderr, "@ttsc/lint: %v\n", err)
@@ -943,6 +945,8 @@ func lspWorkspaceEditForSeededCommand(
     fmt.Fprintln(os.Stderr, err)
     return nil, 2
   }
+  // The seeded command's Program opens in the temporary workspace.
+  engine.SetCurrentDirectory(tempRoot)
   needsRuleChecker := engine.NeedsTypeChecker()
   maxPasses := maxFixPasses
   if opts.command == commandFormatDocument {
@@ -1064,6 +1068,7 @@ func lspFormatBuffer(content string, opts *lspCommandOptions) (*lspWorkspaceEdit
     fmt.Fprintln(os.Stderr, err)
     return nil, 2
   }
+  engine.SetCurrentDirectory(opts.cwd)
   if engine.NeedsTypeChecker() {
     // Contributor format rules conservatively require a checker. Seed the
     // dirty text into the temporary project so the checker, findings, fix

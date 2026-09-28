@@ -210,6 +210,7 @@ func (s *residentCheckState) run(
     return s.response(2, stdout, stderr, false)
   }
   engine.SetSerial(opts.singleThreaded)
+  engine.SetCurrentDirectory(opts.cwd)
 
   if s.program == nil || (engine.NeedsTypeChecker() && s.program.checker == nil) {
     if s.program != nil {

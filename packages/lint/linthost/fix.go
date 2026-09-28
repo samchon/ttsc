@@ -62,6 +62,7 @@ func runFix(opts *subcommandOpts) int {
     return 2
   }
   engine.SetSerial(opts.singleThreaded)
+  engine.SetCurrentDirectory(opts.cwd)
   needsRuleChecker := engine.NeedsTypeChecker()
 
   prog, code := loadFixProgram(opts, needsRuleChecker)

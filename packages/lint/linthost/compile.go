@@ -121,6 +121,7 @@ func RunTransformWithIO(args []string, stdout, stderr io.Writer) int {
     return 2
   }
   engine.SetSerial(*singleThreaded)
+  engine.SetCurrentDirectory(resolvedCwd)
 
   prog, parseDiags, err := loadProgram(resolvedCwd, *tsconfig, loadProgramOptions{
     forceEmit:          true,
@@ -335,6 +336,10 @@ func runProject(opts *subcommandOpts) int {
     return 2
   }
   engine.SetSerial(opts.singleThreaded)
+  // The rules relate files to the directory the Program opens in, never to
+  // the process's working directory, whose spelling `os.Getwd` takes from the
+  // shell's `PWD`.
+  engine.SetCurrentDirectory(opts.cwd)
 
   prog, parseDiags, err := loadProgram(opts.cwd, opts.tsconfig, loadProgramOptions{
     forceEmit:          opts.emit,

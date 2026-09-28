@@ -46,6 +46,7 @@ func computeLSPHints(opts *lspCommandOptions) ([]publicrule.Hint, int) {
     fmt.Fprintln(os.Stderr, err)
     return nil, 2
   }
+  engine.SetCurrentDirectory(opts.cwd)
   publishes, needsChecker := engine.hasHintPublisher()
   if !publishes {
     // Nothing the config declared can publish a corpus, so there is no

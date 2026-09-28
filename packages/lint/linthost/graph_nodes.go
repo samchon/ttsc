@@ -45,6 +45,7 @@ func computeGraphNodes(opts *lspCommandOptions) ([]publicrule.GraphNode, int) {
     fmt.Fprintln(os.Stderr, err)
     return nil, 2
   }
+  engine.SetCurrentDirectory(opts.cwd)
   publishes, needsChecker := engine.hasGraphPublisher()
   if !publishes {
     // Nothing the config declared can publish artifacts, so there is no
