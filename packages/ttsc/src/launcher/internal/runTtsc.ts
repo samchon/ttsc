@@ -266,7 +266,7 @@ function runCleanWithContext(
     fs.rmSync(target.path, { recursive: true, force: true });
     removed.push(target.requestedPath);
   }
-  if (removed.length === 0) {
+  if (removed.length === 0 && runtime.kept.length === 0) {
     process.stdout.write(
       `ttsc: no cache directories found under ${projectRoot}\n`,
     );
