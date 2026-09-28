@@ -98,7 +98,7 @@ export const test_watch_topology_reports_an_edit_only_a_directory_watch_heard =
 
       // Where the file has a watcher of its own, both decide from the bytes, so
       // hearing the same bytes again reports nothing. A backend with directory
-      // watches alone takes a named change at its word (#1580).
+      // watches alone uses the same fingerprint decision.
       if (!watchers.some((watcher) => watcher.location === config)) return;
       deliverToDirectoryWatchers();
       await settleWatchEvents();
