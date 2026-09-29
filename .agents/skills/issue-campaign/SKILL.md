@@ -33,7 +33,7 @@ The knowledge base is where overlapping observations are collected and then comb
 A discovery round audits the entire declared scope against the cycle baseline under the [review law](../review/SKILL.md#review-law). A round is never partitioned by package, concern, validation lane, the areas an earlier round touched, or a slice of the scope.
 
 1. Audit source, tests, documentation, CI, packaging, generated artifacts, platform behavior, upstream and downstream provenance, and open and closed issues and pull requests. Exercise real workflows; source is only one evidence layer.
-2. Audit the implementation and its history against the development skill's [engineering principles](../development/principles.md), even where tests pass. Prove a violation from purpose, control flow, consequence, and history; resemblance or stylistic preference is not evidence.
+2. Audit the implementation and its history against the [engineering contracts](../contracts/SKILL.md), even where tests pass. Prove a violation from purpose, control flow, consequence, and history; resemblance or stylistic preference is not evidence.
 3. Record every raw candidate and its evidence in the knowledge base before judging it.
 4. Vet the full candidate pool as the next section describes, then publish the surviving issues when publication is authorized.
 5. If any meaningful candidate survived, add the accepted issues to the cycle ledger and start another complete round against the same cycle baseline. Finding enough work for a pull request is not a reason to stop, and rechecking earlier candidates does not replace a new round. There is no round limit.

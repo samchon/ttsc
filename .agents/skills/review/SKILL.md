@@ -7,9 +7,9 @@ description: Defines ttsc's review law and its two uses, Overall Self-Review (th
 
 ## Review Law
 
-Read the development skill's [engineering principles](../development/principles.md) when reviewing maintained production code.
+Read the [contracts skill](../contracts/SKILL.md) when reviewing maintained production code, including its common checklist and the scoped topics relevant to affected operations.
 
-Judge each acknowledgment against the declaration, its documentation, and its consequence surface. Evidence checks acknowledgment completeness; checking the implementation is necessary to establish whether the claim is true.
+Judge each acknowledgment against the declaration, its documentation, and its consequence surface. Verify every fact requested by the referenced section, including applicable documentation-skill guidance. Evidence checks the presence of acknowledgments; review establishes whether their contents are complete and true.
 
 Each review starts from scratch over its entire declared surface and runs in the current checkout, without a clone or worktree. Apply [AGENTS.md's **Choose the principled course** rule](../../../AGENTS.md#attitude): review duration, difficulty, and consequence surface never lower the completion standard. The [issue-campaign skill's discovery rounds](../issue-campaign/SKILL.md#discovery-rounds) follow the same law.
 

@@ -16,7 +16,7 @@ Read both only when changing shared fixture infrastructure or a surface that aff
 
 ## Measurement Integrity
 
-- Apply the [engineering principles](../development/principles.md) to the measured product and these maintained harnesses. Measure the real product; do not restrict an agent or change supported behavior to improve a measurement.
+- Apply the [common engineering contracts](../contracts/common.md) to the measured product and these maintained harnesses. Measure the real product; do not restrict an agent or change supported behavior to improve a measurement.
 - Give every comparator the setup its own documentation prescribes. Measuring a deliberately underconfigured competitor invalidates the comparison.
 - Preserve the workload defined by the selected procedure. A faster result obtained by compiling, linting, formatting, indexing, or reading less input is not an optimization.
 - Treat a surprising result as evidence that the change is not yet understood. Inspect the raw report or trace before accepting, explaining away, or patching around it.
@@ -29,7 +29,7 @@ Outside that directory, each reusable module exposes exactly one `TtscBenchmark*
 
 Executable surfaces are classes or namespaces. Never add a standalone exported function, constant, enum, or type alias. Put related functions, constants, guards, and subordinate types inside the owning `TtscBenchmark*` namespace; put companion types and guards for a data contract inside its `ITtscBenchmark*` namespace.
 
-Apply the [meaningful documentation](../development/principles.md#meaningful-documentation) principle to every exported symbol, exported namespace member, public member of an exported class, and field in an exported data contract.
+Apply the [meaningful documentation](../contracts/common.md#meaningful-documentation) principle to every exported symbol, exported namespace member, public member of an exported class, and field in an exported data contract.
 
 For these harnesses, also state each exported symbol, exported namespace member, and public class member's benchmark role and nonobvious invariant. Data fields state their units, optional-state semantics, and default where applicable.
 
