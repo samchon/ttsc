@@ -77,14 +77,15 @@ func validateBannerConfig(config map[string]any) error {
 // also owns a temporary directory, removed by defer. stderr streams to the
 // parent; stdout has no byte cap and evaluation has no deadline. Cleanup errors
 // are not reported. Successful loader output must carry dependency observations;
-// the shared recorder's private Node resolver fallback remains a limitation.
+// unsupported public resolution observation is reported separately from input
+// mutation, so fresh evaluation can succeed without claiming reusable inputs.
 //
 // Native paths use filepath; slash conversion is reserved for import/tsconfig
 // spelling. Child arguments are separate from executable paths. A loader's temp
 // directory stays on the config volume, with Windows junctions used when native
 // symlink creation is unavailable.
 func (plugin) SourcePreamble(ctx driver.PluginContext) (string, error) {
-  preamble, err := parseBannerWithReporters(ctx.Entry.Config, ctx.Cwd, ctx.Tsconfig, ctx.ReportHostInput, ctx.ReportHostInputHash, ctx.ReportHostInputRealpath)
+  preamble, err := parseBannerWithReporters(ctx.Entry.Config, ctx.Cwd, ctx.Tsconfig, ctx.ReportHostInput, ctx.ReportHostInputHash, ctx.ReportHostInputRealpath, ctx.ReportObservationIncomplete)
   if err != nil {
     return "", err
   }
@@ -108,8 +109,11 @@ func parseBannerWithReporter(config map[string]any, cwd, tsconfigPath string, re
   return parseBannerWithReporters(config, cwd, tsconfigPath, reporter, nil, nil)
 }
 
-func parseBannerWithReporters(config map[string]any, cwd, tsconfigPath string, reporter func(string), hashReporter func(string, *string), realpathReporter func(string, *string)) (string, error) {
-  text, err := resolveBannerTextWithReporters(config, cwd, tsconfigPath, reporter, hashReporter, realpathReporter)
+// parseBannerWithReporters formats text while forwarding exact config witnesses.
+// Optional incomplete reporters disclose unavailable public resolution observation
+// without deleting known witnesses or treating an evaluated value as a failure.
+func parseBannerWithReporters(config map[string]any, cwd, tsconfigPath string, reporter func(string), hashReporter func(string, *string), realpathReporter func(string, *string), incompleteReporters ...func()) (string, error) {
+  text, err := resolveBannerTextWithReporters(config, cwd, tsconfigPath, reporter, hashReporter, realpathReporter, incompleteReporters...)
   if err != nil {
     return "", err
   }
@@ -157,7 +161,9 @@ func resolveBannerTextWithReporter(config map[string]any, cwd, tsconfigPath stri
   return resolveBannerTextWithReporters(config, cwd, tsconfigPath, reporter, nil, nil)
 }
 
-func resolveBannerTextWithReporters(config map[string]any, cwd, tsconfigPath string, reporter func(string), hashReporter func(string, *string), realpathReporter func(string, *string)) (string, error) {
+// resolveBannerTextWithReporters keeps configuration value loading separate from
+// observation capability. Incomplete reports cannot restore a missing input proof.
+func resolveBannerTextWithReporters(config map[string]any, cwd, tsconfigPath string, reporter func(string), hashReporter func(string, *string), realpathReporter func(string, *string), incompleteReporters ...func()) (string, error) {
   if err := validateBannerConfig(config); err != nil {
     return "", err
   }
@@ -174,6 +180,13 @@ func resolveBannerTextWithReporters(config map[string]any, cwd, tsconfigPath str
       return "", err
     }
     reportBannerConfigInputs(loaded.inputs, loaded.hashes, loaded.realpaths, reporter, hashReporter, realpathReporter)
+    if !loaded.complete {
+      for _, report := range incompleteReporters {
+        if report != nil {
+          report()
+        }
+      }
+    }
     text, ok, err := bannerTextFromConfigValue(loaded.value, filepath.Base(location))
     if err != nil {
       return "", err
@@ -201,6 +214,13 @@ func resolveBannerTextWithReporters(config map[string]any, cwd, tsconfigPath str
     return "", err
   }
   reportBannerConfigInputs(loaded.inputs, loaded.hashes, loaded.realpaths, reporter, hashReporter, realpathReporter)
+  if !loaded.complete {
+    for _, report := range incompleteReporters {
+      if report != nil {
+        report()
+      }
+    }
+  }
   text, ok, err := bannerTextFromConfigValue(loaded.value, filepath.Base(location))
   if err != nil {
     return "", err
@@ -314,6 +334,9 @@ func loadBannerConfigFile(location, resolutionRoot string) (any, error) {
 }
 
 type bannerLoadedConfig struct {
+  // complete concerns resolution capability; missing per-input proofs still signal instability.
+  complete bool
+
   hashes    map[string]*string
   inputs    []string
   realpaths map[string]*string
@@ -333,7 +356,7 @@ func loadBannerConfigFileWithInputs(location, resolutionRoot string) (bannerLoad
     }
     value, err := parseBannerJSONConfigFile(location, body)
     digest := fmt.Sprintf("%x", sha256.Sum256(body))
-    return bannerLoadedConfig{hashes: map[string]*string{location: &digest}, inputs: []string{location}, realpaths: map[string]*string{location: physicalHostInput(location)}, value: value}, err
+    return bannerLoadedConfig{complete: true, hashes: map[string]*string{location: &digest}, inputs: []string{location}, realpaths: map[string]*string{location: physicalHostInput(location)}, value: value}, err
   case ".js", ".cjs", ".mjs":
     return loadBannerScriptConfigFileWithInputs(location)
   }
@@ -499,7 +522,7 @@ observeResolutions(recorder);
   const value = typeof current === "function" ? await current() : current;
   const serializedValue = toSerializableBanner(value);
   const recorded = recorder.finish();
-  process.stdout.write(JSON.stringify({ value: serializedValue, hashes: recorded.hashes, inputs: recorded.inputs, realpaths: recorded.realpaths }));
+  process.stdout.write(JSON.stringify({ value: serializedValue, complete: recorded.complete, hashes: recorded.hashes, inputs: recorded.inputs, realpaths: recorded.realpaths }));
 })().catch((error) => {
   process.stderr.write(error && error.stack ? error.stack : String(error));
   process.exitCode = 1;
@@ -558,6 +581,8 @@ function toSerializableBanner(value) {
 // remain legitimate nullable entries inside the snapshot maps.
 func decodeBannerConfigLoaderOutput(output []byte) (bannerLoadedConfig, error) {
   var envelope struct {
+    Complete *bool `json:"complete"`
+
     Error     string             `json:"__ttscLoaderError"`
     Hashes    map[string]*string `json:"hashes"`
     Inputs    []string           `json:"inputs"`
@@ -570,14 +595,14 @@ func decodeBannerConfigLoaderOutput(output []byte) (bannerLoadedConfig, error) {
   if envelope.Error != "" {
     return bannerLoadedConfig{}, fmt.Errorf("%s", envelope.Error)
   }
-  if len(envelope.Value) == 0 || envelope.Inputs == nil || envelope.Hashes == nil || envelope.Realpaths == nil {
+  if len(envelope.Value) == 0 || envelope.Complete == nil || envelope.Inputs == nil || envelope.Hashes == nil || envelope.Realpaths == nil {
     return bannerLoadedConfig{}, fmt.Errorf("config loader must return a value with dependency observations")
   }
   var value any
   if err := json.Unmarshal(envelope.Value, &value); err != nil {
     return bannerLoadedConfig{}, err
   }
-  return bannerLoadedConfig{hashes: envelope.Hashes, inputs: envelope.Inputs, realpaths: envelope.Realpaths, value: value}, nil
+  return bannerLoadedConfig{complete: *envelope.Complete, hashes: envelope.Hashes, inputs: envelope.Inputs, realpaths: envelope.Realpaths, value: value}, nil
 }
 
 // loadBannerTypeScriptConfigFile compiles and runs a TypeScript banner config
@@ -704,6 +729,7 @@ declare const process: {
     process.stdout.write(JSON.stringify({
       value: serializedValue,
       hashes: recorded.hashes,
+      complete: recorded.complete,
       inputs: recorded.inputs,
       realpaths: recorded.realpaths,
     }));
