@@ -33,13 +33,13 @@ Do not substitute a shortcut for the implementation the product requires:
 
 These shortcuts can satisfy known examples while leaving the product dependent on foreign internals or a false premise. The answer explains the relevant decision or boundary that avoids them and identifies any unresolved violation. Do not repeat every prohibition where the declaration has no such decision.
 
-Explain retained compatibility and recovery paths through the current supported contract they serve. [Development](../development/SKILL.md#repair-discipline) owns the repair procedure and [Review](../review/SKILL.md#review-law) verifies the before-and-after consequences. A permanent declaration acknowledgment need not reconstruct its development history. A passing test or renamed wrapper does not explain why a path is justified.
+Explain retained compatibility and recovery paths through the current supported contract they serve. A permanent declaration acknowledgment need not reconstruct its development history. A passing test or renamed wrapper does not explain why a path is justified.
 
 ## Meaningful documentation
 
 Write useful native documentation for public declarations and members. Explain purpose and the nonobvious facts needed to use them, such as ownership, units, failure effects or optional-state meaning. Repeating names, types and executable branches does not supply that context.
 
-Follow the [documentation skill](../documentation/SKILL.md) in related repository documents and apply its paragraph separation, clear prose and explanation of reasons to native comments. Preserve TypeScript JSDoc and Go declaration-comment syntax. Concision does not justify forcing different ideas into one paragraph.
+Follow the documentation skill in related repository documents and apply its paragraph separation, clear prose and explanation of reasons to native comments. Preserve TypeScript JSDoc and Go declaration-comment syntax. Concision does not justify forcing different ideas into one paragraph.
 
 Separate descriptive prose from acknowledgment tags with a blank comment line. Separate documented properties with a blank source line so each explanation is visibly associated with its member. Properties retain useful native documentation without separate checklist acknowledgments.
 

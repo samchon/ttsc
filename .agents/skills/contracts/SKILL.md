@@ -13,7 +13,7 @@ Product behavior belongs to [project](../project/SKILL.md) and package documenta
 
 Package and logical-unit requirements also inform the scoped questions below. Select a question when the operation makes that design decision, not for every declaration in its package. An acknowledgment justifies the decision; it does not repeat the product specification or certify its test cases.
 
-Keep navigation between contract documents in this entry file. Sibling documents must not link to one another, so each checklist remains independently readable.
+Keep document links in this entry file. Checklist documents must contain no links, so each checklist remains independently readable. Apply the [documentation skill](../documentation/SKILL.md) when writing their prose and related repository documentation.
 
 ## [Common Implementation Principles](common.md)
 
