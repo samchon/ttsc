@@ -91,8 +91,6 @@ func (s *graphSession) capabilities() []string {
   )
 }
 
-// artifactProducer names the second producer behind this session's artifact
-// nodes, and is nil when it has none.
 // provenance is this session's published origin for one generation.
 func (s *graphSession) provenance(texts map[string]string) graph.Provenance {
   built := graph.NewProvenance(
@@ -107,6 +105,8 @@ func (s *graphSession) provenance(texts map[string]string) graph.Provenance {
   return built
 }
 
+// artifactProducer names the second producer behind this session's artifact
+// nodes, and is nil when it has none.
 func (s *graphSession) artifactProducer() *graph.Producer {
   if len(s.artifacts) == 0 {
     return nil
@@ -139,14 +139,18 @@ type serveRequest struct {
 }
 
 type serveResponse struct {
-  Dump     *graph.Dump         `json:"dump,omitempty"`
+  // Dump carries a changed full projection for the legacy request protocol.
+  Dump *graph.Dump `json:"dump,omitempty"`
+
+  // Snapshot carries a changed shard transaction for the opted-in protocol.
   Snapshot *serveGraphSnapshot `json:"snapshot,omitempty"`
 
   // Error is set when the request produced no snapshot; Mode is then
   // serveModeError.
   Error string `json:"error,omitempty"`
 
-  ID    int    `json:"id"`
+  // ID addresses the response to the matching outstanding client request.
+  ID int `json:"id"`
 
   // ProtocolVersion is serveProtocolVersion on every response, including error
   // responses: a client that cannot parse the rest still learns why.
@@ -155,10 +159,13 @@ type serveResponse struct {
   // Mode is always present. It was omitempty, which meant the one field that
   // distinguishes a reuse from a full rebuild silently vanished exactly when a
   // consumer most wanted to report what happened.
-  Mode         string   `json:"mode"`
+  Mode string `json:"mode"`
 
+  // Capabilities describe this session even when no changed dump is attached.
   Capabilities []string `json:"capabilities"`
-  Changed      bool     `json:"changed"`
+
+  // Changed is false for reuse and failure; neither publishes a new graph.
+  Changed bool `json:"changed"`
 }
 
 const graphPhaseTraceEnvironment = "SAMCHON_GRAPH_TTSC_PHASE_TRACE"
@@ -196,19 +203,8 @@ type graphSession struct {
   // not the path or its modification time: the client overwrites one file per
   // process and project, so the path never moves for a given session, and a
   // republish triggered by a document whose headings did not actually change
-  // writes the same bytes and must therefore cost nothing.
+  // writes the same bytes and must therefore avoid decoding and projection.
   artifactsDigest [sha256.Size]byte
-
-  // artifactsFile and artifactsStat are what the digest was taken from, kept so
-  // an unchanged file need not be read at all. The set is one entry per
-  // document section, model field, and operation, so it is bounded by the
-  // project's documentation rather than by anything small — and this comparison
-  // runs before every graph request, where reading and hashing that whole file
-  // to learn it did not move is the kind of cost a resident session pays
-  // forever.
-  artifactsFile string
-
-  artifactsStat artifactsFileState
 
   compiler     *driver.Session
   configHashes map[string][sha256.Size]byte
@@ -225,7 +221,7 @@ type graphSession struct {
   // generation, captured from the same parse that produced configHashes and
   // rootFiles so the published evidence and the invalidation state can never
   // describe different loads.
-  configDigests           []graph.FileDigest
+  configDigests []graph.FileDigest
 
   roots                   []graph.RootFile
   initialized             bool
@@ -246,11 +242,9 @@ func newGraphSession(cwd, tsconfig string) (*graphSession, error) {
   return newGraphSessionWithArtifacts(cwd, tsconfig, nil)
 }
 
-// newGraphSessionWithArtifacts is the constructor the serve command uses, and
-// the plain one above is it with nothing published. The artifacts are read once
-// and held for the session: they are a second producer's facts about documents
-// this Program never read, so refreshing them is a different question from
-// refreshing the graph, and only the first answer is wired today.
+// newGraphSessionWithArtifacts loads one compiler session with the initial
+// artifact overlay. Requests can replace that overlay without reloading the
+// compiler because documents are not compiler inputs.
 func newGraphSessionWithArtifacts(
   cwd, tsconfig string,
   artifacts []graph.Artifact,
@@ -282,14 +276,6 @@ func (s *graphSession) adoptArtifacts(named *string) (bool, error) {
   if path == "" {
     return s.applyArtifacts(nil, withdrawnArtifactsDigest), nil
   }
-  stat, err := os.Stat(path)
-  if err != nil {
-    return false, err
-  }
-  state := artifactsFileState{size: stat.Size(), modTime: stat.ModTime().UnixNano()}
-  if path == s.artifactsFile && state == s.artifactsStat {
-    return false, nil
-  }
   // One read, hashed and decoded from the same bytes. Reading twice would let
   // an overwrite land between them and leave this session recording an identity
   // for a set it is not holding — after which a later request naming the file
@@ -298,28 +284,18 @@ func (s *graphSession) adoptArtifacts(named *string) (bool, error) {
   if err != nil {
     return false, err
   }
+  digest := sha256.Sum256(contents)
+  // Metadata alone cannot prove unchanged content. Comparing the applied
+  // digest also permits restoring the same file after an explicit withdrawal.
+  // Equivalent bytes reuse both decoding and graph projection.
+  if digest == s.artifactsDigest {
+    return false, nil
+  }
   next, err := graph.ParseArtifacts(contents)
   if err != nil {
     return false, err
   }
-  s.artifactsFile = path
-  s.artifactsStat = state
-  return s.applyArtifacts(next, sha256.Sum256(contents)), nil
-}
-
-// artifactsFileState is what an unchanged published file looks like from the
-// outside: size and modification time, never contents. It exists only to decide
-// whether the file is worth reading, and the digest taken from those contents is
-// still what decides whether the set is worth applying.
-type artifactsFileState struct {
-  size int64
-
-  // modTime is nanoseconds since the epoch rather than a time.Time, so the
-  // struct compares with == and means it. A time.Time carries a location
-  // pointer and an optional monotonic reading, and comparing two of those with
-  // == is a well-known way to get a false inequality that reads as a changed
-  // file forever.
-  modTime int64
+  return s.applyArtifacts(next, digest), nil
 }
 
 // applyArtifacts installs a set and reports whether it differs from the applied
@@ -766,8 +742,9 @@ func invalidProjectError(diags []driver.Diagnostic) error {
 //
 // The first is the invalidation state: the hash the next snapshot compares
 // against to decide whether a file moved. It is deliberately not always the
-// file's disk hash — a file that raced the load is recorded under its resident
-// text so the comparison is guaranteed to miss and force a revisit.
+// file's disk hash. A file that raced the load receives a value different from
+// the observed disk hash, forcing a revisit even when disk bytes equal resident
+// text but the current preamble would change the next parsed source.
 //
 // The second is the source manifest's disk evidence: the hex digest of the bytes
 // actually read from disk, present only when the read succeeded. These are
@@ -812,7 +789,9 @@ func hashProgramSources(program *driver.Program) (map[string][sha256.Size]byte, 
     } else {
       // Force the next snapshot to revisit a file that changed while the
       // compiler session was loading instead of blessing mismatched disk text.
-      hashes[source.FileName()] = sha256.Sum256([]byte(source.Text()))
+      mismatchHash := rawHash
+      mismatchHash[0] ^= 0xff
+      hashes[source.FileName()] = mismatchHash
     }
   }
   return hashes, digests, nil
@@ -1094,9 +1073,9 @@ func serveSnapshots(input io.Reader, output io.Writer, cwd, tsconfig string) int
   return serveSnapshotsWithArtifacts(input, output, cwd, tsconfig, nil)
 }
 
-// serveSnapshotsWithArtifacts is the loop the serve command runs, and
-// serveSnapshots is it with nothing published — the shape every existing case
-// drives, unchanged.
+// serveSnapshotsWithArtifacts serves addressed JSON requests over one compiler
+// session. Its deferred close owns the session through EOF, protocol failure and
+// output failure; unsuccessful projections remain pending for a later request.
 func serveSnapshotsWithArtifacts(
   input io.Reader,
   output io.Writer,

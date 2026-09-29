@@ -14,7 +14,10 @@
 
 package main
 
-import "strings"
+import (
+  "flag"
+  "strings"
+)
 
 // filterHostArgs strips flags that the cmd/ttsc FlagSet does not declare,
 // so a forwarded tsgo option from the JS launcher (e.g. `--strict`) does
@@ -28,6 +31,13 @@ import "strings"
 // means editing the schema and re-running `pnpm format`, not patching
 // this file.
 func filterHostArgs(args []string) []string {
+  return filterDeclaredHostArgs(args, nil)
+}
+
+// filterDeclaredHostArgs supplements the public allow-list with the command's
+// actual local declarations. Private protocol flags need no public schema entry;
+// a nil local set preserves the established public filtering behavior.
+func filterDeclaredHostArgs(args []string, local *flag.FlagSet) []string {
   filtered := make([]string, 0, len(args))
   for i := 0; i < len(args); i++ {
     current := args[i]
@@ -44,6 +54,13 @@ func filterHostArgs(args []string) []string {
     }
     name, hasInlineValue := splitFlagName(current)
     takesValue, ok := HostFlagAllowList[name]
+    if !ok && local != nil {
+      if declared := local.Lookup(name); declared != nil {
+        boolean, isBoolean := declared.Value.(interface{ IsBoolFlag() bool })
+        takesValue = !isBoolean || !boolean.IsBoolFlag()
+        ok = true
+      }
+    }
     if ok {
       filtered = append(filtered, current)
       if takesValue && !hasInlineValue && i+1 < len(args) {

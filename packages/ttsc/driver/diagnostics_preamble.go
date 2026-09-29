@@ -14,9 +14,9 @@ import (
 // at the SOURCE level: sourcePreambleFS prepends it before TypeScript-Go parses,
 // so the preamble participates in comment emission, removeComments, JSDoc
 // association, and `.d.ts` emit naturally. The side effect is that every
-// position tsgo records — including every diagnostic's — is shifted down by the
-// preamble's line count, while the file the user reads has no preamble. The
-// emitted source map already undoes that shift (AdjustEmittedSourceMap); this is
+// position tsgo records — including every diagnostic's — describes the injected
+// buffer, while the file the user reads has no preamble. Native source maps use
+// Program.NewSourceMapCorrector to remove the exact injected region; this is
 // the same invariant applied to the other coordinate the user is shown.
 //
 // The correction lives here, at the Program boundary where the preamble is
@@ -42,7 +42,7 @@ type preambleView struct {
   // start is the byte offset where the preamble was inserted, and length its
   // byte length. ApplySourcePreamble inserts after a BOM and after a hashbang
   // line, so start is not always zero.
-  start  int
+  start int
 
   length int
 }
@@ -88,9 +88,8 @@ const sourcePreambleBOM = "\ufeff"
 // file, a `.json` input, a library file) simply does not match and is reported
 // as having no region.
 //
-// One degenerate shape is nominally off by one, matching the same allowance
-// AdjustSourceMapForPreamble states: a file whose entire content is a hashbang
-// with no trailing newline gets the preamble appended after an inserted newline,
+// One degenerate shape is nominally off by one: a file whose entire content is
+// a hashbang with no trailing newline gets the preamble appended after an inserted newline,
 // which is indistinguishable from an authored trailing newline. Only a position
 // at that file's very end could differ, and such a file has no code to diagnose.
 func sourcePreambleRegion(filePath, text, preamble string) (start int, length int, ok bool) {

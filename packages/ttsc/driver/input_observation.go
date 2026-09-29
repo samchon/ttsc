@@ -36,37 +36,93 @@ const (
 
 // TransformInputReadObservation is the exact result of one compiler ReadFile
 // predicate. A failed read carries OK=false and no guessed filesystem kind.
+//
+// @evidence contracts/common.md#principled-implementation Failed reads and observed bytes remain distinct rather than turning an unreadable path into a guessed file kind.
+// @evidence contracts/common.md#clear-and-simple-design Read success and content digest form one predicate value.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No later file read manufactures missing evaluation-time content proof.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes failure from file-kind inference following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation The boundary value records the actual filesystem read result without assuming OS-specific absence semantics.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The filesystem observer owns hashing; this type describes a read result.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This predicate value does not coordinate reusable work.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The value owns no resource or independently retained collection.
 type TransformInputReadObservation struct {
-  OK   bool   `json:"ok"`
+  // OK reports whether the compiler's ReadFile call returned bytes.
+  OK bool `json:"ok"`
+
+  // Hash is the lowercase SHA-256 digest of those bytes, absent for a failed read.
   Hash string `json:"hash,omitempty"`
 }
 
 // TransformInputRealpathObservation is the exact result of one compiler
 // Realpath predicate or an identity read already performed beside a successful
 // existence predicate.
+//
+// @evidence contracts/common.md#principled-implementation Observed physical identity remains separate from the lexical path so symlink or junction changes cannot be hidden by equal spellings.
+// @evidence contracts/common.md#clear-and-simple-design Success and resolved path form one identity predicate.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown identity is not replaced by the requested lexical filename.
+// @evidence contracts/common.md#meaningful-documentation Native prose specifies Realpath and adjacent existence observation following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation The representation carries actual native identity results, including failed resolution, instead of deriving identity from an OS name.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The observer owns native identity lookup; the type is its result.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work An identity value does not coordinate artifact reuse.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The value owns no resource or resident cache.
 type TransformInputRealpathObservation struct {
-  OK   bool   `json:"ok"`
+  // OK reports whether the native identity operation returned a path.
+  OK bool `json:"ok"`
+
+  // Path is the native normalized identity observed for the lexical input.
   Path string `json:"path,omitempty"`
 }
 
 // TransformInputEntriesObservation is the exact result of one compiler
 // GetAccessibleEntries predicate. Both lists retain TypeScript-Go's sorted
 // lexical child names, including followed directory links and junctions.
+//
+// @evidence contracts/common.md#principled-implementation Files and directories preserve the compiler enumeration result, including followed native links, as separate membership constraints.
+// @evidence contracts/common.md#clear-and-simple-design Two sorted name lists represent one enumeration without collapsing them into path kind.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Directory members come from the observed native predicate rather than a later guessed glob.
+// @evidence contracts/common.md#meaningful-documentation Native prose states ordering, lexical names, and followed-link behavior following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation The lists carry actual compiler filesystem enumeration rather than assumed separator, case, or link policy.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The filesystem observer owns enumeration and copying; this type carries the result.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Membership data does not itself coordinate computation reuse.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller-owned predicate value owns no separate resource lifecycle.
 type TransformInputEntriesObservation struct {
+  // Directories contains the observed accessible child-directory names.
   Directories []string `json:"directories"`
-  Files       []string `json:"files"`
+
+  // Files contains the observed accessible child-file names.
+  Files []string `json:"files"`
 }
 
 // TransformInputObservation preserves independent compiler filesystem
 // predicates for one lexical path. False FileExists and true DirectoryExists
 // are compatible constraints, not a path-kind race.
+//
+// @evidence contracts/common.md#principled-implementation Independent FileExists, DirectoryExists, ReadFile, enumeration, stat, and identity predicates preserve compatible native answers without false kind conflicts.
+// @evidence contracts/common.md#clear-and-simple-design Optional fields distinguish unasked predicates from observed false values.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Missing predicates remain absent rather than being reconstructed from a collapsed hash projection.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains independent constraints and the nonconflicting example following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Actual native predicate results are represented explicitly without guessed filesystem capabilities or OS case policy.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The observer owns merge and compatibility algorithms; this type defines their proof representation.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The representation provides evidence to reuse owners without coordinating artifacts itself.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The proof value acquires no lease or independent resident cache.
 type TransformInputObservation struct {
-  AccessibleEntries *TransformInputEntriesObservation  `json:"accessibleEntries,omitempty"`
-  DirectoryExists   *bool                              `json:"directoryExists,omitempty"`
-  FileExists        *bool                              `json:"fileExists,omitempty"`
-  ReadFile          *TransformInputReadObservation     `json:"readFile,omitempty"`
-  Realpath          *TransformInputRealpathObservation `json:"realpath,omitempty"`
-  Stat              *string                            `json:"stat,omitempty"`
+  // AccessibleEntries records a requested directory-membership predicate.
+  AccessibleEntries *TransformInputEntriesObservation `json:"accessibleEntries,omitempty"`
+
+  // DirectoryExists records the requested directory predicate, including false.
+  DirectoryExists *bool `json:"directoryExists,omitempty"`
+
+  // FileExists records the requested file predicate, including false.
+  FileExists *bool `json:"fileExists,omitempty"`
+
+  // ReadFile records read success and the digest of the returned bytes.
+  ReadFile *TransformInputReadObservation `json:"readFile,omitempty"`
+
+  // Realpath records the observed physical identity or failed identity lookup.
+  Realpath *TransformInputRealpathObservation `json:"realpath,omitempty"`
+
+  // Stat records "missing", "directory", or "file" from the requested stat.
+  Stat *string `json:"stat,omitempty"`
 }
 
 type observedInput struct {

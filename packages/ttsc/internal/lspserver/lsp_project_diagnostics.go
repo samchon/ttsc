@@ -25,6 +25,15 @@ type projectDiagnosticsRefreshResult struct {
 // ProjectDiagnostics evaluates project rules without requiring an open
 // document and returns the latest successful publication from every capable
 // sidecar.
+//
+// @evidence contracts/common.md#principled-implementation Nil owner selection requests all capable producers and returns the aggregate publication separately from refresh bookkeeping.
+// @evidence contracts/common.md#clear-and-simple-design The owner-aware operation is the single implementation of project diagnostics refresh.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts This legacy entry shares the same producer policy rather than compensating with another query path.
+// @evidence contracts/common.md#meaningful-documentation Native prose states document-independent and last-successful publication behavior, following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation The delegated owner-aware operation owns native execution and logical config URI translation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Owner-aware refresh chooses query and aggregation algorithms.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The delegated refresh owns resident sharing and generation validity.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Child and publication lifetimes belong to the delegated source operation.
 func (s *NativePluginSource) ProjectDiagnostics() *LSPProjectDiagnostics {
   return s.ProjectDiagnosticsForOwners(nil).publication
 }
@@ -32,6 +41,15 @@ func (s *NativePluginSource) ProjectDiagnostics() *LSPProjectDiagnostics {
 // ProjectDiagnosticsForOwners refreshes only the diagnostics-capable producers
 // named by owners. A nil owner list preserves the legacy all-producer request;
 // an empty non-nil list is a successful no-op.
+//
+// @evidence contracts/common.md#principled-implementation Nil owners means all while empty non-nil means none; generation-guarded successful stores preserve independent last-good producers and record which were actually refreshed.
+// @evidence contracts/common.md#clear-and-simple-design Selection, producer execution and aggregate publication remain one transaction with separate refresh completeness metadata.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Failed producers are not reported as successful clears; optional verb fallback addresses older resident protocol support explicitly.
+// @evidence contracts/common.md#meaningful-documentation Native prose states owner-list distinctions, following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Sidecar physical project identity is checked natively before translation to the client's logical config URI; native argv remains separate from protocol URIs.
+// @evidence contracts/performance.md#efficient-algorithms Owner-set lookup is constant-time per distinct transport; output aggregation is linear in retained producer diagnostic count.
+// @evidence contracts/performance.md#reuse-equivalent-work Resident read verbs share valid Program state; per-producer generations reject older writes and untouched owners retain explicitly last-good publications.
+// @evidence contracts/performance.md#bound-retention-and-release-resources One last-good publication per producer persists for the source lifetime; output caps bound individual responses and Close cancels/waits children. Concurrent refresh requests and aggregate bytes have no independent budget.
 func (s *NativePluginSource) ProjectDiagnosticsForOwners(
   owners []string,
 ) projectDiagnosticsRefreshResult {

@@ -7,6 +7,12 @@ import (
 
 // ConfigDiscovery is the result of one upward config-file search: what it
 // found, and what it looked at on the way.
+//
+// @evidence contracts/common.md#principled-implementation Matches and rejected probes are distinct, so absence can supersede a selected config without pretending to be its contents.
+// @evidence contracts/common.md#clear-and-simple-design One search result carries stopping directory, ordered matches and rejected candidates; ambiguity policy stays with the plugin caller.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Candidate state is observed, not reconstructed from a plugin name or known project layout.
+// @evidence contracts/common.md#meaningful-documentation Native member paragraphs explain ordering, ambiguity and negative observations under documentation-skill guidance.
+// @evidence contracts/portability.md#os-neutral-implementation Paths retain native spellings; the result does not infer case policy or physical identity from the OS name.
 type ConfigDiscovery struct {
   // Directory is the directory the search stopped in, empty when nothing
   // matched anywhere up to the filesystem root.
@@ -38,6 +44,12 @@ type ConfigDiscovery struct {
 
 // ConfigCandidate is one path a config search rejected, and what it found
 // there.
+//
+// @evidence contracts/common.md#principled-implementation A path and observed directory discriminator distinguish an absent candidate from a directory occupying its name.
+// @evidence contracts/common.md#clear-and-simple-design The value records only the discovery facts consumed by rejected-input reporting.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Directory state is supplied by a filesystem observation, not a filename heuristic.
+// @evidence contracts/common.md#meaningful-documentation Native member comments describe the directory flag and absolute path following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Native paths and directory status remain separate; no separator or case capability is encoded as an OS guess.
 type ConfigCandidate struct {
   // Directory reports that the path exists and is a directory.
   Directory bool
@@ -53,6 +65,13 @@ type ConfigCandidate struct {
 // `<plugin>.config.*` file. It is shared here so the set of superseding
 // candidates is derived by the same rule everywhere, since that set is the part
 // a consumer needs and the part each plugin was most likely to leave out.
+// Pass an absolute base so returned candidates have the host's absolute form.
+//
+// @evidence contracts/common.md#principled-implementation Every supplied name is statted before stopping at the nearest matching ancestor, preserving ambiguity and superseding negative candidates.
+// @evidence contracts/common.md#clear-and-simple-design One upward walk owns discovery while callers decide how multiple matches become plugin diagnostics.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Names are caller policy; the search has no repository-specific branch or fabricated missing-file result.
+// @evidence contracts/common.md#meaningful-documentation Native prose states search stopping, shared observation ownership and the absolute-base precondition under documentation-skill guidance.
+// @evidence contracts/portability.md#os-neutral-implementation filepath.Join and Dir handle native ancestry and root termination; os.Stat obtains actual directory state without an OS case guess.
 func DiscoverConfigFile(base string, names []string) ConfigDiscovery {
   out := ConfigDiscovery{}
   directory := base
@@ -102,6 +121,12 @@ func DiscoverConfigFile(base string, names []string) ConfigDiscovery {
 // Takes the two reporters rather than a PluginContext so a plugin that already
 // threads them through its config loader can call it there, which is where the
 // discovery result lives.
+//
+// @evidence contracts/common.md#principled-implementation Missing candidates report nil observations; directories report the kind digest and a resolved physical target only when available.
+// @evidence contracts/common.md#clear-and-simple-design Two callbacks receive the search's already observed states without requiring a whole plugin context.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts An unresolved directory target is omitted rather than falsely reported as observed missing.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs explain nil-versus-unknown state, invalidation and callback ownership under documentation-skill guidance.
+// @evidence contracts/portability.md#os-neutral-implementation filepath.Abs, EvalSymlinks and Clean obtain physical directory identity; failed native resolution leaves that observation unavailable.
 func ReportRejectedConfigCandidates(candidates []ConfigCandidate, hashReporter, realpathReporter func(string, *string)) {
   for _, candidate := range candidates {
     var hash *string

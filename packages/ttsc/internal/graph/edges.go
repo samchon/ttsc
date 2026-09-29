@@ -177,7 +177,7 @@ func (g *Graph) memberRelationEdges(
   }
   for _, derivedMember := range derivedMembers {
     derivedMemberSymbol := derivedMember.Symbol()
-    if derivedMemberSymbol == nil || derivedMemberSymbol.Name == "" ||
+    if derivedMemberSymbol == nil ||
       shimast.GetCombinedModifierFlags(derivedMember)&shimast.ModifierFlagsStatic != 0 ||
       derivedMember.Kind == shimast.KindConstructor {
       continue
@@ -282,7 +282,7 @@ func directMemberForProperty(
 ) *shimast.Node {
   for _, member := range members {
     symbol := member.Symbol()
-    if symbol == nil || symbol.Name == "" ||
+    if symbol == nil ||
       shimast.GetCombinedModifierFlags(member)&shimast.ModifierFlagsStatic != 0 ||
       member.Kind == shimast.KindConstructor {
       continue
@@ -375,9 +375,8 @@ func forEachContainerIn(path string, statements []*shimast.Node, fn func(string,
       if id := topLevelID(path, statement, NodeFunction); id != "" {
         fn(id, statement)
       }
-      // Closure nodes are not indexed (build.go): what a function body runs is
-      // implementation, and implementation is read from the file. The walker
-      // stays for the day the caller asks for them.
+      // Named closures have their own indexed nodes. Their direct relationships
+      // coexist with the enclosing callable's aggregate body relationships.
       forEachClosureIn(path, statement, fn)
     case shimast.KindTypeAliasDeclaration:
       if id := topLevelID(path, statement, NodeTypeAlias); id != "" {
@@ -511,9 +510,8 @@ func forEachVariable(path string, statement *shimast.Node, fn func(string, *shim
 }
 
 // forEachClosureIn pairs each function a declaration's body declares with its
-// own node, and recurses: the renderer's `patch` owns the calls it makes, not the
-// factory it closes over. `callsWithin` stops at the same boundary, so no call is
-// attributed twice.
+// own node, and recurses. The closure records its direct body relationships;
+// enclosing callable nodes retain aggregate relationships through callsWithin.
 func forEachClosureIn(path string, declaration *shimast.Node, fn func(string, *shimast.Node)) {
   for _, closure := range ClosuresIn(declaration) {
     if id := closureID(path, closure); id != "" {
@@ -541,9 +539,8 @@ func closureID(path string, closure *shimast.Node) string {
 // value-call edges, and property or element access as value-access edges.
 func (g *Graph) callsWithin(checker *shimchecker.Checker, from string, node *shimast.Node) {
   node.ForEachChild(func(child *shimast.Node) bool {
-    // With closures unindexed, a body's calls belong to the declaration that
-    // owns the body — the walk does not stop at one. (When they are indexed, it
-    // must: a closure that is its own node owns the calls it makes.)
+    // The owning callable keeps aggregate body relationships across closures.
+    // forEachClosureIn also records each named closure's own relationships.
     switch child.Kind {
     case shimast.KindCallExpression:
       // A decorator's own factory call (`@Column()`, `@Entity()`) is metadata,
@@ -880,14 +877,15 @@ func (g *Graph) ensureTargetNode(target *Target) string {
     return ""
   }
   g.Nodes[id] = &Node{
-    ID:       id,
-    Name:     name,
-    Simple:   simpleName(target.Symbol),
-    Kind:     kind,
-    File:     target.File,
-    External: true,
-    Pos:      target.Pos,
-    End:      target.End,
+    ID:        id,
+    Name:      name,
+    Simple:    simpleName(target.Symbol),
+    HasSimple: target.Symbol != nil,
+    Kind:      kind,
+    File:      target.File,
+    External:  true,
+    Pos:       target.Pos,
+    End:       target.End,
   }
   return id
 }

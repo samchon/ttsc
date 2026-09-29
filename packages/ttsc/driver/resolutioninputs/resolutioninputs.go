@@ -23,6 +23,11 @@ var Recorder string
 // recorder as a module of its own and yields its exports, for a CommonJS
 // script a loader feeds Node.js whole: `const R = ` + CommonJSExpression() +
 // `;` binds the recorder before the script installs any resolution hook.
+//
+// @evidence contracts/common.md#principled-implementation Every native config evaluator embeds the same authored recorder source, preserving one resolution-input policy.
+// @evidence contracts/common.md#clear-and-simple-design A module-local exports object evaluates the embedded recorder without a second implementation or filesystem extraction.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The wrapper uses the recorder's own CommonJS module boundary; it does not mutate a shared loader global or assert that project TypeScript configs support module.exports.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains the complete expression and initialization order following the documentation skill.
 func CommonJSExpression() string {
   return "(function (module) {\n" + Recorder + "\nreturn module.exports;\n})({ exports: {} })"
 }

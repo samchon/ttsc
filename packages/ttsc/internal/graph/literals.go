@@ -101,7 +101,7 @@ func enumMembers(checker *shimchecker.Checker, statement *shimast.Node) []EnumMe
   out := make([]EnumMember, 0, len(declaration.Members.Nodes))
   for _, node := range declaration.Members.Nodes {
     symbol := node.Symbol()
-    if symbol == nil || symbol.Name == "" {
+    if symbol == nil {
       continue
     }
     member := EnumMember{Name: symbol.Name}

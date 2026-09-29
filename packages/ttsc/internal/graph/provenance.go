@@ -67,6 +67,15 @@ const (
 //
 // It carries no source body text. A digest is the opposite of inlining: 32 bytes
 // per file that let a consumer prove byte-identity against text it read itself.
+//
+// @evidence contracts/common.md#principled-implementation Explicit capabilities distinguish collected-empty facts from absent evidence, and separate artifact producer identity prevents claiming noncompiler facts came from the Program.
+// @evidence contracts/common.md#clear-and-simple-design Producer, universe and source identities form a snapshot manifest without embedding source bodies or client-side reconstruction policy.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Digests describe captured bytes; no fixture fingerprint, guessed capability or disk reread is represented as compiler proof.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs and member comments explain generation proof, capabilities and second-producer ownership, with documentation-skill spacing.
+// @evidence contracts/portability.md#os-neutral-implementation Path-bearing manifest entries are normalized with graph facts by the dump's single native boundary.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This manifest container chooses no hashing or projection strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The session owner validates reuse using these facts; the record itself coordinates no reuse.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The snapshot owner retains the manifest; this declaration acquires no resource independently.
 type Provenance struct {
   // SchemaVersion is DumpSchemaVersion at the time the dump was produced.
   SchemaVersion int `json:"schemaVersion"`
@@ -109,6 +118,15 @@ type Provenance struct {
 // the shipped `ttscgraph` is stamped at release, while the internal viewer tool
 // is not versioned at all. Folding the name into the version field would hand a
 // consumer that parses a version the string "graphdump".
+//
+// @evidence contracts/common.md#principled-implementation Separate tool, tool-version and linked TypeScript-version fields identify the actual producer without conflating independent version lines.
+// @evidence contracts/common.md#clear-and-simple-design One small identity record is shared by compiler and artifact provenance.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Release stamps and dev absence are represented explicitly rather than inferred from expected graph content.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs define each version source and empty-version meaning under the documentation skill.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Tool identity is protocol metadata rather than a native executable launch representation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This identity record selects no algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Callers use producer identity for validation; it owns no shared computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The record owns no retained resource lifecycle.
 type Producer struct {
   // Tool is the producing binary's name, such as "ttscgraph".
   Tool string `json:"tool"`
@@ -127,6 +145,15 @@ type Producer struct {
 // the program contains. A change to any of them can add or drop whole files, so
 // a consumer that reuses facts across snapshots must treat a universe change as
 // invalidating everything, not just the file that moved.
+//
+// @evidence contracts/common.md#principled-implementation Config-byte identities and config-attributed root membership distinguish whole-program meaning changes from source-only changes.
+// @evidence contracts/common.md#clear-and-simple-design The two complete collections express program membership without mixing per-source content into the universe boundary.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Missing roots remain observable inputs instead of being omitted because a fixture currently contains no file.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs explain invalidation breadth, config effects and root-pair identity, using documentation-skill spacing.
+// @evidence contracts/portability.md#os-neutral-implementation Config and root file locations use the shared dump coordinate vocabulary, keeping filesystem identities separate from collection membership.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Acquisition and normalization operations own the processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Session owners compare this manifest to authorize reuse.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The manifest contains values without an independent acquisition or release operation.
 type Universe struct {
   // Configs digests the tsconfig chain — the project's own config and every
   // file it extends — one entry per file, ordered by file.
@@ -146,6 +173,15 @@ type Universe struct {
 // RootFile is one root file attributed to the config that named it. Project
 // references mean two configs can name the same file, and they are not the same
 // input, so the pair is the unit rather than the bare path.
+//
+// @evidence contracts/common.md#principled-implementation The config/file pair preserves distinct project-reference attribution even when multiple configurations name one physical root.
+// @evidence contracts/common.md#clear-and-simple-design Two explicit fields avoid embedding attribution into a guessed compound path string.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No root is reattributed by package name or expected project layout.
+// @evidence contracts/common.md#meaningful-documentation Native prose and member comments define pair identity and path vocabulary under the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Both fields carry the same portable path coordinate established by native dump mapping.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This pair selects no root-resolution algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The universe owner determines reuse validity.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The pair has no independent retained-state lifecycle.
 type RootFile struct {
   // Config is the tsconfig that named this root, in the dump's path vocabulary.
   Config string `json:"config"`
@@ -155,6 +191,15 @@ type RootFile struct {
 }
 
 // FileDigest pairs a file with the SHA-256 of its bytes, hex-encoded.
+//
+// @evidence contracts/common.md#principled-implementation A location and hex SHA-256 value identify the captured native file bytes without inlining their contents.
+// @evidence contracts/common.md#clear-and-simple-design The pair separates path identity from byte identity for config manifests.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Digest values are actual captured evidence rather than expected fixture checksums.
+// @evidence contracts/common.md#meaningful-documentation Native prose and member comments state SHA-256 encoding and path vocabulary, with documentation-skill tag spacing.
+// @evidence contracts/portability.md#os-neutral-implementation File uses the dump's portable coordinate; the bytes hashed do not depend on OS newline rewriting.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Hash acquisition belongs to the producing operation, not the pair type.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The snapshot owner consumes the identity for reuse decisions.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This pair owns no file handle or cache.
 type FileDigest struct {
   // File uses the dump's path vocabulary.
   File string `json:"file"`
@@ -186,6 +231,15 @@ type FileDigest struct {
 //
 // Both are digests. Neither is text: the wire never carries a file's bytes, and
 // the field names say digest so that stays true by reading.
+//
+// @evidence contracts/common.md#principled-implementation Checker and disk byte identities remain separate because source preamble injection can make one differ from the other in the same generation.
+// @evidence contracts/common.md#clear-and-simple-design One manifest entry carries both origins without conflating an absent disk digest with compiler text identity.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts A matching digest is not fabricated from a later reread or treated as evidence the producer never collected.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs explain preamble divergence and each digest's origin, with documentation-skill member/tag separation.
+// @evidence contracts/portability.md#os-neutral-implementation The shared mapped file coordinate associates both byte digests with one physical source; hashing preserves exact captured bytes.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Capturing and hashing are operation responsibilities rather than data-container behavior.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The session consumes these distinctions to authorize reuse.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The record owns no retained source text, handle or running task.
 type SourceDigest struct {
   // File uses the dump's path vocabulary.
   File string `json:"file"`
@@ -216,6 +270,15 @@ type SourceDigest struct {
 //
 // A diagnostic that points inside the injected preamble itself has no authored
 // counterpart, so it arrives with Line and Column zero and its message intact.
+//
+// @evidence contracts/common.md#principled-implementation Compiler code, category and authored-relative location preserve the producer's diagnostic finding without substituting plugin judgments.
+// @evidence contracts/common.md#clear-and-simple-design A schema-level record separates normalized wire coordinates from driver-specific diagnostic types.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No expected diagnostic or source-preamble offset guess is manufactured by this representation.
+// @evidence contracts/common.md#meaningful-documentation Native prose and members define location units, absent location and unprefixed message, following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation File is normalized by the same portable mapper as the snapshot facts; it is not case-folded by this container.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Diagnostic acquisition and sorting belong to projection operations.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Program-generation owners retain reusable diagnostic results.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The enclosing snapshot owns these values' lifetime.
 type Diagnostic struct {
   // File uses the dump's path vocabulary.
   File string `json:"file"`
@@ -238,10 +301,28 @@ type Diagnostic struct {
 }
 
 // Digest hex-encodes a raw SHA-256 sum for the wire.
+//
+// @evidence contracts/common.md#principled-implementation Standard hex encoding renders the exact fixed-size SHA-256 bytes without changing their identity.
+// @evidence contracts/common.md#clear-and-simple-design One narrow formatting adapter centralizes the manifest's digest representation.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No expected checksum or consumer-specific encoding branch replaces the input sum.
+// @evidence contracts/common.md#meaningful-documentation Native prose states algorithm and wire encoding, with documentation-skill tag separation.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Encoding a fixed byte array owns no native boundary.
+// @evidence contracts/performance.md#efficient-algorithms The SHA-256-size output has constant schema-defined length and one string allocation.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The formatter coordinates no repeated computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The string transfers to the caller and no cache is retained.
 func Digest(sum [sha256.Size]byte) string { return hex.EncodeToString(sum[:]) }
 
 // TypescriptVersion reports the TypeScript version the linked checker
 // implements.
+//
+// @evidence contracts/common.md#principled-implementation The linked compiler's Version API is the authority for the TypeScript implementation version.
+// @evidence contracts/common.md#clear-and-simple-design One adapter supplies producer metadata without reading a separate package manifest.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No release expectation or fixture version is hardcoded in the graph producer.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies the linked checker as the version source under the documentation skill.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Reading compiled version metadata has no native boundary.
+// @evidence contracts/performance.md#efficient-algorithms The linked API returns fixed metadata without a repository or filesystem scan.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The compiler owns static version metadata; this adapter creates no separate computation to cache.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No resource or retained state is acquired.
 func TypescriptVersion() string { return shimcore.Version() }
 
 // NewProvenance assembles the evidence for a snapshot while retaining the
@@ -251,6 +332,15 @@ func TypescriptVersion() string { return shimcore.Version() }
 // returns it); disk maps that path to the hex digest of its on-disk bytes, and
 // a path absent from it is reported with an empty Disk. configs and roots come
 // from the same capture that produced texts.
+//
+// @evidence contracts/common.md#principled-implementation Captured checker text is hashed directly while supplied disk/config/root identities remain from the same acquisition; deterministic sorting changes presentation, not meaning.
+// @evidence contracts/common.md#clear-and-simple-design Capture stays with the session owner and this constructor copies, hashes and orders the manifest without reopening files.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Capability claims come from the actual producer input, not inferred empty collections or a package-specific expected manifest.
+// @evidence contracts/common.md#meaningful-documentation Native prose defines each input's capture origin and later shared path projection, following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Physical paths remain untouched until NewDump maps every snapshot field consistently; no native casing or slash heuristic changes the captured identities here.
+// @evidence contracts/performance.md#efficient-algorithms Hashing is linear in checker-text bytes; sorting costs O(S log S + C log C + R log R + K log K) for sources, configs, roots and capabilities.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Cross-generation content reuse belongs to the session capture owner; this constructor cannot establish changed-text equivalence from a path alone.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Caller slices are copied before sorting and no source body is retained; only the constructed digest manifest transfers to the caller.
 func NewProvenance(
   producer Producer,
   capabilities []string,
@@ -309,12 +399,30 @@ func NewProvenance(
 // than a second compile, but it is not free: it forces the semantic check of
 // every file the graph would otherwise only have bound. Callers that do not
 // publish diagnostics should not call it.
+//
+// @evidence contracts/common.md#principled-implementation Resident Program diagnostics are projected without changing compiler codes, authored locations or messages.
+// @evidence contracts/common.md#clear-and-simple-design One shared projection supplies the complete generation view while Program owns semantic diagnostic acquisition.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Diagnostic publication forces actual compiler findings rather than inferring success from graph binding or expected test outcomes.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs explain physical paths, warm compiler state and the cost of forcing complete semantic findings under the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Physical diagnostic paths remain intact until the dump context normalizes all generation fields together.
+// @evidence contracts/performance.md#efficient-algorithms One acquisition and projection sorts D findings in O(D log D); semantic-check cost belongs to Program and is explicitly incurred only when diagnostics are requested.
+// @evidence contracts/performance.md#reuse-equivalent-work The warm Program provides its generation's reusable semantic findings rather than opening another compile.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The output slice transfers to the caller and no new Program owner or native handle is retained.
 func NewDiagnostics(prog *driver.Program) []Diagnostic {
   return newDiagnostics(prog.Diagnostics())
 }
 
 // NewDiagnosticsForFiles projects compiler findings for one invalidated source
 // closure without forcing semantic diagnostics for every unchanged file.
+//
+// @evidence contracts/common.md#principled-implementation Selected resident sources produce the invalidated closure's compiler findings while preserving authored coordinates and complete selected-file semantics.
+// @evidence contracts/common.md#clear-and-simple-design The partial adapter shares newDiagnostics with the complete view and delegates scoped semantic acquisition to Program.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The invalidation owner supplies scope; no diagnostic quota or fixture-specific suppression removes selected findings.
+// @evidence contracts/common.md#meaningful-documentation Native prose states scoped diagnostics without forcing unchanged files, with documentation-skill tag separation.
+// @evidence contracts/portability.md#os-neutral-implementation Captured physical paths are preserved for the dump's shared native path projection.
+// @evidence contracts/performance.md#efficient-algorithms Only the selected closure incurs semantic acquisition; its D findings are projected linearly and sorted in O(D log D).
+// @evidence contracts/performance.md#reuse-equivalent-work The Program's warm checker retains generation-valid semantic work; unchanged files are not reacquired through this adapter.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller owns the resulting slice; no compiler lifetime or retained cache is acquired.
 func NewDiagnosticsForFiles(prog *driver.Program, files []*shimast.SourceFile) []Diagnostic {
   return newDiagnostics(prog.DiagnosticsForFiles(files))
 }

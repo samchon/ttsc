@@ -29,6 +29,14 @@ import (
 // none; a consumer that ranks on a leading token does so in the layer that
 // declares its selection heuristic. This is the contract Decorator already
 // keeps for `@Controller`/`@Get`.
+//
+// @evidence contracts/common.md#principled-implementation Unknown-tag AST nodes preserve their written name and text while target identity associates the fact with its declaration.
+// @evidence contracts/common.md#clear-and-simple-design Source coordinates support collection deduplication without adding convention judgments to the record.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The compiler's unknown-tag classification admits all conventions; no handpicked tag allowlist or fixture answer is encoded.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs explain unknown versus recognized tags, uninterpreted text and collection-only positions, using the documentation skill's separated members and tags.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This record represents tag facts; traversal and deduplication belong to collection operations.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The enclosing graph build owns shared AST reads.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The record does not own retention or native resources.
 type DocTag struct {
   // Target is the id of the graph node the tag was written on.
   Target string

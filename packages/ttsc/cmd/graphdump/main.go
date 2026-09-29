@@ -1,8 +1,8 @@
 // Command graphdump builds the @ttsc/graph code graph for a project and prints
 // the entire graph (every node and every edge, with none of the MCP response
 // caps) as one JSON document. It is the repo-internal one-shot used by the
-// benchmark graph viewer pipeline; the shipped equivalent is `ttscgraph dump`. Both
-// serialize through graph.MarshalDump.
+// benchmark graph viewer pipeline; the shipped equivalent is `ttscgraph dump`.
+// Both use the shared buffered dump encoder and report output failures.
 package main
 
 import (
@@ -78,7 +78,7 @@ func run(args []string) int {
   // digests are absent, rather than reading an empty universe as "nothing
   // changed" or an empty diskDigest as "the file could not be read". The shipped
   // `ttscgraph dump` is the one that proves the whole contract.
-  data, err := graph.MarshalDump(g, root, *tsconfig, ignored, texts, graph.DumpOrigin{
+  err = graph.EncodeDump(stdout, g, root, *tsconfig, ignored, texts, graph.DumpOrigin{
     Provenance: graph.NewProvenance(
       // No version: this tool is built from the tree on demand and never
       // stamped, and an invented one would be worse than an absent one.
@@ -98,6 +98,5 @@ func run(args []string) int {
     fmt.Fprintf(stderr, "graphdump: %v\n", err)
     return 1
   }
-  fmt.Fprintln(stdout, string(data))
   return 0
 }

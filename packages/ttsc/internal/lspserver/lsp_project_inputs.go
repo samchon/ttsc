@@ -4,6 +4,7 @@ import (
   "crypto/sha256"
   "encoding/json"
   "fmt"
+  "io"
   "os"
   "path"
   "path/filepath"
@@ -14,6 +15,18 @@ import (
 
 // LSPProjectInputSnapshot is the normalized external filesystem topology
 // published by project-rule contributors.
+//
+// Files and Globs describe dependencies; reload paths and digests describe the
+// executable-selection baseline whose change requires a launcher restart.
+//
+// @evidence contracts/common.md#principled-implementation Dependency populations remain distinct from reload fingerprints; host-only watcher directories cannot enter through contributor JSON.
+// @evidence contracts/common.md#clear-and-simple-design One normalized snapshot carries root, dependencies and selection baseline without a watcher backend.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Reload state comes from actual contributors and launcher selection rather than known project filenames.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains dependency versus restart meaning and host-only fields, following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Native paths and digest keys are normalized by host identity helpers rather than interpreted as URI spelling or blindly folded by OS name.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Normalization and matching choose processing algorithms.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This value carries baseline inputs without coordinating reuse.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Source stores and watcher registration own lifetimes, not this wire value.
 type LSPProjectInputSnapshot struct {
   Root                   string            `json:"root"`
   Files                  []string          `json:"files"`
@@ -37,6 +50,15 @@ type projectInputRecord struct {
 
 // ProjectInputs returns a stable copy of the current merged dependency
 // snapshot.
+//
+// @evidence contracts/common.md#principled-implementation Locked copies of every path slice and digest map isolate consumer mutations from the merged snapshot.
+// @evidence contracts/common.md#clear-and-simple-design A shared copy helper exposes the ready aggregate without rebuilding producer order.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Accepted producer records supply the snapshot instead of guessed filesystem populations.
+// @evidence contracts/common.md#meaningful-documentation Native prose states stable-copy behavior, following the documentation skill.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation The accessor copies normalized values without interpreting native capabilities.
+// @evidence contracts/performance.md#efficient-algorithms Copy cost and returned storage are linear in path and digest entry counts.
+// @evidence contracts/performance.md#reuse-equivalent-work Callers share the flattened producer snapshot, replaced by successful generation stores.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returned slices and maps belong to the caller; source stores own retained aggregates.
 func (s *NativePluginSource) ProjectInputs() LSPProjectInputSnapshot {
   if s == nil {
     return LSPProjectInputSnapshot{}
@@ -50,6 +72,15 @@ func (s *NativePluginSource) ProjectInputs() LSPProjectInputSnapshot {
 // selection-time baseline still matches the filesystem. The proxy checks this
 // after the client confirms dynamic watcher registration, closing the interval
 // between construction-time validation and active event delivery.
+//
+// @evidence contracts/common.md#principled-implementation Selected file digests and immediate directory topology are compared to current native state after copying the retained baseline under lock.
+// @evidence contracts/common.md#clear-and-simple-design Contributor reload and launcher selection checks share watcher-registration acceptance.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Bytes and topology are observed rather than accepting a quiet watcher as proof of freshness.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains the startup-to-registration interval, following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Native stat/readlink and physical identity distinguish links, missing inputs and actual directory case policy.
+// @evidence contracts/performance.md#efficient-algorithms Full byte hashing establishes content identity; directory checks inspect immediate entries rather than recursive unrelated descendants.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Current native state must be observed without a filesystem generation token that could validate an earlier observation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Temporary copies and synchronous native probes acquire no long-lived handle.
 func (s *NativePluginSource) ProjectInputReloadFingerprintsAreCurrent() bool {
   if s == nil {
     return true
@@ -63,6 +94,15 @@ func (s *NativePluginSource) ProjectInputReloadFingerprintsAreCurrent() bool {
 
 // ProjectInputMatchesURI reports whether a watched-file URI belongs to a
 // declared exact dependency or glob population.
+//
+// @evidence contracts/common.md#principled-implementation File URIs match declared exact dependencies or wildcard populations; unrelated and malformed URIs do not match.
+// @evidence contracts/common.md#clear-and-simple-design Shared URI decoding precedes the snapshot owner's path and glob matching.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Membership follows declared populations rather than assumed contributor extensions.
+// @evidence contracts/common.md#meaningful-documentation Native prose states declared dependency membership, following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Physical identity and actual Windows directory sensitivity establish comparisons separately from URI spelling.
+// @evidence contracts/performance.md#efficient-algorithms Exact entries precede globs; component recursion memoizes index pairs and segment DP uses O(N) row space for O(MN) wildcard time.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Native identity may change across calls without an immutable filesystem epoch.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Matching retains temporary path and DP state only.
 func (s *NativePluginSource) ProjectInputMatchesURI(uri string) bool {
   if s == nil {
     return false
@@ -80,6 +120,15 @@ func (s *NativePluginSource) ProjectInputMatchesURI(uri string) bool {
 // a reload directory, or one of that directory's immediate entries. Callers
 // with an LSP change event should use ProjectInputReloadMatchesChange so an
 // ordinary content edit inside a topology directory does not force a restart.
+//
+// @evidence contracts/common.md#principled-implementation Exact reload files, reload directories and immediate directory entries conservatively identify the legacy reload population without an event digest decision.
+// @evidence contracts/common.md#clear-and-simple-design This compatibility matcher shares native path and immediate-containment helpers with change-aware matching.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Conservative legacy membership is an explicit API difference; event consumers use the digest-aware method.
+// @evidence contracts/common.md#meaningful-documentation Native prose directs event callers to the change-aware operation and explains false restarts, following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Both candidate and declared paths resolve native physical/entry identities, including link ancestors and short Windows components.
+// @evidence contracts/performance.md#efficient-algorithms Reload entry scanning is linear in declared population plus native identity resolution cost.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Physical identities are freshly observed and cannot be cached without native invalidation proof.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The query stores no history or long-lived handles.
 func (s *NativePluginSource) ProjectInputReloadMatchesURI(uri string) bool {
   if s == nil {
     return false
@@ -120,6 +169,15 @@ func (s *NativePluginSource) ProjectInputReloadMatchesURI(uri string) bool {
 // directory itself always qualifies. An immediate entry qualifies only when
 // the current name/type/symlink-target digest differs from the snapshot and
 // the entry is not data territory under a declared glob's literal root.
+//
+// @evidence contracts/common.md#principled-implementation Exact reload identities and changed immediate topology trigger restart; declared data territory can explain a directory transition without advancing the executable baseline.
+// @evidence contracts/common.md#clear-and-simple-design Contributor inputs and immutable launcher selection are checked at one restart boundary.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Data exemptions follow actual declared glob roots and recorded digests rather than expected file answers.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains exact content inputs and topology transitions, following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Link-leaf entry identity and target physical identity remain distinct; native metadata and owning-directory capability govern alias comparison.
+// @evidence contracts/performance.md#efficient-algorithms The query scans reload entries and probes relevant immediate topology without recursively hashing descendant content.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work An earlier URI match does not establish continued validity of current native topology.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Native probes and baseline copies are temporary; source ownership retains selection state.
 func (s *NativePluginSource) ProjectInputReloadMatchesChange(
   uri string,
   changeType *int,
@@ -195,6 +253,15 @@ func (s *NativePluginSource) ProjectInputReloadMatchesChange(
 // successful snapshots match uri. Ownership is retained past the flattened
 // client registration so an external edit refreshes only the contributors that
 // declared it.
+//
+// @evidence contracts/common.md#principled-implementation Each producer's accepted snapshot yields its matching transport key once in descriptor order for owner-scoped invalidation.
+// @evidence contracts/common.md#clear-and-simple-design Owner discovery reuses snapshot matching rather than maintaining another membership model.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Owners follow actual contributor declarations, not filename-to-plugin guesses.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains why ownership survives flattened client registration, following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation URI decoding and native identity helpers preserve actual owning-directory case policy.
+// @evidence contracts/performance.md#efficient-algorithms Deduplicated transport traversal queries actual producers; per-producer work depends on declared paths and glob dimensions.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Native membership has no immutable epoch permitting cross-call memoization.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned list belongs to the caller; no queried-URI history is retained.
 func (s *NativePluginSource) ProjectInputOwnersForURI(uri string) []string {
   if s == nil {
     return nil
@@ -248,6 +315,15 @@ func projectInputSnapshotMatchesCandidate(
 
 // RefreshProjectInputs schedules a coalesced dependency rediscovery after a
 // configuration input changes.
+//
+// @evidence contracts/common.md#principled-implementation Successful normalized producer generations replace their own snapshot while unchanged selected reload entries retain the original baseline.
+// @evidence contracts/common.md#clear-and-simple-design A dedicated scheduler separates dependency refresh from completion publication.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Refresh does not advance executable baselines to conceal selection changes.
+// @evidence contracts/common.md#meaningful-documentation Native prose states asynchronous discovery, following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Normalization validates native roots and link-aware identities without treating OS labels as filesystem case policy.
+// @evidence contracts/performance.md#efficient-algorithms Distinct capable producers are queried once; deduplicated normalized populations are sorted for aggregate publication.
+// @evidence contracts/performance.md#reuse-equivalent-work Notifications share one active cycle and one rerun; flattened accepted snapshots serve matching and watcher consumers.
+// @evidence contracts/performance.md#bound-retention-and-release-resources One worker and one queued rerun bound scheduling; Close cancels children and rejects later schedules. Aggregate input entries have no separate count cap.
 func (s *NativePluginSource) RefreshProjectInputs() {
   if s == nil {
     return
@@ -258,6 +334,17 @@ func (s *NativePluginSource) RefreshProjectInputs() {
 // SetProjectInputsObserver registers the proxy callback that replaces the
 // client's dynamic watched-file registration after a successful topology
 // change.
+// A nil observer removes future notifications; a callback already copied by a
+// refresh may still finish.
+//
+// @evidence contracts/common.md#principled-implementation Locked replacement atomically changes the callback; an already copied callback may finish after removal.
+// @evidence contracts/common.md#clear-and-simple-design One observer connects source publication to watcher reconciliation.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The proxy observes through the supported seam rather than patching refresh internals.
+// @evidence contracts/common.md#meaningful-documentation Native prose states observer timing and nil removal, following the documentation skill.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Callback registration performs no native interpretation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Assigning a callback chooses no processing algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The source scheduler owns shared refresh work.
+// @evidence contracts/performance.md#bound-retention-and-release-resources One callback reference is replaced or cleared under projectInputsMu; existing callback execution is not joined here.
 func (s *NativePluginSource) SetProjectInputsObserver(observer func()) {
   if s == nil {
     return
@@ -871,35 +958,35 @@ func projectInputReloadFileDigest(location string) string {
     missing := sha256.Sum256([]byte("missing\x00"))
     return fmt.Sprintf("%x", missing[:])
   }
-  if projectInputEntryIsLink(native, info.Mode()) {
+  link := projectInputEntryIsLink(native, info.Mode())
+  if !link && !info.Mode().IsRegular() {
+    other := sha256.Sum256([]byte("other\x00"))
+    return fmt.Sprintf("%x", other[:])
+  }
+  prefix := ""
+  if link {
     target, err := os.Readlink(native)
     if err != nil {
       target = "<unreadable>"
     }
-    content := []byte("missing\x00")
-    if body, readErr := os.ReadFile(native); readErr == nil {
-      content = append([]byte("file\x00"), body...)
-    }
-    digest := sha256.New()
-    digest.Write([]byte("symlink\x00"))
-    digest.Write([]byte(target))
-    digest.Write([]byte{0})
-    digest.Write(content)
-    return fmt.Sprintf("%x", digest.Sum(nil))
+    prefix = "symlink\x00" + target + "\x00"
   }
-  if info.Mode().IsRegular() {
-    body, err := os.ReadFile(native)
-    if err != nil {
-      missing := sha256.Sum256([]byte("missing\x00"))
-      return fmt.Sprintf("%x", missing[:])
-    }
-    digest := sha256.New()
+  digest := sha256.New()
+  digest.Write([]byte(prefix))
+  file, err := os.Open(native)
+  if err == nil {
+    defer file.Close()
     digest.Write([]byte("file\x00"))
-    digest.Write(body)
-    return fmt.Sprintf("%x", digest.Sum(nil))
+    if _, readErr := io.Copy(digest, file); readErr == nil {
+      return fmt.Sprintf("%x", digest.Sum(nil))
+    }
   }
-  other := sha256.Sum256([]byte("other\x00"))
-  return fmt.Sprintf("%x", other[:])
+  // Read failure must discard partial bytes, retaining the same missing marker
+  // as the launcher, with the raw link target still part of a link's identity.
+  digest.Reset()
+  digest.Write([]byte(prefix))
+  digest.Write([]byte("missing\x00"))
+  return fmt.Sprintf("%x", digest.Sum(nil))
 }
 
 // projectInputEntryIsLink reports whether the entry at location, of mode, is a
@@ -1019,30 +1106,25 @@ func matchProjectInputGlobSegment(
   }
   expression := []rune(pattern)
   input := []rune(candidate)
-  matches := make([][]bool, len(expression)+1)
-  for index := range matches {
-    matches[index] = make([]bool, len(input)+1)
-  }
-  matches[0][0] = true
-  for patternIndex, char := range expression {
-    if char == '*' {
-      matches[patternIndex+1][0] = matches[patternIndex][0]
-    }
+  // Only the previous row and the current row's left cell are dependencies.
+  // Reuse one row, retaining the overwritten diagonal for literals and '?'.
+  matches := make([]bool, len(input)+1)
+  matches[0] = true
+  for _, char := range expression {
+    diagonal := matches[0]
+    matches[0] = char == '*' && matches[0]
     for inputIndex := range input {
+      previous := matches[inputIndex+1]
       switch char {
       case '*':
-        matches[patternIndex+1][inputIndex+1] =
-          matches[patternIndex][inputIndex+1] ||
-            matches[patternIndex+1][inputIndex]
+        matches[inputIndex+1] = previous || matches[inputIndex]
       case '?':
-        matches[patternIndex+1][inputIndex+1] =
-          matches[patternIndex][inputIndex]
+        matches[inputIndex+1] = diagonal
       default:
-        matches[patternIndex+1][inputIndex+1] =
-          char == input[inputIndex] &&
-            matches[patternIndex][inputIndex]
+        matches[inputIndex+1] = char == input[inputIndex] && diagonal
       }
+      diagonal = previous
     }
   }
-  return matches[len(expression)][len(input)]
+  return matches[len(input)]
 }

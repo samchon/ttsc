@@ -1,12 +1,7 @@
 // Command ttsc is the Go CLI entrypoint for ttsc.
 //
-// Current responsibilities:
-//   - Report version and platform (`ttsc --version`).
-//   - Host the native project build and check paths used by plugin-selected
-//     sidecars and smoke tests.
-//
-// Everything below is deliberately dependency-free so that the standalone binary
-// stays small and its behavior is trivial to audit.
+// The dispatcher handles version/help requests and delegates project builds,
+// checks and JSON API requests to their compiler-backed command adapters.
 package main
 
 import (

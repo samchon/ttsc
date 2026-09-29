@@ -15,6 +15,14 @@ const (
 )
 
 // Create makes link a directory junction that points to target.
+// Call only after selecting the Windows junction boundary; other platforms use
+// their native link implementation.
+//
+// @evidence contracts/common.md#principled-implementation The explicitly Windows-only junction operation keeps mklink semantics separate from other platforms' link creation.
+// @evidence contracts/common.md#clear-and-simple-design One fixed command consumes two environment values and returns its native exit failure.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Path data is not interpolated into cmd syntax or escaped through guessed quoting rules.
+// @evidence contracts/common.md#meaningful-documentation Native prose states the platform precondition and junction purpose following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Required Windows behavior is isolated in the windowsjunction package; fixed cmd arguments and delayed environment expansion preserve path metacharacters as data, while callers select this boundary explicitly.
 func Create(link, target string) error {
   // mklink is a cmd.exe builtin. Feed a constant command over stdin and use
   // delayed environment expansion so Go never has to quote a command string

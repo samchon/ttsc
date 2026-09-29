@@ -30,27 +30,39 @@ var ErrFrameClosed = errors.New("lsp: frame stream closed")
 // gigabyte-scale frame.
 var ErrFrameTooLarge = errors.New("lsp: frame exceeds maximum size")
 
-// MaxFrameBytes caps Content-Length to 64 MiB. The largest payload the
-// LSP base protocol routinely produces is workspace symbol responses
-// for very large monorepos; 64 MiB leaves a wide margin over any real
-// editor traffic while still capping attacker-supplied lengths.
+// MaxFrameBytes caps announced Content-Length to 64 MiB before body allocation.
+// A larger incoming frame is rejected with ErrFrameTooLarge.
 const MaxFrameBytes = 64 << 20
 
-// MaxHeaderBytes caps the LSP header block to 64 KiB. Real LSP traffic carries
-// only Content-Length plus occasional Content-Type, so anything larger is a
-// malformed peer rather than useful protocol data.
+// MaxHeaderBytes caps incoming header scanning to 64 KiB, including optional
+// headers, so unknown header population cannot cause unbounded accumulation.
 const MaxHeaderBytes = 64 << 10
 
 // FrameReader decodes Content-Length-framed JSON-RPC messages from r. It
-// is intentionally permissive about extra headers (we forward whatever the
-// peer sent) and strict about the Content-Length value because tsgo's
-// upstream writer always emits one.
+// accepts extra headers and returns them separately; the proxy's WriteFrame
+// recreates only Content-Length. The caller owns the underlying reader.
+//
+// @evidence contracts/common.md#principled-implementation A buffered stream reader retains bytes beyond each frame so subsequent frames remain aligned.
+// @evidence contracts/common.md#clear-and-simple-design One reader owns framing state without owning transport closure.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Extra headers follow protocol tolerance rather than particular editor payloads.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes returned headers, outgoing framing and reader ownership, following the documentation skill.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Read chooses the framing algorithm; this type carries its buffered input.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The type does not coordinate shared computations across readers.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The transport owner controls closure; this representation owns no native handle independently.
 type FrameReader struct {
   br *bufio.Reader
 }
 
 // NewFrameReader wraps r with an internal buffered reader. r is consumed
 // lazily; the underlying reader is never closed by the FrameReader.
+//
+// @evidence contracts/common.md#principled-implementation bufio.Reader preserves unread stream bytes across frame boundaries.
+// @evidence contracts/common.md#clear-and-simple-design Construction wraps one caller-owned reader and returns framing state.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Supported buffering avoids mutating the foreign reader implementation.
+// @evidence contracts/common.md#meaningful-documentation Native prose states lazy consumption and closure ownership, following the documentation skill.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Construction delegates buffering; Read owns input processing.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Distinct streams cannot share unread framing state.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned reader owns its buffer while the caller retains transport closure.
 func NewFrameReader(r io.Reader) *FrameReader {
   return &FrameReader{br: bufio.NewReader(r)}
 }
@@ -58,6 +70,14 @@ func NewFrameReader(r io.Reader) *FrameReader {
 // Read returns the next message body together with the raw header block
 // (without trailing CRLFCRLF). The header block is preserved so callers
 // that proxy traffic verbatim do not lose Content-Type or vendor headers.
+//
+// @evidence contracts/common.md#principled-implementation Header parsing obtains a nonnegative bounded length and io.ReadFull consumes exactly that body; EOF between frames differs from a truncated frame.
+// @evidence contracts/common.md#clear-and-simple-design Header accumulation precedes bounded body allocation, with Content-Length recognition delegated to one helper.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Case-insensitive header names and size caps follow framing policy rather than known editor messages.
+// @evidence contracts/common.md#meaningful-documentation Native prose states separate header and body returns, following the documentation skill.
+// @evidence contracts/performance.md#efficient-algorithms ReadSlice and builders process H header bytes and B body bytes in O(H+B) time and O(H+B) returned/temporary storage, under independent caps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Consuming the next stream frame is effectful and cannot reuse a previous frame's body.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Per-frame buffers are returned to the caller; the transport owner closes the reader.
 func (fr *FrameReader) Read() (headers string, body []byte, err error) {
   var headerBuf strings.Builder
   contentLength := -1
@@ -129,6 +149,14 @@ func parseContentLength(line string) (int, bool) {
 // uses CRLF line endings to match the LSP base protocol exactly so editors
 // that strict-parse the header block (notably VS Code's client) accept the
 // message without warnings.
+//
+// @evidence contracts/common.md#principled-implementation Byte length and CRLF framing delimit the exact body; the writer must obey io.Writer's short-write error contract.
+// @evidence contracts/common.md#clear-and-simple-design Header and body are written directly while the caller owns synchronization.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Protocol line endings are legitimate constants, independent of native text conventions.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains outgoing header syntax and its reason, following the documentation skill.
+// @evidence contracts/performance.md#efficient-algorithms Only the length header is allocated; the existing B-byte body is passed directly to the writer without a concatenated frame copy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each frame write is an externally visible transport effect.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The function neither retains the body nor takes ownership of the writer.
 func WriteFrame(w io.Writer, body []byte) error {
   header := fmt.Sprintf("Content-Length: %d\r\n\r\n", len(body))
   if _, err := io.WriteString(w, header); err != nil {

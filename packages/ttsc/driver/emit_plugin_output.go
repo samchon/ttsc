@@ -12,13 +12,37 @@ import (
 // diagnostics remain in the returned slice for structured consumers. Hosts
 // that only check the Go error still reject an incomplete build and display
 // the compiler's code, severity and available source context.
+//
+// @evidence contracts/common.md#principled-implementation Structured diagnostics and the Go error describe the same incomplete native emit, so an error-only host cannot overlook compiler failures.
+// @evidence contracts/common.md#clear-and-simple-design One error value groups diagnostics with the failed phase and declaration-output consequence.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler findings are retained rather than replaced with a success flag or a fixture-specific message.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains the structured and error-only consumer boundary following the documentation skill.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This error value stores diagnostic context; renderer and emit owners perform native operations.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Rendering owns traversal; the type stores the error payload.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The error payload coordinates no repeated work.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller-owned error retains its diagnostics without acquiring a resource or resident cache.
 type PluginEmitError struct {
-  Diagnostics  []Diagnostic
-  Phase        string
+  // Diagnostics contains the same findings returned by the failed emit.
+  Diagnostics []Diagnostic
+
+  // Phase names the native operation that failed.
+  Phase string
+
+  // Declarations reports whether declaration output may be incomplete.
   Declarations bool
   cwd          string
 }
 
+// Error renders the failed phase and compiler diagnostics for error-only hosts.
+//
+// @evidence contracts/common.md#principled-implementation Error-only consumers receive compiler severity and source context alongside the incomplete-output consequence.
+// @evidence contracts/common.md#clear-and-simple-design A string builder adds phase context then delegates diagnostic formatting to one shared renderer.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The real diagnostic slice is rendered without hiding findings behind a generic success or failure marker.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies the error-only host use following the documentation skill.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Shared diagnostic rendering owns filename presentation; this method owns no native operation.
+// @evidence contracts/performance.md#efficient-algorithms One builder accumulates the message and diagnostic output without repeatedly concatenating a growing string.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each requested error string is rendered independently with no shared-work coordination.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The temporary builder is returned as a string and no resident buffer is retained.
 func (e *PluginEmitError) Error() string {
   var out strings.Builder
   fmt.Fprintf(&out, "driver: native plugin %s failed; build output is incomplete", e.Phase)

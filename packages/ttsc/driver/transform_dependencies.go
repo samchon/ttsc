@@ -13,6 +13,15 @@ import (
 // byte-identical to what it was before this existed. The lane with no linked
 // plugin at all is the deliberate exception: nothing there can contribute to a
 // file, so every file is listed.
+//
+// @evidence contracts/common.md#principled-implementation Reported dependencies and explicit completeness are distinct; an empty contributor set is complete without pretending silent contributors proved anything.
+// @evidence contracts/common.md#clear-and-simple-design One per-file adjacency map and one complete-file list carry separate facts.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Missing declarations remain incomplete rather than becoming complete because a transform succeeded.
+// @evidence contracts/common.md#meaningful-documentation Native field prose defines completeness, input scope, and the no-contributor case following the documentation skill.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This value carries normalized envelope keys; producers own native path conversion.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Aggregation owns traversal; this type is the result schema.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The schema does not coordinate cached transform work.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned value owns no resident cache or external resource.
 type TransformDependencies struct {
   // Complete lists the files whose Dependencies entry is the whole input set
   // beyond the file itself and the universal compiler-option chain.
@@ -57,6 +66,15 @@ type TransformDependencies struct {
 // by calling this: the preamble must be a function of inputs its envelope
 // reports elsewhere, the way a plugin's preamble is a function of the config
 // files it reports as host inputs.
+//
+// @evidence contracts/common.md#principled-implementation Syntactic host output excludes type-driven emit lowering; completeness requires every actual preamble/program contributor to declare its own consumed inputs.
+// @evidence contracts/common.md#clear-and-simple-design The method enumerates transformed-file keys then delegates contributor classification and declaration folding to their owners.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts A silent contributor remains incomplete; emit-only plugins are excluded because this envelope lane does not execute their transforms.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs explain syntactic output, contributors, and the embedder's preamble responsibility following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation All file keys pass through TransformOutputKey with the supplied project cwd instead of native-separator assumptions.
+// @evidence contracts/performance.md#efficient-algorithms Per-file dependency sets deduplicate contributor inputs, sorting only final output lists.
+// @evidence contracts/performance.md#reuse-equivalent-work The generation's latched hooks and recorded declarations are reused rather than executing plugins again to discover dependencies.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Aggregation returns caller-owned data without retaining a separate resident cache.
 func (p *Program) TransformDependenciesFor(cwd string) TransformDependencies {
   if p == nil {
     return TransformDependencies{}

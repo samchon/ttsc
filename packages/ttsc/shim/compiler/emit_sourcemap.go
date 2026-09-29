@@ -11,8 +11,8 @@
 // `WriteFileData` the emitter hands its writeFile callback. This file ports
 // internal/compiler/emitter.go's `emitJSFile` PrinterOptions construction and
 // the whole of its `printSourceFile` so a build that goes through a plugin
-// transform honors the same compiler options — and produces the same map (and
-// `//# sourceMappingURL=` trailer, and the same first bytes) — a plain build
+// transform honors the same compiler options and produces the same map (and
+// `//# sourceMappingURL=` trailer, and the same first bytes) as a plain build
 // does.
 //
 // Keep it in sync with that emitter source when the pin is bumped. Anything
@@ -44,13 +44,27 @@ import (
 // byte order mark when `emitBOM` is on. MapText/MapPath are the external
 // source-map file and its path; both are empty when no external map is written
 // (source maps disabled, or an inline map encoded into the JS).
+//
+// @evidence contracts/common.md#principled-implementation The record separates emitted script, optional external map and map destination, retaining the pinned emitter's pre-BOM trailer coordinate rather than mixing file bytes with writer positions.
+// @evidence contracts/common.md#clear-and-simple-design One per-file result carries related output artifacts; absent external maps use empty values and absent trailers use the documented negative sentinel.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The sentinel and pre-BOM coordinate are compiler protocol values, not patched expected answers; no foreign state or consumer-specific output is introduced.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains map absence, inline output and BOM coordinate effects; every member has native documentation separated by blank source lines.
+// @evidence contracts/portability.md#os-neutral-implementation MapPath preserves the host-resolved native output destination while JS contains URI trailer spelling; the fields keep those distinct rather than equating URL and filesystem identity.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This record represents output and does not choose the printing algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This output record does not coordinate computation across consumers.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Storage lifetime belongs to the printing operation and its caller, not independently to the result declaration.
 type PrintedFile struct {
-  JS      string
+  // JS contains emitted script text, optional map trailer and optional BOM.
+  JS string
+
+  // MapText contains the external map JSON, or empty text for inline or absent maps.
   MapText string
+
+  // MapPath is the destination for MapText, or empty when no external map is emitted.
   MapPath string
 
   // SourceMapUrlPos is the offset of the `//# sourceMappingURL=` trailer in JS,
-  // or -1 when no trailer was written — the value tsgo's emitter reports as
+  // or -1 when no trailer was written, the value tsgo's emitter reports as
   // WriteFileData.SourceMapUrlPos so a caller can locate and rewrite the
   // trailer without re-scanning the text. Like the emitter's, it is the printer
   // writer's text position, taken BEFORE the `emitBOM` mark is prepended, so a
@@ -63,8 +77,8 @@ type PrintedFile struct {
   SourceMapUrlPos int
 }
 
-// PrintFileWithSourceMap renders sourceFile through a printer built from options
-// and emitContext, optionally generating a source map, mirroring
+// PrintFileWithSourceMap renders node from sourceFile through a printer built
+// from options and emitContext, optionally generating a source map, mirroring
 // emitter.emitJSFile and emitter.printSourceFile for the single-file
 // plugin-transform path. The PrinterOptions below are emitJSFile's, field for
 // field: `removeComments`, `newLine`, `noEmitHelpers`, `sourceMap`,
@@ -74,10 +88,22 @@ type PrintedFile struct {
 // appends the sourceMappingURL trailer, records its offset, and returns the
 // external map text/path (or encodes the map inline). `emitBOM` prepends the
 // UTF-8 byte order mark to the JavaScript afterwards, exactly where
-// printSourceFile does it — outside PrinterOptions, which is why forwarding the
+// printSourceFile does it, outside PrinterOptions, which is why forwarding the
 // whole options struct never reached it. The external map is written without a
 // mark, matching the emitter's own `writeText(sourceMapFilePath, ..., nil)`.
 // host supplies the same directory/casing context tsgo's emitter reads.
+//
+// The source file, compiler options and host must be nonnil. Original node
+// positions and emitContext provenance determine source-map accuracy.
+//
+// @evidence contracts/common.md#principled-implementation The maintained port follows the pinned emitter's printer options, map eligibility, URI encoding, newline/trailer handling and post-print BOM ordering; upstream printer traversal derives mappings from retained node provenance.
+// @evidence contracts/common.md#clear-and-simple-design One per-file printer/writer/generator owns output assembly, while focused helpers separate source-root, shared map-directory and trailer-URL policy without duplicating output state.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts JSON map suppression, inline maps and pre-BOM offsets implement actual compiler options and output protocol; they do not select fixtures or patch upstream printer behavior.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish printer settings from post-print BOM effects, external from inline maps, path context and provenance requirements; the result documents its coordinate convention explicitly.
+// @evidence contracts/portability.md#os-neutral-implementation Compiler path helpers normalize native output paths, host-provided case sensitivity governs relative identity, and trailer paths are separately URI-encoded; URL spelling is not treated as filesystem casing.
+// @evidence contracts/performance.md#efficient-algorithms Printing traverses the emitted node tree and output text once with optional mapping segments; map serialization and inline base64 add work proportional to map bytes, and the per-file writer avoids rescanning text to find the trailer position.
+// @evidence contracts/performance.md#reuse-equivalent-work Text and source mappings share the printer traversal and EmitContext provenance; no cross-file printer source-index state is reused, and compiler options and transformed nodes determine each output.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Printer, writer and generator are file-local; retained bytes scale with emitted text, mapping segments and optional inline source content, then transfer through result strings without historical caching or spawned tasks.
 func PrintFileWithSourceMap(
   emitContext *innerprinter.EmitContext,
   node *innerast.Node,
@@ -106,7 +132,7 @@ func PrintFileWithSourceMap(
     generator = innersourcemap.NewGenerator(
       innertspath.GetBaseFileName(innertspath.NormalizeSlashes(jsFilePath)),
       sourceMapSourceRoot(options),
-      sourceMapDirectory(options, host, jsFilePath, sourceFile),
+      SourceMapDirectory(options, host, jsFilePath, sourceFile),
       innertspath.ComparePathsOptions{
         UseCaseSensitiveFileNames: host.UseCaseSensitiveFileNames(),
         CurrentDirectory:          host.GetCurrentDirectory(),
@@ -155,10 +181,25 @@ func sourceMapSourceRoot(options *innercore.CompilerOptions) string {
   return root
 }
 
-// sourceMapDirectory mirrors emitter.getSourceMapDirectory: the directory the
-// sourcemap generator resolves source paths against, honoring sourceRoot/mapRoot
-// and falling back to the .js output directory.
-func sourceMapDirectory(options *innercore.CompilerOptions, host innerprinter.EmitHost, filePath string, sourceFile *innerast.SourceFile) string {
+// SourceMapDirectory returns the directory the pinned compiler's source-map
+// generator uses to resolve source paths. This is the generator's internal
+// directory context, not the map's published sourceRoot field.
+//
+// A nonempty sourceRoot selects the host's common source directory. Otherwise
+// mapRoot selects the map directory, projecting sourceFile's path into that
+// root when sourceFile is present; a relative mapRoot is based on the common
+// source directory. Without either option, the output file's directory is used.
+// The options and host must be nonnil; sourceFile may be nil.
+//
+// @evidence contracts/common.md#principled-implementation The maintained helper follows pinned emitter.getSourceMapDirectory's sourceRoot precedence, per-source mapRoot projection and relative-root anchoring, returning the exact generator base instead of assuming maps are based on an emitted file directory.
+// @evidence contracts/common.md#clear-and-simple-design One supported public helper owns generator-directory policy for printing and downstream map consumers, avoiding independently implemented path-base rules.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Directory selection follows real compiler options and host context, including URL and relative roots, without a consumer-specific map repair or filesystem guessing.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish internal generator context from published sourceRoot, describe option precedence and path projection, and state nonnil versus optional inputs.
+// @evidence contracts/portability.md#os-neutral-implementation Compiler path helpers handle native roots and URL spelling separately, while per-source projection uses the host's actual current/common directories and case policy rather than an OS-name assumption.
+// @evidence contracts/performance.md#efficient-algorithms Work consists of normalization and relative path construction over supplied path bytes, with no source-file scan or filesystem traversal; the owning helper avoids repeating policy implementations at each map consumer.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This pure path-context calculation does not coordinate completed or in-flight work across requests; map consumers own any per-file index of its results.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The helper retains no historical cache, handle or running task; its returned directory string is caller-owned.
+func SourceMapDirectory(options *innercore.CompilerOptions, host innerprinter.EmitHost, filePath string, sourceFile *innerast.SourceFile) string {
   if len(options.SourceRoot) > 0 {
     return host.CommonSourceDirectory()
   }

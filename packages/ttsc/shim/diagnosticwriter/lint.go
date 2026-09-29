@@ -25,7 +25,13 @@ import (
 )
 
 // LintCategory selects warning vs error rendering. Warnings render yellow,
-// errors render red — the exit-code decision lives in the caller.
+// errors render red; the exit-code decision lives in the caller.
+// Any value other than LintCategoryError maps to warning.
+//
+// @evidence contracts/common.md#principled-implementation Separate category constants preserve error versus warning; Category and IsError share the exact error discriminator, so display and error counting agree even for other integer values.
+// @evidence contracts/common.md#clear-and-simple-design One category value drives both rendering and caller error classification without coupling the diagnostic to a process exit.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Category constants express the renderer contract, not severity guesses based on message text or a rule's consumer.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies display categories, caller-owned exit decisions and the non-error fallback.
 type LintCategory int
 
 const (
@@ -38,6 +44,11 @@ const (
 // caller's contract says they point inside the current file. Reversed and
 // zero-width ranges select one byte when one exists at pos; EOF and empty-file
 // ranges remain zero-width instead of manufacturing a byte past the source.
+//
+// @evidence contracts/common.md#principled-implementation Clamping both byte endpoints into [0, source length] and extending a nonpositive span only before EOF establishes 0 <= pos <= end <= length; nil source yields an empty project-wide span.
+// @evidence contracts/common.md#clear-and-simple-design One boundary normalizer owns producer-range sanitation for every NewLintDiagnostic instead of requiring each renderer method to repair offsets.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Clamping addresses untrusted producer coordinates against the actual source length; it does not substitute canned diagnostic ranges or hide an out-of-file byte.
+// @evidence contracts/common.md#meaningful-documentation Native prose states half-open units, why sanitation belongs at the producer boundary, and the reversed/EOF/empty-file effects.
 func NormalizeLintRange(file *ast.SourceFile, pos, end int) (int, int) {
   if file == nil {
     return 0, 0
@@ -63,9 +74,18 @@ func NormalizeLintRange(file *ast.SourceFile, pos, end int) (int, int) {
 }
 
 // LintDiagnostic is a public, plugin-emittable diagnostic shaped like the
-// `internal/diagnosticwriter.Diagnostic` interface. The internal type is
-// unexported, so this is the only way to mix lint output with tsgo's own
-// diagnostics in a single render pass.
+// `internal/diagnosticwriter.Diagnostic` interface. The upstream interface lives
+// in an internal package that outside plugin modules cannot import directly.
+// This public implementation lets their findings share the compiler renderer.
+//
+// The source file is retained, not copied; its text must remain the version the
+// diagnostic range describes. Stored-field accessors require a nonnil
+// receiver; File, Message and the empty-metadata accessors are nil-safe.
+//
+// @evidence contracts/common.md#principled-implementation Private source, normalized byte endpoints, severity and message implement the upstream Diagnostic methods without losing project-wide nil source or already-localized lint prose.
+// @evidence contracts/common.md#clear-and-simple-design One immutable-by-public-API value implements the renderer boundary, with construction owning range validation and accessors supplying stored facts.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Lint findings enter the same formatter through an explicit interface implementation rather than modifying upstream diagnostics or injecting global output.
+// @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain the internal-package import boundary, retained source version and nil-receiver limits; public accessors document units and optional metadata.
 type LintDiagnostic struct {
   file     *ast.SourceFile
   pos      int
@@ -76,8 +96,14 @@ type LintDiagnostic struct {
 }
 
 // NewLintDiagnostic builds a lint diagnostic anchored at [pos, end) in the
-// supplied source file. `code` shows up in the rendered banner — the
+// supplied source file. `code` shows up in the rendered banner; the
 // convention is to give each rule its own stable integer.
+// A nil file creates a project-wide message with an empty range.
+//
+// @evidence contracts/common.md#principled-implementation Construction normalizes the caller's byte span before storing it with source identity, stable code, category and message, preserving project-wide absence when file is nil.
+// @evidence contracts/common.md#clear-and-simple-design One constructor establishes the range invariant for the private fields; renderer accessors need no repeated sanitation.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The value contains actual producer findings; stable codes identify rules rather than synthesizing expected compiler messages.
+// @evidence contracts/common.md#meaningful-documentation Native prose states half-open anchoring, code identity convention and nil-file meaning, with range normalization explained on its owner.
 func NewLintDiagnostic(file *ast.SourceFile, pos, end int, code int32, category LintCategory, message string) *LintDiagnostic {
   pos, end = NormalizeLintRange(file, pos, end)
   return &LintDiagnostic{
@@ -90,6 +116,13 @@ func NewLintDiagnostic(file *ast.SourceFile, pos, end int, code int32, category 
   }
 }
 
+// File supplies the retained source, or nil for a project-wide/nil diagnostic.
+// Returning an untyped nil avoids a non-nil interface containing a nil pointer.
+//
+// @evidence contracts/common.md#principled-implementation The explicit nil branch preserves absent source at the interface boundary; present files retain their original compiler identity and text.
+// @evidence contracts/common.md#clear-and-simple-design One accessor owns pointer-to-interface absence conversion without a wrapper file representation.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Missing source remains absent rather than a fabricated file used to satisfy the renderer.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains retained provenance, project-wide absence and the Go typed-nil interface consequence.
 func (d *LintDiagnostic) File() inner.FileLike {
   if d == nil || d.file == nil {
     return nil
@@ -97,11 +130,44 @@ func (d *LintDiagnostic) File() inner.FileLike {
   return d.file
 }
 
-func (d *LintDiagnostic) Pos() int    { return d.pos }
-func (d *LintDiagnostic) End() int    { return d.end }
-func (d *LintDiagnostic) Len() int    { return d.end - d.pos }
+// Pos returns the normalized inclusive UTF-8 byte offset.
+//
+// @evidence contracts/common.md#principled-implementation Reading the constructor-normalized start preserves the source interval used by the renderer; the receiver must be non-nil.
+// @evidence contracts/common.md#clear-and-simple-design The accessor supplies one stored endpoint without reinterpreting coordinates.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The offset remains producer/source data rather than a guessed JavaScript character position.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies normalized origin and byte units; the type states the non-nil receiver premise.
+func (d *LintDiagnostic) Pos() int { return d.pos }
+
+// End returns the normalized exclusive UTF-8 byte offset.
+//
+// @evidence contracts/common.md#principled-implementation Reading the constructor-normalized end retains the half-open interval and its source-length bound; the receiver must be non-nil.
+// @evidence contracts/common.md#clear-and-simple-design One endpoint accessor keeps interval facts distinct from derived length.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The end is not extended past EOF to invent a visible diagnostic byte.
+// @evidence contracts/common.md#meaningful-documentation Native prose states normalized exclusive endpoint and byte units, with receiver requirements on the type.
+func (d *LintDiagnostic) End() int { return d.end }
+
+// Len returns the normalized span length in UTF-8 bytes, including zero at EOF.
+//
+// @evidence contracts/common.md#principled-implementation End minus start is a nonnegative byte length because construction establishes ordered endpoints within the source; the receiver must be non-nil.
+// @evidence contracts/common.md#clear-and-simple-design Deriving length from the two stored endpoints avoids another mutable field that could diverge from them.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Zero-width spans remain real absence of covered bytes rather than a fabricated length beyond the source.
+// @evidence contracts/common.md#meaningful-documentation Native prose states byte length and the EOF zero-width case before acknowledgment tags.
+func (d *LintDiagnostic) Len() int { return d.end - d.pos }
+
+// Code returns the producer's stable diagnostic identifier.
+//
+// @evidence contracts/common.md#principled-implementation The stored int32 code passes through unchanged, retaining the rule identity used by formatter banners and consumers.
+// @evidence contracts/common.md#clear-and-simple-design One accessor exposes producer identity independently from severity and message presentation.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Codes are supplied by the producer rather than inferred from expected message text.
+// @evidence contracts/common.md#meaningful-documentation Native prose names stable producer identity; construction explains the per-rule convention.
 func (d *LintDiagnostic) Code() int32 { return d.code }
 
+// Category translates the exact error discriminator; every other value is warning.
+//
+// @evidence contracts/common.md#principled-implementation The same LintCategoryError comparison used by IsError maps stored categories to upstream error/warning values, keeping rendering and failure counting consistent.
+// @evidence contracts/common.md#clear-and-simple-design One translation boundary adapts the public lint category to the internal formatter enum.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit category data determines severity without message heuristics or consumer-specific reclassification.
+// @evidence contracts/common.md#meaningful-documentation Native prose states the exact discriminator and fallback, rather than implying arbitrary integers form validated enum values.
 func (d *LintDiagnostic) Category() diagnostics.Category {
   if d.category == LintCategoryError {
     return diagnostics.CategoryError
@@ -109,11 +175,37 @@ func (d *LintDiagnostic) Category() diagnostics.Category {
   return diagnostics.CategoryWarning
 }
 
-func (d *LintDiagnostic) Localize(_ locale.Locale) string        { return d.message }
-func (d *LintDiagnostic) MessageChain() []inner.Diagnostic       { return nil }
+// Localize returns the producer's already-localized message; locale is unused.
+//
+// @evidence contracts/common.md#principled-implementation Returning stored prose preserves the producer's chosen message without applying another locale transformation to an already-localized value.
+// @evidence contracts/common.md#clear-and-simple-design One formatter adapter supplies stored prose while message creation stays with the rule.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The message is not replaced by a canned compiler diagnostic or inferred translation.
+// @evidence contracts/common.md#meaningful-documentation Native prose explicitly states already-localized input and ignored locale semantics.
+func (d *LintDiagnostic) Localize(_ locale.Locale) string { return d.message }
+
+// MessageChain returns nil because this diagnostic contains one flat message.
+//
+// @evidence contracts/common.md#principled-implementation Nil represents the absent chain in the upstream interface; the value stores a flat message rather than structured children.
+// @evidence contracts/common.md#clear-and-simple-design The adapter states its flat-message capability without an unused child-diagnostic hierarchy.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Missing structured metadata remains absent rather than manufactured chain nodes.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains the absence and its representation premise.
+func (d *LintDiagnostic) MessageChain() []inner.Diagnostic { return nil }
+
+// RelatedInformation returns nil; this value carries no auxiliary diagnostics.
+//
+// @evidence contracts/common.md#principled-implementation Nil preserves the absence of related diagnostics under the upstream formatter interface.
+// @evidence contracts/common.md#clear-and-simple-design A focused flat diagnostic does not acquire an unused related-information store.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Auxiliary source sites are not fabricated from message spelling.
+// @evidence contracts/common.md#meaningful-documentation Native prose states the unsupported auxiliary metadata capability directly.
 func (d *LintDiagnostic) RelatedInformation() []inner.Diagnostic { return nil }
 
 // Message returns the already-localized lint message.
+// It returns an empty string for a nil receiver.
+//
+// @evidence contracts/common.md#principled-implementation The accessor preserves producer prose on present diagnostics and supplies the documented empty absence value for a nil receiver.
+// @evidence contracts/common.md#clear-and-simple-design The public string accessor is separate from the locale-shaped formatter method, while both use the same stored message.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Nil does not cause a fabricated finding or a guessed diagnostic message.
+// @evidence contracts/common.md#meaningful-documentation Native prose names already-localized content and the nil-receiver result.
 func (d *LintDiagnostic) Message() string {
   if d == nil {
     return ""
@@ -123,12 +215,24 @@ func (d *LintDiagnostic) Message() string {
 
 // IsError reports whether the diagnostic should fail the build. Lint plugins
 // use this to compute their exit code separately from the renderer.
+//
+// @evidence contracts/common.md#principled-implementation The exact error-category comparison matches Category's upstream mapping, so callers count the same diagnostics that render as errors.
+// @evidence contracts/common.md#clear-and-simple-design A boolean category query leaves process exit-code policy with the caller instead of embedding it in a rendered diagnostic.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Stored category data determines failure classification without matching consumer or message names.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains caller-owned exit decisions and the separation from rendering.
 func (d *LintDiagnostic) IsError() bool { return d.category == LintCategoryError }
 
 // FormatMixedDiagnostics renders raw tsgo diagnostics and lint diagnostics
 // together with TypeScript-style colors and source context, followed by the
 // `Found N errors` summary. Returns the count of error-level diagnostics so
 // callers can decide on an exit code.
+// Nil entries from either producer are ignored. Source files must remain the
+// versions described by their diagnostic byte ranges throughout rendering.
+//
+// @evidence contracts/common.md#principled-implementation Upstream AST adapters and the lint interface implementation share one renderer; exact category comparisons count errors, and deterministic source/range/code/message ordering preserves both producers' complete findings.
+// @evidence contracts/common.md#clear-and-simple-design One mixed rendering entry owns filtering, ordering and summary composition, with a private comparator centralizing tie-breaking and upstream owning snippet formatting.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Real findings flow through a caller-supplied writer rather than a swapped global stream; nil filtering does not drop present findings or manufacture successful diagnostics.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains mixed source context, returned error count, nil-entry handling and retained source-version requirements before these tags.
 func FormatMixedDiagnostics(
   output io.Writer,
   astDiags []*ast.Diagnostic,

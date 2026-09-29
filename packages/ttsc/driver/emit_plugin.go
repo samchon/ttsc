@@ -4,7 +4,6 @@ import (
   "context"
   "errors"
   "fmt"
-  "strings"
   "sync"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
@@ -82,10 +81,28 @@ func (h *pluginEmitHost) IsSourceFileFromExternalLibrary(file *shimast.SourceFil
 // that replaces text-splice: a plugin returns AST, not text. The shape mirrors a
 // classic ts.TransformerFactory (SourceFile -> SourceFile) so an existing
 // node-based transformer plugs in by just accepting the EmitContext.
+//
+// @evidence contracts/common.md#principled-implementation Generated AST identity belongs to the shared emit context, allowing builtin import and module transforms to interpret plugin nodes.
+// @evidence contracts/common.md#clear-and-simple-design A per-source callback returns an optional replacement; the host owns ordering and printing.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The supported AST factory and original links replace textual alias guesses or patched compiler methods.
+// @evidence contracts/common.md#meaningful-documentation Native prose specifies context identity, nil behavior, and source transformation following the documentation skill.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation The callback signature defines AST work rather than native path or process operations.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Concrete callbacks select their algorithms; the signature performs no traversal.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The signature owns no shared-work coordinator.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Resource lifetime belongs to the concrete callback and emit owner, not this function type.
 type PluginTransform func(ec *shimprinter.EmitContext, sourceFile *shimast.SourceFile) *shimast.SourceFile
 
 // EmitWithPluginTransformer emits with a single plugin transformer. It is a thin
 // wrapper over EmitWithPluginTransformers.
+//
+// @evidence contracts/common.md#principled-implementation The single-transform entry uses the same linked-plugin and builtin emit pipeline as the multi-transform entry.
+// @evidence contracts/common.md#clear-and-simple-design One slice construction delegates all emit policy to EmitWithPluginTransformers.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No alternate single-transform path bypasses linked hooks or error handling.
+// @evidence contracts/common.md#meaningful-documentation The native comment identifies the single-transform convenience role following the documentation skill.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation The delegated emitter owns native output paths and filesystem behavior.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The delegated emitter owns traversal and printing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The delegated emitter owns generation hook reuse.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The wrapper acquires no separate resource or retained buffer.
 func (p *Program) EmitWithPluginTransformer(transform PluginTransform, writeFile shimcompiler.WriteFile) ([]Diagnostic, error) {
   return p.EmitWithPluginTransformers([]PluginTransform{transform}, writeFile)
 }
@@ -94,6 +111,15 @@ func (p *Program) EmitWithPluginTransformer(transform PluginTransform, writeFile
 // host-owned transformer. It is the no-transform convenience form of
 // EmitWithPluginTransformers, which honors linked plugins on every emit it
 // runs.
+//
+// @evidence contracts/common.md#principled-implementation Omitting host transforms still honors the project's linked transform hooks through the shared pipeline.
+// @evidence contracts/common.md#clear-and-simple-design A nil host-transform list delegates all scheduling and output policy.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Linked-only emit does not silently skip registrations because the caller supplied no transform.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes linked-only and host-owned transforms following the documentation skill.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation The delegated emitter owns native output operations.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shared emitter owns traversal and printing.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The shared emitter owns hook latching.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This wrapper acquires no independent retained resource.
 func (p *Program) EmitLinkedTransforms(writeFile shimcompiler.WriteFile) ([]Diagnostic, error) {
   return p.EmitWithPluginTransformers(nil, writeFile)
 }
@@ -170,6 +196,15 @@ func restoreOriginalDeclarationSymbols(ec *shimprinter.EmitContext, node *shimas
 // delegated to tsgo's normal dts-only emitter so declaration files, declaration
 // maps, and any future declaration-lane outputs are not silently lost by the
 // hand-assembled JS path.
+//
+// @evidence contracts/common.md#principled-implementation Plugin AST transforms share the builtin emit context; parse-tree identity qualifies checker resolution, while native declaration emit retains compiler-owned declaration semantics.
+// @evidence contracts/common.md#clear-and-simple-design JavaScript transformation and declaration emission are separate phases with one buffered output owner and shared diagnostic classification.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Supported factories, original-node ownership, and compiler transformers replace hardcoded import aliases or patched checker functions; noEmitOnError withholds writes until both phases succeed.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs explain ordering, context integration, maps/BOM, and declaration delegation following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Compiler output paths and native containment checks govern writes; no shell or OS-specific output directory is assumed.
+// @evidence contracts/performance.md#efficient-algorithms Original member ownership is indexed once, each eligible source is transformed once per emit, and declaration work delegates to the native emitter.
+// @evidence contracts/performance.md#reuse-equivalent-work Linked program hooks are latched per generation, and the existing checker/resolver serves all per-file transforms instead of constructing independent compiler programs.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Ownership indexes and pending noEmitOnError outputs are local to this invocation; success flushes once and failure releases them when the operation returns.
 func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, writeFile shimcompiler.WriteFile) ([]Diagnostic, error) {
   if p == nil || p.TSProgram == nil {
     return nil, errors.New("driver: nil program")
@@ -216,6 +251,7 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
   // declaration lane, so defer callbacks until both have succeeded. Outside
   // that option keep upstream's emit-despite-errors behavior.
   output := newPluginEmitOutput(writeFile, options.NoEmitOnError.IsTrue())
+  correctSourceMap := p.NewSourceMapCorrector()
   for _, sf := range shimcompiler.GetSourceFilesToEmit(host, nil, false) {
     paths := shimcompiler.GetOutputPathsFor(sf, options, host, false)
     if paths.JsFilePath() != "" && !p.outputEscapesOutDir(paths.JsFilePath()) {
@@ -279,13 +315,13 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
       // would be if only the utility host's WriteFile patched maps. Covers both
       // the external `.js.map` and an inline base64 map embedded in the JS.
       if p.SourcePreamble != "" {
-        dropLines := strings.Count(p.SourcePreamble, "\n")
-        if adjusted, ok := AdjustEmittedSourceMap(paths.JsFilePath(), printed.JS, dropLines); ok {
-          printed.JS = adjusted
+        var err error
+        if printed.JS, err = correctSourceMap(paths.JsFilePath(), printed.JS); err != nil {
+          return nil, err
         }
         if printed.MapPath != "" {
-          if adjusted, ok := AdjustEmittedSourceMap(printed.MapPath, printed.MapText, dropLines); ok {
-            printed.MapText = adjusted
+          if printed.MapText, err = correctSourceMap(printed.MapPath, printed.MapText); err != nil {
+            return nil, err
           }
         }
       }
@@ -341,6 +377,11 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
         }
         return nil
       }
+      corrected, err := correctSourceMap(fileName, text)
+      if err != nil {
+        return err
+      }
+      text = corrected
       return output.write(fileName, text, data)
     },
   })

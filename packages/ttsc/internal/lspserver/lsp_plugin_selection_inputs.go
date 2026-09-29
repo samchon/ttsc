@@ -21,6 +21,12 @@ import (
 // once rather than of every file. A source directory's listing is an input as
 // well, counted by the build's own rule, which the launcher hands over as data
 // rather than the host keeping a copy of it.
+//
+// @evidence contracts/common.md#principled-implementation Directory-grouped filename/digest maps distinguish recorded descriptor candidates from source populations whose listing also affects selection.
+// @evidence contracts/common.md#clear-and-simple-design Build-owned omission and pruning rules travel as data rather than duplicated host build policy.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The baseline records actual launcher reads and source rules, not a fixed package-specific reload list.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs explain directory grouping, missing candidates and listing ownership, with separated member prose under the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Directories are resolved natively and names remain single entries; validation rejects separators, NUL and dot-parent spellings instead of treating native paths as protocol URLs.
 type NativePluginSelectionInputs struct {
   // DescriptorFiles maps every directory holding a file the plugin load read
   // or probed to the name of each such file, with its digest: the project's
@@ -96,7 +102,7 @@ func newPluginSelectionInputs(
       }
       entry.listing = entry.listing || listing
       for name, digest := range files {
-        if name == "" || strings.ContainsAny(name, `/\`) {
+        if name == "" || name == "." || name == ".." || strings.ContainsAny(name, "/\\\x00") {
           return fmt.Errorf(
             "plugin selection file %q in %q is not a file name",
             name,

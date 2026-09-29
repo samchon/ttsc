@@ -2,7 +2,7 @@
 //
 // Total-function replacement for upstream `(*Node).Text()`.
 //
-// Upstream panics for any Kind missing from its switch — most notably
+// Upstream panics for any Kind missing from its switch, most notably
 // KindQualifiedName, which surfaces in JSDoc parameter names (`@param
 // obj.field`) and dotted entity references. NodeText handles
 // QualifiedName by recursing on the left subtree and joining with the
@@ -22,6 +22,14 @@ import (
 // upstream `(*Node).Text()` where upstream has an arm, adds a
 // QualifiedName arm that joins `left.right`, and falls back to the
 // node's source slice for any other Kind. Returns "" for nil.
+//
+// A node's payload must match its Kind. Unsupported kinds without a valid
+// containing source range return "" instead of synthesizing spelling.
+//
+// @evidence contracts/common.md#principled-implementation Known text-bearing kinds use their upstream payload accessor, qualified names concatenate their identifier components, and other kinds use checked source byte ranges; nodes must have payloads matching their Kind.
+// @evidence contracts/common.md#clear-and-simple-design One kind dispatch separates semantic token text from qualified-name composition and the private source-range fallback, keeping the safety policy local.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Kind-specific cases reflect actual AST representations missing from upstream Text, and the range fallback does not patch that foreign method or special-case consumers.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes token text from source spelling, documents nil and unavailable ranges, and states the payload premise using separated body and tag sections.
 func NodeText(n *Node) string {
   if n == nil {
     return ""

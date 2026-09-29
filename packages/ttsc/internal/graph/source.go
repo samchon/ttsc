@@ -14,6 +14,12 @@ import (
 // Symlinked workspace packages remain authored source: the checker resolves the
 // default preserveSymlinks=false path to their real workspace location before
 // this predicate sees it.
+//
+// @evidence contracts/common.md#principled-implementation The compiler's declaration-file flag and path-segment boundary distinguish authored declarations from loaded dependency inputs.
+// @evidence contracts/common.md#clear-and-simple-design One predicate owns the build and resolution boundary without reopening source files.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts node_modules is a package-resolution boundary, not a consumer or fixture exception; no foreign compiler state is changed.
+// @evidence contracts/common.md#meaningful-documentation The native comment states declaration ownership and the compiler's default symlink handling, with prose separated from these tags under the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Slash normalization compares compiler path segments rather than native case identities; physical symlink resolution remains the compiler host's responsibility.
 func IsWorkspaceSourceFile(file *shimast.SourceFile) bool {
   if file == nil || file.IsDeclarationFile {
     return false

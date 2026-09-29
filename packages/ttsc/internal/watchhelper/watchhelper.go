@@ -31,6 +31,18 @@
 package watchhelper
 
 // Request is one line the client writes to the helper.
+// Paths refer to host directories; the adapter supplies absolute names. The
+// operation determines whether Path is meaningful, while ID identifies the
+// subscription or synchronization barrier rather than a kernel descriptor.
+//
+// @evidence contracts/common.md#principled-implementation The operation discriminant selects add/remove/sync semantics, and a signed integer carries the client's identifier independently of the kernel watch descriptor.
+// @evidence contracts/common.md#clear-and-simple-design One wire object groups operation, identity and the add-only path; it does not duplicate the helper's subscription state.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The names and JSON fields are the shared helper protocol, not consumer-specific directory guesses or expected test messages.
+// @evidence contracts/common.md#meaningful-documentation Package protocol prose and separate field comments explain operation-dependent paths, barrier identity and host directory spelling under the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Path carries a native directory supplied by the adapter. The Linux backend consumes that native spelling, while other platforms use their own adapter backend.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This wire value selects no processing strategy; the serving loop owns dispatch.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The request does not own watch sharing or synchronization across clients.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The helper owns subscriptions and descriptors; this value only identifies a requested operation.
 type Request struct {
   // Op is `add`, `remove`, or `sync`.
   Op string `json:"op"`
@@ -43,6 +55,18 @@ type Request struct {
 }
 
 // Response is one line the helper writes to the client.
+// Individual replies and events carry an ID; overflow concerns the entire
+// inotify instance and intentionally carries none. The backend constructs the
+// relevant fields rather than treating their zero values as separate events.
+//
+// @evidence contracts/common.md#principled-implementation Optional JSON fields encode ready/error, change/rename, termination and synchronization messages, with instance-wide overflow distinct from one subscriber's event.
+// @evidence contracts/common.md#clear-and-simple-design One protocol value separates correlation from event payload; native watch descriptors stay private to the helper.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Ready and sync are emitted at actual backend boundaries, and overflow is reported from the kernel event rather than inferred from a quiet watcher.
+// @evidence contracts/common.md#meaningful-documentation Native protocol prose and field comments distinguish global overflow, add failure, directory loss and synchronization under the documentation skill's optional-state guidance.
+// @evidence contracts/portability.md#os-neutral-implementation Name is relative to the native watched directory; this wire value does not fold case or reinterpret a file name as a URL. The Linux-only backend boundary is explicit.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This response describes an outcome without choosing the dispatch algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Shared watch descriptors and barrier coordination belong to the helper rather than to the response value.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This response owns no subscription or open descriptor lifetime.
 type Response struct {
   // ID names the subscription or the sync the line concerns. An overflow
   // concerns every subscription and carries none.

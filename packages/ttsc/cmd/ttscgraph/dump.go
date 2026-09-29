@@ -104,9 +104,9 @@ func runDump(args []string) int {
 // saw the project, so it carries the same provenance a served snapshot does:
 // without it the file is a pile of facts with no way to tell which program, or
 // which day, they describe.
-// dumpOrigin builds the provenance for one dump. askedForArtifacts is what
-// turns the artifact capability from a guess into a claim: a producer that was
-// never pointed at a publisher did not look, and saying it did would make a
+//
+// askedForArtifacts turns the artifact capability from a guess into a claim:
+// a producer never pointed at a publisher did not look. Saying it did would make a
 // project with no artifacts indistinguishable from one whose artifacts were
 // never requested.
 func dumpOrigin(

@@ -11,6 +11,15 @@ import (
 
 // ProgramResolutionInput is one exact lexical filesystem input consulted by
 // TypeScript-Go while resolving a resident Program.
+//
+// @evidence contracts/common.md#principled-implementation Enumeration and identity-only flags distinguish directory membership from alias identity whose bytes are already owned by a graph target.
+// @evidence contracts/common.md#clear-and-simple-design One lexical path carries the two independent invalidation qualifications.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts A selected alias is not dropped merely because another spelling owns its content.
+// @evidence contracts/common.md#meaningful-documentation Native member prose explains membership and identity-only invalidation following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation The path preserves actual native lexical identity while flags describe observed compiler operations rather than guessed OS capabilities.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Resolution replay owns observation collection; this type describes one input.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This data value coordinates no shared work.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The input value owns no resource or resident cache.
 type ProgramResolutionInput struct {
   // DirectoryEntries is true when the compiler enumerated this directory, so
   // membership changes as well as kind and identity must invalidate it.
@@ -21,11 +30,21 @@ type ProgramResolutionInput struct {
   // invalidate it, while an edit to the selected bytes is not counted twice.
   IdentityOnly bool
 
-  Path         string
+  // Path is the exact lexical spelling supplied to the compiler filesystem.
+  Path string
 }
 
 // ProgramResolutionObservation is the deterministic result of replaying every
 // resident module and type-reference resolution through TypeScript-Go itself.
+//
+// @evidence contracts/common.md#principled-implementation Source candidates, universal inputs, and replay mismatches remain distinct so automatic type discovery can invalidate every source correctly.
+// @evidence contracts/common.md#clear-and-simple-design One result exposes envelope and flat-host views of the same replay transaction.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Replay mismatches remain proof failures rather than a presumed matching resolver result.
+// @evidence contracts/common.md#meaningful-documentation Native field prose explains candidate, universal, flat, and failure scopes following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation The observation retains exact native resolver inputs, with envelope serialization performed by the shared output-key owner.
+// @evidenceExclude contracts/performance.md#efficient-algorithms ObserveProgramResolutions owns replay and sorting; the type is its result.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This result supplies proof to consumers without coordinating artifact reuse.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The result is caller-owned and acquires no resource or resident cache.
 type ProgramResolutionObservation struct {
   // Candidates maps each source to every exact resolver input other than its
   // identically spelled selected graph target.
@@ -40,7 +59,7 @@ type ProgramResolutionObservation struct {
 
   // Universal contains automatic type discovery and resolution inputs whose
   // state can affect every source file.
-  Universal        []string
+  Universal []string
 
   universalFailure bool
 }
@@ -51,6 +70,15 @@ type ProgramResolutionObservation struct {
 // second resolver in ttsc. Replay observations are merged into the original
 // compiler transaction, so a state change between construction and replay
 // becomes a proof failure.
+//
+// @evidence contracts/common.md#principled-implementation The pinned compiler replays module/type discovery semantics, and merged observations make intervening filesystem changes explicit proof failures.
+// @evidence contracts/common.md#clear-and-simple-design Deterministic task grouping separates source-owned and universal observations; shared helpers normalize and compact output.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Native resolver replay replaces hand-maintained search guesses; successful targets outside the resident graph remain inputs.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains transaction scope, compiler ownership, and change detection following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Compiler path/case operations and the actual FS case capability govern alias equality, supported extensions, and envelope keys.
+// @evidence contracts/performance.md#efficient-algorithms Tasks sort once and adjacent equal owners replay together; set-based compaction deduplicates final inputs while direct adjacency avoids eager transitive closure.
+// @evidence contracts/performance.md#reuse-equivalent-work One observation transaction serves each resolution-owner group; selected graph targets retain content ownership while alias identity is kept without duplicating content responsibility.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Replay transactions are temporary and merged into the current Program observer; no previous-generation observation cache is retained here.
 func ObserveProgramResolutions(prog *Program, cwd string) ProgramResolutionObservation {
   output := ProgramResolutionObservation{
     Candidates: map[string][]string{},
@@ -225,6 +253,15 @@ func supportedFileExtension(file string, supported [][]string) bool {
 
 // ApplyUniversalResolutionFailure marks every source because automatic type
 // discovery contributes to one global Program rather than to one importer.
+//
+// @evidence contracts/common.md#principled-implementation Universal type-discovery failure qualifies every realized graph source rather than only one importer.
+// @evidence contracts/common.md#clear-and-simple-design One failure guard precedes a single source-map iteration.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Unchanged source text cannot hide a changed automatic type environment.
+// @evidence contracts/common.md#meaningful-documentation Native prose states the global invalidation reason following the documentation skill.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This method marks existing envelope keys and performs no native operation.
+// @evidence contracts/performance.md#efficient-algorithms Each realized source receives one map assignment only when a universal mismatch exists.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The method propagates an existing failure and coordinates no shared computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It modifies the caller-owned observation without acquiring an independent cache or resource.
 func (observation ProgramResolutionObservation) ApplyUniversalResolutionFailure(sources map[string][]string) {
   if !observation.universalFailure {
     return

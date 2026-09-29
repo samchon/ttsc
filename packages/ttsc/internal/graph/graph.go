@@ -7,6 +7,14 @@ import (
 )
 
 // NodeKind classifies a graph node by what its symbol declares.
+//
+// @evidence contracts/common.md#principled-implementation String discriminants distinguish compiler declaration kinds from separately published artifact kinds.
+// @evidence contracts/common.md#clear-and-simple-design One vocabulary carries internal and wire classifications without a second ordinal mapping.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Named constants express the product schema rather than consumer-specific ranking exceptions.
+// @evidence contracts/common.md#meaningful-documentation Native kind comments explain callable members, modules and artifact boundaries, with documentation-skill spacing before these type tags.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This discriminant type chooses no algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A kind value coordinates no shared computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A kind value owns no retained resource.
 type NodeKind string
 
 const (
@@ -42,6 +50,14 @@ const (
 // realpath, the declared name, and the kind, so inserting a line above a
 // declaration does not re-key it. That keeps a future incremental layer from
 // churning the whole graph on every edit, which a byte-offset key would force.
+//
+// @evidence contracts/common.md#principled-implementation Stable identity is separate from source spans; declared simple-name presence distinguishes valid empty member names from unavailable names.
+// @evidence contracts/common.md#clear-and-simple-design Compiler facts, artifact metadata and implementation locations remain explicit fields, with interpretation owned by consumers.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No project-specific ranking, generated answer or foreign-state override is encoded in this declaration record.
+// @evidence contracts/common.md#meaningful-documentation Native member comments explain identity, optional facts, source units and implementation ownership, keeping documented members and tags separated under the documentation skill.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The node is a fact container, not the owner of build or projection algorithms.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Graph generation owners establish reuse of these facts.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Node lifetime is owned by its graph generation; the record acquires no handle or cache independently.
 type Node struct {
   ID   string
   Name string
@@ -54,8 +70,13 @@ type Node struct {
   // split exact instead of guessing.
   Simple string
 
-  Kind   NodeKind
-  File   string
+  // HasSimple records an actual compiler-bound declaration name, including the
+  // valid empty string member name. Nonempty Simple remains sufficient for
+  // callers that construct ordinary nodes without this presence flag.
+  HasSimple bool
+
+  Kind NodeKind
+  File string
 
   // ArtifactLine is the 1-based line a published artifact starts on, and is 0
   // for every declaration — a declaration carries a real span, resolved from the
@@ -71,7 +92,7 @@ type Node struct {
   // declaration, whose containment the TypeScript memory layer synthesizes.
   ArtifactParent string
 
-  External       bool
+  External bool
 
   // Exported marks a node that is part of its module's export surface, resolved
   // through the checker's export table so a re-export (`export { Foo } from`) or
@@ -142,7 +163,7 @@ type Node struct {
   // not a declaration boundary and a brace is not always a body. The compiler
   // knows where the body starts, so it says so here. Zero when the declaration
   // has no body to bound, in which case the whole declaration is the head.
-  SignatureEnd       int
+  SignatureEnd int
 
   ImplementationFile string
   ImplementationPos  int
@@ -152,6 +173,14 @@ type Node struct {
 // EnumMember is one member of an enum: the name a caller writes and the value
 // it carries, in TypeScript source form. Value is empty when the checker could
 // not fold the member's initializer to a constant.
+//
+// @evidence contracts/common.md#principled-implementation The declared name, including an empty string, remains distinct from an optional checker-folded TypeScript value.
+// @evidence contracts/common.md#clear-and-simple-design One ordered record supplies enum outline data without manufacturing member graph nodes.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Values are producer facts rather than guesses from enum spelling or fixture expectations.
+// @evidence contracts/common.md#meaningful-documentation Native prose states TypeScript value rendering and the absent-value meaning, using documentation-skill tag separation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This record chooses no folding algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The compiler and graph generation own value reuse.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This record has no independent retained-state lifecycle.
 type EnumMember struct {
   Name  string
   Value string
@@ -160,6 +189,14 @@ type EnumMember struct {
 // ObjectMember is one direct, statically named property, method, or accessor of
 // an object-literal variable. A spread has no declaration name of its own and a
 // dynamic computed key cannot be named soundly, so neither fabricates a member.
+//
+// @evidence contracts/common.md#principled-implementation Static AST identity and explicit signature boundaries preserve direct object members without treating spreads or dynamic keys as named declarations.
+// @evidence contracts/common.md#clear-and-simple-design Outline facts remain on the owning variable node and source-body boundaries are represented separately from identity.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No brace-counting source heuristic or fixture-specific member name defines the stored surface.
+// @evidence contracts/common.md#meaningful-documentation Native comments explain excluded dynamic members, byte spans and opening-token inclusion, with documentation-skill spacing.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Collection and rendering own algorithms; this declaration holds their facts.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The producing graph snapshot owns reuse of member facts.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The containing node owns lifetime; this record acquires no independent resource.
 type ObjectMember struct {
   Name string
   Kind NodeKind
@@ -171,13 +208,21 @@ type ObjectMember struct {
   // many source bytes belong to the outline (`{`, `[`, or `class`). A true
   // SignatureBoundary permits whitespace-normalizing a multiline declaration
   // through that safe endpoint; otherwise the outline stops at its first line.
-  SignatureEnd      int
+  SignatureEnd int
 
   SignatureBoundary bool
   SignatureTokenLen int
 }
 
 // EdgeKind classifies a relationship between two nodes.
+//
+// @evidence contracts/common.md#principled-implementation Distinct relationship kinds preserve runtime uses, type references, documentation mentions and exports without conflating their semantics.
+// @evidence contracts/common.md#clear-and-simple-design Internal kinds pair with Origin only where the wire needs a finer relationship distinction.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The vocabulary states supported graph relations and contains no consumer-specific reachability exception.
+// @evidence contracts/common.md#meaningful-documentation Native constant comments explain each relationship's meaning and boundary, with tags separated under the documentation skill.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A relationship discriminant selects no traversal strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The value does not own shared computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The value owns no retained state or resource.
 type EdgeKind string
 
 const (
@@ -230,6 +275,14 @@ const (
 // than the subset a particular project happens to contain: counting only what
 // was seen makes the reported shape depend on the project measured, and a
 // family that dropped to zero disappears instead of reading zero.
+//
+// @evidence contracts/common.md#principled-implementation Returning the complete declared vocabulary preserves zero-count relationship families independently of one project's observed edges.
+// @evidence contracts/common.md#clear-and-simple-design A fixed ordered slice gives callers an explicit enumeration without inferring it from graph contents.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Contract-defined kind constants replace no measurements or consumer-specific expected counts.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs explain complete-vocabulary and zero-count reporting semantics, following the documentation skill.
+// @evidence contracts/performance.md#efficient-algorithms The output has fixed schema-bounded size and requires no graph scan.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This vocabulary constructor owns no repeated computation; returning an independent slice prevents caller mutation of shared enumeration storage.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The slice transfers to the caller and no cache or resource is retained.
 func EdgeKinds() []EdgeKind {
   return []EdgeKind{
     EdgeHeritage,
@@ -248,6 +301,14 @@ func EdgeKinds() []EdgeKind {
 // only when an assigned implementation attributes an expression in another
 // file to the declaration node it implements. They are evidence, not identity;
 // a duplicate relationship keeps the first source-order span.
+//
+// @evidence contracts/common.md#principled-implementation Directed endpoint identity and wire-refining origin are distinct from the source expression used as evidence.
+// @evidence contracts/common.md#clear-and-simple-design Optional cross-file evidence records assigned implementations without changing the declaration that owns a relationship.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Relation identity has no fixture-dependent span or synthetic caller override.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains first-span deduplication, evidence-file defaults and origin vocabulary, using documentation-skill paragraph and tag spacing.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Deduplication belongs to graph construction, not this record.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Generation owners decide reuse of relationships.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The graph owns this value's lifetime and it acquires no independent resources.
 type Edge struct {
   From string
   To   string
@@ -262,16 +323,29 @@ type Edge struct {
   // for EdgeMemberRelation it is "implements" or "overrides".
   Origin string
 
-  File   string
-  Pos    int
-  End    int
+  File string
+  Pos  int
+  End  int
 }
 
 // Graph is the in-memory adjacency the MCP tools query. Edges are added by the
 // resolution pass on top of the declaration nodes Build records.
+//
+// @evidence contracts/common.md#principled-implementation Declaration nodes and resolved relationships share one generation; explicit build scratch and committed expansion facts preserve their different lifetimes.
+// @evidence contracts/common.md#clear-and-simple-design Facts, build-only indices and invalidation metadata are named by responsibility instead of hidden in consumer-owned caches.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The representation contains no fixture graph, ranking cap or foreign compiler mutation mechanism.
+// @evidence contracts/common.md#meaningful-documentation Native member comments identify build-only maps, generation reuse and downstream invalidation consumers, with documented-member and tag spacing under the documentation skill.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Build and query operations select algorithms; this structure represents their state.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The record exposes indices but does not itself coordinate a build or reuse decision.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources BuildFiles and generation owners acquire and release the represented state; the container has no independent lifecycle operation.
 type Graph struct {
   Nodes map[string]*Node
   Edges []*Edge
+
+  // pathCaseInsensitive preserves the producing Program's filesystem identity
+  // policy after build-only compiler state is released. Its zero value keeps
+  // exact path spellings for a standalone graph without a producing Program.
+  pathCaseInsensitive bool
 
   // Decorators holds the decorators written on the workspace's declarations,
   // captured syntactically so the JSON dump can attach raw facts to each target
@@ -300,7 +374,7 @@ type Graph struct {
   // own, so both halves of a citation cover the same declarations, and it asks
   // per file so a project's whole documented population is never rescanned for
   // each one. Build-only.
-  docHosts         map[string][]docHost
+  docHosts map[string][]docHost
 
   docHostPositions map[docTagKey]struct{}
 
@@ -310,7 +384,8 @@ type Graph struct {
   bodyNodes map[string]bool
 
   // seen deduplicates edges in O(1) during construction, so building a graph
-  // with N edges is O(N), not O(N²). Keyed by from\x00to\x00kind.
+  // with N edges has expected O(N) set work. edgeKey preserves endpoint and
+  // wire-kind components without delimiter ambiguity or joined-string allocation.
   seen map[edgeKey]struct{}
 
   // resolved memoizes the checker resolution of an AST node for the length of a
@@ -328,7 +403,7 @@ type Graph struct {
   // generation during a partial build. Nodes owned by selectedFiles are never
   // read through it: a changed file may delete or re-key a declaration, so its
   // old nodes must disappear before the new checker walk begins.
-  baseNodes     map[string]*Node
+  baseNodes map[string]*Node
 
   selectedFiles map[string]bool
 
@@ -414,6 +489,14 @@ func nodeFile(id string) string {
 // NodeFile is the graph-symbol provider's shared view of the node-id grammar.
 // Keeping the parser here prevents its LSP path comparison from drifting from
 // the dump producer's edge-evidence lookup.
+//
+// @evidence contracts/common.md#principled-implementation The shared escaped node-ID grammar recovers the declaration path while rejecting file-only or malformed identities.
+// @evidence contracts/common.md#clear-and-simple-design One public adapter exposes the same parser used by dump evidence and native graph consumers.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Legacy UNC handling serves the actual pre-codec identity format, not a fixture-specific path patch.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains shared grammar ownership and consumer drift prevention, with documentation-skill tag separation.
+// @evidence contracts/performance.md#efficient-algorithms Parsing scans ID bytes linearly and allocates only decoded path/name components.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This parser does not coordinate repeated requests; consumers own any identity index.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No source snapshots or native resources are retained.
 func NodeFile(id string) string {
   return nodeFile(id)
 }

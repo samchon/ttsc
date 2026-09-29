@@ -51,6 +51,15 @@ const bundledScheme = "bundled:///"
 // Keys and values use the same convention as the envelope's `typescript`
 // map: project-relative slash paths, falling back to slash-normalized
 // absolute paths outside the project root (see TransformOutputKey).
+//
+// @evidence contracts/common.md#principled-implementation Resolved references, globals, resolver predicates, and proof failures retain distinct meanings in the envelope.
+// @evidence contracts/common.md#clear-and-simple-design Each field carries one input class or observation projection under the shared key convention.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler observations and explicit failures replace guessed dependencies or assumed validity.
+// @evidence contracts/common.md#meaningful-documentation Native prose defines the input classes, leaf semantics, case policy, and key convention following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Actual compiler case policy and slash keys prevent consumers from inferring path semantics from the OS name.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Graph construction owns traversal; this type describes the result.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This schema carries proof without coordinating artifact reuse.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller-owned value owns no resident cache or resource.
 type TransformGraph struct {
   Edges                     map[string][]string                  `json:"edges"`
   Globals                   []string                             `json:"globals"`
@@ -69,6 +78,15 @@ type TransformGraph struct {
 // Hosts stamp the result into their stdout envelope's `graph` field;
 // `cmd/ttsc api-transform` and the linked-plugin utility host both do.
 // Returns nil only for a nil or unloaded program.
+//
+// @evidence contracts/common.md#principled-implementation Compiler references, global scope, config ancestry, and replayed predicates form one generation's dependency proof.
+// @evidence contracts/common.md#clear-and-simple-design Reference collection, resolution replay, and proof attachment share one output-key owner.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Unobserved or contradictory inputs remain failures rather than later filesystem snapshots substituted for compiler reads.
+// @evidence contracts/common.md#meaningful-documentation Native prose specifies envelope integration and unloaded-program behavior following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Keys use native filepath conversion and compiler case policy; physical identity comes from observed realpaths.
+// @evidence contracts/performance.md#efficient-algorithms Direct adjacency avoids every transitive closure; an input set attaches each path's proof once.
+// @evidence contracts/performance.md#reuse-equivalent-work The existing compiler observer supplies proof without a later dependency reread recreating evaluation-time state.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned graph is caller-owned rather than retained in a resident cache.
 func NewTransformGraph(prog *Program, cwd string) *TransformGraph {
   if prog == nil || prog.TSProgram == nil {
     return nil
@@ -236,6 +254,15 @@ func configChain(prog *Program, cwd string) []string {
 // outside the project root. Every envelope section (`typescript`, `graph`,
 // `dependencies` producers) must share this one implementation so a consumer
 // can join sections by key.
+//
+// @evidence contracts/common.md#principled-implementation One key convention keeps source, dependency, and graph sections joinable across project boundaries.
+// @evidence contracts/common.md#clear-and-simple-design Native relative-path calculation and one escape predicate choose serialization.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Structural traversal and cross-volume checks replace guessed string-prefix roots.
+// @evidence contracts/common.md#meaningful-documentation Native prose states absolute input and outside-root behavior following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation filepath.Rel handles volumes and separators; ToSlash supplies envelope spelling.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Standard-library path arithmetic owns the conversion; this function selects no collection algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This conversion owns no repeated-work coordinator.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only the caller-owned result is retained.
 func TransformOutputKey(cwd, fileName string) string {
   rel, err := filepath.Rel(cwd, fileName)
   if err != nil || isOutsideRelativePath(rel) {

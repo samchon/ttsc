@@ -23,11 +23,20 @@ var ErrLSPUpstreamPanic = errors.New("ttscserver: tsgo upstream runner panicked"
 // upstream runner seam; the recovered stack is attached for diagnostics.
 //
 // recover() per the Go spec catches panics but NOT runtime.Goexit, so
-// a Goexit raised from inside fn surfaces as a clean nil return here
-// (the upstream goroutine exits without an error). Hosting code that
+// a Goexit raised from inside fn runs deferred cleanup and exits its goroutine
+// without returning from this helper. Hosting code that
 // must turn Goexit into a typed error should run fn in a separate
 // goroutine and join on a sentinel channel — outside this helper's
 // scope today.
+//
+// @evidence contracts/common.md#principled-implementation A named error return lets deferred recover preserve panic identity and stack context; runtime.Goexit remains a nonreturning goroutine exit.
+// @evidence contracts/common.md#clear-and-simple-design The helper contains panic conversion while invocation-specific runner ownership stays outside it.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Panic is surfaced through a typed error rather than discarded as a successful upstream run.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish panic recovery from Goexit, following the documentation skill.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Panic recovery is a Go runtime boundary, not a native filesystem or process representation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The callback owns its computation; this helper adds recovery.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each callback invocation may have distinct effects and is not shared here.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The runner owner controls goroutines and native children; this helper does not acquire them.
 func RecoverPanicAs(fn func() error) (err error) {
   defer func() {
     if r := recover(); r != nil {
@@ -41,6 +50,15 @@ func RecoverPanicAs(fn func() error) (err error) {
 // editor stdio for the LSP transport, an optional ttsc PluginSource for
 // merging plugin diagnostics into the stream, and the tsgo binary that
 // provides the upstream LSP server.
+//
+// @evidence contracts/common.md#principled-implementation Editor transport, plugin source and invocation-scoped upstream dependency pair distinguish owned local contributions from external compiler service.
+// @evidence contracts/common.md#clear-and-simple-design One invocation value supplies streams, project context and supported advertisement policy without global runner replacement.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Custom runner/validator injection uses a supported seam rather than monkey patching process globals.
+// @evidence contracts/common.md#meaningful-documentation Native member prose documents nil meaning, stream closure, ignored compatibility settings and dependency-pair validation, with documentation-skill spacing.
+// @evidence contracts/portability.md#os-neutral-implementation Native Cwd and absolute executable paths remain separate from io transport and protocol identifiers; runner implementations own platform execution.
+// @evidenceExclude contracts/performance.md#efficient-algorithms RunLSPServer owns processing strategy rather than this options value.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The options do not coordinate sharing across sessions.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The serving operation acquires pipes and tasks; options only provide their dependencies.
 type LSPServerOptions struct {
   // In is the editor-side reader; ttscserver reads JSON-RPC frames from
   // it and forwards or handles them. RunLSPServer closes it on shutdown
@@ -114,17 +132,45 @@ var ErrLSPTsgoBinaryRequired = errors.New("ttscserver: tsgo binary is required")
 // custom upstream validator without the runner whose prerequisites it checks.
 var ErrLSPUpstreamRunnerRequired = errors.New("ttscserver: custom upstream validator requires a runner")
 
-// LSPUpstreamRunner is the seam tests use to substitute the external
-// tsgo process with a controllable fake.
+// LSPUpstreamRunner serves one invocation through the supplied input/output.
+// Embedders may provide an in-process runner; cancellation and completion belong
+// to that runner rather than a global process replacement.
+//
+// @evidence contracts/common.md#principled-implementation Context, streams and invocation options describe one upstream execution with an explicit error result.
+// @evidence contracts/common.md#clear-and-simple-design A function dependency permits hosted or native execution without another server implementation.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Supported invocation injection replaces no foreign methods or global executable policy.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies embedding and cancellation responsibility, following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation The callable abstracts native process differences while the default runner uses executable and argv vectors.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The concrete runner owns its computation strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Invocation execution is not coordinated by this function type.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Concrete runners acquire and release their tasks and handles.
 type LSPUpstreamRunner func(ctx context.Context, in io.Reader, out io.Writer, opts LSPServerOptions) error
 
 // LSPUpstreamValidator checks one invocation's upstream prerequisites before
 // the proxy or runner goroutines start.
+//
+// @evidence contracts/common.md#principled-implementation A validation error prevents runner and proxy startup for the invocation whose prerequisites were checked.
+// @evidence contracts/common.md#clear-and-simple-design Validation is paired with its runner instead of applied as a global native assumption.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts A custom runner may own custom prerequisites without bypassing another runner's required validation.
+// @evidence contracts/common.md#meaningful-documentation Native prose states validation occurs before goroutines start, following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation The validator can interpret its runner's native requirements rather than imposing an executable policy on in-process hosts.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This function type defines validation, not its algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The serving invocation owns validation coordination.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Implementations own any temporary prerequisite probes.
 type LSPUpstreamValidator func(opts LSPServerOptions) error
 
 // LSPUpstream is the immutable dependency pair captured by RunLSPServer for
 // one invocation. Its zero value selects the production tsgo runner and
 // validation policy.
+//
+// @evidence contracts/common.md#principled-implementation A runner and its validator form one invocation dependency; the zero pair selects the production default and a validator-only pair is invalid.
+// @evidence contracts/common.md#clear-and-simple-design Capturing the pair prevents validation policy drifting independently of execution.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts A supported pair replaces global process hooks without compensating for incompatible prerequisites.
+// @evidence contracts/common.md#meaningful-documentation Native prose states zero-value selection, following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Native validation belongs to the native runner; the representation also supports in-process execution.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The captured functions choose their algorithms.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The pair coordinates no execution across invocations.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The serving owner invokes and releases runner resources.
 type LSPUpstream struct {
   Runner    LSPUpstreamRunner
   Validator LSPUpstreamValidator
@@ -176,6 +222,15 @@ func defaultUpstreamRunner(ctx context.Context, in io.Reader, out io.Writer, opt
 //  3. Run the proxy in parallel.
 //  4. A watchdog cascades context cancellation by closing every pipe so both
 //     halves unblock; the goroutines' own defers close the rest.
+//
+// @evidence contracts/common.md#principled-implementation Invocation validation precedes pipe acquisition; cancellation cascades to both pumps and upstream execution, while protocol exit-before-shutdown remains distinct from a clean shutdown.
+// @evidence contracts/common.md#clear-and-simple-design Two pipe pairs isolate upstream transport, one context coordinates teardown and joined runner/proxy errors select the session outcome.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Ignoring upstream exit status after editor exit follows the LSP lifecycle rather than hiding a failed active session.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs state error folding and numbered lifecycle ownership, following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Native execution uses an absolute executable and argv through exec.CommandContext, with Cwd passed separately. Editor input closability varies; exit can finish without waiting for a blocked Windows stdin reader.
+// @evidence contracts/performance.md#efficient-algorithms Two streaming pumps process frames once; method-specific augmentation owns payload algorithms rather than reparsing every payload unconditionally.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A live LSP invocation has distinct streams and effects and cannot share another invocation's pumps.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Pipe endpoints and the upstream/proxy goroutines are joined and closed; proxy cancellation closes source children before waiting on their callers. Caller-owned nonclosable readers and blocked writers cannot be forcibly released through io.Reader/io.Writer alone.
 func RunLSPServer(ctx context.Context, opts LSPServerOptions) error {
   if opts.Cwd == "" {
     return ErrLSPCwdRequired
@@ -289,6 +344,15 @@ func RunLSPServer(ctx context.Context, opts LSPServerOptions) error {
 // DenyNpmInstall is kept for source compatibility with older driver
 // embedders that hosted tsgo in-process. The process wrapper cannot
 // override tsgo's internal ATA callback.
+//
+// @evidence contracts/common.md#principled-implementation This compatibility callable always returns an explicit denial error; it does not install an ATA policy into the external tsgo process.
+// @evidence contracts/common.md#clear-and-simple-design A source-compatible stub preserves the old callable without pretending to own external compiler callbacks.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The documented limitation avoids monkey patching foreign ATA internals or claiming an unenforced policy.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes the historical embedding API from current process-wrapper capability, following the documentation skill.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This stub does not spawn npm or interpret a native executable path.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Reporting a fixed denial chooses no computation strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work No installation computation is performed or coordinated.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The stub acquires no retained resource.
 func DenyNpmInstall(_ string, args []string) ([]byte, error) {
   return nil, fmt.Errorf("ttscserver: npm install disabled in LSP host (args=%v)", args)
 }

@@ -18,13 +18,19 @@ import (
   cwdutil "github.com/samchon/ttsc/packages/ttsc/internal/cwd"
 )
 
+// apiCompileResult is the in-memory compilation envelope. Output is keyed by
+// the shared project-relative path convention rather than native separators.
 type apiCompileResult struct {
   // Diagnostics is omitted only when the compiler produced no diagnostics.
-  // Output is still returned in diagnostic cases because TypeScript-Go may
-  // produce partial emit text before a build-failing error is reported.
   Diagnostics []apiCompileDiagnostic `json:"diagnostics,omitempty"`
 
-  Output      map[string]string      `json:"output"`
+  // Output remains present when diagnostics accompany partial emission.
+  Output map[string]string `json:"output"`
+
+  // EmittedSources records actual JavaScript writes using absolute native output
+  // paths and generation-time physical source paths. Empty rows preserve unknown
+  // ownership; the empty object means no JavaScript write succeeded.
+  EmittedSources map[string][]string `json:"emittedSources"`
 }
 
 // apiCompileDiagnostic mirrors the public TypeScript-side diagnostic DTO.
@@ -32,14 +38,26 @@ type apiCompileResult struct {
 // `character`) instead of Go naming so callers can pass the data through
 // without remapping.
 type apiCompileDiagnostic struct {
-  File        *string `json:"file"`
-  Category    string  `json:"category"`
-  Code        int32   `json:"code"`
-  Start       *int    `json:"start,omitempty"`
-  Length      *int    `json:"length,omitempty"`
-  Line        int     `json:"line,omitempty"`
-  Character   int     `json:"character,omitempty"`
-  MessageText string  `json:"messageText"`
+  // File is null for a diagnostic without an authored source location.
+  File *string `json:"file"`
+
+  Category string `json:"category"`
+  Code     int32  `json:"code"`
+
+  // Start is an optional byte offset, not a UTF-16 character offset.
+  Start *int `json:"start,omitempty"`
+
+  // Length is the optional byte extent associated with Start.
+  Length *int `json:"length,omitempty"`
+
+  // Line is one-based; absent means no authored line is available.
+  Line int `json:"line,omitempty"`
+
+  // Character preserves the driver's one-based byte column despite its
+  // TypeScript-style JSON name. It is not an LSP character position.
+  Character int `json:"character,omitempty"`
+
+  MessageText string `json:"messageText"`
 }
 
 func runAPICompile(args []string) int {
@@ -84,6 +102,7 @@ func runAPICompile(args []string) int {
   }
 
   output := map[string]string{}
+  emittedSources := map[string][]string{}
   if prog != nil {
     rewrites := driver.NewRewriteSet()
     // Capture WriteFile output in a map keyed by project-relative paths. This
@@ -94,24 +113,33 @@ func runAPICompile(args []string) int {
         return nil
       },
     )
+    writeFile, snapshot, err := prog.NewEmitProvenanceRecorder(writeFile)
+    if err != nil {
+      fmt.Fprintf(stderr, "ttsc api-compile: provenance failed: %v\n", err)
+      return 3
+    }
     _, emitDiags, err := prog.EmitAll(rewrites, writeFile)
     if err != nil {
       fmt.Fprintf(stderr, "ttsc api-compile: emit failed: %v\n", err)
       return 3
     }
     diags = append(diags, emitDiags...)
+    emittedSources = snapshot()
   }
 
   result := apiCompileResult{
-    Diagnostics: make([]apiCompileDiagnostic, 0, len(diags)),
-    Output:      output,
+    Diagnostics:    make([]apiCompileDiagnostic, 0, len(diags)),
+    Output:         output,
+    EmittedSources: emittedSources,
   }
   for _, diag := range diags {
     result.Diagnostics = append(result.Diagnostics, toAPICompileDiagnostic(diag))
   }
 
-  data, _ := json.Marshal(result)
-  fmt.Fprintln(stdout, string(data))
+  if err := json.NewEncoder(stdout).Encode(result); err != nil {
+    fmt.Fprintf(stderr, "ttsc api-compile: write result: %v\n", err)
+    return 3
+  }
   if driver.CountErrors(diags) > 0 {
     return 2
   }

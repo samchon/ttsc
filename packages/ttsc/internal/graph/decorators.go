@@ -7,6 +7,14 @@ import (
 // DecoratorArgument is one argument written on a decorator. Literal holds the
 // statically-resolved value when the argument is a string or boolean literal
 // and is nil otherwise.
+//
+// @evidence contracts/common.md#principled-implementation An optional literal distinguishes statically read string/boolean values from arguments whose runtime meaning the graph does not evaluate.
+// @evidence contracts/common.md#clear-and-simple-design A single payload keeps convention interpretation with the consumer instead of introducing an evaluator in the graph.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The representation contains no convention-specific decorator dispatch or foreign mutation.
+// @evidence contracts/common.md#meaningful-documentation Native prose states the supported literal kinds and nil meaning, with documentation-skill spacing before tags.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This argument record chooses no computation strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The record does not coordinate computation across consumers.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The consumer owns this data record's lifetime; it owns no resource acquisition or release.
 type DecoratorArgument struct {
   Literal any
 }
@@ -15,6 +23,14 @@ type DecoratorArgument struct {
 // consumer can interpret a decorator convention (`@Controller('users')`,
 // `@Get(':id')`) without re-parsing source. Target is the id of the graph node
 // the decorator is applied to; Pos/End bound the decorator for evidence.
+//
+// @evidence contracts/common.md#principled-implementation Written decorator identity, ordered arguments and byte spans preserve syntax facts independently of convention semantics.
+// @evidence contracts/common.md#clear-and-simple-design One target-associated record separates source facts from the consumer's decorator interpretation.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No particular framework or expected decorator answer is encoded in this shape.
+// @evidence contracts/common.md#meaningful-documentation The native comment explains target identity, literal interpretation boundaries and source spans under the documentation skill.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This declaration represents collected facts rather than selecting a traversal algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Reuse is owned by the graph generation that contains these facts.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The record has no independent cache or handle lifecycle.
 type Decorator struct {
   Target    string
   Name      string
