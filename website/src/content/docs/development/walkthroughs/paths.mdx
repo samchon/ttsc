@@ -60,7 +60,7 @@ The same source AST is shared between JavaScript and declaration emit, so the re
 packages/paths/
 ├── package.json
 ├── src/
-│   └── index.cjs        ← JS descriptor (CommonJS)
+│   └── index.ts         ← TypeScript descriptor (built with tsc)
 ├── go.mod
 ├── driver/
 │   └── paths.go         ← Linked transform logic
@@ -69,7 +69,9 @@ packages/paths/
     └── paths.go         ← Blank-imports the linked driver package
 ```
 
-Identical shape to strip. The descriptor at `src/index.cjs` points at linked `driver/` source, while `plugin/main.go` is a standalone utility dispatcher with the same shape shown in the [banner walkthrough](/docs/development/walkthroughs/banner#the-standalone-sidecar-pluginmaingo). Skip ahead to the real logic.
+The maintained descriptor is `src/index.ts`. Run `pnpm --filter @ttsc/paths build` to compile it with `tsc`; the package exposes `lib/index.js` and its generated `lib/index.d.ts`. Keeping the factory in TypeScript lets its source receive the same declaration checks as other maintained plugins.
+
+The host supplies the loaded module directory, so the factory resolves the sibling `driver/` from either its source or compiled location. `plugin/main.go` is a standalone utility dispatcher with the same shape shown in the [banner walkthrough](/docs/development/walkthroughs/banner#the-standalone-sidecar-pluginmaingo).
 
 ## The real logic: `rewriter` in `driver/paths.go`
 

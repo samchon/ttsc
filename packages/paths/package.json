@@ -2,9 +2,13 @@
   "name": "@ttsc/paths",
   "version": "0.30.4",
   "description": "First-party ttsc plugin that rewrites emitted module specifiers from tsconfig paths.",
-  "main": "src/index.cjs",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
   "exports": {
-    ".": "./src/index.cjs",
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
     "./package.json": "./package.json"
   },
   "keywords": [
@@ -21,11 +25,17 @@
   "files": [
     "README.md",
     "driver/paths.go",
-    "src/index.cjs",
+    "lib",
+    "src",
     "go.mod",
     "plugin/main.go",
     "plugin/paths.go"
   ],
+  "devDependencies": {
+    "@types/node": "catalog:utils",
+    "rimraf": "catalog:utils",
+    "typescript": "catalog:typescript"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/samchon/ttsc"
@@ -37,6 +47,7 @@
   },
   "homepage": "https://ttsc.dev",
   "scripts": {
+    "build": "rimraf lib && tsc",
     "evidence": "evidence --config evidence.config.json"
   }
 }
