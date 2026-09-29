@@ -30,8 +30,9 @@ export interface ITtscLintPluginConfig {
    * }
    * ```
    *
-   * Every rule, format, and plugin setting lives in the config file — the
-   * tsconfig plugin entry carries nothing but this pointer.
+   * Every rule, format, and contributor setting lives in the config file. The
+   * only lint-specific setting in this entry is `configFile`; `enabled` and
+   * `transform` are host-owned fields.
    */
   configFile?: string;
 }
