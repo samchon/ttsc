@@ -1,6 +1,7 @@
 import * as path from "node:path";
 import {
   ExtensionContext,
+  FileSystemWatcher,
   LogOutputChannel,
   Range,
   RelativePattern,
@@ -58,6 +59,7 @@ type ClientEntry = {
   client: TtscLanguageClient;
   ready: Promise<void>;
   root: string;
+  watcher: FileSystemWatcher;
 };
 
 const METHOD_PLUGIN_SELECTION_CHANGED = "ttsc/pluginSelectionChanged";
@@ -242,6 +244,7 @@ function collectResolutionCandidates() {
 function buildClientOptions(
   traceChannel: LogOutputChannel,
   spec: ServerLaunchSpec,
+  watcher: FileSystemWatcher,
 ): LanguageClientOptions {
   // vscode-languageclient types this as the protocol string pattern, but the
   // value is passed through to VS Code's DocumentFilter where RelativePattern is
@@ -259,9 +262,7 @@ function buildClientOptions(
       { scheme: "file", language: "javascriptreact", pattern },
     ],
     synchronize: {
-      fileEvents: workspace.createFileSystemWatcher(
-        new RelativePattern(spec.cwd, "**/{tsconfig,jsconfig}*.json"),
-      ),
+      fileEvents: watcher,
       configurationSection: "ttsc",
     },
     middleware: {
@@ -546,7 +547,11 @@ async function stopClientRoot(root: string): Promise<void> {
     return;
   }
   clients.delete(key);
-  await entry.client.stop();
+  try {
+    await entry.client.stop();
+  } finally {
+    entry.watcher.dispose();
+  }
 }
 
 function isSupportedDocument(document: {
@@ -565,30 +570,39 @@ async function startClient(
   spec: ServerLaunchSpec,
   traceChannel: LogOutputChannel,
 ): Promise<void> {
-  const client = new TtscLanguageClient(
-    "ttsc",
-    spec.name,
-    spec.serverOptions,
-    buildClientOptions(traceChannel, spec),
+  const watcher = workspace.createFileSystemWatcher(
+    new RelativePattern(spec.cwd, "**/{tsconfig,jsconfig}*.json"),
   );
-  client.onNotification(METHOD_PLUGIN_SELECTION_CHANGED, () => {
-    client.expectPluginSelectionRestart();
-  });
-  const ready = client.start().catch((error) => {
-    if (clients.get(spec.id)?.client === client) {
-      clients.delete(spec.id);
-    }
-    window.showErrorMessage(
-      `ttsc: failed to start language server for ${spec.cwd} — ${error}`,
-    );
-    throw error;
-  });
-  clients.set(spec.id, { client, ready, root: spec.cwd });
   try {
-    await ready;
+    const client = new TtscLanguageClient(
+      "ttsc",
+      spec.name,
+      spec.serverOptions,
+      buildClientOptions(traceChannel, spec, watcher),
+    );
+    client.onNotification(METHOD_PLUGIN_SELECTION_CHANGED, () => {
+      client.expectPluginSelectionRestart();
+    });
+    const ready = client.start().catch((error) => {
+      if (clients.get(spec.id)?.client === client) {
+        clients.delete(spec.id);
+      }
+      watcher.dispose();
+      window.showErrorMessage(
+        `ttsc: failed to start language server for ${spec.cwd} — ${error}`,
+      );
+      throw error;
+    });
+    clients.set(spec.id, { client, ready, root: spec.cwd, watcher });
+    try {
+      await ready;
+    } catch (error) {
+      // Error already surfaced above. Reconciliation keeps going so one broken
+      // workspace folder does not prevent other clients from starting.
+    }
   } catch (error) {
-    // Error already surfaced above. Reconciliation keeps going so one broken
-    // workspace folder does not prevent other clients from starting.
+    watcher.dispose();
+    throw error;
   }
 }
 
@@ -596,10 +610,10 @@ async function startClient(
  * Register extension commands and workspace events, then reconcile
  * project-owned language clients.
  *
- * One serialized queue prevents overlapping root plans. Active documents
- * select their own project; startup failures are shown and remove the failed
- * entry while other roots continue. Subscriptions own command and event
- * handlers and the trace channel.
+ * One serialized queue prevents overlapping root plans. Active documents select
+ * their own project; startup failures are shown and remove the failed entry
+ * while other roots continue. Client entries own config watchers; subscriptions
+ * own command and event handlers and the trace channel.
  *
  * @evidence contracts/common.md#principled-implementation
  *   VS Code commands/events, RelativePattern, WorkspaceEdit and the
@@ -625,9 +639,10 @@ async function startClient(
  *   later events rediscover configuration instead of caching stale disk state.
  *
  * @evidence contracts/performance.md#bound-retention-and-release-resources
- *   The context owns subscriptions and the trace channel. The client map owns
- *   transports for planned roots; superseded roots stop before replacements,
- *   failed starts remove their entry, and deactivation stops all entries.
+ *   The context owns subscriptions and the trace channel. Client entries own
+ *   transports and config watchers for planned roots; superseded roots stop
+ *   before replacements, failed starts release watchers, and deactivation
+ *   stops and releases all entries.
  *   Serialized event tasks remain queued until processed; there is no hard
  *   backlog cap, and stop failures are reported rather than certified as release.
  *
@@ -773,12 +788,13 @@ export async function activate(context: ExtensionContext): Promise<void> {
 }
 
 /**
- * Stop every retained language client after queued reconciliation, then
- * clear the shared trace reference.
+ * Stop every retained language client and release its config watcher after
+ * queued reconciliation, then clear the shared trace reference.
  *
- * The deactivating flag makes queued startup tasks no-ops.
- * Promise.allSettled attempts every stop and logs rejected stops, so one
- * failure does not prevent other client teardown.
+ * The deactivating flag makes queued startup tasks no-ops. Promise.allSettled
+ * attempts every stop and logs rejected stops, so one failure does not prevent
+ * other client teardown. Each watcher is released even when its client stop
+ * rejects.
  *
  * @evidence contracts/common.md#principled-implementation
  *   The supported LanguageClient.stop lifecycle and Promise queue own
@@ -801,7 +817,7 @@ export async function activate(context: ExtensionContext): Promise<void> {
  *
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   The extension clears client routing, awaits every retained transport's
- *   stop and releases the trace reference and warning history. Context
+ *   stop and releases its watcher, trace reference and warning history. Context
  *   subscriptions own editor registrations and channel disposal. Rejected
  *   stops are logged; successful OS process release is not assumed on failure.
  *
@@ -824,9 +840,13 @@ export async function deactivate(): Promise<void> {
   deactivating = true;
   const teardown = reconcileQueue
     .then(async () => {
-      const stopping = [...clients.values()].map((entry) =>
-        entry.client.stop(),
-      );
+      const stopping = [...clients.values()].map(async (entry) => {
+        try {
+          await entry.client.stop();
+        } finally {
+          entry.watcher.dispose();
+        }
+      });
       clients.clear();
       const results = await Promise.allSettled(stopping);
       for (const result of results) {
