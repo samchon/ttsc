@@ -2,7 +2,7 @@
   "severity": "error",
   "claims": [
     {
-      "name": "maintained TypeScript production declarations",
+      "name": "maintained TypeScript declarations and native boundaries",
       "type": "typescript",
       "files": [
         "src/**/*.ts"
@@ -14,7 +14,8 @@
       "reference": {
         "type": "markdown",
         "files": [
-          "contracts/common.md"
+          "contracts/common.md",
+          "contracts/platform.md"
         ],
         "symbol": "h2",
         "checklist": true,
@@ -35,7 +36,8 @@
       "reference": {
         "type": "markdown",
         "files": [
-          "contracts/common.md"
+          "contracts/common.md",
+          "contracts/platform.md"
         ],
         "symbol": "h2",
         "checklist": true,

@@ -23,9 +23,15 @@ Each package's `evidence.config.json` owns its machine enrollment and resolves s
 
 Verify a host answering all its applicable contracts in one run, including existing tags for other contracts. Address resolution and an isolated missing-answer report do not prove that overlapping claims accept the completed answers. When selection must be partitioned to accommodate the checker, preserve the original common obligations for every host and verify the combined reference population rather than shrinking the baseline to make the check pass.
 
+TypeScript source populations must include the local files needed to resolve their re-exports. A logical unit can therefore require a larger source population than the operations answering its scoped question. Keep that resolution closure and use item-specific exclusions for unrelated hosts within it; do not alter production exports or move declarations merely to make a checklist partition pass. Ordinary imports are not a reason to enroll an entire dependency tree.
+
 ## [Common Contracts](common.md)
 
-Standard implementation practices, supported-OS behavior, and useful documentation with documentation-skill compliance.
+Standard implementation practices, behavioral correctness, and useful documentation with documentation-skill compliance.
+
+## [Filesystem And Process Portability](platform.md)
+
+Host filesystem access, native path identity, native process invocation and their boundary types.
 
 ## [Work And Resource Costs](performance.md)
 
@@ -62,11 +68,3 @@ WASM boot and snapshot ownership, Worker recovery, and playground dependency ins
 ## [AST Printing](printing.md)
 
 Factory builders, printer layout, and synthetic comments.
-
-## [Configured Transforms](transforms.md)
-
-The distinct configured effects of banner, paths, and strip transforms.
-
-## [Compiler Shims](shims.md)
-
-Hand-maintained bridges to the pinned TypeScript-Go API and their usable producer paths.

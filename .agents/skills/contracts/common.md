@@ -12,7 +12,7 @@ Use the language's established idioms, the library's documented APIs and support
 
 When a different approach is necessary, identify the supported requirement the established approach cannot satisfy and explain why the chosen mechanism meets it. A familiar pattern or a passing test alone does not justify the choice. State the actual API or convention used; "standard implementation" is not an acknowledgment a reviewer can verify.
 
-When translating or reimplementing behavior owned by another tool, identify its authoritative contract and verify the relevant accepted, rejected and failure cases through the real consuming path. A help command, preliminary parser or simplified local model can differ from the operation whose behavior the integration must preserve. Explain why a separate implementation is needed and how it remains consistent with its owner.
+When translating or reimplementing behavior owned by another tool, identify its authoritative contract and explain why a separate implementation is necessary. The behavioral correctness question below owns verification through the actual consuming operation; a help command, preliminary parser or simplified local model can differ from that operation.
 
 Supported boundaries give consumers defined behavior and let dependency maintainers change their internals without breaking the integration. Reusing a suitable established mechanism also avoids competing implementations with different validation, lifecycle or failure behavior.
 
@@ -31,15 +31,17 @@ Identify the established API, idiom or implementation pattern used, the source o
 
 For a repair, also identify the observed failure, the disproven assumption or other root cause, and the owning path corrected. Explain which superseded compensations were removed and why any remaining adapter, fallback, or retry belongs to a supported contract. Point to verification of the repaired behavior and relevant negative or boundary cases. Report an unverified cause as unresolved rather than claiming a workaround fixed it. Record these facts in the acknowledgment of the operation responsible for the repair and in its change review; subordinate helpers describe their contribution without repeating the whole history.
 
-## Portable behavior
+## Behavioral Correctness
 
-Shared logic must preserve its defined behavior on every supported OS. Account for path roots, separators, case behavior, line endings, and process invocation. Keep filesystem paths distinct from URLs, and use argument-vector process APIs for ordinary commands.
+Identify the behavior promised by the owning product documentation or protocol and explain how this declaration establishes it. For an operation, address the relevant accepted, rejected, boundary and failure cases, including observable state changes and side effects. For a type, explain the valid values, optional states and invariants, and identify the operation responsible for enforcing constraints that the type cannot enforce.
 
-These differences can change which file a compiler reads or what command it executes. A successful run on one OS does not establish the same behavior on another.
+A documented API and an established implementation pattern can still produce the wrong result. Review the result against the owning contract through the actual consumer; an implementation's own output is not its correctness oracle. Identify the existing checks, a reproduction, or the inspected branches that support the acknowledgment, and distinguish observed results from behavior not exercised.
 
-Necessary native implementations belong behind an explicit platform boundary. Document the supported behavior and the corresponding implementation for each platform so the shared caller can rely on one defined contract.
+Describe intentional changes such as statement stripping according to their configured effect. Do not claim semantics preservation for an operation whose contract deliberately removes behavior. When adapting another tool, the authoritative consuming operation remains the source of expected results.
 
-Name the OS-sensitive operations and how their differences are handled. For a native implementation, name its platform boundary and the behavior used on other supported platforms. For a declaration without OS-sensitive behavior, explain that fact from its data contract or operations. "Works cross-platform" alone identifies no mechanism a reviewer can inspect.
+Report a verified defect or unresolved limitation explicitly and follow the authorized repair scope. An acknowledgment is a review record, not a certification that every requirement already passes. If repairs are deferred, identify the finding and affected behavior rather than claiming it was corrected or weakening selection to hide it. Evidence can accept a tag describing an unresolved defect; its successful exit does not discharge that defect.
+
+This question is independent of implementation practices and documentation: it asks whether the supported behavior is established, rather than whether the mechanism is conventional or its description is useful. Reuse a concrete proof when it establishes several declarations' contributions; do not invent a new test or repeat the whole operation's proof on every helper.
 
 ## Meaningful documentation
 

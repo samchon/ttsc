@@ -5,9 +5,37 @@
  * the separate `ITtscBannerConfig` value so discovery and config evaluation
  * have one supported home instead of an additional inline option surface.
  *
- * @evidence contracts/common.md#standard-implementation-practices This optional-field TypeScript interface follows compilerOptions.plugins registration and the package's dedicated config-file convention. enabled and transform belong to the host; configFile selects banner-owned configuration. The type defines no runtime branch or foreign mutation, fixture answer, test-only path or compensating mechanism. Its fields describe the supported registration contract, with no alternative implementation hidden in the data shape.
- * @evidence contracts/common.md#portable-behavior Registration stores a module specifier and optional filesystem path; the host resolves the module and native filepath operations resolve configFile, rather than this data type imposing separators or process commands.
- * @evidence contracts/common.md#meaningful-documentation Interface and member JSDoc distinguish host registration from banner text, disabled and omitted enabled states, module specifiers from config or binary paths, and configFile anchoring, discovery, validation and failure behavior. Separate paragraphs explain why generated wrapper directories cannot become the discovery base, applying the documentation skill's clear prose and rationale guidance to the complete type contract.
+ * @evidence contracts/common.md#standard-implementation-practices
+ *   This optional-field TypeScript interface follows compilerOptions.plugins
+ *   registration and the package's dedicated config-file convention. enabled
+ *   and transform belong to the host; configFile selects banner-owned
+ *   configuration. The type defines no runtime branch or foreign mutation,
+ *   fixture answer, test-only path or compensating mechanism. Its fields
+ *   describe the supported registration contract, with no alternative
+ *   implementation hidden in the data shape.
+ *
+ * @evidence contracts/platform.md#portable-behavior
+ *   Registration stores a module specifier and optional filesystem path; the
+ *   host resolves the module and native filepath operations resolve
+ *   configFile, rather than this data type imposing separators or process
+ *   commands.
+ *
+ * @evidence contracts/common.md#behavioral-correctness
+ *   The host consumes enabled and transform; the banner loader consumes only
+ *   configFile beyond host keys. The inspected entry validation rejects
+ *   inline text and invalid explicit paths, while discovery uses the host
+ *   anchor and rejects missing or ambiguous configurations. Omitted enabled
+ *   remains enabled. The separate text object owns banner contents; this type
+ *   does not execute discovery or enforce its runtime checks.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Interface and member JSDoc distinguish host registration from banner
+ *   text, disabled and omitted enabled states, module specifiers from config
+ *   or binary paths, and configFile anchoring, discovery, validation and
+ *   failure behavior. Separate paragraphs explain why generated wrapper
+ *   directories cannot become the discovery base, applying the documentation
+ *   skill's clear prose and rationale guidance to the complete type contract.
+ *
  */
 export interface ITtscBannerPluginConfig {
   /**

@@ -9,9 +9,37 @@
  * Stripping deletes the whole statement, including argument evaluation. Use
  * this only for calls whose removal is intended to change runtime behavior.
  *
- * @evidence contracts/common.md#standard-implementation-practices This exported TypeScript interface follows the dedicated typed-config convention used by banner and the strip README. The calls and statements lists express consumer-selected native syntax removal, with defaults only when both keys are omitted; generated declarations replace handwritten export-assignment types. The whole type is data-only, with no foreign mutation, fixture branch, test-only behavior or alternate runtime implementation.
- * @evidence contracts/common.md#portable-behavior The lists name TypeScript syntax, not filesystem locations or commands. Their matching contract contains no path separators, case normalization, process calls or OS-specific state.
- * @evidence contracts/common.md#meaningful-documentation Interface and member JSDoc distinguish both-key defaults from one-key replacement, explain exact and deeper prefix matching and its negative boundary, identify rejected shapes and debugger-only statements, and warn that whole-statement removal deletes argument evaluation. Separate native paragraphs follow the documentation skill's clear prose and rationale guidance; field documentation remains alongside the fields while the type owns the checklist answer.
+ * @evidence contracts/common.md#standard-implementation-practices
+ *   This exported TypeScript interface follows the dedicated typed-config
+ *   convention used by banner and the strip README. The calls and statements
+ *   lists express consumer-selected native syntax removal, with defaults only
+ *   when both keys are omitted; generated declarations replace handwritten
+ *   export-assignment types. The whole type is data-only, with no foreign
+ *   mutation, fixture branch, test-only behavior or alternate runtime
+ *   implementation.
+ *
+ * @evidenceExclude contracts/platform.md#portable-behavior
+ *   These lists identify TypeScript statement syntax to remove. They define
+ *   no native filesystem, path-identity or process boundary.
+ *
+ * @evidence contracts/common.md#behavioral-correctness
+ *   The strip README authorizes whole-statement removal, including argument
+ *   evaluation. The inspected native loader supplies both defaults only when
+ *   both keys are absent; a supplied list replaces defaults and an omitted
+ *   counterpart stays empty. It rejects invalid arrays and dotted patterns,
+ *   and the transform retains computed access and embedded calls. The six
+ *   existing strip cases passed; this type describes the accepted values
+ *   while native loading enforces them.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Interface and member JSDoc distinguish both-key defaults from one-key
+ *   replacement, explain exact and deeper prefix matching and its negative
+ *   boundary, identify rejected shapes and debugger-only statements, and warn
+ *   that whole-statement removal deletes argument evaluation. Separate native
+ *   paragraphs follow the documentation skill's clear prose and rationale
+ *   guidance; field documentation remains alongside the fields while the type
+ *   owns the checklist answer.
+ *
  */
 export interface ITtscStripConfig {
   /**

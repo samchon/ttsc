@@ -26,11 +26,51 @@ export type { ITtscStripConfig } from "./structures/ITtscStripConfig";
  * observations describe descriptor evaluation, not complete native dependency
  * analysis. This migration makes no measured performance improvement claim.
  *
- * @evidence contracts/common.md#standard-implementation-practices The factory uses the host's supported default-export registration, node:path/fs/crypto APIs and the maintained banner and paths packages' TypeScript build convention. The package name, stage, accepted entry keys and candidate filenames are native contract values, not fixture answers. Discovery reads owned observations without foreign mutation or test-only branches.
+ * @evidence contracts/common.md#standard-implementation-practices
+ *   The factory uses the host's supported default-export registration,
+ *   node:path/fs/crypto APIs and the maintained banner and paths packages'
+ *   TypeScript build convention. The package name, stage, accepted entry keys
+ *   and candidate filenames are native contract values, not fixture answers.
+ *   Discovery reads owned observations without foreign mutation or test-only
+ *   branches.
  *
- * The former handwritten CommonJS entry was outside TypeScript selection and its handwritten export-assignment declarations prevented complete analysis. TypeScript source and compiler-generated declarations replace both paths without a compatibility adapter. Descriptor parity covers explicit, missing, directory, ambiguous and linked candidates and rejected entry keys; the existing strip suite covers native registration and removal. Compiler-emitted CommonJS is supported build output. Shared native config evaluation still uses a private resolver patch and remains an unresolved owning-layer concern; this factory neither performs nor certifies that evaluation.
- * @evidence contracts/common.md#portable-behavior node:path resolves explicit paths, host anchors, ancestors and the sibling driver on Windows and POSIX. The walk terminates when dirname reaches the same volume root; filesystem APIs fingerprint bytes, directory markers and physical targets without interpreting separators or case manually. Missing or unreadable candidates yield null observations. This factory spawns no process and reads no ambient __dirname.
- * @evidence contracts/common.md#meaningful-documentation Native JSDoc separates host anchoring, candidate observation, validation and native ownership into paragraphs, including error and absent-anchor behavior. Context and result comments explain the consuming watch and reuse protocol. The documentation skill's clear prose, paragraph and rationale guidance also governs the updated maintainer walkthrough, whose source and build instructions describe generated declarations.
+ *   The former handwritten CommonJS entry was outside TypeScript selection
+ *   and its handwritten export-assignment declarations prevented complete
+ *   analysis. TypeScript source and compiler-generated declarations replace
+ *   both paths without a compatibility adapter. Descriptor parity covers
+ *   explicit, missing, directory, ambiguous and linked candidates and
+ *   rejected entry keys; the existing strip suite covers native registration
+ *   and removal. Compiler-emitted CommonJS is supported build output. Shared
+ *   native config evaluation still uses a private resolver patch and remains
+ *   an unresolved owning-layer concern; this factory neither performs nor
+ *   certifies that evaluation.
+ *
+ * @evidence contracts/platform.md#portable-behavior
+ *   node:path resolves explicit paths, host anchors, ancestors and the
+ *   sibling driver on Windows and POSIX. The walk terminates when dirname
+ *   reaches the same volume root; filesystem APIs fingerprint bytes,
+ *   directory markers and physical targets without interpreting separators or
+ *   case manually. Missing or unreadable candidates yield null observations.
+ *   This factory spawns no process and reads no ambient __dirname.
+ *
+ * @evidence contracts/common.md#behavioral-correctness
+ *   The inspected entry validator rejects unknown inline options. Discovery
+ *   records absent candidates, readable file bytes, directory markers and
+ *   physical targets through the first containing ancestor; explicit nonblank
+ *   configFile records one path. The native loader separately validates and
+ *   evaluates configuration. A 13-case descriptor comparison and six existing
+ *   strip cases passed after migration. The shared script-evaluation recorder
+ *   has an unresolved private-loader mutation documented in
+ *   .wiki/evidence-adoption/findings.md; this descriptor does not repair it.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native JSDoc separates host anchoring, candidate observation, validation
+ *   and native ownership into paragraphs, including error and absent-anchor
+ *   behavior. Context and result comments explain the consuming watch and
+ *   reuse protocol. The documentation skill's clear prose, paragraph and
+ *   rationale guidance also governs the updated maintainer walkthrough, whose
+ *   source and build instructions describe generated declarations.
+ *
  */
 export default function createTtscStrip(
   context: TtscStripFactoryContext,
