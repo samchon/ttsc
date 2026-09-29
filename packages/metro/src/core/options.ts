@@ -19,6 +19,10 @@ import type { TtscUnpluginOptions } from "@ttsc/unplugin/api";
  *   defining another plugin protocol. Metro adds JSON-compatible upstream and
  *   substring filters for its config-to-worker transport.
  *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Inheritance keeps shared compiler options with Unplugin; this interface
+ *   adds only upstream selection and the two Metro substring filters.
+ *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   The representation follows the documented consumer contract; its fields do
  *   not introduce fixture-selected variants.
@@ -71,6 +75,10 @@ export interface TtscMetroOptions extends TtscUnpluginOptions {
  * @evidence contracts/common.md#principled-implementation
  *   A structural interface separates the existing Unplugin overlay from
  *   resolved Metro filters and the private run handshake.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The ttsc member groups the forwarded overlay, while always-present filter
+ *   arrays remove optional-array handling from every worker delivery.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Its optional upstream/run identity and always-present arrays describe
@@ -130,6 +138,10 @@ export const ENV_KEY = "TTSC_METRO_OPTIONS";
  *   JSON.stringify and object spread encode the declared worker transport.
  *   JSON failures propagate rather than inventing a successful payload.
  *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   A single serializer owns the config-to-worker payload. Publication stays
+ *   with withTtsc, so encoding has no environment side effect.
+ *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   A supplied private run identity overrides that transport field; this
  *   operation returns bytes and does not replace process methods, loader
@@ -169,6 +181,10 @@ export function serializeOptions(
  *   JSON.parse reads the adapter-owned environment channel. The parser accepts
  *   only object payloads, filters include/exclude to strings and preserves
  *   plugins field presence so false differs from omission.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One reconstruction function separates transport parsing and string-array
+ *   normalization from the resolved object workers consume.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Invalid transport uses documented defaults, not a failed compiler

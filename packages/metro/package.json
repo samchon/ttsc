@@ -41,6 +41,9 @@
   "dependencies": {
     "@ttsc/unplugin": "workspace:^"
   },
+  "peerDependencies": {
+    "ttsc": "workspace:^"
+  },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^29.0.2",
     "@rollup/plugin-node-resolve": "^16.0.3",

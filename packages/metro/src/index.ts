@@ -28,10 +28,11 @@
  *   ```
  */
 import { openTtscTransformSession } from "@ttsc/unplugin/api";
-import { readFileSync, realpathSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createFilesystemPathIdentityContext } from "ttsc/path-identity";
 
 import { prepareSnapshot } from "./core/fingerprint";
 import type { TtscMetroOptions } from "./core/options";
@@ -85,16 +86,21 @@ interface MetroConfigLike {
  *   Only the owned option/session environment channels are published before
  *   workers start; foreign loaders and methods are not patched.
  *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The entry point prepares run ownership and worker transport, then clones
+ *   the config's transformer field. Separate helpers own upstream inheritance
+ *   and module identity instead of repeating those policies in workers.
+ *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Decision values come from the documented inputs and product protocol
  *   rather than expected test answers. No compensating path is introduced to
  *   make a known example pass.
  *
  * @evidence contracts/portability.md#os-neutral-implementation
- *   Node path, createRequire, realpathSync.native and fileURLToPath resolve
- *   native paths and built module URLs. Worker options use JSON environment
- *   inheritance rather than shell commands. Symlink spellings and Windows
- *   drive/case handling participate in the recursion guard.
+ *   Node paths, createRequire and fileURLToPath resolve native paths and module
+ *   URLs. The shared filesystem-identity resolver handles links and actual
+ *   directory case capabilities in the recursion guard, instead of folding
+ *   all names by OS. Worker options use JSON environment inheritance.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   The native JSDoc explains config preservation, upstream precedence, JSON
@@ -263,21 +269,15 @@ function isOwnTransformer(declared: string): boolean {
 /**
  * Whether two paths name the same file on disk.
  *
- * Resolved through `realpath` so a symlinked install and its target compare
- * equal, and case-folded on Windows, where `D:\` and `d:\` and a differently
- * cased base name all address one file.
+ * The shared resolver observes physical spelling and directory capabilities
+ * within this comparison. Symlinks can identify the same installed file while
+ * case-sensitive native names remain distinct.
  */
 function sameRealPath(left: string, right: string): boolean {
-  const identity = (file: string): string => {
-    let resolved = resolve(file);
-    try {
-      resolved = realpathSync.native(resolved);
-    } catch {
-      // Not on disk: the resolved spelling is the best identity available.
-    }
-    return process.platform === "win32" ? resolved.toLowerCase() : resolved;
-  };
-  return identity(left) === identity(right);
+  const identities = createFilesystemPathIdentityContext({
+    throwOnRealpathError: false,
+  });
+  return identities.resolve(left).key === identities.resolve(right).key;
 }
 
 /**

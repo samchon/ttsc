@@ -17,6 +17,10 @@ const nodeRequire = createRequire(import.meta.url);
  *   implement Babel, install peers or alter their exports. Concrete modules
  *   supply the callbacks through normal Node loading.
  *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   This peer-independent interface exposes only the transform and cache-key
+ *   callbacks the adapter invokes, avoiding a dependency on Metro's full API.
+ *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   The representation follows the documented consumer contract; its fields do
  *   not introduce fixture-selected variants.
@@ -43,6 +47,10 @@ export interface UpstreamTransformer {
    * @evidence contracts/common.md#principled-implementation
    *   This method signature represents the upstream transformer that Metro
    *   selected.
+   *
+   * @evidence contracts/common.md#clear-and-simple-design
+   *   One parameter record preserves Metro's extensible delivery shape and
+   *   the result exposes only the AST this adapter needs.
    *
    * @evidence contracts/common.md#prohibited-implementation-shortcuts
    *   It accepts the original Metro parameter record, with src replaced only by
@@ -71,13 +79,17 @@ export interface UpstreamTransformer {
    * Optional upstream contribution to Metro's static transformer key.
    *
    * Metro's arguments are forwarded unchanged. Absence contributes no upstream
-   * key; the adapter also treats a throwing key as nonfatal during keying,
+   * key; the adapter treats a throwing key as nonfatal and disables reuse,
    * while transformer loading failures still fail actual transformation.
    *
    * @evidence contracts/common.md#principled-implementation
    *   The optional callback follows Metro's upstream transformer contract.
    *   Arguments are variadic because Metro supplies its own key options; absence
    *   is handled by the adapter.
+   *
+   * @evidence contracts/common.md#clear-and-simple-design
+   *   An optional variadic callback expresses the one upstream contribution
+   *   without adapter-specific copies of Metro's cache-key options.
    *
    * @evidence contracts/common.md#prohibited-implementation-shortcuts
    *   This signature executes nothing and never replaces a foreign callback.
@@ -132,6 +144,11 @@ export const UPSTREAM_CANDIDATES = [
  *   Expo/React-Native candidates. Resolution is separated from execution: only
  *   known entry-absence codes permit another automatic candidate;
  *   installed-module initialization failures preserve their cause.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Explicit selection and ordered detection share the loading boundary.
+ *   tryRequire owns absence classification, leaving this function to choose
+ *   the transformer and attach contextual errors.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   The loader argument is an explicit dependency-injection boundary, not a
@@ -221,6 +238,10 @@ export function resolveUpstreamTransformer(
  *   The supplied project resolver uses Node module resolution without
  *   executing candidate code. Only recognized entry-absence errors continue
  *   probing; other resolver failures propagate.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Project discovery resolves only the shared candidate list; execution is
+ *   deferred to the worker loader that owns initialization failures.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   The documented optional-peer order is a product default, not a

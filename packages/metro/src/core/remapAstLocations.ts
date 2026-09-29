@@ -1,3 +1,5 @@
+import { createFilesystemPathIdentityContext } from "ttsc/path-identity";
+
 /**
  * Move every source location in an upstream transformer's AST from the ttsc
  * transformed text back to the text the module's author wrote
@@ -17,6 +19,8 @@
  * map segments have zero-based lines and columns. The map points from generated
  * text to the authored file. Missing or reversed mapped ends clamp to the
  * mapped start. Traversal tracks visited objects and mutates only AST locations.
+ * Absolute sources are compared by filesystem identity within this call, so
+ * links and actual directory case capabilities determine the owning source.
  *
  * @param ast The upstream transformer's AST, rewritten in place.
  * @param map The adapter's map from the transformed text to `file`, with
@@ -31,14 +35,35 @@
  *   lose loc and invalid ends clamp to the mapped start rather than
  *   manufacturing authored positions.
  *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Mapping decoding, position lookup and object traversal remain distinct
+ *   steps; the traversal owns AST mutation and the local lookup owns coordinate
+ *   conversion without adding a second Babel parser.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Mapping decoding is linear in encoded bytes. A visited Set walks each
+ *   AST object once; each endpoint uses binary search on its generated line's
+ *   segments. Temporary storage follows decoded segments and reachable AST
+ *   objects, and the iterative stack avoids call-depth dependence on the AST.
+ *   Source identity resolution is shared within this call; missing sources can
+ *   additionally require ancestor and directory-capability observations.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   This call mutates one returned AST using that delivery's map; it owns no
+ *   shared cache and repeated calls would remap already moved coordinates.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The caller owns the AST. Local decoded lines and traversal state end with
+ *   the call; no handle or cross-delivery state is retained.
+ *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   No Babel methods or compiler internals are patched.
  *
  * @evidence contracts/portability.md#os-neutral-implementation
- *   Absolute map source spellings normalize separators and use the existing
- *   Windows comparison convention; no filesystem access or process invocation
- *   occurs. Source and destination coordinates remain line/column values
- *   independent of native newline spelling.
+ *   The shared filesystem-identity context compares absolute map sources with
+ *   the delivered file using physical spelling and actual directory case
+ *   capabilities. Source coordinates remain line/column values independent
+ *   of native newline spelling; OS names do not fold distinct filenames.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   The native JSDoc explains map direction, in-place mutation, coordinate
@@ -52,12 +77,12 @@ export function remapAstLocations(
   map: { mappings: string; sources: readonly string[] },
   file: string,
 ): void {
-  const normalize = (location: string) => {
-    const slashed = location.replace(/\\/g, "/");
-    return process.platform === "win32" ? slashed.toLowerCase() : slashed;
-  };
+  const identities = createFilesystemPathIdentityContext({
+    throwOnRealpathError: false,
+  });
+  const fileKey = identities.resolve(file).key;
   const own = map.sources.findIndex(
-    (source) => normalize(source) === normalize(file),
+    (source) => identities.resolve(source).key === fileKey,
   );
   if (own < 0) {
     return;

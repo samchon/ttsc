@@ -101,6 +101,8 @@ Metro keys its transform cache on each file's own content plus one static transf
 
 Snapshot compaction is serialized across Metro config processes. If two builds prepare the same project cache at once, one compacts the shared worker documents and the contender uses a private non-reusable key for that run instead of racing the main snapshot rewrite.
 
+Upstream loading and cache-key errors remain nonfatal during key computation. They disable cross-run reuse through a nonce because the upstream contribution is unknown. An upstream without an optional `getCacheKey` callback still contributes no additional key. Loading failures propagate when Metro actually transforms a file.
+
 The granularity is project-level by necessity: Metro evaluates the transformer key once per run, so any fingerprinted change re-transforms every file on the next run. What remains outside the mechanism's reach:
 
 - **Within a running dev server**, Metro re-transforms only files its watcher reports changed. Editing a type in file B updates a dependent file A on A's next transform: save A, or restart the dev server (no `--reset-cache` needed).

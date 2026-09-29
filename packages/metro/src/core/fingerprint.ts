@@ -18,7 +18,10 @@
  *   (samchon/ttsc#718) reports each transform's derived inputs. Workers retain
  *   them under `node_modules/.cache/ttsc-metro`, compare their generation state
  *   with the exact main-process key baseline, and batch one durable write per
- *   delivered module.
+ *   delivered module. Directory-listing predicates retain their paths
+ *   separately so the next static key captures the exact compiler-accessible
+ *   files and directories, rather than reconstructing an earlier baseline after
+ *   workers have run.
  *
  * Snapshot layout: one main file carrying a random epoch id plus per-worker
  * files with unique names, so concurrent workers never race a shared write.
@@ -75,7 +78,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 /** Bumped when the snapshot JSON shape changes; mismatches read as corrupt. */
-const SNAPSHOT_VERSION = 3;
+const SNAPSHOT_VERSION = 4;
 
 /** Snapshot directory segments under the fingerprint base directory. */
 const SNAPSHOT_DIRECTORY = ["node_modules", ".cache", "ttsc-metro"];
@@ -106,6 +109,9 @@ const NON_REUSABLE_RUN_PREFIX = "nonce:";
 
 /** Union of the snapshot state readable on disk. */
 interface SnapshotState {
+  /** Paths whose compiler-visible immediate entry listings affect output. */
+  accessibleEntries: string[];
+
   /** Random epoch id minted when the main snapshot was created. */
   id: string;
 
@@ -127,6 +133,9 @@ interface SnapshotState {
 
 /** Serialized shape of the main and worker snapshot files. */
 interface SnapshotDocument {
+  /** Recorded listing predicates, each also present in files. */
+  accessibleEntries: string[];
+
   /**
    * The claimed worker files this main snapshot already holds, by name. A
    * compaction removes each claimed file after merging it, and a removal can
@@ -174,6 +183,21 @@ const unhealthySnapshots = new Set<string>();
  *   keying and worker recording. A nonempty projectRoot wins; absent or empty
  *   input uses cwd.
  *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One helper defines the shared base fallback for preparation, keying and
+ *   worker recording instead of giving each boundary its own anchor policy.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   This operation delegates one path resolution and chooses a fallback; it
+ *   owns no collection-processing strategy.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   The base depends on caller input and current cwd; this pure mapping
+ *   coordinates no shared computation.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   It returns a directory string and owns no retained state or handle.
+ *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   It computes a directory value without changing the filesystem, foreign
  *   APIs or consumer-specific behavior.
@@ -208,19 +232,34 @@ export function resolveFingerprintBase(
  * or both.
  *
  * @evidence contracts/common.md#principled-implementation
- *   The shared project resolver owns tsconfig selection, while Node
- *   path.relative defines containment separately from program membership.
+ *   The shared project resolver owns tsconfig selection; lexical path
+ *   containment is separate from program membership.
  *   Blank explicit options mean implicit discovery. An in-root config avoids a
  *   duplicate whole-tree walk; an out-of-root config adds its directory
  *   because it can supply transform inputs.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Project selection delegates to the shared resolver and containment to
+ *   projectViewRoots, separating config ownership from walk-root choice.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   It delegates shared project discovery and computes at most two roots;
+ *   traversal cost belongs to that resolver and the fingerprint operation.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   This mapping retains no discovery result between calls and coordinates
+ *   no completed or in-flight computation.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Roots transfer to the caller; no retained state or handle is acquired.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   No fixture-specific roots or patched filesystem APIs are used.
  *
  * @evidence contracts/portability.md#os-neutral-implementation
- *   Node resolve, dirname, relative, sep and isAbsolute handle Windows drives
- *   and POSIX roots. Containment rejects parent traversal and other native
- *   roots instead of comparing slash prefixes.
+ *   Node resolve and dirname handle Windows drives and POSIX roots. Lexical
+ *   containment compares complete path components with only volume-root case
+ *   normalization; it does not merge distinct native names by OS assumption.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   The native JSDoc explains walk roots, implicit selection and why outside
@@ -255,12 +294,7 @@ function projectViewRoots(
   // the whole project twice on every cache key (samchon/ttsc#1307).
   const resolvedBase = path.resolve(base);
   const directory = path.dirname(path.resolve(tsconfig));
-  const relative = path.relative(resolvedBase, directory);
-  const inside =
-    relative === "" ||
-    (relative !== ".." &&
-      !relative.startsWith(`..${path.sep}`) &&
-      !path.isAbsolute(relative));
+  const inside = pathIsWithin(directory, resolvedBase);
   if (explicitProject === undefined && inside && directory !== resolvedBase) {
     return [directory];
   }
@@ -284,6 +318,20 @@ function projectViewRoots(
  *   observations, membership policy and walk roots as one view.
  *   resolveProjectView supplies that coherent view to the recorder instead of
  *   independently resolving its parts.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The view groups config, policy, roots and discovery observations so a
+ *   recorder receives one selected project rather than independently chosen
+ *   pieces. Readonly members prevent replacement through this interface.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   This data contract declares the view, not an algorithm or processing path.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Sharing the view is owned by callers; this interface coordinates no work.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The view carries values; its consumers own retention and native lifetimes.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   The type does not structurally prohibit an inconsistent manually
@@ -347,6 +395,26 @@ interface TtscMetroFingerprintProjectMap {
  *   Shared project discovery and membership-policy APIs select the same config
  *   as the transform core, retaining positive and negative discovery
  *   predicates. Compiler-option overlays are merged through that owner.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Selection records the predicates that chose the project, then one
+ *   createProjectView helper assembles its policy and roots for every input
+ *   in the module's recorder batch.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Discovery follows the ancestor candidates and config ancestry; the
+ *   resulting policy and roots are assembled once for the delivered module.
+ *   Each candidate gets one captured predicate rather than recorder-time
+ *   rediscovery for every derived input.
+ *
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The returned view is reused by the module's recorder batch and frozen
+ *   into its transform options. Config sources are reread for a later module
+ *   because matching mtime and size cannot establish continued equivalence.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Returned project data transfers to the caller. This operation retains no
+ *   process-wide state or handle after discovery completes.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   The view is resolved once per module and shared with its batch, avoiding
@@ -656,19 +724,20 @@ function sameProjectMap(
   );
 }
 
-/** Host-platform equality for two resolved path spellings. */
+/** Equality of resolved lexical spellings, preserving distinct native names. */
 function samePath(left: string, right: string): boolean {
-  return path.relative(path.resolve(left), path.resolve(right)) === "";
+  return snapshotPathKey(left) === snapshotPathKey(right);
 }
 
 /** Whether one resolved path lies at or below another. */
 function pathIsWithin(child: string, parent: string): boolean {
-  const relative = path.relative(path.resolve(parent), path.resolve(child));
+  const childKey = snapshotPathKey(child);
+  const parentKey = snapshotPathKey(parent);
   return (
-    relative === "" ||
-    (relative !== ".." &&
-      !relative.startsWith(`..${path.sep}`) &&
-      !path.isAbsolute(relative))
+    childKey === parentKey ||
+    childKey.startsWith(
+      parentKey.endsWith(path.sep) ? parentKey : `${parentKey}${path.sep}`,
+    )
   );
 }
 
@@ -679,9 +748,9 @@ function pathIsWithin(child: string, parent: string): boolean {
  *
  * A successful call makes two complete observations of the routed projects,
  * config sources and recorded inputs. Work scales with their files and bytes;
- * it is paid at Metro's static-key boundary, not once per delivered module.
- * The run baseline retains exact hashes, identities and discovery predicates
- * so a worker can prove that its generation matches the state keyed here.
+ * it is paid at Metro's static-key boundary, not once per delivered module. The
+ * run baseline retains exact hashes, identities and discovery predicates so a
+ * worker can prove that its generation matches the state keyed here.
  *
  * @evidence contracts/common.md#principled-implementation
  *   The shared project walker/policy and input-state APIs supply real file,
@@ -691,6 +760,30 @@ function pathIsWithin(child: string, parent: string): boolean {
  *   randomBytes nonce, a required withdrawal of reuse rather than a successful
  *   stale fallback. Injected discovery changes observation only, not
  *   production results.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The entry point compares two observations and publishes their baseline;
+ *   observeProjectFingerprint owns collecting the complete input universe.
+ *   Nonreusable state has one nonce exit rather than partial-success keys.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Two observations scan project files and recorded inputs, with time driven
+ *   by their bytes and config graph size. Overlapping lexical project walks
+ *   are excluded by routed roots; maps deduplicate config sources. Exact
+ *   content observations are necessary because timestamps do not prove state.
+ *
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The static key shares transforms only for equal options, config contents,
+ *   file hashes, identities, recorded generation state and requested exact
+ *   compiler-accessible entry listings. Volatile, tainted
+ *   or unstable observations take a fresh nonce; a run baseline must be
+ *   immutable before workers can claim its coverage.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Observation maps are local to key computation and are released on return.
+ *   The persisted run baseline is owned by snapshot preparation, which sweeps
+ *   old baselines. A long-running worker can retain its loaded baseline until
+ *   worker termination; it owns no open handle here.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Decision values come from the documented inputs and product protocol
@@ -820,16 +913,31 @@ function observeProjectFingerprint(props: {
   // path's state stands for the files below it, so the key carries its state
   // (samchon/ttsc#1487).
   const trees = new Set(snapshot.trees);
+  const accessibleEntries = new Set(snapshot.accessibleEntries);
   const recorded: Record<
     string,
-    { hash: string; identity: string; tree?: string | null }
+    {
+      hash: string;
+      identity: string;
+      tree?: string | null;
+      accessibleEntries?: TtscWatchInputBaseline["accessibleEntries"];
+    }
   > = {};
   for (const file of snapshot.files) {
-    const baseline = addBaselineInput(inputs, file, undefined, trees.has(file));
+    const baseline = addBaselineInput(
+      inputs,
+      file,
+      undefined,
+      trees.has(file),
+      accessibleEntries.has(file),
+    );
     recorded[snapshotPathKey(file)] = {
       hash: baseline.hostHash,
       identity: baseline.identity,
       ...(baseline.tree === undefined ? {} : { tree: baseline.tree }),
+      ...(baseline.accessibleEntries === undefined
+        ? {}
+        : { accessibleEntries: baseline.accessibleEntries }),
     };
   }
   return {
@@ -848,15 +956,21 @@ function observeProjectFingerprint(props: {
 /**
  * Add one lexical path's stable broad state to a key baseline, with its plugin
  * source state when it was recorded as a plugin source directory (`tree`).
+ * Recorded listing predicates request exact immediate accessible entries; these
+ * optional payloads merge only after their shared broad state agrees.
  */
 function addBaselineInput(
   inputs: Record<string, TtscWatchInputKeyBaseline>,
   file: string,
   staticInputs?: Set<string>,
   tree = false,
+  accessibleEntries = false,
 ): TtscWatchInputBaseline {
   const key = snapshotPathKey(file);
-  const observed = captureWatchInputBaseline(file, undefined, { tree });
+  const observed = captureWatchInputBaseline(file, undefined, {
+    tree,
+    accessibleEntries,
+  });
   if (observed === undefined) {
     throw new Error("Unable to read a stable Metro input baseline.");
   }
@@ -864,9 +978,16 @@ function addBaselineInput(
   if (existing !== undefined) {
     // One path observed as a plugin source and as a plain input compares on
     // what both observations carry.
-    const { tree: existingTree, ...existingState } =
-      existing as TtscWatchInputBaseline;
-    const { tree: observedTree, ...observedState } = observed;
+    const {
+      tree: existingTree,
+      accessibleEntries: existingEntries,
+      ...existingState
+    } = existing as TtscWatchInputBaseline;
+    const {
+      tree: observedTree,
+      accessibleEntries: observedEntries,
+      ...observedState
+    } = observed;
     if (
       existing.identity !== observed.identity ||
       existing.fileExists !== observed.fileExists ||
@@ -874,7 +995,13 @@ function addBaselineInput(
         stableStringify(existingState) !== stableStringify(observedState)) ||
       (existingTree !== undefined &&
         observedTree !== undefined &&
-        existingTree !== observedTree)
+        existingTree !== observedTree) ||
+      (existingEntries !== undefined &&
+        observedEntries !== undefined &&
+        (stableStringify(existingEntries.files) !==
+          stableStringify(observedEntries.files) ||
+          stableStringify(existingEntries.directories) !==
+            stableStringify(observedEntries.directories)))
     ) {
       throw new Error("A Metro input changed between baseline observations.");
     }
@@ -938,9 +1065,9 @@ function nonce(): string {
  * their recorded paths. Workers have unique names; completed observations are
  * published before removal. Locked claimed files remain until a later retry.
  * Old temporary files and run baselines are swept, but recorded input paths
- * accumulate in the main snapshot and dead-owner election directories remain
- * to prevent delayed contenders from moving a newer lock. Those populations
- * are not bounded by a fixed retention budget in this implementation.
+ * accumulate in the main snapshot and dead-owner election directories remain to
+ * prevent delayed contenders from moving a newer lock. Those populations are
+ * not bounded by a fixed retention budget in this implementation.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Node filesystem APIs atomically publish complete snapshot documents and a
@@ -948,6 +1075,28 @@ function nonce(): string {
  *   retained claims are identified in the main document to prevent replay.
  *   Definite dead-PID recovery preserves an election record; contention or
  *   failed persistence returns a private nonreusable token.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Preparation owns one lock-protected main rewrite. Helpers separate worker
+ *   claims, document parsing, atomic publication and recovery storage, so
+ *   concurrent readers can use the same persisted protocol.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Sets union recorded paths in time proportional to document paths, then
+ *   sorting gives deterministic output. Each claimed worker is merged once;
+ *   readdir and document parsing remain necessary to find pending publishers.
+ *
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The main document records claimed worker names before removal, preventing
+ *   locked files from replaying completed compaction. The epoch survives only
+ *   trusted, untainted observations; corrupt or lost evidence rotates it.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Preparation owns its compaction lock and retires it in finally. Claimed
+ *   workers and recovery files are removed after publication; failed removals
+ *   stay represented for retry. Temporary files and baselines have age sweeps,
+ *   but cumulative input paths and stale-owner election records have no fixed
+ *   bound. Removing these without a generation protocol could erase evidence.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Retries serve locked-file/recovery contracts rather than masking an
@@ -971,6 +1120,7 @@ export function prepareSnapshot(projectRoot: string | undefined): string {
   const runId = randomBytes(16).toString("hex");
   let reusable = true;
   let pending: SnapshotDocument = {
+    accessibleEntries: [],
     files: [],
     tainted: false,
     trees: [],
@@ -1007,6 +1157,7 @@ export function prepareSnapshot(projectRoot: string | undefined): string {
     const main = readMainDocument(directory);
     const files = new Set(main?.files ?? []);
     const trees = new Set(main?.trees ?? []);
+    const accessibleEntries = new Set(main?.accessibleEntries ?? []);
     const observations = [
       ...recovery.entries,
       ...uncompactedWorkerEntries(workers, main),
@@ -1033,12 +1184,16 @@ export function prepareSnapshot(projectRoot: string | undefined): string {
       for (const tree of entry.trees) {
         trees.add(tree);
       }
+      for (const file of entry.accessibleEntries) {
+        accessibleEntries.add(file);
+      }
     }
     const recovering =
       unhealthySnapshots.has(base) ||
       recovery.paths.length !== 0 ||
       recovery.corruptPaths.length !== 0;
     pending = {
+      accessibleEntries: [...accessibleEntries].sort(),
       ...(compacted.length !== 0 ? { compacted } : {}),
       files: [...files].sort(),
       id:
@@ -1279,6 +1434,23 @@ function listExpiredKeyBaselines(directory: string): string[] {
  *   replaying already compacted claims. This is the owned persisted-input
  *   protocol, not a separate compiler dependency model.
  *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   This reader validates persisted documents and unions their paths without
+ *   recomputing file state. The fingerprint owner handles live validation;
+ *   both reader and compactor share uncompacted-worker classification.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Reading costs document bytes plus Set insertion and final path sorting.
+ *   The compacted-name Set avoids replay and avoids a linear search per worker.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   This read must observe new worker publications; it coordinates no cache
+ *   between calls. Cross-run reuse belongs to computeProjectFingerprint.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Returned snapshot data transfers to the caller. This reader retains no
+ *   state or handle after synchronous reads finish.
+ *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Unknown, corrupt or recovery-pending state returns undefined, never an
  *   invented complete empty set.
@@ -1318,6 +1490,7 @@ export function readSnapshotState(base: string): SnapshotState | undefined {
   }
   const files = new Set(main.files);
   const trees = new Set(main.trees);
+  const accessibleEntries = new Set(main.accessibleEntries);
   let volatile = main.volatile;
   let tainted = main.tainted;
   for (const entry of uncompactedWorkerEntries(workers, main)) {
@@ -1327,10 +1500,14 @@ export function readSnapshotState(base: string): SnapshotState | undefined {
     for (const tree of entry.trees) {
       trees.add(tree);
     }
+    for (const file of entry.accessibleEntries) {
+      accessibleEntries.add(file);
+    }
     volatile ||= entry.volatile;
     tainted ||= entry.tainted;
   }
   return {
+    accessibleEntries: [...accessibleEntries].sort(),
     files: [...files].sort(),
     id: main.id,
     tainted,
@@ -1351,22 +1528,49 @@ export function readSnapshotState(base: string): SnapshotState | undefined {
  * `record` accepts one lexical path without generation evidence; `recordMany`
  * accepts a module's generation evidence; `recordVolatile` withdraws the file
  * proof for non-file inputs. Without a run identity every input is retained;
- * production passes the identity whose immutable baseline was keyed in the
- * main process. An unknown or mismatching baseline marks the snapshot tainted.
+ * production passes the identity whose immutable baseline was keyed in the main
+ * process. An unknown or mismatching baseline marks the snapshot tainted.
+ * Listing predicates retain their paths for the next run's key observation; the
+ * worker never adds a new disk read to its earlier immutable baseline.
  *
  * Sets and baseline maps live for the recorder's worker lifetime and grow with
  * observed projects and distinct inputs. A changed batch serializes the
  * cumulative recorded set once per module, not once per input. A failed write
- * remains dirty for retry and tries recovery storage. If both stores fail,
- * a reusable run throws rather than publishing output backed by lost evidence.
+ * remains dirty for retry and tries recovery storage. If both stores fail, a
+ * reusable run throws rather than publishing output backed by lost evidence.
  *
  * @evidence contracts/common.md#principled-implementation
  *   One worker closure retains derived inputs and compares their
  *   compiler-generation evidence with its immutable run baseline through
  *   shared validation APIs. Static coverage is omitted only after a matching
- *   proof; unknown/volatile inputs persist taint. One cumulative atomic
- *   document is flushed per module, with recovery storage and AggregateError
+ *   proof; unknown/volatile inputs persist taint.
+ *   Listing and plugin-tree paths stay in the retained file universe even
+ *   when a static proof already covers them, so optional payloads survive
+ *   subsequent compaction and key capture.
+ *   One cumulative atomic document is flushed per module, with recovery storage and AggregateError
  *   when a reusable generation cannot persist either record.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One worker closure owns recorder state; shared recordMany owns evidence
+ *   comparison and batch publication for single and multiple inputs. flush
+ *   owns durability, so volatile observations use the same failure policy.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Sets insert distinct inputs and a cached static-input Set checks coverage
+ *   without searching the whole baseline. One changed module serializes the
+ *   cumulative paths once, costing their count and encoded bytes rather than
+ *   one cumulative serialization for every input.
+ *
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Each base loads its immutable run baseline once and shares it across
+ *   module batches. Only matching generation evidence authorizes omission of
+ *   static paths; missing or differing evidence records taint instead.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   The worker owns maps of bases, baseline bytes and distinct recorded paths
+ *   until termination. Population grows with projects and inputs observed in
+ *   that worker; there is no fixed eviction budget. Persisted files transfer
+ *   to the next preparation's compactor. No native handle remains open.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   The legacy no-run handshake records all paths without claiming static
@@ -1419,6 +1623,7 @@ export function createSnapshotRecorder(runId?: string): {
 } {
   const suffix = `${process.pid.toString(36)}-${randomBytes(6).toString("hex")}`;
   interface BaseState {
+    accessibleEntries: Set<string>;
     dirty: boolean;
     files: Set<string>;
     observed: boolean;
@@ -1472,6 +1677,7 @@ export function createSnapshotRecorder(runId?: string): {
     let state = states.get(base);
     if (state === undefined) {
       state = {
+        accessibleEntries: new Set(),
         dirty: false,
         files: new Set(),
         observed: false,
@@ -1489,6 +1695,7 @@ export function createSnapshotRecorder(runId?: string): {
       return;
     }
     const document: SnapshotDocument = {
+      accessibleEntries: [...state.accessibleEntries].sort(),
       files: [...state.files].sort(),
       tainted: state.tainted,
       trees: [...state.trees].sort(),
@@ -1546,7 +1753,17 @@ export function createSnapshotRecorder(runId?: string): {
       // A plugin source directory is recorded as one, so the next run's key
       // carries its state (samchon/ttsc#1487).
       if (input.evidence?.state?.codec === "tree" && !state.trees.has(file)) {
+        state.files.add(file);
         state.trees.add(file);
+        state.dirty = true;
+      }
+      if (
+        input.evidence?.state?.codec === "predicates" &&
+        input.evidence.state.observation.accessibleEntries !== undefined &&
+        !state.accessibleEntries.has(file)
+      ) {
+        state.files.add(file);
+        state.accessibleEntries.add(file);
         state.dirty = true;
       }
     }
@@ -1580,10 +1797,17 @@ export function createSnapshotRecorder(runId?: string): {
   };
 }
 
-/** Filesystem-keyed lexical spelling used by main and worker processes. */
+/**
+ * Lexical spelling used by main and worker processes. Native name case stays
+ * exact because an OS name cannot establish directory case sensitivity. A
+ * differently spelled alias can miss coverage and taint a run, but cannot erase
+ * a distinct input. Only the Windows volume root is case-normalized.
+ */
 function snapshotPathKey(file: string): string {
   const resolved = path.resolve(file);
-  return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+  if (process.platform !== "win32") return resolved;
+  const root = path.parse(resolved).root;
+  return `${root.toLowerCase()}${resolved.slice(root.length)}`;
 }
 
 /** Persist the exact filesystem state one run's static key observed. */
@@ -1859,8 +2083,16 @@ function parseSnapshotDocument(text: string): SnapshotDocument | undefined {
     return undefined;
   }
   const document = value as Record<string, unknown>;
+  const fileSet = new Set(Array.isArray(document.files) ? document.files : []);
   const keys = Object.keys(document).sort();
-  const expectedKeys = ["files", "tainted", "trees", "version", "volatile"];
+  const expectedKeys = [
+    "accessibleEntries",
+    "files",
+    "tainted",
+    "trees",
+    "version",
+    "volatile",
+  ];
   for (const optional of ["compacted", "id"]) {
     if (Object.prototype.hasOwnProperty.call(document, optional)) {
       expectedKeys.push(optional);
@@ -1876,18 +2108,24 @@ function parseSnapshotDocument(text: string): SnapshotDocument | undefined {
         typeof entry !== "string" ||
         !(path.posix.isAbsolute(entry) || path.win32.isAbsolute(entry)),
     ) ||
-    new Set(document.files).size !== document.files.length ||
+    fileSet.size !== document.files.length ||
     stableStringify(document.files) !==
       stableStringify([...document.files].sort()) ||
     !Array.isArray(document.trees) ||
     document.trees.some(
-      (entry) =>
-        typeof entry !== "string" ||
-        !(document.files as string[]).includes(entry),
+      (entry) => typeof entry !== "string" || !fileSet.has(entry),
     ) ||
     new Set(document.trees).size !== document.trees.length ||
     stableStringify(document.trees) !==
       stableStringify([...document.trees].sort()) ||
+    !Array.isArray(document.accessibleEntries) ||
+    document.accessibleEntries.some(
+      (entry) => typeof entry !== "string" || !fileSet.has(entry),
+    ) ||
+    new Set(document.accessibleEntries).size !==
+      document.accessibleEntries.length ||
+    stableStringify(document.accessibleEntries) !==
+      stableStringify([...document.accessibleEntries].sort()) ||
     typeof document.tainted !== "boolean" ||
     typeof document.volatile !== "boolean" ||
     (document.id !== undefined &&
@@ -1907,6 +2145,7 @@ function parseSnapshotDocument(text: string): SnapshotDocument | undefined {
     return undefined;
   }
   return {
+    accessibleEntries: document.accessibleEntries as string[],
     ...(Array.isArray(document.compacted)
       ? { compacted: document.compacted as string[] }
       : {}),
@@ -1939,40 +2178,58 @@ function writeSnapshotDocument(
  * Arrays preserve order and JSON primitives use JSON escaping. This is an
  * internal key representation, not JSON for interchange.
  *
- * Undefined values currently expose an unresolved boundary: a top-level value
- * returns runtime undefined despite the declared string result, and absent or
- * sparse array elements can collapse into an empty-array representation. The
- * adoption findings record this defect for a separate repair. Cyclic values
- * and BigInt throw rather than supplying a successful key.
+ * Undefined uses an unquoted marker and sparse array slots use a separate
+ * unquoted hole marker, preserving cardinality and the distinction from null
+ * and literal strings. Non-finite numbers, functions, symbols, BigInt and
+ * cyclic structures are unsupported and throw rather than supplying a key.
  * Shared with the transformer's option digest.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Recursive Object.entries sorting and JSON primitive escaping provide a
  *   stable internal key representation, not another transport parser. The
- *   primitive return can be undefined, and map/join collapses absent array
- *   elements into empty arrays.
+ *   undefined and hole markers cannot collide with quoted string values.
+ *   Array.from visits each slot, preserving length and explicit absence.
+ *   Unsupported primitive values fail instead of aliasing null or absence.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One recursive encoder owns array, record and primitive representations;
+ *   sorted record entries keep ordering policy in that one boundary.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Each visited value is encoded once. Each record sorts its own keys in
+ *   O(k log k), and encoding space follows output bytes plus recursion depth.
+ *   Sorting is necessary for insertion-order-independent record keys.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   This encoder accepts potentially mutable caller records and coordinates
+ *   no cross-call computation; consumers own whether encoded values can recur.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The encoder returns its owned string and retains no caller data or handle
+ *   after return; temporary recursion state is computation space.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
- *   Those reproduced defects remain unresolved; this acknowledgment does not
- *   certify their correctness. The adoption findings retain the cause and
- *   top-level, nested, sparse and null cases for a separate owning repair; no
- *   compensating implementation was added.
+ *   Absence is represented at its owning serializer rather than patched in
+ *   individual key consumers. Unsupported primitives fail explicitly.
  *
  * @evidenceExclude contracts/portability.md#os-neutral-implementation
  *   This operation sorts and encodes caller values for a key; it has no
- *   native path, filesystem or process boundary. Its serialization defect is
- *   recorded in the adoption findings.
+ *   native path, filesystem or process boundary.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   The native JSDoc explains sorted keys, the acyclic value domain,
- *   unsupported JSON interchange and the unresolved absence boundary. Checked
+ *   unsupported JSON interchange and explicit absence markers. Checked
  *   against the documentation skill: separate paragraphs state the contract
  *   and why its nonobvious boundary matters; field comments retain their own
  *   useful facts.
  */
 export function stableStringify(value: unknown): string {
   if (Array.isArray(value)) {
-    return `[${value.map(stableStringify).join(",")}]`;
+    return `[${Array.from(value, (item, index) =>
+      Object.prototype.hasOwnProperty.call(value, index)
+        ? stableStringify(item)
+        : "hole",
+    ).join(",")}]`;
   }
   if (value !== null && typeof value === "object") {
     return `{${Object.entries(value)
@@ -1980,5 +2237,13 @@ export function stableStringify(value: unknown): string {
       .map(([key, item]) => `${JSON.stringify(key)}:${stableStringify(item)}`)
       .join(",")}}`;
   }
-  return JSON.stringify(value);
+  if (value === undefined) return "undefined";
+  if (typeof value === "number" && !Number.isFinite(value)) {
+    throw new TypeError("Cannot fingerprint a non-finite number.");
+  }
+  const encoded = JSON.stringify(value);
+  if (encoded === undefined) {
+    throw new TypeError("Cannot fingerprint an unsupported primitive value.");
+  }
+  return encoded;
 }
