@@ -5,7 +5,18 @@
       "name": "maintained TypeScript production declarations",
       "type": "typescript",
       "files": [
-        "src/**/*.ts"
+        "src/**/*.ts",
+        "!src/index.ts",
+        "!src/structures/index.ts",
+        "!src/typings/index.ts",
+        "!src/structures/ITtscEvidenceGraphClaimBase.ts",
+        "!src/structures/ITtscEvidenceGraphMarkdownClaim.ts",
+        "!src/structures/ITtscEvidenceGraphPrismaClaim.ts",
+        "!src/structures/ITtscEvidenceGraphTypeScriptClaim.ts",
+        "!src/structures/ITtscEvidenceGraphMarkdownReference.ts",
+        "!src/structures/ITtscEvidenceGraphPrismaReference.ts",
+        "!src/structures/ITtscEvidenceGraphSwaggerReference.ts",
+        "!src/structures/ITtscEvidenceGraphTypeScriptReference.ts"
       ],
       "symbol": [
         "type",
@@ -15,6 +26,34 @@
         "type": "markdown",
         "files": [
           "contracts/common.md"
+        ],
+        "symbol": "h2",
+        "checklist": true,
+        "root": "../../.agents/skills"
+      }
+    },
+    {
+      "name": "native population boundary declarations",
+      "type": "typescript",
+      "files": [
+        "src/structures/ITtscEvidenceGraphClaimBase.ts",
+        "src/structures/ITtscEvidenceGraphMarkdownClaim.ts",
+        "src/structures/ITtscEvidenceGraphPrismaClaim.ts",
+        "src/structures/ITtscEvidenceGraphTypeScriptClaim.ts",
+        "src/structures/ITtscEvidenceGraphMarkdownReference.ts",
+        "src/structures/ITtscEvidenceGraphPrismaReference.ts",
+        "src/structures/ITtscEvidenceGraphSwaggerReference.ts",
+        "src/structures/ITtscEvidenceGraphTypeScriptReference.ts"
+      ],
+      "symbol": [
+        "type",
+        "function"
+      ],
+      "reference": {
+        "type": "markdown",
+        "files": [
+          "contracts/common.md",
+          "contracts/portability.md"
         ],
         "symbol": "h2",
         "checklist": true,

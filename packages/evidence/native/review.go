@@ -18,7 +18,8 @@ import (
 // second one is never put.
 //
 // The rule puts it. Every `@evidence` and `@evidenceExclude` on a public
-// identity must be answered by an `@evidenceReview` naming the same target, so a
+// identity must be answered by `@evidenceReview` or `@evidenceExcludeReview`,
+// respectively, naming the same target, so a
 // citation cannot be produced without a separately addressed statement written
 // as its own act.
 //

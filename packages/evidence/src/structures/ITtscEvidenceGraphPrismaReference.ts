@@ -13,6 +13,12 @@ import type { ITtscEvidenceGraphReferenceBase } from "./ITtscEvidenceGraphRefere
  * folder is a single namespace whose files reference each other. The parse is
  * Prisma's own, so a schema it rejects is reported as a parse failure rather
  * than as an empty population.
+ *
+ * @evidence contracts/common.md#principled-implementation This representation selects models and parser-classified members from one composed schema, preserving Prisma's cross-file namespace rather than treating each file as an independent schema.
+ * @evidence contracts/common.md#clear-and-simple-design Root, files and symbol choices define the Prisma population while shared acknowledgment policies stay in the base reference.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Parsing failures remain failures rather than an empty-success substitute, and model-only default selection is an explicit general contract rather than a consumer exception.
+ * @evidence contracts/common.md#meaningful-documentation Member prose explains schema-set identity, root effects, default model granularity and aggregate member coverage with separated documentation blocks.
+ * @evidence contracts/portability.md#os-neutral-implementation Root selects a native schema directory independently of path-free prisma targets; stable relative or absolute paths and linked directories are supported while drive-relative Windows paths are explicitly invalid.
  */
 export interface ITtscEvidenceGraphPrismaReference extends ITtscEvidenceGraphReferenceBase<"prisma"> {
   /**

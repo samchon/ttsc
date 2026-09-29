@@ -2,6 +2,12 @@ import type { ITtscEvidenceDocumentedConfig } from "../structures/ITtscEvidenceD
 import type { ITtscEvidenceGraphConfig } from "../structures/ITtscEvidenceGraphConfig";
 
 declare module "@ttsc/lint" {
+  /**
+   * Associates configured Evidence rules with their public option contracts.
+   *
+   * The lint host derives rule-setting shapes from this open options map, so
+   * augmentation keeps the descriptor and consumer configuration types aligned.
+   */
   interface ITtscLintRuleOptionsMap {
     /**
      * Declares this project's evidence graph.

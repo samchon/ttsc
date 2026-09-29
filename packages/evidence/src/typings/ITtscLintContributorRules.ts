@@ -1,6 +1,12 @@
 import type { TtscLintRuleSetting } from "@ttsc/lint";
 
 declare module "@ttsc/lint" {
+  /**
+   * Adds the Evidence rules without configurable payloads to the lint registry.
+   *
+   * This module augmentation preserves the host registry's open interface;
+   * contributors add names without replacing the lint package's declaration.
+   */
   interface ITtscLintContributorRules {
     /**
      * Requires one public identity per TypeScript file, named after the file.

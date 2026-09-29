@@ -12,6 +12,12 @@ import type { ITtscEvidenceGraphReferenceBase } from "./ITtscEvidenceGraphRefere
  * The selection keeps the evidence graph deliberate. It can cover public types
  * by default, then opt into functions or properties only where their individual
  * contracts deserve documentary proof.
+ *
+ * @evidence contracts/common.md#principled-implementation Local Program, explicit root and installed-package populations share one reference policy while documenting their distinct loading boundaries and exported-symbol identities.
+ * @evidence contracts/common.md#clear-and-simple-design Package and root selection remain explicit alternatives within one artifact interface; the shared base owns policy instead of duplicating it for each loading mode.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Package lookup uses declaration entry semantics, not a consumer-specific JavaScript entry or a fallback that invents unavailable exports.
+ * @evidence contracts/common.md#meaningful-documentation Property prose explains the root/package restriction, declaration-entry precedence, Program snapshot priority and exact selector defaults with separate member comments.
+ * @evidence contracts/portability.md#os-neutral-implementation The type distinguishes a native root or installed-package location from exported symbol identity; forward-slash glob semantics are explicit while path resolution and linked-directory identity remain the loader's supported filesystem boundary.
  */
 export interface ITtscEvidenceGraphTypeScriptReference extends ITtscEvidenceGraphReferenceBase<"typescript"> {
   /**
@@ -44,8 +50,10 @@ export interface ITtscEvidenceGraphTypeScriptReference extends ITtscEvidenceGrap
    * addressed by its accessor path from that entry — which is what makes
    * `api.functional.questions.get` nameable. The entry is read from the `types`
    * condition of the `exports` map, then `typesVersions`, then the `types` or
-   * `typings` field — never `main`, which names the JavaScript a consumer runs
-   * rather than the declarations a citation can address.
+   * `typings` field. If no declaration channel answers, a runtime `exports`
+   * target or `main` is accepted only when it names TypeScript source itself,
+   * as in a source-first workspace package. Emitted JavaScript entries are not
+   * declaration populations.
    */
   package?: string;
 

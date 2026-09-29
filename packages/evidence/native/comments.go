@@ -29,7 +29,7 @@ type sourceSpan struct {
   end int
 }
 
-// forEachCommentToken visits every real comment in `file` in source order.
+// forEachComment visits every real comment in `file` in source order.
 //
 // TypeScript's parser, rather than a context-free scanner, owns the lexical
 // goal for regular expressions, templates, and JSX. The parsed AST retains

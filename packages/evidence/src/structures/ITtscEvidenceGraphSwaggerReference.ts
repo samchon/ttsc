@@ -8,6 +8,12 @@ import type { ITtscEvidenceGraphReferenceBase } from "./ITtscEvidenceGraphRefere
  * TypeScript or Markdown claim, but a Swagger document cannot host `@evidence`
  * declarations. Every operation under the normalized document's `paths` object
  * becomes one independent evidence unit.
+ *
+ * @evidence contracts/common.md#principled-implementation A Swagger reference identifies one normalized API document and inherits reference policies; absence of a Swagger claim counterpart reflects that operations cannot host acknowledgments.
+ * @evidence contracts/common.md#clear-and-simple-design One exact source location is sufficient because document format normalization and operation indexing belong to the loader, not to extra configuration layers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts An unavailable remote source fails its obligation rather than silently removing API operations from the expected population.
+ * @evidence contracts/common.md#meaningful-documentation The source comment explains accepted local and HTTP locations, rejection of unstable drive-relative paths, normalization and operation-target spelling.
+ * @evidence contracts/portability.md#os-neutral-implementation The file field distinguishes native local paths from HTTP URLs, requiring stable project-relative or absolute local resolution and refusing Windows drive-relative spelling instead of applying filesystem rules to a URL.
  */
 export interface ITtscEvidenceGraphSwaggerReference extends ITtscEvidenceGraphReferenceBase<"swagger"> {
   /**
