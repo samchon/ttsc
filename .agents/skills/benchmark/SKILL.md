@@ -29,7 +29,11 @@ Outside that directory, each reusable module exposes exactly one `TtscBenchmark*
 
 Executable surfaces are classes or namespaces. Never add a standalone exported function, constant, enum, or type alias. Put related functions, constants, guards, and subordinate types inside the owning `TtscBenchmark*` namespace; put companion types and guards for a data contract inside its `ITtscBenchmark*` namespace.
 
-Apply the [meaningful documentation](../development/principles.md#meaningful-documentation) principle to every exported symbol, exported namespace member, public member of an exported class, and field in an exported data contract. For these harnesses, also state each exported symbol, exported namespace member, and public class member's benchmark role and nonobvious invariant, and each data field's units, optional-state semantics, and default where applicable.
+Apply the [meaningful documentation](../development/principles.md#meaningful-documentation) principle to every exported symbol, exported namespace member, public member of an exported class, and field in an exported data contract.
+
+For these harnesses, also state each exported symbol, exported namespace member, and public class member's benchmark role and nonobvious invariant. Data fields state their units, optional-state semantics, and default where applicable.
+
+These details let a reader interpret a measurement and distinguish an absent observation from a measured zero.
 
 Before committing benchmark source, run the strict type check that each harness README names.
 

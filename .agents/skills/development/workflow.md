@@ -4,6 +4,7 @@
 
 - [Repair Discipline](#repair-discipline)
 - [Work Rules](#work-rules)
+- [Review Conditions](#review-conditions)
 - [Source Structure](#source-structure)
 - [Consequence Analysis](#consequence-analysis)
 - [Plugin Configuration](#plugin-configuration)
@@ -23,11 +24,35 @@ Apply the [engineering principles](principles.md) before changing maintained sou
 
 - Apply [AGENTS.md's **Choose the principled course** rule](../../../AGENTS.md#attitude) to every implementation decision.
 - Match existing conventions. Before adding a file, function, or test, open a nearby peer and mirror its naming, location, and code style, don't create parallel structures.
-- Apply the [package responsibility](principles.md#package-responsibility) principle when choosing the implementation owner.
+- Use the [architecture checks](#review-conditions) when choosing the implementation owner or introducing shared definitions.
 - Plugin descriptors are JS; transform logic is Go. JS transform functions (e.g. `transformSource`, `transformOutput`) are not part of the public contract.
 - `shim.go` files marked `gen_shims:hand-maintained` are not regenerated.
 - When code behavior changes, update the matching page under `website/src/content/docs/` in the same change.
 - For a pull request, run `pnpm format` once on the complete change before the final CI-validated merge head is pushed, then commit its result in that pull request. Do not run it for individual commits or after each correction. If a later correction is necessary, keep it formatted by inspection and the CI format check without another formatter run. A task that does not include a pull request has no formatter invocation from this rule.
+
+## Review Conditions
+
+Apply these checks where the changed operation or design introduces the named risk. They guide consequence analysis and review; they are not acknowledgments repeated on every public declaration.
+
+### Resources
+
+When code acquires, transfers, or releases files, child processes, listeners, or locks, identify their owner and lifetime. Release owned resources on success, failure, and cancellation, and preserve resources owned by another operation.
+
+A leaked resource can outlive its request; releasing someone else's resource can interrupt valid work. Review both acquisition and cleanup at the operation that controls them rather than asking unrelated data fields to deny ownership.
+
+### Mutable state
+
+When code reads or changes shared state, caches, watchers, or sessions, inspect repeated calls, concurrency, failure, cancellation, and recovery. Keep state coherent, publish complete results, and include every result-determining input in cache identity and invalidation.
+
+These paths can reuse stale success or expose a partial update after the first call passes. The [consequence analysis](#consequence-analysis) traces the writers and readers that can observe those transitions.
+
+### Architecture
+
+When placing behavior or crossing a package boundary, follow the [project skill's ownership contracts](../project/SKILL.md) and supported seams. Keep consumer-specific behavior out of the general compiler host, because it would affect unrelated consumers and couple callers to another package's internals.
+
+When introducing or changing a rule, configuration value, or shared state, reuse its authoritative owner instead of maintaining independent copies. Copies can disagree after either changes. Add an abstraction only when the current contract needs it; requiring every declaration to name an owner can encourage speculative machinery without resolving an actual duplication.
+
+When changing accepted inputs, rejection, coercion, or fallback, preserve the owning product's compatibility contract and document observable behavior under [meaningful documentation](principles.md#meaningful-documentation). A silent fallback can disguise failure, while an invented restriction can reject supported input.
 
 ## Source Structure
 
@@ -130,14 +155,20 @@ For mechanical ports, migrations, or broad rewrites, preserve the existing algor
 
 ## Evidence Adoption
 
-The root `evidence.json` owns production selection and references this skill's [engineering principles](principles.md). Use the independently invoked `pnpm evidence` command to check those declarations. The JSON configuration avoids evaluating configuration through the compiler this repository is developing.
+The root `evidence.json` owns production selection and references this skill's [engineering principles](principles.md). Run `pnpm evidence` independently to check those declarations.
 
-During draft adoption, report the complete outstanding obligations and any incomplete analysis. Keep this command independent of test source, test configurations, `pnpm test`, `test:*` scripts, CI workflows, and their validation planner while the maintainer has deferred test integration. A draft installation with unresolved production obligations is not completed enforcement.
+The JSON configuration avoids evaluating configuration through the compiler this repository is developing. This keeps the checker usable before that compiler has been built.
 
-1. Run the complete check and collect its entire report before correcting the findings. Group missing acknowledgments, genuine code or documentation defects, selection mistakes, generated-source provenance, and incomplete adapter analysis by cause.
-2. Inspect the selected declarations and their private helpers against every applicable principle. Fix verified defects within the authorized scope before writing an acknowledgment. Never generate generic compliance tags or weaken selection or severity to obtain a passing status.
-3. Write `@evidence .agents/skills/development/principles.md#<anchor> <reason>` in the declaration's native documentation. State the concrete input, boundary, ownership, invariant, or documented fact that supplies the evidence. Use `@evidenceExclude` only for a genuinely inapplicable individual item with a concrete reason. Do not exclude the whole principle document to bypass participation.
-4. Use `pnpm exec evidence list --config evidence.json` to inspect selected public addresses and `pnpm exec evidence inspect '<target>' --config evidence.json` to investigate a target. Record limitations where private helpers or script bodies have no address; ordinary whole-surface review still covers them.
-5. Recheck the complete selected population after each coherent correction. Keep the issue open and the pull request draft while missing obligations or incomplete analysis remain, and record progress through the pull-request skill's formal review ledger.
+While the maintainer has deferred test integration, keep Evidence independent of test source, test configurations, `pnpm test`, `test:*` scripts, CI workflows, and their validation planner. That boundary lets concurrent test work proceed without a new gate or a changed source population.
 
-Exclude generated, copied, dependency, build, and test material through explicit selection with verified provenance. A hand-maintained shim or authored helper remains maintained source even beside generated files. Test and benchmark enrollment requires its own authorized scope.
+During draft adoption, report all outstanding obligations and any incomplete analysis. The report must distinguish a functioning checker from completed enforcement of the selected production code.
+
+1. Run the complete check and collect its entire report before correcting findings, following [AGENTS.md's symptom-collection rule](../../../AGENTS.md#attitude). Group missing acknowledgments, code or documentation defects, selection mistakes, generated-source provenance, and incomplete analysis by cause so one correction addresses the verified class of failure.
+2. Inspect the selected declarations and their private helpers against each applicable principle. Fix verified defects within the authorized scope before writing an acknowledgment, because the tag must describe the resulting implementation. Generic compliance tags or weaker selection and severity can hide the defect while making the report pass.
+3. Write `@evidence .agents/skills/development/principles.md#<anchor> <reason>` in native documentation, naming the concrete fact requested by that principle. Use `@evidenceExclude` only for a genuinely inapplicable individual item with a reason; whole-document exclusion would bypass every obligation for that host.
+4. Use `pnpm exec evidence list --config evidence.json` to inspect selected public addresses and `pnpm exec evidence inspect '<target>' --config evidence.json` to investigate resolution. These commands show what the checker can address. Record private-helper and script-body limitations so whole-surface review covers what the graph cannot select.
+5. Recheck the complete selected population after each coherent correction, because a changed declaration or selector can affect other obligations. Keep the issue open and the pull request draft while obligations or incomplete analysis remain. Record progress through the pull-request skill's formal review ledger so the pending work is visible.
+
+Exclude generated, copied, dependency, build, and test material through explicit selection with verified provenance. Those files have a different author or validation owner; they must not acquire obligations accidentally through a broad glob.
+
+A hand-maintained shim or authored helper remains maintained source even beside generated files. Test and benchmark enrollment requires its own authorized scope.

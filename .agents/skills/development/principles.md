@@ -1,43 +1,45 @@
 # Engineering Principles
 
-These principles govern the maintained production declarations selected by the repository's `evidence.json`. Each H2 is one checklist obligation. They also guide implementation and whole-surface review of the private helpers those declarations use. A tag records a checkable claim about the code; reviewers judge whether it is true. The [development workflow](workflow.md#evidence-adoption) owns selection, commands, adoption, and acknowledgment procedures.
+These four principles govern the maintained production declarations selected by `evidence.json` and guide review of the private helpers those declarations use. Each H2 is one checklist obligation.
+
+Keep this checklist limited to implementation shortcuts, supported-platform behavior, and documentation. Resource, state, and architecture checks belong to the [development workflow](workflow.md#review-conditions), where the operation or change determines their applicability. Requiring every data field to explain resource cleanup or package placement would repeat unrelated claims without examining those risks.
+
+An acknowledgment records a concrete claim about the implementation. Reviewers check that claim against the code because a complete set of tags can still contain false statements.
+
+The [development workflow](workflow.md#evidence-adoption) owns selection, commands, and acknowledgment procedures.
 
 ## No hard coding
 
-Derive behavior from supported inputs and the owning contract. Do not special-case a consumer, fixture name, expected answer, or measured result to make output match. Protocol constants and documented defaults may be fixed values when their contract owns them. Identify the input, configuration, or contract from which the declaration derives its decisions.
+Derive behavior from supported inputs and the owning contract. Do not special-case a consumer, fixture name, expected answer, or measured result, or add a branch whose sole purpose is passing a test or improving a measurement. Protocol constants, discriminants, and documented defaults may be fixed values when their contract owns them.
+
+A special case can produce the expected result for a known input while leaving the same behavior wrong for other supported consumers. Test-only branches have the same defect: the passing result describes the setup rather than the product. These are one obligation because both require decisions justified by the supported contract.
+
+Identify the input, configuration, or contract from which the declaration derives its decisions.
 
 ## No monkey patching
 
-Use documented registration, extension, and dependency-injection boundaries. Do not replace another module's methods, globals, or internals to change its behavior. Identify the supported extension boundary or explain which owned state the declaration changes without mutating foreign behavior.
+Use documented registration, extension, and dependency-injection boundaries. Do not replace another module's methods, globals, or internals to change its behavior.
 
-## No test-only logic
+Replacing foreign behavior makes correctness depend on initialization order and other callers sharing the same process. It also couples the implementation to internals that the dependency may change without preserving compatibility.
 
-Implement behavior for real supported consumers. A branch whose sole purpose is satisfying one test or improving one measurement violates this principle even when the check passes. Identify the runtime contract the declaration implements and the supported inputs to which it applies.
+Identify the supported extension boundary or explain which owned state the declaration changes without mutating foreign behavior.
 
 ## Portable behavior
 
-Shared logic must preserve its defined behavior on every supported OS. Do not assume POSIX shell syntax, separator spelling, drive or root shape, case behavior, line endings, or platform-only process APIs. Keep filesystem paths distinct from URLs, and use argument-vector process APIs for ordinary commands. Necessary native implementations belong behind an explicit platform boundary; document the supported behavior and the corresponding implementation for each platform. Identify the portable mechanism, the absence of OS-sensitive operations, or the native boundary the declaration serves.
+Shared logic must preserve its defined behavior on every supported OS. Account for path roots, separators, case behavior, line endings, and process invocation. Keep filesystem paths distinct from URLs, and use argument-vector process APIs for ordinary commands.
 
-## Explicit contract
+These differences can change which file a compiler reads or what command it executes. A path or command that works on one machine does not establish the same behavior on another OS.
 
-Define accepted inputs, output meaning, and invalid or unsupported input behavior. Describe observable side effects and compatibility conditions where they apply. Preserve the owning product's specified behavior rather than inventing coercion, fallback success, or stricter input rules. Identify the contract enforced by the declaration and how its relevant boundaries behave.
+Necessary native implementations belong behind an explicit platform boundary. Document the supported behavior and the corresponding implementation for each platform so the shared caller can rely on one defined contract.
 
-## Resource ownership
-
-Release resources the declaration owns on success, failure, and cancellation, and preserve resources owned by its caller or another operation. For files, child processes, listeners, locks, and cache publications, identify the owner, lifetime, cleanup, and publication boundary. A declaration that acquires, transfers, or releases no resources may exclude this item with that concrete explanation.
-
-## State consistency
-
-Keep mutable state coherent across repeated calls, concurrent work, failure, cancellation, and recovery. A failed or incomplete operation must not publish partial success or preserve a stale successful result as current. Cache identity and invalidation must include the inputs that determine the result. Identify the state invariant and its protection; a declaration with no mutable state or state transitions may exclude this item with that explanation.
-
-## Single source of truth
-
-Give each rule, configuration value, and piece of state one authoritative owner, and reuse it through the appropriate boundary. Do not maintain independent copies of the same knowledge. Keep an abstraction tied to the current contract instead of building speculative machinery to answer the checklist. Identify the declaration's authoritative input or the shared owner it uses.
-
-## Package responsibility
-
-Implement behavior in the package and layer that owns it. Use supported cross-package seams, and keep downstream-specific rules out of the general compiler host. Identify the declaration's owner and any boundary it crosses. Product-specific invariants remain owned by the [project skill](../project/SKILL.md).
+Identify the portable mechanism, the absence of OS-sensitive operations, or the native boundary the declaration serves.
 
 ## Meaningful documentation
 
-Every selected public declaration and public member carries native documentation explaining its purpose and the nonobvious conditions or invariants needed to use it correctly. State inputs, side effects, failure behavior, units, defaults, and optional-state meaning where relevant. TypeScript uses JSDoc; Go uses declaration documentation comments. An acknowledgment identifies the actual facts explained by that documentation and does not replace them. A comment that only repeats the declaration's name or type does not satisfy this principle. Scoped requirements, such as benchmark roles and field units, remain additional obligations of their owning skill.
+Every selected public declaration and public member carries native documentation explaining its purpose and the nonobvious conditions or invariants needed to use it correctly. State accepted inputs, output meaning, invalid or unsupported input behavior, side effects, units, defaults, and optional-state meaning where relevant. TypeScript uses JSDoc; Go uses declaration documentation comments.
+
+Names and types cannot tell a caller who owns a resource, what an absent value means, or which state must hold before a call. Documentation must supply those facts so the caller does not have to infer the contract from the implementation.
+
+Identify the actual facts explained by the documentation. The acknowledgment does not replace the explanation, and a comment that only repeats the declaration's name or type does not satisfy this principle.
+
+Scoped requirements, such as benchmark roles and field units, remain additional obligations of their owning skill.
