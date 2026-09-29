@@ -124,7 +124,6 @@ const SCOPES = {
 // in every one of those jobs is another independent Go build with no consumer.
 // Broad compiler coverage and the graph lane retain the binaries they exercise.
 const PLATFORM_TARGETS = {
-  "install-smoke": "ttsc",
   "test-lint": "ttsc",
   "test-packages": "ttsc",
   "test-metro": "ttsc",

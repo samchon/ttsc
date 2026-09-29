@@ -42,8 +42,29 @@ try {
   const manifestPath = requireInstalled.resolve("ttsc/package.json");
   const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
   const launcher = (name) => path.join(path.dirname(manifestPath), manifest.bin[name]);
+  const platform = path.dirname(
+    requireInstalled.resolve(`@ttsc/${process.platform}-${process.arch}/package.json`),
+  );
+  const native = (name) =>
+    path.join(platform, "bin", `${name}${process.platform === "win32" ? ".exe" : ""}`);
   assert.match(runNode([launcher("ttsc"), "--version"]), /^ttsc /m);
   assert.match(runNode([launcher("ttsx"), "--version"]), /^ttsx /m);
+  assert.match(
+    runInstalledBinary(native("ttscserver"), ["--version"]),
+    /^ttscserver /m,
+  );
+  assert.match(
+    runInstalledBinary(native("ttscgraph"), ["--version"]),
+    /^ttscgraph /m,
+  );
+  const bundledGo = path.join(
+    platform,
+    "bin",
+    "go",
+    "bin",
+    process.platform === "win32" ? "go.exe" : "go",
+  );
+  assert.match(runInstalledBinary(bundledGo, ["version"]), /^go version go/m);
   runNode([launcher("ttsc"), "--emit"]);
   assert.equal(runNode([path.join(workspace, "dist", "main.js")]).trim(), "installed-cli-ok");
   assert.equal(runNode([launcher("ttsx"), "src/main.ts"]).trim(), "installed-cli-ok");
@@ -62,6 +83,18 @@ function runNode(args) {
   for (const key of ["TTSC_BINARY", "TTSC_TSGO_BINARY", "TTSC_CACHE_DIR", "TTSC_GO_CACHE_DIR", "TTSC_TEST_CACHE_DIR", "NODE_OPTIONS", "TTSX_RUNTIME_MANIFEST"])
     delete environment[key];
   const result = cp.spawnSync(process.execPath, args, { cwd: workspace, env: environment, encoding: "utf8", windowsHide: true, timeout: 120_000 });
+  if (result.error) throw result.error;
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  return result.stdout;
+}
+
+function runInstalledBinary(binary, args) {
+  const result = cp.spawnSync(binary, args, {
+    cwd: workspace,
+    encoding: "utf8",
+    windowsHide: true,
+    timeout: 120_000,
+  });
   if (result.error) throw result.error;
   assert.equal(result.status, 0, result.stderr || result.stdout);
   return result.stdout;

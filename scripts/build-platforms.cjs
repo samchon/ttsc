@@ -145,13 +145,30 @@ function pnpmCommand(args) {
 }
 
 function listPlatformPackageDirs() {
-  return fs
+  const all = fs
     .readdirSync(packagesDir)
     .filter((entry) =>
       /^ttsc-(linux|darwin|win32)-(x64|arm|arm64)$/.test(entry),
     )
     .sort()
     .map((entry) => path.join(packagesDir, entry));
+  return selectPlatformPackageDirs(
+    all,
+    process.env.TTSC_PLATFORM_BUILD_SET ?? "all",
+    path.join(packagesDir, `ttsc-${process.platform}-${process.arch}`),
+  );
+}
+
+function selectPlatformPackageDirs(all, set, current) {
+  if (set === "all") return all;
+  if (set === "ci-remainder") {
+    const required = new Set([current, path.join(packagesDir, "ttsc-linux-arm")]);
+    for (const directory of required)
+      if (!all.includes(directory))
+        throw new Error(`missing required platform package: ${directory}`);
+    return all.filter((directory) => required.has(directory));
+  }
+  throw new Error(`unknown TTSC_PLATFORM_BUILD_SET: ${set}`);
 }
 
 if (require.main === module)
@@ -164,4 +181,5 @@ module.exports = {
   PACKAGE_BUILDS_AFTER_PLATFORMS,
   PACKAGE_BUILDS_BEFORE_PLATFORMS,
   finishPlatformBuilds,
+  selectPlatformPackageDirs,
 };

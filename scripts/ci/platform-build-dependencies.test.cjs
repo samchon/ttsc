@@ -1,8 +1,10 @@
 const assert = require("node:assert/strict");
+const path = require("node:path");
 const { test } = require("node:test");
 const {
   finishPlatformBuilds,
   PACKAGE_BUILDS_BEFORE_PLATFORMS,
+  selectPlatformPackageDirs,
 } = require("../build-platforms.cjs");
 const { buildDependencies } = require("../build-current.cjs");
 
@@ -39,4 +41,20 @@ test("platform failures finish every target and block only dependent graph work"
     assert.deepEqual(called.slice(0, 3), ["foreign", "current", "last"]);
     assert.equal(called.includes("graph"), broken !== "current");
   }
+});
+
+test("CI builds the Linux ARM remainder and its local graph compiler", () => {
+  const all = [
+    "ttsc-linux-arm",
+    "ttsc-linux-x64",
+    "ttsc-linux-arm64",
+    "ttsc-darwin-x64",
+    "ttsc-darwin-arm64",
+    "ttsc-win32-x64",
+    "ttsc-win32-arm64",
+  ].map((entry) => path.resolve(__dirname, "../..", "packages", entry));
+  const current = all[1];
+  assert.deepEqual(selectPlatformPackageDirs(all, "all", current), all);
+  assert.deepEqual(selectPlatformPackageDirs(all, "ci-remainder", current), all.slice(0, 2));
+  assert.throws(() => selectPlatformPackageDirs(all, "invalid", current), /unknown/);
 });
