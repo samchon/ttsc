@@ -21,8 +21,6 @@ jobs:
   validation:
     name: e2e
     runs-on: ubuntu-latest
-    env:
-      npm_config_cache: ${{ runner.temp }}/ttsc-npm
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
