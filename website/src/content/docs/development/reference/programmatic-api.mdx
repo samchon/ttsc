@@ -66,7 +66,9 @@ const first  = compiler.compile();
 const second = compiler.compile();    // safe to call again
 ```
 
-The context is defensively copied at construction, so mutating the original options object after the fact has no effect on the instance.
+The constructor copies the context and environment overrides and captures each explicit plugin entry's JSON payload. Later changes to the original options or nested plugin configuration do not change that captured input. Each operation receives a fresh copy of the payload.
+
+Plugin payload capture uses JSON serialization, including `Date` and custom `toJSON` conversion. Conversion runs at construction; cyclic values and `BigInt` can therefore throw before any compilation starts. Host selection fields (`transform`, `enabled`, and a string `configFile`) are captured separately from that JSON representation. Worker operations transfer both parts and restore them before loading plugins.
 
 ## Operations
 
@@ -74,7 +76,7 @@ The context is defensively copied at construction, so mutating the original opti
 
 Runs the configured project through the TypeScript-Go pipeline and returns the structured result as a discriminated union.
 
-For projects with no plugins, ttsc uses its in-process TypeScript-Go host and captures every `WriteFile` callback into the `output` map. For projects with plugins, ttsc runs the plugin pipeline against a temporary output directory under the configured cache root, reads the generated text back into memory, and removes the temp directory before returning.
+For projects with no plugins, ttsc starts its native TypeScript-Go host in a separate process. That host captures `WriteFile` callbacks and returns the `output` map through `api-compile`. For projects with plugins, ttsc runs the plugin pipeline against a temporary output directory under the configured cache root, reads the generated text back into memory, and removes the temp directory before returning.
 
 **Result shape** ([`ITtscCompilerResult`](https://github.com/samchon/ttsc/blob/master/packages/ttsc/src/structures/ITtscCompilerResult.ts)):
 
@@ -88,6 +90,8 @@ type ITtscCompilerResult =
 - `success`: TypeScript-Go completed with no error-class diagnostics. The `output` map contains every text artifact (JS, `.d.ts`, source maps, declaration maps). `diagnostics` is omitted when empty; warnings appear here when present.
 - `failure`: Compilation produced error-class diagnostics or a plugin failed after ttsc could establish a build result. Before returning a plugin-backed failure, ttsc runs an independent no-emit TypeScript check so pure TypeScript errors remain in `diagnostics`; `output` may still be partial.
 - `exception`: The host or plugin setup failed before ttsc could establish a build result (cache lockup, missing binary, invalid project setup, etc.). Treat the `error` field as opaque diagnostic material; do not assume it's an `Error` instance.
+
+Exception transport retains a finite description of the failure: Error name, message, stack, cause and aggregate errors, together with enumerable outcome data. Repeated objects use `$ttscReference` JSON-pointer markers. Values that JSON cannot represent, accessors and objects that cannot be inspected use `$ttscValue` markers. The description does not invoke getters or preserve foreign class internal slots.
 
 ### `transform()`
 
@@ -105,6 +109,10 @@ When no transform-stage plugin is configured, the map contains the unmodified fi
 `t.sourceMaps`, keyed the same way, holds a version 3 source map for each file whose text differs from its source, from that text back to the source. Its `sources` are relative to the file's directory, and its `sourcesContent` is the text the file was transformed from, so a consumer can confirm the map describes the text it holds. A file without an entry has no map, which is always the case for an executable plugin host that writes none.
 
 Successful and compiler-failure transformations may also carry `hostInputs`: the exact tsconfig ancestry, every package manifest inspected by auto-discovery, the JavaScript descriptor's loaded module graph, absolute paths declared by each plugin descriptor, and inputs a linked native plugin reports while evaluating configuration. First-party plugins use the reporting channels for implicit config candidates and evaluated config dependencies; missing paths are retained because creating a higher-priority candidate changes resolution. `hostInputHashes` carries the matching evaluation-time SHA-256 digest, or `null` for an observed missing candidate, while `hostInputRealpaths` carries its physical path or `null`. Bundler adapters require both when supplied before narrowly reusing a persistent generation, so concurrent content changes and symlink or junction retargeting cannot authorize stale output. Arbitrary unclassified project files remain absent.
+
+`observationsComplete: false` means the producer could not establish complete input observation. `hostInputProofFailures` may identify paths whose proof was unavailable with the reason `"observation-unavailable"`. These fields preserve known hashes and physical paths; they do not authorize ignoring a changed input or reusing an incomplete result.
+
+`@ttsc/unplugin` can deliver a successful incomplete result only in an explicitly known one-shot build whose host can withdraw that module from its cache, after validating all known input proofs and the build's stability. It retains no reusable generation or project record and publishes nothing for another worker. Watching hosts, unknown lifecycle states and hosts without that cache control reject the incomplete result.
 
 A transformation that ran a plugin also carries `pluginSources`: every Go source directory its plugins supplied to their binaries, by absolute path, with the state the build keyed the binary on. That state covers the directory's files and the environment a build there runs in: its Go compiler, what `go env` reports, and cgo's toolchain. These are each plugin's Go module root and each contributor's source; ttsc's own sources change only with ttsc itself and are not listed. A plugin edited in place, or built under another `GOFLAGS` or Go toolchain, changes nothing else a consumer can see, so a consumer that caches the output proves each state with `pluginSourceStateHolds` from `ttsc/plugin-source` and observes each directory as a whole subtree.
 
@@ -136,9 +144,11 @@ Removes the cache directories owned by this compiler's context. Returns the list
 compiler.clean();
 ```
 
-When the context sets an explicit `cacheDir`, `clean()` removes that directory **wholesale** (plus the legacy `node_modules/.ttsc` and `.ttsc` caches) — the same contract as `ttsc clean --cache-dir <dir>` on the CLI. An explicit `cacheDir` must name a directory dedicated to ttsc. `clean()` refuses a filesystem root or any directory that equals or contains the project before removing anything, so values such as `.`, `..`, and a workspace ancestor are rejected.
+When the context sets an explicit `cacheDir`, `clean()` selects that directory as a whole, plus the legacy `node_modules/.ttsc` and `.ttsc` caches, following `ttsc clean --cache-dir <dir>`. An explicit `cacheDir` must name a directory dedicated to ttsc. `clean()` refuses a filesystem root or any directory that equals or contains the project before removing anything, so values such as `.`, `..`, and a workspace ancestor are rejected.
 
-Otherwise — the default workspace-local `node_modules/.cache/ttsc`, or a root resolved from `TTSC_CACHE_DIR` — it removes only the ttsc-owned pieces:
+A caller-provided `GOCACHE` remains protected in both explicit and default cleanup modes. A selected target is preserved if it contains that cache, lies inside it, or its physical relationship cannot be safely established. This protection can therefore prevent removal of an explicit `cacheDir` that overlaps the caller's Go cache.
+
+For the default workspace-local `node_modules/.cache/ttsc`, or a root resolved from `TTSC_CACHE_DIR`, it removes only the ttsc-owned pieces:
 
 1. the compiled plugin binaries (`<cache-root>/plugins`);
 2. the descriptor, capability, and orphan-lowering caches (`<cache-root>/descriptors`, `<cache-root>/capabilities`, `<cache-root>/ttsx-orphan`);
@@ -180,9 +190,9 @@ The constructor takes the same [`ITtscCompilerContext`](#context-options) and la
 - `updateFile(name, content)` → `Promise<boolean>`. Apply new in-memory content for a file and re-transform. `name` resolves as it does for `transformFile`. Returns whether the rebuild succeeded; `false` means the edit did not compile and the previous transform is still in effect.
 - `dispose()`. Terminate the resident host and reject any in-flight requests. Always call it (use `try`/`finally`) so the host process does not leak.
 
-Pass `{ signal }` as the optional final argument to `transformFile` or `updateFile` to cancel one call — this is the only way a caller ends a request early. Passing an already-aborted signal rejects only that call before it enters the host's FIFO. Once a request has been written, cancelling it retires the host because a later reply could no longer be safely paired. Any concurrent requests reject with a distinct host-retirement error. `TtscService` then fails closed: later calls reject with that error rather than respawning a host. Construct a new service when the caller wants a fresh resident program.
+Pass `{ signal }` as the optional final argument to `transformFile` or `updateFile` to cancel one call. Passing an already-aborted signal rejects only that call before it enters the host's FIFO. Once a request has been written, cancelling it retires the host because a later reply could no longer be safely paired. Any concurrent requests reject with a distinct host-retirement error. `TtscService` then fails closed: later calls reject with that error rather than respawning a host. Construct a new service when the caller wants a fresh resident program.
 
-`undefined` and `false` are the service's domain negatives — a genuinely absent file and an edit that did not compile. A reply the host could never validly send (a malformed line, a non-object, or a well-formed object of the wrong operation shape) is a protocol failure, not a negative result: the call rejects rather than collapsing to `undefined`/`false`, and a corrupt line can no longer be mispaired with a later request.
+`undefined` means an absent file, and `false` means an edit that did not compile. A reply the host could never validly send (a malformed line, a non-object, or a well-formed object of the wrong operation shape) is a protocol failure: the call rejects, and a corrupt line can no longer be mispaired with a later request.
 
 `TtscService` runs through the linked-plugin host, the only host that serves resident requests, so the project must declare at least one transform-stage plugin. It is source-to-source: it returns TypeScript, never JS or `.d.ts` (use [`compile()`](#compile) for emit).
 
@@ -221,9 +231,11 @@ console.log(identities.isWithin(workspace.path, config.path)); // true
 
 Create one context per filesystem transaction and reuse it for every comparison in that transaction. The context memoizes normalized input identities, each realpath prefix at its first probe, and each directory case decision when missing-suffix resolution or `caseSensitive()` first needs it. Resolving a descendant can therefore populate an ancestor's realpath cache before that ancestor is resolved directly, while resolving an existing directory need not probe its case behavior. This keeps repeated comparisons consistent and avoids repeated filesystem probes, but it is not an atomic filesystem snapshot: a probe first reached later can observe a newer filesystem state.
 
-Existing path segments use their physical spelling. For a prospective path whose nearest existing prefix is a directory, missing suffixes preserve spelling when that directory is proven case-sensitive and fold it when that directory is proven case-insensitive. Windows drive and UNC roots are always matched case-insensitively. If the directory behavior cannot be proven, Windows and macOS use their case-insensitive platform default while other platforms assume case-sensitive behavior. An empty, unreadable, or otherwise unprovable NTFS/APFS directory that was explicitly configured as case-sensitive can therefore merge case-only missing suffixes until a probe can establish its behavior.
+Existing path segments use their physical spelling. For a prospective path whose nearest existing prefix is a directory, missing suffixes fold ASCII letters only when that directory is observed case-insensitive. Sensitive or unknown directory behavior preserves spelling; an OS name supplies no fallback case policy. Non-ASCII names retain their spelling because an ASCII probe does not establish native Unicode equivalence. Windows drive and UNC roots are matched case-insensitively.
 
-`resolve(location)` returns `{ key, path }`. Use `key` for maps and sets, and retain `path` when a filesystem operation needs canonical spelling. `isWithin(root, candidate)` compares the same canonical identities instead of applying a process-wide lowercase rule. `caseSensitive(directory)` exposes the probed directory behavior when a host needs to make the same missing-path decision itself.
+`resolve(location)` returns `{ key, path }`. Use `key` for maps and sets, and retain `path` when a filesystem operation needs canonical spelling. `isWithin(root, candidate)` compares the same canonical identities. `caseSensitive(directory)` returns `true` for observed sensitivity, `false` for observed insensitivity, or `undefined` when the probe cannot establish either. With unknown behavior, different keys for missing spellings do not prove distinct physical entries or complete watcher coverage.
+
+For observation routing, `lexicalKey`, `lexicalMatches` and `lexicalIsWithin` retain link and short-name components. Matching admits possible ASCII case aliases under unknown policy and conservatively retains non-ASCII component pairs as candidates. These methods select observations to examine; they do not establish physical equality or authorize cache reuse.
 
 Realpath errors other than a missing entry throw by default. A bundler or editor that deliberately tolerates files moving during a scan can construct the context with `{ throwOnRealpathError: false }`; unreadable locations are then treated as missing for that transaction. The optional `platform`, `realpath`, and `caseSensitive` operations are for controlled host integration and tests. Most callers should use the defaults.
 
@@ -270,7 +282,9 @@ const stale = Object.entries(t.pluginSources ?? {}).some(
   - the relative path and bytes of every file below the directory, in sorted order, skipping files below a `node_modules`, `.git`, or `.ttsc` directory, generated `go.work` files, package tarballs, editor sidecars, and backups ending in `~`;
   - the build environment there: the Go compiler ttsc resolves for the directory, the values `go env` reports for the variables the build keys on (`GOFLAGS`, `GOOS`, `CGO_ENABLED`, the C toolchain's commands by content, GOROOT by content, and the others), and cgo's external toolchain variables.
 
-  The sources are read on every call. Reading the environment costs a `go env` run and a GOROOT walk, so under `process.env` the process keeps its reading per directory and set of variables, and only while every path the reading depended on that no variable carries keeps the metadata it had before the read: the Go tool, the file `go env -w` writes, the executables the C toolchain commands name, and GOROOT. A toolchain replaced in place or a `go env -w` is therefore read at the next call. `options.env` reads it fresh under another environment. It throws when a listed file cannot be read, as the build would.
+  The sources are read on every call. Reading the environment costs a `go env` run and a GOROOT walk. Under `process.env`, the process keeps that reading per directory and set of variables while its witnesses still match: the Go tool, the file `go env -w` writes, the C toolchain executables and GOROOT.
+
+  Changed witness metadata triggers a fresh reading at the next call. This requires edits to alter the captured identity or timestamps; reproducing the entire metadata signature falls outside that proof. `options.env` requests a fresh reading under the supplied environment. An unreadable listed file throws, as it would during a build.
 
 - `pluginSourceStateHolds(directory, state, options?)` tells whether a state still holds. It compares under the process's reading of the environment, which follows a changed toolchain as `pluginSourceState` describes, and when the state still does not match it reads the environment again before it refutes the state, so a consumer never keeps refuting output its own compiler just built from a fresh read. Prove a reported state with this rather than by comparing `pluginSourceState`. `options.sourceDigest` hands over the sources' digest from a reading the host can vouch for, which the proof then does not read again.
 - `processPluginBuildEnvironment(directory, refresh?)` returns this process's reading of the environment a build in the directory is keyed on, the one `pluginSourceState` combines with the sources. A host that skips re-proving a plugin source while its watcher stays silent compares this reading too, since a watcher over the sources never sees the toolchain outside them; `@ttsc/unplugin` records it beside each source directory it proved. `refresh` reads it again rather than reusing the kept reading.
@@ -309,7 +323,7 @@ const bare = new TtscCompiler({ cwd, plugins: false });
 // Run the project with a different plugin set than the tsconfig requests.
 const lintOnly = new TtscCompiler({
   cwd,
-  plugins: [{ name: "@ttsc/lint" }],
+  plugins: [{ transform: "@ttsc/lint" }],
 });
 ```
 
