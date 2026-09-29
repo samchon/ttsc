@@ -35,7 +35,7 @@ type plugin struct{}
 // Embedded bodies become source-located empty statements so required body
 // slots remain present, while retained AST nodes keep their identity.
 func (plugin) ApplyProgram(prog *driver.Program, ctx driver.PluginContext) error {
-  config, err := loadStripConfigMapWithReporters(ctx.Entry.Config, ctx.Cwd, ctx.Tsconfig, ctx.ReportHostInput, ctx.ReportHostInputHash, ctx.ReportHostInputRealpath)
+  config, err := loadStripConfigMapWithReporters(ctx.Entry.Config, ctx.Cwd, ctx.Tsconfig, ctx.ReportHostInput, ctx.ReportHostInputHash, ctx.ReportHostInputRealpath, ctx.ReportObservationIncomplete)
   if err != nil {
     return err
   }

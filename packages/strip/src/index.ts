@@ -44,8 +44,9 @@ export type { ITtscStripConfig } from "./structures/ITtscStripConfig";
  *   native contract values, not fixture answers. Discovery reads owned
  *   observations without foreign mutation or test-only branches.
  *
- *   Shared native config evaluation still uses the resolution recorder's
- *   private fallback, which remains an unresolved owning-layer concern.
+ *   Shared native config evaluation uses public resolution hooks. When those
+ *   hooks cannot cover resolution, it reports incomplete observations so the
+ *   consumer withdraws reuse rather than patching a private resolver.
  *
  * @evidence contracts/portability.md#os-neutral-implementation
  *   node:path resolves explicit paths, host anchors, ancestors and the

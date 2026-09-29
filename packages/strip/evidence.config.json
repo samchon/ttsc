@@ -29,6 +29,7 @@
       "files": [
         "driver/**/*.go",
         "plugin/**/*.go",
+        "!**/*_test.go",
         "!driver/config.go",
         "!plugin/main.go"
       ],
