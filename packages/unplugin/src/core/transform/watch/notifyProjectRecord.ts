@@ -52,6 +52,10 @@ const HANDED = new WeakMap<
  * module are added to the same generation's input set. Only that expansion
  * replaces the watching snapshot and requires another write at each host.
  *
+ * A fresh-only result with unavailable host observations has no complete
+ * dependency closure to put in a record. It returns false without writing or
+ * handing over an older record; its delivery marks the host cache volatile.
+ *
  * The record's path is the host root's, while a generation is the cache's,
  * and one cache can reach hosts
  * whose roots differ: a caller of `transformTtsc` can hand one cache to hosts
@@ -96,7 +100,7 @@ const HANDED = new WeakMap<
  *
  * @evidence contracts/common.md#principled-implementation Generation observations are retained by lexical input spelling and extended with new routing inputs; each host record is reusable only for the same evidenced snapshot, and bridge registrations receive a new array when that snapshot expands.
  * @evidence contracts/common.md#clear-and-simple-design One generation-owned handoff state separates evidenced inputs, watching snapshot and per-record written version; record serialization and unrecorded host-byte capture remain private helpers.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts The fallback directory is an explicit host capability, not an arbitrary retry location; unwritten existing records carry no current digest and missing records preserve the supported volatility or watching error path.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts A fresh-only result cannot manufacture persistent proof from current bytes or an older record; fallback remains an explicit host capability, and other unwritten or missing records preserve the supported volatility or watching error path.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain snapshot expansion, host roots, write-before-registration, fallback and watching failure; parameters and separated tags follow documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Record paths come from host-owned directories and actual write/existence outcomes; observation identities use the shared native filesystem context without OS-wide permission or case assumptions.
  * @evidence contracts/performance.md#efficient-algorithms Generation facts are mapped once; each delivery checks O(S) selection spellings and copies O(U) inputs only when the set expands, then serializes a record only for a new snapshot or unsuccessful write.
@@ -110,6 +114,9 @@ export function notifyProjectRecord(
   inputs: () => readonly TtscWatchInput[],
   additionalInputs: readonly TtscWatchInput[] = [],
 ): boolean {
+  // A fresh-only result has no complete dependency closure to persist. A
+  // current read cannot manufacture the evaluation-time facts it lacks.
+  if (cached.freshDeliveryOnly === true) return false;
   let handed = HANDED.get(cached);
   if (handed === undefined) {
     const identities = createHostPathIdentityContext();

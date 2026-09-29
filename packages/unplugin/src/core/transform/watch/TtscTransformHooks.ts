@@ -14,9 +14,9 @@ import type { TtscWatchInputEvidence } from "./TtscWatchInputEvidence";
  *   the whole project, so a module's output is a function of the project's
  *   state and of nothing finer, and the record is that state as one file.
  *
- * @evidence contracts/common.md#principled-implementation Optional module callbacks and project registration represent the host's two dependency models, with membership and volatility retaining information a simple file list cannot express.
+ * @evidence contracts/common.md#principled-implementation Optional module callbacks and project registration represent the host's dependency models; explicit delivery lifecycle and actual cache withdrawal additionally distinguish a one-shot fresh-only answer from unsupported watching or unknown observation capability.
  * @evidence contracts/common.md#clear-and-simple-design Named callback signatures preserve function-property variance and leave registration policy with the host rather than introducing a second host abstraction.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Hosts use explicit callbacks and tool-directory capabilities, not mutation of bundler internals or fabricated file dependencies for volatile output.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Hosts supply actual lifecycle and cache-withdrawal capabilities rather than guessed watch modes, no-op permission callbacks, bundler mutation or fabricated dependencies for an unknown input closure.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish module and project hosts, recovery batches, unwritable records and volatility; spaced member comments and separated tags follow documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Absolute native watch spellings and host-owned tool directories cross this explicit boundary; no OS name or fixed directory determines their capabilities.
  */
@@ -54,6 +54,15 @@ export interface TtscTransformHooks {
   membership?: boolean;
 
   /**
+   * Actual delivery lifecycle reported by the adapter. False identifies a
+   * one-shot execution; true identifies watching, and absence leaves it
+   * unknown. Fresh output with unavailable observations requires false plus
+   * a supported cache-withdrawal callback. When project.watching is supplied,
+   * both declarations must agree for that admission.
+   */
+  watching?: boolean;
+
+  /**
    * A build host's registration: the transform writes the project's record
    * below `toolDirectory` (`projectRecordFile`) to the generation's state and
    * hands it over once per delivery, with the generation's inputs for a
@@ -87,7 +96,8 @@ export interface TtscTransformHooks {
    * Invoked when the module's output depends on inputs no file-dependency
    * snapshot of the module represents: the plugin declared the transformed file
    * volatile (the envelope's `volatile` list), or the module was handed over
-   * without the project's record, which could not be written. Adapters should
+   * without a complete host-observation closure, or without the project's record,
+   * which could not be written. Adapters should
    * mark the module uncacheable where the bundler exposes that control (e.g. a
    * webpack loader context's `cacheable(false)`), or answer the bundler's cache
    * for it where the bundler asks instead (Rollup's

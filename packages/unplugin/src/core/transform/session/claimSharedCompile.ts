@@ -437,6 +437,12 @@ function isPublicationResult(value: unknown): boolean {
     !isPublicationRecord(value.typescript) ||
     !Object.values(value.typescript).every((source) => typeof source === "string"))
     return false;
+  // Neither an explicit incomplete observer nor failed per-input authority can
+  // certify cross-worker reuse. Unsupported marker shapes are not ignored.
+  if (value.observationsComplete !== undefined ||
+    (value.hostInputProofFailures !== undefined &&
+      (!isPublicationRecord(value.hostInputProofFailures) ||
+        Object.keys(value.hostInputProofFailures).length !== 0))) return false;
   if (value.diagnostics !== undefined) {
     if (!Array.isArray(value.diagnostics) ||
       !value.diagnostics.every((diagnostic) =>

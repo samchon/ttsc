@@ -26,6 +26,7 @@ import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
  *
  * @param cached The generation being validated.
  * @param validation Its universal-input manifest.
+ *
  * @evidence contracts/common.md#principled-implementation Source state is qualified together with the Go build environment; tracker silence proves source files only, so changed environment requires the owning plugin-source proof.
  * @evidence contracts/common.md#clear-and-simple-design One validator delegates binary-state semantics to ttsc and records the environment each successful tree proof saw.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A quiet source watcher cannot certify an external toolchain, and unreadable sources cannot become empty successful state.

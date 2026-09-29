@@ -679,11 +679,12 @@ export async function captureTransformGeneration(props: {
     // waiter compile.
     if (sharedClaim !== undefined) {
       if (
-        result.type === "success"
+        result.type !== "exception" &&
+        result.observationsComplete !== false &&
+        Object.keys(result.hostInputProofFailures ?? {}).length === 0 &&
+        (result.type === "success"
           ? stableProjectSnapshot
-          : result.type === "failure" &&
-            walkStable &&
-            externalInputSnapshot.dependenciesProven
+          : walkStable && externalInputSnapshot.dependenciesProven)
       ) {
         await sharedClaim.publish({
           externalInputHashes: externalInputSnapshot.hashes,

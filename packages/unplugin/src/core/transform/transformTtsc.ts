@@ -10,6 +10,7 @@ import { TRANSFORM_RESULT_FILESYSTEM } from "./cache/TRANSFORM_RESULT_FILESYSTEM
 import type { TtscTransformCache } from "./cache/TtscTransformCache";
 import { awaitOrEvict } from "./cache/awaitOrEvict";
 import { createTransformCacheKey } from "./cache/createTransformCacheKey";
+import { disposeCachedTransform } from "./cache/disposeCachedTransform";
 import { evictGeneration } from "./cache/evictGeneration";
 import { replaysTerminalGeneration } from "./cache/replaysTerminalGeneration";
 import { selectOrEvict } from "./cache/selectOrEvict";
@@ -50,6 +51,10 @@ import { notifyWatchInputs } from "./watch/notifyWatchInputs";
  * content comparisons establish that permission; a matching cache key alone
  * does not.
  *
+ * Output admitted only for its fresh delivery also requires an explicitly
+ * nonwatching host and a supported host-cache withdrawal callback. Unknown or
+ * watching lifecycles cannot observe the missing input closure safely.
+ *
  * Returns `undefined` when no transform is needed (declaration files, virtual
  * modules, disabled plugins, or source unchanged after transform).
  *
@@ -67,13 +72,14 @@ import { notifyWatchInputs } from "./watch/notifyWatchInputs";
  * @param hooks - Optional adapter callbacks; see {@link TtscTransformHooks}.
  *   Dependency notifications fire on cache hits too; watch registrations are
  *   per build, not per compilation.
- * @evidence contracts/common.md#principled-implementation Project selection and generation-qualified cache admission preserve compiler disk authority; current outputs, terminal failures, unsupported wrappers and missing module outputs keep distinct supported outcomes.
+ *
+ * @evidence contracts/common.md#principled-implementation Project selection and generation-qualified cache admission preserve compiler disk authority; fresh-only success additionally needs an explicit nonwatching lifecycle, coherent project declaration and actual host-cache withdrawal, because incomplete observation cannot support watch invalidation.
  * @evidence contracts/common.md#clear-and-simple-design One delivery coordinator composes project selection, cache admission, compilation, output selection and host notifications; dedicated owners handle proof and lifetime internals.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Wrapper modules cannot poison source baselines, incomplete generations cannot bypass proof, and losing an old Promise race retries the actual authoritative cache entry rather than deleting its replacement.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Wrapper modules cannot poison source baselines and incomplete generations cannot authorize reuse; a separately admitted fresh-only result is evicted before capability checks, unknown or watching lifecycles fail explicitly, and unsupported withdrawal cannot be replaced by a fake record or guessed dependency closure.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs and argument tags explain project scope, no-transform outcomes, cache epochs and per-build notification responsibilities with links to maintained reference context.
  * @evidence contracts/performance.md#efficient-algorithms Each admission iteration selects or validates one project generation; in-flight or valid completed reuse avoids repeated compilation, while validation cost follows the actual required input population.
  * @evidence contracts/performance.md#reuse-equivalent-work Cache identity covers config/options/plugins/aliases; current generations, pass-qualified terminal verdicts and in-flight Promises are shared only while their source and dependency proof remains valid.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The cache owns current generations and workers; delivery registers no independent history, withdraws untrusted notifications and delegates eviction/attempt cleanup to generation owners, with retries possible under continued concurrent invalidation.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The cache owns current generations and workers; fresh-only delivery evicts and releases its generation even when a callback later throws, untrusted notifications are withdrawn, and other eviction/attempt cleanup stays with generation owners.
  * @evidence contracts/portability.md#os-neutral-implementation Native module paths and project coordinates use supported path/filesystem abstractions, while actual case policy and watcher capability come from generation proof rather than OS-name assumptions.
  */
 export async function transformTtsc(
@@ -300,6 +306,27 @@ export async function transformTtsc(
       }
     }
     const { projectRoot, result } = cached;
+    if (cached.freshDeliveryOnly === true) {
+      // This delivery owns a newly compiled answer, but unavailable observer
+      // authority cannot certify any later resident or host-cache delivery.
+      // Eviction schedules resource release even if a host callback throws.
+      if (cache === undefined) disposeCachedTransform(cached);
+      else evictGeneration(cache, key, generation);
+      if (
+        result.type === "success" &&
+        (hooks?.watching !== false ||
+          hooks.markVolatile === undefined ||
+          (hooks.project?.watching !== undefined &&
+            hooks.project.watching !== hooks.watching))
+      ) {
+        throw new Error(
+          "@ttsc/unplugin: plugin input observation is unavailable; fresh output " +
+            "requires an explicitly nonwatching host with supported cache withdrawal. " +
+            "Watching, unknown or contradictory lifecycles cannot safely observe its changes.",
+        );
+      }
+      hooks?.markVolatile?.();
+    }
     reportSuccessDiagnostics(cached, epoch);
     let output: TtscTransformedOutput;
     try {

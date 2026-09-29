@@ -203,6 +203,14 @@ export interface TtscCachedProjectTransform {
    */
   projectSnapshotComplete?: boolean;
 
+  /**
+   * A locally admitted answer with incomplete host observations cannot be
+   * retained for resident, shared or persistent reuse. Successful answers need
+   * only explicit unavailable observations; diagnostic admission keeps its
+   * existing current-verdict policy. This flag never grants admission itself.
+   */
+  freshDeliveryOnly?: boolean;
+
   /** Absolute path to the directory that owns the tsconfig. */
   projectRoot: string;
 

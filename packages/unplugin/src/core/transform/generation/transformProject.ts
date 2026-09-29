@@ -64,9 +64,16 @@ const TRANSFORM_GENERATION_ATTEMPTS = 2;
  * policy is taken again under the one the compile reported
  * (samchon/ttsc#1545).
  *
- * @evidence contracts/common.md#principled-implementation Each capture must establish config coherence plus reusable success proof or a still-current diagnostic verdict; learned compile facts and refuted publications have distinct retry premises, while movement and absolute attempt caps ensure termination.
+ * A local success whose only lost premise is explicitly unavailable host
+ * observation may qualify for its initiating delivery. The delivery coordinator
+ * additionally requires an explicitly nonwatching host with cache-withdrawal
+ * capability. It remains incomplete and cannot authorize resident, shared or
+ * persistent caching. Actual changes, conflicts and unexplained missing proof
+ * retain the stabilization gate.
+ *
+ * @evidence contracts/common.md#principled-implementation Each capture establishes config coherence and reusable success proof or a current diagnostic verdict; a local stable success with only explicit unavailable host observations instead transfers one fresh delivery without reuse authority, while mixed mutation, missing or conflicting proof retains retry admission.
  * @evidence contracts/common.md#clear-and-simple-design The loop owns attempt classification and resource handoff, while capture owns proof construction and the shared error builder owns terminal rendering and final disposal.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Retrying follows actual newly learned dependencies/case policy or refuted publication state rather than an endless workaround chain; failed proof never becomes a reusable success through reaching the attempt bound.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Retrying follows learned dependencies/case policy or refuted publication state rather than an endless workaround chain; only lossless producer-authorized observation unavailability can permit a local fresh answer, and it never becomes a reusable success or excuses actual mutation.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain movement versus absolute budgets, failed-compile diagnostics and learned facts; separated props state delivery, tracking and inherited witness meaning.
  * @evidence contracts/portability.md#os-neutral-implementation Each capture delegates native filesystem and compiler behavior to injected host boundaries; reported compiler case policy is carried between attempts rather than guessed from OS names.
  * @evidence contracts/performance.md#efficient-algorithms At most twice the two-movement bound captures occur, reusing witnessed dependency paths and learned case policy; a successful or current diagnostic capture returns immediately.
@@ -147,6 +154,15 @@ export async function transformProject(props: {
       witnessedDependencies: [...witnessed],
     });
     if (
+      cached.result.type === "failure" &&
+      (cached.result.observationsComplete === false ||
+        Object.keys(cached.result.hostInputProofFailures ?? {}).length !== 0)
+    ) {
+      // Diagnostics still follow the existing current-verdict admission below,
+      // but incomplete host observations cannot authorize pass verdict reuse.
+      cached.freshDeliveryOnly = true;
+    }
+    if (
       cached.configStateComplete !== false &&
       (cached.result.type === "success"
         ? cached.projectSnapshotComplete === true
@@ -157,6 +173,22 @@ export async function transformProject(props: {
     const failures =
       TRANSFORM_GENERATION_FAILURES.get(cached.result) ??
       createGenerationProofFailures();
+    if (
+      cached.result.type === "success" &&
+      cached.configStateComplete === true &&
+      cached.projectHeldStill === true &&
+      !TRANSFORM_ADOPTED_RESULTS.has(cached.result) &&
+      failures.omitted === 0 &&
+      failures.entries.length !== 0 &&
+      failures.entries.every(
+        (failure) =>
+          failure.domain === "host" &&
+          failure.kind === "observation-unavailable",
+      )
+    ) {
+      cached.freshDeliveryOnly = true;
+      return cached;
+    }
     attempts.push(failures);
     for (const dependency of cached.externalDependencyInputs ?? []) {
       witnessed.add(dependency);

@@ -51,6 +51,7 @@ export function matchesCachedSource(
   source: string,
   epoch: number | undefined,
 ): boolean {
+  if (cached.freshDeliveryOnly === true) return false;
   const identities = envelopeDerivation(cached).identityContext;
   const currentKey = toProjectKey(cached.projectRoot, file, identities);
   const identity = pathIdentityKey(file, identities);

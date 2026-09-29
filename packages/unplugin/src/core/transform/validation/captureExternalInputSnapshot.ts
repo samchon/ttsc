@@ -45,6 +45,7 @@ import type { TtscExternalDependencyWitness } from "./TtscExternalDependencyWitn
  * @param witness The dependency states read before the compile, or `undefined`
  *   for an adopted compile, whose publisher already proved the state it
  *   published and whose adopter matches it against that publication.
+ *
  * @evidence contracts/common.md#principled-implementation Compiler predicates qualify realized graph sources; plugin-only dependencies require a stable precompile witness, so postcompile reads cannot invent an earlier coherent state.
  * @evidence contracts/common.md#clear-and-simple-design One capture separates predicate observations, content identities and dependency witnesses while shared codec helpers own their native meanings.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing or conflicting compiler proof remains an explicit failure; neither a new host read nor a guessed dependency baseline repairs it.
