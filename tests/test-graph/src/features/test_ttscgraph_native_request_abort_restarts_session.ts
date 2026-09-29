@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import path from "node:path";
+
 import {
   createNativeSessionFixture,
   processIsAlive,
@@ -13,7 +16,8 @@ import { assert } from "../internal/ttsgraph";
  * that process can still emit the cancelled frame and its protocol position is
  * no longer trusted. The same reset path as timeout must be used.
  *
- * 1. Start a first-process-only hanging fake and wait until it is resident.
+ * 1. Start a first-process-only hanging fake and wait until it has claimed that
+ *    role. A PID is written earlier and alone does not prove readiness.
  * 2. Abort the active graph call and assert a cancellation error.
  * 3. Assert the old child exits and a later graph call succeeds on a replacement.
  */
@@ -25,7 +29,12 @@ export const test_ttscgraph_native_request_abort_restarts_session =
     try {
       const controller = new AbortController();
       const cancelled = session.graph({ signal: controller.signal });
-      await waitFor(() => readPids(root).length === 1, "first child start");
+      await waitFor(
+        () =>
+          readPids(root).length === 1 &&
+          fs.existsSync(path.join(root, "first.marker")),
+        "first child claim",
+      );
       const firstPid = readPids(root)[0]!;
       controller.abort({
         toString(): string {
