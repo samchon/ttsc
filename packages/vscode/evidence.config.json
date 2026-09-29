@@ -5,7 +5,10 @@
       "name": "maintained TypeScript production declarations",
       "type": "typescript",
       "files": [
-        "src/**/*.ts"
+        "src/**/*.ts",
+        "!src/commandEdits.ts",
+        "!src/serverResolution.ts",
+        "!src/extension.ts"
       ],
       "symbol": [
         "type",
@@ -15,6 +18,49 @@
         "type": "markdown",
         "files": [
           "contracts/common.md"
+        ],
+        "symbol": "h2",
+        "checklist": true,
+        "root": "../../.agents/skills"
+      }
+    },
+    {
+      "name": "native filesystem and process boundaries",
+      "type": "typescript",
+      "files": [
+        "src/serverResolution.ts",
+        "src/extension.ts"
+      ],
+      "symbol": [
+        "type",
+        "function"
+      ],
+      "reference": {
+        "type": "markdown",
+        "files": [
+          "contracts/common.md",
+          "contracts/platform.md"
+        ],
+        "symbol": "h2",
+        "checklist": true,
+        "root": "../../.agents/skills"
+      }
+    },
+    {
+      "name": "command edit validation",
+      "type": "typescript",
+      "files": [
+        "src/commandEdits.ts"
+      ],
+      "symbol": [
+        "type",
+        "function"
+      ],
+      "reference": {
+        "type": "markdown",
+        "files": [
+          "contracts/common.md",
+          "contracts/editing.md"
         ],
         "symbol": "h2",
         "checklist": true,
