@@ -72,6 +72,7 @@ jobs:
         run: pnpm run build
         env:
           TTSC_PLATFORM_BUILD_WORKERS: 2
+          TTSC_PACKAGE_BUILD_WORKERS: 2
 
       - name: Smoke release-candidate ttscgraph snapshot
         run: node scripts/assert-ttscgraph-release-candidate.cjs

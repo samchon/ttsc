@@ -3,6 +3,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { runIndependent } = require("./ci/run-independent.cjs");
+const { buildDependencies, runBuildPlan } = require("./build-current.cjs");
 
 const root = path.resolve(__dirname, "..");
 const packagesDir = path.join(root, "packages");
@@ -40,14 +41,26 @@ async function main() {
   const workers = Number(process.env.TTSC_PLATFORM_BUILD_WORKERS ?? 1);
   if (!Number.isSafeInteger(workers) || workers < 1)
     throw new Error("TTSC_PLATFORM_BUILD_WORKERS must be a positive integer");
-  for (const packageName of PACKAGE_BUILDS_BEFORE_PLATFORMS) {
-    run(["--filter", packageName, "build"]);
+  const packageWorkers = Number(process.env.TTSC_PACKAGE_BUILD_WORKERS ?? 1);
+  if (!Number.isSafeInteger(packageWorkers) || packageWorkers < 1)
+    throw new Error("TTSC_PACKAGE_BUILD_WORKERS must be a positive integer");
+  const packageFailures = await runBuildPlan(
+    PACKAGE_BUILDS_BEFORE_PLATFORMS,
+    buildDependencies(PACKAGE_BUILDS_BEFORE_PLATFORMS),
+    buildPackage,
+    packageWorkers,
+  );
+  if (packageFailures.length) {
+    console.error(`Failed package builds: ${packageFailures.join(", ")}`);
+    process.exitCode = 1;
+    return;
   }
 
   const failed = await finishPlatformBuilds(
     listPlatformPackageDirs(),
     (platformDir) =>
       new Promise((resolve) => {
+        const started = process.hrtime.bigint();
         console.log(`Building platform package: ${path.basename(platformDir)}`);
         const child = cp.spawn(
           process.execPath,
@@ -60,12 +73,20 @@ async function main() {
               ...process.env,
               GOMAXPROCS:
                 process.env.GOMAXPROCS ??
-                String(Math.max(1, Math.floor(os.availableParallelism() / workers))),
+                String(
+                  Math.max(1, Math.floor(os.availableParallelism() / workers)),
+                ),
             },
           },
         );
         child.on("error", (error) => console.error(error));
-        child.on("close", (code) => resolve(code ?? 1));
+        child.on("close", (code) => {
+          const seconds = Number(process.hrtime.bigint() - started) / 1e9;
+          console.log(
+            `Platform build finished: ${path.basename(platformDir)}: ${code === 0 ? "passed" : "FAILED"} in ${seconds.toFixed(1)} s`,
+          );
+          resolve(code ?? 1);
+        });
       }),
     path.join(packagesDir, `ttsc-${process.platform}-${process.arch}`),
     () => {
@@ -80,6 +101,26 @@ async function main() {
     );
     process.exitCode = 1;
   }
+}
+
+function buildPackage(packageName) {
+  const started = process.hrtime.bigint();
+  console.log(`Building package: ${packageName}`);
+  return new Promise((resolve) => {
+    const child = cp.spawn(...pnpmCommand(["--filter", packageName, "build"]), {
+      cwd: root,
+      stdio: "inherit",
+      windowsHide: true,
+    });
+    child.on("error", (error) => console.error(error));
+    child.on("close", (code) => {
+      const seconds = Number(process.hrtime.bigint() - started) / 1e9;
+      console.log(
+        `Package build finished: ${packageName}: ${code === 0 ? "passed" : "FAILED"} in ${seconds.toFixed(1)} s`,
+      );
+      resolve(code ?? 1);
+    });
+  });
 }
 
 function run(args) {
