@@ -9,7 +9,7 @@ import { loadTypiaSourcePack } from "./loadTypiaSourcePack";
  * the same code the published package uses.
  *
  * Repeated calls write the same loaded records again; this restores any entries
- * the caller removed from the virtual host and preserves existing file values.
+ * the caller removed from the virtual host and replaces values at pack paths.
  *
  * @evidence contracts/common.md#principled-implementation Source-pack entries are written under the selected virtual mount root after the shared transport completes; the pack is a site-produced trusted record map.
  * @evidence contracts/common.md#clear-and-simple-design Loading is delegated and this operation owns only root creation and entry writes.

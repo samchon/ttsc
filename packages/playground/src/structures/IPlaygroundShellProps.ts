@@ -58,8 +58,8 @@ export interface IPlaygroundShellProps {
    * button; on click it calls `service.bundle(...)` to get the JS and passes it
    * here. The returned messages are appended to the Console pane.
    *
-   * `sandbox.runtimeFiles` is the accumulated runtime-file map produced by
-   * every `installPlaygroundDependencies` call so far in this session
+   * `sandbox.runtimeFiles` is the current runtime-file map produced by
+   * dependency installation in this session
    * (package-rooted keys like `uuid/dist/index.js`). The site's executeBundle
    * typically merges these on top of its own typia-runtime pack and feeds the
    * union to `createSandboxRequire` — without this channel the in-page Execute
