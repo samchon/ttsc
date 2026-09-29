@@ -91,6 +91,7 @@ try {
     TTSC_TTSX_BINARY: ttsxBinary,
     TTSC_PRETTIER_MODULE: process.env.TTSC_PRETTIER_MODULE ?? prettierModule,
     TTSC_LINT_CORPUS_MANIFEST: path.join(corpusScratch, "corpus.json"),
+    TTSC_LINT_FORMAT_FIXTURES: path.join(root, "tests", "test-lint", "fixtures", "format-projects"),
   };
   const prepared = cp.spawnSync(process.execPath, [
     "--import", pathToFileURL(path.join(root, "scripts", "register-typescript-loader.mjs")).href,

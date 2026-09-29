@@ -56,6 +56,7 @@ jobs:
         run: pnpm run build:current
         env:
           TTSC_BUILD_SCOPE: full
+          TTSC_CACHE_DIR: ${{ env.TTSC_TEST_CACHE_DIR }}
       - name: Unit and integration validation
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: node scripts/ci/run-validation-group.cjs --lanes=all --concurrency=2
