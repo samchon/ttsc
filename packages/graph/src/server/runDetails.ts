@@ -46,7 +46,7 @@ const CONTAINER_KINDS = new Set<ITtscGraphNode["kind"]>([
  * @evidence contracts/common.md#clear-and-simple-design Shape, relationship and source-display helpers each own one projection while this function assembles the selected details envelope.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown and ambiguous handles are not converted to guessed declarations; capped members withdraw the corresponding completeness audit.
  * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes declared shape from implementation bodies; helper documentation explains member, reference and citation limits.
- * @evidence contracts/performance.md#efficient-algorithms Each handle uses the shared resolver, whose dotted-suffix fallback may scan V nodes; resolved relationships use indexed adjacency and cost O(D log D) to rank D candidate edges before the cap, while member/literal output scales with the declaration's own members.
+ * @evidence contracts/performance.md#efficient-algorithms Each handle uses the shared resolver, whose dotted-suffix fallback may scan V nodes; resolved relationships inspect D incident edges and retain only K ranked references in O(DK) time and O(K) temporary space, where K is at most four, while member/literal output scales with the declaration's own members.
  * @evidence contracts/performance.md#reuse-equivalent-work The graph shares generation indexes and source-line adjudications across handles and requests; this call builds fresh caller-owned projections because request limits and selected handles differ.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Detail, ambiguity and unknown arrays live for this request and transfer to its caller; no query history or native handle is retained by this operation.
  */
@@ -296,7 +296,8 @@ function refs(
   limit: number,
   includeExternal: boolean,
 ): ITtscGraphDetails.IReference[] {
-  const ranked: Array<{ ref: ITtscGraphDetails.IReference; rank: number }> = [];
+  const ranked: RankedReference[] = [];
+  let order = 0;
   for (const edge of edges) {
     if (STRUCTURAL_KINDS.has(edge.kind)) continue;
     const other = graph.node(end === "to" ? edge.to : edge.from);
@@ -312,13 +313,9 @@ function refs(
     if (other.evidence?.startLine) ref.line = other.evidence.startLine;
     const evidence = edgeEvidenceOf(edge);
     if (evidence !== undefined) ref.evidence = evidence;
-    ranked.push({ ref, rank: refRank(ref, edge) });
+    retainRanked(ranked, { ref, rank: refRank(ref, edge), order: order++ }, limit);
   }
-  // Ranked so a caller that does throttle (the tour) keeps the strongest refs,
-  // not the ones nearest the top of a file. Uncapped, `limit` is Infinity and
-  // the sort is just a stable order.
-  ranked.sort((a, b) => a.rank - b.rank);
-  return ranked.map((item) => item.ref).slice(0, limit);
+  return ranked.map((item) => item.ref);
 }
 
 const executionKinds = new Set([
@@ -337,7 +334,8 @@ function dependencyRefs(
   limit: number,
   includeExternal: boolean,
 ): ITtscGraphDetails.IReference[] {
-  const ranked: Array<{ ref: ITtscGraphDetails.IReference; rank: number }> = [];
+  const ranked: RankedReference[] = [];
+  let order = 0;
   for (const edge of graph.outgoing(node.id)) {
     if (!kinds.has(edge.kind)) continue;
     const other = graph.node(edge.to);
@@ -354,12 +352,14 @@ function dependencyRefs(
     if (other.evidence?.startLine) ref.line = other.evidence.startLine;
     const evidence = edgeEvidenceOf(edge);
     if (evidence !== undefined) ref.evidence = evidence;
-    ranked.push({
-      ref,
-      rank: refRank(ref, edge),
-    });
+    retainRanked(
+      ranked,
+      { ref, rank: refRank(ref, edge), order: order++ },
+      limit,
+      true,
+    );
   }
-  return rankedRefs(ranked, limit);
+  return ranked.map((item) => item.ref);
 }
 
 function incomingDependencyRefs(
@@ -369,7 +369,8 @@ function incomingDependencyRefs(
   limit: number,
   includeExternal: boolean,
 ): ITtscGraphDetails.IReference[] {
-  const ranked: Array<{ ref: ITtscGraphDetails.IReference; rank: number }> = [];
+  const ranked: RankedReference[] = [];
+  let order = 0;
   for (const edge of graph.incoming(node.id)) {
     if (!kinds.has(edge.kind)) continue;
     const other = graph.node(edge.from);
@@ -385,30 +386,52 @@ function incomingDependencyRefs(
     if (other.evidence?.startLine) ref.line = other.evidence.startLine;
     const evidence = edgeEvidenceOf(edge);
     if (evidence !== undefined) ref.evidence = evidence;
-    ranked.push({
-      ref,
-      rank: refRank(ref, edge),
-    });
+    retainRanked(
+      ranked,
+      { ref, rank: refRank(ref, edge), order: order++ },
+      limit,
+      true,
+    );
   }
-  return rankedRefs(ranked, limit);
+  return ranked.map((item) => item.ref);
 }
 
-/** Sort by rank, drop duplicate (relation, id) pairs, and cut to `limit`. */
-function rankedRefs(
-  ranked: Array<{ ref: ITtscGraphDetails.IReference; rank: number }>,
+interface RankedReference {
+  ref: ITtscGraphDetails.IReference;
+  rank: number;
+  order: number;
+}
+
+/** Keep the best capped references in stable score order as edges arrive. */
+function retainRanked(
+  ranked: RankedReference[],
+  candidate: RankedReference,
   limit: number,
-): ITtscGraphDetails.IReference[] {
-  ranked.sort((a, b) => a.rank - b.rank);
-  const out: ITtscGraphDetails.IReference[] = [];
-  const seen = new Set<string>();
-  for (const item of ranked) {
-    const key = `${item.ref.relation}:${item.ref.id}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(item.ref);
-    if (out.length >= limit) break;
+  deduplicate = false,
+): void {
+  if (deduplicate) {
+    const duplicate = ranked.findIndex(
+      (item) =>
+        item.ref.relation === candidate.ref.relation &&
+        item.ref.id === candidate.ref.id,
+    );
+    if (duplicate >= 0) {
+      if (ranked[duplicate]!.rank <= candidate.rank) return;
+      ranked.splice(duplicate, 1);
+    }
   }
-  return out;
+  const position = ranked.findIndex(
+    (item) =>
+      candidate.rank < item.rank ||
+      (candidate.rank === item.rank && candidate.order < item.order),
+  );
+  if (position < 0) {
+    if (ranked.length < limit) ranked.push(candidate);
+    return;
+  }
+  if (position >= limit) return;
+  ranked.splice(position, 0, candidate);
+  if (ranked.length > limit) ranked.pop();
 }
 
 /**
