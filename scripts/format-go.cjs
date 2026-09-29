@@ -42,7 +42,9 @@ function resolveBash() {
     if (parent === installation) break;
     installation = parent;
   }
-  throw new Error(`Git Bash and Perl were not found above ${git.stdout.trim()}`);
+  throw new Error(
+    `Git Bash and Perl were not found above ${git.stdout.trim()}`,
+  );
 }
 
 /** Retry only an OS argument-limit failure by dividing its exact file list. */
@@ -51,7 +53,12 @@ function formatBatches(files, execute) {
   const visit = (batch) => {
     if (batch.length === 0) return;
     const result = execute(batch);
-    if (result.error?.code === "E2BIG" && batch.length > 1) {
+    // Windows reports its command-line limit as ENAMETOOLONG; POSIX uses E2BIG.
+    if (
+      (result.error?.code === "E2BIG" ||
+        result.error?.code === "ENAMETOOLONG") &&
+      batch.length > 1
+    ) {
       const middle = Math.floor(batch.length / 2);
       visit(batch.slice(0, middle));
       visit(batch.slice(middle));
@@ -65,11 +72,15 @@ function formatBatches(files, execute) {
 }
 
 if (require.main === module) {
-  const listed = childProcess.spawnSync("git", ["ls-files", "-z", "--", "*.go"], {
-    cwd: root,
-    encoding: "utf8",
-    windowsHide: true,
-  });
+  const listed = childProcess.spawnSync(
+    "git",
+    ["ls-files", "-z", "--", "*.go"],
+    {
+      cwd: root,
+      encoding: "utf8",
+      windowsHide: true,
+    },
+  );
   if (listed.error || listed.status !== 0) {
     throw listed.error ?? new Error(`git ls-files failed: ${listed.stderr}`);
   }

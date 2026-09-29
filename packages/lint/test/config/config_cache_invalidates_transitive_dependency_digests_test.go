@@ -348,11 +348,12 @@ module.exports = { rules: {} };`)
 const { registerHooks } = require("node:module");
 const { pathToFileURL } = require("node:url");
 const dependency = `+strconv.Quote(abaDependency)+`;
+const dependencyURL = pathToFileURL(fs.realpathSync(dependency)).href;
 const before = `+strconv.Quote(beforeModule)+`;
 const during = `+strconv.Quote(duringModule)+`;
 registerHooks({
   load(url, context, nextLoad) {
-    if (url !== pathToFileURL(dependency).href) return nextLoad(url, context);
+    if (url !== dependencyURL) return nextLoad(url, context);
     fs.writeFileSync(dependency, during, "utf8");
     try { return nextLoad(url, context); }
     finally { fs.writeFileSync(dependency, before, "utf8"); }
@@ -373,7 +374,7 @@ module.exports = () => require(dependency);`)
   var abaFingerprint *configDependencyFingerprint
   for index := range abaEvaluation.dependencyDigests {
     dependency := &abaEvaluation.dependencyDigests[index]
-    if dependency.Kind == configDependencyFile && dependency.Path == abaDependency {
+    if dependency.Kind == configDependencyFile && sameConfigTestPath(dependency.Path, abaDependency) {
       abaFingerprint = dependency
       break
     }

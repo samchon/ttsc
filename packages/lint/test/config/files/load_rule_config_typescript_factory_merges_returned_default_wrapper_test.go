@@ -81,7 +81,7 @@ func TestLoadRuleConfigTypeScriptFactoryMergesReturnedDefaultWrapper(t *testing.
   } {
     found := false
     for _, actual := range paths {
-      if filepath.Clean(actual) == filepath.Clean(expected) {
+      if sameConfigTestPath(actual, expected) {
         found = true
         break
       }

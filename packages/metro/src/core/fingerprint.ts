@@ -898,8 +898,8 @@ export function prepareSnapshot(projectRoot: string | undefined): string {
       try {
         fs.rmSync(file, { force: true });
       } catch {
-        // A locked worker file stays behind; readers union it, so nothing is
-        // lost, and the next compaction retries.
+        // A locked file stays for a later compaction. The main snapshot names
+        // claimed workers it merged, so readers do not replay them.
       }
     }
     const remainingRecovery = readUnhealthySnapshots(base);

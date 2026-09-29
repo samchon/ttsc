@@ -12,7 +12,11 @@ test("Go formatting preserves every tracked path when the argument list is too l
   const seen = [];
   const failed = formatBatches(files, (batch) => {
     if (batch.length > 2) {
-      return { error: Object.assign(new Error("too long"), { code: "E2BIG" }) };
+      return {
+        error: Object.assign(new Error("too long"), {
+          code: process.platform === "win32" ? "ENAMETOOLONG" : "E2BIG",
+        }),
+      };
     }
     seen.push(...batch);
     return { status: batch.includes("d.go") ? 1 : 0 };
@@ -21,7 +25,8 @@ test("Go formatting preserves every tracked path when the argument list is too l
   assert.deepEqual(failed.flat(), ["d.go", "e.go"]);
 
   const bash = resolveBash();
-  if (process.platform === "win32") assert.equal(fs.existsSync(bash.binary), true);
+  if (process.platform === "win32")
+    assert.equal(fs.existsSync(bash.binary), true);
   else assert.equal(bash.binary, "bash");
 });
 

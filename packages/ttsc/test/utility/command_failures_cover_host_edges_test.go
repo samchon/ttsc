@@ -141,10 +141,9 @@ func TestUtilityCommandFailuresCoverHostEdges(t *testing.T) {
     t.Fatal(err)
   }
   defer os.Chdir(previous)
-  // Removing the process's own working directory is a POSIX-only capability;
-  // Windows locks the cwd against deletion ("The process cannot access the file
-  // because it is being used by another process"), so the deleted-cwd
-  // getwd-failure branch is only reachable off Windows.
+  // Windows locks the cwd against deletion. Other hosts permit removal, but
+  // some still return its former path from Getwd, so probe the branch the host
+  // can actually take instead of assuming every POSIX Getwd reports ENOENT.
   if runtime.GOOS != "windows" {
     deleted := t.TempDir()
     if err := os.Chdir(deleted); err != nil {
@@ -153,16 +152,26 @@ func TestUtilityCommandFailuresCoverHostEdges(t *testing.T) {
     if err := os.Remove(deleted); err != nil {
       t.Fatal(err)
     }
+    _, getwdErr := os.Getwd()
     code, _, errOut = captureUtilityOutput(t, func() int {
       return utility.RunCheck(nil)
     })
-    if code != 2 || !strings.Contains(errOut, "cwd") {
+    expected := "cwd"
+    if getwdErr == nil {
+      expected = "tsconfig not found"
+    }
+    if code != 2 || !strings.Contains(errOut, expected) {
       t.Fatalf("deleted cwd mismatch: code=%d stderr=%q", code, errOut)
     }
+    _, absErr := filepath.Abs(filepath.Base(root))
     code, _, errOut = captureUtilityOutput(t, func() int {
       return utility.RunCheck([]string{"--cwd", filepath.Base(root)})
     })
-    if code != 2 || !strings.Contains(errOut, "cwd") {
+    expected = "cwd"
+    if absErr == nil {
+      expected = "tsconfig not found"
+    }
+    if code != 2 || !strings.Contains(errOut, expected) {
       t.Fatalf("relative cwd mismatch: code=%d stderr=%q", code, errOut)
     }
   }

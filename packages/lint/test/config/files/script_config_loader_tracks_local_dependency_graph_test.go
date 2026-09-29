@@ -853,7 +853,7 @@ func assertConfigDependencyAbsent(
 ) {
   t.Helper()
   for _, dependency := range dependencies {
-    if filepath.Clean(dependency.Path) == filepath.Clean(unexpectedPath) {
+    if sameConfigTestPath(dependency.Path, unexpectedPath) {
       t.Fatalf("unexpected dependency %s in cache graph %v", unexpectedPath, dependencies)
     }
   }
@@ -867,7 +867,7 @@ func assertConfigDependencyKindAbsent(
 ) {
   t.Helper()
   for _, dependency := range dependencies {
-    if filepath.Clean(dependency.Path) == filepath.Clean(unexpectedPath) &&
+    if sameConfigTestPath(dependency.Path, unexpectedPath) &&
       dependency.Kind == unexpectedKind {
       t.Fatalf(
         "unexpected %s dependency %s in cache graph %v",
@@ -887,7 +887,7 @@ func assertConfigDependencyScope(
 ) {
   t.Helper()
   for _, dependency := range dependencies {
-    if filepath.Clean(dependency.Path) == filepath.Clean(expectedPath) {
+    if sameConfigTestPath(dependency.Path, expectedPath) {
       if dependency.Scope != expectedScope {
         t.Fatalf("dependency %s scope = %q, want %q", expectedPath, dependency.Scope, expectedScope)
       }
@@ -906,7 +906,7 @@ func assertConfigDependencyKindScope(
 ) {
   t.Helper()
   for _, dependency := range dependencies {
-    if filepath.Clean(dependency.Path) != filepath.Clean(expectedPath) {
+    if !sameConfigTestPath(dependency.Path, expectedPath) {
       continue
     }
     if dependency.Kind != expectedKind || dependency.Scope != expectedScope {
@@ -934,7 +934,7 @@ func assertConfigWatchDependenciesWithin(
     if dependency.Scope != configDependencyWatch {
       continue
     }
-    relative, err := filepath.Rel(root, dependency.Path)
+    relative, err := filepath.Rel(configTestPhysicalPath(root), configTestPhysicalPath(dependency.Path))
     if err != nil ||
       filepath.IsAbs(relative) ||
       startsWithParentDirectory(relative) {
@@ -957,24 +957,21 @@ func assertConfigDependencies(
   t.Helper()
   allowed := make(map[string]struct{}, len(allowedWithinExcludedRoot))
   for _, location := range allowedWithinExcludedRoot {
-    allowed[filepath.Clean(location)] = struct{}{}
+    allowed[configTestPhysicalPath(location)] = struct{}{}
   }
   found := map[string]struct{}{}
   for _, location := range actual {
-    location = filepath.Clean(location)
-    found[location] = struct{}{}
-    relative, err := filepath.Rel(excludedRoot, location)
-    if err == nil &&
-      relative != ".." &&
-      !filepath.IsAbs(relative) &&
-      !startsWithParentDirectory(relative) {
-      if _, ok := allowed[location]; !ok {
+    physical := configTestPhysicalPath(location)
+    found[physical] = struct{}{}
+    if configTestPathWithin(excludedRoot, location) ||
+      configTestPathWithin(configTestPhysicalPath(excludedRoot), physical) {
+      if _, ok := allowed[physical]; !ok {
         t.Fatalf("package dependency leaked into local graph: %s", location)
       }
     }
   }
   for _, location := range expected {
-    if _, ok := found[filepath.Clean(location)]; !ok {
+    if _, ok := found[configTestPhysicalPath(location)]; !ok {
       t.Fatalf("dependency %s missing from %v", location, actual)
     }
   }
@@ -983,6 +980,39 @@ func assertConfigDependencies(
 func startsWithParentDirectory(relative string) bool {
   return relative == ".." ||
     len(relative) > 3 && relative[:3] == ".."+string(filepath.Separator)
+}
+
+func configTestPathWithin(root, location string) bool {
+  relative, err := filepath.Rel(root, location)
+  return err == nil && !filepath.IsAbs(relative) && !startsWithParentDirectory(relative)
+}
+
+// Config loaders may spell a temp file through either a linked parent (such as
+// macOS /var) or its physical parent. Compare the same location without
+// discarding the suffix of a missing resolution candidate.
+func configTestPhysicalPath(location string) string {
+  original := filepath.Clean(location)
+  current := original
+  unresolved := []string{}
+  for {
+    resolved, err := filepath.EvalSymlinks(current)
+    if err == nil {
+      for index := len(unresolved) - 1; index >= 0; index-- {
+        resolved = filepath.Join(resolved, unresolved[index])
+      }
+      return filepath.Clean(resolved)
+    }
+    parent := filepath.Dir(current)
+    if parent == current {
+      return original
+    }
+    unresolved = append(unresolved, filepath.Base(current))
+    current = parent
+  }
+}
+
+func sameConfigTestPath(left, right string) bool {
+  return configTestPhysicalPath(left) == configTestPhysicalPath(right)
 }
 
 func assertConfigRuleSeverity(
