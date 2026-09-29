@@ -9,6 +9,7 @@ const {
   LANES,
   NODE_FLOOR,
   OTHER_LANE_OSES,
+  validationSteps,
   nodeFloor,
   normalizePath,
   planForPaths,
@@ -16,6 +17,14 @@ const {
 
 function ids(files) {
   return planForPaths(files).laneIds;
+}
+
+function physicalJobs(plan) {
+  return [...plan.matrix.include, ...plan.platformMatrix.include.filter((row) => row.contract_lanes).map((row) => ({
+    id: row.os === "win32" ? "windows-contracts" : "macos-contracts",
+    os: row.os === "win32" ? "windows-latest" : "macos-15",
+    lanes: row.contract_lanes,
+  }))];
 }
 
 test("a leaf package selects shared quality and its own executor", () => {
@@ -183,11 +192,11 @@ test("compiler and platform changes select verified reverse consumers", () => {
   assert.equal(compilerWindows.plugin_cache, true);
   assert.equal(compilerWindows.bun, false);
   assert.equal(compilerWindows.source_map, false);
-  for (const id of ["ttsc-core", "ttsc-native", "package-defenses"])
+  for (const id of ["ttsc-core", "ttsc-native"])
     for (const os of ["windows-latest", "macos-15"])
       assert.ok(
-        compiler.matrix.include.some(
-          (job) => job.id.startsWith(`${id}-`) && job.os === os,
+        physicalJobs(compiler).some(
+          (job) => job.lanes.split(",").includes(id) && job.os === os,
         ),
         `a compiler change must run ${id} on ${os}`,
       );
@@ -263,14 +272,11 @@ test("platform integrations reuse only the physical rows they need", () => {
     experimental.every((row) => row.experimental && !row.watch && !row.vscode),
   );
   assert.ok(
-    experimental.every((row) => row.build === false),
-    "the artifact rehearsal is the only build of a row that runs it",
+    experimental.every((row) => row.build === Boolean(row.contract_lanes)),
+    "OS contracts prebuild their shared union; other rehearsals build internally",
   );
 
-  // The adapter's real hosts run on every representative OS, since the
-  // adapter watches each one differently: the Linux inotify helper, and the
-  // Windows and macOS brokers. They run in a job of their own, so a change to
-  // the adapter alone starts no platform lane at all.
+  // Packed hosts run once; the workspace adapter suites retain OS backends.
   for (const changed of [
     "packages/unplugin/src/index.ts",
     "experimental/test-unplugin/src/index.ts",
@@ -278,8 +284,8 @@ test("platform integrations reuse only the physical rows they need", () => {
     const plan = planForPaths([changed]);
     assert.deepEqual(
       plan.unpluginMatrix.include.map((row) => row.name),
-      ["linux-x64", "darwin-x64", "win32-x64"],
-      `${changed} selects the packed E2E on every representative OS`,
+      ["linux-x64"],
+      `${changed} selects one packed host rehearsal`,
     );
     assert.equal(plan.unpluginHostsSelected, true);
     assert.deepEqual(
@@ -304,7 +310,7 @@ test("platform integrations reuse only the physical rows they need", () => {
   ]);
   assert.deepEqual(
     both.unpluginMatrix.include.map((row) => row.name),
-    ["linux-x64", "darwin-x64", "win32-x64"],
+    ["linux-x64"],
   );
   assert.equal(both.platformMatrix.include.length, 6);
   assert.ok(both.platformMatrix.include.every((row) => row.experimental));
@@ -334,10 +340,9 @@ test("platform integrations reuse only the physical rows they need", () => {
   assert.equal(pluginCache[1].setup_bun, false);
 });
 
-test("a lane that drives the host's filesystem and processes runs on every OS", () => {
-  // Every such lane selected, one job each on Linux and on each other OS, with
-  // the same build, command and directories: a suite that ran on Linux alone
-  // let a Windows- or macOS-only defect reach master (samchon/ttsc#1577).
+test("compatible suites share runners while OS boundaries stay covered", () => {
+  // Whole portable suites run on Linux. Selected OS boundaries share one
+  // runner per OS, including the installed-artifact runner when present.
   const plan = planForPaths(["packages/ttsc/src/index.ts"]);
   const everyOs = LANES.filter((lane) => lane.everyOs === true);
   assert.deepEqual(
@@ -353,23 +358,22 @@ test("a lane that drives the host's filesystem and processes runs on every OS", 
     ],
   );
   for (const lane of everyOs) {
-    const linux = plan.matrix.include.find((job) => job.id === lane.id);
+    const linux = plan.matrix.include.find((job) => job.os === "ubuntu-latest" && job.lanes.split(",").includes(lane.id));
     assert.ok(linux, lane.id);
     assert.equal(linux.os, "ubuntu-latest", lane.id);
+    if (lane.id === "package-defenses") continue;
     for (const os of OTHER_LANE_OSES) {
-      const job = plan.matrix.include.find(
-        (item) => item.id === `${lane.id}-${os.id}`,
+      const job = physicalJobs(plan).find(
+        (item) => item.id === `${os.id}-contracts`,
       );
       assert.ok(job, `${lane.id} has no ${os.id} job`);
       assert.equal(job.os, os.runner);
-      assert.equal(job.name, `${lane.name} (${os.name})`);
-      for (const key of ["build", "dirs", "needsGo", "node", "run", "scope"])
-        assert.equal(job[key], linux[key], `${job.id} ${key}`);
+      assert.ok(job.lanes.split(",").includes(lane.id));
     }
   }
   // A lane not marked runs once, and the lane ids name the lanes, not the jobs.
   assert.equal(
-    plan.matrix.include.filter((job) => job.id.startsWith("typecheck")).length,
+    plan.matrix.include.filter((job) => job.id === "quality").length,
     1,
   );
   assert.deepEqual(
@@ -398,9 +402,9 @@ test("a lane that drives the host's filesystem and processes runs on every OS", 
       .join("/");
     for (const os of OTHER_LANE_OSES)
       assert.ok(
-        planForPaths([file]).matrix.include.some(
+        physicalJobs(planForPaths([file])).some(
           (job) =>
-            job.os === os.runner && job.dirs.split(",").includes(directory),
+            job.os === os.runner && validationSteps(job.lanes.split(","), os.id === "windows" ? "win32" : "darwin").some((step) => step.dirs.includes(directory)),
         ),
         `${file} does not run on ${os.id}`,
       );
@@ -538,14 +542,14 @@ test("the runtime lanes pin the engines floor and the newest release", () => {
   assert.equal(lanes["runtime-node-floor"].node, NODE_FLOOR);
   assert.equal(lanes["runtime-node-current"].node, "current");
   // Node 24 runs the same suite in the core lane.
-  assert.equal(lanes["ttsc-core"].node, "");
+  assert.equal(lanes.compiler.node, "");
   for (const id of ["runtime-node-floor", "runtime-node-current"]) {
     assert.equal(
-      lanes[id].dirs,
+      validationSteps([id])[0].dirs.join(","),
       "features/ttsx-runtime,features/project,native-plugins/utility",
       id,
     );
-    assert.match(lanes[id].run, /test-go-utility-plugins.cjs/, id);
+    assert.ok(validationSteps([id]).some((step) => step.run.includes("test-go-utility-plugins.cjs")), id);
   }
 });
 

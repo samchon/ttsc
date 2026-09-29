@@ -75,7 +75,13 @@ export const test_ttsx_builds_a_dependency_with_its_own_transform_plugin =
     const result = TestProject.spawn(
       TestProject.TTSX_BIN,
       ["--cwd", root, "src/main.ts"],
-      { cwd: root, env: { PATH: TestUtilityPlugins.goPath() } },
+      {
+        cwd: root,
+        env: {
+          PATH: TestUtilityPlugins.goPath(),
+          TTSC_CACHE_DIR: TestProject.sharedPluginCache(),
+        },
+      },
     );
 
     assert.equal(result.status, 0, result.stderr);

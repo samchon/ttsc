@@ -1,0 +1,33 @@
+name: Validation caches
+description: Persist dependency stores, Go objects and keyed source plugins
+inputs:
+  group:
+    description: Physical validation group
+    required: true
+runs:
+  using: composite
+  steps:
+    - id: paths
+      shell: bash
+      run: |
+        echo "modules=$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
+        echo "store=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+        echo "version=$(go env GOVERSION)" >> "$GITHUB_OUTPUT"
+    - uses: actions/cache@v5
+      with:
+        path: |
+          ${{ steps.paths.outputs.modules }}
+          ${{ steps.paths.outputs.store }}
+        key: validation-deps-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.paths.outputs.version }}-${{ hashFiles('pnpm-lock.yaml', '**/go.sum') }}
+    - uses: actions/cache@v5
+      with:
+        path: |
+          ${{ env.GOCACHE }}
+          ${{ env.TTSC_TEST_CACHE_DIR }}
+        # Each successful job saves the objects it added. An immutable key
+        # based only on lockfiles would keep the first, incomplete cache forever.
+        key: validation-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.paths.outputs.version }}-${{ hashFiles('pnpm-lock.yaml', '**/go.sum') }}-${{ inputs.group }}-${{ github.sha }}
+        restore-keys: |
+          validation-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.paths.outputs.version }}-${{ hashFiles('pnpm-lock.yaml', '**/go.sum') }}-${{ inputs.group }}-
+          validation-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.paths.outputs.version }}-${{ hashFiles('pnpm-lock.yaml', '**/go.sum') }}-
+          validation-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.paths.outputs.version }}-

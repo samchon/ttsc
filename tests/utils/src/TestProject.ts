@@ -125,6 +125,15 @@ export namespace TestProject {
     );
   }
 
+  /** Share Go objects even when a case deliberately uses a cold plugin root. */
+  export function sharedGoBuildCache(): string {
+    return (
+      process.env.TTSC_GO_CACHE_DIR ||
+      process.env.GOCACHE ||
+      path.join(sharedPluginCache(), "go-build")
+    );
+  }
+
   /**
    * Create an isolated project from an in-memory file map.
    *
@@ -295,6 +304,7 @@ export namespace TestProject {
           ...process.env,
           TTSC_BINARY: NATIVE_BINARY,
           TTSC_TSGO_BINARY: TSGO_BINARY,
+          GOCACHE: sharedGoBuildCache(),
           ...options.env,
         },
         encoding: "utf8",

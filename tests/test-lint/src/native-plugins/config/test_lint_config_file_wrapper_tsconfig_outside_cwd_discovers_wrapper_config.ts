@@ -55,10 +55,11 @@ export const test_lint_config_file_wrapper_tsconfig_outside_cwd_discovers_wrappe
         "utf8",
       );
       const compiler = new TtscCompiler({
-        cacheDir: path.join(project.tmpdir, ".cache", "ttsc"),
+        cacheDir: TestProject.sharedPluginCache(),
         cwd: project.tmpdir,
         env: {
           PATH: lintGoPath(),
+          TTSC_GO_CACHE_DIR: TestProject.sharedGoBuildCache(),
           TTSC_TSGO_BINARY: TSGO_BINARY,
           TTSC_TTSX_BINARY: TTSX_BIN,
         },

@@ -20,7 +20,8 @@ import { suiteRoot } from "./suiteRoot";
  * here rather than written out at each caller.
  */
 export const pluginCacheDirectory = (): string => {
-  const location: string = path.join(suiteRoot, ".cache", "ttsc");
+  const location: string =
+    process.env.TTSC_TEST_CACHE_DIR || path.join(suiteRoot, ".cache", "ttsc");
   fs.mkdirSync(location, { recursive: true });
   return location;
 };

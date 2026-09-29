@@ -1,16 +1,17 @@
 import { DynamicExecutor } from "@nestia/e2e";
 
 const main = async (): Promise<void> => {
-  const only: string | undefined = process.argv
-    .find((argument) => argument.startsWith("--include="))
-    ?.slice("--include=".length);
+  const only = process.argv
+    .filter((argument) => argument.startsWith("--include="))
+    .map((argument) => argument.slice("--include=".length));
 
   const report: DynamicExecutor.IReport = await DynamicExecutor.validate({
     prefix: "test",
     location: `${__dirname}/features`,
     extension: "ts",
     parameters: () => [],
-    filter: (file) => only === undefined || file.includes(only),
+    filter: (file) =>
+      only.length === 0 || only.some((pattern) => file.includes(pattern)),
     onComplete: (execution) =>
       console.log(
         `  - ${execution.name}: ${
@@ -24,6 +25,8 @@ const main = async (): Promise<void> => {
   const failures: DynamicExecutor.IExecution[] = report.executions.filter(
     (execution) => execution.error !== null,
   );
+  if (report.executions.length === 0)
+    throw new Error("evidence selection ran no tests");
   if (failures.length === 0) {
     console.log(`\nSuccess — ${report.executions.length} feature(s).`);
     return;

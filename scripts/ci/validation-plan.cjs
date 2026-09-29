@@ -3,6 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const { discoverNodeTests, nodeTestLane } = require("./node-tests.cjs");
+const { selectBuild } = require("../build-current.cjs");
 
 const root = path.resolve(__dirname, "..", "..");
 
@@ -39,16 +40,25 @@ const RUNTIME_NODE_DIRS = [
 ];
 
 /**
- * The operating systems besides Linux on which a lane marked `everyOs` runs
- * again, one runner each: what differs between them is the filesystem, the path
- * rules, and the process model, not the CPU. Such a lane runs whole on each, as
- * the bundler lanes do, because a suite that ran on Linux alone let a Windows-
- * or macOS-only defect reach `master` with every check green
- * (samchon/ttsc#1577).
+ * OS contract groups retain real filesystem, path and process boundaries. They
+ * share the installed-artifact runner when that runner is already selected.
  */
 const OTHER_LANE_OSES = [
   { id: "windows", name: "windows", runner: "windows-latest" },
   { id: "macos", name: "macOS", runner: "macos-15" },
+];
+
+// OS boundaries run together after one install/build. Portable rule, adapter
+// and benchmark semantics run once on Linux; these directories retain the real
+// filesystem, process, checker, watch and source-plugin contracts on each OS.
+const OS_CORE_DIRS = [
+  "features/api", "features/compiler", "features/platform", "features/project",
+  "features/tsgo", "features/ttscserver", "features/ttsx-runtime",
+  "native-plugins/cli", "native-plugins/compiler", "native-plugins/driver", "native-plugins/source-plugin",
+];
+const OS_NATIVE_DIRS = [
+  "native-plugins/corpus-misc", "native-plugins/server", "native-plugins/service", "native-plugins/service-incremental",
+  "native-plugins/utility", "native-plugins/utility-host",
 ];
 
 const GO_LANE_IDS = ["go", "windows-go", "macos-go"];
@@ -60,11 +70,12 @@ const GO_LANE_IDS = ["go", "windows-go", "macos-go"];
  * locations in one lane are scanned in one process so package builds and the
  * content-addressed source-plugin cache stay warm across named subcases. A lane
  * whose suites drive the shipped code against the host's filesystem and
- * processes is marked `everyOs` and also runs on `OTHER_LANE_OSES`.
+ * processes is marked `everyOs`; its OS boundary selection joins a shared group.
  */
 const LANES = [
   {
     id: "go",
+    scope: "go-tests",
     name: "go",
     needsGo: true,
     // The evidence Go tests stat `packages/evidence/lib`, so the lane that
@@ -77,6 +88,7 @@ const LANES = [
   },
   {
     id: "windows-go",
+    scope: "go-tests",
     name: "windows-go",
     os: "windows-latest",
     needsGo: true,
@@ -95,6 +107,7 @@ const LANES = [
     // with POSIX path rules, and it spells temporary directories through the
     // `/var` link, so the Go code that relates paths runs there too.
     id: "macos-go",
+    scope: "go-tests",
     name: "macos-go",
     os: "macos-15",
     needsGo: true,
@@ -242,8 +255,6 @@ const LANES = [
       "features/contributor",
       "features/harness",
       "features/plugin",
-      "native-plugins/corpus",
-      "native-plugins/corpus-2",
     ],
   },
   {
@@ -255,9 +266,7 @@ const LANES = [
     build: "pnpm run build:current",
     run: "pnpm --filter @ttsc/test-lint start",
     dirs: [
-      "native-plugins/corpus-3",
       "native-plugins/config",
-      "native-plugins/corpus-4",
       "native-plugins/fix",
       "native-plugins/format",
     ],
@@ -701,7 +710,7 @@ function planForPaths(files) {
         continue;
       }
       if (lane === "lint") {
-        add(LINT_LANE_IDS, file);
+        add([...LINT_LANE_IDS, ...GO_LANE_IDS], file);
         continue;
       }
       // Both evidence suites share one lane, and the benchmark suite's
@@ -722,7 +731,7 @@ function planForPaths(files) {
     ) {
       add(
         file.startsWith("tests/utils/")
-          ? E2E_LANE_IDS
+          ? [...E2E_LANE_IDS, ...GO_LANE_IDS]
           : [...LINT_LANE_IDS, "ttsc-native"],
         file,
       );
@@ -893,7 +902,7 @@ function fullPlan(reason) {
 
 function createPlan(selected, watch, reasons, integrations) {
   const lanes = LANES.filter((lane) => selected.has(lane.id));
-  const include = lanes.flatMap(laneJobs);
+  let include = groupedJobs(lanes);
   const platform = createPlatformPlan({
     bun: integrations.bun,
     experimental: integrations.experimental,
@@ -903,6 +912,19 @@ function createPlan(selected, watch, reasons, integrations) {
     watch,
   });
   const unpluginHosts = createUnpluginHostPlan(integrations.unpluginE2e);
+  for (const row of platform.matrix.include) {
+    if (!PLATFORM_ROWS.find((entry) => entry.name === row.name).representative || row.os === "linux") continue;
+    const id = row.os === "win32" ? "windows-contracts" : "macos-contracts";
+    const contracts = include.find((job) => job.id === id);
+    if (!contracts) continue;
+    row.contract_lanes = contracts.lanes;
+    row.build_scope = [...new Set([row.build_scope, ...(row.experimental ? ["experimental"] : []), ...contracts.scope.split(",")].filter(Boolean))].join(",");
+    row.needs_go = true;
+    row.setup_bun = contracts.lanes.includes("bundler-defenses");
+    row.build = true;
+    row.vscode_prebuilt = selectBuild(row.build_scope).plan.includes("@ttsc/vscode");
+    include = include.filter((job) => job !== contracts);
+  }
   return {
     matrix: { include },
     laneIds: lanes.map((lane) => lane.id),
@@ -917,22 +939,14 @@ function createPlan(selected, watch, reasons, integrations) {
 }
 
 /**
- * The adapter's real-host matrix, one job per representative OS.
- *
- * It runs every host on two roots with two transform plugins and then restarts
- * five of them over their persistent caches, measured at 78 minutes of one
- * macOS Intel lane. It is a job of its own rather than a step of the platform
- * lane, so the suites beside it neither wait on its cost nor share its
- * deadline, and each verdict arrives whatever the other's cost.
- *
- * It varies over the OS alone, since that is what the adapter watches
- * differently: the Linux inotify helper, and the Windows and macOS brokers.
+ * Every packed host, root, transform and persistent-cache restart runs once.
+ * The workspace adapter suites separately cover the real OS watch backends.
  *
  * @param selected Whether the diff reaches the adapter or its rehearsal.
  */
 function createUnpluginHostPlan(selected) {
   const include = selected
-    ? PLATFORM_ROWS.filter((row) => row.representative).map((row) => ({
+    ? PLATFORM_ROWS.filter((row) => row.name === "linux-x64").map((row) => ({
         name: row.name,
         os: row.os,
         runner: row.runner,
@@ -962,7 +976,7 @@ function createPlatformPlan(tasks) {
         runner: row.runner,
         bun,
         build,
-        build_scope: watch ? "experimental" : "plugin-cache",
+        build_scope: tasks.experimental || watch ? "experimental" : "plugin-cache",
         experimental: tasks.experimental,
         needs_go:
           tasks.experimental || bun || pluginCache || sourceMap || watch,
@@ -971,6 +985,8 @@ function createPlatformPlan(tasks) {
         source_map: sourceMap,
         watch,
         vscode,
+        contract_lanes: "",
+        vscode_prebuilt: false,
       };
     })
     .filter(
@@ -990,36 +1006,69 @@ function createPlatformPlan(tasks) {
   };
 }
 
-/** The jobs one lane runs as: its own, and one on each other OS it covers. */
-function laneJobs(lane) {
-  return [
-    workflowLane(lane),
-    ...(lane.everyOs === true
-      ? OTHER_LANE_OSES.map((os) =>
-          workflowLane({
-            ...lane,
-            id: `${lane.id}-${os.id}`,
-            name: `${lane.name} (${os.name})`,
-            os: os.runner,
-          }),
-        )
-      : []),
-  ];
+/** Resolve logical validation without losing any selected Linux scenario. */
+function validationSteps(ids, platform = "linux") {
+  const steps = [];
+  for (const id of ids) {
+    const lane = LANE_BY_ID.get(id);
+    if (!lane) throw new Error(`unknown validation lane: ${id}`);
+    let dirs = lane.dirs ?? [];
+    let commands = lane.run.split(" && ");
+    if (platform !== "linux") {
+      if (id === "ttsc-core") dirs = OS_CORE_DIRS;
+      if (id === "ttsc-native") dirs = OS_NATIVE_DIRS;
+      if (id === "evidence") commands = ["pnpm --filter test-evidence start -- --include=watch --include=resident_graph_session --include=graph_disables_a_staged_claim"];
+    }
+    // Preserve one shell for macOS resource limits and the process it affects.
+    if (id === "bundler-defenses-macos") commands = [lane.run];
+    for (const run of commands) {
+      const existing = steps.find((step) => step.run === run);
+      if (existing) existing.dirs = [...new Set([...existing.dirs, ...dirs])];
+      else steps.push({ run, dirs: [...dirs] });
+    }
+  }
+  return steps;
 }
 
-function workflowLane(lane) {
-  return {
-    id: lane.id,
-    name: lane.name,
-    // Empty for the lanes that run on the Node the job installs and builds with.
-    node: lane.node ?? "",
-    os: lane.os ?? "ubuntu-latest",
-    needsGo: lane.needsGo ?? false,
-    build: lane.build ?? "",
-    run: lane.run,
-    scope: lane.scope ?? "",
-    dirs: lane.dirs?.join(",") ?? "",
+/** Co-locate compatible suites; Node versions and OS boundaries stay distinct. */
+function groupedJobs(lanes) {
+  const groups = [
+    ["quality", ["typecheck", "shim-audit"]],
+    ["native", ["go", "go-race"]],
+    ["compiler", ["ttsc-core", "ttsc-native"]],
+    ["integrations", ["package-defenses", "lint-1", "lint-2", "graph", "evidence"]],
+    ["bundlers", ["bundler-defenses"]],
+    ["runtime-node-floor", ["runtime-node-floor"]],
+    ["runtime-node-current", ["runtime-node-current"]],
+  ];
+  const selected = new Set(lanes.map((lane) => lane.id));
+  const result = [];
+  const append = (id, members, os = "ubuntu-latest") => {
+    const entries = members.map((member) => LANE_BY_ID.get(member));
+    if (entries.length === 0) return;
+    const scopes = [...new Set(entries.map((lane) => lane.scope).filter(Boolean))];
+    const builds = [...new Set(entries.map((lane) => lane.build).filter(Boolean))];
+    // Scoped groups use the dependency-safe union, never rebuild a package
+    // between suites. Unscoped groups retain their existing lightweight build.
+    const build = scopes.length ? "pnpm run build:current" : builds.join(" && ");
+    result.push({
+      id, name: id, os, needsGo: entries.some((lane) => lane.needsGo),
+      node: entries.find((lane) => lane.node)?.node ?? "",
+      build, scope: scopes.join(","),
+      dirs: "", run: `node scripts/ci/run-validation-group.cjs --lanes=${members.join(",")}`,
+      lanes: members.join(","),
+    });
   };
+  for (const [id, members] of groups) append(id, members.filter((member) => selected.has(member)));
+  for (const os of OTHER_LANE_OSES) {
+    const members = lanes.filter((lane) =>
+      (lane.everyOs && lane.id !== "package-defenses") ||
+      lane.id === `${os.id === "windows" ? "windows" : "macos"}-go` ||
+      lane.id === `bundler-defenses-${os.id}`,
+    ).map((lane) => lane.id);
+    append(`${os.id}-contracts`, members, os.runner);
+  }
+  return result;
 }
 
 /**
@@ -1136,6 +1185,8 @@ function main(argv = process.argv.slice(2)) {
 }
 
 module.exports = {
+  validationSteps,
+  groupedJobs,
   E2E_LANE_IDS,
   FULL_LANE_IDS,
   LANES,

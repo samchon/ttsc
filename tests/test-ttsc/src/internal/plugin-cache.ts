@@ -20,7 +20,6 @@
  * when another builder wins.
  */
 import { TestProject } from "@ttsc/testing";
-import path from "node:path";
 
 export const SHARED_PLUGIN_CACHE_DIR = TestProject.sharedPluginCache();
 
@@ -37,7 +36,4 @@ export const SHARED_PLUGIN_CACHE_DIR = TestProject.sharedPluginCache();
  * pointed here shares the objects, which Go keeps safe to share between
  * concurrent builds, while the plugin cache stays the test's own.
  */
-export const SHARED_GO_BUILD_CACHE_DIR = path.join(
-  SHARED_PLUGIN_CACHE_DIR,
-  "go-build",
-);
+export const SHARED_GO_BUILD_CACHE_DIR = TestProject.sharedGoBuildCache();

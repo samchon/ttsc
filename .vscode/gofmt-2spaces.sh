@@ -37,7 +37,17 @@ normalize='
 # did not format. Without it a named Makefile had its semantic tabs replaced —
 # the same data-loss class this wrapper's normalization exists to avoid.
 isGoFile() {
-  case "$(basename "$1")" in
+  # The directory branch below already handles trailing separators. Strip the
+  # path in this shell: spawning basename per file is costly on Windows. Keep
+  # the Windows coreutils treatment of backslashes and drive-relative names.
+  local name="$1"
+  case "$OSTYPE" in
+    msys* | cygwin*)
+      name="${name//\\//}"
+      name="${name#[a-zA-Z]:}"
+      ;;
+  esac
+  case "${name##*/}" in
     .*) return 1 ;;
     *.go) return 0 ;;
     *) return 1 ;;

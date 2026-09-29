@@ -1,9 +1,9 @@
 // Run the engine + config Go tests for the lint package.
 //
 // Tests live under `packages/lint/test/` and are copied next to the package's
-// Go linthost library sources in a scratch module. The rule corpus is still
-// exercised end-to-end from `tests/test-lint/src/features/rules/test_*.ts`;
-// these Go tests cover engine/config internals with package-local ownership.
+// Go linthost library sources in a scratch module. The complete classified
+// TypeScript fixture corpus also runs here, without compiling or launching a
+// source plugin for each rule. CLI/config/contributor defenses remain separate.
 //
 // This runner mirrors the materialization `packages/ttsc/src/source-build.ts`
 // performs at compile time:
@@ -17,13 +17,14 @@
 //      package itself, and the ttsc package (the latter is required so
 //      Go workspace mode can resolve the multi-module placeholder
 //      versions the shims declare).
-//   4. Run `go test -count=1 ./linthost` in the scratch dir.
+//   4. Prepare the classified fixture projects, then run Go tests once.
 
 const cp = require("node:child_process");
 const { createRequire } = require("node:module");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const { pathToFileURL } = require("node:url");
 
 const { copyGoTestsFlat } = require("./ci/go-test-overlay.cjs");
 const { writeGoWork } = require("./go-work.cjs");
@@ -50,6 +51,9 @@ const tsgoBinary = resolveTsgoBinary();
 const prettierModule = resolvePrettierModule();
 
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-lint-go-test-"));
+// Native-binary tests copy the scratch module. Keep fixture projects outside it
+// so each such build cannot copy hundreds of unrelated sources and links.
+const corpusScratch = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-lint-corpus-"));
 try {
   // Copy the source module into the scratch dir, skipping build artifacts
   // the way materializeScratchDir does.
@@ -83,14 +87,22 @@ try {
     TTSC_TSGO_BINARY: process.env.TTSC_TSGO_BINARY ?? tsgoBinary,
     TTSC_TTSX_BINARY: ttsxBinary,
     TTSC_PRETTIER_MODULE: process.env.TTSC_PRETTIER_MODULE ?? prettierModule,
+    TTSC_LINT_CORPUS_MANIFEST: path.join(corpusScratch, "corpus.json"),
   };
+  const prepared = cp.spawnSync(process.execPath, [
+    "--import", pathToFileURL(path.join(root, "scripts", "register-typescript-loader.mjs")).href,
+    path.join(root, "scripts", "ci", "prepare-lint-corpus.mts"),
+    path.join(corpusScratch, "projects"), env.TTSC_LINT_CORPUS_MANIFEST,
+  ], { cwd: path.join(root, "tests", "test-lint"), env, stdio: "inherit", windowsHide: true });
+  if (prepared.error) throw prepared.error;
+  if (prepared.status !== 0) console.error("lint corpus preparation failed; continuing independent engine tests");
   writeGoWork(
     path.join(scratch, "go.work"),
     `use (\n${useDirs.map((d) => `\t${d.replace(/\\/g, "/")}`).join("\n")}\n)\n`,
     env,
   );
 
-  const result = cp.spawnSync("go", ["test", "-count=1", "./linthost"], {
+  const result = cp.spawnSync("go", ["test", "-count=1", "-timeout=20m", ...process.argv.slice(2), "./linthost"], {
     cwd: scratch,
     env,
     stdio: "inherit",
@@ -101,9 +113,10 @@ try {
   }
   // An exit code, not `process.exit`: exiting here would skip the `finally`
   // that removes the scratch module.
-  process.exitCode = result.status ?? 1;
+  process.exitCode = prepared.status === 0 ? result.status ?? 1 : 1;
 } finally {
   fs.rmSync(scratch, { recursive: true, force: true });
+  fs.rmSync(corpusScratch, { recursive: true, force: true });
 }
 
 function resolvePrettierModule() {

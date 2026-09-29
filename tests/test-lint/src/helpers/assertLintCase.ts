@@ -37,41 +37,48 @@ interface CorpusFileRecord {
   companion: boolean;
 }
 
-/**
- * Discover and assert every classified lint fixture under `src/cases`.
- *
- * Classifies every supported TypeScript source in the cases tree as a positive
- * entry, audited skip, or explicit companion, then delegates every entry to
- * `assertLintCase`. Unclassified or conflicting sources fail immediately.
- *
- * A fixture may opt out with one `// @ttsc-corpus-skip(<constraint>): <reason>`
- * directive whose reason names exactly one Go harness under
- * `packages/lint/test/`.
- *
- * The corpus is the single heaviest lint scenario, so CI runs it as a handful
- * of parallel partitions: pass `{ index, total }` and this asserts only the `i
- * % total === index` slice of the (evenly costed) fixtures. The empty-corpus
- * guard still checks the full discovered tree in every partition.
- */
-export function assertAllLintCases(partition?: {
-  index: number;
-  total: number;
-}): void {
+/** Materialize the classified corpus once for the package-local Go engine. */
+export function materializeLintCorpus(directory: string) {
   const cases = listLintCases();
   assert.notEqual(cases.length, 0, "expected at least one lint fixture");
   validateCorpusSkips(cases);
-  const selected = partition
-    ? cases.filter((_, i) => i % partition.total === partition.index)
-    : cases;
-  assertLintCases(selected);
+  return cases.flatMap((relativeFile, index) => {
+    const source = fs.readFileSync(path.join(casesRoot, relativeFile), "utf8");
+    if (parseCorpusSkip(relativeFile, source) !== null) return [];
+    const expected = TestLint.parseExpectations(source);
+    const sourcePath = resolveCorpusSourcePath(source, relativeFile);
+    const rules = applyCorpusOptions(
+      relativeFile,
+      source,
+      TestLint.rulesFromExpectations(expected),
+    );
+    const extraSources = collectExtraSources(relativeFile);
+    const project = TestLint.createProject({
+      name: relativeFile,
+      projectRoot: path.join(directory, String(index)),
+      source,
+      sourcePath,
+      rules,
+      extraSources,
+    });
+    return [
+      {
+        relativeFile,
+        projectRoot: project.tmpdir,
+        sourcePath,
+        sourcePaths: [sourcePath, ...Object.keys(extraSources)],
+        rules,
+        expected,
+      },
+    ];
+  });
 }
 
 /**
  * Assert a batch of lint fixtures and report every failure from the sweep.
  *
- * Corpus partitions are expensive real-launcher tests. Continuing after an
- * individual mismatch exposes all stale fixture contracts in one run instead of
- * requiring a full partition restart for each successive failure.
+ * Continuing after an individual mismatch reports all failed assertions. The
+ * complete classified corpus is materialized for the Go runner instead.
  */
 export function assertLintCases(relativeFiles: readonly string[]): void {
   const failures: Error[] = [];

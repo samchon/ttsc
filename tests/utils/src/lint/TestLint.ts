@@ -250,6 +250,7 @@ export namespace TestLint {
         cwd: tmpdir,
         env: {
           ...process.env,
+          GOCACHE: TestProject.sharedGoBuildCache(),
           ...env,
           TTSC_CACHE_DIR: SHARED_CACHE_DIR,
           TTSC_TTSX_BINARY: TTSX_BIN,

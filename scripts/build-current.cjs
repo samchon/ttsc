@@ -16,6 +16,7 @@ const PLATFORM = Symbol("platform");
 // runs `ttsc` with the typia plugin) plus the native binary; scoped lanes skip
 // packages they never package or execute.
 const SCOPES = {
+  "go-tests": ["ttsc", "@ttsc/lint", "@ttsc/evidence"],
   // Everything, in dependency-safe order (native binary before graph/demo).
   // @ttsc/wasm is built types-only (`build:ts`, no Go→WASM binary) and
   // @ttsc/playground after it, so the test-playground typecheck + feature lanes
@@ -131,28 +132,37 @@ const PLATFORM_TARGETS = {
   "test-evidence": "ttsc,ttscgraph",
 };
 
-function main() {
-  if (!fs.existsSync(path.join(platformDir, "package.json"))) {
-    throw new Error(
-      `Unsupported current platform package: ttsc-${platformKey}`,
-    );
-  }
-
-  const scope = process.env.TTSC_BUILD_SCOPE || "full";
-  const plan = SCOPES[scope];
+/** Select a dependency-safe build union without rebuilding shared packages. */
+function selectBuild(scope) {
+  const scopes = scope.split(",");
+  const requested = scopes.map((entry) => SCOPES[entry]);
+  const plan = requested.some((entry) => entry === undefined)
+    ? undefined
+    : SCOPES.full.filter((target) => requested.some((entries) => entries.some((entry) =>
+        entry === target || (typeof entry === "object" && typeof target === "object" && entry.filter === target.filter && entry.script === target.script))));
   if (plan === undefined) {
     throw new Error(
       `Unknown TTSC_BUILD_SCOPE "${scope}"; expected one of ${Object.keys(SCOPES).join(", ")}`,
     );
   }
 
+  const nativeScopes = scopes.filter((entry) => SCOPES[entry].includes(PLATFORM));
+  return { plan, platformTargets: nativeScopes.some((entry) => PLATFORM_TARGETS[entry] === undefined)
+    ? undefined
+    : [...new Set(nativeScopes.flatMap((entry) => PLATFORM_TARGETS[entry].split(",")))] };
+}
+
+function main() {
+  if (!fs.existsSync(path.join(platformDir, "package.json")))
+    throw new Error(`Unsupported current platform package: ttsc-${platformKey}`);
+  const { plan, platformTargets } = selectBuild(process.env.TTSC_BUILD_SCOPE || "full");
   for (const target of plan) {
     if (target === PLATFORM) {
       run(
         ["--dir", platformDir, "build"],
-        PLATFORM_TARGETS[scope] === undefined
+        platformTargets === undefined
           ? {}
-          : { TTSC_PLATFORM_BUILD_TARGETS: PLATFORM_TARGETS[scope] },
+          : { TTSC_PLATFORM_BUILD_TARGETS: platformTargets.join(",") },
       );
     } else if (typeof target === "object") {
       // `{ filter, script }` — build a package via a non-default script (e.g.
@@ -191,4 +201,4 @@ function pnpmCommand(args) {
 
 if (require.main === module) main();
 
-module.exports = { PLATFORM, PLATFORM_TARGETS, SCOPES };
+module.exports = { PLATFORM, PLATFORM_TARGETS, SCOPES, selectBuild };

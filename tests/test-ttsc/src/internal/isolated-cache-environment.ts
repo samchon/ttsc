@@ -16,5 +16,6 @@ export function isolatedCacheEnvironment(root: string): NodeJS.ProcessEnv {
     TMP: temporary,
     TTSC_CACHE_DIR: "",
     TTSC_GO_CACHE_DIR: "",
+    GOCACHE: "",
   };
 }

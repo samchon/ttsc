@@ -15,6 +15,12 @@ concurrency:
   group: test-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Cache Go's intermediate objects separately from each deliberately cold plugin
+# root. Native executables are always built from the current checkout.
+env:
+  GOCACHE: ${{ github.workspace }}/.cache/ci/go-build
+  TTSC_TEST_CACHE_DIR: ${{ github.workspace }}/.cache/ci/plugins
+
 jobs:
   plan:
     name: plan
@@ -50,7 +56,7 @@ jobs:
     # source-map and VS Code suites. The adapter's host matrix
     # is a job of its own (`unplugin-hosts`), whose hour does not stand between
     # these and their verdict.
-    timeout-minutes: 60
+    timeout-minutes: ${{ matrix.contract_lanes != '' && 120 || 60 }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.platform_matrix) }}
@@ -65,14 +71,15 @@ jobs:
         if: matrix.needs_go
         with:
           go-version-file: packages/ttsc/go.mod
-          cache-dependency-path: |
-            packages/ttsc/go.sum
-            packages/ttsc/tools/shim_audit/go.sum
-            tests/go-transformer/go.mod
+          cache: false
 
       - uses: pnpm/action-setup@v6
         with:
           version: 10.6.4
+
+      - uses: ./.github/actions/validation-cache
+        with:
+          group: platform-${{ matrix.name }}
 
       - uses: oven-sh/setup-bun@v2
         if: matrix.setup_bun
@@ -80,40 +87,47 @@ jobs:
           bun-version: 1.4.0
 
       - name: Install Dependencies
+        id: dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Verify Installed Tarballs With Bundled Go
-        # Every step below this one runs against the workspace it builds, and
-        # it is this job's only build: `matrix.build` is false whenever the
-        # shipped artifacts are rehearsed.
-        if: matrix.experimental
-        run: pnpm run experimental:install
-
       - name: Use System Go For Source Plugin Tests
-        if: matrix.watch || matrix.plugin_cache
+        if: matrix.watch || matrix.plugin_cache || matrix.contract_lanes != ''
         shell: bash
         run: echo "TTSC_GO_BINARY=$(go env GOROOT)/bin/go" >> "$GITHUB_ENV"
 
-      - name: Verify Bun Descriptor Dependency Tracking
-        if: matrix.bun
-        run: pnpm --filter @ttsc/test-ttsc start -- --include=loadprojectplugins_tracks_bun_esm_descriptor_dependencies
-        env:
-          TTSC_BUN_BINARY: bun
-
       - name: Build Current Platform For Selected Tasks
+        id: build
         if: matrix.build
         run: pnpm run build:current
         env:
           TTSC_BUILD_SCOPE: ${{ matrix.build_scope }}
 
+      - name: Verify Installed Tarballs With Bundled Go
+        id: install
+        if: matrix.experimental
+        run: pnpm run experimental:install
+        env:
+          TTSC_INSTALL_BUILD_SCOPE: ${{ matrix.build_scope }}
+          TTSC_INSTALL_SKIP_BUILD: ${{ matrix.contract_lanes != '' && '1' || '' }}
+
+      - name: Verify Bun Descriptor Dependency Tracking
+        if: ${{ !cancelled() && matrix.bun && (steps.build.outcome == 'success' || steps.install.outcome == 'success') }}
+        run: pnpm --filter @ttsc/test-ttsc start -- --include=loadprojectplugins_tracks_bun_esm_descriptor_dependencies
+        env:
+          TTSC_BUN_BINARY: bun
+
       - name: Run watch tests
-        if: matrix.watch
+        if: ${{ !cancelled() && matrix.watch && (steps.build.outcome == 'success' || steps.install.outcome == 'success') }}
         run: pnpm --filter @ttsc/test-ttsc start
         env:
           TTSC_TEST_DIR: features/watch
 
+      - name: Run shared OS contracts
+        if: ${{ !cancelled() && matrix.contract_lanes != '' && steps.build.outcome == 'success' }}
+        run: node scripts/ci/run-validation-group.cjs --lanes=${{ matrix.contract_lanes }}
+
       - name: Verify Linux Package Managers
-        if: matrix.plugin_cache && matrix.os == 'linux'
+        if: ${{ !cancelled() && matrix.plugin_cache && matrix.os == 'linux' && (steps.build.outcome == 'success' || steps.install.outcome == 'success') }}
         shell: bash
         run: |
           status=0
@@ -124,7 +138,7 @@ jobs:
           exit "$status"
 
       - name: Verify Windows Package Managers
-        if: matrix.plugin_cache && matrix.os == 'win32'
+        if: ${{ !cancelled() && matrix.plugin_cache && matrix.os == 'win32' && (steps.build.outcome == 'success' || steps.install.outcome == 'success') }}
         shell: bash
         run: |
           status=0
@@ -133,7 +147,7 @@ jobs:
           exit "$status"
 
       - name: Verify typia source maps with shared tarballs
-        if: matrix.source_map && matrix.experimental
+        if: ${{ !cancelled() && matrix.source_map && matrix.experimental && steps.install.outcome == 'success' }}
         run: pnpm --dir experimental/source-map start -- --skip-pack
 
       - name: Verify typia source maps with current tarballs
@@ -141,7 +155,8 @@ jobs:
         run: pnpm --dir experimental/source-map start -- --pack-current
 
       - name: Ensure VS Code CLI (Ubuntu)
-        if: matrix.vscode && runner.os == 'Linux'
+        id: code_linux
+        if: ${{ !cancelled() && matrix.vscode && runner.os == 'Linux' && steps.dependencies.outcome == 'success' }}
         shell: bash
         run: |
           if ! command -v code >/dev/null 2>&1; then
@@ -152,7 +167,8 @@ jobs:
           code --version
 
       - name: Ensure VS Code CLI (macOS)
-        if: matrix.vscode && runner.os == 'macOS'
+        id: code_macos
+        if: ${{ !cancelled() && matrix.vscode && runner.os == 'macOS' && steps.dependencies.outcome == 'success' }}
         shell: bash
         run: |
           code_bin="/Applications/Visual Studio Code.app/Contents/Resources/app/bin"
@@ -166,7 +182,8 @@ jobs:
           code --version
 
       - name: Ensure VS Code CLI (Windows)
-        if: matrix.vscode && runner.os == 'Windows'
+        id: code_windows
+        if: ${{ !cancelled() && matrix.vscode && runner.os == 'Windows' && steps.dependencies.outcome == 'success' }}
         shell: pwsh
         run: |
           function Add-CodePaths {
@@ -190,11 +207,12 @@ jobs:
           code --version
 
       - name: Build @ttsc/vscode
-        if: matrix.vscode
+        id: vscode_build
+        if: ${{ !cancelled() && matrix.vscode && !matrix.vscode_prebuilt && steps.dependencies.outcome == 'success' }}
         run: pnpm --filter @ttsc/vscode build
 
       - name: Smoke-install @ttsc/vscode in VS Code
-        if: matrix.vscode
+        if: ${{ !cancelled() && matrix.vscode && (steps.code_linux.outcome == 'success' || steps.code_macos.outcome == 'success' || steps.code_windows.outcome == 'success') && ((matrix.vscode_prebuilt && steps.build.outcome == 'success') || steps.vscode_build.outcome == 'success') }}
         run: node scripts/smoke-vscode-install.cjs packages/vscode
 
   unplugin-hosts:
@@ -220,14 +238,15 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: packages/ttsc/go.mod
-          cache-dependency-path: |
-            packages/ttsc/go.sum
-            packages/ttsc/tools/shim_audit/go.sum
-            tests/go-transformer/go.mod
+          cache: false
 
       - uses: pnpm/action-setup@v6
         with:
           version: 10.6.4
+
+      - uses: ./.github/actions/validation-cache
+        with:
+          group: hosts-${{ matrix.name }}
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -257,17 +276,18 @@ jobs:
         if: matrix.needsGo
         with:
           go-version-file: packages/ttsc/go.mod
-          cache-dependency-path: |
-            packages/ttsc/go.sum
-            packages/ttsc/tools/shim_audit/go.sum
-            tests/go-transformer/go.mod
+          cache: false
 
       - uses: pnpm/action-setup@v6
         with:
           version: 10.6.4
 
+      - uses: ./.github/actions/validation-cache
+        with:
+          group: ${{ matrix.id }}
+
       - uses: oven-sh/setup-bun@v2
-        if: startsWith(matrix.id, 'bundler-defenses')
+        if: matrix.id == 'bundlers' || matrix.id == 'windows-contracts' || matrix.id == 'macos-contracts'
         with:
           bun-version: 1.4.0
 
