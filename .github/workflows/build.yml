@@ -12,6 +12,7 @@ on:
       - "scripts/assert-ttscgraph-release-candidate.cjs"
       - "scripts/build-platform-package.cjs"
       - "scripts/build-platforms.cjs"
+      - "scripts/ci/run-independent.cjs"
       - "scripts/go-build-cache.cjs"
       - "scripts/go-sdk-extraction.cjs"
       - "scripts/go-sdk-integrity.cjs"
@@ -31,6 +32,7 @@ on:
       - "scripts/assert-ttscgraph-release-candidate.cjs"
       - "scripts/build-platform-package.cjs"
       - "scripts/build-platforms.cjs"
+      - "scripts/ci/run-independent.cjs"
       - "scripts/go-build-cache.cjs"
       - "scripts/go-sdk-extraction.cjs"
       - "scripts/go-sdk-integrity.cjs"
@@ -74,12 +76,15 @@ jobs:
           group: build
           go-group: build
           save-go: "true"
+          cross-sdk: "true"
 
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Build Packages
         run: pnpm run build
+        env:
+          TTSC_PLATFORM_BUILD_WORKERS: 2
 
       - name: Smoke release-candidate ttscgraph snapshot
         run: node scripts/assert-ttscgraph-release-candidate.cjs

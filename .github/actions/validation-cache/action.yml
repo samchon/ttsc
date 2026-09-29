@@ -10,6 +10,9 @@ inputs:
   go-group:
     description: Namespace for distinct complete Go build inventories
     default: common
+  cross-sdk:
+    description: Cache verified foreign Go SDKs for the complete platform build
+    default: "false"
 runs:
   using: composite
   steps:
@@ -25,6 +28,11 @@ runs:
           ${{ steps.paths.outputs.modules }}
           ${{ steps.paths.outputs.store }}
         key: validation-deps-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.paths.outputs.version }}-${{ hashFiles('pnpm-lock.yaml', '**/go.sum') }}
+    - uses: actions/cache@v5
+      if: inputs.cross-sdk == 'true'
+      with:
+        path: .cache/go-sdk
+        key: validation-cross-sdk-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.paths.outputs.version }}-${{ hashFiles('scripts/go-sdk-integrity.cjs', 'scripts/go-sdk-extraction.cjs', 'scripts/platform-target.cjs') }}
     - uses: actions/cache@v5
       if: inputs.save-go == 'true'
       with:

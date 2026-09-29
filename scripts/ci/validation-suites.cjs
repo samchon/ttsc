@@ -69,7 +69,7 @@ const LANES = [
       "features/project",
       "native-plugins/utility"
     ],
-    "node": "22.15.0"
+    "node": NODE_FLOOR
   },
   {
     "id": "runtime-node-current",
