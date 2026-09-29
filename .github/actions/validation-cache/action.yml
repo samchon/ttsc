@@ -29,6 +29,14 @@ runs:
           ${{ steps.paths.outputs.store }}
         key: validation-deps-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.paths.outputs.version }}-${{ hashFiles('pnpm-lock.yaml', '**/go.sum') }}
     - uses: actions/cache@v5
+      if: env.npm_config_cache != ''
+      with:
+        path: ${{ env.npm_config_cache }}
+        # Cache registry downloads, never an installed consumer or local tarball.
+        key: validation-npm-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('experimental/install/src/index.ts', 'experimental/test-unplugin/src/index.ts') }}
+        restore-keys: |
+          validation-npm-v1-${{ runner.os }}-${{ runner.arch }}-
+    - uses: actions/cache@v5
       if: inputs.cross-sdk == 'true'
       with:
         path: .cache/go-sdk

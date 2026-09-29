@@ -487,7 +487,9 @@ function run(command, cwd, extraEnv = {}, options = {}) {
       env: {
         ...process.env,
         ...extraEnv,
-        npm_config_cache: path.join(os.tmpdir(), "ttsc-npm-cache"),
+        npm_config_cache:
+          process.env.npm_config_cache ||
+          path.join(os.tmpdir(), "ttsc-npm-cache"),
       },
       stdio: ["ignore", "pipe", "pipe"],
     });

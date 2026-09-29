@@ -847,6 +847,13 @@ function installTarballs() {
 
 /** Preserve the complete shipped-compiler contract in this consumer install. */
 function verifyInstalledCompilerContracts() {
+  const environment: NodeJS.ProcessEnv = {
+    ...process.env,
+    TTSC_CACHE_DIR: pluginCache,
+  };
+  // Portable suites select system Go. The shipped compiler and runtime must
+  // instead resolve the SDK inside their freshly installed platform package.
+  delete environment.TTSC_GO_BINARY;
   const result = cp.spawnSync(
     process.execPath,
     [
@@ -856,10 +863,7 @@ function verifyInstalledCompilerContracts() {
     ],
     {
       cwd: experimentRoot,
-      env: {
-        ...process.env,
-        TTSC_CACHE_DIR: pluginCache,
-      },
+      env: environment,
       stdio: "inherit",
       windowsHide: true,
     },
@@ -1357,7 +1361,9 @@ function run(command, cwd, extraEnv = {}, options = { inheritOutput: false }) {
       env: {
         ...process.env,
         ...extraEnv,
-        npm_config_cache: path.join(os.tmpdir(), "ttsc-npm-cache"),
+        npm_config_cache:
+          process.env.npm_config_cache ||
+          path.join(os.tmpdir(), "ttsc-npm-cache"),
         // ttsc resolves the native `tsc` binary from here, so the consumer need
         // not install the native `typescript` package (Next cannot load it).
         TTSC_TSGO_BINARY: TSC_BINARY,

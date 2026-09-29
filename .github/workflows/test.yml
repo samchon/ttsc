@@ -24,6 +24,8 @@ jobs:
     name: ci
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      npm_config_cache: ${{ github.workspace }}/.cache/ci/npm
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -114,6 +116,10 @@ jobs:
     name: install (${{ matrix.name }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 10
+    env:
+      # This job never compiles a source plugin. Keep Go objects, but do not
+      # restore or upload the portable suites' plugin archive.
+      TTSC_TEST_CACHE_DIR: ""
     strategy:
       fail-fast: false
       matrix:
