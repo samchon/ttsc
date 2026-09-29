@@ -17,7 +17,7 @@ Never create a clone or worktree. If the current checkout contains unrelated or 
 
 Use one commit per coherent unit when the diff is large. Follow the repository's `<type>(<scope>): <subject>` history with an imperative lowercase subject and no trailing period.
 
-Run the validation the [development skill](../development/SKILL.md#work-rules) requires. Its single `pnpm format` pass belongs to the final merge candidate, not to individual commits or corrections.
+Run the validation the [development skill](../development/workflow.md#work-rules) requires. Its single `pnpm format` pass belongs to the final merge candidate, not to individual commits or corrections.
 
 Stage explicit paths when the worktree is mixed. Never include unrelated user changes silently.
 

@@ -7,6 +7,8 @@ description: Defines ttsc's review law and its two uses, Overall Self-Review (th
 
 ## Review Law
 
+Read the development skill's [engineering principles](../development/principles.md) when reviewing maintained production code. Judge each acknowledgment against the declaration, its documentation, and its consequence surface; an Evidence pass establishes acknowledgment completeness, not the truth of a claim.
+
 Each review starts from scratch over its entire declared surface and runs in the current checkout, without a clone or worktree. Apply [AGENTS.md's **Choose the principled course** rule](../../../AGENTS.md#attitude): review duration, difficulty, and consequence surface never lower the completion standard. The [issue-campaign skill's discovery rounds](../issue-campaign/SKILL.md#discovery-rounds) follow the same law.
 
 A complete round satisfies all four rules:
