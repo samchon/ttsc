@@ -1,6 +1,6 @@
 # Validation
 
-The test workflow has one Linux validation job and one OS matrix for Windows and macOS installation and minimal CLI execution. Linux owns portable unit tests, integration boundaries and packed adapter contracts. There are no planner or aggregate jobs. The other automatic workflows have one job each: build, website and benchmark. With typia, nestia and the installation matrix excluded from the requested count, the maximum is four jobs.
+The test workflow has one Linux validation job and one installation and minimal CLI matrix covering Linux, Windows and macOS on x64 and arm64. Linux owns portable unit tests, integration boundaries and packed adapter contracts. There are no planner or aggregate jobs. The other automatic workflows have one job each: build, website and benchmark. With typia, nestia and the installation matrix excluded from the requested count, the maximum is four jobs. A removed integration assertion must retain equivalent unit coverage or remain in the batched integration run.
 
 Test, build, website and benchmark jobs have a ten-minute deadline including setup and cache actions. A deadline failure remains a failed check; the limit does not prove that coverage completes within budget. typia and nestia retain their separate compatibility budgets. Duration acceptance requires successful measured runs.
 

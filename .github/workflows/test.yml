@@ -108,10 +108,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Windows
-            runner: windows-2025
-          - name: macOS
+          - name: linux-x64
+            runner: ubuntu-24.04
+          - name: linux-arm64
+            runner: ubuntu-24.04-arm
+          - name: darwin-x64
+            runner: macos-15-intel
+          - name: darwin-arm64
             runner: macos-15
+          - name: win32-x64
+            runner: windows-2025
+          - name: win32-arm64
+            runner: windows-11-arm
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -127,7 +135,7 @@ jobs:
       - uses: ./.github/actions/validation-cache
         with:
           group: install-smoke
-          save-go: "true"
+          save-go: ${{ matrix.name != 'linux-x64' && 'true' || 'false' }}
       - name: Install build dependencies
         run: pnpm install --frozen-lockfile
       - name: Build the current platform CLI
