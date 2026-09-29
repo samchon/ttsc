@@ -7,6 +7,9 @@
  * @evidence contracts/common.md#principled-implementation
  *   Node-shaped fields and kind predicates match the Go js/wasm bridge's stats
  *   consumer; this is a virtual projection rather than a native inode model.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One stats snapshot groups sampled kind, byte size and projected metadata;
+ *   predicates expose the two supported kinds without another node hierarchy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Synthetic device/ownership values express MemFS capabilities, without
  *   presenting browser-host metadata as actual operating-system file identity.
@@ -18,7 +21,8 @@ export interface IFileStats {
   /**
    * Whether the sampled node is a virtual directory.
    *
-   * @evidence contracts/common.md#principled-implementation The boolean predicate follows fs.Stats's directory API.
+   * @evidence contracts/common.md#principled-implementation makeStats captures node.kind once, so the predicate reports that sampled directory classification.
+   * @evidence contracts/common.md#clear-and-simple-design The kind query is separate from metadata fields and shares the captured classification with isFile.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts It reports the sampled node kind, not a filename heuristic.
    * @evidence contracts/common.md#meaningful-documentation JSDoc names snapshot provenance under the documentation skill's context rule.
    */
@@ -27,7 +31,8 @@ export interface IFileStats {
   /**
    * Whether the sampled node is a virtual regular file.
    *
-   * @evidence contracts/common.md#principled-implementation The boolean predicate follows fs.Stats's regular-file API.
+   * @evidence contracts/common.md#principled-implementation MemFS has only file and directory nodes, making the inverse sampled-directory flag its regular-file classification.
+   * @evidence contracts/common.md#clear-and-simple-design The predicate exposes the other supported node kind through the same snapshot rather than recalculating a path.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The virtual node kind determines the result, without extension special cases.
    * @evidence contracts/common.md#meaningful-documentation JSDoc distinguishes regular-file classification under the documentation skill's clarity rule.
    */

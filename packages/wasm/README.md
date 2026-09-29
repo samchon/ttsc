@@ -171,7 +171,7 @@ Verbs and payload types:
 
 `getNodeAtPosition` returns the syntax token touching `position`, including punctuation. `getTypeAtPosition` resolves that token to its enclosing semantic AST node, while `getSymbolAtPosition` queries the token directly. Both return `null` when there is no semantic answer. Whitespace and comments return `null` for all three verbs.
 
-`position` is a **byte offset** into the source text and must satisfy `0 <= position < UTF-8 byte length of sourceText`. The same coordinate TypeScript-Go uses internally. JS callers that have a UTF-16 `(line, character)` pair (e.g. From Monaco) must convert it before calling.
+`position` is a finite integer **byte offset** into the source text and must satisfy `0 <= position < UTF-8 byte length of sourceText`. This is the coordinate TypeScript-Go uses internally. Fractional and non-finite values are rejected before integer conversion. JS callers that have a UTF-16 `(line, character)` pair (e.g. From Monaco) must convert it before calling.
 
 **Lifecycle:** JS owns the handle. The wasm keeps the program (parsed AST, checker pool lease, every source file) alive until you call `releaseSnapshot`. Leaking handles leaks memory in the wasm linear heap.
 

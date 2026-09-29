@@ -79,6 +79,11 @@ function normalize(p: string): string {
  *   identity and preserves opened nodes independently from paths. The Go js/wasm
  *   callback interface is the authority; unsupported link and metadata mutation
  *   capabilities are explicit in IWasmExecFS.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One closure owns the tree, indexes and descriptor identities. Shared helpers
+ *   centralize path validation, insertion/removal and byte mutation; separate
+ *   stream captures and pipe queues reflect non-seekable lifetimes rather than
+ *   adding filesystem nodes that would blur their operation contracts.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Virtual flag/errno values are bridge constants, not native-host guesses.
  *   The implementation owns its maps rather than patching foreign filesystem
@@ -94,8 +99,11 @@ function normalize(p: string): string {
  *   emptiness uses the indexed child count, and rename visits only S subtree
  *   nodes plus F open descriptors. Growing file writes amortize copying through
  *   geometric capacity; pipe enqueue/dequeue change linked endpoints in O(1).
- *   Output fragments append without flattening all prior text; a full capture
- *   is materialized only when its string is requested.
+ *   Path normalization costs O(P) path characters; ancestor validation builds
+ *   d prefixes with total length K, costing O(K + d) time and temporary space
+ *   under expected constant-time map access after hashing each prefix. Output fragments
+ *   append without flattening prior text; reading a dirty B-byte capture costs
+ *   O(B), while an unchanged capture read reuses its materialized string.
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   Child membership is maintained once by node insertion/deletion rather than
  *   reconstructed for every listing. Text decoding is cached on node identity

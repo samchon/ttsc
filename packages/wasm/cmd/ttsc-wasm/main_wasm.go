@@ -10,8 +10,8 @@ import (
   "github.com/samchon/ttsc/packages/wasm/host"
 )
 
-// main installs the base ttsc API on globalThis and blocks forever.
-// Expose never returns; the select{} inside it keeps the wasm runtime alive.
+// main installs the base ttsc API on globalThis. A valid first registration
+// keeps the wasm runtime alive until its Worker is terminated.
 func main() {
   host.Expose("ttsc", host.Config{
     Plugins: nil,

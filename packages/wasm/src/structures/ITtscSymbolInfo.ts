@@ -6,6 +6,9 @@ import type { ITtscSymbolDeclaration } from "./ITtscSymbolDeclaration";
  * @evidence contracts/common.md#principled-implementation
  *   Names, flags and declaration projections match the native checker result;
  *   separate displayed text avoids confusing raw internal names with presentation.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Identity and presentation are separate, while bounded declaration sites reuse
+ *   one site DTO and their total count explains a truncated projection directly.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   The declaration cap is the host's response-size policy, with the original
  *   total retained rather than pretending the shortened list is complete.

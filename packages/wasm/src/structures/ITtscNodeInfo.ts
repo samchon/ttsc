@@ -4,6 +4,9 @@
  * @evidence contracts/common.md#principled-implementation
  *   Numeric kind and byte ranges preserve TypeScript-Go's AST representation;
  *   a printable name and optional text make the JSON usable without that AST.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Kind, range and spelling are a flat token projection, without exposing
+ *   parent links or mutable compiler nodes to the JavaScript consumer.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Positions remain native byte offsets, without a guessed UTF-16 conversion
  *   or an invented source span for a particular token.

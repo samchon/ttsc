@@ -6,6 +6,9 @@ import type { IMemFSHost } from "./IMemFSHost";
  * @evidence contracts/common.md#principled-implementation
  *   URLs, AbortSignal and an injectable MemFS use browser integration primitives;
  *   the explicit API name mirrors the Go host's global bridge identity.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Binary and bridge identity are explicit, while optional cancellation and
+ *   host injection cover actual boot ownership without a generic loader layer.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Runtime identity and host come from the caller or documented protocol defaults,
  *   without selecting a different boot path for a named consumer.

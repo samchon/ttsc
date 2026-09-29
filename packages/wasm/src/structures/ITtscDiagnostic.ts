@@ -5,6 +5,9 @@
  * @evidence contracts/common.md#principled-implementation
  *   Nullable file identity and optional locations mirror CompileDiagnostic's
  *   native JSON projection; the severity union matches its two public categories.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Identity, byte span, display location and message remain distinct fields;
+ *   optional coordinates express absent context without an extra location model.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Diagnostic codes and locations come from the compiler rather than a guessed
  *   editor coordinate or a fixture-specific message classification.

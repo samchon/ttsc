@@ -8,6 +8,9 @@
  * @evidence contracts/common.md#principled-implementation
  *   Error fields follow NodeJS.ErrnoException and Go's js/wasm filesystem bridge;
  *   numeric errno values describe that virtual ABI, not the browser host OS.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The Error subclass groups the bridge's machine fields with its message;
+ *   one private mapping owns errno translation for every virtual operation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   POSIX error identifiers are protocol constants; failed operations remain
  *   errors instead of returning a fake successful callback value.

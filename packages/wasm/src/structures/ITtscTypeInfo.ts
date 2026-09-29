@@ -4,6 +4,9 @@
  * @evidence contracts/common.md#principled-implementation
  *   Printed text and native flag bits project the checker result through JSON
  *   without exposing Go checker objects or an incomplete parallel type model.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Printed text and native flags provide presentation and classification in a
+ *   small value; structural compiler types remain owned by the native checker.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   TypeToString is the presentation authority; the consumer need not infer
  *   a type from source spelling or a manually maintained flag lookup.

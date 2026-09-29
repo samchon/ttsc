@@ -9,6 +9,9 @@ import type { ITtscDiagnostic } from "./ITtscDiagnostic";
  * @evidence contracts/common.md#principled-implementation
  *   A path-keyed string record matches the native transform payload, keeping
  *   transformed TypeScript distinct from build's emitted JavaScript map.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   A source-text map and the shared diagnostic DTO serve transform consumers;
+ *   emitted files belong to the compile result instead of a mixed payload.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   The payload exposes actual transformed source, without treating expected
  *   emitted answers as a replacement for the transform result.

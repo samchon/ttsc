@@ -144,6 +144,10 @@ interface ITtscResult {
 
 For `check`, `build`, and `transform`, `result` contains JSON. For `api.plugin`, plugin output usually sits in `stdout` or `stderr`, matching the native sidecar CLI. Exit code `0` means success; `2` covers compiler errors, usage errors, or bad project configuration; `3` is a runtime or emit failure.
 
+The native `ttsc-wasm` CLI also returns `3` when it cannot write a build, check, or transform result to stdout, even if compilation succeeded. It reports the write failure on stderr.
+
+Snapshot cursor queries take finite, non-negative integer UTF-8 byte offsets into the selected source file. The offset must be below the file's byte length; end-of-file and fractional positions are usage errors with code `2`. Convert editor coordinates using the snapshot's source text so a UTF-16 offset does not select a different byte.
+
 ## Build a custom plugin wasm
 
 The base binary does not link or auto-run plugins. A plugin playground builds a new wasm binary that imports your plugin package and registers it with `host.Expose`.

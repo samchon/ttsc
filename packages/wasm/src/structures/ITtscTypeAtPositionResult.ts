@@ -6,6 +6,9 @@ import type { ITtscTypeInfo } from "./ITtscTypeInfo";
  * @evidence contracts/common.md#principled-implementation
  *   A nullable type mirrors the native optional semantic result, separately from
  *   the error code carried by the enclosing request envelope.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The nullable type field carries the semantic result without conflating it
+ *   with request failure or adding a parallel state discriminator.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   No universal any/error type is fabricated for positions without type semantics.
  * @evidence contracts/common.md#meaningful-documentation

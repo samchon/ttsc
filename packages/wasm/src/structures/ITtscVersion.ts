@@ -4,6 +4,9 @@
  * @evidence contracts/common.md#principled-implementation
  *   String fields match jsVersion's linker metadata and runtime queries; the
  *   API can report an unversioned development binary without guessing a release.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Link-time release metadata and runtime target/toolchain identity remain
+ *   explicit fields, without a version-parsing or environment-inference layer.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Target and toolchain identity come from the binary rather than the browser's
  *   platform or a consumer-specific version constant.

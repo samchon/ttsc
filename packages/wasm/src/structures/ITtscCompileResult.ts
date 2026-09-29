@@ -9,6 +9,9 @@ import type { ITtscDiagnostic } from "./ITtscDiagnostic";
  * @evidence contracts/common.md#principled-implementation
  *   A path-keyed string record matches the native JSON output map; optional
  *   diagnostics reflect its omitempty encoding rather than requiring a sentinel.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Diagnostics and emitted files have separate fields, reusing one diagnostic
+ *   type while keeping the transport envelope outside this compile payload.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Compiler-produced paths and contents remain data, without fixture-shaped keys.
  * @evidence contracts/common.md#meaningful-documentation

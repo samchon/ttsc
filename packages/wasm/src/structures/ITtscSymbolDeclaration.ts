@@ -4,6 +4,9 @@
  * @evidence contracts/common.md#principled-implementation
  *   Nullable file identity and byte ranges preserve the native AST declaration
  *   projection, including declarations without an associated source file.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Source identity and a byte interval are sufficient for a declaration site;
+ *   this value contains no redundant source text or compiler object references.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   A missing source file remains null; neither a placeholder filename nor a
  *   guessed JavaScript character range is inserted into the declaration.

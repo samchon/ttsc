@@ -4,6 +4,9 @@
  * @evidence contracts/common.md#principled-implementation
  *   A string array mirrors the registry listing without exposing program objects
  *   or implying an ordering that the native map does not provide.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   A flat list exposes live registry identities without a second snapshot
+ *   descriptor layer or ownership information already supplied by its API.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Entries are current registry identities rather than an expected debug list.
  * @evidence contracts/common.md#meaningful-documentation

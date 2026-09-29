@@ -12,6 +12,9 @@ import type { ITtscResult } from "./structures/ITtscResult";
  * @evidence contracts/common.md#principled-implementation
  *   JSON.parse handles the native string envelope using the standard parser;
  *   the generic cast expresses the caller's expected endpoint payload.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One parser owns envelope decoding; endpoint selection and exit handling
+ *   remain with the caller instead of introducing another result schema.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Parser failure returns explicit null rather than synthesizing an expected
  *   payload. The cast is documented as an expectation, not runtime validation.

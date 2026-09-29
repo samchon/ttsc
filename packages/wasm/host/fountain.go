@@ -22,6 +22,7 @@ package host
 import (
   "encoding/json"
   "fmt"
+  "math"
   "path/filepath"
   "sync"
   "sync/atomic"
@@ -74,7 +75,9 @@ func fountainAPIMap() map[string]any {
 
 // SnapshotResult is the response shape for `snapshot()`.
 // The caller owns Handle and must pass it to releaseSnapshot after its queries.
+//
 // @evidence contracts/common.md#principled-implementation An opaque string projects registry identity without exposing a Go Program through JSON.
+// @evidence contracts/common.md#clear-and-simple-design One opaque identity transfers query access while the Program and its ownership remain in the native registry.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Identity refers to an actual retained program rather than a reconstructed project path.
 // @evidence contracts/common.md#meaningful-documentation The Go comment explains opaque identity and caller release ownership under the documentation skill.
 type SnapshotResult struct {
@@ -83,7 +86,9 @@ type SnapshotResult struct {
 }
 
 // ReleaseSnapshotResult is the response shape for `releaseSnapshot()`.
+//
 // @evidence contracts/common.md#principled-implementation A boolean distinguishes a removed registry entry from idempotent absent-handle release.
+// @evidence contracts/common.md#clear-and-simple-design One outcome bit reports removal without duplicating the request handle or native cleanup state.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts An absent entry is not reported as a fabricated successful removal.
 // @evidence contracts/common.md#meaningful-documentation Native comments explain the release outcome under the documentation skill's absence guidance.
 type ReleaseSnapshotResult struct {
@@ -92,7 +97,9 @@ type ReleaseSnapshotResult struct {
 }
 
 // ListSnapshotsResult is the response shape for `snapshots()`.
+//
 // @evidence contracts/common.md#principled-implementation A string slice projects registry identities without a second public program representation.
+// @evidence contracts/common.md#clear-and-simple-design A flat current-handle list exposes membership without expanding each entry into an unused snapshot descriptor.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Current map membership supplies the list rather than a history of expected handles.
 // @evidence contracts/common.md#meaningful-documentation Native member comments identify live state and unspecified order under the documentation skill.
 type ListSnapshotsResult struct {
@@ -101,7 +108,9 @@ type ListSnapshotsResult struct {
 }
 
 // GetSourceFilesResult is the response shape for `getSourceFiles()`.
+//
 // @evidence contracts/common.md#principled-implementation The program's SourceFiles are projected into path strings through the shared output-key policy.
+// @evidence contracts/common.md#clear-and-simple-design File identities are separate from source text and semantic metadata, keeping listing focused on program membership.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler membership determines files instead of a guessed filesystem glob.
 // @evidence contracts/common.md#meaningful-documentation The member comment explains path bases and declaration exclusion under the documentation skill.
 type GetSourceFilesResult struct {
@@ -110,7 +119,9 @@ type GetSourceFilesResult struct {
 }
 
 // GetSourceFileTextResult is the response shape for `getSourceFileText()`.
+//
 // @evidence contracts/common.md#principled-implementation A required string projects program text while file lookup failures use the error envelope.
+// @evidence contracts/common.md#clear-and-simple-design One text field represents the selected file; request identity and transport status remain in their existing shapes.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Text comes from the snapshot instead of a separately read file that may have changed.
 // @evidence contracts/common.md#meaningful-documentation The member comment names retained-program provenance under the documentation skill's context guidance.
 type GetSourceFileTextResult struct {
@@ -119,7 +130,9 @@ type GetSourceFileTextResult struct {
 }
 
 // GetDiagnosticsResult is the response shape for `getDiagnostics()`.
+//
 // @evidence contracts/common.md#principled-implementation The shared CompileDiagnostic slice preserves the compiler's public diagnostic projection.
+// @evidence contracts/common.md#clear-and-simple-design The selected messages reuse the compile diagnostic DTO rather than introducing a snapshot-specific message model.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Queries return compiler messages rather than source-pattern approximations of diagnostics.
 // @evidence contracts/common.md#meaningful-documentation Native comments identify the payload and empty-array meaning under the documentation skill.
 type GetDiagnosticsResult struct {
@@ -128,24 +141,32 @@ type GetDiagnosticsResult struct {
 }
 
 // NodeInfo is the serialized AST node returned by `getNodeAtPosition`.
+//
 // @evidence contracts/common.md#principled-implementation Kind metadata and native byte ranges project a token without exposing Go AST objects.
+// @evidence contracts/common.md#clear-and-simple-design A flat kind/range/spelling value carries syntax information without mutable AST links or another token hierarchy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Native ranges remain byte coordinates rather than guessed JavaScript character indices.
 // @evidence contracts/common.md#meaningful-documentation Member comments explain native identity, units and optional text under the documentation skill.
 type NodeInfo struct {
   // Kind is the numeric TypeScript-Go AST kind.
   Kind     int    `json:"kind"`
+
   // KindName is its human-readable Stringer name.
   KindName string `json:"kindName"`
+
   // Pos is the inclusive UTF-8 byte offset.
   Pos      int    `json:"pos"`
+
   // End is the exclusive UTF-8 byte offset.
   End      int    `json:"end"`
+
   // Text is omitted when the scanner has no nonempty source spelling.
   Text     string `json:"text,omitempty"`
 }
 
 // GetNodeAtPositionResult is the response shape for `getNodeAtPosition()`.
+//
 // @evidence contracts/common.md#principled-implementation A nullable pointer distinguishes successful absence from the query's error envelope.
+// @evidence contracts/common.md#clear-and-simple-design One nullable token projection conveys lookup outcome without another status flag or duplicated source identity.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No fabricated node fills whitespace or an absent token.
 // @evidence contracts/common.md#meaningful-documentation The member comment explains null token absence under the documentation skill.
 type GetNodeAtPositionResult struct {
@@ -154,18 +175,23 @@ type GetNodeAtPositionResult struct {
 }
 
 // TypeInfo is the serialized type returned by `getTypeAtPosition`.
+//
 // @evidence contracts/common.md#principled-implementation Checker-printed text and native flags avoid a parallel incomplete public type model.
+// @evidence contracts/common.md#clear-and-simple-design Presentation text and native classification bits are sufficient for this query; structural compiler types stay behind the checker boundary.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The checker supplies type presentation rather than inferring it from token spelling.
 // @evidence contracts/common.md#meaningful-documentation Native comments identify printing authority and flag provenance under the documentation skill.
 type TypeInfo struct {
   // Text is the checker's TypeToString presentation.
   Text  string `json:"text"`
+
   // Flags is the numeric TypeScript-Go TypeFlags bitmask.
   Flags int    `json:"flags"`
 }
 
 // GetTypeAtPositionResult is the response shape for `getTypeAtPosition()`.
+//
 // @evidence contracts/common.md#principled-implementation Nullable semantic output mirrors the TypeScript request result without overloading an error type.
+// @evidence contracts/common.md#clear-and-simple-design One nullable type field separates semantic absence from transport errors without duplicating the type metadata representation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Positions without type semantics remain absent rather than receiving a fabricated any type.
 // @evidence contracts/common.md#meaningful-documentation The member comment explains null meaning under the documentation skill's absence guidance.
 type GetTypeAtPositionResult struct {
@@ -175,37 +201,49 @@ type GetTypeAtPositionResult struct {
 
 // SymbolDeclaration is the serialized declaration site returned by
 // `getSymbolAtPosition`.
+//
 // @evidence contracts/common.md#principled-implementation Nullable source identity and native ranges preserve declaration provenance through JSON.
+// @evidence contracts/common.md#clear-and-simple-design A declaration site contains only file identity and its byte interval; source text and compiler node ownership remain elsewhere.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts A source-less declaration keeps nil identity rather than a placeholder filename.
 // @evidence contracts/common.md#meaningful-documentation Member comments explain path identity and byte interval units under the documentation skill.
 type SymbolDeclaration struct {
   // File is a project-relative or outside absolute path, nil for source-less nodes.
   File *string `json:"file"`
+
   // Pos is the declaration's inclusive UTF-8 byte offset.
   Pos  int     `json:"pos"`
+
   // End is the declaration's exclusive UTF-8 byte offset.
   End  int     `json:"end"`
 }
 
 // SymbolInfo is the serialized symbol returned by `getSymbolAtPosition`.
+//
 // @evidence contracts/common.md#principled-implementation Raw and printed names, flags and declaration projections preserve the native checker result.
+// @evidence contracts/common.md#clear-and-simple-design Identity and display text are distinct, and one capped site list plus its original total explains truncation without separate declaration handles.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The response cap preserves the original total rather than presenting a shortened declaration list as complete.
 // @evidence contracts/common.md#meaningful-documentation Native comments distinguish internal names, display text and capped metadata under the documentation skill.
 type SymbolInfo struct {
   // Name is the raw name, including TypeScript internal prefix markers.
   Name             string              `json:"name"`
+
   // Text is the optional checker-printed symbol representation.
   Text             string              `json:"text,omitempty"`
+
   // Flags is the numeric TypeScript-Go SymbolFlags bitmask.
   Flags            int                 `json:"flags"`
+
   // Declarations contains at most 16 sites and is omitted when empty.
   Declarations     []SymbolDeclaration `json:"declarations,omitempty"`
+
   // DeclarationCount retains the original total and is omitted when zero.
   DeclarationCount int                 `json:"declarationCount,omitempty"`
 }
 
 // GetSymbolAtPositionResult is the response shape for `getSymbolAtPosition()`.
+//
 // @evidence contracts/common.md#principled-implementation A nullable symbol pointer distinguishes absent semantics from a failed request.
+// @evidence contracts/common.md#clear-and-simple-design One nullable symbol field expresses the binding outcome while symbol metadata and request status remain separate.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Missing binding does not produce a symbol guessed from the token's name.
 // @evidence contracts/common.md#meaningful-documentation The member comment explains null result meaning under the documentation skill.
 type GetSymbolAtPositionResult struct {
@@ -455,17 +493,18 @@ func withSnapshotPosition(args []js.Value, fn func(*snapshotEntry, *ast.SourceFi
     if posVal.Type() != js.TypeNumber {
       return errorResponse(2, "host: \"position\" must be a number (byte offset)")
     }
-    pos := posVal.Int()
-    if pos < 0 {
-      return errorResponse(2, "host: \"position\" must be non-negative")
+    offset := posVal.Float()
+    if math.IsNaN(offset) || math.IsInf(offset, 0) || math.Trunc(offset) != offset || offset < 0 {
+      return errorResponse(2, "host: \"position\" must be a finite non-negative integer byte offset")
     }
     file := resolveSnapshotFile(entry, path)
     if file == nil {
       return errorResponse(2, fmt.Sprintf("host: file %q not found in snapshot", path))
     }
-    if pos >= len(file.Text()) {
-      return errorResponse(2, fmt.Sprintf("host: \"position\" %d is outside file length %d", pos, len(file.Text())))
+    if offset >= float64(len(file.Text())) {
+      return errorResponse(2, fmt.Sprintf("host: \"position\" %v is outside file length %d", offset, len(file.Text())))
     }
+    pos := int(offset)
     return fn(entry, file, pos)
   })
 }

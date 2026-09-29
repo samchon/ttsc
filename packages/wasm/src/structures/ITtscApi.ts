@@ -15,6 +15,10 @@ import type { ITtscVersion } from "./ITtscVersion";
  * @evidence contracts/common.md#principled-implementation
  *   Signatures mirror host.Expose's direct metadata/list methods and asynchronous
  *   project/snapshot methods, sharing request DTOs and the native result envelope.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Named verbs distinguish project work from retained-program queries; requests
+ *   share small DTOs and async results share one envelope. Direct metadata/list
+ *   values stay synchronous because their native handlers do not load a project.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Queries address retained programs through opaque handles rather than
  *   substituting JavaScript source heuristics for compiler semantics.
@@ -27,6 +31,7 @@ export interface ITtscApi {
    * Build metadata reported synchronously by the wasm.
    *
    * @evidence contracts/common.md#principled-implementation The direct return mirrors jsVersion's synchronous projection.
+   * @evidence contracts/common.md#clear-and-simple-design One direct metadata value requires no project request or asynchronous transport envelope.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Binary metadata supplies identity rather than a guessed browser or release constant.
    * @evidence contracts/common.md#meaningful-documentation JSDoc states direct-return behavior under the documentation skill's context rule.
    */
@@ -37,6 +42,7 @@ export interface ITtscApi {
    * `parseResult<ITtscCompileResult>` deserializes it.
    *
    * @evidence contracts/common.md#principled-implementation The Promise envelope follows native Build and the shared project request.
+   * @evidence contracts/common.md#clear-and-simple-design The named emit verb reuses project options and the result envelope without mixing no-emit switches into its request.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The loaded program supplies output, without a consumer-specific emitter path.
    * @evidence contracts/common.md#meaningful-documentation JSDoc states purpose and decoding under the documentation skill's context rule.
    */
@@ -47,6 +53,7 @@ export interface ITtscApi {
    * deserializes it.
    *
    * @evidence contracts/common.md#principled-implementation Native Check owns no-emit loading and the shared compile payload.
+   * @evidence contracts/common.md#clear-and-simple-design A separate no-emit verb makes intent explicit while sharing project and diagnostic representations.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No-emit is a loader option rather than pretending an emitted build was a check.
    * @evidence contracts/common.md#meaningful-documentation JSDoc explains no-emit and decoding under the documentation skill's clarity rule.
    */
@@ -60,6 +67,7 @@ export interface ITtscApi {
    * `parseResult<ITtscTransformResult>` to deserialize.
    *
    * @evidence contracts/common.md#principled-implementation Native Transform projects post-plugin text through the shared project request.
+   * @evidence contracts/common.md#clear-and-simple-design The source projection is its own verb and DTO, keeping emitted output distinct from transformed TypeScript.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Source comes from the transformed program rather than inference from emitted JavaScript.
    * @evidence contracts/common.md#meaningful-documentation JSDoc explains source stage, paths and decoding under the documentation skill's context rule.
    */
@@ -71,6 +79,7 @@ export interface ITtscApi {
    * with the exit code.
    *
    * @evidence contracts/common.md#principled-implementation Named dispatch adapts scalar options to a registered Go Plugin's command arguments.
+   * @evidence contracts/common.md#clear-and-simple-design One dispatcher forwards plugin-owned arguments without adding a host endpoint for each plugin command.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Invocation-owned streams replace global-output mutation; command semantics stay with the plugin.
    * @evidence contracts/common.md#meaningful-documentation JSDoc explains dispatch and output ownership under the documentation skill's ownership rule.
    */
@@ -80,6 +89,7 @@ export interface ITtscApi {
    * Names of registered plugins, returned synchronously.
    *
    * @evidence contracts/common.md#principled-implementation The direct array mirrors the native registry's name projection.
+   * @evidence contracts/common.md#clear-and-simple-design A direct name list exposes registration discovery without leaking Plugin instances or invoking commands.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Entries describe linked registrations rather than a fixed list of npm packages.
    * @evidence contracts/common.md#meaningful-documentation JSDoc states registry provenance and direct return under the documentation skill's context rule.
    */
@@ -94,6 +104,7 @@ export interface ITtscApi {
    * `parseResult<ITtscSnapshotResult>` to read the handle.
    *
    * @evidence contracts/common.md#principled-implementation An opaque handle references a retained native program for repeated queries.
+   * @evidence contracts/common.md#clear-and-simple-design Acquisition is distinct from querying and release, so the caller can identify its explicit retained-program lifetime.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Queries share the actual program rather than rebuilding approximations for each request.
    * @evidence contracts/common.md#meaningful-documentation Separate JSDoc paragraphs explain acquisition, decoding and release under the documentation skill.
    */
@@ -104,6 +115,7 @@ export interface ITtscApi {
    * handle. The response's `released` flag will be `false`.
    *
    * @evidence contracts/common.md#principled-implementation Explicit release follows the registry's idempotent delete-and-close operation.
+   * @evidence contracts/common.md#clear-and-simple-design One handle-based release operation owns cleanup instead of coupling it to an unrelated query result.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The owning registry controls release rather than a guessed JavaScript GC event.
    * @evidence contracts/common.md#meaningful-documentation JSDoc explains already-released behavior under the documentation skill's absence guidance.
    */
@@ -113,6 +125,7 @@ export interface ITtscApi {
    * List currently retained snapshot handles in unspecified order.
    *
    * @evidence contracts/common.md#principled-implementation The Promise envelope projects the live native registry without exposing programs.
+   * @evidence contracts/common.md#clear-and-simple-design The listing exposes only current handles and uses the same async envelope as other registry operations.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Registry ownership supplies the list rather than a caller-side history.
    * @evidence contracts/common.md#meaningful-documentation JSDoc states lifetime and order under the documentation skill's context rule.
    */
@@ -122,6 +135,7 @@ export interface ITtscApi {
    * List non-declaration source paths held by the snapshot's program.
    *
    * @evidence contracts/common.md#principled-implementation A shared handle selects the retained program whose SourceFiles supplies the projection.
+   * @evidence contracts/common.md#clear-and-simple-design File identities are queried separately from their text and semantic details to keep this projection focused.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler membership determines files rather than a filesystem glob approximation.
    * @evidence contracts/common.md#meaningful-documentation JSDoc names snapshot provenance and declaration exclusion under the documentation skill's context rule.
    */
@@ -133,6 +147,7 @@ export interface ITtscApi {
    * rewrites.
    *
    * @evidence contracts/common.md#principled-implementation A handle/file query reads the native program's current source text.
+   * @evidence contracts/common.md#clear-and-simple-design The shared file query selects one source; its text-only payload avoids duplicating snapshot or AST state.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Readback does not substitute an editor buffer that may differ from the retained program.
    * @evidence contracts/common.md#meaningful-documentation JSDoc names retained and transformed text under the documentation skill's provenance guidance.
    */
@@ -143,6 +158,7 @@ export interface ITtscApi {
    * project-relative or absolute path.
    *
    * @evidence contracts/common.md#principled-implementation Program diagnostics supply the result, narrowed by an optional file selector.
+   * @evidence contracts/common.md#clear-and-simple-design One optional file filter refines the same diagnostic operation without another per-file endpoint.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Messages come from compiler diagnostics rather than a parallel source-pattern checker.
    * @evidence contracts/common.md#meaningful-documentation JSDoc explains filter identity under the documentation skill's context rule.
    */
@@ -155,6 +171,7 @@ export interface ITtscApi {
    * punctuation. Returns `{node: null}` for whitespace and comments.
    *
    * @evidence contracts/common.md#principled-implementation Native astnav owns token lookup in the retained program using byte coordinates.
+   * @evidence contracts/common.md#clear-and-simple-design The shared position request drives a syntax-only result, leaving checker-specific queries separate.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler AST semantics replace guessed JavaScript lexical scans.
    * @evidence contracts/common.md#meaningful-documentation JSDoc states units and null meaning under the documentation skill's coordinate/absence guidance.
    */
@@ -166,6 +183,7 @@ export interface ITtscApi {
    * the position has no token or no type-bearing token.
    *
    * @evidence contracts/common.md#principled-implementation The retained checker owns semantic lookup and printing after token navigation.
+   * @evidence contracts/common.md#clear-and-simple-design Type presentation has its own nullable payload while using the same position selector as syntax and symbol queries.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Types come from compiler semantics rather than source spelling or a fabricated any result.
    * @evidence contracts/common.md#meaningful-documentation JSDoc distinguishes token and semantic lookup under the documentation skill's context rule.
    */
@@ -176,6 +194,7 @@ export interface ITtscApi {
    * declaration sites. Returns `{symbol: null}` when no symbol is bound.
    *
    * @evidence contracts/common.md#principled-implementation The retained checker resolves symbols and projects bounded declaration metadata.
+   * @evidence contracts/common.md#clear-and-simple-design One symbol payload combines identity with a small declaration projection without adding follow-up declaration handles.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Declaration sites come from the symbol rather than searching text for equal names.
    * @evidence contracts/common.md#meaningful-documentation JSDoc explains the cap and null result under the documentation skill's context rule.
    */

@@ -9,6 +9,9 @@
  * @evidence contracts/common.md#principled-implementation
  *   An Error subclass carries a stable machine-readable code, API identity and
  *   original cause so the owner can replace the Worker rather than parse prose.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One error identity groups the terminal discriminator, API slot and cause;
+ *   Worker replacement remains the caller's responsibility, outside this value.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   The error exposes the runtime's terminal ownership limit rather than hiding
  *   it under retries that would reuse a stale global readiness bridge.

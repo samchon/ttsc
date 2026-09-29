@@ -4,6 +4,9 @@
  * @evidence contracts/common.md#principled-implementation
  *   Required dispatch fields plus scalar options mirror buildPluginArgv's native
  *   translation, allowing each registered plugin to own its argument schema.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Named dispatch fields are separated from forwarded scalars; the index
+ *   signature permits plugin-owned arguments without hardwiring plugin schemas.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Plugin defaults remain with the plugin; this transport does not hardcode
  *   consumer-specific arguments or pretend to validate an unknown command.

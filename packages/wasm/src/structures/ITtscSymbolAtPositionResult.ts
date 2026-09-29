@@ -6,6 +6,9 @@ import type { ITtscSymbolInfo } from "./ITtscSymbolInfo";
  * @evidence contracts/common.md#principled-implementation
  *   The nullable symbol follows native pointer JSON encoding, keeping successful
  *   absence distinct from a failed query envelope.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   A nullable symbol field holds the lookup outcome; reusable symbol metadata
+ *   and transport failure are represented separately without another status flag.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Absence is explicit rather than filled with a guessed identifier or symbol.
  * @evidence contracts/common.md#meaningful-documentation

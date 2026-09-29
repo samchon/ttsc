@@ -18,7 +18,7 @@ declare const importScripts: (...urls: string[]) => void;
 /**
  * Per-(apiName, wasmUrl) single-flight cache for boots. Keying on apiName alone
  * would let a second call with the same apiName but a different wasmUrl
- * silently return the cached IBootResult of the first wasm — the caller would
+ * silently return the cached IBootResult of the first wasm. The caller would
  * think they booted a fresh binary while the cached one stayed in place. The
  * composite key lets HMR / cache-busting query strings get a fresh boot while
  * still single-flighting genuine concurrent duplicate calls.
@@ -48,12 +48,9 @@ const terminalBootFailuresByApiName = new Map<
 >();
 
 /**
- * Per-apiName serialization chain. Two concurrent boots with the same apiName
- * but different wasmUrls each install their own `globalThis[apiName
- *
- * - "Ready"]`resolver — they would race and the second would overwrite the first,
- *   stranding the first boot's await. The chain serializes them so one boot's
- *   Go-side`Ready.Invoke()` always lands on the resolver that boot installed.
+ * Serialize boots sharing an API name because each installs the same
+ * `globalThis[apiName + "Ready"]` resolver. Serialization prevents a later
+ * attempt from overwriting the resolver before the earlier attempt settles.
  */
 const bootChainByApiName = new Map<string, Promise<unknown>>();
 
@@ -90,8 +87,8 @@ function resolveWasmUrl(wasmUrl: string): string {
  * stop the old runtime; replace the Worker before retrying.
  *
  * **Single-Worker caveat.** Even with the chain, a second boot loaded into the
- * SAME Worker after a first boot completes will overlay its Go runtime on top
- * of the first — `importScripts(wasmExecUrl)` rebinds `globalThis.Go`, and the
+ * same Worker after a first boot completes will overlay its Go runtime on top
+ * of the first. `importScripts(wasmExecUrl)` rebinds `globalThis.Go`, and the
  * first wasm's keepalive goroutine keeps running through the new runtime's
  * js-bridge tables. The serialization is sufficient for the typical use case
  * (one boot per Worker over the page's lifetime) but DOES NOT make a Worker
@@ -103,6 +100,12 @@ function resolveWasmUrl(wasmUrl: string): string {
  *   instantiation, and Promise sharing coordinates calls that use its global
  *   readiness slot. This follows the host.Expose integration rather than
  *   inventing a second runtime protocol.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The entry owns one attempt's host and cancellation, the per-API chain owns
+ *   readiness-slot serialization, and bootTtscOnce owns setup and cleanup.
+ *   These separate identities are needed because duplicate calls may join,
+ *   distinct binary URLs may queue, and a started runtime cannot be retried.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   The ttsc default API name and Ready/Failed slots are the host protocol,
@@ -119,8 +122,10 @@ function resolveWasmUrl(wasmUrl: string): string {
  *   and host ownership.
  *
  * @evidence contracts/performance.md#efficient-algorithms
- *   Map lookup indexes boot attempts and streaming instantiation avoids a
- *   separately buffered binary. Cancellation uses events rather than polling.
+ *   Cache lookup uses normalized URL length U and expected constant-time Map
+ *   access; fetch/streaming compilation process the B binary bytes without a
+ *   second JavaScript binary buffer. C joined callers add O(C) abort listeners,
+ *   and cancellation uses events rather than a polling scan.
  *
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   One API/normalized-URL pair shares fetch and instantiation only with the same
@@ -131,9 +136,11 @@ function resolveWasmUrl(wasmUrl: string): string {
  *   for successful-result reuse to remain valid within the Worker lifetime.
  *
  * @evidence contracts/performance.md#bound-retention-and-release-resources
- *   Successful boots and chain entries remain for the Worker lifetime, with no
- *   fixed population bound. Failed pre-start attempts release their entry;
- *   post-start runtimes cannot be stopped here and require Worker replacement.
+ *   Each entry owns its controller, host and result; settlement removes joined
+ *   caller listeners and internal cancellation listeners. Successful boot keys,
+ *   API chain heads and terminal failures remain until Worker termination, with
+ *   no fixed key or retained-byte bound. Failed pre-start entries are removed;
+ *   started runtimes cannot be stopped here and require Worker replacement.
  */
 export function bootTtsc(options: IBootTtscOptions): Promise<IBootResult> {
   const apiName = options.apiName ?? "ttsc";

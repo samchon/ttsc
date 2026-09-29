@@ -6,6 +6,9 @@ import type { ITtscSnapshotHandle } from "./ITtscSnapshotHandle";
  * @evidence contracts/common.md#principled-implementation
  *   Extending the shared handle keeps snapshot identity consistent while adding
  *   the file selector accepted by resolveSnapshotFile in the native host.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Extending the common handle adds only the file selector, so all file queries
+ *   share one snapshot identity definition and path interpretation boundary.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   The request names its snapshot and file explicitly; no project lookup is
  *   replaced by a fixed consumer path.

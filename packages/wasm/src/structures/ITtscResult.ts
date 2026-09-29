@@ -6,6 +6,9 @@
  * @evidence contracts/common.md#principled-implementation
  *   The uniform exit-code/stream/payload shape mirrors the native JavaScript
  *   bridge, with structured JSON separate from plugin output streams.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One envelope separates status, two output channels and structured payload
+ *   text, leaving endpoint-specific DTOs outside the transport representation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   A nonzero code remains visible; empty payload text is not replaced with a
  *   fabricated success object or interpreted as evidence that the call succeeded.

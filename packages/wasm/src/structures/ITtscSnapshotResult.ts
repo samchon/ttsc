@@ -6,6 +6,9 @@
  * @evidence contracts/common.md#principled-implementation
  *   Returning an opaque handle keeps retained Go program objects behind the
  *   native registry while allowing several queries to share one snapshot.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   A single opaque handle transfers query access to the caller; registry state
+ *   and Program cleanup remain with the host instead of entering the payload.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   The handle refers to a real registered program, without encoding a consumer
  *   path or fabricated query result into the public identity.
