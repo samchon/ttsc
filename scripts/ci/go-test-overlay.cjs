@@ -19,10 +19,11 @@ const path = require("node:path");
 // the basenames already present in targetDir turns that collision, and any
 // test-vs-test basename clash, into a loud named error instead of a silent
 // overwrite (issue #624).
-function copyGoTestsFlat(sourceDir, targetDir) {
+function copyGoTestsFlat(sourceDir, targetDir, select = () => true) {
   fs.mkdirSync(targetDir, { recursive: true });
   const seen = new Set(existingGoBasenames(targetDir));
   for (const file of walkForGoFiles(sourceDir)) {
+    if (!select(file)) continue;
     const basename = path.basename(file);
     if (seen.has(basename)) {
       throw new Error(

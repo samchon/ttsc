@@ -9,7 +9,7 @@
 const cp = require("node:child_process");
 const path = require("node:path");
 
-const { discoverNodeTests } = require("./ci/node-tests.cjs");
+const { selectedNodeTests } = require("./ci/node-tests.cjs");
 const { runIndependent } = require("./ci/run-independent.cjs");
 
 const root = path.resolve(__dirname, "..");
@@ -26,10 +26,31 @@ const runners = [
   "test-go-shim.cjs",
 ];
 
+// These suites call parser/transformer APIs in process. The remaining runners
+// include real command, runtime, plugin or filesystem integration contracts.
+const GO_UNIT_ONLY_RUNNERS = ["test-go-transformer.cjs", "test-go-shim.cjs"];
+const GO_UNIT_RUNNERS = [
+  ...GO_UNIT_ONLY_RUNNERS,
+  "test-go-lint.cjs",
+  "test-go-evidence.cjs",
+];
+
+function selectedRunners(layer = process.env.TTSC_TEST_LAYER) {
+  if (layer && layer !== "unit" && layer !== "e2e")
+    throw new Error(`unknown TTSC_TEST_LAYER: ${layer}`);
+  return runners.filter(
+    (runner) =>
+      !layer ||
+      (layer === "unit"
+        ? GO_UNIT_RUNNERS.includes(runner)
+        : !GO_UNIT_ONLY_RUNNERS.includes(runner)),
+  );
+}
+
 // Fast Node checks run before the long Go suites so both CI Go lanes cover the
 // runner harness and the Go build helpers: every `scripts/*.test.cjs`,
 // discovered, so a new one runs without editing a list (`ci/node-tests.cjs`).
-const harnessTests = discoverNodeTests(root, "go").map((relative) =>
+const harnessTests = selectedNodeTests(root, "go").map((relative) =>
   path.join(root, ...relative.split("/")),
 );
 
@@ -73,7 +94,7 @@ async function main() {
   }
   failed.push(
     ...(await runIndependent(
-      runners,
+      selectedRunners(),
       spawnRunner,
       Number(process.env.TTSC_GO_TEST_WORKERS ?? 1),
     )),
@@ -92,4 +113,4 @@ if (require.main === module)
     process.exitCode = 1;
   });
 
-module.exports = { runAll };
+module.exports = { runAll, GO_UNIT_RUNNERS, selectedRunners };

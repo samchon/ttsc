@@ -82,15 +82,16 @@ export namespace TestProject {
   export const TSGO_BINARY = resolveTsgoBinary();
 
   /**
-   * Create a tracked temp directory under the OS temp root.
+   * Create a tracked temp directory under the supplied or OS temp root.
    *
    * The returned path is removed on process exit so the suite doesn't pile up
    * stale directories under `/tmp` (each test typically needs a project root
    * plus a plugin cache dir, and there are hundreds of cases).
    */
-  export function tmpdir(prefix: string): string {
+  export function tmpdir(prefix: string, parent: string = os.tmpdir()): string {
     ensureCleanupHook();
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+    fs.mkdirSync(parent, { recursive: true });
+    const dir = fs.mkdtempSync(path.join(parent, prefix));
     TRACKED_TEMP_DIRS.add(dir);
     return dir;
   }

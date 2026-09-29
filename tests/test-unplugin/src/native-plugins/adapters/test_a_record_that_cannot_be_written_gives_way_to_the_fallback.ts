@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { fallbackToolDirectory } from "../../../../../packages/unplugin/lib/core/bridge/fallbackToolDirectory.js";
-import { hostToolDirectory } from "../../../../../packages/unplugin/lib/core/bridge/hostToolDirectory.js";
-import { projectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/projectRecordFile.js";
+import { fallbackToolDirectory } from "../../../../../packages/unplugin/lib/core/bridge/fallbackToolDirectory.mjs";
+import { hostToolDirectory } from "../../../../../packages/unplugin/lib/core/bridge/hostToolDirectory.mjs";
+import { projectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/projectRecordFile.mjs";
 import { createRealNativeEnvelopeFixture } from "../../internal/real-native-envelope/createRealNativeEnvelopeFixture";
 
 /**

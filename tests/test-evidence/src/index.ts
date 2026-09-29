@@ -1,42 +1,13 @@
-import { DynamicExecutor } from "@nestia/e2e";
+import path from "node:path";
 
-const main = async (): Promise<void> => {
-  const only = process.argv
-    .filter((argument) => argument.startsWith("--include="))
-    .map((argument) => argument.slice("--include=".length));
+import { TestExecutor } from "../../utils/src/TestExecutor";
+import { suiteRoot } from "./internal/suiteRoot";
 
-  const report: DynamicExecutor.IReport = await DynamicExecutor.validate({
-    prefix: "test",
-    location: `${__dirname}/features`,
-    extension: "ts",
-    parameters: () => [],
-    filter: (file) =>
-      only.length === 0 || only.some((pattern) => file.includes(pattern)),
-    onComplete: (execution) =>
-      console.log(
-        `  - ${execution.name}: ${
-          execution.error === null
-            ? `${new Date(execution.completed_at).getTime() - new Date(execution.started_at).getTime()} ms`
-            : "FAILED"
-        }`,
-      ),
-  });
-
-  const failures: DynamicExecutor.IExecution[] = report.executions.filter(
-    (execution) => execution.error !== null,
-  );
-  if (report.executions.length === 0)
-    throw new Error("evidence selection ran no tests");
-  if (failures.length === 0) {
-    console.log(`\nSuccess — ${report.executions.length} feature(s).`);
-    return;
-  }
-  for (const failure of failures) console.error(failure.error);
-  console.error(`\nFailed — ${failures.length} case(s).`);
-  process.exit(-1);
-};
-
-main().catch((error: unknown) => {
+// The rule contracts still invoke the real compiler. The runner itself uses
+// the shared loader so its runtime preload cannot leak into those consumers.
+TestExecutor.main({
+  location: path.join(suiteRoot, "src", "features"),
+}).catch((error: unknown) => {
   console.error(error);
-  process.exit(-1);
+  process.exitCode = 1;
 });

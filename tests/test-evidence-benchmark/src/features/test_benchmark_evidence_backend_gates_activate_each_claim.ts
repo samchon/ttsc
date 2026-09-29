@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 
 import type { IBenchmarkWorkspace } from "../internal/IBenchmarkWorkspace";
@@ -23,6 +24,7 @@ import type { IMissingAcknowledgement } from "../internal/evidenceDiagnostics";
 import { provisionEnvironment } from "../internal/provisionEnvironment";
 import { requirementDocumentsDeclaringSections } from "../internal/requirementDocuments";
 import { runScript } from "../internal/runScript";
+import { startScriptWatch } from "../internal/startScriptWatch";
 import { stripCitations } from "../internal/stripCitations";
 import { materializeClaimLayer } from "../internal/workspaceLayer";
 
@@ -65,8 +67,12 @@ const INSTRUCTION =
  */
 export const test_benchmark_evidence_backend_gates_activate_each_claim =
   async (): Promise<void> => {
+    const preparationStarted = Date.now();
     const workspace: IBenchmarkWorkspace =
       await acquireBenchmarkWorkspace("evidence");
+    console.log(
+      `  backend workspace prepared in ${Date.now() - preparationStarted} ms`,
+    );
     provisionEnvironment(workspace.workspace);
     const backend: string = path.join(
       workspace.workspace,
@@ -115,34 +121,72 @@ export const test_benchmark_evidence_backend_gates_activate_each_claim =
       INSTRUCTION,
       gates.map((gate) => gate.claim),
     );
-    for (const claim of order) {
-      const gate: IActivationGate = locate(gates, claim);
-      materializeClaimLayer({ workspace: workspace.workspace, claim });
-      removeActivationGate(gate.file, claim);
-
-      // A claim populates only from the Program that owns its hosts, so the
-      // gate that proves it is the one compiling that Program — which is the
-      // script its own configuration carries.
-      const owner: IClaimConfiguration = owning(configurations, gate.file);
-      // Mirrors the workspace-root `lint` script, which regenerates the Prisma
-      // client before linting so a schema edit cannot leave the Program stale.
-      requireZero(backend, "build:prisma");
-      const obligations: IMissingAcknowledgement[] = assertClaimActivated({
-        result: runScript({
-          cwd: owner.packageDirectory,
-          script: owner.script,
-        }),
-        claim,
-      });
-      assertRequirementsReached(workspace.workspace, claim, obligations);
-      // Claim-level activation is not enough for a claim that also references
-      // an installed package: its Markdown reference stays healthy and keeps
-      // reporting, so the claim looks active while the population that reaches
-      // through the install has gone empty. Only naming the accessors separates
-      // those two states.
-      if (throughTheInstall.includes(claim))
-        assertPublishedAccessorsDemanded({ workspace, claim, obligations });
+    const sessions = new Map<string, ReturnType<typeof startScriptWatch>>();
+    const failures: Error[] = [];
+    let generatedSchema = schemaInputs(backend);
+    try {
+      // Each owning Program starts once and retains its native host across edits.
+      for (const configuration of configurations) {
+        const session = startScriptWatch({
+          cwd: configuration.packageDirectory,
+          script: configuration.script,
+        });
+        sessions.set(configuration.file, session);
+        const baseline = await session.nextBuild(undefined, 1_800_000);
+        console.log(
+          `  backend ${configuration.script} initial cycle: ${baseline.elapsedMs} ms`,
+        );
+        if (baseline.status !== 0)
+          throw new Error(
+            `The fully staged Program must pass before activation.\n${baseline.output}`,
+          );
+      }
+      for (const claim of order) {
+        const started = Date.now();
+        try {
+          const gate = locate(gates, claim);
+          materializeClaimLayer({ workspace: workspace.workspace, claim });
+          removeActivationGate(gate.file, claim);
+          // Only a schema edit requires regenerating the Prisma client.
+          const currentSchema = schemaInputs(backend);
+          if (currentSchema !== generatedSchema) {
+            requireZero(backend, "build:prisma");
+            generatedSchema = currentSchema;
+          }
+          const owner = owning(configurations, gate.file);
+          const result = await sessions
+            .get(owner.file)!
+            .nextBuild((cycle) => cycle.output.includes(`'${claim}'`));
+          const obligations = assertClaimActivated({ result, claim });
+          assertRequirementsReached(workspace.workspace, claim, obligations);
+          if (throughTheInstall.includes(claim))
+            assertPublishedAccessorsDemanded({ workspace, claim, obligations });
+          console.log(
+            `  backend claim ${claim}: passed in ${Date.now() - started} ms`,
+          );
+        } catch (error) {
+          failures.push(
+            error instanceof Error ? error : new Error(String(error)),
+          );
+          console.log(
+            `  backend claim ${claim}: FAILED in ${Date.now() - started} ms`,
+          );
+        }
+      }
+    } finally {
+      const closed = await Promise.allSettled(
+        [...sessions.values()].map((session) => session.close()),
+      );
+      for (const result of closed)
+        if (result.status === "rejected")
+          failures.push(
+            result.reason instanceof Error
+              ? result.reason
+              : new Error(String(result.reason)),
+          );
     }
+    if (failures.length)
+      throw new AggregateError(failures, "Backend activation stages failed");
   };
 
 /**
@@ -255,8 +299,32 @@ const locate = (
 
 const requireZero = (cwd: string, script: string): void => {
   const result = runScript({ cwd, script });
+  console.log(`  backend ${script}: ${result.elapsedMs} ms`);
   if (result.status === 0) return;
   throw new Error(
     `\`pnpm ${script}\` must pass before any claim can be walked; the activation of every later claim is unobservable until it does.\n\nDirectory: ${cwd}\nExit status: ${String(result.status)}\n\nActual output:\n${result.output}`,
+  );
+};
+
+/** The complete authored Prisma input, independent of directory traversal order. */
+const schemaInputs = (backend: string): string => {
+  const root = path.join(backend, "prisma");
+  const files: string[] = [];
+  const visit = (directory: string): void => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const file = path.join(directory, entry.name);
+      if (entry.isDirectory()) visit(file);
+      else if (entry.isFile() && entry.name.endsWith(".prisma"))
+        files.push(file);
+    }
+  };
+  visit(root);
+  return JSON.stringify(
+    files
+      .sort()
+      .map((file) => [
+        path.relative(root, file),
+        fs.readFileSync(file, "utf8"),
+      ]),
   );
 };

@@ -10,12 +10,14 @@ export function createUtilityPluginProject(props: {
   plugin: "banner" | "strip";
   pluginEntry?: Record<string, unknown>;
   source: string;
+  temporaryParent?: string;
 }): string {
   const root = TestUnpluginProject.createProject({
     plugins: [
       { transform: `@ttsc/${props.plugin}`, ...(props.pluginEntry ?? {}) },
     ],
     source: props.source,
+    temporaryParent: props.temporaryParent,
   });
   for (const [name, text] of Object.entries(props.files ?? {})) {
     const file = path.join(root, name);

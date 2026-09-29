@@ -13,7 +13,7 @@ const path = require("node:path");
 const { test } = require("node:test");
 
 const { copyGoTestsFlat } = require("./ci/go-test-overlay.cjs");
-const { runAll } = require("./test-go.cjs");
+const { runAll, selectedRunners } = require("./test-go.cjs");
 
 function tmpdir(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-runner-harness-"));
@@ -78,6 +78,24 @@ test("copyGoTestsFlat throws on a test-vs-test basename collision", (t) => {
   );
 });
 
+test("copyGoTestsFlat selects a layer while retaining unselected default coverage", (
+  t,
+) => {
+  const source = tmpdir(t);
+  const selected = tmpdir(t);
+  const complete = tmpdir(t);
+  writeFile(source, "unit/one_test.go", "package linthost\n// one\n");
+  writeFile(source, "e2e/two_test.go", "package linthost\n// two\n");
+  copyGoTestsFlat(
+    source,
+    selected,
+    (file) => path.basename(file) !== "one_test.go",
+  );
+  copyGoTestsFlat(source, complete);
+  assert.deepEqual(fs.readdirSync(selected), ["two_test.go"]);
+  assert.deepEqual(fs.readdirSync(complete).sort(), ["one_test.go", "two_test.go"]);
+});
+
 test("runAll invokes every runner even after an earlier one fails", () => {
   const invoked = [];
   const failed = runAll(["a", "b", "c"], (runner) => {
@@ -93,4 +111,18 @@ test("runAll invokes every runner even after an earlier one fails", () => {
 test("runAll reports every failing runner, not just the first", () => {
   const failed = runAll(["a", "b", "c"], (runner) => (runner === "b" ? 0 : 1));
   assert.deepEqual(failed, ["a", "c"]);
+});
+
+test("Go layers preserve every runner and share the mixed rule suites", () => {
+  const all = selectedRunners("");
+  const unit = selectedRunners("unit");
+  const e2e = selectedRunners("e2e");
+  assert.deepEqual([...new Set([...unit, ...e2e])].sort(), [...all].sort());
+  assert.deepEqual(
+    unit.filter((runner) => e2e.includes(runner)),
+    ["test-go-lint.cjs", "test-go-evidence.cjs"],
+  );
+  assert.ok(!e2e.includes("test-go-transformer.cjs"));
+  assert.ok(!e2e.includes("test-go-shim.cjs"));
+  assert.throws(() => selectedRunners("typo"), /TTSC_TEST_LAYER/);
 });

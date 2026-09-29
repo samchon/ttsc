@@ -6,7 +6,7 @@
 const childProcess = require("node:child_process");
 const path = require("node:path");
 
-const { discoverNodeTests } = require("./node-tests.cjs");
+const { selectedNodeTests } = require("./node-tests.cjs");
 
 const root = path.resolve(__dirname, "..", "..");
 
@@ -38,7 +38,7 @@ function runStep(step) {
 }
 
 if (require.main === module) {
-  const nodeTests = discoverNodeTests(root, "typecheck").map((relative) =>
+  const nodeTests = selectedNodeTests(root, "typecheck").map((relative) =>
     path.join(root, ...relative.split("/")),
   );
   const steps = [
@@ -48,7 +48,11 @@ if (require.main === module) {
       command: "pnpm",
       args: ["run", "check:dependencies"],
     },
-    { name: "Node harness", command: process.execPath, args: ["--test", ...nodeTests] },
+    {
+      name: "Node harness",
+      command: process.execPath,
+      args: ["--test", ...nodeTests],
+    },
     {
       name: "format check",
       command: process.execPath,

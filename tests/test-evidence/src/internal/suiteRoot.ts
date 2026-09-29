@@ -1,7 +1,5 @@
 import path from "node:path";
 
-const here: string = __dirname;
-
 /**
  * Absolute path of the feature suite's own package root.
  *
@@ -10,4 +8,4 @@ const here: string = __dirname;
  * whether the suite is driven from the repository root or from its own
  * package.
  */
-export const suiteRoot: string = path.resolve(here, "..", "..");
+export const suiteRoot: string = path.resolve(import.meta.dirname, "..", "..");

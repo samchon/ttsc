@@ -30,6 +30,8 @@ const { copyGoTestsFlat } = require("./ci/go-test-overlay.cjs");
 const { writeGoWork } = require("./go-work.cjs");
 
 const root = path.resolve(__dirname, "..");
+const unit = process.env.TTSC_TEST_LAYER === "unit";
+const e2e = process.env.TTSC_TEST_LAYER === "e2e";
 const lintPkgDir = path.join(root, "packages", "lint");
 const lintTestsDir = path.join(lintPkgDir, "test");
 const ttscDir = path.join(root, "packages", "ttsc");
@@ -41,14 +43,14 @@ const ttsxBinary =
 // fail deep inside `go test` with an opaque `Cannot find module '…/ttsx.js'`
 // (issue #622). test-go-lint drives the real ttsx launcher, which only exists
 // after the ttsc package is built.
-if (!fs.existsSync(ttsxBinary)) {
+if (!unit && !fs.existsSync(ttsxBinary)) {
   throw new Error(
     `ttsc lint Go tests need the ttsx launcher at ${ttsxBinary}, which does not exist.\n` +
       "Build it first with `pnpm --filter ttsc build`, or set TTSC_TTSX_BINARY to an existing launcher.",
   );
 }
-const tsgoBinary = resolveTsgoBinary();
-const prettierModule = resolvePrettierModule();
+const tsgoBinary = unit ? "" : resolveTsgoBinary();
+const prettierModule = unit ? "" : resolvePrettierModule();
 
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-lint-go-test-"));
 // Native-binary tests copy the scratch module. Keep fixture projects outside it
@@ -65,7 +67,16 @@ try {
   copyGoTestsFlat(lintTestsDir, path.join(scratch, "linthost"));
   // Repository validation tests stay outside the product package. Overlay
   // them beside the engine only in this disposable Go test module.
-  copyGoTestsFlat(path.join(root, "tests", "test-lint", "go"), path.join(scratch, "linthost"));
+  const unitOverlays = new Set([
+    "lint_fixture_corpus_test.go",
+    "command_format_fixture_corpus_test.go",
+    "command_check_preserves_severity_exit_contract_test.go",
+  ]);
+  copyGoTestsFlat(
+    path.join(root, "tests", "test-lint", "go"),
+    path.join(scratch, "linthost"),
+    (file) => !e2e || !unitOverlays.has(path.basename(file)),
+  );
 
   // Discover every in-tree module the workspace needs to satisfy:
   //   - the lint package (whose tests we're running),
@@ -87,31 +98,76 @@ try {
     PATH: fs.existsSync(goRoot)
       ? `${goRoot}${path.delimiter}${process.env.PATH ?? ""}`
       : process.env.PATH,
-    TTSC_TSGO_BINARY: process.env.TTSC_TSGO_BINARY ?? tsgoBinary,
-    TTSC_TTSX_BINARY: ttsxBinary,
-    TTSC_PRETTIER_MODULE: process.env.TTSC_PRETTIER_MODULE ?? prettierModule,
+    TTSC_TSGO_BINARY: unit ? "" : (process.env.TTSC_TSGO_BINARY ?? tsgoBinary),
+    TTSC_TTSX_BINARY: unit ? "" : ttsxBinary,
+    TTSC_PRETTIER_MODULE: unit
+      ? ""
+      : (process.env.TTSC_PRETTIER_MODULE ?? prettierModule),
     TTSC_LINT_CORPUS_MANIFEST: path.join(corpusScratch, "corpus.json"),
-    TTSC_LINT_FORMAT_FIXTURES: path.join(root, "tests", "test-lint", "fixtures", "format-projects"),
+    TTSC_LINT_FORMAT_FIXTURES: path.join(
+      root,
+      "tests",
+      "test-lint",
+      "fixtures",
+      "format-projects",
+    ),
   };
-  const prepared = cp.spawnSync(process.execPath, [
-    "--import", pathToFileURL(path.join(root, "scripts", "register-typescript-loader.mjs")).href,
-    path.join(root, "scripts", "ci", "prepare-lint-corpus.mts"),
-    path.join(corpusScratch, "projects"), env.TTSC_LINT_CORPUS_MANIFEST,
-  ], { cwd: path.join(root, "tests", "test-lint"), env, stdio: "inherit", windowsHide: true });
+  const prepared = e2e
+    ? { status: 0 }
+    : cp.spawnSync(
+        process.execPath,
+        [
+          "--import",
+          pathToFileURL(
+            path.join(root, "scripts", "register-typescript-loader.mjs"),
+          ).href,
+          path.join(root, "scripts", "ci", "prepare-lint-corpus.mts"),
+          path.join(corpusScratch, "projects"),
+          env.TTSC_LINT_CORPUS_MANIFEST,
+        ],
+        {
+          cwd: path.join(root, "tests", "test-lint"),
+          env,
+          stdio: "inherit",
+          windowsHide: true,
+        },
+      );
   if (prepared.error) throw prepared.error;
-  if (prepared.status !== 0) console.error("lint corpus preparation failed; continuing independent engine tests");
+  if (prepared.status !== 0)
+    console.error(
+      "lint corpus preparation failed; continuing independent engine tests",
+    );
   writeGoWork(
     path.join(scratch, "go.work"),
     `use (\n${useDirs.map((d) => `\t${d.replace(/\\/g, "/")}`).join("\n")}\n)\n`,
     env,
   );
 
-  const result = cp.spawnSync("go", ["test", "-count=1", "-timeout=20m", ...process.argv.slice(2), "./linthost"], {
-    cwd: scratch,
-    env,
-    stdio: "inherit",
-    windowsHide: true,
-  });
+  // The three repository-only corpora invoke Go APIs in process against JSON
+  // configs. They need no product launcher, source-plugin build or Node oracle.
+  // The complete package-local suite keeps its aggregate witness gate in e2e.
+  const selection = unit
+    ? [
+        "-run=^(TestLintFixtureCorpus|TestFormatFixtureCorpus|TestCommandCheckPreservesSeverityExitContract)$",
+      ]
+    : [];
+  const result = cp.spawnSync(
+    "go",
+    [
+      "test",
+      "-count=1",
+      "-timeout=20m",
+      ...selection,
+      ...process.argv.slice(2),
+      "./linthost",
+    ],
+    {
+      cwd: scratch,
+      env,
+      stdio: "inherit",
+      windowsHide: true,
+    },
+  );
   if (result.error) {
     throw result.error;
   }

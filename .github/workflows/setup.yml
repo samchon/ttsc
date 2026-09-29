@@ -1,0 +1,54 @@
+name: setup
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: setup-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  installed-smoke:
+    name: install (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x64
+            runner: ubuntu-24.04
+          - name: linux-arm64
+            runner: ubuntu-24.04-arm
+          - name: darwin-x64
+            runner: macos-15-intel
+          - name: darwin-arm64
+            runner: macos-15
+          - name: win32-x64
+            runner: windows-2025
+          - name: win32-arm64
+            runner: windows-11-arm
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.6.4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+          cache: pnpm
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: packages/ttsc/go.mod
+          cache-dependency-path: "**/go.sum"
+      - name: Install build dependencies
+        run: pnpm --filter @ttsc/station --filter @ttsc/config --filter ttsc... install --frozen-lockfile --ignore-scripts
+      - name: Build the current platform CLI
+        run: pnpm run build:current
+        env:
+          TTSC_BUILD_SCOPE: install-smoke
+      - name: Install and execute the packed CLI
+        run: pnpm exec node scripts/ci/installed-cli-smoke.cjs

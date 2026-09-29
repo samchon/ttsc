@@ -8,10 +8,10 @@ import { promisify } from "node:util";
 import {
   deadline,
   eventually,
+  filesystemRoot,
   isProjectRecordOf,
   projectRecordMovedAt,
   recordStates,
-  workspace,
   write,
   writeRaceLoader,
 } from "../common.mjs";
@@ -74,7 +74,7 @@ export async function openSession(bundler, project) {
       "};",
       "const config = withTtsc({",
       "  devIndicators: false,",
-      `  turbopack: { root: ${JSON.stringify(workspace)}, rules: ${JSON.stringify(rules)} },`,
+      `  turbopack: { root: ${JSON.stringify(filesystemRoot)}, rules: ${JSON.stringify(rules)} },`,
       "  webpack(config) {",
       // webpack's cache says what it restored, which a failure that expected
       // a restore needs to name; the verdict on each module's snapshot is a

@@ -4,7 +4,6 @@ on:
   pull_request:
     paths:
       - ".github/workflows/typia.yml"
-      - ".github/actions/validation-cache/**"
       - "experimental/source-map/**"
       - "website/compiler-dependencies/package.json"
       - "experimental/tarballs/**"
@@ -31,9 +30,6 @@ concurrency:
   group: typia-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
   cancel-in-progress: false
 
-env:
-  GOCACHE: ${{ github.workspace }}/.cache/ci/go-build
-
 jobs:
   Ubuntu:
     runs-on: ubuntu-latest
@@ -58,13 +54,7 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: packages/ttsc/go.mod
-          cache: false
-
-      - uses: ./.github/actions/validation-cache
-        with:
-          group: typia
-          go-group: typia
-          save-go: "true"
+          cache-dependency-path: "**/go.sum"
 
       - name: Install ttsc dependencies
         run: pnpm install --frozen-lockfile

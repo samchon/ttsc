@@ -1,10 +1,11 @@
 {
   "private": true,
+  "type": "module",
   "name": "test-evidence",
   "version": "0.30.4",
   "description": "End-to-end feature tests for @ttsc/evidence, driving the real ttsc binary.",
   "scripts": {
-    "start": "node ../../packages/ttsc/lib/launcher/ttsx.js --no-plugins src/index.ts"
+    "start": "node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../scripts/register-typescript-loader.mjs src/index.ts"
   },
   "devDependencies": {
     "@nestia/e2e": "catalog:utils",

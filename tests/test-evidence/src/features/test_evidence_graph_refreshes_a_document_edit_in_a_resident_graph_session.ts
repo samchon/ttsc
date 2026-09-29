@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 
 import {
@@ -8,7 +9,7 @@ import {
   resolveDependency,
 } from "../internal/index";
 
-const require_ = require;
+const require_ = createRequire(import.meta.url);
 
 /**
  * The address the citation names, held stable by an explicit anchor.

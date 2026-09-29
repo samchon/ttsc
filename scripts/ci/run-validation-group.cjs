@@ -11,6 +11,7 @@ async function runAll(steps, execute, concurrency = 1) {
 }
 
 function execute(step) {
+  const started = process.hrtime.bigint();
   console.log(`\nValidation: ${step.run}`);
   return new Promise((resolve) => {
     const child = cp.spawn(step.run, {
@@ -25,7 +26,13 @@ function execute(step) {
       windowsHide: true,
     });
     child.on("error", (error) => console.error(error));
-    child.on("close", (code) => resolve(code ?? 1));
+    child.on("close", (code) => {
+      const seconds = Number(process.hrtime.bigint() - started) / 1e9;
+      console.log(
+        `Validation finished: ${step.run}: ${code === 0 ? "passed" : "FAILED"} in ${seconds.toFixed(1)} s`,
+      );
+      resolve(code ?? 1);
+    });
   });
 }
 

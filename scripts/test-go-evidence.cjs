@@ -23,6 +23,17 @@ const root = path.resolve(__dirname, "..");
 const packageDir = path.join(root, "packages", "evidence");
 
 function main() {
+  const layer = process.env.TTSC_TEST_LAYER;
+  if (layer && layer !== "unit" && layer !== "e2e")
+    throw new Error(`unknown TTSC_TEST_LAYER: ${layer}`);
+  // These migrated rule fixtures use the parser and actual rule functions in
+  // process. Loader, watch, filesystem and runtime bridges stay in e2e.
+  const selection =
+    layer === "unit"
+      ? ["-run=^TestEvidenceSemantic"]
+      : layer === "e2e"
+        ? ["-skip=^TestEvidenceSemantic"]
+        : [];
   if (!fs.existsSync(path.join(packageDir, "native"))) {
     console.error(
       "test-go-evidence: packages/evidence/native is missing; nothing to run.",
@@ -51,6 +62,7 @@ function main() {
         "-count=1",
         "-overlay",
         overlay,
+        ...selection,
         ...process.argv.slice(2),
         "./native/",
       ],

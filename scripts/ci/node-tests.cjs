@@ -27,6 +27,34 @@ const NODE_TEST_OWNERS = [
   { lane: "typecheck", pattern: /^packages\/[^/]+\/scripts\/[^/]+\.test\.cjs$/ },
 ];
 
+// These tests exercise real process, launcher, formatter or packed-package
+// boundaries. Keep their assertions in e2e even when Node's test runner owns them.
+const E2E_NODE_TESTS = new Set([
+  "scripts/format-go.test.cjs",
+  "scripts/go-wasm-exec.test.cjs",
+  "scripts/ci/feature-worker-isolation.test.cjs",
+  "scripts/ci/gofmt-wrapper.test.cjs",
+  "scripts/ci/typescript-loader.test.cjs",
+  "scripts/ci/unplugin-test-contract.test.cjs",
+  "packages/ttsc/scripts/check-flags.test.cjs",
+]);
+
+/** Classify observable process and package boundaries separately from units. */
+function nodeTestLayer(relative) {
+  return relative.startsWith("scripts/ci/package/") || E2E_NODE_TESTS.has(relative)
+    ? "e2e"
+    : "unit";
+}
+
+/** Select a test layer while retaining complete default local commands. */
+function selectedNodeTests(root, lane, layer = process.env.TTSC_TEST_LAYER) {
+  if (layer && layer !== "unit" && layer !== "e2e")
+    throw new Error(`unknown TTSC_TEST_LAYER: ${layer}`);
+  return discoverNodeTests(root, lane).filter(
+    (file) => !layer || nodeTestLayer(file) === layer,
+  );
+}
+
 /**
  * The lane that owns a Node test, by its repository-relative path with `/`
  * separators, or `undefined` for a path no owner claims.
@@ -94,4 +122,9 @@ function safeList(directory) {
   }
 }
 
-module.exports = { discoverNodeTests, nodeTestLane };
+module.exports = {
+  discoverNodeTests,
+  nodeTestLane,
+  nodeTestLayer,
+  selectedNodeTests,
+};

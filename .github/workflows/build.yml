@@ -6,7 +6,6 @@ on:
       - master
     paths:
       - ".github/workflows/build.yml"
-      - ".github/actions/validation-cache/**"
       - "config/**"
       - "scripts/assert-platform-package.cjs"
       - "scripts/assert-ttscgraph-release-candidate.cjs"
@@ -26,7 +25,6 @@ on:
   pull_request:
     paths:
       - ".github/workflows/build.yml"
-      - ".github/actions/validation-cache/**"
       - "config/**"
       - "scripts/assert-platform-package.cjs"
       - "scripts/assert-ttscgraph-release-candidate.cjs"
@@ -48,34 +46,24 @@ concurrency:
   group: build-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
   cancel-in-progress: false
 
-env:
-  GOCACHE: ${{ github.workspace }}/.cache/ci/go-build
-
 jobs:
   Ubuntu:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
 
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.6.4
       - uses: actions/setup-node@v7
         with:
           node-version: 24.x
+          cache: pnpm
 
       - uses: actions/setup-go@v7
         with:
           go-version-file: packages/ttsc/go.mod
-          cache: false
-
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 10.6.4
-
-      - uses: ./.github/actions/validation-cache
-        with:
-          group: build
-          go-group: build
-          save-go: "true"
-          cross-sdk: "true"
+          cache-dependency-path: "**/go.sum"
 
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile

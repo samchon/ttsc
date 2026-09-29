@@ -26,6 +26,8 @@ export namespace TestUnpluginProject {
   interface ICreateProjectOptions {
     plugins?: unknown[];
     source?: string;
+    /** Private ancestry for tests observing unresolved package candidates. */
+    temporaryParent?: string;
   }
 
   /** Require function scoped to the unplugin package under test. */
@@ -50,7 +52,7 @@ export namespace TestUnpluginProject {
    */
   export function createProject(options: ICreateProjectOptions = {}) {
     ensureSharedCacheDir();
-    const root = TestProject.tmpdir("ttsc-unplugin-");
+    const root = TestProject.tmpdir("ttsc-unplugin-", options.temporaryParent);
     fs.mkdirSync(path.join(root, "src"), { recursive: true });
     fs.writeFileSync(
       mainFile(root),

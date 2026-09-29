@@ -1,7 +1,5 @@
 name: test
 
-# Portable validation shares one Linux job. Other operating systems only
-# install the package and execute the CLI. No planner or aggregate jobs.
 on:
   push:
     branches:
@@ -10,152 +8,27 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: test-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+  group: unit-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
   cancel-in-progress: false
 
-# Cache Go's intermediate objects separately from each deliberately cold plugin
-# root. Native executables are always built from the current checkout.
-env:
-  GOCACHE: ${{ github.workspace }}/.cache/ci/go-build
-  TTSC_TEST_CACHE_DIR: ${{ github.workspace }}/.cache/ci/plugins
-
 jobs:
-  validation:
-    name: ci
+  unit:
+    name: unit
     runs-on: ubuntu-latest
-    env:
-      npm_config_cache: ${{ github.workspace }}/.cache/ci/npm
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24.x
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: packages/ttsc/go.mod
-          cache: false
       - uses: pnpm/action-setup@v6
         with:
           version: 10.6.4
-      - uses: ./.github/actions/validation-cache
-        with:
-          group: linux-validation
-          save-go: "true"
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.4.0
-      - name: Ensure Yarn for workspace layout contracts
-        run: npm install --global yarn@1.22.22
-      - name: Install dependencies once
-        run: pnpm install --frozen-lockfile
-      - name: Use system Go for tests
-        shell: bash
-        run: echo "TTSC_GO_BINARY=$(go env GOROOT)/bin/go" >> "$GITHUB_ENV"
-      - name: Build shared validation dependencies once
-        id: build
-        run: pnpm run build:current
-        env:
-          TTSC_BUILD_SCOPE: full
-          TTSC_CACHE_DIR: ${{ env.TTSC_TEST_CACHE_DIR }}
-      - name: Unit and integration validation
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: node scripts/ci/run-validation-group.cjs --lanes=all --concurrency=2
-        env:
-          TTSC_TEST_WORKERS: 2
-          TTSC_GO_TEST_WORKERS: 2
-          TTSC_BUN_BINARY: bun
-      - name: Packed adapter contracts
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: pnpm --dir experimental/test-unplugin start -- --pack-current
-        env:
-          TTSC_HOST_WORKERS: 3
-          TTSC_UNPLUGIN_SKIP_BUILD: "1"
-      - name: Installed CLI smoke
-        id: installed
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: pnpm exec node scripts/ci/installed-cli-smoke.cjs --keep
-      - name: Verify VS Code installation once
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        shell: bash
-        run: |
-          if ! command -v code >/dev/null 2>&1; then
-            curl -fsSL -o "$RUNNER_TEMP/vscode.deb" "https://update.code.visualstudio.com/latest/linux-deb-x64/stable"
-            sudo apt-get install -y "$RUNNER_TEMP/vscode.deb"
-          fi
-          node scripts/smoke-vscode-install.cjs packages/vscode
-      - name: Read supported Node minimum
-        id: nodes
-        shell: bash
-        run: node -e "console.log('minimum='+require('./scripts/ci/validation-suites.cjs').NODE_FLOOR)" >> "$GITHUB_OUTPUT"
-      - uses: actions/setup-node@v7
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        with:
-          node-version: ${{ steps.nodes.outputs.minimum }}
-      - name: Minimum Node installed CLI smoke
-        if: ${{ !cancelled() && steps.installed.outcome == 'success' }}
-        run: pnpm exec node scripts/ci/installed-cli-smoke.cjs --reuse
-      - name: Minimum Node runtime contracts
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: node scripts/ci/run-validation-group.cjs --lanes=runtime-node-floor --concurrency=2
-        env:
-          TTSC_TEST_WORKERS: 2
-      - uses: actions/setup-node@v7
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        with:
-          node-version: current
-      - name: Current Node installed CLI smoke
-        if: ${{ !cancelled() && steps.installed.outcome == 'success' }}
-        run: pnpm exec node scripts/ci/installed-cli-smoke.cjs --reuse
-      - name: Current Node runtime contracts
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: node scripts/ci/run-validation-group.cjs --lanes=runtime-node-current --concurrency=2
-        env:
-          TTSC_TEST_WORKERS: 2
-
-  installed-smoke:
-    name: install (${{ matrix.name }})
-    runs-on: ${{ matrix.runner }}
-    env:
-      # This job never compiles a source plugin. Keep Go objects, but do not
-      # restore or upload the portable suites' plugin archive.
-      TTSC_TEST_CACHE_DIR: ""
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: linux-x64
-            runner: ubuntu-24.04
-          - name: linux-arm64
-            runner: ubuntu-24.04-arm
-          - name: darwin-x64
-            runner: macos-15-intel
-          - name: darwin-arm64
-            runner: macos-15
-          - name: win32-x64
-            runner: windows-2025
-          - name: win32-arm64
-            runner: windows-11-arm
-    steps:
-      - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: 24.x
+          cache: pnpm
       - uses: actions/setup-go@v7
         with:
           go-version-file: packages/ttsc/go.mod
-          cache: false
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 10.6.4
-      - uses: ./.github/actions/validation-cache
-        with:
-          group: install-smoke
-          save-go: ${{ matrix.name != 'linux-x64' && 'true' || 'false' }}
-      - name: Install build dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Build the current platform CLI
-        run: pnpm run build:current
-        env:
-          TTSC_BUILD_SCOPE: install-smoke
-      - name: Install and execute the packed CLI
-        run: pnpm exec node scripts/ci/installed-cli-smoke.cjs
+          cache-dependency-path: "**/go.sum"
+      - name: Install unit test dependencies
+        run: pnpm --filter @ttsc/station --filter @ttsc/test-lint... install --frozen-lockfile --ignore-scripts
+      - name: Run unit tests
+        run: node scripts/ci/run-unit-tests.cjs

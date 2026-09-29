@@ -1,8 +1,7 @@
 import { type SpawnSyncReturns, spawnSync } from "node:child_process";
 
-import { sanitizeBenchmarkEnvironment } from "../../../../benchmarks/evidence/src/sanitizeBenchmarkEnvironment";
 import type { IRunResult } from "./IRunResult";
-import { pluginCacheDirectory } from "./pluginCacheDirectory";
+import { scriptEnvironment } from "./scriptEnvironment";
 
 /**
  * Generous because the FIRST lint of a cache key statically links this plugin's
@@ -44,19 +43,6 @@ export const runScript = (props: {
     throw new Error(
       "The benchmark feature suite must be launched through pnpm; EvidenceBenchmarkWorkspace requires the same entry point.",
     );
-  const environment: NodeJS.ProcessEnv = sanitizeBenchmarkEnvironment(
-    process.env,
-  );
-  // The launching suite's own package identity would otherwise leak into a
-  // workspace script and answer for the wrong package.
-  for (const name of Object.keys(environment))
-    if (
-      name.startsWith("npm_package_") ||
-      name.startsWith("npm_lifecycle_") ||
-      name.toUpperCase() === "EVIDENCE_BENCHMARK_ARCHIVE" ||
-      name.toUpperCase() === "INIT_CWD"
-    )
-      delete environment[name];
   const started: number = Date.now();
   const result: SpawnSyncReturns<string> = spawnSync(
     process.execPath,
@@ -64,11 +50,7 @@ export const runScript = (props: {
     {
       cwd: props.cwd,
       encoding: "utf8",
-      env: {
-        ...environment,
-        TTSC_CACHE_DIR: pluginCacheDirectory(),
-        ...(props.environment ?? {}),
-      },
+      env: scriptEnvironment(props.environment),
       timeout: props.timeout ?? DEFAULT_TIMEOUT,
       maxBuffer: 64 * 1024 * 1024,
       shell: false,

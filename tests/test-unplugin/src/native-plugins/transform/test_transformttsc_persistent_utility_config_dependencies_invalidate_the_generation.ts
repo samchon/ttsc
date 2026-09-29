@@ -327,6 +327,9 @@ async function assertNodePathPackageCandidateInvalidatesTransform(): Promise<voi
   const { createTtscTransformCache, resolveOptions, transformTtsc } =
     await TestUnpluginRuntime.loadUnpluginApi();
   const root = createUtilityPluginProject({
+    // Unresolved package search walks every ancestor before NODE_PATH. Keep
+    // those ancestors outside the shared OS temp directory other suites mutate.
+    temporaryParent: path.join(process.cwd(), ".tmp", "resolution-inputs"),
     files: {
       "config/banner.config.cjs": 'module.exports = require("selection");\n',
     },
@@ -334,8 +337,14 @@ async function assertNodePathPackageCandidateInvalidatesTransform(): Promise<voi
     pluginEntry: { configFile: "./config/banner.config.cjs" },
     source: 'export const value: string = "kept";\n',
   });
-  const firstNodePath = TestProject.tmpdir("ttsc-node-path-first-");
-  const secondNodePath = TestProject.tmpdir("ttsc-node-path-second-");
+  const firstNodePath = TestProject.tmpdir(
+    "ttsc-node-path-first-",
+    path.dirname(root),
+  );
+  const secondNodePath = TestProject.tmpdir(
+    "ttsc-node-path-second-",
+    path.dirname(root),
+  );
   const writePackage = (directory: string, text: string): void => {
     const selected = path.join(directory, "selection");
     fs.mkdirSync(selected, { recursive: true });

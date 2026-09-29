@@ -13,6 +13,10 @@ import path from "node:path";
 
 export const workspace = path.resolve(import.meta.dirname, "..");
 
+// The fresh install is a sibling of the consumer. Turbopack must contain both
+// the consumer's link and the physical dependency tree it resolves to.
+export const filesystemRoot = path.dirname(workspace);
+
 /**
  * The values a contract input can carry, in the order the scenarios use them. A
  * host's output is read for exactly these words, so a string literal of the
