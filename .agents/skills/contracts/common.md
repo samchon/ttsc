@@ -1,26 +1,24 @@
 # Common Implementation Principles
 
-Every selected type and function answers these questions for its actual responsibility. Properties retain native documentation and are reviewed through their owning type. Include helpers when assessing the operation that owns their behavior.
-
-Give grounds a reviewer can check against the implementation and its supported contract. Keep straightforward decisions brief. Do not invent unrelated decisions, alternative implementations or development history to fill an answer. Evidence checks that acknowledgments exist; it does not establish their truth or replace tests.
+These chapters address method validity, code structure, forbidden substitutions and written documentation respectively. Give grounds a reviewer can check against the actual declaration. Keep straightforward decisions brief and do not invent alternatives or development history to fill an answer.
 
 ## Principled Implementation
 
-Implement the actual supported contract using methods justified by the problem's principles and constraints. Satisfy the obligations that interact at the declaration's boundary together. Silently weakening one to satisfy another changes the contract; an authorized product-contract change must be explicit.
+Implement the required meaning using methods justified by the problem's principles. For a function, establish why its method produces the intended result under the supported input conditions. For a type, establish why its representation expresses the permitted values and distinctions.
 
-Use established language idioms, documented APIs and supported extension points where they fit the requirement. Assess repository patterns and recognized algorithms against that requirement. Prior use or popularity alone does not establish suitability. A custom method must have a sound basis in the applicable contract or principles.
+Use language idioms, documented API semantics and recognized algorithms where they fit that meaning. Prior use or popularity alone does not establish suitability. A custom method needs a sound basis in the applicable semantics or mathematical principles.
 
-Explain the chosen method, why it is appropriate, the premises that make it applicable and any unresolved limitation. For algorithms and transformations, explain why the relevant preconditions hold for the supported inputs and representation, distinguishing authorized changes from meaning that must remain intact. A type explains why its representation fits its value contract.
+Explain the method or representation, its language-level or mathematical premises and why those premises hold. For transformations, distinguish the intended change from meaning that must remain intact. For numerical algorithms, address applicable precision, degeneracy or approximation assumptions. These premises matter because an otherwise recognized method can be invalid for the representation it actually receives.
 
-Support nonobvious decisions with the actual contract, supported API, applicable algorithmic argument or authoritative reference. Address assumptions behind any proxy used to make a decision, and state approximation or validity limits where relevant. No declaration must invent a formal proof or cite a paper for an ordinary adapter.
+Support nonobvious reasoning with the actual contract, documented semantics, an algorithmic argument or an authoritative reference. State unresolved semantic limitations. An ordinary adapter can justify its mapping directly without a paper citation.
 
 ## Clear and Simple Design
 
-Use the simplest clear structure that fully satisfies the confirmed requirements. Make responsibility, dependencies and control flow apparent. Do not introduce unnecessary state, layers, configuration, abstractions or capabilities for presumed future requirements. Each additional element increases what callers and maintainers must understand.
+Make responsibility, dependencies and control flow apparent through the simplest structure that serves current requirements. Do not introduce layers, options, abstractions or capabilities solely for presumed future requirements. Each structural element increases what callers and maintainers must understand.
 
-Preserve required correctness, failure handling, performance, resource management and supported compatibility. Brevity and fewer files do not override those obligations. Keep changes local through appropriate responsibility boundaries rather than prebuilding speculative extension mechanisms.
+Keep decisions with the responsibility that owns them instead of duplicating the same policy across independent paths. Hide changeable implementation details behind meaningful boundaries so a later change can remain local. This supports extension through maintainable code rather than unused extension mechanisms.
 
-Explain how the declaration's structure exposes its responsibility. Justify nonobvious layers, options or retained state by the actual requirement they serve. A clear type can explain its representation briefly without inventing an architecture.
+Explain how the declaration's organization exposes its responsibility and why any nonobvious layer, option or separation is necessary. Fewer lines, files or methods are not the objective by themselves. A simple type can describe how its members are organized without inventing an architecture.
 
 ## Prohibited Implementation Shortcuts
 
@@ -29,11 +27,11 @@ Do not substitute a shortcut for the implementation the product requires:
 - **Hardcoding:** do not special-case consumers, fixtures, expected answers or measurement results. Contract-defined constants, discriminants and defaults remain legitimate.
 - **Monkey patching:** do not replace foreign methods, globals or internals to change their behavior. Use supported extension or injection boundaries.
 - **Test-only logic:** do not add production behavior solely to make a test or measurement pass. Correct the implementation against the real requirement.
-- **Chains of workarounds:** when an assumption is disproven, correct the owning design instead of retaining it beneath compensating wrappers, retries or exceptions. Remove superseded compensations in the owning repair. A necessary compatibility path must preserve a supported requirement, not disguise the broken assumption.
+- **Chains of workarounds:** do not preserve a disproven assumption beneath compensating wrappers, retries or exceptions. Correct its owning implementation and remove the compensations that no longer serve a requirement. A compatibility path is legitimate only when it addresses an actual supported difference rather than masking that false premise.
 
-These shortcuts can satisfy known examples while leaving the product dependent on foreign internals or a false premise. The answer explains the relevant decision or boundary that avoids them and identifies any unresolved violation. Do not repeat every prohibition where the declaration has no such decision.
+These substitutions can satisfy known examples while leaving the product dependent on foreign internals or a false premise. Identify any relevant special case, foreign mutation or compensating path and explain its basis in an actual supported requirement. State an unresolved violation honestly; do not recite every prohibition where the declaration has no such mechanism.
 
-Explain retained compatibility and recovery paths through the current supported contract they serve. A permanent declaration acknowledgment need not reconstruct its development history. A passing test or renamed wrapper does not explain why a path is justified.
+A permanent acknowledgment concerns mechanisms present in the implementation. It need not reconstruct discarded designs or the repair history. A passing test or renamed wrapper does not establish that a compensation is legitimate.
 
 ## Meaningful documentation
 
@@ -43,4 +41,4 @@ Follow the documentation skill in related repository documents and apply its par
 
 Separate descriptive prose from acknowledgment tags with a blank comment line. Separate documented properties with a blank source line so each explanation is visibly associated with its member. Properties retain useful native documentation without separate checklist acknowledgments.
 
-The answer identifies the useful facts documented and the applicable documentation guidance followed, including repository documents changed. It checks the writing, not whether the skill works. The acknowledgment does not replace the documentation it describes.
+Identify the useful facts present in the native documentation and the applicable documentation guidance followed, including related repository documents changed. Assess the written information and its presentation. The acknowledgment must not stand in for missing documentation or repeat the other chapters' implementation arguments.
