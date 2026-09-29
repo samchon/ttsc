@@ -6,29 +6,17 @@
  *
  * @evidence contracts/common.md#standard-implementation-practices
  *   The TypeScript structural type ProtocolPosition represents LSP coordinate
- *   units. It declares values and optional states without executable
- *   branches, fixture-specific decisions, foreign mutation or a competing
- *   runtime implementation.
+ *   units.
  *
- * @evidence contracts/common.md#behavioral-correctness
- *   LSP positions use nonnegative integral zero-based line and UTF-16
- *   character values. collectWorkspaceEditChanges validates those runtime
- *   constraints before constructing replacements; a TypeScript number alone
- *   cannot enforce them. Existing malformed-edit cases exercise rejection,
- *   and the editor interprets offsets against the target document rather than
- *   this type converting compiler byte positions.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The representation follows the documented consumer contract; its fields do
+ *   not introduce fixture-selected variants.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   Member JSDoc identifies zero-based lines and UTF-16 character offsets,
  *   and the type comment explains why compiler byte offsets differ. Purpose,
  *   conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
- *
- * @evidence contracts/editing.md#apply-edits-to-the-intended-source
- *   This data type stores coordinates for the saved-text command result.
- *   Position validation requires nonnegative integers; the editor application
- *   layer checks dirty documents before writing.
- *
  */
 export type ProtocolPosition = {
   /** Zero-based UTF-16 offset within the line. */
@@ -45,28 +33,17 @@ export type ProtocolPosition = {
  *
  * @evidence contracts/common.md#standard-implementation-practices
  *   The TypeScript structural type ProtocolRange represents ordered LSP
- *   endpoints. It declares values and optional states without executable
- *   branches, fixture-specific decisions, foreign mutation or a competing
- *   runtime implementation.
+ *   endpoints.
  *
- * @evidence contracts/common.md#behavioral-correctness
- *   The start is inclusive and the end exclusive, with ordered LSP positions.
- *   Inspection of collectWorkspaceEditChanges rejects malformed, negative,
- *   nonintegral and reversed ranges; existing edit cases cover accepted and
- *   rejected shapes. The type stores endpoints but cannot check document
- *   length or enforce ordering without that consumer.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The representation follows the documented consumer contract; its fields do
+ *   not introduce fixture-selected variants.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   Member JSDoc identifies inclusive start and exclusive end; the type
  *   comment explains ordering and the collector validation boundary. Purpose,
  *   conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
- *
- * @evidence contracts/editing.md#apply-edits-to-the-intended-source
- *   The range carries saved-source coordinates, not write permission. The
- *   collector rejects reversed endpoints and the application layer owns
- *   dirty-buffer checks.
- *
  */
 export type ProtocolRange = {
   /** Exclusive endpoint in the same document as start. */
@@ -83,17 +60,11 @@ export type ProtocolRange = {
  *
  * @evidence contracts/common.md#standard-implementation-practices
  *   The TypeScript structural type NormalizedTextEdit represents a collected
- *   command replacement. It declares values and optional states without
- *   executable branches, fixture-specific decisions, foreign mutation or a
- *   competing runtime implementation.
+ *   command replacement.
  *
- * @evidence contracts/common.md#behavioral-correctness
- *   The fields preserve a protocol URI, validated ordered LSP range and
- *   string replacement. collectWorkspaceEditChanges owns shape validation
- *   while extension middleware constructs the editor edit and rechecks dirty
- *   targets. Existing command-edit cases exercise those consumers. This
- *   record does not promise versioned edits, file writability or
- *   transactional rollback.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The representation follows the documented consumer contract; its fields do
+ *   not introduce fixture-selected variants.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   Member JSDoc distinguishes protocol URI identity, ordered saved-source
@@ -101,12 +72,6 @@ export type ProtocolRange = {
  *   paths are not document URIs. Purpose, conditions and reasons use separate
  *   native paragraphs under the documentation skill; member comments remain
  *   beside their fields.
- *
- * @evidence contracts/editing.md#apply-edits-to-the-intended-source
- *   This record retains the target URI and validated LSP range. It does not
- *   authorize a write or prove freshness; the extension checks dirty targets
- *   and applies a WorkspaceEdit.
- *
  */
 export type NormalizedTextEdit = {
   /** Replacement text; an empty string deletes the covered range. */
@@ -129,16 +94,11 @@ export type NormalizedTextEdit = {
  * @evidence contracts/common.md#standard-implementation-practices
  *   Object.entries and array iteration decode the supported LSP changes form.
  *   Integer/order predicates validate ranges and string checks preserve
- *   replacement text. The operation returns owned records without writing
- *   documents, parsing error messages or replacing VS Code methods.
+ *   replacement text.
  *
- * @evidence contracts/common.md#behavioral-correctness
- *   Inspection returns undefined for an absent/invalid changes map, retains
- *   valid rows, skips malformed rows and returns an empty array for a valid
- *   empty map. It validates nonnegative integral ordered positions and string
- *   newText. Existing normalization cases exercise these branches.
- *   documentChanges and resource operations are outside this function
- *   contract, and editor application owns write acceptance.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The operation returns owned records without writing documents, parsing
+ *   error messages or replacing VS Code methods.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc states absent/invalid-map results, row-skipping behavior,
@@ -146,13 +106,6 @@ export type NormalizedTextEdit = {
  *   documentChanges/resource-operation forms. Purpose, conditions and reasons
  *   use separate native paragraphs under the documentation skill; member
  *   comments remain beside their fields.
- *
- * @evidence contracts/editing.md#apply-edits-to-the-intended-source
- *   The collector retains each URI and ordered zero-based UTF-16 range, skips
- *   malformed entries and performs no writes. Dirty-buffer freshness and
- *   editor application remain owned by extension.ts; this result alone does
- *   not establish safe application.
- *
  */
 export function collectWorkspaceEditChanges(
   value: unknown,
@@ -190,28 +143,17 @@ export function collectWorkspaceEditChanges(
  *
  * @evidence contracts/common.md#standard-implementation-practices
  *   Recursive Array.some/Object.values and exact Set membership inspect the
- *   command payload rather than special-casing argument positions. This pure
- *   guard makes no filesystem or foreign API changes and uses no test-mode
- *   branch.
+ *   command payload rather than special-casing argument positions.
  *
- * @evidence contracts/common.md#behavioral-correctness
- *   Inspection recursively visits strings, arrays and object values of
- *   acyclic protocol data and matches exact URI strings in the supplied dirty
- *   set. Existing dirty-argument cases exercise nested matches and adjacent
- *   nonmatches. Cyclic arbitrary JavaScript objects are not the accepted
- *   JSON-shaped input contract; the helper performs no command or write.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   This pure guard makes no filesystem or foreign API changes and uses no
+ *   test-mode branch.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc states recursive acyclic JSON-shaped input, exact dirty-URI
  *   matching and the absence of writes or native path resolution. Purpose,
  *   conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
- *
- * @evidence contracts/editing.md#apply-edits-to-the-intended-source
- *   The guard compares protocol URI strings against current dirty documents
- *   before a disk-backed command and again after its reply. It checks targets
- *   without applying an edit or claiming a versioned snapshot.
- *
  */
 export function commandArgumentsContainDirtyURI(
   args: readonly unknown[],
@@ -232,24 +174,16 @@ export function commandArgumentsContainDirtyURI(
  *   policy derives from saved-state commands, not filenames, tests or foreign
  *   method replacements.
  *
- * @evidence contracts/common.md#behavioral-correctness
- *   Inspection checks normalized replacement URIs against the supplied dirty
- *   set before editor application. Existing dirty-reply cases cover matches
- *   and nonmatches. Exact protocol URI identity is intentional here; it does
- *   not perform native path alias resolution or make a later document version
- *   check.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Decision values come from the documented inputs and product protocol
+ *   rather than expected test answers. No compensating path is introduced to
+ *   make a known example pass.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains exact dirty-URI matching and why disk-backed replies must
  *   not overwrite unsaved text; it does not promise a versioned write.
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
- *
- * @evidence contracts/editing.md#apply-edits-to-the-intended-source
- *   Every collected edit URI is checked against the current dirty set before
- *   WorkspaceEdit application. This predicate does not provide rollback or
- *   versioned document edits.
- *
  */
 export function workspaceEditChangesTouchDirtyURI(
   edits: readonly NormalizedTextEdit[],
@@ -265,28 +199,17 @@ export function workspaceEditChangesTouchDirtyURI(
  * empty prefix never authorizes an edit.
  *
  * @evidence contracts/common.md#standard-implementation-practices
- *   String.startsWith uses the server-announced root command namespace. A
- *   nonempty-prefix guard prevents blanket application; this pure predicate
- *   does not patch command dispatch or special-case a fixture.
+ *   String.startsWith uses the server-announced root command namespace.
  *
- * @evidence contracts/common.md#behavioral-correctness
- *   Inspection requires a nonempty root prefix and a command beginning with
- *   it before this middleware handles the reply. Existing namespace cases
- *   cover empty, matching and unrelated prefixes. Other guards still validate
- *   reply shape and dirty targets; this predicate alone is not permission to
- *   write or a guarantee that editor application succeeds.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   A nonempty-prefix guard prevents blanket application; this pure predicate
+ *   does not patch command dispatch or special-case a fixture.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc states nonempty root-prefix matching and explains client command
  *   isolation, including why an empty prefix cannot authorize application.
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
- *
- * @evidence contracts/editing.md#apply-edits-to-the-intended-source
- *   Only commands in the selected client namespace enter the command-result
- *   editing path. URI/range validation and dirty-document checks remain
- *   additional requirements before writing.
- *
  */
 export function shouldApplyCommandWorkspaceEdit(
   command: string,

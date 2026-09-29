@@ -31,6 +31,38 @@ const packCache = new Map<string, RuntimePackEntry>();
  * attempt; rejection removes it from the cache so the next call retries from
  * scratch. Successful packs remain cached. Nothing else ends the load: how long
  * a fetch takes belongs to the network, not to a number chosen here.
+ *
+ * @evidence contracts/common.md#standard-implementation-practices
+ *   Fetch, AbortController and Promise sharing implement the site-selected
+ *   runtime-pack transport. The loader returns source records for the existing
+ *   resolver rather than evaluating packages or introducing another module
+ *   protocol.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The URL comes from the caller, and load failures remain failures. Shared
+ *   cancellation is an explicit public policy rather than a fixture-specific
+ *   timeout or a replacement of fetch internals; rejection removes the owned
+ *   entry instead of returning a fabricated empty pack.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native JSDoc separates the per-URL purpose from shared cancellation,
+ *   rejection eviction and network waiting policy. Those reasons follow the
+ *   documentation skill, and ILoadTypiaRuntimePackOptions documents the
+ *   cancellation scope.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Map lookup indexes loads, and cancellation events end stalled work without
+ *   periodic polling. Fetch and JSON decoding process each shared attempt once.
+ *
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   A URL shares the network request and decoded records across Execute
+ *   preparation. Successful reuse assumes that URL identifies immutable pack
+ *   content during the module lifetime; cache-busting URLs select new content.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Failed attempts are evicted and cancellation listeners are disposed.
+ *   Successful records remain for the module lifetime, with memory growing
+ *   with distinct URLs and retained bytes and no fixed successful-entry bound.
  */
 export function loadTypiaRuntimePack(
   url: string,

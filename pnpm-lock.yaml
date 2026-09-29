@@ -67,8 +67,8 @@ importers:
         specifier: catalog:utils
         version: 25.9.1
       '@wrtnlabs/evidence':
-        specifier: 0.1.0
-        version: 0.1.0(ttsc@0.30.4)(typescript@7.0.2)
+        specifier: 0.2.0
+        version: 0.2.0(ttsc@0.30.4)(typescript@7.0.2)
       bumpp:
         specifier: ^10.4.1
         version: 10.4.1
@@ -3116,8 +3116,8 @@ packages:
   '@webassemblyjs/wast-printer@1.14.1':
     resolution: {integrity: sha512-kPSSXE6De1XOR820C90RIo2ogvZG+c3KiHzqUoO/F34Y2shGzesfqv7o57xrxovZJH/MetF5UjroJ/R/3isoiw==}
 
-  '@wrtnlabs/evidence@0.1.0':
-    resolution: {integrity: sha512-tRy+NeAgbLCMaDpxTP+bhbDMygP2mwC11WEMgjmQwE5m221755Xx38mm9i4VMKQz0iL37TTYmEHINmjiCwwf8A==}
+  '@wrtnlabs/evidence@0.2.0':
+    resolution: {integrity: sha512-gwKaHKEALmpPiw60eFUhAyMFZ6dBZ2H0MgDUS8eGsrcYFQIY+E1OllmUEa47etM0X3SGNZHe5cCZNkKtIoGhuw==}
     hasBin: true
     peerDependencies:
       ttsc: ^0.30.1
@@ -8918,7 +8918,7 @@ snapshots:
       '@webassemblyjs/ast': 1.14.1
       '@xtuc/long': 4.2.2
 
-  '@wrtnlabs/evidence@0.1.0(ttsc@0.30.4)(typescript@7.0.2)':
+  '@wrtnlabs/evidence@0.2.0(ttsc@0.30.4)(typescript@7.0.2)':
     dependencies:
       '@prisma/prisma-schema-wasm': 7.10.0-2.d0368e25c88e68caa4d283b5f2d88d1b76ed9356
       '@typia/interface': 14.0.6

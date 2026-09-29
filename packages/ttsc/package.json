@@ -73,7 +73,7 @@
     "go:vet": "node ../../scripts/go.cjs vet ./...",
     "shim:audit": "node ../../scripts/shim-audit.cjs",
     "shim:audit:test": "node ../../scripts/shim-audit-test.cjs",
-    "evidence": "evidence --config evidence.config.json"
+    "evidence": "evidence"
   },
   "repository": {
     "type": "git",

@@ -99,7 +99,7 @@
   },
   "scripts": {
     "build": "tsc --noEmit && rimraf lib dist && node build/build.cjs",
-    "evidence": "evidence --config evidence.config.json"
+    "evidence": "evidence"
   },
   "devDependencies": {
     "@types/node": "catalog:utils",

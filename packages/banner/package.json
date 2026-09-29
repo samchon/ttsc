@@ -13,7 +13,7 @@
   },
   "scripts": {
     "build": "rimraf lib && tsc",
-    "evidence": "evidence --config evidence.config.json"
+    "evidence": "evidence"
   },
   "keywords": [
     "ttsc",

@@ -24,6 +24,41 @@ const packCache = new Map<string, SourcePackEntry>();
  * attempt; rejection removes it from the cache so the next call retries from
  * scratch. Nothing else ends the load: how long a fetch takes belongs to the
  * network, not to a number chosen here.
+ *
+ * @evidence contracts/common.md#standard-implementation-practices
+ *   The source-pack loader uses fetch/AbortController and Promise sharing,
+ *   with an explicit fetch injection seam for the same transport contract. It
+ *   supplies source records to the existing mounting operation rather than
+ *   coupling network loading to compiler execution.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The site supplies the URL and transport; no package name, test case or
+ *   fixed deadline decides success. The injected transport leaves global fetch
+ *   intact. Rejection evicts only this attempt, preserving the real failure
+ *   instead of inventing a successful empty source pack.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc explains the once-per-URL purpose, shared cancellation, rejection
+ *   eviction and why an arbitrary timeout is not the network policy. Purpose
+ *   and reasons use separate native paragraphs under the documentation skill;
+ *   IInstallTypiaSourcePackOptions owns option documentation.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Map lookup indexes loads, and event-driven cancellation avoids polling.
+ *   Fetch and JSON decoding perform the requested transport work once per
+ *   shared attempt; mounting owns the later filesystem writes.
+ *
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The URL shares loading and decoded records across mount requests. The
+ *   design assumes one URL names immutable source content and compatible
+ *   transport semantics during the module lifetime; different injected fetch
+ *   implementations currently share that URL entry, an unresolved identity
+ *   limitation to reassess during adoption.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Failure evicts its attempt and cancellation listeners are disposed.
+ *   Successful records persist for the module lifetime, with memory scaling
+ *   with distinct URLs and pack contents and no fixed eviction budget.
  */
 export function loadTypiaSourcePack(
   options: IInstallTypiaSourcePackOptions,

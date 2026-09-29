@@ -6,7 +6,6 @@
       "type": "typescript",
       "files": [
         "src/**/*.ts",
-        "!src/commandEdits.ts",
         "!src/serverResolution.ts",
         "!src/extension.ts"
       ],
@@ -25,7 +24,7 @@
       }
     },
     {
-      "name": "native filesystem and process boundaries",
+      "name": "maintained TypeScript declarations and native boundaries",
       "type": "typescript",
       "files": [
         "src/serverResolution.ts",
@@ -39,28 +38,7 @@
         "type": "markdown",
         "files": [
           "contracts/common.md",
-          "contracts/platform.md"
-        ],
-        "symbol": "h2",
-        "checklist": true,
-        "root": "../../.agents/skills"
-      }
-    },
-    {
-      "name": "command edit validation",
-      "type": "typescript",
-      "files": [
-        "src/commandEdits.ts"
-      ],
-      "symbol": [
-        "type",
-        "function"
-      ],
-      "reference": {
-        "type": "markdown",
-        "files": [
-          "contracts/common.md",
-          "contracts/editing.md"
+          "contracts/portability.md"
         ],
         "symbol": "h2",
         "checklist": true,

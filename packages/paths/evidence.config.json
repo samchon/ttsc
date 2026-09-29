@@ -15,7 +15,7 @@
         "type": "markdown",
         "files": [
           "contracts/common.md",
-          "contracts/platform.md"
+          "contracts/portability.md"
         ],
         "symbol": "h2",
         "checklist": true,
@@ -27,7 +27,8 @@
       "type": "go",
       "files": [
         "driver/**/*.go",
-        "plugin/**/*.go"
+        "plugin/**/*.go",
+        "!**/*_test.go"
       ],
       "symbol": [
         "type",
@@ -37,7 +38,7 @@
         "type": "markdown",
         "files": [
           "contracts/common.md",
-          "contracts/platform.md"
+          "contracts/portability.md"
         ],
         "symbol": "h2",
         "checklist": true,

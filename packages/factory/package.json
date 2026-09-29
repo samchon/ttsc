@@ -11,7 +11,7 @@
     "build": "rimraf lib && tsc && rollup -c",
     "dev": "tsc -p . --watch",
     "prepack": "pnpm run build",
-    "evidence": "evidence --config evidence.config.json"
+    "evidence": "evidence"
   },
   "repository": {
     "type": "git",

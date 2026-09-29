@@ -79,26 +79,22 @@ interface MetroConfigLike {
  *
  * @evidence contracts/common.md#standard-implementation-practices
  *   Metro's supported babelTransformerPath boundary installs this adapter by
- *   cloning the config. Node project resolution preserves an existing
- *   upstream unless explicitly overridden, and realpath/package ownership
- *   filters inherited self-selection; explicit upstream choices remain caller-owned. Only the owned option/session
- *   environment channels are published before workers start; foreign loaders
- *   and methods are not patched.
+ *   cloning the config. Node project resolution preserves an existing upstream
+ *   unless explicitly overridden, and realpath/package ownership filters
+ *   inherited self-selection; explicit upstream choices remain caller-owned.
+ *   Only the owned option/session environment channels are published before
+ *   workers start; foreign loaders and methods are not patched.
  *
- * @evidence contracts/platform.md#portable-behavior
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Decision values come from the documented inputs and product protocol
+ *   rather than expected test answers. No compensating path is introduced to
+ *   make a known example pass.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
  *   Node path, createRequire, realpathSync.native and fileURLToPath resolve
  *   native paths and built module URLs. Worker options use JSON environment
  *   inheritance rather than shell commands. Symlink spellings and Windows
  *   drive/case handling participate in the recursion guard.
- *
- * @evidence contracts/common.md#behavioral-correctness
- *   The inspected wrapper clones the config, installs this transformer and
- *   publishes the resolved option payload before workers start. Explicit
- *   upstream wins over the inherited transformer, then automatic candidates;
- *   only inherited self-selection is filtered. Existing upstream-chaining and
- *   option-transport cases exercise that consuming path. Snapshot preparation
- *   failures carry a nonreusable token instead of claiming preserved cache
- *   reuse, and upstream load errors remain the worker responsibility.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   The native JSDoc explains config preservation, upstream precedence, JSON
@@ -106,7 +102,6 @@ interface MetroConfigLike {
  *   documentation skill: separate paragraphs state the contract and why its
  *   nonobvious boundary matters; field comments retain their own useful
  *   facts.
- *
  */
 export function withTtsc<T extends MetroConfigLike>(
   config: T,

@@ -29,10 +29,12 @@ export type { ITtscStripConfig } from "./structures/ITtscStripConfig";
  * @evidence contracts/common.md#standard-implementation-practices
  *   The factory uses the host's supported default-export registration,
  *   node:path/fs/crypto APIs and the maintained banner and paths packages'
- *   TypeScript build convention. The package name, stage, accepted entry keys
- *   and candidate filenames are native contract values, not fixture answers.
- *   Discovery reads owned observations without foreign mutation or test-only
- *   branches.
+ *   TypeScript build convention.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The package name, stage, accepted entry keys and candidate filenames are
+ *   native contract values, not fixture answers. Discovery reads owned
+ *   observations without foreign mutation or test-only branches.
  *
  *   The former handwritten CommonJS entry was outside TypeScript selection
  *   and its handwritten export-assignment declarations prevented complete
@@ -45,23 +47,13 @@ export type { ITtscStripConfig } from "./structures/ITtscStripConfig";
  *   an unresolved owning-layer concern; this factory neither performs nor
  *   certifies that evaluation.
  *
- * @evidence contracts/platform.md#portable-behavior
+ * @evidence contracts/portability.md#os-neutral-implementation
  *   node:path resolves explicit paths, host anchors, ancestors and the
  *   sibling driver on Windows and POSIX. The walk terminates when dirname
  *   reaches the same volume root; filesystem APIs fingerprint bytes,
  *   directory markers and physical targets without interpreting separators or
  *   case manually. Missing or unreadable candidates yield null observations.
  *   This factory spawns no process and reads no ambient __dirname.
- *
- * @evidence contracts/common.md#behavioral-correctness
- *   The inspected entry validator rejects unknown inline options. Discovery
- *   records absent candidates, readable file bytes, directory markers and
- *   physical targets through the first containing ancestor; explicit nonblank
- *   configFile records one path. The native loader separately validates and
- *   evaluates configuration. A 13-case descriptor comparison and six existing
- *   strip cases passed after migration. The shared script-evaluation recorder
- *   has an unresolved private-loader mutation documented in
- *   .wiki/evidence-adoption/findings.md; this descriptor does not repair it.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   Native JSDoc separates host anchoring, candidate observation, validation
@@ -70,7 +62,6 @@ export type { ITtscStripConfig } from "./structures/ITtscStripConfig";
  *   reuse protocol. The documentation skill's clear prose, paragraph and
  *   rationale guidance also governs the updated maintainer walkthrough, whose
  *   source and build instructions describe generated declarations.
- *
  */
 export default function createTtscStrip(
   context: TtscStripFactoryContext,

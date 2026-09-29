@@ -14,22 +14,15 @@
  *   convention used by banner and the strip README. The calls and statements
  *   lists express consumer-selected native syntax removal, with defaults only
  *   when both keys are omitted; generated declarations replace handwritten
- *   export-assignment types. The whole type is data-only, with no foreign
- *   mutation, fixture branch, test-only behavior or alternate runtime
- *   implementation.
+ *   export-assignment types.
  *
- * @evidenceExclude contracts/platform.md#portable-behavior
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The whole type is data-only, with no foreign mutation, fixture branch,
+ *   test-only behavior or alternate runtime implementation.
+ *
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
  *   These lists identify TypeScript statement syntax to remove. They define
  *   no native filesystem, path-identity or process boundary.
- *
- * @evidence contracts/common.md#behavioral-correctness
- *   The strip README authorizes whole-statement removal, including argument
- *   evaluation. The inspected native loader supplies both defaults only when
- *   both keys are absent; a supplied list replaces defaults and an omitted
- *   counterpart stays empty. It rejects invalid arrays and dotted patterns,
- *   and the transform retains computed access and embedded calls. The six
- *   existing strip cases passed; this type describes the accepted values
- *   while native loading enforces them.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   Interface and member JSDoc distinguish both-key defaults from one-key
@@ -39,7 +32,6 @@
  *   paragraphs follow the documentation skill's clear prose and rationale
  *   guidance; field documentation remains alongside the fields while the type
  *   owns the checklist answer.
- *
  */
 export interface ITtscStripConfig {
   /**

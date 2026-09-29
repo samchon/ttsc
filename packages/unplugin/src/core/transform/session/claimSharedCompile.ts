@@ -61,6 +61,45 @@ const KEPT_STORE_PUBLICATIONS = 32;
  * @param identity Hex digest of what the compile is.
  * @param state Hex digest of the project state it reads.
  * @param options.adopt Whether an existing publication may be adopted.
+ *
+ * @evidence contracts/common.md#standard-implementation-practices
+ *   Filesystem directory creation coordinates independent workers, and owned
+ *   tokens distinguish a claim from another holder at the same pathname.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The optional store preserves a local compile path when sharing is
+ *   unavailable rather than changing compile semantics; it uses native APIs
+ *   without replacing foreign methods.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc explains why the store is optional, what identity and state name,
+ *   how waiting and abandonment differ, and why retained publications need
+ *   bounds. Purpose and reasons use separate native paragraphs under the
+ *   documentation skill; claim and publication interfaces retain their value
+ *   documentation.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Node native paths and filesystem operations own store publication. The
+ *   implementation has a Windows replacement path because an open destination
+ *   may refuse rename; this does not make its ownership checks atomic. The
+ *   remaining pathname-check and replacement windows are recorded for
+ *   investigation rather than asserted OS-safe.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Waiters yield with capped backoff. Pruning scans the persisted store and
+ *   sorts last-use entries because independent processes share its inventory;
+ *   a process-local index alone would not describe that store.
+ *
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The identity/state pair shares one generation across workers. The producer
+ *   supplies those digests and the caller validates adoption; a pathname alone
+ *   does not establish input equivalence. Store failure returns control to the
+ *   actual compile path when shared computation is unavailable.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Pruning retains four publications per identity and 32 across the persistent
+ *   store, removing obsolete writes whose owners are gone. The claim owns its
+ *   heartbeat and releases it together with the lock.
  */
 export async function claimSharedCompile(
   store: string,

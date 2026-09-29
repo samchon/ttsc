@@ -30,6 +30,7 @@
         "rule/**/*.go",
         "plugin/**/*.go",
         "tools/**/*.go",
+        "!**/*_test.go",
         "!linthost/flags_gen.go",
         "!linthost/grapheme_tables_gen.go",
         "!linthost/width_tables_gen.go"

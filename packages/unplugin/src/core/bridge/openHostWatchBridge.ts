@@ -55,6 +55,45 @@ import { signalProjectRecordFile } from "./signalProjectRecordFile";
  *
  * @param root The directory whose pinned scope observes the project.
  * @param operations Native watch seams, replaceable for tests.
+ *
+ * @evidence contracts/common.md#standard-implementation-practices
+ *   The adapter uses its own record files and the host's dependency channel
+ *   rather than handing each compiler input to a host with different watch
+ *   semantics.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   This preserves the host filesystem boundary while one owned observer
+ *   serves project records; record signalling does not replace the host's
+ *   methods.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   The JSDoc explains why the adapter owns observation, why a record
+ *   represents a project and when a delivery can settle an owed signal.
+ *   Purpose and reasons are separate native paragraphs under the documentation
+ *   skill; the returned interface documents its lifecycle operations.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Native paths and Node filesystem operations locate records below the
+ *   host's resolved root. Input identity and notification transport are
+ *   delegated to the shared observer, which isolates Windows and macOS brokers
+ *   from other native watches. Host dependency channels remain the adapter
+ *   boundary rather than an assumed common watcher API.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Maps and sets index participating records and owed signals. Registration
+ *   deduplicates modules of one generation; delayed signals use backoff rather
+ *   than scanning every compiler input for each host delivery.
+ *
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   One observer serves the bridge's project records through shared input
+ *   identity. Registration reuses a generation only against its input state;
+ *   an owed signal remains until delivery can answer it, because another
+ *   module's earlier registration cannot validate that delivery.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   The bridge owns its observer and pending timers and releases them on close.
+ *   Record and pending-state populations grow with participating projects;
+ *   this implementation establishes no fixed total memory bound.
  */
 export function openHostWatchBridge(
   root: string,

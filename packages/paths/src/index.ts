@@ -15,9 +15,11 @@ import path from "node:path";
  *   The factory follows the maintained banner package's TypeScript entry and
  *   compiler-generated declaration convention, and the host's supported
  *   default-export factory protocol. node:path.resolve locates sibling native
- *   source from the supplied module directory. The package name and stage are
- *   protocol values; no consumer, fixture or test determines them, and the
- *   factory patches no foreign API.
+ *   source from the supplied module directory.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The package name and stage are protocol values; no consumer, fixture or
+ *   test determines them, and the factory patches no foreign API.
  *
  *   The prior handwritten CommonJS entry was outside TypeScript selection and
  *   could not be enrolled by the installed checker. The owning package now
@@ -28,20 +30,11 @@ import path from "node:path";
  *   comparison and six existing paths feature cases verify registration and
  *   behavior; no performance improvement is claimed.
  *
- * @evidence contracts/platform.md#portable-behavior
+ * @evidence contracts/portability.md#os-neutral-implementation
  *   node:path.resolve constructs the absolute sibling driver path from the
  *   host-supplied dirname on Windows and POSIX. The factory performs no
  *   filesystem reads or process invocation and uses no ambient __dirname; its
  *   empty input map introduces no platform-specific state.
- *
- * @evidence contracts/common.md#behavioral-correctness
- *   The host receives the paths name, transform stage, resolved sibling
- *   driver and a fresh empty input-hash map. Compiler alias resolution and
- *   emitted import rewriting belong to that Go driver, not this factory. The
- *   six existing paths feature cases and the descriptor probe passed after
- *   the TypeScript migration, including spaces and Unicode directories;
- *   inspected native rewriting retains nonmatching imports. The empty map
- *   certifies descriptor observations only.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   Native JSDoc explains the host directory, driver ownership and the
@@ -50,7 +43,6 @@ import path from "node:path";
  *   repeating their types, following the documentation skill's clear prose
  *   and rationale guidance; the maintainer walkthrough is updated for the
  *   built entry.
- *
  */
 export default function createTtscPaths(
   context: TtscPathsFactoryContext,

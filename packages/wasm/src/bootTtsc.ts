@@ -95,6 +95,41 @@ function resolveWasmUrl(wasmUrl: string): string {
  * (one boot per Worker over the page's lifetime) but DOES NOT make a Worker
  * safe to host two wasm instances at once. Create a fresh Worker per concurrent
  * wasm.
+ *
+ * @evidence contracts/common.md#standard-implementation-practices
+ *   The documented Go wasm_exec bridge is installed before streaming
+ *   instantiation, and Promise sharing coordinates calls that use its global
+ *   readiness slot. This follows the host.Expose integration rather than
+ *   inventing a second runtime protocol.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The ttsc default API name and Ready/Failed slots are the host protocol,
+ *   not consumer or fixture matches. The attempt installs missing Go host
+ *   shims and removes only its own failed installation; it does not replace an
+ *   existing foreign filesystem. The documented one-runtime-per-Worker
+ *   limitation is retained rather than hidden beneath retries after go.run.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc explains why same-URL calls share a boot, why API-slot serialization
+ *   is needed and why post-start failure requires Worker replacement. Separate
+ *   paragraphs state purpose and the shared-runtime caveat under the
+ *   documentation skill; option and result interfaces document cancellation
+ *   and host ownership.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Map lookup indexes boot attempts and streaming instantiation avoids a
+ *   separately buffered binary. Cancellation uses events rather than polling.
+ *
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   One API/normalized-URL pair shares fetch and instantiation. Per-API Promise
+ *   chains serialize access to the global readiness slot; distinct URLs are
+ *   distinct boot identities. The URL must identify immutable binary content
+ *   for successful-result reuse to remain valid within the Worker lifetime.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Successful boots and chain entries remain for the Worker lifetime, with no
+ *   fixed population bound. Failed pre-start attempts release their entry;
+ *   post-start runtimes cannot be stopped here and require Worker replacement.
  */
 export function bootTtsc(options: IBootTtscOptions): Promise<IBootResult> {
   const apiName = options.apiName ?? "ttsc";

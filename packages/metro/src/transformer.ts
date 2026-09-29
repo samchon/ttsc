@@ -80,28 +80,21 @@ function recorder(): ReturnType<typeof createSnapshotRecorder> {
  * @evidence contracts/common.md#standard-implementation-practices
  *   Node path.isAbsolute/path.resolve implement Metro's filename contract.
  *   Absolute input is retained; relative input is anchored at supplied
- *   projectRoot, with cwd only for callers lacking that option. This correct
- *   owning anchor avoids monorepo misrouting without matching error text or
- *   special-casing fixture names.
+ *   projectRoot, with cwd only for callers lacking that option.
  *
- * @evidence contracts/platform.md#portable-behavior
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   This correct owning anchor avoids monorepo misrouting without matching
+ *   error text or special-casing fixture names.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
  *   Node path handles native separators, roots and drive letters. No URLs or
  *   shell commands are mixed with filenames and no filesystem is changed.
- *
- * @evidence contracts/common.md#behavioral-correctness
- *   The inspected branches retain an absolute filename and resolve a relative
- *   one against Metro options.projectRoot before the invocation cwd fallback.
- *   Transformation uses that absolute identity for the compiler but forwards
- *   Metro original filename upstream. Existing filename and monorepo cases
- *   cover the consuming transform boundary; cwd alone is not treated as proof
- *   of project membership.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   The native JSDoc explains the project-relative input, absolute result and
  *   cwd fallback reason. Checked against the documentation skill: separate
  *   paragraphs state the contract and why its nonobvious boundary matters;
  *   field comments retain their own useful facts.
- *
  */
 export function resolveAbsoluteFilename(
   filename: string,
@@ -133,25 +126,17 @@ export function resolveAbsoluteFilename(
  *   Metro's transformer callback composes the shared Unplugin transform core
  *   with the selected Babel transformer. One resolved project view is frozen
  *   into compilation and recorder inputs. Noneligible or out-of-program files
- *   follow the shared core contract; genuine compiler/load failures
- *   propagate. Only the returned AST's owned locations are updated, with no
- *   patched loader or test-specific production behavior.
+ *   follow the shared core contract; genuine compiler/load failures propagate.
  *
- * @evidence contracts/platform.md#portable-behavior
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Only the returned AST's owned locations are updated, with no patched
+ *   loader or test-specific production behavior.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
  *   Metro-relative filenames drive substring filters; Node path.resolve
  *   produces absolute compiler addresses. The shared core owns native
  *   compiler/session access, while Babel retains the original filename.
  *   Worker transport is JSON and no shell command is constructed here.
- *
- * @evidence contracts/common.md#behavioral-correctness
- *   The inspected consuming path gates supported TypeScript, checks the
- *   shared compiler generation, preserves original Metro parameters except
- *   successfully rewritten src, and remaps returned AST locations when a map
- *   exists. Compiler and upstream initialization failures propagate instead
- *   of returning untransformed success. Existing Metro cases exercise these
- *   paths; the baseline run also exposed a snapshot compaction expectation
- *   mismatch recorded in the adoption findings, so that suite is not claimed
- *   wholly green.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   The native JSDoc explains pass order, original parameter preservation,
@@ -159,7 +144,6 @@ export function resolveAbsoluteFilename(
  *   documentation skill: separate paragraphs state the contract and why its
  *   nonobvious boundary matters; field comments retain their own useful
  *   facts.
- *
  */
 export async function transform(params: {
   src: string;
@@ -287,21 +271,16 @@ export async function transform(params: {
  *   load errors. Fingerprint failure disables reuse through a nonce rather
  *   than fabricating a proven generation.
  *
- * @evidence contracts/platform.md#portable-behavior
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Decision values come from the documented inputs and product protocol
+ *   rather than expected test answers. No compensating path is introduced to
+ *   make a known example pass.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
  *   Native project roots are interpreted by the fingerprint owner and Node
  *   module loading reads package identity. Hash input has deterministic
  *   string representation across OSes; filesystem content and identity remain
  *   deliberately host-specific.
- *
- * @evidence contracts/common.md#behavioral-correctness
- *   The inspected key combines adapter identity, resolved options, the
- *   upstream contribution and the project fingerprint once per run. Upstream
- *   key absence or failure contributes an empty value under the documented
- *   nonfatal keying policy; actual transform loading still fails when
- *   unusable. Fingerprint uncertainty produces a nonce. The stableStringify
- *   option representation has a reproduced undefined-array collision
- *   documented in .wiki/evidence-adoption/findings.md, so distinct option
- *   values are not yet proven to have distinct representations.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   The native JSDoc explains one key per run, all contributions,
@@ -309,7 +288,6 @@ export async function transform(params: {
  *   against the documentation skill: separate paragraphs state the contract
  *   and why its nonobvious boundary matters; field comments retain their own
  *   useful facts.
- *
  */
 export function getCacheKey(...args: unknown[]): string {
   const opts = options();
@@ -397,29 +375,22 @@ function upstreamCacheKey(
  * @evidence contracts/common.md#standard-implementation-practices
  *   The shared isTransformTarget predicate owns supported TypeScript
  *   extensions and declaration exclusions. Literal substring filters apply to
- *   Metro's project-relative filename, with exclusion taking precedence. This
- *   pure decision neither invokes compilation nor mutates options, and has no
- *   fixture or test-mode branch.
+ *   Metro's project-relative filename, with exclusion taking precedence.
  *
- * @evidenceExclude contracts/platform.md#portable-behavior
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   This pure decision neither invokes compilation nor mutates options, and
+ *   has no fixture or test-mode branch.
+ *
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
  *   This predicate matches TypeScript extensions and caller-supplied literal
  *   substrings. It defines no filesystem identity or native path
  *   normalization contract.
- *
- * @evidence contracts/common.md#behavioral-correctness
- *   Inspection of the predicate confirms ts, tsx, mts and cts extension
- *   matching, rejection of declaration variants, literal substring filters
- *   and exclude precedence. Empty include accepts supported extensions;
- *   nonmatching include or matching exclude rejects them. Existing gating
- *   cases exercise these positive and adjacent negative shapes. The predicate
- *   neither compiles nor claims filesystem identity equivalence.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   The native JSDoc explains eligible extensions, declaration exclusion,
  *   empty include and exclusion precedence. Checked against the documentation
  *   skill: separate paragraphs state the contract and why its nonobvious
  *   boundary matters; field comments retain their own useful facts.
- *
  */
 export function shouldTransform(
   filename: string,

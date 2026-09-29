@@ -15,7 +15,7 @@
         "type": "markdown",
         "files": [
           "contracts/common.md",
-          "contracts/platform.md"
+          "contracts/portability.md"
         ],
         "symbol": "h2",
         "checklist": true,
@@ -29,7 +29,8 @@
         "driver/**/*.go",
         "plugin/**/*.go",
         "!driver/config.go",
-        "!plugin/main.go"
+        "!plugin/main.go",
+        "!**/*_test.go"
       ],
       "symbol": [
         "type",
@@ -46,7 +47,7 @@
       }
     },
     {
-      "name": "native config discovery and sidecar process",
+      "name": "maintained Go production declarations",
       "type": "go",
       "files": [
         "driver/config.go",
@@ -60,7 +61,7 @@
         "type": "markdown",
         "files": [
           "contracts/common.md",
-          "contracts/platform.md"
+          "contracts/portability.md"
         ],
         "symbol": "h2",
         "checklist": true,

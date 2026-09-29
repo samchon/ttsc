@@ -21,7 +21,7 @@
   },
   "scripts": {
     "build": "rimraf lib && tsc -p .",
-    "evidence": "evidence --config evidence.config.json"
+    "evidence": "evidence"
   },
   "repository": {
     "type": "git",

@@ -6,7 +6,10 @@
       "type": "typescript",
       "files": [
         "src/**/*.ts",
-        "src/**/*.tsx"
+        "src/**/*.tsx",
+        "!src/sandbox/loadTypiaRuntimePack.ts",
+        "!src/compiler/loadTypiaSourcePack.ts",
+        "!src/index.ts"
       ],
       "symbol": [
         "type",
@@ -16,6 +19,28 @@
         "type": "markdown",
         "files": [
           "contracts/common.md"
+        ],
+        "symbol": "h2",
+        "checklist": true,
+        "root": "../../.agents/skills"
+      }
+    },
+    {
+      "name": "shared browser loading and retained resources",
+      "type": "typescript",
+      "files": [
+        "src/sandbox/loadTypiaRuntimePack.ts",
+        "src/compiler/loadTypiaSourcePack.ts"
+      ],
+      "symbol": [
+        "type",
+        "function"
+      ],
+      "reference": {
+        "type": "markdown",
+        "files": [
+          "contracts/common.md",
+          "contracts/performance.md"
         ],
         "symbol": "h2",
         "checklist": true,

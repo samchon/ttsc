@@ -5,9 +5,7 @@
       "name": "maintained TypeScript declarations and native boundaries",
       "type": "typescript",
       "files": [
-        "src/**/*.ts",
-        "!src/core/remapAstLocations.ts",
-        "!src/core/fingerprint.ts"
+        "src/**/*.ts"
       ],
       "symbol": [
         "type",
@@ -17,51 +15,7 @@
         "type": "markdown",
         "files": [
           "contracts/common.md",
-          "contracts/platform.md"
-        ],
-        "symbol": "h2",
-        "checklist": true,
-        "root": "../../.agents/skills"
-      }
-    },
-    {
-      "name": "source-coordinate conversion",
-      "type": "typescript",
-      "files": [
-        "src/core/remapAstLocations.ts"
-      ],
-      "symbol": [
-        "type",
-        "function"
-      ],
-      "reference": {
-        "type": "markdown",
-        "files": [
-          "contracts/common.md",
-          "contracts/coordinates.md",
-          "contracts/platform.md"
-        ],
-        "symbol": "h2",
-        "checklist": true,
-        "root": "../../.agents/skills"
-      }
-    },
-    {
-      "name": "project fingerprint and retained snapshots",
-      "type": "typescript",
-      "files": [
-        "src/core/fingerprint.ts"
-      ],
-      "symbol": [
-        "type",
-        "function"
-      ],
-      "reference": {
-        "type": "markdown",
-        "files": [
-          "contracts/common.md",
-          "contracts/platform.md",
-          "contracts/performance.md"
+          "contracts/portability.md"
         ],
         "symbol": "h2",
         "checklist": true,

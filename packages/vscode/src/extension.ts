@@ -603,33 +603,24 @@ async function startClient(
  * @evidence contracts/common.md#standard-implementation-practices
  *   VS Code commands/events, RelativePattern, WorkspaceEdit and the
  *   LanguageClient subclass error-handler override are supported extension
- *   points. Only the owned client map/queue are mutated. Disk-backed commands
- *   reject dirty targets before sending and before applying results; real
- *   server failures are surfaced without test-mode branches or replaced
- *   foreign methods.
+ *   points. Only the owned client map/queue are mutated.
  *
- * @evidence contracts/platform.md#portable-behavior
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Disk-backed commands reject dirty targets before sending and before
+ *   applying results; real server failures are surfaced without test-mode
+ *   branches or replaced foreign methods.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
  *   File URIs use Uri.fsPath for Node resolution and Uri.parse/Uri.file at
  *   explicit conversion boundaries. Shared root identity handles native
  *   aliases; server launchers use platform-specific argument preparation.
  *   Protocol ranges remain zero-based UTF-16, not compiler byte offsets.
- *
- * @evidence contracts/common.md#behavioral-correctness
- *   Inspection registers subscriptions and serializes root reconciliation,
- *   keeps command replies within the owning root namespace, checks dirty
- *   documents before disk-backed commands and before applying replies, and
- *   removes failed startups while other roots continue. The 20 unchanged VS
- *   Code helper and launcher cases passed; actual VS Code activation was not
- *   exercised locally. Config discovery still inherits the two
- *   reproduced finder defects recorded in the adoption findings; this
- *   lifecycle acknowledgment does not claim they were repaired.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc separates command/event registration, serialized reconciliation,
  *   startup failure handling and subscription ownership. Purpose, conditions
  *   and reasons use separate native paragraphs under the documentation skill;
  *   member comments remain beside their fields.
- *
  */
 
 export async function activate(context: ExtensionContext): Promise<void> {
@@ -765,27 +756,20 @@ export async function activate(context: ExtensionContext): Promise<void> {
  *   The supported LanguageClient.stop lifecycle and Promise queue own
  *   teardown. Clearing the owned map before awaiting stops prevents stale
  *   routing; errors are reported instead of pretending every process stopped.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   No foreign methods or host globals are patched.
  *
- * @evidence contracts/platform.md#portable-behavior
+ * @evidence contracts/portability.md#os-neutral-implementation
  *   No new process command or filesystem operation occurs here. Each client
  *   owns its supported native transport shutdown; all roots follow the same
  *   settled-results policy.
- *
- * @evidence contracts/common.md#behavioral-correctness
- *   Inspection marks deactivation before awaiting queued reconciliation,
- *   making queued startup tasks no-ops, then attempts every retained client
- *   stop with Promise.allSettled. Rejected stops are logged, entries are
- *   cleared and the trace reference is released. Branch inspection supports
- *   this transition; actual VS Code shutdown was not exercised locally. Stop
- *   rejection is reported rather than described as successful termination.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains the deactivation flag, queue ordering, all-client stop
  *   attempts and rejected-stop logging so one failure does not skip teardown.
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
- *
  */
 
 export async function deactivate(): Promise<void> {

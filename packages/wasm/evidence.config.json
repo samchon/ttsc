@@ -5,7 +5,9 @@
       "name": "maintained TypeScript production declarations",
       "type": "typescript",
       "files": [
-        "src/**/*.ts"
+        "src/**/*.ts",
+        "!src/bootTtsc.ts",
+        "!src/index.ts"
       ],
       "symbol": [
         "type",
@@ -26,7 +28,9 @@
       "type": "go",
       "files": [
         "cmd/**/*.go",
-        "host/**/*.go"
+        "host/**/*.go",
+        "!host/host_native.go",
+        "!**/*_test.go"
       ],
       "symbol": [
         "type",
@@ -37,6 +41,40 @@
         "files": [
           "contracts/common.md"
         ],
+        "symbol": "h2",
+        "checklist": true,
+        "root": "../../.agents/skills"
+      }
+    },
+    {
+      "name": "shared browser loading and retained resources",
+      "type": "typescript",
+      "files": [
+        "src/bootTtsc.ts"
+      ],
+      "symbol": [
+        "type",
+        "function"
+      ],
+      "reference": {
+        "type": "markdown",
+        "files": [
+          "contracts/common.md",
+          "contracts/performance.md"
+        ],
+        "symbol": "h2",
+        "checklist": true,
+        "root": "../../.agents/skills"
+      }
+    },
+    {
+      "name": "native host build alternative",
+      "type": "go",
+      "files": ["host/host_native.go"],
+      "symbol": ["type", "function"],
+      "reference": {
+        "type": "markdown",
+        "files": ["contracts/common.md"],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"

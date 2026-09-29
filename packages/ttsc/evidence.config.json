@@ -33,6 +33,7 @@
         "tools/**/*.go",
         "shim/**/*.go",
         "!**/*_test.go",
+        "!internal/watchhelper/run_other.go",
         "!cmd/ttsc/flags_gen.go",
         "!shim/ast/enums_gen.go",
         "!shim/ast/surface.go",
@@ -58,6 +59,19 @@
         "files": [
           "contracts/common.md"
         ],
+        "symbol": "h2",
+        "checklist": true,
+        "root": "../../.agents/skills"
+      }
+    },
+    {
+      "name": "non-Linux watch helper build alternative",
+      "type": "go",
+      "files": ["internal/watchhelper/run_other.go"],
+      "symbol": ["type", "function"],
+      "reference": {
+        "type": "markdown",
+        "files": ["contracts/common.md", "contracts/portability.md"],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"

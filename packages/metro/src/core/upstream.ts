@@ -17,26 +17,20 @@ const nodeRequire = createRequire(import.meta.url);
  *   implement Babel, install peers or alter their exports. Concrete modules
  *   supply the callbacks through normal Node loading.
  *
- * @evidenceExclude contracts/platform.md#portable-behavior
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The representation follows the documented consumer contract; its fields do
+ *   not introduce fixture-selected variants.
+ *
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
  *   This structural callback contract carries Metro parameters and AST
  *   results; it does not define native module resolution or process
  *   invocation.
- *
- * @evidence contracts/common.md#behavioral-correctness
- *   The Metro consumer awaits transform to obtain an AST and optionally calls
- *   a variadic getCacheKey. This structural type cannot validate loaded
- *   JavaScript exports. resolveUpstreamTransformer owns module selection and
- *   initialization failures, while the adapter preserves original
- *   filename/options and handles absent or throwing key contributions. The
- *   existing upstream integration cases exercise these consumers rather than
- *   treating type compatibility as runtime validation.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   The native JSDoc explains the awaited AST result and optional cache-key
  *   callback including forwarded arguments. Checked against the documentation
  *   skill: separate paragraphs state the contract and why its nonobvious
  *   boundary matters; field comments retain their own useful facts.
- *
  */
 export interface UpstreamTransformer {
   /**
@@ -48,22 +42,16 @@ export interface UpstreamTransformer {
    *
    * @evidence contracts/common.md#standard-implementation-practices
    *   This method signature represents the upstream transformer that Metro
-   *   selected. It accepts the original Metro parameter record, with src
-   *   replaced only by the owning adapter after a successful compiler pass; the
-   *   type declares no implementation or test-specific branch.
+   *   selected.
    *
-   * @evidenceExclude contracts/platform.md#portable-behavior
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts
+   *   It accepts the original Metro parameter record, with src replaced only by
+   *   the owning adapter after a successful compiler pass; the type declares no
+   *   implementation or test-specific branch.
+   *
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
    *   This method signature carries Metro source, filename spelling and options
    *   to Babel without defining native path interpretation.
-   *
-   * @evidence contracts/common.md#behavioral-correctness
-   *   This method represents the awaited upstream Babel AST operation. The
-   *   adapter supplies original filename, options and additional parameters
-   *   with only successful ttsc output replacing src; errors remain rejected
-   *   operations and locations may be remapped afterward. The inspected
-   *   transform call and existing delegation cases establish this contribution.
-   *   The signature itself neither parses source nor validates an arbitrary
-   *   loaded module.
    *
    * @evidence contracts/common.md#meaningful-documentation
    *   The native JSDoc explains source, filename, extra Metro parameters and
@@ -87,21 +75,15 @@ export interface UpstreamTransformer {
    *
    * @evidence contracts/common.md#standard-implementation-practices
    *   The optional callback follows Metro's upstream transformer contract.
-   *   Arguments are variadic because Metro supplies its own key options;
-   *   absence is handled by the adapter. This signature executes nothing and
-   *   never replaces a foreign callback.
+   *   Arguments are variadic because Metro supplies its own key options; absence
+   *   is handled by the adapter.
    *
-   * @evidenceExclude contracts/platform.md#portable-behavior
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts
+   *   This signature executes nothing and never replaces a foreign callback.
+   *
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
    *   This optional variadic callback contributes a string key. Native
    *   resolution belongs to the separate loader operation.
-   *
-   * @evidence contracts/common.md#behavioral-correctness
-   *   This optional signature accepts Metro arguments unchanged and returns the
-   *   upstream contribution. The inspected adapter treats absent or throwing
-   *   key callbacks as an empty contribution under its documented keying
-   *   policy; that policy does not suppress upstream loading errors during
-   *   transformation. Existing upstream-key cases cover argument forwarding.
-   *   This declaration does not enforce callback behavior at runtime.
    *
    * @evidence contracts/common.md#meaningful-documentation
    *   The native JSDoc explains optional absence, forwarded Metro arguments and
@@ -146,26 +128,19 @@ export const UPSTREAM_CANDIDATES = [
  *
  * @evidence contracts/common.md#standard-implementation-practices
  *   Node createRequire loads the configured module or documented
- *   Expo/React-Native candidates. Resolution is separated from execution:
- *   only known entry-absence codes permit another automatic candidate;
- *   installed-module initialization failures preserve their cause. The loader
- *   argument is an explicit dependency-injection boundary, not a test-only
- *   runtime branch or a patched require.
+ *   Expo/React-Native candidates. Resolution is separated from execution: only
+ *   known entry-absence codes permit another automatic candidate;
+ *   installed-module initialization failures preserve their cause.
  *
- * @evidence contracts/platform.md#portable-behavior
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The loader argument is an explicit dependency-injection boundary, not a
+ *   test-only runtime branch or a patched require.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
  *   Node resolution accepts project-resolved absolute paths on Windows and
  *   POSIX. createRequire is rooted at this module via import.meta.url; no
  *   path is turned into a shell command. Runtime errors propagate through the
  *   same policy on every OS.
- *
- * @evidence contracts/common.md#behavioral-correctness
- *   Inspection distinguishes configured-module absence, automatic candidate
- *   absence and installed-module initialization failure. Only recognized
- *   entry-absence errors permit the next candidate; execution failures
- *   preserve their cause and an unusable explicit choice does not silently
- *   select another stack. Existing upstream absence and initialization cases
- *   exercise the loader boundary; the injected loader must preserve those
- *   distinctions.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   The native JSDoc explains candidate order, project versus worker
@@ -173,7 +148,6 @@ export const UPSTREAM_CANDIDATES = [
  *   the documentation skill: separate paragraphs state the contract and why
  *   its nonobvious boundary matters; field comments retain their own useful
  *   facts.
- *
  */
 export function resolveUpstreamTransformer(
   customPath?: string,
@@ -244,30 +218,23 @@ export function resolveUpstreamTransformer(
  *
  * @evidence contracts/common.md#standard-implementation-practices
  *   The supplied project resolver uses Node module resolution without
- *   executing candidate code. The documented optional-peer order is a product
- *   default, not a fixture-specific answer. Only recognized entry-absence
- *   errors continue probing; other resolver failures propagate. No module
- *   methods are replaced.
+ *   executing candidate code. Only recognized entry-absence errors continue
+ *   probing; other resolver failures propagate.
  *
- * @evidence contracts/platform.md#portable-behavior
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The documented optional-peer order is a product default, not a
+ *   fixture-specific answer. No module methods are replaced.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
  *   The injected resolver owns project filesystem resolution on the host OS.
  *   This operation compares module specifiers and returns its absolute result
  *   without inventing separators or quoting a command.
- *
- * @evidence contracts/common.md#behavioral-correctness
- *   The inspected candidate loop returns the first project-resolved module
- *   without executing it, skips recognized entry-absence errors and
- *   propagates other resolution failures. Exhaustion returns undefined.
- *   Existing project-owned resolution cases cover the pnpm/workspace
- *   consuming path; worker loading remains responsible for initialization
- *   failures rather than this probe certifying executable readiness.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   The native JSDoc explains project ownership, ordered probing,
  *   nonexecution and the absent result. Checked against the documentation
  *   skill: separate paragraphs state the contract and why its nonobvious
  *   boundary matters; field comments retain their own useful facts.
- *
  */
 export function locateProjectUpstreamTransformer(
   resolve: (specifier: string) => string,

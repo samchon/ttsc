@@ -76,6 +76,43 @@ import { someSet } from "./someSet";
  *   changed: `reload` for a changed input, and `invalidate` for a membership
  *   change alone.
  * @param operations Native watch seams, replaceable for tests.
+ *
+ * @evidence contracts/common.md#standard-implementation-practices
+ *   Owned registration maps and callbacks separate compiler-input conditions
+ *   from Vite importer or build-record policy.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The public filesystem identity helper and injected native watch seams
+ *   provide the implementation boundary; the observer does not patch either
+ *   consumer's methods.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native JSDoc explains the two owner kinds, why membership and plugin trees
+ *   need observation, and why links or uncovered scopes need polling. Separate
+ *   paragraphs give purpose and reasons under the documentation skill;
+ *   InputObserver documents the returned lifecycle contract.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Filesystem identity comes from ttsc/path-identity and directory
+ *   capabilities rather than a universal lowercase path. Windows and macOS
+ *   native scopes use an isolated broker; other hosts use recursive watches.
+ *   Native failures and uncovered link topology motivate the shared polling
+ *   boundary, whose behavior remains owned by the observer.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Identity maps index entries and their owners; settled events deduplicate
+ *   pending entries before rechecking conditions. Polling remains necessary
+ *   for scopes where native notifications cannot establish unchanged inputs.
+ *
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Owners share subscriptions and input conditions through filesystem
+ *   identity. One project scope and a capped external set observe multiple
+ *   inputs rather than opening a native watcher for each consumer and input.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Last-owner removal and dispose release watch scopes and polling. Conditions
+ *   and owners still require input-proportional memory; bounding native handles
+ *   does not establish a fixed memory or total walk-cost bound.
  */
 export function createInputObserver(
   onChanged: (change: InputObserverChange) => void,

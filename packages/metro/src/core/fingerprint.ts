@@ -167,33 +167,21 @@ const unhealthySnapshots = new Set<string>();
  * @evidence contracts/common.md#standard-implementation-practices
  *   Node path.resolve provides one agreed base for config preparation, static
  *   keying and worker recording. A nonempty projectRoot wins; absent or empty
- *   input uses cwd. It computes a directory value without changing the
- *   filesystem, foreign APIs or consumer-specific behavior.
+ *   input uses cwd.
  *
- * @evidence contracts/platform.md#portable-behavior
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   It computes a directory value without changing the filesystem, foreign
+ *   APIs or consumer-specific behavior.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
  *   Node path.resolve and process.cwd handle native path roots and separators
  *   on supported OSes. No URL conversion or process spawning occurs.
- *
- * @evidence contracts/common.md#behavioral-correctness
- *   Inspection gives a nonempty Metro projectRoot precedence and otherwise
- *   resolves the invocation directory. Main keying and workers call this same
- *   helper, so the fingerprint is not intentionally rooted in a different cwd
- *   from the transform. Existing out-of-root and monorepo fingerprint cases
- *   exercise those consumers; the helper establishes an absolute lexical
- *   base, not a complete input proof.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   The native JSDoc explains shared base ownership and the absent/empty
  *   projectRoot fallback. Checked against the documentation skill: separate
  *   paragraphs state the contract and why its nonobvious boundary matters;
  *   field comments retain their own useful facts.
- *
- * @evidence contracts/performance.md#account-for-work-and-retained-resources
- *   Work scales with the supplied path length through path.resolve; it reads
- *   cwd only for absent or empty projectRoot. It opens no files and retains
- *   no observers or cross-call state. Main keying and worker recording use
- *   the same resolved base. No timing improvement is claimed.
- *
  */
 export function resolveFingerprintBase(
   projectRoot: string | undefined,
@@ -217,39 +205,23 @@ export function resolveFingerprintBase(
  * @evidence contracts/common.md#standard-implementation-practices
  *   The shared project resolver owns tsconfig selection, while Node
  *   path.relative defines containment separately from program membership.
- *   Blank explicit options mean implicit discovery. An in-root config avoids
- *   a duplicate whole-tree walk; an out-of-root config adds its directory
- *   because it can supply transform inputs. No fixture-specific roots or
- *   patched filesystem APIs are used.
+ *   Blank explicit options mean implicit discovery. An in-root config avoids a
+ *   duplicate whole-tree walk; an out-of-root config adds its directory
+ *   because it can supply transform inputs.
  *
- * @evidence contracts/platform.md#portable-behavior
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   No fixture-specific roots or patched filesystem APIs are used.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
  *   Node resolve, dirname, relative, sep and isAbsolute handle Windows drives
  *   and POSIX roots. Containment rejects parent traversal and other native
  *   roots instead of comparing slash prefixes.
- *
- * @evidence contracts/common.md#behavioral-correctness
- *   Inspection of projectViewRoots confirms that an implicit config strictly
- *   inside the base selects its directory, another contained config uses the
- *   base, and an outside config adds its directory beside the base. This
- *   avoids redundant walks while retaining the selected project universe.
- *   Existing external-config/root cases exercise those consumers. Recorded
- *   dependencies and config sources contribute independently; root selection
- *   alone is not a complete key proof.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   The native JSDoc explains walk roots, implicit selection and why outside
  *   configs extend coverage. Checked against the documentation skill:
  *   separate paragraphs state the contract and why its nonobvious boundary
  *   matters; field comments retain their own useful facts.
- *
- * @evidence contracts/performance.md#account-for-work-and-retained-resources
- *   Implicit discovery probes ancestor config candidates; explicit selection
- *   avoids that upward search. Path containment determines whether the config
- *   directory adds a walk or replaces an implicit nested base. The returned
- *   array holds at most two roots and retains no watchers or workers; actual
- *   file/byte scans belong to computeProjectFingerprint. No speedup was
- *   measured.
- *
  */
 export function fingerprintRoots(
   base: string,
@@ -306,23 +278,17 @@ function projectViewRoots(
  *   A readonly structural interface carries the selected config, discovery
  *   observations, membership policy and walk roots as one view.
  *   resolveProjectView supplies that coherent view to the recorder instead of
- *   independently resolving its parts. The type does not structurally
- *   prohibit an inconsistent manually constructed value; it introduces no
- *   executable branches, consumer exceptions or foreign mutation.
+ *   independently resolving its parts.
  *
- * @evidence contracts/platform.md#portable-behavior
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The type does not structurally prohibit an inconsistent manually
+ *   constructed value; it introduces no executable branches, consumer
+ *   exceptions or foreign mutation.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
  *   Its strings retain lexical filesystem paths and its discovery entries
  *   retain identity predicates from the host. The interface does not
  *   normalize paths, invoke processes or equate filesystem paths with URLs.
- *
- * @evidence contracts/common.md#behavioral-correctness
- *   The roots, resolved project and membership policy describe one observed
- *   program and must travel together. resolveProjectView constructs them from
- *   the same resolution; fingerprint walking and snapshot recording consume
- *   that view rather than combining independently resolved roots and
- *   policies. Existing recorder/project-policy cases exercise this invariant.
- *   The type cannot prevent a caller from constructing an inconsistent object
- *   manually.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   The native JSDoc explains each readonly field, one selected project and
@@ -330,12 +296,6 @@ function projectViewRoots(
  *   documentation skill: separate paragraphs state the contract and why its
  *   nonobvious boundary matters; field comments retain their own useful
  *   facts.
- *
- * @evidenceExclude contracts/performance.md#account-for-work-and-retained-resources
- *   This interface couples native project paths and policy values. It owns no
- *   repeated work or retained resource; resolveProjectView, fingerprinting
- *   and recording answer for the operations that consume it.
- *
  */
 export interface TtscMetroProjectView {
   /** The base directory both fingerprint sides agree on. */
@@ -373,26 +333,19 @@ interface TtscMetroFingerprintProjectMap {
  * trusting a cached mtime/size observation, which could miss same-stamp edits.
  *
  * @evidence contracts/common.md#standard-implementation-practices
- *   Shared project discovery and membership-policy APIs select the same
- *   config as the transform core, retaining positive and negative discovery
- *   predicates. Compiler-option overlays are merged through that owner. The
- *   view is resolved once per module and shared with its batch, avoiding
+ *   Shared project discovery and membership-policy APIs select the same config
+ *   as the transform core, retaining positive and negative discovery
+ *   predicates. Compiler-option overlays are merged through that owner.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The view is resolved once per module and shared with its batch, avoiding
  *   independent recorder discovery without hardcoded project or test names.
  *
- * @evidence contracts/platform.md#portable-behavior
+ * @evidence contracts/portability.md#os-neutral-implementation
  *   Node absolute paths and host discovery predicates retain native
  *   filesystem identity. The injected discovery filesystem is an explicit
  *   observation boundary, and path-relative helpers respect native roots; no
  *   shell command or global filesystem patch is used.
- *
- * @evidence contracts/common.md#behavioral-correctness
- *   Inspection resolves one config and membership policy from source for the
- *   delivered transform, records discovery candidates and shares that view
- *   with its whole recorded-input batch. The policy is reread rather than
- *   trusting mtime and size or a worker-lifetime memo. Existing
- *   changed-config and project-policy cases exercise these consumers;
- *   compilation and fingerprint byte observations own the resulting
- *   generation proof.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   The native JSDoc explains selection inputs, returned coupled view,
@@ -400,15 +353,6 @@ interface TtscMetroFingerprintProjectMap {
  *   documentation skill: separate paragraphs state the contract and why its
  *   nonobvious boundary matters; field comments retain their own useful
  *   facts.
- *
- * @evidence contracts/performance.md#account-for-work-and-retained-resources
- *   One call resolves discovery candidates and rereads the selected config
- *   membership policy, including its inherited source. That filesystem work
- *   is paid once per delivered module and shared with its whole recorder
- *   batch, rather than once per watch input. Rereading preserves same-stamp
- *   rewrite detection; the returned view retains no watcher or process. No
- *   latency measurement is claimed.
- *
  */
 export function resolveProjectView(props: {
   compilerOptions?: Record<string, unknown>;
@@ -731,27 +675,22 @@ function pathIsWithin(child: string, parent: string): boolean {
  * @evidence contracts/common.md#standard-implementation-practices
  *   The shared project walker/policy and input-state APIs supply real file,
  *   config, identity and recorded-input observations. Two complete
- *   observations must agree before Node sha256 publishes the key and
- *   immutable run baseline. Missing, volatile, incomplete or changing state
- *   yields randomBytes nonce, a required withdrawal of reuse rather than a
- *   successful stale fallback. Injected discovery changes observation only,
- *   not production results.
+ *   observations must agree before Node sha256 publishes the key and immutable
+ *   run baseline. Missing, volatile, incomplete or changing state yields
+ *   randomBytes nonce, a required withdrawal of reuse rather than a successful
+ *   stale fallback. Injected discovery changes observation only, not
+ *   production results.
  *
- * @evidence contracts/platform.md#portable-behavior
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Decision values come from the documented inputs and product protocol
+ *   rather than expected test answers. No compensating path is introduced to
+ *   make a known example pass.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
  *   Node paths/fs preserve native roots and physical identities, including
  *   symlink-aware discovery. Sorted key representation is deterministic; file
  *   bytes and host predicates remain inputs. Filesystem failure withdraws
  *   reuse consistently instead of becoming an OS-specific successful key.
- *
- * @evidence contracts/common.md#behavioral-correctness
- *   Inspection compares two complete observations of routed files, config
- *   sources, identities and recorded inputs before publishing the immutable
- *   run baseline. Failure or disagreement returns a random nonce, withdrawing
- *   cross-run reuse rather than treating uncertain observations as a valid
- *   proof. Existing mutation and cache-input cases exercise these paths. The
- *   broader Metro baseline had a compaction expectation failure recorded in
- *   the adoption findings; a successful key calculation alone does not
- *   establish snapshot correctness.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   The native JSDoc explains hex digest versus nonce, repeated observation,
@@ -759,15 +698,6 @@ function pathIsWithin(child: string, parent: string): boolean {
  *   documentation skill: separate paragraphs state the contract and why its
  *   nonobvious boundary matters; field comments retain their own useful
  *   facts.
- *
- * @evidence contracts/performance.md#account-for-work-and-retained-resources
- *   Static keying makes two complete observations of routed projects, config
- *   sources and recorded dependencies, hashing their files and bytes. It runs
- *   at the per-run Metro key boundary rather than per delivered module, and
- *   publishes one immutable baseline for that run. Snapshot input populations
- *   can accumulate across runs; prepareSnapshot owns its partial retention
- *   sweeps. No benchmark or bounded-resource claim was established.
- *
  */
 export function computeProjectFingerprint(props: {
   compilerOptions?: Record<string, unknown>;
@@ -1003,25 +933,17 @@ function nonce(): string {
  *   token-owned compaction lock. Worker claims are merged before deletion;
  *   retained claims are identified in the main document to prevent replay.
  *   Definite dead-PID recovery preserves an election record; contention or
- *   failed persistence returns a private nonreusable token. Retries serve
- *   locked-file/recovery contracts rather than masking an uncorrected
- *   successful-state assumption.
+ *   failed persistence returns a private nonreusable token.
  *
- * @evidence contracts/platform.md#portable-behavior
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Retries serve locked-file/recovery contracts rather than masking an
+ *   uncorrected successful-state assumption.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
  *   Node join, mkdir, rename and rm implement native cache paths.
  *   Windows-locked files remain represented for a later removal attempt; only
  *   a definite process-query absence permits dead-owner recovery. No shell
  *   process checks or patched fs methods are used.
- *
- * @evidence contracts/common.md#behavioral-correctness
- *   Inspection serializes compaction with an owned lock, publishes merged
- *   recordings before removal and preserves claimed worker files for retry.
- *   Missing or corrupt state and lost observations change the epoch; failed
- *   publication returns a nonreusable token with recovery attempts. The
- *   existing baseline compaction case expected no remaining worker file but
- *   observed a claimed file, recorded in .wiki/evidence-adoption/findings.md.
- *   That unresolved expectation is not described as a repaired or wholly
- *   passing path.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   The native JSDoc explains new-run preparation, contention, epoch
@@ -1029,16 +951,6 @@ function nonce(): string {
  *   documentation skill: separate paragraphs state the contract and why its
  *   nonobvious boundary matters; field comments retain their own useful
  *   facts.
- *
- * @evidence contracts/performance.md#account-for-work-and-retained-resources
- *   Each config-process call scans outstanding worker/recovery documents and
- *   unions their paths under one owned compaction lock. A contender returns a
- *   nonreusable token rather than waiting indefinitely. Old temporary files
- *   and seven-day run baselines are swept; locked claimed documents retry
- *   later. Main input paths and dead-owner election directories have no fixed
- *   retention budget. The adoption findings record that cost characteristic
- *   without claiming a measured regression or safe eviction policy.
- *
  */
 export function prepareSnapshot(projectRoot: string | undefined): string {
   const base = resolveFingerprintBase(projectRoot);
@@ -1350,40 +1262,23 @@ function listExpiredKeyBaselines(directory: string): string[] {
  * @evidence contracts/common.md#standard-implementation-practices
  *   Strict snapshot parsing and Set union read worker documents before the
  *   main publication, retaining file/tree/volatile/tainted state without
- *   replaying already compacted claims. Unknown, corrupt or recovery-pending
- *   state returns undefined, never an invented complete empty set. This is
- *   the owned persisted-input protocol, not a separate compiler dependency
- *   model.
+ *   replaying already compacted claims. This is the owned persisted-input
+ *   protocol, not a separate compiler dependency model.
  *
- * @evidence contracts/platform.md#portable-behavior
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Unknown, corrupt or recovery-pending state returns undefined, never an
+ *   invented complete empty set.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
  *   Node path and fs read native snapshot locations. Locked or unreadable
  *   directory/documents invalidate the proof on all supported OSes; sorted
  *   lexical paths remain values, not shell arguments.
- *
- * @evidence contracts/common.md#behavioral-correctness
- *   Inspection unions sorted file and tree paths with epoch and
- *   tainted/volatile state, and returns undefined for missing main state or
- *   corrupt documents. It reads persisted observations without claiming that
- *   current bytes still match them; computeProjectFingerprint performs that
- *   validation. Existing corrupt-state and union cases exercise the
- *   consumers, while the separately recorded compaction expectation remains
- *   unresolved.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   The native JSDoc explains unioned snapshot fields, read ordering and the
  *   undefined result for untrusted state. Checked against the documentation
  *   skill: separate paragraphs state the contract and why its nonobvious
  *   boundary matters; field comments retain their own useful facts.
- *
- * @evidence contracts/performance.md#account-for-work-and-retained-resources
- *   Reading scales with outstanding snapshot/recovery documents, their bytes
- *   and unioned paths; sets deduplicate entries and the result sorts paths.
- *   It does not rehash current dependency contents, which belongs to
- *   fingerprint validation. Temporary collections are call-local and no
- *   watcher or subprocess remains. Persisted documents may accumulate under
- *   the compaction limits recorded in the adoption findings; no bounded total
- *   population or timing result is claimed.
- *
  */
 export function readSnapshotState(base: string): SnapshotState | undefined {
   if (unhealthySnapshots.has(base)) {
@@ -1457,24 +1352,17 @@ export function readSnapshotState(base: string): SnapshotState | undefined {
  *   shared validation APIs. Static coverage is omitted only after a matching
  *   proof; unknown/volatile inputs persist taint. One cumulative atomic
  *   document is flushed per module, with recovery storage and AggregateError
- *   when a reusable generation cannot persist either record. The legacy
- *   no-run handshake records all paths without claiming static coverage.
+ *   when a reusable generation cannot persist either record.
  *
- * @evidence contracts/platform.md#portable-behavior
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The legacy no-run handshake records all paths without claiming static
+ *   coverage.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
  *   Node resolve/join and atomic rename use native paths; unique PID/random
  *   worker names separate publishers. Windows-locked claims remain readable
  *   until later compaction, and persistence failures follow the same reuse
  *   withdrawal contract. No foreign filesystem or process method is replaced.
- *
- * @evidence contracts/common.md#behavioral-correctness
- *   Inspection compares generation observations with the matching immutable
- *   main baseline, marks mismatches tainted and withdraws file proof for
- *   volatile inputs. Writes publish one cumulative owned worker document;
- *   failed writes stay dirty and attempt recovery. A reusable run throws if
- *   both persistence paths fail, preventing output backed by lost proof.
- *   Existing temporal and recovery cases exercise these paths; the baseline
- *   compaction expectation and unbounded retained populations remain recorded
- *   limitations.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   The native JSDoc explains record, batch and volatile operations,
@@ -1482,16 +1370,6 @@ export function readSnapshotState(base: string): SnapshotState | undefined {
  *   Checked against the documentation skill: separate paragraphs state the
  *   contract and why its nonobvious boundary matters; field comments retain
  *   their own useful facts.
- *
- * @evidence contracts/performance.md#account-for-work-and-retained-resources
- *   The worker retains per-base sets and run-baseline maps for its lifetime,
- *   growing with projects and distinct inputs. Each changed delivered-module
- *   batch serializes the cumulative set once; clean unchanged batches avoid
- *   redundant writes. Immutable baseline checks establish freshness, and
- *   failed writes retain dirty state for retry/recovery rather than dropping
- *   observations. Those populations have no fixed eviction budget. No
- *   resource-growth benchmark or measured speedup is claimed.
- *
  */
 export function createSnapshotRecorder(runId?: string): {
   /** Record one lexical input without claiming compiler-generation evidence. */
@@ -2055,25 +1933,18 @@ function writeSnapshotDocument(
  *   Recursive Object.entries sorting and JSON primitive escaping provide a
  *   stable internal key representation, not another transport parser. The
  *   primitive return can be undefined, and map/join collapses absent array
- *   elements into empty arrays. Those reproduced defects remain unresolved;
- *   this acknowledgment does not certify their correctness. The adoption
- *   findings retain the cause and top-level, nested, sparse and null cases
- *   for a separate owning repair; no compensating implementation was added.
+ *   elements into empty arrays.
  *
- * @evidenceExclude contracts/platform.md#portable-behavior
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Those reproduced defects remain unresolved; this acknowledgment does not
+ *   certify their correctness. The adoption findings retain the cause and
+ *   top-level, nested, sparse and null cases for a separate owning repair; no
+ *   compensating implementation was added.
+ *
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
  *   This operation sorts and encodes caller values for a key; it has no
  *   native path, filesystem or process boundary. Its serialization defect is
- *   recorded under behavioral correctness.
- *
- * @evidence contracts/common.md#behavioral-correctness
- *   Inspection confirms recursive object-key sorting and array order, but a
- *   read-only reproduction showed stableStringify(undefined) returns
- *   undefined despite its string type and [] collides with [undefined] and a
- *   sparse array. This violates a dependable key-representation boundary;
- *   cycles and BigInt separately throw. The defect is recorded in
- *   .wiki/evidence-adoption/findings.md for deferred repair, including the
- *   getCacheKey consumer. This acknowledgment explicitly records a failed
- *   correctness check.
+ *   recorded in the adoption findings.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   The native JSDoc explains sorted keys, the acyclic value domain,
@@ -2081,16 +1952,6 @@ function writeSnapshotDocument(
  *   against the documentation skill: separate paragraphs state the contract
  *   and why its nonobvious boundary matters; field comments retain their own
  *   useful facts.
- *
- * @evidence contracts/performance.md#account-for-work-and-retained-resources
- *   Traversal scales with the visited value graph and output bytes; each
- *   record also sorts its own keys. There is no memo, retained resource or
- *   worker sharing. The caller must supply an acyclic accepted value; cycles
- *   fail through recursion and BigInt through JSON serialization. Keying
- *   invokes this at option or observation boundaries, and the reproduced
- *   absence defect remains recorded separately. No performance improvement or
- *   constant-time claim is made.
- *
  */
 export function stableStringify(value: unknown): string {
   if (Array.isArray(value)) {
