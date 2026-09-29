@@ -113,8 +113,6 @@ const LINT_CONFIG_FILENAMES = [
  */
 const FRAMEWORK_KEYS = new Set<string>([
   "enabled",
-  "name",
-  "stage",
   "transform",
 ]);
 
@@ -481,9 +479,9 @@ function rejectUnsupportedEntryKeys(entry: ITtscLintPluginConfig): void {
     }
     throw new Error(
       `@ttsc/lint: tsconfig plugin entry contains unsupported key ${JSON.stringify(key)}. ` +
-        `Rules, format, and plugin settings must live in a ` +
-        `lint.config.{ts,cts,mts,js,cjs,mjs,json} file. The only accepted key ` +
-        `in the tsconfig entry is "configFile" (optional path to the config file).`,
+        `Only "transform", "enabled", and "configFile" are accepted here; ` +
+        `put lint rules, format, and contributors in a ` +
+        `lint.config.{ts,cts,mts,js,cjs,mjs,json} file.`,
     );
   }
 }
