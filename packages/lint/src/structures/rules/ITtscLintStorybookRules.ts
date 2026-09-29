@@ -12,6 +12,11 @@ import type { ITtscLintStorybookNoUninstalledAddonsRuleOptions } from "./ITtscLi
  * `.storybook/main.ts`.
  *
  * @reference https://github.com/storybookjs/eslint-plugin-storybook
+ *
+ * @evidence contracts/common.md#principled-implementation Optional storybook keys represent selectable CSF and configuration policies; no-uninstalled-addons alone carries the typed object needed for its configurable package lookup.
+ * @evidence contracts/common.md#clear-and-simple-design A family map owns Storybook rule selection while one options interface owns addon policy, keeping severity and tuple construction shared.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Storybook policy names are supported identities rather than repository story exceptions, and the options boundary remains typed.
+ * @evidence contracts/common.md#meaningful-documentation Native comments explain CSF metadata, play contexts and diagnostic or suggestion effects; family context, paragraphs and member spacing follow documentation guidance.
  */
 export interface ITtscLintStorybookRules {
   /**

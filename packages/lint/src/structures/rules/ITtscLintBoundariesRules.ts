@@ -21,6 +21,11 @@ import type {
  * classification.
  *
  * @reference https://github.com/javierbrea/eslint-plugin-boundaries
+ *
+ * @evidence contracts/common.md#principled-implementation Each optional boundaries identifier pairs its severity with the policy object for that operation; omission leaves that rule unspecified rather than prescribing an import policy.
+ * @evidence contracts/common.md#clear-and-simple-design Six named entries keep dependency, visibility and external-package policies separate while sharing the severity-plus-options tuple representation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The keys name public boundary rules and the values use their declared option interfaces, with no consumer-specific escape type.
+ * @evidence contracts/common.md#meaningful-documentation Family prose explains source-file classification and member comments describe each policy's purpose; paragraphs, member spacing and acknowledgment separation follow the documentation guidance.
  */
 export interface ITtscLintBoundariesRules {
   /**

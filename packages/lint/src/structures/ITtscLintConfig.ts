@@ -7,6 +7,11 @@ import type { ITtscLintRules } from "./rules/ITtscLintRules";
  *
  * Keep the file shape plain: users export an object and use `satisfies
  * ITtscLintConfig` when they want type checking.
+ *
+ * @evidence contracts/common.md#principled-implementation Optional selection, inheritance, formatting and rule fields represent one flat-config entry; the host folds entries in order.
+ * @evidence contracts/common.md#clear-and-simple-design One interface owns the entry shape while rule and formatter schemas remain in their respective types.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Configuration choices remain declared fields rather than consumer-specific branches or foreign mutations.
+ * @evidence contracts/common.md#meaningful-documentation Member comments distinguish global ignores from selected-entry ignores, inheritance origins and project-rule selection; paragraphs and member spacing follow the documentation guidance.
  */
 export interface ITtscLintConfig {
   /** Globs that select the files this entry applies to. */

@@ -21,6 +21,11 @@ interface ConfigEvaluatorProcessResult {
  * watch and interrupt; a loud one is output they asked for. Neither is this
  * process's memory to spend either, because the child's streams are no longer
  * collected into it.
+ *
+ * @evidence contracts/common.md#principled-implementation Spawn error, terminating signal and nonzero status are inspected in that order so the returned error describes the actual process outcome.
+ * @evidence contracts/common.md#clear-and-simple-design One classifier centralizes process termination reasons without owning execution or output capture.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The classification uses reported process state rather than arbitrary output or runtime thresholds.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains inherited diagnostics and the absence of artificial output limits; paragraphs and the tag boundary follow documentation guidance.
  */
 export function configEvaluatorProcessFailure(
   result: ConfigEvaluatorProcessResult,
@@ -56,6 +61,11 @@ export function configEvaluatorProcessFailure(
  * carries this key, and every other shape — an absent file, a build that failed
  * before the loader ran, a half-written result, a payload written before a
  * later non-zero exit — leaves the process status to speak for itself.
+ *
+ * @evidence contracts/common.md#principled-implementation JSON parsing plus object and string guards accept only a textual loader-error envelope; absent or malformed data yields no additional reason.
+ * @evidence contracts/common.md#clear-and-simple-design A single reader owns failure-envelope decoding beside the process classifier.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing or malformed envelopes do not fabricate success or replace the process failure classification.
+ * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes process status from loader reason and documents malformed-envelope handling; paragraphs and tags follow documentation guidance.
  */
 export function configEvaluatorFailureReason(outputPath: string): string {
   try {

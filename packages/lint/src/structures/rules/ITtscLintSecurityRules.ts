@@ -10,6 +10,11 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
  * Treat findings as _hints_, not proofs.
  *
  * @reference https://github.com/eslint-community/eslint-plugin-security
+ *
+ * @evidence contracts/common.md#principled-implementation Named optional security policies use the severity-only union; the representation configures heuristic findings and does not encode a proof that an application is secure.
+ * @evidence contracts/common.md#clear-and-simple-design One family groups source-level security concerns while common severity forms remain centralized outside the rule definitions.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Contract-defined sink-policy identifiers are explicit entries, without consumer exemptions or foreign API mutation in this configuration representation.
+ * @evidence contracts/common.md#meaningful-documentation Native prose identifies findings as hints and member comments explain false-positive and fix boundaries; paragraph and member separation follow documentation guidance.
  */
 export interface ITtscLintSecurityRules {
   /**

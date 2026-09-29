@@ -15,16 +15,35 @@ import (
 
 // ProjectInputSnapshot is the normalized filesystem dependency publication
 // shared by the CLI launcher and ttscserver.
+//
+// @evidence contracts/common.md#principled-implementation Root, exact files, glob populations and reload topology preserve separate dependency and execution-selection channels even when inputs are missing.
+// @evidence contracts/common.md#clear-and-simple-design One snapshot groups normalized dependency declarations without including a TypeScript Program or watcher implementation.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The snapshot describes configured topology rather than inferring dependencies only from successful reads.
+// @evidence contracts/common.md#meaningful-documentation Native members identify physical-root spelling, exact and glob dependencies and reload effects; member gaps and tags follow documentation guidance.
 type ProjectInputSnapshot struct {
+  // Root is the normalized physical dependency root with forward-slash spelling.
   Root              string   `json:"root"`
+
+  // Files contains exact dependencies, including currently missing paths.
   Files             []string `json:"files"`
+
+  // Globs contains changing dependency populations, including empty matches.
   Globs             []string `json:"globs"`
+
+  // ReloadFiles also trigger reconsideration of execution selection.
   ReloadFiles       []string `json:"reloadFiles,omitempty"`
+
+  // ReloadDirectories observe changes that can introduce a nearer config.
   ReloadDirectories []string `json:"reloadDirectories,omitempty"`
 }
 
 // RunProjectInputs prints the enabled ProjectRule dependency snapshot without
 // loading a TypeScript Program.
+//
+// @evidence contracts/common.md#principled-implementation Resolved rule settings and physical identity determine normalized exact-file and glob declarations before Program loading; publisher and normalization failures are aggregated rather than reporting partial topology as complete.
+// @evidence contracts/common.md#clear-and-simple-design CLI parsing and JSON output reuse one dependency collector, with per-input normalization and duplicate sorting owned by helpers.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Dependencies survive missing files and empty populations instead of being restricted to successful Check reads; unsupported remote URLs produce explicit errors.
+// @evidence contracts/common.md#meaningful-documentation Native prose states pre-Program publication and snapshot members explain reload topology; paragraphs, member gaps and tags follow documentation guidance.
 func RunProjectInputs(args []string) int {
   opts, ok := parseLSPCommandOptions("project-inputs", args)
   if !ok {

@@ -27,22 +27,27 @@ import type { ITtscLintPluginMeta } from "./ITtscLintPluginMeta";
  * The only field with runtime semantics is `source`: it points at the
  * contributor's Go source directory. `@ttsc/lint`'s factory passes that path to
  * ttsc's plugin builder, which links the contributor into the host binary at
- * build time. `meta.namespace` and `rules` are advisory (used for type
- * inference and diagnostic messages); the authoritative rule registration
+ * build time. Metadata and listed rule names are advisory. The lint config's
+ * plugins-map key selects the namespace, and authoritative rule registration
  * happens in the Go `init()` of the contributor module.
+ *
+ * @evidence contracts/common.md#principled-implementation The required source path identifies contributor Go code; optional metadata and names do not replace Go registration.
+ * @evidence contracts/common.md#clear-and-simple-design The descriptor separates build input from advisory metadata without introducing a JavaScript rule implementation surface.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Contributors enter through the supported source descriptor and Go registry, without replacing host methods.
+ * @evidence contracts/common.md#meaningful-documentation The example and member comments explain source ownership and advisory fields; paragraphs and documented members remain separated under the documentation guidance.
  */
 export interface ITtscLintPlugin {
   /**
-   * Plugin metadata. Optional, but `meta.namespace` is the conventional source
-   * for the rule-name prefix; when absent, the tsconfig `plugins` map key fills
-   * that role.
+   * Optional descriptive metadata. The lint config's `plugins` map key selects
+   * the contributor namespace; this metadata does not override registration.
    */
   meta?: ITtscLintPluginMeta;
 
   /**
-   * Rule names exported by the Go side, used for TypeScript autocomplete in
-   * user configs. Purely advisory — the Go `init()` is the registration
-   * authority. Missing entries will not be flagged at runtime.
+   * Descriptive rule names exported by the Go side. The list does not define
+   * configuration types or register rules; those use TypeScript module
+   * augmentation and Go `init()` respectively. Missing entries are not flagged
+   * at runtime.
    */
   rules?: readonly string[];
 

@@ -2,6 +2,7 @@ package linthost
 
 import (
   "strings"
+  "unicode/utf8"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimscanner "github.com/microsoft/typescript-go/shim/scanner"
@@ -276,7 +277,7 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
   // printWidth, the regression that keeps a call flat at exactly
   // printWidth while the trailing `;` runs over.
   if trailingWidth > 0 &&
-    !strings.Contains(rendered, "\n") &&
+    !strings.ContainsAny(rendered, "\r\n\u2028\u2029") &&
     maxLineWidth(rendered, printOpts.StartingColumn, trailingWidth, printOpts.TabWidth) > printOpts.PrintWidth &&
     printOpts.PrintWidth-trailingWidth >= 1 {
     shrunk := printOpts
@@ -346,7 +347,7 @@ func trailingLineWidth(src string, end int, tabWidth int) int {
 // already exercised through the existing block-comment fixture.
 func trailingSuffixEnd(src string, end int) int {
   lineEnd := end
-  for lineEnd < len(src) && src[lineEnd] != '\n' {
+  for lineEnd < len(src) && sourceLineBreakSize(src, lineEnd) == 0 {
     if src[lineEnd] == '/' && lineEnd+1 < len(src) {
       next := src[lineEnd+1]
       if next == '/' {
@@ -383,27 +384,32 @@ func maxLineWidth(text string, startingColumn, trailingWidth, tabWidth int) int 
   if tabWidth <= 0 {
     tabWidth = 2
   }
-  lines := strings.Split(text, "\n")
   widest := 0
-  for i, line := range lines {
-    // A `\r` left by a CRLF split charges nothing: displayWidth reads it as the
-    // control character it is, exactly as Prettier's own loop does.
-    width := displayWidthFromColumn(line, tabWidth, 0)
-    if i == 0 {
+  for start := 0; ; {
+    end := len(text)
+    if offset := strings.IndexAny(text[start:], "\r\n\u2028\u2029"); offset >= 0 {
+      end = start + offset
+    }
+    width := displayWidthFromColumn(text[start:end], tabWidth, 0)
+    if start == 0 {
       width += startingColumn
     }
-    if i == len(lines)-1 {
+    if end == len(text) {
       width += trailingWidth
     }
     if width > widest {
       widest = width
     }
+    if end == len(text) {
+      break
+    }
+    start = end + sourceLineBreakSize(text, end)
   }
   return widest
 }
 
 // leadingColumn returns the visual column the byte at `pos` occupies on
-// its line. Tabs expand to `tabWidth` columns; other bytes count as 1.
+// its line. Tabs expand to stops and other text uses terminal display columns.
 // The rule uses this to seed the printer's StartingColumn so fit
 // measurement charges the prefix against the column budget.
 func leadingColumn(src string, pos int, tabWidth int) int {
@@ -470,24 +476,27 @@ func sliceContainsNewline(src string, start, end int) bool {
   if end > len(src) {
     end = len(src)
   }
-  for i := start; i < end; i++ {
-    if src[i] == '\n' {
-      return true
-    }
+  if end <= start {
+    return false
   }
-  return false
+  return strings.ContainsAny(src[start:end], "\r\n\u2028\u2029")
 }
 
 // lineStartOffset returns the byte offset of the start of the line
-// containing `pos`. Used by both column helpers above.
+// containing `pos`, which is a compiler position on a UTF-8 boundary. Used by
+// source-layout rules as well as both column helpers above.
 func lineStartOffset(src string, pos int) int {
   if pos <= 0 {
     return 0
   }
-  for pos > 0 && src[pos-1] != '\n' {
-    pos--
+  if pos > len(src) {
+    pos = len(src)
   }
-  return pos
+  if offset := strings.LastIndexAny(src[:pos], "\r\n\u2028\u2029"); offset >= 0 {
+    _, size := utf8.DecodeRuneInString(src[offset:])
+    return offset + size
+  }
+  return 0
 }
 
 // ternaryArmIndentBonus returns 2 when the line containing `pos` begins,

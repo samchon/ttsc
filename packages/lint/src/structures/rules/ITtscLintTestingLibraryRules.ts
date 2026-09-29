@@ -12,6 +12,11 @@ import type { ITtscLintTestingLibraryConsistentDataTestIdRuleOptions } from "./I
  * overuse, missing `await` on async queries.
  *
  * @reference https://github.com/testing-library/eslint-plugin-testing-library
+ *
+ * @evidence contracts/common.md#principled-implementation Optional testing-library keys use severity-only settings except consistent-data-testid, whose tuple retains the typed attribute and pattern policy.
+ * @evidence contracts/common.md#clear-and-simple-design One family groups Testing Library source policies and delegates its sole object-option schema to a dedicated interface rather than duplicating it in the map.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Public Testing Library policy identities remain explicit, with no local test fixture exception or arbitrary options escape in the map.
+ * @evidence contracts/common.md#meaningful-documentation Native comments explain query variants, waiting, cleanup and interaction semantics; paragraph, member and tag separation follow documentation guidance.
  */
 export interface ITtscLintTestingLibraryRules {
   /**

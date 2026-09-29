@@ -26,9 +26,10 @@ import type {
  * Generic ESLint-compatible rules that apply to both JavaScript and TypeScript
  * source.
  *
- * Every rule listed here corresponds 1-to-1 with an ESLint core rule of the
- * same kebab-case id. TypeScript-only rules and `@typescript-eslint` extension
- * rules do **not** live here — they belong to {@link ITtscLintTypeScriptRules}.
+ * Rules use bare kebab-case ids, including ESLint core names and the
+ * `prefer-for-of` iteration policy. TypeScript-only rules and
+ * `@typescript-eslint` extension rules belong to
+ * {@link ITtscLintTypeScriptRules}.
  *
  * Keeping the core family namespace-free means projects migrating from ESLint
  * can paste their rule severities into a `ttsc.lint.config.ts` file without
@@ -39,6 +40,11 @@ import type {
  * diagnostics that require human review for edge cases.
  *
  * @reference https://eslint.org/docs/latest/rules/
+ *
+ * @evidence contracts/common.md#principled-implementation Optional bare rule keys retain distinct setting shapes: severity-only entries, one typed object slot and dedicated positional aliases such as no-restricted-imports.
+ * @evidence contracts/common.md#clear-and-simple-design The interface owns the generic source-rule family; reusable setting aliases centralize severity and tuple forms without duplicating the options schemas.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Public rule identifiers and dedicated option types express configuration rather than fixture-dependent allowances or a catch-all options payload.
+ * @evidence contracts/common.md#meaningful-documentation Native member comments explain rule intent, option behavior and nonobvious native limitations; the family identifies its namespace and fix surface with paragraph and member separation under documentation guidance.
  */
 export interface ITtscLintCoreRules {
   /**

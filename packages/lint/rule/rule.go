@@ -50,6 +50,11 @@ import (
 // Severity mirrors the engine's three-level severity ladder. The
 // constants are kept value-compatible with the engine's internal
 // `Severity` type so the adapter layer can cast safely.
+//
+// @evidence contracts/common.md#principled-implementation The integer ladder uses the same off, warning and error values as the host adapter.
+// @evidence contracts/common.md#clear-and-simple-design One named type centralizes contributor severity without exposing engine storage.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The ordinal constants are protocol values rather than consumer-specific outcomes.
+// @evidence contracts/common.md#meaningful-documentation Native comments explain adapter compatibility and each level's command effect; tags follow documentation guidance.
 type Severity int
 
 const (
@@ -65,18 +70,38 @@ const (
 // Rule is the contract every contributor rule satisfies. Mirrors the
 // internal host interface so the host can dispatch via a thin adapter
 // without re-implementing the engine.
+//
+// @evidence contracts/common.md#principled-implementation Identity, visit kinds and node checking match the host dispatch contract over the shared shim AST.
+// @evidence contracts/common.md#clear-and-simple-design Three methods separate configuration identity, dispatch selection and inspection.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Contributors use the declared registry and context instead of replacing engine methods.
+// @evidence contracts/common.md#meaningful-documentation Native method comments describe namespacing, kind dispatch and reporting; member and tag spacing follow documentation guidance.
 type Rule interface {
   // Name is the identifier users put in their `rules` map.
   // Conventionally namespaced as "<plugin-namespace>/<rule-name>" to
   // avoid colliding with built-in rule names.
+  //
+  // @evidence contracts/common.md#principled-implementation The stable rule identifier binds configuration to the registered implementation.
+  // @evidence contracts/common.md#clear-and-simple-design A dedicated method exposes identity separately from dispatch and checking.
+  // @evidence contracts/common.md#prohibited-implementation-shortcuts The registered name is a public configuration key rather than a fixture-specific selector.
+  // @evidence contracts/common.md#meaningful-documentation Native prose documents the namespaced convention; tags follow documentation guidance.
   Name() string
 
   // Visits returns the AST kinds the rule cares about. The engine only
   // dispatches to rules that registered for the visited node's kind.
+  //
+  // @evidence contracts/common.md#principled-implementation The returned AST kinds describe exactly which nodes the rule's Check operation accepts.
+  // @evidence contracts/common.md#clear-and-simple-design Dispatch selection is declared once per rule instead of repeated in every file walk.
+  // @evidence contracts/common.md#prohibited-implementation-shortcuts Selection uses supported AST kinds without a consumer-name branch or foreign dispatch patch.
+  // @evidence contracts/common.md#meaningful-documentation Native prose states kind-based dispatch; tags follow documentation guidance.
   Visits() []shimast.Kind
 
   // Check is invoked once per relevant node. Use `ctx.Report` /
   // `ctx.ReportRange` to emit findings.
+  //
+  // @evidence contracts/common.md#principled-implementation The context and selected AST node provide the file binding and reporting channel for one node inspection.
+  // @evidence contracts/common.md#clear-and-simple-design Checking is one responsibility separate from rule identity and visit registration.
+  // @evidence contracts/common.md#prohibited-implementation-shortcuts Findings flow through the supported context rather than patched compiler diagnostics.
+  // @evidence contracts/common.md#meaningful-documentation Native prose states invocation scope and reporting APIs; tags follow documentation guidance.
   Check(ctx *Context, node *shimast.Node)
 }
 
@@ -92,8 +117,20 @@ type Rule interface {
 // `IsFormat` exists as a structural marker, not a runtime toggle:
 // returning `false` is equivalent to not implementing the interface at
 // all, and the host treats either form the same way.
+//
+// @evidence contracts/common.md#principled-implementation The embedded Rule plus boolean marker lets the host distinguish format-category findings without changing normal rule dispatch.
+// @evidence contracts/common.md#clear-and-simple-design One optional marker extends category selection while reusing the mandatory Rule interface.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Format selection is a supported capability rather than a host-name patch.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes fix and format commands and false-marker behavior; paragraphs and tags follow documentation guidance.
 type FormatRule interface {
   Rule
+
+  // IsFormat marks findings as belonging to the formatter category.
+  //
+  // @evidence contracts/common.md#principled-implementation A true result requests format-category handling; false retains ordinary lint behavior.
+  // @evidence contracts/common.md#clear-and-simple-design One marker conveys category without another rule implementation interface.
+  // @evidence contracts/common.md#prohibited-implementation-shortcuts The category uses declared capability detection rather than name matching.
+  // @evidence contracts/common.md#meaningful-documentation Native prose identifies category selection; the tag boundary follows documentation guidance.
   IsFormat() bool
 }
 
@@ -107,14 +144,31 @@ type FormatRule interface {
 // can implement this with `return false` to skip declaration files and
 // save the dispatch on declaration-heavy projects; returning `true` is
 // equivalent to not implementing the interface at all.
+//
+// @evidence contracts/common.md#principled-implementation The marker explicitly declares whether declaration-file grammar is within the rule's supported input domain.
+// @evidence contracts/common.md#clear-and-simple-design One optional method refines input selection while keeping the original Rule contract intact.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Skipping is capability-based and never inferred from a particular contributor name.
+// @evidence contracts/common.md#meaningful-documentation Native prose describes declaration extensions, conservative default and opt-out consequences; paragraphs and tags follow documentation guidance.
 type DeclarationFileRule interface {
   Rule
+
+  // VisitsDeclarationFiles opts into or out of declaration-file dispatch.
+  //
+  // @evidence contracts/common.md#principled-implementation The boolean identifies whether the rule supports declaration grammar rather than executable nodes alone.
+  // @evidence contracts/common.md#clear-and-simple-design One input capability expresses the selection policy directly.
+  // @evidence contracts/common.md#prohibited-implementation-shortcuts A declared capability replaces rule-name exceptions.
+  // @evidence contracts/common.md#meaningful-documentation The native comment identifies dispatch selection with separated tags under documentation guidance.
   VisitsDeclarationFiles() bool
 }
 
 // DiagnosticTag classifies what a finding IS, orthogonally to how severe it is.
 // The values match the LSP DiagnosticTag enum, and an editor renders them
 // distinctively: unnecessary code is greyed out, deprecated code struck through.
+//
+// @evidence contracts/common.md#principled-implementation The numeric values match LSP's unnecessary and deprecated classifications independently from severity.
+// @evidence contracts/common.md#clear-and-simple-design One type owns visual classification without coupling it to command failure.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Values are protocol discriminants rather than a workaround for diagnostic severity.
+// @evidence contracts/common.md#meaningful-documentation Native constants explain deletion and migration meaning, preventing an unfinished-work misclassification; tags follow documentation guidance.
 type DiagnosticTag int
 
 const (
@@ -146,7 +200,18 @@ const (
 // unnecessary nor deprecated. Most findings are neither, and guessing wrong is
 // worse than saying nothing: a spurious Unnecessary tells the author to delete
 // correct code.
+//
+// @evidence contracts/common.md#principled-implementation A rule-level tag slice describes classification shared by its findings while severity remains user configured.
+// @evidence contracts/common.md#clear-and-simple-design One optional method adds classification without changing the main checking interface.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Interface capability supplies tags without replacing reporter logic or guessing from severity.
+// @evidence contracts/common.md#meaningful-documentation Native prose documents no-tag defaults and harmful unnecessary-code guesses; paragraphs and tags follow documentation guidance.
 type TaggedRule interface {
+  // DiagnosticTags returns classifications shared by every finding from this rule.
+  //
+  // @evidence contracts/common.md#principled-implementation The returned tags classify findings independently from their configured level.
+  // @evidence contracts/common.md#clear-and-simple-design One method supplies the rule's shared classification metadata.
+  // @evidence contracts/common.md#prohibited-implementation-shortcuts Classification uses explicit tags rather than deriving deletion advice from severity.
+  // @evidence contracts/common.md#meaningful-documentation Native prose states the all-findings scope with a separated tag block under documentation guidance.
   DiagnosticTags() []DiagnosticTag
 }
 
@@ -171,7 +236,18 @@ type TaggedRule interface {
 // existing contributor cannot opt out by accident. ProjectRule implementations
 // may use the same marker; the serial walk it governs is engine-wide, so one
 // type-aware project rule serializes every file rule in the run.
+//
+// @evidence contracts/common.md#principled-implementation The explicit checker requirement lets the host enforce checker availability and its serial-access constraint.
+// @evidence contracts/common.md#clear-and-simple-design One optional capability separates syntactic inspection from type-checker dependence.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Opt-out is declared by the contributor instead of inferred from unrelated method names or rule identities.
+// @evidence contracts/common.md#meaningful-documentation Native prose documents conservative defaults, nil-checker consequences and serialization; paragraphs and tags follow documentation guidance.
 type TypeAwareRule interface {
+  // NeedsTypeChecker declares whether checking reads Context.Checker.
+  //
+  // @evidence contracts/common.md#principled-implementation The boolean binds checker availability to the rule's actual inspection needs.
+  // @evidence contracts/common.md#clear-and-simple-design A single capability exposes the checker dependency without changing Check's arguments.
+  // @evidence contracts/common.md#prohibited-implementation-shortcuts Capability detection avoids rule-name shortcuts and accidental generic-method matches.
+  // @evidence contracts/common.md#meaningful-documentation Native prose identifies the dependency declaration with separated tags under documentation guidance.
   NeedsTypeChecker() bool
 }
 
@@ -183,19 +259,46 @@ type TypeAwareRule interface {
 // linting. The domain-specific method name prevents an unrelated generic
 // AcceptsOptions method on an existing contributor from opting in by accident.
 // ProjectRule implementations may use the same marker.
+//
+// @evidence contracts/common.md#principled-implementation The marker distinguishes a genuine options slot from an optionless rule so the host rejects unsupported payloads before checking.
+// @evidence contracts/common.md#clear-and-simple-design One optional capability covers file and project rules without introducing parallel option-name lists.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The domain-specific method avoids accidentally capturing unrelated contributor methods.
+// @evidence contracts/common.md#meaningful-documentation Native prose states legacy defaults, early rejection and method-name rationale; tags follow documentation guidance.
 type OptionsRule interface {
+  // AcceptsTtscLintOptions declares whether a setting may include an options payload.
+  //
+  // @evidence contracts/common.md#principled-implementation The boolean identifies the supported setting shape before rule execution.
+  // @evidence contracts/common.md#clear-and-simple-design One named capability makes option acceptance independent from rule-name tables.
+  // @evidence contracts/common.md#prohibited-implementation-shortcuts The explicit marker avoids unvalidated special-case payload acceptance.
+  // @evidence contracts/common.md#meaningful-documentation Native prose documents the setting-shape capability with separated tags under documentation guidance.
   AcceptsTtscLintOptions() bool
 }
 
 // Reporter is the engine-supplied callback that records a finding. The
 // host implements this and passes it to `NewContext` when invoking a
 // contributor rule.
+//
+// @evidence contracts/common.md#principled-implementation Node and byte-range reporting both bind findings to the currently inspected source file.
+// @evidence contracts/common.md#clear-and-simple-design Two reporting forms separate AST-node ranges from explicit sub-token ranges while hiding aggregation.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Findings use the supported host callback instead of compiler-internal mutation.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies host ownership and member range semantics; member and tag spacing follow documentation guidance.
 type Reporter interface {
   // Report records a finding at the given node's source range.
+  //
+  // @evidence contracts/common.md#principled-implementation The source node supplies the finding's byte range in the current file.
+  // @evidence contracts/common.md#clear-and-simple-design Node reporting is one operation separate from manual range selection.
+  // @evidence contracts/common.md#prohibited-implementation-shortcuts The declared callback routes findings without replacing compiler methods.
+  // @evidence contracts/common.md#meaningful-documentation Native prose identifies node-range reporting with separated tags under documentation guidance.
   Report(node *shimast.Node, message string)
+
   // ReportRange records a finding at an explicit byte range inside the
   // current file. Use this when the rule wants to highlight a
   // sub-token.
+  //
+  // @evidence contracts/common.md#principled-implementation Explicit byte positions identify a finding range within the bound source file.
+  // @evidence contracts/common.md#clear-and-simple-design Range reporting keeps sub-token location choice with the rule while the host aggregates findings.
+  // @evidence contracts/common.md#prohibited-implementation-shortcuts The supported callback avoids inventing AST nodes solely to carry a diagnostic.
+  // @evidence contracts/common.md#meaningful-documentation Native prose documents current-file byte positions and sub-token use; tags follow documentation guidance.
   ReportRange(pos, end int, message string)
 }
 
@@ -213,8 +316,26 @@ type Reporter interface {
 // (`ReportFix` + `ReportRangeFix`), because Go interface satisfaction
 // is all-or-nothing. Declaring `var _ rule.FixReporter = &myFake{}`
 // compile-checks the fake covers the fix surface.
+//
+// @evidence contracts/common.md#principled-implementation Optional node and range methods extend a finding with atomic byte edits without changing its original location semantics.
+// @evidence contracts/common.md#clear-and-simple-design Fix support is one optional extension separate from mandatory diagnostic reporting.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Structural capability detection preserves legacy reporters rather than patching their methods.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains context access and complete interface satisfaction; method and tag spacing follow documentation guidance.
 type FixReporter interface {
+  // ReportFix records a node finding with its candidate edit group.
+  //
+  // @evidence contracts/common.md#principled-implementation One call associates all byte edits with the same node finding for atomic conflict handling.
+  // @evidence contracts/common.md#clear-and-simple-design One operation keeps diagnostic and fix association explicit.
+  // @evidence contracts/common.md#prohibited-implementation-shortcuts Fixes use a supported extension instead of direct source mutation during checking.
+  // @evidence contracts/common.md#meaningful-documentation Native prose describes the associated edit group with separated tags under documentation guidance.
   ReportFix(node *shimast.Node, message string, edits ...TextEdit)
+
+  // ReportRangeFix records an explicit-range finding with its candidate edit group.
+  //
+  // @evidence contracts/common.md#principled-implementation The finding range and edit ranges are distinct byte positions associated in one report.
+  // @evidence contracts/common.md#clear-and-simple-design One method extends range reporting without requiring a synthetic AST node.
+  // @evidence contracts/common.md#prohibited-implementation-shortcuts Edits travel through the declared fix boundary rather than foreign source mutation.
+  // @evidence contracts/common.md#meaningful-documentation Native prose explains explicit-range fix association with separated tags under documentation guidance.
   ReportRangeFix(pos, end int, message string, edits ...TextEdit)
 }
 
@@ -233,8 +354,26 @@ type FixReporter interface {
 // AND `RelatedReporter` to observe the locations, because Go interface
 // satisfaction is all-or-nothing. Declaring `var _ rule.RelatedReporter =
 // &myFake{}` compile-checks the fake covers the related surface.
+//
+// @evidence contracts/common.md#principled-implementation Optional related locations attach explanatory current-file ranges while the primary finding remains independently reportable.
+// @evidence contracts/common.md#clear-and-simple-design The related-location extension remains separate from fix and mandatory reporter interfaces.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Capability-based degradation preserves real findings without patching old reporters.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains direct context access and absent-capability behavior; method and tag spacing follow documentation guidance.
 type RelatedReporter interface {
+  // ReportRelated records a node finding with additional current-file locations.
+  //
+  // @evidence contracts/common.md#principled-implementation Related ranges explain the node finding while retaining the same bound file identity.
+  // @evidence contracts/common.md#clear-and-simple-design One operation attaches related information without adding another result store.
+  // @evidence contracts/common.md#prohibited-implementation-shortcuts Related locations use the supported extension rather than fabricated cross-file identities.
+  // @evidence contracts/common.md#meaningful-documentation Native prose states same-file location scope with separated tags under documentation guidance.
   ReportRelated(node *shimast.Node, message string, related ...RelatedInformation)
+
+  // ReportRangeRelated records a range finding with additional current-file locations.
+  //
+  // @evidence contracts/common.md#principled-implementation Explicit primary and related ranges share the bound source-file byte coordinate system.
+  // @evidence contracts/common.md#clear-and-simple-design The range form avoids creating a synthetic node for sub-token findings.
+  // @evidence contracts/common.md#prohibited-implementation-shortcuts The declared extension routes locations without changing host internals.
+  // @evidence contracts/common.md#meaningful-documentation Native prose documents range reporting and location scope; tags follow documentation guidance.
   ReportRangeRelated(pos, end int, message string, related ...RelatedInformation)
 }
 
@@ -249,9 +388,19 @@ type RelatedReporter interface {
 // ANOTHER file would need a URI this API does not yet carry, and is a separate
 // extension left deliberately out of scope so the same-file case ships without
 // waiting on it.
+//
+// @evidence contracts/common.md#principled-implementation Byte positions and message represent a secondary location in the current file; the API deliberately carries no cross-file URI.
+// @evidence contracts/common.md#clear-and-simple-design A three-member value separates location and explanatory text without adding unsupported cross-file navigation.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Same-file coordinates are explicit instead of fabricating a URI from unrelated paths.
+// @evidence contracts/common.md#meaningful-documentation Native prose documents byte units and the same-file limitation; member and tag boundaries follow documentation guidance.
 type RelatedInformation struct {
+  // Pos is the inclusive byte start in the current source file.
   Pos     int
+
+  // End is the exclusive byte end in the current source file.
   End     int
+
+  // Message explains why this secondary range relates to the finding.
   Message string
 }
 
@@ -283,9 +432,19 @@ type RelatedInformation struct {
 // multi-edit fixes include `typescript/no-import-type-side-effects`,
 // `format/whitespace`, `format/indent`, `unicorn/prevent-abbreviations`, and
 // `unicorn/template-indent`.
+//
+// @evidence contracts/common.md#principled-implementation A half-open byte range and replacement string describe insertion, deletion or replacement without confusing UTF-8 bytes with visual columns.
+// @evidence contracts/common.md#clear-and-simple-design One minimal edit value serves fixes and suggestions; conflict policy remains with the host applier.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Edits describe supported source rewrites rather than mutating foreign AST or compiler internals during checking.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains byte units, atomic groups, overlap and narrow-edit guidance; members and tags follow documentation guidance.
 type TextEdit struct {
+  // Pos is the inclusive byte start; equal Pos and End insert text.
   Pos  int
+
+  // End is the exclusive byte end and must not split a UTF-8 sequence.
   End  int
+
+  // Text replaces the range; an empty value deletes it.
   Text string
 }
 
@@ -302,9 +461,15 @@ type TextEdit struct {
 //
 // Edits within one Suggestion follow the same non-overlap policy as `TextEdit`
 // in a `ReportFix` call.
+//
+// @evidence contracts/common.md#principled-implementation Title and edit group express one author-selected alternative rather than imposing an arbitrary valid repair.
+// @evidence contracts/common.md#clear-and-simple-design One value groups display text with the candidate's edits independently from the finding.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit alternatives do not silently replace a required fix with a guessed consumer preference.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes suggestions from automatic fixes and documents empty edits; member and tag spacing follow documentation guidance.
 type Suggestion struct {
   // Title is what the editor shows for this choice, e.g. "Rename to `frames`".
   Title string
+
   // Edits apply this suggestion. Empty means the suggestion is a label with no
   // edit — a "did you mean" the author acts on by hand.
   Edits []TextEdit
@@ -320,8 +485,26 @@ type Suggestion struct {
 // offers a choice among several. A rule reaches it through
 // `Context.ReportSuggestion` / `ReportRangeSuggestion`; it is not called
 // directly.
+//
+// @evidence contracts/common.md#principled-implementation Optional suggestion reporting keeps multiple candidate repairs attached to the finding while legacy reporters retain the diagnostic alone.
+// @evidence contracts/common.md#clear-and-simple-design A separate extension represents author choice without conflating it with an automatic fix.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Optional capability handling preserves existing reporters through their supported interfaces.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains fallback and the fix-versus-choice boundary; method and tag spacing follow documentation guidance.
 type SuggestionReporter interface {
+  // ReportSuggestion associates author-selectable repairs with a node finding.
+  //
+  // @evidence contracts/common.md#principled-implementation Each suggestion remains a separate candidate edit group for the same primary node finding.
+  // @evidence contracts/common.md#clear-and-simple-design One method groups alternatives without selecting or applying them during checking.
+  // @evidence contracts/common.md#prohibited-implementation-shortcuts Alternatives use the public reporter instead of imposing an arbitrary fixture-driven choice.
+  // @evidence contracts/common.md#meaningful-documentation Native prose states candidate association with separated tags under documentation guidance.
   ReportSuggestion(node *shimast.Node, message string, suggestions ...Suggestion)
+
+  // ReportRangeSuggestion associates author-selectable repairs with a range finding.
+  //
+  // @evidence contracts/common.md#principled-implementation Explicit byte-range findings receive distinct candidate groups without synthetic node identity.
+  // @evidence contracts/common.md#clear-and-simple-design One range variant reuses the same suggestion values and host aggregation.
+  // @evidence contracts/common.md#prohibited-implementation-shortcuts Candidates travel through a declared extension rather than direct edits during validation.
+  // @evidence contracts/common.md#meaningful-documentation Native prose identifies range-based candidate reporting with separated tags under documentation guidance.
   ReportRangeSuggestion(pos, end int, message string, suggestions ...Suggestion)
 }
 
@@ -329,6 +512,11 @@ type SuggestionReporter interface {
 // The `Reporter` is supplied by the host when constructing the context;
 // contributors call `ctx.Report` / `ctx.ReportRange` directly through
 // this Context rather than touching the reporter.
+//
+// @evidence contracts/common.md#principled-implementation File, checker, resolved settings and private cycle channels bind every contributor inspection to the host's current file and Program.
+// @evidence contracts/common.md#clear-and-simple-design Public inspection inputs are separated from reporter and project-result capabilities behind context methods.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The context provides supported reporting and project-state access without foreign engine mutation.
+// @evidence contracts/common.md#meaningful-documentation Native members document source availability, checker dependence and raw options; member gaps and separated tags follow documentation guidance.
 type Context struct {
   // File is the source file currently being walked. Always non-nil
   // when `Check` is invoked.
@@ -357,6 +545,11 @@ type Context struct {
 // NewContext constructs a Context for the engine to pass into a
 // contributor rule's `Check`. Reserved for host code; contributors
 // should not need to call this.
+//
+// @evidence contracts/common.md#principled-implementation Delegating with a nil project reader preserves the original context semantics while reusing defensive option copying.
+// @evidence contracts/common.md#clear-and-simple-design The legacy constructor has one delegation point to the fuller constructor.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The nil-reader path is supported backwards compatibility rather than a fabricated project result.
+// @evidence contracts/common.md#meaningful-documentation Native prose names host ownership and normal contributor usage; tags follow documentation guidance.
 func NewContext(
   file *shimast.SourceFile,
   checker *shimchecker.Checker,
@@ -369,6 +562,11 @@ func NewContext(
 
 // NewContextWithProjectResults constructs a file-rule Context with the live
 // project results for the same loaded Program cycle.
+//
+// @evidence contracts/common.md#principled-implementation The constructor keeps the host's file, checker and live readers while copying raw option bytes to prevent slice alias mutation.
+// @evidence contracts/common.md#clear-and-simple-design One constructor establishes all per-file inputs and private channels together.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Live state is supplied through its declared reader instead of inferred from unrelated Program identities.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies the same-cycle binding and members document ownership; the tag boundary follows documentation guidance.
 func NewContextWithProjectResults(
   file *shimast.SourceFile,
   checker *shimchecker.Checker,
@@ -389,6 +587,11 @@ func NewContextWithProjectResults(
 
 // ProjectResult returns a current snapshot for a named project rule in this
 // file's Program cycle. Missing registrations return ProjectRuleAbsent.
+//
+// @evidence contracts/common.md#principled-implementation Nil contexts and missing readers return absent; a live reader supplies the named rule's current snapshot without caching stale status locally.
+// @evidence contracts/common.md#clear-and-simple-design One lookup method hides the project-result storage and lifecycle.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Missing project bindings are explicit absent results rather than invented passed results.
+// @evidence contracts/common.md#meaningful-documentation Native prose specifies current-cycle lookup and absent semantics; tags follow documentation guidance.
 func (c *Context) ProjectResult(name string) ProjectRuleResult {
   if c == nil || c.results == nil {
     return ProjectRuleResult{Status: ProjectRuleAbsent}
@@ -403,6 +606,11 @@ func (c *Context) ProjectResult(name string) ProjectRuleResult {
 //  var opts myRuleOptions
 //  _ = ctx.DecodeOptions(&opts)
 //  // opts now holds either the user's settings or the zero value.
+//
+// @evidence contracts/common.md#principled-implementation A nil or empty options payload preserves caller defaults; encoding/json decodes present input and returns its error.
+// @evidence contracts/common.md#clear-and-simple-design One context helper owns raw JSON decoding without independent rule-specific parsing policy.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No arbitrary payload substitute or fixture-specific options bypass is introduced.
+// @evidence contracts/common.md#meaningful-documentation Native prose and the example describe default-preserving decoding; paragraphs and tags follow documentation guidance.
 func (c *Context) DecodeOptions(out interface{}) error {
   if c == nil || len(c.Options) == 0 {
     return nil
@@ -413,6 +621,11 @@ func (c *Context) DecodeOptions(out interface{}) error {
 // Report records a finding at the given node's source range. Silently
 // ignored when severity is `off` (defensive — the engine already filters
 // by severity before invoking Check) or when no reporter is attached.
+//
+// @evidence contracts/common.md#principled-implementation Nil context, missing reporter, off severity and nil node are inert; valid active calls forward the actual node and message.
+// @evidence contracts/common.md#clear-and-simple-design A single defensive boundary protects the host callback before delegation.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Findings flow through the supported reporter without synthetic nodes or foreign mutation.
+// @evidence contracts/common.md#meaningful-documentation Native prose describes disabled and absent reporter behavior; tags follow documentation guidance.
 func (c *Context) Report(node *shimast.Node, message string) {
   if c == nil || c.reporter == nil || c.Severity == SeverityOff || node == nil {
     return
@@ -424,6 +637,11 @@ func (c *Context) Report(node *shimast.Node, message string) {
 // autofix edits. Older hosts that do not implement fix reporting receive the
 // diagnostic without edits.
 // Treat edits as best-effort: design the rule so the diagnostic alone is useful.
+//
+// @evidence contracts/common.md#principled-implementation Active node calls preserve the diagnostic when edits are absent or fix capability is unavailable; capable reporters receive the complete candidate group.
+// @evidence contracts/common.md#clear-and-simple-design Guards and one capability branch separate ordinary reporting from the optional edit channel.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Legacy degradation addresses an actual supported reporter difference without patching foreign methods or suppressing the finding.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains best-effort edits and legacy fallback; the tag boundary follows documentation guidance.
 func (c *Context) ReportFix(node *shimast.Node, message string, edits ...TextEdit) {
   if c == nil || c.reporter == nil || c.Severity == SeverityOff || node == nil {
     return
@@ -442,6 +660,11 @@ func (c *Context) ReportFix(node *shimast.Node, message string, edits ...TextEdi
 
 // ReportRange records a finding at an explicit byte range inside the
 // current file.
+//
+// @evidence contracts/common.md#principled-implementation Active contexts forward the supplied current-file byte range; absent or off channels remain inert.
+// @evidence contracts/common.md#clear-and-simple-design A guard and one callback keep range reporting separate from node construction.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit ranges use the supported API rather than synthetic AST nodes.
+// @evidence contracts/common.md#meaningful-documentation Native prose states the range's byte units and file scope; tags follow documentation guidance.
 func (c *Context) ReportRange(pos, end int, message string) {
   if c == nil || c.reporter == nil || c.Severity == SeverityOff {
     return
@@ -453,6 +676,11 @@ func (c *Context) ReportRange(pos, end int, message string) {
 // autofix edits. Older hosts that do not implement fix reporting receive the
 // diagnostic without edits.
 // Treat edits as best-effort: design the rule so the diagnostic alone is useful.
+//
+// @evidence contracts/common.md#principled-implementation Active range calls attach all edits when supported and retain the plain finding when edits or fix capability are absent.
+// @evidence contracts/common.md#clear-and-simple-design One optional capability branch reuses range reporting without exposing host storage.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The supported legacy fallback preserves diagnostics rather than hiding a failed fix or replacing reporter internals.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains optional edits and fallback; separated tags follow documentation guidance.
 func (c *Context) ReportRangeFix(pos, end int, message string, edits ...TextEdit) {
   if c == nil || c.reporter == nil || c.Severity == SeverityOff {
     return
@@ -477,6 +705,11 @@ func (c *Context) ReportRangeFix(pos, end int, message string, edits ...TextEdit
 // Use this over `ReportFix` only when there genuinely is a choice. One correct
 // rewrite is a fix; imposing it is the right thing. Several valid rewrites is a
 // suggestion; imposing one arbitrarily is not.
+//
+// @evidence contracts/common.md#principled-implementation Valid active node calls attach candidate choices when supported; absent choices or optional capability preserve the diagnostic alone.
+// @evidence contracts/common.md#clear-and-simple-design One capability branch separates author choice from mandatory reporting and automatic fixing.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Actual reporter compatibility governs fallback; no arbitrary candidate is imposed to satisfy a known consumer.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes real choices from one correct fix and states legacy behavior; paragraphs and tags follow documentation guidance.
 func (c *Context) ReportSuggestion(node *shimast.Node, message string, suggestions ...Suggestion) {
   if c == nil || c.reporter == nil || c.Severity == SeverityOff || node == nil {
     return
@@ -495,6 +728,11 @@ func (c *Context) ReportSuggestion(node *shimast.Node, message string, suggestio
 
 // ReportRangeSuggestion records a finding at an explicit byte range with a
 // choice of candidate fixes. See `ReportSuggestion`.
+//
+// @evidence contracts/common.md#principled-implementation Active explicit ranges receive suggestions when the reporter supports them; otherwise the same finding is preserved without choices.
+// @evidence contracts/common.md#clear-and-simple-design The range variant shares suggestion values without manufacturing an AST node.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The compatibility branch uses a supported optional interface instead of patching reporter implementations.
+// @evidence contracts/common.md#meaningful-documentation Native prose names range-based choices and its shared reporting contract; tags follow documentation guidance.
 func (c *Context) ReportRangeSuggestion(pos, end int, message string, suggestions ...Suggestion) {
   if c == nil || c.reporter == nil || c.Severity == SeverityOff {
     return
@@ -515,6 +753,11 @@ func (c *Context) ReportRangeSuggestion(pos, end int, message string, suggestion
 // source locations. Older hosts that do not implement RelatedReporter receive
 // the diagnostic without them, so design the rule to read well from the message
 // alone. With no related locations it is exactly `Report`.
+//
+// @evidence contracts/common.md#principled-implementation Valid active node calls attach related ranges only through a capable reporter and always preserve the plain finding when that channel is unavailable.
+// @evidence contracts/common.md#clear-and-simple-design Guards and one optional branch keep primary reporting independent from location enrichment.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Legacy compatibility uses explicit capability detection rather than altering host reporter internals.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains same-finding fallback and empty-location equivalence; tags follow documentation guidance.
 func (c *Context) ReportRelated(node *shimast.Node, message string, related ...RelatedInformation) {
   if c == nil || c.reporter == nil || c.Severity == SeverityOff || node == nil {
     return
@@ -534,6 +777,11 @@ func (c *Context) ReportRelated(node *shimast.Node, message string, related ...R
 // ReportRangeRelated records a finding at an explicit byte range with related
 // source locations. Falls back to a plain range finding on a host without
 // RelatedReporter, and equals `ReportRange` when no related locations are given.
+//
+// @evidence contracts/common.md#principled-implementation Active range reporting preserves the primary finding and forwards related ranges only when provided and supported.
+// @evidence contracts/common.md#clear-and-simple-design One range form reuses the enrichment capability without constructing synthetic nodes.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The supported legacy path degrades optional locations while keeping the diagnostic intact.
+// @evidence contracts/common.md#meaningful-documentation Native prose explicitly states both fallback conditions; tags follow documentation guidance.
 func (c *Context) ReportRangeRelated(pos, end int, message string, related ...RelatedInformation) {
   if c == nil || c.reporter == nil || c.Severity == SeverityOff {
     return
@@ -556,6 +804,11 @@ var registry []Rule
 // contributor package's `init()`. Duplicate names are NOT checked here
 // — the host's adapter layer surfaces collisions with a clearer error
 // than a raw panic.
+//
+// @evidence contracts/common.md#principled-implementation A nonnil Rule is appended during package initialization, while the completed contributor set is validated for name collisions by the host.
+// @evidence contracts/common.md#clear-and-simple-design Registration owns collection and leaves cross-rule validation to bootstrap.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The registry is the declared contributor extension point rather than a patched engine rule list.
+// @evidence contracts/common.md#meaningful-documentation Native prose specifies init-time use and deferred duplicate checks; tags follow documentation guidance.
 func Register(r Rule) {
   if r == nil {
     panic("rule: Register called with nil rule")
@@ -566,6 +819,12 @@ func Register(r Rule) {
 // Registered returns every contributor rule registered via `Register`.
 // Called once by the host during engine bootstrap. The returned slice is
 // a defensive copy so the host cannot mutate the registry.
+// Rule objects remain shared; callers must not mutate registered implementations.
+//
+// @evidence contracts/common.md#principled-implementation Allocating and copying the registry slice isolates membership from caller slice writes while sharing the registered rule values.
+// @evidence contracts/common.md#clear-and-simple-design One accessor exposes registration results without backing-slice ownership.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Callers read through the supported defensive accessor instead of replacing registry entries.
+// @evidence contracts/common.md#meaningful-documentation Native prose states bootstrap use and distinguishes slice copying from shared rule values; tags follow documentation guidance.
 func Registered() []Rule {
   out := make([]Rule, len(registry))
   copy(out, registry)

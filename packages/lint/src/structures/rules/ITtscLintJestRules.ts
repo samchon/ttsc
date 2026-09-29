@@ -9,6 +9,11 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
  * duplicate hook calls.
  *
  * @reference https://github.com/jest-community/eslint-plugin-jest
+ *
+ * @evidence contracts/common.md#principled-implementation Optional jest keys map to the common severity-only union, so each policy can be omitted or configured without implying an unsupported options slot.
+ * @evidence contracts/common.md#clear-and-simple-design One interface collects Jest source policies while severity spelling and tuple forms remain defined in the shared alias.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Named Jest policies use the supported setting representation and introduce no special configuration path for repository test fixtures.
+ * @evidence contracts/common.md#meaningful-documentation Family prose identifies Jest source and member comments explain assertion, lifecycle and collection concerns; separate paragraphs and members follow documentation guidance.
  */
 export interface ITtscLintJestRules {
   /**
@@ -86,9 +91,9 @@ export interface ITtscLintJestRules {
   /**
    * Reject `export` declarations in Jest test files.
    *
-   * Tests are leaf consumers and should not expose helpers; the runner silently
-   * skips test files with any export, so a stray `export` can make a whole file
-   * disappear from the suite.
+   * Keep reusable helpers in separate modules so importing a helper does not
+   * also load the test declarations in this file. This is an organization
+   * policy, not a claim that Jest refuses modules with exports.
    *
    * @reference https://github.com/jest-community/eslint-plugin-jest/blob/main/docs/rules/no-export.md
    */

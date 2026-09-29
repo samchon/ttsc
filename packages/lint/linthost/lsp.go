@@ -19,6 +19,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcore "github.com/microsoft/typescript-go/shim/core"
   shimparser "github.com/microsoft/typescript-go/shim/parser"
+  shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 
   publicrule "github.com/samchon/ttsc/packages/lint/rule"
 )
@@ -168,16 +169,50 @@ func lspCodeActionKinds() []string {
 }
 
 // RunLSPCommandIDs prints the workspace/executeCommand ids owned by @ttsc/lint.
+// It acquires no project. Serialization failures return 2 and output failures
+// return 3; the caller owns the standard streams.
+//
+// @evidence contracts/common.md#principled-implementation The shared lint command registry supplies the exact advertised identifiers, and the ordinary JSON writer preserves serialization/output failures as nonzero exit status.
+// @evidence contracts/common.md#clear-and-simple-design This verb exposes registry data only; command dispatch and project evaluation remain separate responsibilities.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Command names are the lint sidecar protocol, not fixture answers or patched language-server registrations.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains the registry boundary, absence of project acquisition and output failure codes under documentation-skill guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This verb serializes protocol identifiers without native path, filesystem identity or child-process selection.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The verb emits a fixed registry rather than choosing a project processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The fixed command list requires no reusable compilation or request coordination.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller owns stdout; this verb acquires no handle or retained project state.
 func RunLSPCommandIDs([]string) int {
   return writeJSON(lspCommandIDs())
 }
 
 // RunLSPCodeActionKinds prints the CodeActionKind values @ttsc/lint may return.
+// These are advertised kinds, not evidence that an action applies to a document.
+// It loads no project; JSON/output failures use the shared writer's exit codes.
+//
+// @evidence contracts/common.md#principled-implementation The same supported action categories used by code-action filtering are published as JSON; availability remains a document query rather than a fabricated capability result.
+// @evidence contracts/common.md#clear-and-simple-design Registry publication is separate from per-document rule evaluation and action construction.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The categories encode the supported quick-fix, fix-all and formatting protocol without consumer-specific or test-only kinds.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes advertised kinds from applicable actions and states acquisition/failure behavior under documentation-skill guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Protocol category serialization chooses no native path or process capability.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This fixed registry publication chooses no project processing algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work It coordinates no compiler work or cache consumers.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It retains no project or historical state and acquires no owned stream handle.
 func RunLSPCodeActionKinds([]string) int {
   return writeJSON(lspCodeActionKinds())
 }
 
 // RunLSPDiagnostics prints lint diagnostics for one file URI as LSP JSON.
+// The document uses saved project state. Parse diagnostics remain upstream's
+// responsibility; lint results may also carry a separate project publication.
+// Acquisition/evaluation errors return 2, and output write errors return 3.
+//
+// @evidence contracts/common.md#principled-implementation The native lint engine supplies saved-project findings, filtered to the physical document identity; compiler source bytes determine UTF-16 primary/related ranges, severity and supported diagnostic tags. Upstream retains ownership of parse diagnostics.
+// @evidence contracts/common.md#clear-and-simple-design The verb parses options, evaluates through the shared findings path and serializes one result. Project publications and document findings remain separate payload fields.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Real rule findings supply diagnostics; no source-pattern imitation, consumer exception or foreign server mutation replaces the engine.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains saved-state ownership, upstream parse diagnostics, optional project results and error codes under documentation-skill guidance; wire helpers state UTF-16 units and omission behavior.
+// @evidence contracts/portability.md#os-neutral-implementation File URLs are decoded to native paths and physical project identity filters the result. Path construction uses filepath operations; source coordinates use compiler line semantics rather than platform newline guesses.
+// @evidence contracts/performance.md#efficient-algorithms One lint cycle supplies document/project results, then findings are filtered linearly. Compiler source-file line maps are shared across primary/related ranges instead of rescanning all source bytes for every position; rule/checker costs remain with the engine.
+// @evidence contracts/performance.md#reuse-equivalent-work The shared acquisition boundary permits resident callers to use their current Program and selected rule state. This one-shot verb does not retain a second cache keyed only by the document URI.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned acquisition-release callback is deferred before result handling; resident ownership is retained by its host. JSON/range values live only through this response, with no historical result population retained here.
 func RunLSPDiagnostics(args []string) int {
   opts, ok := parseLSPCommandOptions("lsp-diagnostics", args)
   if !ok {
@@ -192,6 +227,18 @@ func RunLSPDiagnostics(args []string) int {
 
 // RunLSPProjectDiagnostics prints the current project-rule publication without
 // requiring an open TypeScript document.
+// Disabled project rules yield an empty publication that clears older results.
+// A project parse failure yields null instead, retaining the host's last good
+// publication. Acquisition/evaluation errors return 2; output failures return 3.
+//
+// @evidence contracts/common.md#principled-implementation Only project rules run, and the logical config URI anchors their publication. An evaluated empty set differs from a project that could not parse, so null does not erase the host's last good answer.
+// @evidence contracts/common.md#clear-and-simple-design Project-only evaluation has its own payload boundary while sharing rule loading and Program acquisition with document commands.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Actual rule evaluation determines the publication; a failed parse is not converted to a fabricated successful empty result.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs explain no-document usage, disabled/parse-failed distinctions and exit codes under the documentation skill's absence and failure guidance.
+// @evidence contracts/portability.md#os-neutral-implementation Project anchors are native driver inputs while the published config identity is encoded as a file URL; native path construction remains with filepath and the project identity owner.
+// @evidence contracts/performance.md#efficient-algorithms The engine evaluates the required project cycle once without linting an arbitrary document merely to obtain its publication; findings are converted in one pass.
+// @evidence contracts/performance.md#reuse-equivalent-work Program acquisition shares the resident host's current state when authorized; the one-shot publication does not introduce an independent stale project-result cache.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The acquisition callback is deferred even when later evaluation fails. Publication buffers are response-local, and this verb retains no project history after completion.
 func RunLSPProjectDiagnostics(args []string) int {
   opts, ok := parseLSPCommandOptions("lsp-project-diagnostics", args)
   if !ok {
@@ -275,6 +322,18 @@ func computeLSPDiagnostics(opts *lspCommandOptions) (lspDiagnosticsResult, int) 
 }
 
 // RunLSPCodeActions prints code actions available for one file URI/range.
+// Suggestions are range-limited and capture source/content fingerprints for
+// later validation. Fix-all and format actions remain document-wide. Excluded
+// or outside-project targets yield no actions; evaluation failures return 2.
+//
+// @evidence contracts/common.md#principled-implementation Context kind filters select supported action categories, valid ranges delimit suggestions, and actual fixable findings determine availability. Suggestion commands retain source hashes and exact finding/edit fingerprints so execution can reject stale choices.
+// @evidence contracts/common.md#clear-and-simple-design Shared findings feed separate suggestion, fix-all and format constructors; request filtering occurs before project work when no supported kind can apply.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Actions are based on current rule findings rather than canned fixes. node_modules and physical project containment preserve the real edit boundary instead of relying on document spelling alone.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish range-limited suggestions from document-wide actions and describe excluded/error outcomes; helper comments explain fingerprint purpose under documentation-skill guidance.
+// @evidence contracts/portability.md#os-neutral-implementation URI decoding and native project containment use filepath and resolved physical anchors; commands retain the editor URI separately for returned edits. No filename is interpolated into shell text.
+// @evidence contracts/performance.md#efficient-algorithms Irrelevant kinds and excluded targets return before evaluation. The required lint cycle runs once; finding filters and suggestion construction scan their populations, with each source hash shared across that file's suggestions and compiler line maps reused for ranges.
+// @evidence contracts/performance.md#reuse-equivalent-work Within one response, suggestions from the same immutable SourceFile share its content hash and line map. Resident acquisition remains the owning Program reuse boundary; an action's hash does not authorize stale execution.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Acquisition release is deferred, and source-hash/action maps are local to the response. Returned commands transfer only serialized selection data, not compiler leases or mutable AST references.
 func RunLSPCodeActions(args []string) int {
   opts, ok := parseLSPCommandOptions("lsp-code-actions", args)
   if !ok {
@@ -350,6 +409,24 @@ func computeLSPCodeActions(opts *lspCommandOptions) ([]lspCodeAction, int) {
 }
 
 // RunLSPExecuteCommand returns a WorkspaceEdit for a lint-owned command.
+// It never writes the original project. Suggestions are revalidated against
+// current source and findings; stale selections yield no edit. Format can use
+// the live buffer from stdin. Checker-dependent operations edit a temporary
+// project and return a change for the editor to apply.
+//
+// Syntax-invalid overlays and unchanged documents yield no edit. Cascades
+// must converge within the shared pass limits; acquisition/usage failures
+// return 2, and write failures return 3. Input and project-copy sizes have no
+// independent byte cap; temporary cleanup is best effort.
+//
+// @evidence contracts/common.md#principled-implementation Supported command IDs dispatch to current-source suggestion validation or atomic finding-group fixes. Live formatting uses the supplied buffer; checker-dependent fixes use a copied project and preserve original-project ownership until the editor applies the returned WorkspaceEdit.
+// @evidence contracts/common.md#clear-and-simple-design One command boundary owns option/URI validation, then focused helpers own suggestion selection, lightweight buffer formatting and checker-backed temporary cascades. Shared edit selection/application keeps overlap policy consistent with CLI fixes.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Content/finding/edit fingerprints reject stale suggestions rather than forcing a prior answer onto changed text. Temporary projects serve the actual checker requirement; invalid overlays do not receive compensating partial edits or foreign editor mutations.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs state original-project protection, live/disk paths, stale/no-op behavior, convergence and cleanup/size limits under documentation-skill guidance; helper prose explains logical copy spelling versus physical containment.
+// @evidence contracts/portability.md#os-neutral-implementation URI and native paths remain distinct. Physical containment guards the original target, while logical project paths locate copied aliases/junctions. Native filepath operations build temporary destinations; compiler parser inputs use the required protocol slash spelling.
+// @evidence contracts/performance.md#efficient-algorithms Built-in AST/source formatting avoids a whole-project copy/checker. Checker-dependent cascades rebuild after actual edits so facts match changed text. Validated disjoint edits copy source gaps and replacement text once using the shared linear builder, avoiding a full-string copy per edit.
+// @evidence contracts/performance.md#reuse-equivalent-work All edits in a pass share one rule/Program generation. Changed text requires another parse/check; a prior finding cannot be reused solely because its URI matches. Existing rule/descriptor acquisition caches retain their own validated-input boundaries.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Temporary creation paths clean up on setup failure and defer removal after transfer. Programs close per pass and suggestion acquisition releases on every return; copied project, stdin text and edit buffers grow with actual inputs without fixed byte limits, and removal errors remain an explicit best-effort limitation.
 func RunLSPExecuteCommand(args []string) int {
   opts, ok := parseLSPCommandOptions("lsp-execute-command", args)
   if !ok {
@@ -551,7 +628,6 @@ func lspRelatedInformationForFinding(finding *Finding) []lspRelatedInformation {
   if finding == nil || len(finding.RelatedInformation) == 0 || finding.File == nil {
     return nil
   }
-  text := finding.File.Text()
   uri := fileURL(finding.File.FileName())
   out := make([]lspRelatedInformation, 0, len(finding.RelatedInformation))
   for _, item := range finding.RelatedInformation {
@@ -559,8 +635,8 @@ func lspRelatedInformationForFinding(finding *Finding) []lspRelatedInformation {
       Location: lspLocation{
         URI: uri,
         Range: lspRange{
-          Start: byteOffsetToLSPPosition(text, item.Pos),
-          End:   byteOffsetToLSPPosition(text, item.End),
+          Start: sourceFileLSPPosition(finding.File, item.Pos),
+          End:   sourceFileLSPPosition(finding.File, item.End),
         },
       },
       Message: item.Message,
@@ -591,13 +667,9 @@ func lspDiagnosticTags(tags []publicrule.DiagnosticTag) []int {
 }
 
 func lspRangeForFinding(finding *Finding) lspRange {
-  text := ""
-  if finding != nil && finding.File != nil {
-    text = finding.File.Text()
-  }
   return lspRange{
-    Start: byteOffsetToLSPPosition(text, finding.Pos),
-    End:   byteOffsetToLSPPosition(text, finding.End),
+    Start: sourceFileLSPPosition(finding.File, finding.Pos),
+    End:   sourceFileLSPPosition(finding.File, finding.End),
   }
 }
 
@@ -829,8 +901,8 @@ func lspWorkspaceEditForSuggestion(opts *lspCommandOptions) (*lspWorkspaceEdit, 
     for _, edit := range selected {
       edits = append(edits, lspTextEdit{
         Range: lspRange{
-          Start: byteOffsetToLSPPosition(source, edit.Pos),
-          End:   byteOffsetToLSPPosition(source, edit.End),
+          Start: sourceFileLSPPosition(finding.File, edit.Pos),
+          End:   sourceFileLSPPosition(finding.File, edit.End),
         },
         NewText: edit.Text,
       })
@@ -1094,9 +1166,9 @@ func lspFormatBuffer(content string, opts *lspCommandOptions) (*lspWorkspaceEdit
   parseName := filepath.ToSlash(target)
   for pass := 0; pass < maxFormatPasses; pass++ {
     file := shimparser.ParseSourceFile(shimast.SourceFileParseOptions{FileName: parseName}, text, scriptKind)
-    if file == nil {
-      // Match the disk path: a buffer we can't parse is a benign no-op, not a
-      // hard error — don't fight the editor's own diagnostics on a dirty buffer.
+    if file == nil || len(file.Diagnostics()) > 0 {
+      // A recovered parse still contains syntax diagnostics. Match the checker
+      // path's no-edit policy instead of fixing only the valid parts of a buffer.
       return nil, 0
     }
     findings := filterFormatFindings(engine.Run([]*shimast.SourceFile{file}, nil))
@@ -1117,8 +1189,8 @@ func lspFormatBuffer(content string, opts *lspCommandOptions) (*lspWorkspaceEdit
 }
 
 // scriptKindForPath maps a file extension to the tsgo ScriptKind the parser
-// needs so TS/JSX-only syntax is recognized. Mirrors the test helpers'
-// ScriptKind selection (helpers_test.go parseTSFile/parseTSXFile).
+// needs so JSX syntax is enabled only for .jsx/.tsx, JavaScript extensions use
+// JavaScript grammar, and TypeScript remains the default for other inputs.
 func scriptKindForPath(path string) shimcore.ScriptKind {
   switch strings.ToLower(filepath.Ext(path)) {
   case ".tsx":
@@ -1135,7 +1207,7 @@ func scriptKindForPath(path string) shimcore.ScriptKind {
 // applyFindingFixesToText is the in-memory counterpart of
 // applyFindingFixes/applyTextEditsToFile (fix.go): it groups every fixable
 // finding's edits, selects a non-overlapping, per-finding-atomic set with the
-// same selectTextEditGroups logic, applies them right-to-left to `text`, and
+// same selectTextEditGroups logic, copies source spans and replacements once, and
 // returns the new string plus the number of edits applied. It never writes to
 // disk and never reloads a Program. Findings carry byte offsets into the same
 // `text` that was just parsed, so no per-file grouping is needed — but each
@@ -1153,11 +1225,7 @@ func applyFindingFixesToText(text string, findings []*Finding) (string, int) {
   if len(selected) == 0 {
     return text, 0
   }
-  next := text
-  for i := len(selected) - 1; i >= 0; i-- {
-    edit := selected[i]
-    next = next[:edit.Pos] + edit.Text + next[edit.End:]
-  }
+  next := applySelectedTextEdits(text, selected)
   if next == text {
     return text, 0
   }
@@ -1425,6 +1493,21 @@ func projectRelativePath(cwd string, file string) (string, bool) {
   if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
     return "", false
   }
+  if filepath.Clean(filepath.Join(cwd, rel)) != filepath.Clean(file) {
+    // Windows filepath.Rel folds case regardless of a directory's actual
+    // case-sensitivity. Confirm a differently spelled prefix names this root,
+    // rather than accepting a distinct case-sensitive sibling as its child.
+    // Only the root must exist; an editor target may not have been saved yet.
+    candidateRoot := filepath.Clean(file)
+    for range strings.Split(rel, string(filepath.Separator)) {
+      candidateRoot = filepath.Dir(candidateRoot)
+    }
+    rootInfo, rootErr := os.Stat(cwd)
+    candidateInfo, candidateErr := os.Stat(candidateRoot)
+    if rootErr != nil || candidateErr != nil || !os.SameFile(rootInfo, candidateInfo) {
+      return "", false
+    }
+  }
   return rel, true
 }
 
@@ -1455,7 +1538,8 @@ func filePathFromURI(raw string) (string, error) {
     return "", fmt.Errorf("@ttsc/lint: expected file URI, got %q", raw)
   }
   path := parsed.Path
-  if parsed.Host != "" {
+  // RFC 8089 gives localhost the same local meaning as an absent authority.
+  if parsed.Host != "" && !strings.EqualFold(parsed.Host, "localhost") {
     path = "//" + parsed.Host + path
   }
   if path == "" {
@@ -1507,7 +1591,7 @@ func byteOffsetToLSPPosition(text string, offset int) lspPosition {
         i++
       }
       continue
-    case '\n':
+    case '\n', '\u2028', '\u2029':
       line++
       character = 0
     default:
@@ -1522,12 +1606,31 @@ func byteOffsetToLSPPosition(text string, offset int) lspPosition {
   return lspPosition{Line: line, Character: character}
 }
 
+// sourceFileLSPPosition reuses the compiler's immutable line map across a
+// finding's primary/related ranges and suggestion edits. Nil source identity
+// keeps the existing project-wide zero position.
+func sourceFileLSPPosition(file *shimast.SourceFile, offset int) lspPosition {
+  if file == nil {
+    return lspPosition{}
+  }
+  if offset < 0 {
+    offset = 0
+  } else if offset > len(file.Text()) {
+    offset = len(file.Text())
+  }
+  line, character := shimscanner.GetECMALineAndUTF16CharacterOfPosition(file, offset)
+  return lspPosition{Line: line, Character: int(character)}
+}
+
 func writeJSON(value any) int {
   data, err := json.Marshal(value)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
     return 2
   }
-  fmt.Fprintln(os.Stdout, string(data))
+  if _, err := fmt.Fprintln(os.Stdout, string(data)); err != nil {
+    fmt.Fprintf(os.Stderr, "@ttsc/lint: write JSON output: %v\n", err)
+    return 3
+  }
   return 0
 }

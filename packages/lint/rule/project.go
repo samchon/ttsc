@@ -10,19 +10,44 @@ import (
 // ProjectIdentity names one loaded TypeScript Program without conflating the
 // caller's path spelling with the filesystem identity used by the compiler.
 // Empty explicit fields mean the caller did not provide that channel.
+//
+// @evidence contracts/common.md#principled-implementation Separate logical and physical strings preserve caller-facing config identity independently from compiler filesystem identity within one lifecycle.
+// @evidence contracts/common.md#clear-and-simple-design One identity record groups invocation, configuration, roots and optional origins used by project checks.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit identity channels avoid guessing a project binding from unrelated temporary paths.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes logical and physical identity; member comments explain the lifecycle and absent channels with separated tags under documentation guidance.
 type ProjectIdentity struct {
+  // LifecycleID distinguishes loaded Program cycles within a host.
   LifecycleID         string `json:"lifecycleId"`
+
+  // InvocationCwd is the caller's working directory.
   InvocationCwd       string `json:"invocationCwd"`
+
+  // LogicalConfigPath is the caller-facing config path spelling.
   LogicalConfigPath   string `json:"logicalConfigPath"`
+
+  // LogicalProjectRoot is the root used for caller-facing locations.
   LogicalProjectRoot  string `json:"logicalProjectRoot"`
+
+  // PhysicalConfigPath is the config identity used by the compiler filesystem.
   PhysicalConfigPath  string `json:"physicalConfigPath"`
+
+  // PhysicalProjectRoot anchors local dependency declarations.
   PhysicalProjectRoot string `json:"physicalProjectRoot"`
+
+  // ExplicitProjectRoot is empty when no caller override was supplied.
   ExplicitProjectRoot string `json:"explicitProjectRoot,omitempty"`
+
+  // PluginConfigOrigin is empty when no separate discovery origin was supplied.
   PluginConfigOrigin  string `json:"pluginConfigOrigin,omitempty"`
 }
 
 // ProjectRuleStatus describes whether a named project rule exists, was
 // configured, and completed during the current Program cycle.
+//
+// @evidence contracts/common.md#principled-implementation Five named states distinguish registration, configuration and evaluation outcome instead of treating every unavailable result as passed.
+// @evidence contracts/common.md#clear-and-simple-design One discriminant communicates project-rule status to file consumers.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Status values are lifecycle vocabulary, not consumer-specific success exceptions.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies the Program-cycle scope; the tag block follows documentation guidance.
 type ProjectRuleStatus string
 
 const (
@@ -35,8 +60,16 @@ const (
 
 // ProjectFinding is a non-file finding retained in a project rule's cycle
 // result. Project findings never contain edits or source ranges.
+//
+// @evidence contracts/common.md#principled-implementation Message and severity represent a Program-wide finding without pretending it has a file location or fix.
+// @evidence contracts/common.md#clear-and-simple-design Two members carry the non-file finding while file diagnostics retain their separate type.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No synthetic file or range is invented to route project findings through file diagnostics.
+// @evidence contracts/common.md#meaningful-documentation Native comments explain the absent range and edit semantics; member and tag boundaries follow documentation guidance.
 type ProjectFinding struct {
+  // Message describes the project-wide finding.
   Message  string
+
+  // Severity is the reported level, which can differ from the rule default.
   Severity Severity
 }
 
@@ -49,9 +82,19 @@ type ProjectFinding struct {
 // dispatch. Call Report or Fail immediately before a guarded operation, then
 // call Context.ProjectResult again when the updated status is needed. Absent,
 // off, and not-evaluated results have no state or live failure channel.
+//
+// @evidence contracts/common.md#principled-implementation The status and copied findings are a snapshot while the private reporter preserves the evaluated cycle's guarded failure channel.
+// @evidence contracts/common.md#clear-and-simple-design Snapshot data and live mutation are separated within one result, keeping reporter ownership with the host.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Unevaluated results expose no invented successful state; live failure uses the supported reporter boundary.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains snapshot freshness, contributor synchronization and failure-channel lifetime; member and tag spacing follow documentation guidance.
 type ProjectRuleResult struct {
+  // Status is the rule outcome when this snapshot was read.
   Status   ProjectRuleStatus
+
+  // State is the exact contributor-owned value, without a deep copy.
   State    any
+
+  // Findings contains copied project findings at the snapshot boundary.
   Findings []ProjectFinding
 
   reporter ProjectReporter
@@ -60,6 +103,11 @@ type ProjectRuleResult struct {
 // NewProjectRuleResult constructs one host-owned project-result snapshot.
 // Contributor code normally receives this value from Context.ProjectResult
 // and does not construct it.
+//
+// @evidence contracts/common.md#principled-implementation Copying findings prevents callers from changing the host slice while state and reporter retain their documented ownership.
+// @evidence contracts/common.md#clear-and-simple-design The constructor owns defensive snapshot creation in one place.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Host-supplied inputs are preserved without inferred success or fabricated state.
+// @evidence contracts/common.md#meaningful-documentation The native comment identifies host construction and normal contributor access; the separated tags follow documentation guidance.
 func NewProjectRuleResult(
   status ProjectRuleStatus,
   state any,
@@ -76,6 +124,11 @@ func NewProjectRuleResult(
 
 // Fail marks this evaluated project result failed without adding a finding.
 // It is a no-op after file dispatch or for a result that was not evaluated.
+//
+// @evidence contracts/common.md#principled-implementation A nonnil cycle reporter receives the failure; absent reporters leave unevaluated snapshots inert and the host enforces finalization.
+// @evidence contracts/common.md#clear-and-simple-design One optional reporter call separates live failure from immutable snapshot fields.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Failure is propagated through the supported reporter rather than rewriting snapshot status to feign host state.
+// @evidence contracts/common.md#meaningful-documentation Native prose states missing and finalized channel behavior; tags are separated under documentation guidance.
 func (r ProjectRuleResult) Fail() {
   if r.reporter != nil {
     r.reporter.Fail()
@@ -85,6 +138,11 @@ func (r ProjectRuleResult) Fail() {
 // Report records one project finding and marks this evaluated result failed.
 // Equal messages are deduplicated by the host. It is a no-op after file
 // dispatch or for a result that was not evaluated.
+//
+// @evidence contracts/common.md#principled-implementation A present reporter records the message and failure in the live cycle; the host owns deduplication and finalization.
+// @evidence contracts/common.md#clear-and-simple-design The result forwards one finding without duplicating host aggregation policy.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Live failure remains a supported callback, not a mutation of foreign host storage.
+// @evidence contracts/common.md#meaningful-documentation Native prose documents deduplication and no-op lifetime boundaries; the tag block follows documentation guidance.
 func (r ProjectRuleResult) Report(message string) {
   if r.reporter != nil {
     r.reporter.Report(message)
@@ -93,20 +151,54 @@ func (r ProjectRuleResult) Report(message string) {
 
 // ProjectResultReader supplies live project state to later file-rule contexts.
 // Hosts return ProjectRuleAbsent for names with no registered project rule.
+//
+// @evidence contracts/common.md#principled-implementation Name lookup returns the current cycle's snapshot, preserving absent as a distinct outcome.
+// @evidence contracts/common.md#clear-and-simple-design One reader method decouples file contexts from the host's project-result storage.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The supported lookup boundary avoids contributor access to internal result maps.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains live lookup and absent names; the separated tags follow documentation guidance.
 type ProjectResultReader interface {
+  // ProjectResult snapshots the named rule in the current Program cycle.
+  //
+  // @evidence contracts/common.md#principled-implementation The named snapshot preserves registration and evaluation distinctions required before consuming project state.
+  // @evidence contracts/common.md#clear-and-simple-design The method exposes only lookup rather than the host's mutable storage.
+  // @evidence contracts/common.md#prohibited-implementation-shortcuts Consumers obtain state through declared lookup instead of injecting assumed project results.
+  // @evidence contracts/common.md#meaningful-documentation The native method comment identifies cycle scope with a separated tag block under documentation guidance.
   ProjectResult(name string) ProjectRuleResult
 }
 
 // ProjectRule is a contributor check that runs once for a loaded Program
 // before any node rule dispatch. It has no AST visit list or synthetic file.
+//
+// @evidence contracts/common.md#principled-implementation Name and whole-Program Check represent project validation independently of node visitation.
+// @evidence contracts/common.md#clear-and-simple-design A two-method interface separates identity from project checking without synthetic AST dispatch.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Project rules use their dedicated lifecycle rather than a fabricated source node to run once.
+// @evidence contracts/common.md#meaningful-documentation Native prose states invocation ordering and the lack of a visit list; method and tag spacing follow documentation guidance.
 type ProjectRule interface {
+  // Name is the rules-map identity of this project check.
+  //
+  // @evidence contracts/common.md#principled-implementation A stable string maps configuration and results to the same registered project rule.
+  // @evidence contracts/common.md#clear-and-simple-design Identity is one method separate from effectful checking.
+  // @evidence contracts/common.md#prohibited-implementation-shortcuts The registered name is a public key rather than an inferred fixture identifier.
+  // @evidence contracts/common.md#meaningful-documentation The native comment explains configuration identity with a separated tag block under documentation guidance.
   Name() string
+
+  // Check evaluates the loaded Program and publishes findings or state through ctx.
+  //
+  // @evidence contracts/common.md#principled-implementation The project context supplies the Program binding and reporter for one whole-project evaluation.
+  // @evidence contracts/common.md#clear-and-simple-design One operation owns project validation before file dispatch.
+  // @evidence contracts/common.md#prohibited-implementation-shortcuts Findings and state use context APIs without replacing host dispatch.
+  // @evidence contracts/common.md#meaningful-documentation The native comment states evaluation and publication responsibility; the tag boundary follows documentation guidance.
   Check(ctx *ProjectContext)
 }
 
 // ProjectInputKind distinguishes one exact local path from a glob population.
 // Both kinds are resolved against ProjectIdentity.PhysicalProjectRoot by the
 // host. Remote URLs are not project inputs.
+//
+// @evidence contracts/common.md#principled-implementation File and glob discriminants distinguish a persistent exact dependency from a changing local population.
+// @evidence contracts/common.md#clear-and-simple-design One shared kind type selects the interpretation of a ProjectInput pattern.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Supported local dependency kinds do not fabricate remote watch support.
+// @evidence contracts/common.md#meaningful-documentation Native prose specifies the physical-root anchor and URL exclusion; tags follow documentation guidance.
 type ProjectInputKind string
 
 const (
@@ -118,29 +210,63 @@ const (
 // Pattern may be absolute or relative to the physical project root. Glob
 // patterns support path-segment `*`, `?`, and `**`; exact files remain
 // dependencies while missing.
+//
+// @evidence contracts/common.md#principled-implementation A kind and path pattern describe dependency topology even when exact files are missing or glob populations are empty.
+// @evidence contracts/common.md#clear-and-simple-design One declarative record separates dependency publication from filesystem observation.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Dependencies are declared from configured topology rather than successful reads alone.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains root anchoring, glob grammar and missing-file persistence; member and tag spacing follow documentation guidance.
 type ProjectInput struct {
+  // Kind chooses exact-file or glob-population observation.
   Kind    ProjectInputKind `json:"kind"`
+
+  // Pattern is a native path or glob resolved from the physical project root.
   Pattern string           `json:"pattern"`
 }
 
 // ProjectInputRule is the optional dependency-publication contract for a
 // ProjectRule. The host calls ProjectInputs after resolving the rule's options
 // and physical project identity, without loading a TypeScript Program.
+//
+// @evidence contracts/common.md#principled-implementation The dependency method receives resolved identity and options before Program loading so watchers can observe failed and missing inputs too.
+// @evidence contracts/common.md#clear-and-simple-design A separate optional interface declares inputs without expanding the mandatory Check interface.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Watch topology uses a supported declaration hook rather than patching file observation after successful checking.
+// @evidence contracts/common.md#meaningful-documentation Native prose specifies pre-Program invocation and configuration readiness; tags follow documentation guidance.
 type ProjectInputRule interface {
+  // ProjectInputs declares local dependency topology for the resolved rule options.
+  //
+  // @evidence contracts/common.md#principled-implementation Returned file and glob declarations describe all local inputs relevant to the configured check before evaluation succeeds.
+  // @evidence contracts/common.md#clear-and-simple-design One declarative method keeps dependency selection separate from checking and watcher mechanics.
+  // @evidence contracts/common.md#prohibited-implementation-shortcuts The explicit dependency channel avoids inventing successful-read-only watch coverage.
+  // @evidence contracts/common.md#meaningful-documentation The native comment explains options-based topology with a separated tag block under documentation guidance.
   ProjectInputs(ctx *ProjectInputContext) []ProjectInput
 }
 
 // ProjectInputContext contains the immutable configuration available while a
 // ProjectRule declares its local filesystem dependencies.
+//
+// @evidence contracts/common.md#principled-implementation Identity, severity and raw options represent the configuration available before a Program exists.
+// @evidence contracts/common.md#clear-and-simple-design The input-only context omits checker and source fields unavailable during dependency discovery.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Dependency publication uses actual resolved configuration instead of manufacturing a partial Program.
+// @evidence contracts/common.md#meaningful-documentation Native prose and members identify immutable configuration and absent Program access; member and tag spacing follow documentation guidance.
 type ProjectInputContext struct {
+  // Identity names the invocation and physical dependency root.
   Identity ProjectIdentity
+
+  // Severity is the resolved project-rule level.
   Severity Severity
+
+  // Options is the raw configured payload; DecodeOptions preserves defaults when empty.
   Options  json.RawMessage
 }
 
 // NewProjectInputContext constructs the context passed to
 // ProjectInputRule.ProjectInputs. Contributor code normally receives this value
 // and does not construct it.
+//
+// @evidence contracts/common.md#principled-implementation Copying raw option bytes prevents later mutation of the host's options slice while preserving identity and severity values.
+// @evidence contracts/common.md#clear-and-simple-design One constructor owns dependency-context construction and its defensive copy.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The constructor forwards host-resolved values without inferred project identity or altered options.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies host construction and normal contributor access; tags follow documentation guidance.
 func NewProjectInputContext(
   identity ProjectIdentity,
   severity Severity,
@@ -155,6 +281,11 @@ func NewProjectInputContext(
 
 // DecodeOptions unmarshals the configured project-rule options into out. A
 // missing options tuple leaves out unchanged and returns nil.
+//
+// @evidence contracts/common.md#principled-implementation A nil or empty context leaves defaults untouched; present raw JSON is decoded by encoding/json with its error returned.
+// @evidence contracts/common.md#clear-and-simple-design An absence guard and standard decoder keep dependency option interpretation local.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Decoding has no rule-specific bypass or fabricated fallback payload.
+// @evidence contracts/common.md#meaningful-documentation The native comment documents absent-options behavior; prose and tags are separated under documentation guidance.
 func (c *ProjectInputContext) DecodeOptions(out interface{}) error {
   if c == nil || len(c.Options) == 0 {
     return nil
@@ -165,15 +296,44 @@ func (c *ProjectInputContext) DecodeOptions(out interface{}) error {
 // ProjectReporter is the cycle-scoped failure channel available to project
 // helpers. Report records a deterministic project finding and also marks the
 // current rule failed; Fail marks failure without adding a finding.
+//
+// @evidence contracts/common.md#principled-implementation Separate failure and finding methods distinguish invalid project state from a user-facing diagnostic while sharing one cycle channel.
+// @evidence contracts/common.md#clear-and-simple-design A two-method reporter hides aggregation and lifecycle storage from project helpers.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Project failure uses a declared callback rather than a synthetic file diagnostic.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains failure versus finding; method and tag boundaries follow documentation guidance.
 type ProjectReporter interface {
+  // Fail marks the project rule failed without adding a finding.
+  //
+  // @evidence contracts/common.md#principled-implementation The channel can invalidate a result even when no additional message is appropriate.
+  // @evidence contracts/common.md#clear-and-simple-design A distinct method separates state failure from diagnostic creation.
+  // @evidence contracts/common.md#prohibited-implementation-shortcuts Failure remains explicit instead of manufacturing a message or a passed result.
+  // @evidence contracts/common.md#meaningful-documentation Native prose states the diagnostic-free effect; the tag block follows documentation guidance.
   Fail()
+
+  // Report adds one project finding and marks the current rule failed.
+  //
+  // @evidence contracts/common.md#principled-implementation A message-bearing failure is delivered to the host's cycle aggregator.
+  // @evidence contracts/common.md#clear-and-simple-design One reporter method owns the finding-plus-failure operation.
+  // @evidence contracts/common.md#prohibited-implementation-shortcuts The supported project channel avoids fabricated file ranges or direct host-map mutation.
+  // @evidence contracts/common.md#meaningful-documentation The native method comment states both effects with separated tags under documentation guidance.
   Report(message string)
 }
 
 // ProjectSeverityReporter optionally accepts a severity for each finding.
 // Reporting still marks the rule failed, including for warnings, so consumers
 // cannot treat an incomplete project result as a clean one.
+//
+// @evidence contracts/common.md#principled-implementation An optional explicit-level reporter preserves the distinction between finding severity and project-state failure.
+// @evidence contracts/common.md#clear-and-simple-design One optional interface adds level control without breaking existing ProjectReporter hosts.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Capability detection uses interface satisfaction rather than host-name checks or foreign mutation.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains warning-induced failure; method and tag spacing follow documentation guidance.
 type ProjectSeverityReporter interface {
+  // ReportSeverity records a project finding at its explicitly supplied level.
+  //
+  // @evidence contracts/common.md#principled-implementation The finding's level is represented separately from the rule's default severity.
+  // @evidence contracts/common.md#clear-and-simple-design One optional operation extends reporting without a second project-result store.
+  // @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit severity travels through a declared interface rather than patched reporter internals.
+  // @evidence contracts/common.md#meaningful-documentation The native comment names explicit-level reporting with a separated tag block under documentation guidance.
   ReportSeverity(severity Severity, message string)
 }
 
@@ -190,11 +350,25 @@ type ProjectSeverityReporter interface {
 // walks the project's own file list alone and a rule evaluated there receives
 // that narrower population. Draw a conclusion that must hold across the
 // workspace from a lint or check run.
+//
+// @evidence contracts/common.md#principled-implementation The context binds loaded sources and checker to identity, resolved settings and cycle reporters; sources differ deliberately for a writing format run.
+// @evidence contracts/common.md#clear-and-simple-design Public check inputs are separated from private state publication and reporting capabilities.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Program sources come from the host rather than an artificial population chosen to make project validation pass.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains source population and the format-run exception; members document ownership and tags follow documentation guidance.
 type ProjectContext struct {
+  // Identity binds the check to one loaded Program cycle.
   Identity ProjectIdentity
+
+  // Sources copies the slice, not the AST objects; contributors must not mutate the Program.
   Sources  []*shimast.SourceFile
+
+  // Checker is the host's Program checker, when the rule requests type information.
   Checker  *shimchecker.Checker
+
+  // Severity is the resolved rule level.
   Severity Severity
+
+  // Options carries the raw resolved payload; decode it into contributor-owned values.
   Options  json.RawMessage
 
   reporter    ProjectReporter
@@ -207,6 +381,11 @@ type projectStateSetter interface {
 
 // NewProjectContext constructs the context a host passes to ProjectRule.Check.
 // Contributor code normally receives this value and does not construct it.
+//
+// @evidence contracts/common.md#principled-implementation Source and option slices are defensively copied while checker and reporter retain their host-owned cycle identity; state publication is enabled only by a matching reporter capability.
+// @evidence contracts/common.md#clear-and-simple-design One constructor establishes the public input snapshot and private reporting capabilities together.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Supported interface assertion supplies state publication without mutating foreign reporter methods.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes host construction from contributor consumption; member ownership and separated tags follow documentation guidance.
 func NewProjectContext(
   identity ProjectIdentity,
   sources []*shimast.SourceFile,
@@ -230,6 +409,11 @@ func NewProjectContext(
 
 // DecodeOptions unmarshals the configured project-rule options into out. A
 // missing options tuple leaves out unchanged and returns nil.
+//
+// @evidence contracts/common.md#principled-implementation Empty options preserve caller defaults; present JSON delegates shape validation to encoding/json and returns its error.
+// @evidence contracts/common.md#clear-and-simple-design One guard and decoder own the option-read operation.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No rule-specific payload or fallback is synthesized.
+// @evidence contracts/common.md#meaningful-documentation The native method comment states absent-options behavior with a separated tag block under documentation guidance.
 func (c *ProjectContext) DecodeOptions(out interface{}) error {
   if c == nil || len(c.Options) == 0 {
     return nil
@@ -241,6 +425,11 @@ func (c *ProjectContext) DecodeOptions(out interface{}) error {
 // result. The exact value is returned to file rules in the same Program cycle;
 // contributors own any synchronization needed inside it. The host does not
 // serialize the value or retain it for a later watch or LSP rebuild.
+//
+// @evidence contracts/common.md#principled-implementation Only an active context with a state-setter capability publishes the exact supplied value into the current evaluated cycle.
+// @evidence contracts/common.md#clear-and-simple-design The context delegates state ownership to the host and keeps contributor synchronization explicit.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts State travels through the supported publication callback instead of replacing host internals or fabricating later-cycle state.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies exact-value semantics, synchronization and rebuild lifetime; paragraphs and tags follow documentation guidance.
 func (c *ProjectContext) SetState(state any) {
   if c == nil || c.stateSetter == nil || c.Severity == SeverityOff {
     return
@@ -249,6 +438,11 @@ func (c *ProjectContext) SetState(state any) {
 }
 
 // Fail marks the current project rule failed without adding a diagnostic.
+//
+// @evidence contracts/common.md#principled-implementation Nil, missing-reporter and off contexts are inert; an active reporter receives a diagnostic-free failure.
+// @evidence contracts/common.md#clear-and-simple-design A single guard centralizes the allowed failure boundary before forwarding.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Failure is explicit and never replaced by a synthetic success or file diagnostic.
+// @evidence contracts/common.md#meaningful-documentation Native prose names the diagnostic-free effect with a separated tag block under documentation guidance.
 func (c *ProjectContext) Fail() {
   if c == nil || c.reporter == nil || c.Severity == SeverityOff {
     return
@@ -257,6 +451,11 @@ func (c *ProjectContext) Fail() {
 }
 
 // Report records one non-file project finding and marks the rule failed.
+//
+// @evidence contracts/common.md#principled-implementation An active context forwards a non-file finding while nil, absent or off channels stay silent.
+// @evidence contracts/common.md#clear-and-simple-design The method delegates aggregation and failure-state storage to one host reporter.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Findings use their dedicated project channel rather than fabricated source ranges.
+// @evidence contracts/common.md#meaningful-documentation Native prose states finding scope and failure effect; the tag block follows documentation guidance.
 func (c *ProjectContext) Report(message string) {
   if c == nil || c.reporter == nil || c.Severity == SeverityOff {
     return
@@ -266,6 +465,11 @@ func (c *ProjectContext) Report(message string) {
 
 // ReportSeverity records a finding at an explicit level. An off rule or off
 // finding remains silent. Hosts without this extension use the rule's level.
+//
+// @evidence contracts/common.md#principled-implementation Off contexts and off findings are suppressed; capable hosts receive the supplied level while legacy hosts receive the same message at their configured rule level.
+// @evidence contracts/common.md#clear-and-simple-design One capability branch keeps explicit severity compatible with the original reporting interface.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Legacy fallback addresses an actual supported reporter difference rather than hiding a failed project result.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains suppression and legacy severity fallback; tags follow documentation guidance.
 func (c *ProjectContext) ReportSeverity(severity Severity, message string) {
   if c == nil || c.reporter == nil || c.Severity == SeverityOff || severity == SeverityOff {
     return
@@ -281,6 +485,11 @@ var projectRegistry []ProjectRule
 
 // RegisterProject adds a contributor project rule to the global registry.
 // Hosts validate duplicate names after all contributor init functions finish.
+//
+// @evidence contracts/common.md#principled-implementation Rejecting a nil interface and appending during package initialization records contributed checks for later host name validation.
+// @evidence contracts/common.md#clear-and-simple-design The registry owns collection while host bootstrap owns cross-contributor validation.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Registration is the supported extension point; no consumer-specific rule list replaces it.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies initialization-time registration and deferred duplicate validation; tags follow documentation guidance.
 func RegisterProject(r ProjectRule) {
   if r == nil {
     panic("rule: RegisterProject called with nil rule")
@@ -289,6 +498,13 @@ func RegisterProject(r ProjectRule) {
 }
 
 // RegisteredProjects returns a defensive copy of all registered project rules.
+// The slice is independent; its rule objects remain shared and must be treated
+// as immutable after registration.
+//
+// @evidence contracts/common.md#principled-implementation Allocating and copying the registry slice prevents callers from changing registry membership through the returned slice; rule objects themselves remain shared.
+// @evidence contracts/common.md#clear-and-simple-design One accessor exposes registered values without exposing backing storage.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Registry access uses a supported defensive read instead of foreign storage mutation.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes the defensive slice from shared immutable rule objects; tags follow documentation guidance.
 func RegisteredProjects() []ProjectRule {
   out := make([]ProjectRule, len(projectRegistry))
   copy(out, projectRegistry)

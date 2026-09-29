@@ -16,6 +16,11 @@ import type { ITtscLintFormatSortImports } from "./ITtscLintFormatSortImports";
  * `ttsc check` does not report format findings unless `severity` is set to a
  * non-off value. Individual rules can be overridden or disabled through the
  * `rules` map (the `rules` entry wins on conflict).
+ *
+ * @evidence contracts/common.md#principled-implementation Optional formatter fields encode presence-based activation and constrained public values; nested import and JSDoc settings preserve their distinct semantics.
+ * @evidence contracts/common.md#clear-and-simple-design A flat record handles ordinary options and delegates the two structured options to dedicated types.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Defaults and overrides use documented configuration fields rather than hidden fixture-dependent formatting paths.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains opt-in activation, check severity, override precedence and member defaults; separated paragraphs and members follow documentation guidance.
  */
 export interface ITtscLintFormat {
   /**

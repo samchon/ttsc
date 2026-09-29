@@ -7,7 +7,14 @@
  * @reference https://github.com/ArnaudBarre/eslint-plugin-react-refresh
  */
 
-/** `react/only-export-components` rule options. */
+/**
+ * `react/only-export-components` rule options.
+ *
+ * @evidence contracts/common.md#principled-implementation HOC and export-name lists identify refresh-safe exports; separate booleans control literal constants and JavaScript scanning without changing component identity.
+ * @evidence contracts/common.md#clear-and-simple-design One option object keeps export exceptions beside the source-file scan switch for the refresh rule that consumes them.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Framework exceptions are explicit caller configuration, rather than hardcoded project names or patched React internals.
+ * @evidence contracts/common.md#meaningful-documentation Member comments identify refresh-handled exports, constant categories, JavaScript opt-in and defaults; separated comments follow documentation guidance.
+ */
 export interface ITtscLintReactOnlyExportComponentsRuleOptions {
   /**
    * Extra higher-order component names that wrap component exports.

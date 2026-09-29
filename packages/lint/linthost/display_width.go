@@ -5,6 +5,7 @@ import (
   "strings"
   "sync"
   "unicode/utf16"
+  "unicode/utf8"
 )
 
 //go:generate node ../tools/widthgen/main.cjs
@@ -70,16 +71,39 @@ func displayWidth(s string) int {
 }
 
 // displayWidthAfterLastNewline returns the display width of the substring that
-// follows the final newline in s (the whole string when it has none). The
+// follows the final ECMAScript line terminator in s (the whole string when
+// it has none). CRLF is one line break; CR, LF, U+2028 and U+2029 also break.
 // layout engine uses it to reset the running column after emitting a verbatim
 // slice that spans lines.
 func displayWidthAfterLastNewline(s string) int {
-  for i := len(s) - 1; i >= 0; i-- {
-    if s[i] == '\n' {
-      return displayWidth(s[i+1:])
-    }
+  if i := strings.LastIndexAny(s, "\r\n\u2028\u2029"); i >= 0 {
+    _, size := utf8.DecodeRuneInString(s[i:])
+    return displayWidth(s[i+size:])
   }
   return displayWidth(s)
+}
+
+// sourceLineBreakSize returns the byte width of an ECMAScript line terminator
+// at pos. CRLF is one break; Unicode line and paragraph separators use three bytes.
+func sourceLineBreakSize(src string, pos int) int {
+  if pos < 0 || pos >= len(src) {
+    return 0
+  }
+  switch src[pos] {
+  case '\r':
+    if pos+1 < len(src) && src[pos+1] == '\n' {
+      return 2
+    }
+    return 1
+  case '\n':
+    return 1
+  case 0xe2:
+    if pos+2 < len(src) && src[pos+1] == 0x80 &&
+      (src[pos+2] == 0xa8 || src[pos+2] == 0xa9) {
+      return 3
+    }
+  }
+  return 0
 }
 
 // displayWidthFromColumn returns the display width of s laid out starting at

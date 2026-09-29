@@ -14,6 +14,11 @@ import type { ITtscLintReactPerfRuleOptions } from "./ITtscLintReactPerfRuleOpti
  * syntax.
  *
  * @reference https://github.com/cvazac/eslint-plugin-react-perf
+ *
+ * @evidence contracts/common.md#principled-implementation Four optional react-perf identifiers share the same typed intrinsic-prop allowance because they differ in the freshly allocated value they diagnose, not in configuration shape.
+ * @evidence contracts/common.md#clear-and-simple-design A dedicated family separates opt-in allocation policies from React correctness rules and reuses one options schema and severity tuple alias.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Allocation-category keys are supported rule identities; the type does not fabricate benchmark results or add fixture-specific options.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains reference identity and the TSX boundary; member comments distinguish arrays, functions, objects and JSX with documentation-guided paragraph and tag separation.
  */
 export interface ITtscLintReactPerfRules {
   /**

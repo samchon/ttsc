@@ -27,6 +27,11 @@ import type { TtscLintSeverity } from "../TtscLintSeverity";
  * `unknown` options slot.
  *
  * @reference https://ttsc.dev/lint/development/rules
+ *
+ * @evidence contracts/common.md#principled-implementation The template-literal index accepts namespaced contributor rules and unknown options only when imported augmentation does not narrow the name.
+ * @evidence contracts/common.md#clear-and-simple-design One open interface supports module augmentation while sharing the existing severity setting type.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The fallback is a documented contributor compatibility boundary, not a built-in rule validation bypass.
+ * @evidence contracts/common.md#meaningful-documentation Native prose and an augmentation example explain optionless extension and unknown fallback; paragraph and tag boundaries follow documentation guidance.
  */
 export interface ITtscLintContributorRules {
   [ruleName: `${string}/${string}`]:

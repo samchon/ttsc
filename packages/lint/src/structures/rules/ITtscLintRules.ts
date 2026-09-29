@@ -56,6 +56,11 @@ import type { ITtscLintVitestRules } from "./ITtscLintVitestRules";
  *   `ITtscLintRuleOptionsMap`; {@link TtscLintRuleOptionsOverlay} then tightens
  *   that rule's options while the open fallback remains for unregistered
  *   contributor names.
+ *
+ * @evidence contracts/common.md#principled-implementation Intersecting family maps and the contributor overlay preserves concrete built-in properties while tightening augmented options for known names.
+ * @evidence contracts/common.md#clear-and-simple-design One composition alias assembles independently owned rule families and the contributor extension boundary.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Rule families enter through explicit types and augmentation rather than consumer-specific aliases or runtime mutation.
+ * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes bare, namespaced, formatter and contributor identities and explains augmentation; lists, paragraphs and tag separation follow documentation guidance.
  */
 export type ITtscLintRules = ITtscLintCoreRules &
   ITtscLintTypeScriptRules &

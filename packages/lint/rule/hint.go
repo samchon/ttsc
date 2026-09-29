@@ -10,6 +10,11 @@ import "encoding/json"
 // One value ships today. The field is present anyway: a hint with no scope
 // would mean "anywhere on any line", which is never what a rule meant, and
 // widening that default later would break every corpus already published.
+//
+// @evidence contracts/common.md#principled-implementation A string scope identifies the syntactic region independently from the trigger text; the host recognizes the published JSDoc value.
+// @evidence contracts/common.md#clear-and-simple-design Scope is one named discriminant shared by triggers rather than an executable predicate crossing processes.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The JSDoc discriminant is protocol vocabulary, not a hardcoded consumer identity.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains the decorator ambiguity and widening constraint; separated paragraphs and tags follow documentation guidance.
 type HintScope string
 
 const (
@@ -42,8 +47,16 @@ const (
 // At that occurrence, the longest After wins, and only hints with that same
 // trigger merge. That keeps a corpus layerable while preventing an earlier,
 // longer trigger from drowning a later one.
+//
+// @evidence contracts/common.md#principled-implementation Scope and literal prefix are serializable inputs to the host's cursor matching and replacement semantics.
+// @evidence contracts/common.md#clear-and-simple-design The trigger carries only region and delimiter, leaving ranking and insertion to their owning values.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Declarative matching uses a supported protocol instead of installing a foreign editor callback.
+// @evidence contracts/common.md#meaningful-documentation Native prose describes last-occurrence selection, delimiter placement and tie-breaking; paragraph and tag spacing follow documentation guidance.
 type HintTrigger struct {
+  // Scope restricts matching to a host-recognized syntactic region.
   Scope HintScope `json:"scope"`
+
+  // After is the literal prefix whose following text is replaced.
   After string    `json:"after"`
 }
 
@@ -53,6 +66,11 @@ type HintTrigger struct {
 // the LSP proxy, which answers from cache long after the lint process exited. A
 // closure, a channel, or an AST node cannot be carried here, and that constraint
 // is the whole shape of the type.
+//
+// @evidence contracts/common.md#principled-implementation Plain strings and a declarative trigger survive serialization and let the editor apply insertion without retained AST pointers.
+// @evidence contracts/common.md#clear-and-simple-design Insertion, display and applicability are distinct members of a single completion value.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The supported value protocol carries no closure or patched editor implementation.
+// @evidence contracts/common.md#meaningful-documentation Members explain literal insertion, label fallback, detail truncation and zero-trigger rejection; member, paragraph and tag separation follow documentation guidance.
 type Hint struct {
   // Insert is the text replacing the token being completed. Plain text,
   // inserted verbatim: there is no snippet expansion, so `$` and tabs are
@@ -81,6 +99,11 @@ type Hint struct {
 // It carries State because a rule value is stateless: contributors register
 // `myRule{}`, not a pointer with fields, and the host owns everything Check
 // produced. Without State here, Hints could only ever return constants.
+//
+// @evidence contracts/common.md#principled-implementation Program identity, published state and resolved settings give the projection the same binding that Check established.
+// @evidence contracts/common.md#clear-and-simple-design The context groups the read-only projection inputs without adding another state owner.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Published state uses the supported context boundary rather than retaining a foreign Program or replacing host state.
+// @evidence contracts/common.md#meaningful-documentation Native comments explain state assertion and resolved configuration; paragraphs, member spacing and tags follow documentation guidance.
 type HintContext struct {
   // Identity names the Program this corpus is built for, as during Check.
   Identity ProjectIdentity
@@ -101,6 +124,11 @@ type HintContext struct {
 
 // DecodeOptions unmarshals the configured options into out. A missing options
 // tuple leaves out unchanged and returns nil.
+//
+// @evidence contracts/common.md#principled-implementation Nil or empty context leaves the caller's defaults intact; otherwise encoding/json decodes the raw options and returns its error.
+// @evidence contracts/common.md#clear-and-simple-design A guard and one standard decoder keep option decoding local to the context.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Options are decoded by the public JSON API without rule-specific bypasses.
+// @evidence contracts/common.md#meaningful-documentation The native method comment states the absent-options effect; prose and tags are separated according to documentation guidance.
 func (c *HintContext) DecodeOptions(out interface{}) error {
   if c == nil || len(c.Options) == 0 {
     return nil
@@ -136,7 +164,19 @@ func (c *HintContext) DecodeOptions(out interface{}) error {
 // nondeterministically, and a corpus keyed to one file cannot answer a keystroke
 // in another. A contributor wanting hints from file-level facts registers a
 // ProjectRule alongside, which is what those facts wanted anyway.
+//
+// @evidence contracts/common.md#principled-implementation Embedding ProjectRule ties a hint corpus to completed Program state rather than nondeterministic per-file dispatch.
+// @evidence contracts/common.md#clear-and-simple-design One optional projection method extends the existing project-rule lifecycle.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The extension is a supported marker interface rather than a replacement of host dispatch.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains demand-driven invocation, passed-state gating and slice ranking; distinct paragraphs and tags follow documentation guidance.
 type HintRule interface {
   ProjectRule
+
+  // Hints returns completions in preferred display order for the passed Program.
+  //
+  // @evidence contracts/common.md#principled-implementation The ordered slice is a projection of the supplied checked state and defines the corpus ranking.
+  // @evidence contracts/common.md#clear-and-simple-design A single method returns the complete corpus instead of exposing partially built entries.
+  // @evidence contracts/common.md#prohibited-implementation-shortcuts Completion publication uses the declared interface and does not alter editor internals.
+  // @evidence contracts/common.md#meaningful-documentation The method comment states ordering and Program scope with a separated tag block under documentation guidance.
   Hints(ctx *HintContext) []Hint
 }

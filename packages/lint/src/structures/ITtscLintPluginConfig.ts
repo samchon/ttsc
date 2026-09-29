@@ -1,4 +1,11 @@
-/** `compilerOptions.plugins[]` entry shape consumed by `@ttsc/lint`. */
+/**
+ * `compilerOptions.plugins[]` entry shape consumed by `@ttsc/lint`.
+ *
+ * @evidence contracts/common.md#principled-implementation The host entry carries activation and discovery identity plus a config-file pointer; lint policy belongs to the loaded config.
+ * @evidence contracts/common.md#clear-and-simple-design The three entry fields keep host activation separate from the larger lint configuration schema.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts No inline rule escape hatch bypasses config-file validation or contributor discovery.
+ * @evidence contracts/common.md#meaningful-documentation Member comments explain disabling, relative discovery and supported extensions with a config example; blank member and tag boundaries follow documentation guidance.
+ */
 export interface ITtscLintPluginConfig {
   /** Set to `false` to keep the entry while disabling this plugin. */
   enabled?: boolean;

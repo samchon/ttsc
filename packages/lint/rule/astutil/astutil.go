@@ -12,6 +12,7 @@
 package astutil
 
 import (
+  "sort"
   "strings"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
@@ -34,12 +35,20 @@ import (
 // Returns "" when `file` or `node` is nil, or when the computed range
 // falls outside the file (defensive — shouldn't happen for engine-supplied
 // nodes).
+//
+// @evidence contracts/common.md#principled-implementation Compiler trivia skipping and ASCII trailing trimming preserve the documented source-text boundary; invalid node ranges yield an empty result.
+// @evidence contracts/common.md#clear-and-simple-design One helper owns the text extraction used by contributor comparisons and edits.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Source extraction uses the supported compiler scanner rather than comment-pattern special cases.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains trimmed versus literal ranges and defensive results; paragraphs and tags follow documentation guidance.
 func NodeText(file *shimast.SourceFile, node *shimast.Node) string {
   if file == nil || node == nil {
     return ""
   }
   src := file.Text()
   end := node.End()
+  if node.Pos() < 0 || node.Pos() > len(src) {
+    return ""
+  }
   pos := shimscanner.SkipTrivia(src, node.Pos())
   if pos < 0 || end > len(src) || pos >= end {
     return ""
@@ -49,7 +58,10 @@ func NodeText(file *shimast.SourceFile, node *shimast.Node) string {
 
 // KeywordStart returns the source offset of a declaration keyword such as
 // `var`, `let`, `const`, `module`, `namespace`, or `function` that lives
-// at the start of `node` (after leading trivia). Returns -1 if not found.
+// in the declaration prefix of `node` (after leading trivia and modifiers).
+// Names, type syntax, parameters and bodies end that prefix. Decorator
+// expressions do not supply the declaration keyword. Returns -1 if not found.
+// Comments, literal contents and identifier prefixes are not keyword tokens.
 //
 // Use this to anchor TextEdits that swap a leading keyword:
 //
@@ -58,35 +70,57 @@ func NodeText(file *shimast.SourceFile, node *shimast.Node) string {
 //    ctx.ReportFix(node, "use const",
 //      rule.TextEdit{Pos: start, End: start + len("let"), Text: "const"})
 //  }
+//
+// @evidence contracts/common.md#principled-implementation Parser header boundaries and token search locate the declaration keyword without mistaking nested bodies or parameter initializers for the declaration.
+// @evidence contracts/common.md#clear-and-simple-design Node-based search shares the same token-location implementation as arbitrary-range search.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler tokens replace the guessed 32-byte prefix and raw substring workaround.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains modifier handling, token exclusions, missing results and an edit example; separated tags follow documentation guidance.
 func KeywordStart(file *shimast.SourceFile, node *shimast.Node, keyword string) int {
   if file == nil || node == nil || keyword == "" {
     return -1
   }
-  src := file.Text()
-  pos := shimscanner.SkipTrivia(src, node.Pos())
-  end := pos + len(keyword)
-  if pos < 0 || end > len(src) {
+  pos, end := node.Pos(), node.End()
+  if pos < 0 || pos >= end || end > len(file.Text()) {
     return -1
   }
-  if strings.HasPrefix(src[pos:], keyword) && (end == len(src) || !isIdentifierPart(src[end])) {
-    return pos
-  }
-  limit := node.End()
-  if limit > len(src) {
-    limit = len(src)
-  }
-  // Scan at most 32 bytes past the trivia-adjusted start. Declaration keywords
-  // ("var", "let", "const", etc.) always appear within the first few bytes of
-  // a node's token range; the cap avoids runaway scanning on malformed nodes.
-  for i := pos; i+len(keyword) <= limit && i < pos+32; i++ {
-    end = i + len(keyword)
-    if strings.HasPrefix(src[i:], keyword) &&
-      (i == 0 || !isIdentifierPart(src[i-1])) &&
-      (end == len(src) || !isIdentifierPart(src[end])) {
-      return i
+  limit := func(child *shimast.Node) {
+    if child != nil && child.Pos() >= pos && child.Pos() < end {
+      end = child.Pos()
     }
   }
-  return -1
+  limit(node.Name())
+  limit(node.Body())
+  declarations := node
+  if node.Kind == shimast.KindVariableStatement {
+    if statement := node.AsVariableStatement(); statement != nil {
+      declarations = statement.DeclarationList
+    }
+  }
+  if declarations != nil && declarations.Kind == shimast.KindVariableDeclarationList {
+    if list := declarations.AsVariableDeclarationList(); list != nil && list.Declarations != nil {
+      for _, declaration := range list.Declarations.Nodes {
+        limit(declaration)
+      }
+    }
+  }
+  if function := node.FunctionLikeData(); function != nil {
+    limit(function.Type)
+    if function.TypeParameters != nil {
+      for _, parameter := range function.TypeParameters.Nodes {
+        limit(parameter)
+      }
+    }
+    if function.Parameters != nil {
+      for _, parameter := range function.Parameters.Nodes {
+        limit(parameter)
+      }
+    }
+  }
+  scan := shimscanner.GetScannerForSourceFile(file, pos)
+  if keywordMatches(scan, pos, end, keyword) {
+    return scan.TokenStart()
+  }
+  return searchKeyword(scan, pos, end, keyword, opaqueSpans(file, node, end, true))
 }
 
 // FindKeyword scans `[pos, end)` for a keyword token whose lexeme is
@@ -95,9 +129,15 @@ func KeywordStart(file *shimast.SourceFile, node *shimast.Node, keyword string) 
 // instead of a node's leading-trivia-adjusted start — use this for fixes
 // that need to splice text after `import` or before `from`.
 //
-// The match is identifier-aware: a hit must be flanked by non-identifier
-// bytes (or file edges) so that searching for `import` does not match
-// the `import` prefix of `importMap`.
+// The compiler scanner handles Unicode identifier boundaries and trivia.
+// Parser-classified strings, regex literals, template text and JSX text are
+// excluded so a matching word inside literal content is never returned.
+// The entire keyword token must lie within the requested range.
+//
+// @evidence contracts/common.md#principled-implementation Parser opaque spans prevent context-sensitive literal contents from entering lexical search; the compiler scanner then recognizes complete keyword tokens and their original byte ranges.
+// @evidence contracts/common.md#clear-and-simple-design One search implementation owns literal exclusion, lexical matching and range bounds for public and host callers.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Language tokens replace ASCII flank guesses and raw text matches, without fixture-specific exceptions or foreign scanner mutation.
+// @evidence contracts/common.md#meaningful-documentation Native prose states Unicode, literal and complete-range behavior; paragraphs and tags follow documentation guidance.
 func FindKeyword(file *shimast.SourceFile, pos, end int, keyword string) int {
   if file == nil || keyword == "" {
     return -1
@@ -109,22 +149,40 @@ func FindKeyword(file *shimast.SourceFile, pos, end int, keyword string) int {
   if end > len(src) {
     end = len(src)
   }
-  limit := end - len(keyword)
-  for i := pos; i <= limit; i++ {
-    if src[i] != keyword[0] {
+  if pos >= end {
+    return -1
+  }
+  scan := shimscanner.GetScannerForSourceFile(file, 0)
+  return searchKeyword(scan, pos, end, keyword, opaqueSpans(file, file.AsNode(), end, false))
+}
+
+// keywordMatches accepts complete language keyword tokens within the range.
+func keywordMatches(scan *shimscanner.Scanner, pos, end int, keyword string) bool {
+  kind := scan.Token()
+  return scan.TokenStart() >= pos && scan.TokenEnd() <= end &&
+    kind >= shimast.KindFirstKeyword && kind <= shimast.KindLastKeyword &&
+    scan.TokenText() == keyword
+}
+
+// searchKeyword skips parser-classified opaque text before lexical matching.
+// Node callers start at their grammar boundary; arbitrary ranges start at the
+// source beginning so a range inside a string or comment cannot create tokens.
+func searchKeyword(scan *shimscanner.Scanner, pos, end int, keyword string, spans []opaqueSpan) int {
+  spanIndex := 0
+  for scan.Token() != shimast.KindEndOfFile && scan.TokenStart() < end {
+    start := scan.TokenStart()
+    for spanIndex < len(spans) && spans[spanIndex].end <= start {
+      spanIndex++
+    }
+    if spanIndex < len(spans) && spans[spanIndex].pos <= start {
+      scan.ResetTokenState(spans[spanIndex].end)
+      scan.Scan()
       continue
     }
-    tail := i + len(keyword)
-    if src[i:tail] != keyword {
-      continue
+    if keywordMatches(scan, pos, end, keyword) {
+      return start
     }
-    if i > 0 && isIdentifierPart(src[i-1]) {
-      continue
-    }
-    if tail < len(src) && isIdentifierPart(src[tail]) {
-      continue
-    }
-    return i
+    scan.Scan()
   }
   return -1
 }
@@ -136,11 +194,19 @@ func FindKeyword(file *shimast.SourceFile, pos, end int, keyword string) int {
 //
 // Returns `(-1, -1)` when `file` or `node` is nil or when the computed
 // range is malformed.
+//
+// @evidence contracts/common.md#principled-implementation Compiler trivia skipping produces the token start while node End remains the half-open bound; malformed ranges return the documented sentinel pair.
+// @evidence contracts/common.md#clear-and-simple-design One range helper separates untrimmed byte coordinates from NodeText's trailing trim.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Range extraction uses supported compiler trivia semantics without guessed whitespace or consumer-specific offsets.
+// @evidence contracts/common.md#meaningful-documentation Native prose describes byte-range alignment and invalid sentinels; paragraphs and tags follow documentation guidance.
 func TokenRange(file *shimast.SourceFile, node *shimast.Node) (int, int) {
   if file == nil || node == nil {
     return -1, -1
   }
   src := file.Text()
+  if node.Pos() < 0 || node.Pos() > len(src) {
+    return -1, -1
+  }
   pos := shimscanner.SkipTrivia(src, node.Pos())
   end := node.End()
   if pos < 0 || pos > len(src) || end < pos || end > len(src) {
@@ -149,19 +215,42 @@ func TokenRange(file *shimast.SourceFile, node *shimast.Node) (int, int) {
   return pos, end
 }
 
-// isIdentifierPart reports whether the ASCII byte ch can appear inside a
-// JavaScript/TypeScript identifier (letters, digits, underscore, dollar sign).
-// Used to detect word boundaries when searching for keyword tokens so that
-// a search for "let" does not match "letters".
-// Note: this is a byte-level check; non-ASCII identifier characters (e.g.
-// Unicode letters) are treated as non-identifier bytes, which is conservative
-// — the keyword boundary check may produce a false positive only for source
-// files that use non-ASCII characters immediately adjacent to a keyword,
-// an extremely rare pattern in practice.
-func isIdentifierPart(ch byte) bool {
-  return (ch >= 'a' && ch <= 'z') ||
-    (ch >= 'A' && ch <= 'Z') ||
-    (ch >= '0' && ch <= '9') ||
-    ch == '_' ||
-    ch == '$'
+type opaqueSpan struct {
+  pos int
+  end int
+}
+
+// opaqueSpans uses parser classification because scanning alone cannot
+// distinguish regex bodies, template continuations and JSX text from code.
+func opaqueSpans(file *shimast.SourceFile, root *shimast.Node, end int, declarationPrefix bool) []opaqueSpan {
+  spans := make([]opaqueSpan, 0)
+  var walk func(*shimast.Node)
+  walk = func(node *shimast.Node) {
+    if node == nil || node.Pos() >= end {
+      return
+    }
+    kind := node.Kind
+    if kind >= shimast.KindStringLiteral && kind <= shimast.KindLastLiteralToken ||
+      kind >= shimast.KindFirstTemplateToken && kind <= shimast.KindLastTemplateToken ||
+      kind == shimast.KindJsxText || kind == shimast.KindJsxTextAllWhiteSpaces ||
+      declarationPrefix && kind == shimast.KindDecorator {
+      start := shimscanner.GetTokenPosOfNode(node, file, false)
+      if start >= 0 && node.End() > start && node.End() <= len(file.Text()) {
+        spans = append(spans, opaqueSpan{pos: start, end: node.End()})
+      }
+      return
+    }
+    node.ForEachChild(func(child *shimast.Node) bool {
+      walk(child)
+      return false
+    })
+  }
+  walk(root)
+  sort.Slice(spans, func(i, j int) bool {
+    if spans[i].pos != spans[j].pos {
+      return spans[i].pos < spans[j].pos
+    }
+    return spans[i].end < spans[j].end
+  })
+  return spans
 }

@@ -1,6 +1,8 @@
 package linthost
 
 import (
+  "strings"
+
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
@@ -101,10 +103,5 @@ func objectHasNewlineAfterBrace(src string, node *shimast.Node, firstProp *shima
   if brace < 0 || propStart <= brace || propStart > len(src) {
     return false
   }
-  for i := brace; i < propStart; i++ {
-    if src[i] == '\n' {
-      return true
-    }
-  }
-  return false
+  return strings.ContainsAny(src[brace:propStart], "\r\n\u2028\u2029")
 }

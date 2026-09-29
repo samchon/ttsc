@@ -19,6 +19,11 @@ import (
 // An empty set is a successful answer. A project with no publishing rule is the
 // common case, and a caller must be able to tell it apart from a failure; a
 // nonzero exit here would read as "the project is broken".
+//
+// @evidence contracts/common.md#principled-implementation Active publisher settings gate Program loading and passed-state projection; unusable kinds and duplicate addresses are discarded while missing parent links are cleared before JSON output.
+// @evidence contracts/common.md#clear-and-simple-design CLI parsing and serialization surround one shared graph computation usable by resident hosts.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Published artifacts come from checked contributor state rather than fabricated graph nodes or coverage results; empty projects remain valid outcomes.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains whole-Program scope, input-sensitive caller caching and empty-set success; paragraphs and tags follow documentation guidance.
 func RunGraphNodes(args []string) int {
   opts, ok := parseLSPCommandOptions("graph-nodes", args)
   if !ok {

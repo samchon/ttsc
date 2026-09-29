@@ -14,6 +14,11 @@ import "encoding/json"
 // author can cite actually has — a document and its sections, a data model and
 // its fields, an API operation — and any contributor that can materialize one
 // publishes it here.
+//
+// @evidence contracts/common.md#principled-implementation A named string discriminant expresses the finite artifact vocabulary that host consumers recognize.
+// @evidence contracts/common.md#clear-and-simple-design One shared kind type separates artifact classification from addresses and presentation.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Artifact kinds are supported protocol constants rather than contributor-specific dispatch patches.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains vocabulary ownership and unknown-kind rejection; separated paragraphs and tags follow documentation guidance.
 type GraphNodeKind string
 
 const (
@@ -40,6 +45,11 @@ const (
 // A consumer seeds its vocabulary from this rather than from a list of its own:
 // a kind added to the block above and not to a consumer's map is a node drawn
 // or ranked as something it is not.
+//
+// @evidence contracts/common.md#principled-implementation The returned literal slice enumerates the declared protocol kinds in their documented order.
+// @evidence contracts/common.md#clear-and-simple-design One function supplies the vocabulary so consumers need not maintain independent lists.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Enumeration contains protocol discriminants without consumer-specific branches or foreign mutation.
+// @evidence contracts/common.md#meaningful-documentation The native comment explains ordering and the consumer consistency reason; prose and tags are separated under documentation guidance.
 func GraphNodeKinds() []GraphNodeKind {
   return []GraphNodeKind{
     GraphNodeMarkdownDocument,
@@ -60,6 +70,11 @@ func GraphNodeKinds() []GraphNodeKind {
 // The node is an index entry, never content. A section carries its heading and
 // where it starts; the text under that heading is read from the file when
 // someone actually needs it, exactly as a function body is.
+//
+// @evidence contracts/common.md#principled-implementation Address, kind, containment and optional source position form a serializable artifact index while aliases refer to the same identity.
+// @evidence contracts/common.md#clear-and-simple-design The record exposes identity and navigation facts without mixing in diagnostic policy or document content.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Addresses are produced by the owning rule's grammar rather than fabricated by consumers or patched host internals.
+// @evidence contracts/common.md#meaningful-documentation Members explain parent handling, address ownership, aliases and 1-based positions; paragraphs, member gaps and tags follow documentation guidance.
 type GraphNode struct {
   // Address is the identity a citation names, verbatim — `docs/sale.md#pricing`,
   // `prisma:Sale.price`, `POST:/orders/{orderId}`.
@@ -103,6 +118,11 @@ type GraphNode struct {
 // It mirrors HintContext exactly, and for the same reason: a rule value is
 // stateless, so without State here a projection could only ever return
 // constants.
+//
+// @evidence contracts/common.md#principled-implementation Identity, exact published state and resolved settings bind graph projection to the Program Check evaluated.
+// @evidence contracts/common.md#clear-and-simple-design One projection context carries inputs without introducing a second mutable state owner.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The supported context transports state instead of reaching into foreign host internals.
+// @evidence contracts/common.md#meaningful-documentation Native member comments identify Program binding, state and settings; the tag block and member boundaries follow documentation guidance.
 type GraphContext struct {
   // Identity names the Program these nodes were built for, as during Check.
   Identity ProjectIdentity
@@ -117,6 +137,11 @@ type GraphContext struct {
 
 // DecodeOptions unmarshals the configured options into out. A missing options
 // tuple leaves out unchanged and returns nil.
+//
+// @evidence contracts/common.md#principled-implementation The nil-or-empty guard preserves caller defaults, while encoding/json handles present options and reports decoding errors.
+// @evidence contracts/common.md#clear-and-simple-design The context delegates JSON semantics to one standard decoder after its absence guard.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No artifact-specific option bypass or foreign mutation is used.
+// @evidence contracts/common.md#meaningful-documentation The native method comment states empty-options behavior with a separated tag block under documentation guidance.
 func (c *GraphContext) DecodeOptions(out interface{}) error {
   if c == nil || len(c.Options) == 0 {
     return nil
@@ -141,10 +166,20 @@ func (c *GraphContext) DecodeOptions(out interface{}) error {
 // those are the linter's product and it already delivers them as compile
 // errors. A consumer that received them would hold a second, unmaintained
 // answer to a question the linter already answers.
+//
+// @evidence contracts/common.md#principled-implementation ProjectRule embedding permits a complete graph projection only from the checked Program state, keeping diagnostic results in their separate channel.
+// @evidence contracts/common.md#clear-and-simple-design One optional method extends project checking with artifact publication rather than duplicating coverage evaluation.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Graph publication is a supported marker interface with no host replacement or synthesized coverage result.
+// @evidence contracts/common.md#meaningful-documentation Native prose specifies publication gating and the artifact-versus-diagnostic boundary; paragraphs and tag spacing follow documentation guidance.
 type GraphRule interface {
   ProjectRule
 
   // GraphNodes returns the artifacts this rule materialized, in any order.
   // Containment is expressed by Parent rather than by position.
+  //
+  // @evidence contracts/common.md#principled-implementation The returned artifacts carry explicit parent addresses, so containment does not depend on result ordering.
+  // @evidence contracts/common.md#clear-and-simple-design One complete slice represents the checked state projection without incremental publication callbacks.
+  // @evidence contracts/common.md#prohibited-implementation-shortcuts Artifacts use the supported projection method rather than fabricated diagnostic acknowledgments.
+  // @evidence contracts/common.md#meaningful-documentation The native comment states arbitrary order and explicit containment with a separated tag block under documentation guidance.
   GraphNodes(ctx *GraphContext) []GraphNode
 }

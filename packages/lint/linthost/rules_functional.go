@@ -241,10 +241,17 @@ func (functionalParameters) Check(ctx *Context, node *shimast.Node) {
     if opts.EnforceParameterCount == nil || opts.EnforceParameterCount == false {
       return
     }
-    if len(node.Parameters()) == 0 {
-      if functionalShouldIgnore(ctx, opts.functionalPatternOptions, node, functionalFunctionLikeName(node)) {
-        return
-      }
+    count := len(node.Parameters())
+    exactlyOne := opts.EnforceParameterCount == "exactlyOne"
+    if count > 0 && (!exactlyOne || count == 1) {
+      return
+    }
+    if functionalShouldIgnore(ctx, opts.functionalPatternOptions, node, functionalFunctionLikeName(node)) {
+      return
+    }
+    if exactlyOne {
+      ctx.Report(node, "Functions must have exactly one parameter.")
+    } else {
       ctx.Report(node, "Functions must have at least one parameter.")
     }
   }

@@ -11,6 +11,11 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
  * statically-decidable subset.
  *
  * @reference https://github.com/jsx-eslint/eslint-plugin-jsx-a11y
+ *
+ * @evidence contracts/common.md#principled-implementation Optional jsx-a11y identifiers represent independently configurable static accessibility policies through the severity-only union, without suggesting runtime accessibility certification.
+ * @evidence contracts/common.md#clear-and-simple-design The family keeps JSX accessibility concerns together and delegates severity forms to one alias rather than adding per-rule option layers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The keys are supported accessibility rule identities; this representation contains no fixture allowance or foreign runtime mutation.
+ * @evidence contracts/common.md#meaningful-documentation Family prose distinguishes static analysis from live audits and member comments explain ARIA, labels and interaction concerns; paragraphs and member boundaries follow documentation guidance.
  */
 export interface ITtscLintJsxA11yRules {
   /**

@@ -14,6 +14,11 @@ import type { ITtscLintReactOnlyExportComponentsRuleOptions } from "./ITtscLintR
  * than correctness checks.
  *
  * @reference https://github.com/jsx-eslint/eslint-plugin-react
+ *
+ * @evidence contracts/common.md#principled-implementation Explicit react keys use severity-only settings except only-export-components, which retains its typed Fast Refresh options slot; optional properties allow independent policy selection.
+ * @evidence contracts/common.md#clear-and-simple-design JSX, Hooks and refresh policies share the public react namespace, while the separate react-perf family owns allocation-policy configuration.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Public React identifiers and the one declared options schema form the extension boundary without mutating React internals or accepting arbitrary built-in options.
+ * @evidence contracts/common.md#meaningful-documentation Native family prose explains the namespace composition and member comments describe JSX, Hook and refresh responsibilities; paragraphs and property spacing follow documentation guidance.
  */
 export interface ITtscLintReactRules {
   /**
