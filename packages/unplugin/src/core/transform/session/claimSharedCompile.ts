@@ -102,9 +102,11 @@ const KEPT_STORE_PUBLICATIONS = 32;
  *   actual compile path when shared computation is unavailable.
  *
  * @evidence contracts/performance.md#bound-retention-and-release-resources
- *   Pruning retains four publications per identity and 32 across the persistent
- *   store, removing obsolete writes whose owners are gone. The claim owns its
- *   heartbeat and releases it together with the lock.
+ *   Each publication best-effort prunes to four files per identity and 32 in
+ *   the store. Concurrent writes or failed removals may exceed those counts
+ *   until a later prune, and publication bytes have no fixed bound. A holder
+ *   releases its heartbeat and owned lock; later prunes remove abandoned locks
+ *   and partial writes left by departed workers.
  */
 export async function claimSharedCompile(
   store: string,

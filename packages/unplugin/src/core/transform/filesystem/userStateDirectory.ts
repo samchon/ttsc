@@ -33,7 +33,7 @@ import path from "node:path";
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral directory selection uses os.tmpdir, native realpath, native joins, and available uid capability; hosts without uid checks rely on their user temporary directory's native access policy.
  * @evidence contracts/performance.md#efficient-algorithms Creation visits only the root and requested segments, with one ownership stat per directory rather than scanning the temporary tree.
  * @evidence contracts/performance.md#reuse-equivalent-work Existing directories are reused by shared compile stores and process probes; consumers independently prove retained content instead of recompiling solely because a process restarted.
- * @evidence contracts/performance.md#bound-retention-and-release-resources This provider leaves no open handles; process probes own exit cleanup and the persistent shared store owns publication bounds and abandoned-process reclamation.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources This provider leaves no open handles; process probes own exit cleanup, while the persistent store's owner best-effort prunes publication counts and abandoned-process files without bounding retained bytes.
  */
 export function userStateDirectory(...segments: string[]): string | undefined {
   try {
