@@ -30,13 +30,15 @@ const SCOPES = {
     "@ttsc/lint",
     "@ttsc/unplugin",
     "@ttsc/metro",
-    "@ttsc/vscode",
     PLATFORM,
     "@ttsc/graph",
     "lint-contributor-demo",
     { filter: "@ttsc/wasm", script: "build:ts" },
     "@ttsc/playground",
     "@ttsc/evidence",
+    // VS Code packaging temporarily rewrites its package.json. No other pnpm
+    // build may resolve the workspace while that manifest has another name.
+    "@ttsc/vscode",
   ],
   // test-ttsc drives ttsc + the banner/lint native plugins and asserts on the
   // @ttsc/vscode install artifact (its .vsix); it never touches graph/metro/
@@ -231,6 +233,9 @@ function buildDependencies(plan) {
       .map((dependency) => targets.get(dependency));
     if (targets.has("current platform") && name === "@ttsc/graph")
       parents.push(PLATFORM);
+    if (name === "@ttsc/vscode")
+      for (const other of plan)
+        if (other !== target && !parents.includes(other)) parents.push(other);
     dependencies.set(target, parents);
   }
   return dependencies;

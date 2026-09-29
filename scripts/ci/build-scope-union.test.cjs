@@ -24,6 +24,7 @@ test("bounded build workers preserve prerequisites and finish independent failur
   assert.ok(dependencies.get("@ttsc/graph").includes(PLATFORM));
   assert.ok(dependencies.get("@ttsc/metro").includes("@ttsc/unplugin"));
   assert.ok(dependencies.get("@ttsc/playground").some((item) => item.filter === "@ttsc/wasm"));
+  assert.deepEqual(dependencies.get("@ttsc/vscode"), plan.filter((item) => item !== "@ttsc/vscode"));
 
   const sample = ["root", "independent", "dependent", "last"];
   const edges = new Map([
