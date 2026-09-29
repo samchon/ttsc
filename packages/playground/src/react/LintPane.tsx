@@ -5,6 +5,11 @@ import type { ICompilerService } from "../structures/ICompilerService";
 /**
  * Renders the lint plugin's findings in a list view. Shown by `PlaygroundShell`
  * when the active tab is "lint". Empty state is the green checkmark.
+ *
+ * @evidence contracts/common.md#principled-implementation Supplied normalized findings map to severity, code, location and message; producer failure interpretation remains outside the renderer.
+ * @evidence contracts/common.md#clear-and-simple-design This view is stateless apart from its props and does not initiate lint work.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Empty-state presentation follows the supplied result and does not discard error diagnostics.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains placement and empty presentation, separated from tags under the documentation skill.
  */
 export function LintPane({
   diagnostics,

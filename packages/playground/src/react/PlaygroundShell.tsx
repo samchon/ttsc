@@ -43,6 +43,22 @@ const SHARE_URL_WARN_BYTES = 2000;
 
 type Tab = "javascript" | "lint";
 
+/**
+ * Coordinate the compiler Worker, dependency graph, controlled editors and
+ * site execution hook. Compile epochs and Worker generations fence stale RPC
+ * results; Execute has its own cancellation boundary.
+ *
+ * Source-root removal replaces the Worker and all dependency maps together.
+ * Site execution owns isolation; cancellation cannot preempt synchronous code.
+ *
+ * @evidence contracts/common.md#principled-implementation Epoch and generation checks precede asynchronous state publication; serialized dependency mutations reconcile stale writes before reuse, and removed roots trigger full graph replacement. Execute receives a source snapshot and attempt signal without invalidating independent compile work.
+ * @evidence contracts/common.md#clear-and-simple-design The shell owns React state and delegates Worker transport, dependency solving, lifecycle fencing and display to their named operations; separate compile and Execute boundaries serve their different invalidation rules.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Generation resets correct actual obsolete-worker state rather than wrapping errors with unbounded retry; ordinary plugin and transport errors stay visible and only terminal runtime failures require replacement.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs define ownership, stale-result boundaries and isolation limits; local comments explain dependency replacement and callback dependencies under the documentation skill.
+ * @evidence contracts/performance.md#efficient-algorithms Dependency-root delta uses indexed sets rather than pairwise scans; display renders current findings and console values. Each console append currently copies its accumulated message list, so a run with m messages can require O(m²) reference copying; no unmeasured speedup is claimed.
+ * @evidence contracts/performance.md#reuse-equivalent-work One Worker client is memoized per script URL; exact mounted package identities validate additive graph reuse and removed roots force complete replacement. Compile inputs debounce, tab changes only switch views, and unchanged dependency roots avoid another install solve.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The shell owns timers, install aborts, Worker generations and current dependency/console maps; replacement and unmount fence callbacks, clear timers, cancel install/Execute and reset the client. Dependency maps follow the current source graph; console values persist until clear or the next Execute, without a per-run message budget. The site owns resources created by its execution hook.
+ */
 export function PlaygroundShell({
   workerUrl,
   defaultScript,

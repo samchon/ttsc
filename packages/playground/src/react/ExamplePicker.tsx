@@ -7,10 +7,20 @@ import type { IPlaygroundExample } from "../structures/IPlaygroundExample";
 interface ExamplePickerProps {
   examples: readonly IPlaygroundExample[];
   onPick: (id: string) => void;
+
   /** Display labels for groups. Maps `group` key → rendered heading. */
   groupLabels?: Record<string, string>;
 }
 
+/**
+ * Group site examples and publish the selected id. Outside clicks and Escape
+ * close the menu; DOM listeners exist only while it is open.
+ *
+ * @evidence contracts/common.md#principled-implementation Group keys index a prototype-free record and label overrides require own properties, so arbitrary site labels remain ordinary groups; picking preserves each example's stable id.
+ * @evidence contracts/common.md#clear-and-simple-design Grouping is memoized from examples while local state owns only menu visibility; the parent owns source changes.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Site-provided examples and group labels drive presentation without reserved consumer names or foreign DOM mutation.
+ * @evidence contracts/common.md#meaningful-documentation Native prose states id ownership and listener lifetime with tag separation under the documentation skill.
+ */
 export function ExamplePicker({
   examples,
   onPick,
@@ -38,11 +48,14 @@ export function ExamplePicker({
   }, [open]);
 
   const grouped = useMemo(() => {
-    return examples.reduce<Record<string, IPlaygroundExample[]>>((acc, e) => {
-      const key = e.group ?? "Examples";
-      (acc[key] ??= []).push(e);
-      return acc;
-    }, {});
+    return examples.reduce<Record<string, IPlaygroundExample[]>>(
+      (acc, e) => {
+        const key = e.group ?? "Examples";
+        (acc[key] ??= []).push(e);
+        return acc;
+      },
+      Object.create(null) as Record<string, IPlaygroundExample[]>,
+    );
   }, [examples]);
 
   if (examples.length === 0) return null;
@@ -65,7 +78,10 @@ export function ExamplePicker({
               className="border-b border-[#d8e7f4] last:border-b-0"
             >
               <div className="bg-[#f7fbff] px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-slate-500">
-                {groupLabels?.[group] ?? group}
+                {groupLabels &&
+                Object.prototype.hasOwnProperty.call(groupLabels, group)
+                  ? (groupLabels[group] ?? group)
+                  : group}
               </div>
               {items.map((item) => (
                 <button

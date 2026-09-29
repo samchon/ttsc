@@ -36,9 +36,31 @@ import { safeParseTypiaTransform } from "./safeParseTypiaTransform";
  * `createWorkerCompiler` binds the real implementations; tests bind fakes that
  * resolve a synthetic `IBootResult` so the plugin-envelope handling can be
  * verified without a real WASM boot.
+ *
+ * @evidence contracts/common.md#principled-implementation Boot and generic envelope parsing retain the WASM host signatures and null parse outcome needed by the service.
+ * @evidence contracts/common.md#clear-and-simple-design A two-collaborator record isolates runtime binding from pipeline control flow.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Collaborators are explicit production dependencies, not global replacements or fixture-specific dispatch.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain runtime binding and the injection purpose under the documentation skill.
  */
 export interface IWorkerCompilerDeps {
+  /**
+   * Start the configured WASM runtime and return its ready host and API.
+   *
+   * @evidence contracts/common.md#principled-implementation The host's typed options and ready result preserve runtime identity and boot failure semantics.
+   * @evidence contracts/common.md#clear-and-simple-design This dependency owns runtime startup while the service owns mounting and request serialization.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Injection uses the declared host API rather than replacing runtime globals.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states readiness and ownership with tag separation under the documentation skill.
+   */
   bootTtsc: (options: IBootTtscOptions) => Promise<IBootResult>;
+
+  /**
+   * Decode one host envelope; null denotes absent or unusable payload.
+   *
+   * @evidence contracts/common.md#principled-implementation The generic parser maps the typed host envelope to the requested payload shape while exposing parse failure as null.
+   * @evidence contracts/common.md#clear-and-simple-design Decoding stays distinct from exit-code interpretation in the service.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Null remains failure information and does not fabricate a successful empty compile result.
+   * @evidence contracts/common.md#meaningful-documentation Native prose defines null and decoding responsibility, separated from tags under the documentation skill.
+   */
   parseResult: <T>(result: ITtscResult) => T | null;
 }
 
@@ -48,6 +70,15 @@ type ITransformOutcome = { ok: true } | { ok: false; message: string };
 /**
  * Dependency-injected worker `ICompilerService` factory. See
  * `createWorkerCompiler` for the public entry documentation.
+ *
+ * Runtime boot and source mounting have separate retry state. Requests serialize
+ * every mutation of the shared virtual project; configured transform or lint
+ * failures remain visible instead of yielding untransformed or clean results.
+ *
+ * @evidence contracts/common.md#principled-implementation A promise chain orders virtual-file mutations; transform envelopes are validated before writes, and compile and lint outcomes preserve producer failure semantics. Post-start boot rejection remains terminal because an existing Go runtime cannot be replaced inside its Worker.
+ * @evidence contracts/common.md#clear-and-simple-design Boot, mounting, project writes and result interpretation are local responsibilities behind one RPC factory; ESM and CommonJS lanes share the build pipeline.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Retry is limited to pre-runtime boot or source mounting; failed configured plugins never silently fall through to successful untransformed emit or a clean lint list.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs state serialization and retry boundaries; helper comments explain plugin-envelope failures and the runtime replacement reason under the documentation skill.
  */
 export function createWorkerCompilerService(
   deps: IWorkerCompilerDeps,

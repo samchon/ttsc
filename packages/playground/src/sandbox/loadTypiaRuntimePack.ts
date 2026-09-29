@@ -38,6 +38,10 @@ const packCache = new Map<string, RuntimePackEntry>();
  *   resolver rather than evaluating packages or introducing another module
  *   protocol.
  *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The URL map owns shared attempt identity; cancellation helpers isolate
+ *   event cleanup from transport decoding and the resolver owns evaluation.
+ *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   The URL comes from the caller, and load failures remain failures. Shared
  *   cancellation is an explicit public policy rather than a fixture-specific
@@ -94,12 +98,21 @@ export function loadTypiaRuntimePack(
       );
 
     phase = `reading JSON from ${url}`;
-    return (await raceRuntimePackCancellation(
+    const pack: unknown = await raceRuntimePackCancellation(
       response.json(),
       cancellation.promise,
       controller.signal,
       () => phase,
-    )) as Record<string, string>;
+    );
+    if (
+      !pack ||
+      typeof pack !== "object" ||
+      Array.isArray(pack) ||
+      !Object.values(pack).every((value) => typeof value === "string")
+    ) {
+      throw new Error("loadTypiaRuntimePack: expected a source-text record map.");
+    }
+    return pack as Record<string, string>;
   })()
     .catch((error) => {
       if (packCache.get(url) === entry) packCache.delete(url);

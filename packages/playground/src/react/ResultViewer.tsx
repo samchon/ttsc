@@ -11,13 +11,21 @@ interface ResultViewerProps {
 /**
  * Read-only Monaco pane used to render the compiled / transformed output with a
  * copy button. Wraps `<Editor readOnly>` and adds the toast UI.
+ *
+ * @evidence contracts/common.md#principled-implementation Controlled text and language select a read-only model; copy feedback follows actual clipboard settlement, and attempt identity prevents old or unmounted requests from publishing feedback.
+ * @evidence contracts/common.md#clear-and-simple-design Output viewing and local copy feedback stay separate from compilation and source editing.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The read-only editor uses supported Monaco options rather than replacing editor methods.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains viewing and copy presentation; copied and failed labels distinguish actual clipboard outcomes under the documentation skill.
  */
 export function ResultViewer({ language, value }: ResultViewerProps) {
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
+  const copyEpoch = useRef(0);
   const copiedTimer = useRef<number | null>(null);
 
   useEffect(
     () => () => {
+      ++copyEpoch.current;
       if (copiedTimer.current !== null)
         window.clearTimeout(copiedTimer.current);
     },
@@ -25,13 +33,26 @@ export function ResultViewer({ language, value }: ResultViewerProps) {
   );
 
   const onCopy = () => {
-    void navigator.clipboard.writeText(value);
-    setCopied(true);
+    const epoch = ++copyEpoch.current;
+    setCopied(false);
+    setCopyFailed(false);
     if (copiedTimer.current !== null) window.clearTimeout(copiedTimer.current);
-    copiedTimer.current = window.setTimeout(() => {
-      setCopied(false);
-      copiedTimer.current = null;
-    }, 1500);
+    copiedTimer.current = null;
+    void Promise.resolve()
+      .then(() => navigator.clipboard.writeText(value))
+      .then(
+        () => {
+          if (copyEpoch.current !== epoch) return;
+          setCopied(true);
+          copiedTimer.current = window.setTimeout(() => {
+            setCopied(false);
+            copiedTimer.current = null;
+          }, 1500);
+        },
+        () => {
+          if (copyEpoch.current === epoch) setCopyFailed(true);
+        },
+      );
   };
 
   return (
@@ -41,7 +62,7 @@ export function ResultViewer({ language, value }: ResultViewerProps) {
           onClick={onCopy}
           className="absolute right-3 top-2 z-10 rounded-md border border-[#b9d5ee] bg-white/90 px-2 py-1 font-mono text-[10px] text-[#235a97] shadow-sm transition-colors hover:bg-[#eaf4ff]"
         >
-          {copied ? "Copied ✓" : "Copy"}
+          {copied ? "Copied ✓" : copyFailed ? "Copy failed" : "Copy"}
         </button>
       )}
       <Editor

@@ -1,7 +1,14 @@
 import type { ILintPluginConfig } from "./ILintPluginConfig";
 import type { ITypiaPluginConfig } from "./ITypiaPluginConfig";
 
-/** Options for {@link createWorkerCompiler}. */
+/**
+ * Options for {@link createWorkerCompiler}.
+ *
+ * @evidence contracts/common.md#principled-implementation Required runtime identity and optional virtual-project paths express boot and compilation inputs; false distinguishes disabled integrations from default integration settings.
+ * @evidence contracts/common.md#clear-and-simple-design Boot inputs, virtual layout and plugin options remain one explicit factory record with nested plugin responsibilities.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Plugin names and defaults describe the supported playground integrations; sites override them through explicit configuration.
+ * @evidence contracts/common.md#meaningful-documentation Member JSDoc explains defaults, registration identity and compiler-option ownership, with blank member lines following the documentation skill.
+ */
 export interface ICreateWorkerCompilerOptions {
   /** URL of the site's pre-built playground.wasm. */
   wasmUrl: string;

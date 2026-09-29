@@ -4,6 +4,17 @@ import { packageNameFromSpecifier } from "./packageNameFromSpecifier";
 /**
  * Scan `source` for `import` / `require` specifiers and return the unique
  * sorted list of bare npm package names that are not in `ignoredPackages`.
+ *
+ * This is a lexical discovery pass, not name binding: a locally shadowed direct
+ * require call still looks like a dependency request. Computed strings are omitted.
+ *
+ * @evidence contracts/common.md#principled-implementation Tokenization distinguishes executable quoted specifiers from inert comments, strings and regex bodies; package-name normalization and a Set produce unique sorted install requests. Lexical discovery does not resolve shadowed require bindings.
+ * @evidence contracts/common.md#clear-and-simple-design Lexer, module-construct recognition and package filtering are separate local responsibilities, without importing the full compiler into browser keystroke discovery.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Ignored package names are explicit caller policy; source matching does not fabricate dependency results for known examples.
+ * @evidence contracts/common.md#meaningful-documentation Native prose states discovery domain and binding limitations; helper comments explain escaped strings and lexical boundaries under the documentation skill.
+ * @evidence contracts/performance.md#efficient-algorithms Indexed ignored/found sets avoid pairwise name comparisons and final sorting costs O(p log p) for p package names. Token storage scales with source size; nested template substitutions rescan nested slices and import-clause searches can revisit tokens, so worst-case discovery is not claimed linear for adversarial source.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This lexical pass handles one source snapshot; the shell owns input debouncing and dependency-graph reuse across edits.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Tokens and sets are per-call temporaries and only package names transfer to the caller; it retains no listeners or caches.
  */
 export function collectExternalPackageNames(
   source: string,
