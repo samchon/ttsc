@@ -41,7 +41,7 @@ export const test_inspectpluginbuildlock_reports_dead_local_owner_as_abandoned =
       "utf8",
     );
 
-    const observation = inspectPluginBuildLock(lockDir, Date.now());
+    const observation = inspectPluginBuildLock(lockDir);
 
     assert.equal(observation.state, "abandoned");
     const reason = observation.state === "abandoned" ? observation.reason : "";

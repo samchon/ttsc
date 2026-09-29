@@ -18,7 +18,7 @@ import {
  * build. Only then may stale observer B act, so B must leave that visible
  * successor intact and eventually reuse its binary.
  *
- * 1. Let a short-lived child acquire a v2 lock and exit without releasing it.
+ * 1. Let a short-lived child acquire a v3 lock and exit without releasing it.
  * 2. Hold two observers at a barrier after both report that generation dead.
  * 3. Hold A's successor, release stale B, then assert one build and one binary.
  */
@@ -50,7 +50,8 @@ export const test_pluginbuildlock_fences_two_stale_observers = async () => {
   assert.equal(seeded.status, 0, seeded.stderr);
   const seed = JSON.parse(fs.readFileSync(seedFile, "utf8")) as {
     generation: string;
-    protocol: "v2";
+    protocol: "v3";
+    completionNonce: string;
   };
 
   fs.writeFileSync(
@@ -79,7 +80,7 @@ export const test_pluginbuildlock_fences_two_stale_observers = async () => {
       `const reclaimResultFile = process.env.LOCK_WORKER_RECLAIMED;`,
       `const buildingFile = process.env.LOCK_WORKER_BUILDING;`,
       `const buildReleaseFile = ${JSON.stringify(buildReleaseFile)};`,
-      `const observation = inspectPluginBuildLock(lockDir, Date.now());`,
+      `const observation = inspectPluginBuildLock(lockDir);`,
       `if (observation.state !== "abandoned") throw new Error("expected abandoned lock, got " + observation.state);`,
       `fs.writeFileSync(readyFile, JSON.stringify(observation.fence), "utf8");`,
       `waitFor(() => fs.existsSync(observerReleaseFile), "observer release");`,
@@ -157,8 +158,9 @@ export const test_pluginbuildlock_fences_two_stale_observers = async () => {
     () => fs.existsSync(readyA) && fs.existsSync(readyB),
     "both stale observers",
   );
-  assert.deepEqual(JSON.parse(fs.readFileSync(readyA, "utf8")), seed);
-  assert.deepEqual(JSON.parse(fs.readFileSync(readyB, "utf8")), seed);
+  const seedFence = { protocol: seed.protocol, generation: seed.generation };
+  assert.deepEqual(JSON.parse(fs.readFileSync(readyA, "utf8")), seedFence);
+  assert.deepEqual(JSON.parse(fs.readFileSync(readyB, "utf8")), seedFence);
 
   fs.writeFileSync(releaseA, "release\n", "utf8");
   await waitForCondition(
@@ -167,7 +169,8 @@ export const test_pluginbuildlock_fences_two_stale_observers = async () => {
   );
   const successorLease = JSON.parse(fs.readFileSync(buildingA, "utf8")) as {
     generation: string;
-    protocol: "v2";
+    protocol: "v3";
+    completionNonce: string;
   };
 
   fs.writeFileSync(releaseB, "release\n", "utf8");
@@ -175,7 +178,7 @@ export const test_pluginbuildlock_fences_two_stale_observers = async () => {
     () => fs.existsSync(reclaimedB),
     "stale observer B to attempt retirement",
   );
-  const afterStaleReclaim = inspectPluginBuildLock(lockDir, Date.now());
+  const afterStaleReclaim = inspectPluginBuildLock(lockDir);
   fs.writeFileSync(buildReleaseFile, "release\n", "utf8");
   const results = await Promise.all([workerA, workerB]);
   for (const result of results) {
@@ -199,7 +202,10 @@ export const test_pluginbuildlock_fences_two_stale_observers = async () => {
   assert.equal(afterStaleReclaim.state, "active");
   assert.deepEqual(
     afterStaleReclaim.state === "active" ? afterStaleReclaim.fence : null,
-    successorLease,
+    {
+      protocol: successorLease.protocol,
+      generation: successorLease.generation,
+    },
   );
   assert.equal(reports.filter((report) => report.reclaimed).length, 1);
   assert.equal(reports.filter((report) => report.built).length, 1);
@@ -208,16 +214,16 @@ export const test_pluginbuildlock_fences_two_stale_observers = async () => {
     1,
   );
   assert.equal(fs.readFileSync(binaryPath, "utf8"), "plugin\n");
-  assert.deepEqual(inspectPluginBuildLock(lockDir, Date.now()), {
+  assert.deepEqual(inspectPluginBuildLock(lockDir), {
     state: "released",
   });
   assert.equal(
-    fs.existsSync(path.join(`${lockDir}.v2`, "retired", seed.generation)),
+    fs.existsSync(path.join(`${lockDir}.v3`, "retired", seed.generation)),
     true,
   );
   assert.equal(
     fs.existsSync(
-      path.join(`${lockDir}.v2`, "retired", successorLease.generation),
+      path.join(`${lockDir}.v3`, "retired", successorLease.generation),
     ),
     true,
   );

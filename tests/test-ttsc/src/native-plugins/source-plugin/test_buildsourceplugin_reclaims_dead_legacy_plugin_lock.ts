@@ -3,27 +3,28 @@ import { TestProject } from "@ttsc/testing";
 import {
   assert,
   buildSourcePlugin,
+  child_process,
   computeCacheKey,
   createFakeGoBinary,
   fs,
   inspectPluginBuildLock,
+  os,
   path,
   resolveSourceBuildCachePaths,
 } from "../../internal/source-build";
 
 /**
- * Verifies buildSourcePlugin reclaims stale legacy plugin locks.
+ * Verifies buildSourcePlugin reclaims a dead legacy plugin owner.
  *
- * A killed 0.18.0 source-plugin build can leave `<cache-key>.lock` without a
- * published binary or owner metadata. Waiting ten silent minutes makes the CLI
- * look wedged, so ttsc must recognize an old metadata-less lock as abandoned
- * and retry the build under a fresh lock.
+ * A killed legacy source-plugin build can leave `<cache-key>.lock` without a
+ * published binary. Its same-host owner PID proves the task ended, so ttsc
+ * retires that generation and retries the build under a fresh lock.
  *
- * 1. Create an old `.lock` with no binary and a crashed fence candidate.
+ * 1. Create an old `.lock` with a dead owner and a crashed fence candidate.
  * 2. Run `buildSourcePlugin` through the fake Go toolchain.
- * 3. Assert the binary is published and the replacement v2 lock is released.
+ * 3. Assert the binary is published and the replacement v3 lock is released.
  */
-export const test_buildsourceplugin_reclaims_stale_legacy_plugin_lock = () => {
+export const test_buildsourceplugin_reclaims_dead_legacy_plugin_lock = () => {
   const root = TestProject.tmpdir("ttsc-source-plugin-");
   const plugin = path.join(root, "plugin");
   writePluginSource(plugin);
@@ -55,6 +56,15 @@ export const test_buildsourceplugin_reclaims_stale_legacy_plugin_lock = () => {
     fs.mkdirSync(cacheEntry, { recursive: true });
     fs.mkdirSync(lockDir, { recursive: true });
     fs.mkdirSync(`${lockDir}.legacy-candidate-${"0".repeat(32)}`);
+    const exited = child_process.spawnSync(process.execPath, ["-e", ""], {
+      windowsHide: true,
+    });
+    assert.equal(exited.status, 0);
+    fs.writeFileSync(
+      path.join(lockDir, "owner.json"),
+      `${JSON.stringify({ hostname: os.hostname(), pid: exited.pid })}\n`,
+      "utf8",
+    );
     const old = new Date(Date.now() - 120_000);
     fs.utimesSync(lockDir, old, old);
 
@@ -70,7 +80,7 @@ export const test_buildsourceplugin_reclaims_stale_legacy_plugin_lock = () => {
     });
 
     assert.equal(fs.existsSync(binary), true);
-    assert.deepEqual(inspectPluginBuildLock(lockDir, Date.now()), {
+    assert.deepEqual(inspectPluginBuildLock(lockDir), {
       state: "released",
     });
   } finally {

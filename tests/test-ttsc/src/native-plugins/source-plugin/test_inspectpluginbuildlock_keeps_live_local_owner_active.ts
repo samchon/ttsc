@@ -35,7 +35,7 @@ export const test_inspectpluginbuildlock_keeps_live_local_owner_active = () => {
     "utf8",
   );
 
-  const observation = inspectPluginBuildLock(lockDir, Date.now());
+  const observation = inspectPluginBuildLock(lockDir);
 
   assert.equal(observation.state, "active");
   const owner = observation.state === "active" ? observation.owner : "";

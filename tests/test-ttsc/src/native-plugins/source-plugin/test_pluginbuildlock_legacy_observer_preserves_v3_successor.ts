@@ -12,7 +12,7 @@ import {
 } from "../../internal/source-build";
 
 /**
- * Verifies a stale legacy observer cannot retire a v2 successor.
+ * Verifies a stale legacy observer cannot retire a v3 successor.
  *
  * A legacy holder may normally remove the whole legacy lock path after another
  * process captured its fence. The successor must live in an ownership namespace
@@ -20,10 +20,10 @@ import {
  * deterministic retirement destination has not previously been populated.
  *
  * 1. Observe a live legacy holder, then let it remove its lock normally.
- * 2. Hold a v2 successor in a second child process.
+ * 2. Hold a v3 successor in a second child process.
  * 3. Apply the stale legacy fence and assert the successor remains current.
  */
-export const test_pluginbuildlock_legacy_observer_preserves_v2_successor =
+export const test_pluginbuildlock_legacy_observer_preserves_v3_successor =
   async () => {
     const root = TestProject.tmpdir("ttsc-lock-legacy-successor-");
     const lockDir = path.join(root, "entry.lock");
@@ -96,7 +96,7 @@ export const test_pluginbuildlock_legacy_observer_preserves_v2_successor =
       () => fs.existsSync(legacyReady),
       "legacy holder acquisition",
     );
-    const observation = inspectPluginBuildLock(lockDir, Date.now());
+    const observation = inspectPluginBuildLock(lockDir);
     if (observation.state !== "active") {
       fs.writeFileSync(legacyRelease, "release\n", "utf8");
       await legacyHolder;
@@ -123,17 +123,17 @@ export const test_pluginbuildlock_legacy_observer_preserves_v2_successor =
     });
     await waitForCondition(
       () => fs.existsSync(successorLeaseFile),
-      "v2 successor acquisition",
+      "v3 successor acquisition",
     );
     const successorLease = JSON.parse(
       fs.readFileSync(successorLeaseFile, "utf8"),
-    ) as { generation: string; protocol: "v2" };
+    ) as { generation: string; protocol: "v3"; completionNonce: string };
 
     let reclaimed: boolean;
     let afterStaleReclaim: ReturnType<typeof inspectPluginBuildLock>;
     try {
       reclaimed = reclaimPluginBuildLock(lockDir, observation.fence);
-      afterStaleReclaim = inspectPluginBuildLock(lockDir, Date.now());
+      afterStaleReclaim = inspectPluginBuildLock(lockDir);
     } finally {
       fs.writeFileSync(successorRelease, "release\n", "utf8");
     }
@@ -144,12 +144,15 @@ export const test_pluginbuildlock_legacy_observer_preserves_v2_successor =
     assert.equal(afterStaleReclaim.state, "active");
     assert.deepEqual(
       afterStaleReclaim.state === "active" ? afterStaleReclaim.fence : null,
-      successorLease,
+      {
+        protocol: successorLease.protocol,
+        generation: successorLease.generation,
+      },
     );
     assert.deepEqual(JSON.parse(fs.readFileSync(successorResult, "utf8")), {
       released: true,
     });
-    assert.deepEqual(inspectPluginBuildLock(lockDir, Date.now()), {
+    assert.deepEqual(inspectPluginBuildLock(lockDir), {
       state: "released",
     });
   };

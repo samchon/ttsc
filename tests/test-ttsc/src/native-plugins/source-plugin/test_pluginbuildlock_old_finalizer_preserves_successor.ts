@@ -83,7 +83,7 @@ export const test_pluginbuildlock_old_finalizer_preserves_successor =
     );
     const oldLease = JSON.parse(fs.readFileSync(oldLeaseFile, "utf8")) as {
       generation: string;
-      protocol: "v2";
+      protocol: "v3";
     };
     assert.equal(
       reclaimPluginBuildLock(lockDir, oldLease),
@@ -105,7 +105,7 @@ export const test_pluginbuildlock_old_finalizer_preserves_successor =
     );
     const successorLease = JSON.parse(
       fs.readFileSync(successorLeaseFile, "utf8"),
-    ) as { generation: string; protocol: "v2" };
+    ) as { generation: string; protocol: "v3"; completionNonce: string };
 
     fs.writeFileSync(oldFinalizeFile, "release\n", "utf8");
     await waitForCondition(
@@ -117,11 +117,14 @@ export const test_pluginbuildlock_old_finalizer_preserves_successor =
     assert.deepEqual(JSON.parse(fs.readFileSync(oldResultFile, "utf8")), {
       released: false,
     });
-    const whileSuccessorHeld = inspectPluginBuildLock(lockDir, Date.now());
+    const whileSuccessorHeld = inspectPluginBuildLock(lockDir);
     assert.equal(whileSuccessorHeld.state, "active");
     assert.deepEqual(
       whileSuccessorHeld.state === "active" ? whileSuccessorHeld.fence : null,
-      successorLease,
+      {
+        protocol: successorLease.protocol,
+        generation: successorLease.generation,
+      },
     );
 
     fs.writeFileSync(successorReleaseFile, "release\n", "utf8");
@@ -130,16 +133,16 @@ export const test_pluginbuildlock_old_finalizer_preserves_successor =
     assert.deepEqual(JSON.parse(fs.readFileSync(successorResultFile, "utf8")), {
       released: true,
     });
-    assert.deepEqual(inspectPluginBuildLock(lockDir, Date.now()), {
+    assert.deepEqual(inspectPluginBuildLock(lockDir), {
       state: "released",
     });
     assert.equal(
-      fs.existsSync(path.join(`${lockDir}.v2`, "retired", oldLease.generation)),
+      fs.existsSync(path.join(`${lockDir}.v3`, "retired", oldLease.generation)),
       true,
     );
     assert.equal(
       fs.existsSync(
-        path.join(`${lockDir}.v2`, "retired", successorLease.generation),
+        path.join(`${lockDir}.v3`, "retired", successorLease.generation),
       ),
       true,
     );

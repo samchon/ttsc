@@ -33,7 +33,6 @@ export const test_import_attributes_reach_both_upstream_slots = (): void => {
     "import type carries attributes as a call argument",
     print(
       factory.createImportTypeNode(
-        false,
         factory.createLiteralTypeNode(str("mod")),
         attributes,
         id("Foo"),
@@ -45,7 +44,6 @@ export const test_import_attributes_reach_both_upstream_slots = (): void => {
     "import type without attributes is unchanged",
     print(
       factory.createImportTypeNode(
-        false,
         factory.createLiteralTypeNode(str("mod")),
         undefined,
         id("Foo"),

@@ -1,4 +1,6 @@
 import { TestProject } from "@ttsc/testing";
+import child_process from "node:child_process";
+import os from "node:os";
 
 import { goPath, spawn, ttscBin } from "../../internal/plugin-corpus";
 import {
@@ -9,7 +11,7 @@ import {
 } from "../../internal/source-build";
 
 /**
- * Verifies ttsc e2e: reclaims stale legacy source-plugin locks.
+ * Verifies ttsc e2e: reclaims a dead legacy source-plugin owner.
  *
  * The hang report reached the CLI through package plugin discovery and then
  * stalled in the shared source-plugin cache. The lower-level lock test pins the
@@ -17,12 +19,12 @@ import {
  * running `ttsc -p tsconfig.json --noEmit` against the same abandoned lock.
  *
  * 1. Seed the exact source-plugin cache entry with a binary, then replace it with
- *    an old metadata-less `.lock` directory.
+ *    an old `.lock` directory whose same-host owner process has exited.
  * 2. Run the real local `ttsc` launcher with that cache directory.
  * 3. Assert the CLI exits successfully and reports reclaiming the abandoned lock
- *    instead of waiting for the legacy timeout.
+ *    instead of waiting for the ordinary admission budget.
  */
-export const test_ttsc_reclaims_stale_legacy_source_plugin_lock_e2e = () => {
+export const test_ttsc_reclaims_dead_legacy_source_plugin_lock_e2e = () => {
   const root = TestProject.copyProject("go-source-plugin");
   const plugin = path.join(root, "go-plugin");
   const cacheDir = path.join(root, "cache");
@@ -41,8 +43,17 @@ export const test_ttsc_reclaims_stale_legacy_source_plugin_lock_e2e = () => {
     const lockDir = `${path.dirname(binary)}.lock`;
     fs.rmSync(binary, { force: true });
     fs.rmSync(lockDir, { force: true, recursive: true });
-    fs.rmSync(`${lockDir}.v2`, { force: true, recursive: true });
+    fs.rmSync(`${lockDir}.v3`, { force: true, recursive: true });
     fs.mkdirSync(lockDir, { recursive: true });
+    const exited = child_process.spawnSync(process.execPath, ["-e", ""], {
+      windowsHide: true,
+    });
+    assert.equal(exited.status, 0);
+    fs.writeFileSync(
+      path.join(lockDir, "owner.json"),
+      `${JSON.stringify({ hostname: os.hostname(), pid: exited.pid })}\n`,
+      "utf8",
+    );
     const old = new Date(Date.now() - 120_000);
     fs.utimesSync(lockDir, old, old);
 

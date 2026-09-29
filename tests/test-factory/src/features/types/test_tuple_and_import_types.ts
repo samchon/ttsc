@@ -54,7 +54,6 @@ export const test_tuple_and_import_types = (): void => {
     "import type",
     print(
       factory.createImportTypeNode(
-        false,
         factory.createLiteralTypeNode(str("mod")),
         undefined,
         factory.createIdentifier("Foo"),
@@ -67,8 +66,11 @@ export const test_tuple_and_import_types = (): void => {
     "typeof import",
     print(
       factory.createImportTypeNode(
-        true,
         factory.createLiteralTypeNode(str("mod")),
+        undefined,
+        undefined,
+        undefined,
+        true,
       ),
     ),
     `typeof import("mod")`,

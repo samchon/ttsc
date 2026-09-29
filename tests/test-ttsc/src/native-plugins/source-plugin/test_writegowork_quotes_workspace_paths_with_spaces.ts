@@ -81,6 +81,7 @@ export const test_writegowork_quotes_workspace_paths_with_spaces = () => {
   try {
     buildSourcePlugin({
       baseDir: root,
+      cacheDir: path.join(root, "cache"),
       overlayDirs: [spacedOverlay, bareOverlay, commentPrefixOverlay],
       pluginName: "gowork-spaces",
       source,

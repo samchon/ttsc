@@ -1,5 +1,6 @@
 const cp = require("node:child_process");
 const path = require("node:path");
+const { pathToFileURL } = require("node:url");
 const { selectedNodeTests } = require("./node-tests.cjs");
 const { GO_UNIT_RUNNERS } = require("../test-go.cjs");
 const { runIndependent } = require("./run-independent.cjs");
@@ -18,7 +19,9 @@ async function main() {
       name: "lint harness units",
       args: [
         "--import",
-        path.join(root, "scripts", "register-typescript-loader.mjs"),
+        pathToFileURL(
+          path.join(root, "scripts", "register-typescript-loader.mjs"),
+        ).href,
         "./src/index.ts",
       ],
       cwd: path.join(root, "tests", "test-lint"),

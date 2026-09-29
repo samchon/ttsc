@@ -26,7 +26,7 @@ export const test_inspectpluginbuildlock_reports_missing_lock_as_released =
     const root = TestProject.tmpdir("ttsc-lock-observe-");
     const lockDir = path.join(root, "entry.lock");
 
-    const observation = inspectPluginBuildLock(lockDir, Date.now());
+    const observation = inspectPluginBuildLock(lockDir);
 
     assert.deepEqual(observation, { state: "released" });
   };

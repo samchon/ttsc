@@ -133,6 +133,11 @@ export const test_buildsourceplugin_sets_ttsc_owned_go_build_cache = () => {
     delete process.env.FAKE_GO_BUILD_EXIT_CODE;
 
     const linkedRoot = path.join(root, "linked-plugin-root");
+    fs.mkdirSync(linkedRoot);
+    fs.writeFileSync(
+      path.join(linkedRoot, "pnpm-workspace.yaml"),
+      "packages: []\n",
+    );
     const linkedRootParent = path.join(
       linkedRoot,
       "node_modules",
@@ -166,6 +171,11 @@ export const test_buildsourceplugin_sets_ttsc_owned_go_build_cache = () => {
     assert.equal(fs.readFileSync(outsideRootSentinel, "utf8"), "keep\n");
 
     const linkedEntryRoot = path.join(root, "linked-plugin-entry");
+    fs.mkdirSync(linkedEntryRoot);
+    fs.writeFileSync(
+      path.join(linkedEntryRoot, "pnpm-workspace.yaml"),
+      "packages: []\n",
+    );
     fs.mkdirSync(path.join(linkedEntryRoot, "node_modules"), {
       recursive: true,
     });
@@ -211,8 +221,13 @@ export const test_buildsourceplugin_sets_ttsc_owned_go_build_cache = () => {
     );
     assert.equal(fs.readFileSync(outsideEntrySentinel, "utf8"), "keep\n");
 
-    for (const protocol of ["legacy", "v2"] as const) {
+    for (const protocol of ["legacy", "v2", "v3"] as const) {
       const linkedLockRoot = path.join(root, `linked-${protocol}-lock`);
+      fs.mkdirSync(linkedLockRoot);
+      fs.writeFileSync(
+        path.join(linkedLockRoot, "pnpm-workspace.yaml"),
+        "packages: []\n",
+      );
       fs.mkdirSync(path.join(linkedLockRoot, "node_modules"), {
         recursive: true,
       });
@@ -237,11 +252,11 @@ export const test_buildsourceplugin_sets_ttsc_owned_go_build_cache = () => {
       const outsideLock = path.join(root, `outside-${protocol}-lock`);
       fs.mkdirSync(outsideLock, { recursive: true });
       fs.writeFileSync(path.join(outsideLock, "keep.txt"), "keep\n", "utf8");
-      if (protocol === "v2") {
+      if (protocol !== "legacy") {
         fs.mkdirSync(path.join(outsideLock, "retired"));
         fs.writeFileSync(
-          path.join(outsideLock, "protocol-v2"),
-          "ttsc-plugin-build-lock-v2\n",
+          path.join(outsideLock, `protocol-${protocol}`),
+          `ttsc-plugin-build-lock-${protocol}\n`,
           "utf8",
         );
       } else {
@@ -251,26 +266,32 @@ export const test_buildsourceplugin_sets_ttsc_owned_go_build_cache = () => {
       const externalEntries = fs.readdirSync(outsideLock).sort();
       fs.symlinkSync(
         outsideLock,
-        `${path.join(linkedLockCache, linkedLockKey)}.lock${protocol === "v2" ? ".v2" : ""}`,
+        `${path.join(linkedLockCache, linkedLockKey)}.lock${protocol === "legacy" ? "" : `.${protocol}`}`,
         process.platform === "win32" ? "junction" : "dir",
       );
 
-      const binary = buildSourcePlugin({
-        baseDir: linkedLockRoot,
-        overlayDirs: [],
-        pluginName: `linked-${protocol}-lock`,
-        source: linkedLockRoot,
-        quiet: true,
-        ttscVersion: "1.0.0",
-        tsgoVersion: "7.0.0-dev",
-      });
-      assert.equal(fs.existsSync(binary), true);
+      const build = () =>
+        buildSourcePlugin({
+          baseDir: linkedLockRoot,
+          overlayDirs: [],
+          pluginName: `linked-${protocol}-lock`,
+          source: linkedLockRoot,
+          quiet: true,
+          ttscVersion: "1.0.0",
+          tsgoVersion: "7.0.0-dev",
+        });
+      if (protocol === "v2") {
+        const binary = build();
+        assert.equal(fs.existsSync(binary), true);
+      } else {
+        assert.throws(build);
+      }
       assert.deepEqual(
         fs.readdirSync(outsideLock).sort(),
         externalEntries,
         `${protocol} lock coordination escaped through a junction`,
       );
-      if (protocol === "v2") {
+      if (protocol !== "legacy") {
         assert.deepEqual(fs.readdirSync(path.join(outsideLock, "retired")), []);
       }
     }

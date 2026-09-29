@@ -10,8 +10,8 @@ import {
 /**
  * Verifies inspectPluginBuildLock keeps a fresh metadata-less lock active.
  *
- * Negative twin of both the `released` and the abandoned-legacy classifications
- * in `inspectPluginBuildLock.ts::inspectPluginBuildLock`. A lock directory that
+ * Negative twin of the `released` classification in
+ * `inspectPluginBuildLock.ts::inspectPluginBuildLock`. A lock directory that
  * exists but has no `owner.json` yet is the normal instant between a holder's
  * `mkdir` and its owner write — treating it as released would race waiters into
  * duplicate acquisition, and treating it as abandoned would steal a healthy
@@ -27,11 +27,11 @@ export const test_inspectpluginbuildlock_keeps_fresh_legacy_lock_active =
     const lockDir = path.join(root, "entry.lock");
     fs.mkdirSync(lockDir);
 
-    const observation = inspectPluginBuildLock(lockDir, Date.now());
+    const observation = inspectPluginBuildLock(lockDir);
 
     assert.equal(observation.state, "active");
     if (observation.state !== "active") return;
-    assert.equal(observation.owner, "legacy lock with no owner.json");
+    assert.equal(observation.owner, "legacy lock with unconfirmed owner.json");
     assert.equal(observation.fence.protocol, "legacy");
     assert.match(observation.fence.generation, /^[0-9a-f]{32}$/);
   };

@@ -18,11 +18,11 @@ import {
  * `retired/<generation>` tombstone, which fences a late release of that
  * generation. The collector skipped every lock directory, so an evicted entry's
  * lock state, and the tombstones of repeated builds, stayed forever
- * (samchon/ttsc#1558). An evicted entry now takes its inactive lock state with
- * it, and a tombstone goes once its recorded holder is provably gone.
+ * (samchon/ttsc#1558). An evicted entry leaves its coordination root intact,
+ * and a tombstone goes only once its recorded holder and observers are gone.
  *
  * 1. Build and release a generation for an old entry, and evict it.
- * 2. Assert the entry and its lock directory are both gone.
+ * 2. Assert the entry is gone while its still-observable lock root remains.
  * 3. For a live entry, retire one generation recorded for a dead process and one
  *    for this process, and assert only the dead holder's tombstone goes.
  */
@@ -41,14 +41,14 @@ export const test_pruneplugincacheroot_bounds_retired_lock_state = (): void => {
     return directory;
   };
   const retire = (entry: string): string => {
-    const retiredBefore = path.join(`${entry}.lock.v2`, "retired");
+    const retiredBefore = path.join(`${entry}.lock.v3`, "retired");
     const existing = new Set(
       fs.existsSync(retiredBefore) ? fs.readdirSync(retiredBefore) : [],
     );
     const lease = acquirePluginBuildLock(`${entry}.lock`);
     assert.ok(lease, "fixture failed to acquire a generation");
     releasePluginBuildLock(`${entry}.lock`, lease);
-    const retired = path.join(`${entry}.lock.v2`, "retired");
+    const retired = path.join(`${entry}.lock.v3`, "retired");
     // Tombstones are named by random generation ids, so the one this release
     // wrote is the name that was not there before, not the last in any order.
     const created = fs
@@ -60,7 +60,7 @@ export const test_pruneplugincacheroot_bounds_retired_lock_state = (): void => {
 
   const evicted = seed("evicted", now - 31 * 24 * 60 * 60 * 1000);
   retire(evicted);
-  assert.equal(fs.existsSync(`${evicted}.lock.v2`), true);
+  assert.equal(fs.existsSync(`${evicted}.lock.v3`), true);
 
   const live = seed("live", now);
   const dead = retire(live);
@@ -79,9 +79,9 @@ export const test_pruneplugincacheroot_bounds_retired_lock_state = (): void => {
 
   assert.equal(fs.existsSync(evicted), false, "the old entry is evicted");
   assert.equal(
-    fs.existsSync(`${evicted}.lock.v2`),
-    false,
-    "its lock state goes with it",
+    fs.existsSync(`${evicted}.lock.v3`),
+    true,
+    "a live holder can still hold a fence after its binary is evicted",
   );
   assert.equal(fs.existsSync(live), true);
   assert.equal(fs.existsSync(dead), false, "a gone holder's tombstone goes");
