@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { runtimeExecutableIdentity } from "../../../internal/runtimeExecutableIdentity";
 import { SourceBuildCacheLayout } from "../source/SourceBuildCacheLayout";
 import { recordCacheFileUse } from "../source/recordCacheFileUse";
@@ -125,9 +126,11 @@ export namespace PluginDescriptorEvaluationCache {
     /** Ttsc build version, invalidating answers from another build. */
     version: string;
   }): string | null {
+    const environment = SidecarEnvironment.merge(props.env);
     // Startup preloads run before the descriptor recorder and can read inputs
     // it never sees; a stable option string cannot prove their current meaning.
-    if (props.env.NODE_OPTIONS?.trim()) return null;
+    if (SidecarEnvironment.read(environment, "NODE_OPTIONS")?.trim())
+      return null;
     const runtime = runtimeIdentity(props.runtime);
     if (runtime === null) return null;
     const additionalRuntime =
@@ -142,7 +145,7 @@ export namespace PluginDescriptorEvaluationCache {
       root = resolveSourceBuildCachePaths(
         props.projectRoot,
         props.cacheDir,
-        props.env,
+        environment,
       ).root;
     } catch {
       return null;
@@ -155,7 +158,7 @@ export namespace PluginDescriptorEvaluationCache {
           props.version,
           path.resolve(props.request),
           props.context,
-          Object.entries(props.env)
+          Object.entries(environment)
             .filter(
               (entry): entry is [string, string] => entry[1] !== undefined,
             )

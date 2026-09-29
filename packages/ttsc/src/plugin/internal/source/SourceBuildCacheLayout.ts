@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import type { ITtscSourceBuildCachePaths } from "./ITtscSourceBuildCachePaths";
 import { pruneCacheFileRoot } from "./pruneCacheFileRoot";
 import { pruneGoBuildCacheRoot } from "./pruneGoBuildCacheRoot";
@@ -83,7 +84,7 @@ export namespace SourceBuildCacheLayout {
    * @evidence contracts/common.md#clear-and-simple-design This ownership gate dispatches to dedicated binary, object and file collectors without duplicating their eviction policy.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Effective environment injection is a supported host boundary; explicit user-owned roots are deliberately protected.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain default-root ownership and why overrides suppress maintenance; prose and tags are visibly separated.
-   * @evidence contracts/portability.md#os-neutral-implementation The gate uses injected environment values and path-aware collector APIs without OS names or separator assumptions.
+   * @evidence contracts/portability.md#os-neutral-implementation The gate reads injected environment values with Windows case-insensitive names and uses path-aware collector APIs without separator assumptions.
    * @evidence contracts/performance.md#efficient-algorithms The ownership check is constant work; admitted collectors perform full size and age scans whose cost depends on retained entries.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This dispatch does not produce or validate a reusable computation result.
@@ -100,7 +101,7 @@ export namespace SourceBuildCacheLayout {
     // not delete entries out from under them. `env` is the effective instance
     // environment so a programmatic caller that pins `TTSC_CACHE_DIR` only in
     // `context.env` is honored without leaning on the shared `process.env`.
-    if (!cacheDir && !env.TTSC_CACHE_DIR) {
+    if (!cacheDir && !SidecarEnvironment.read(env, "TTSC_CACHE_DIR")) {
       prunePluginCacheRoot(paths.pluginRoot);
       if (paths.goBuildRootSource === "ttsc-cache") {
         pruneGoBuildCacheRoot(paths.goBuildRoot);

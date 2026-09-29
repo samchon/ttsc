@@ -14,8 +14,8 @@ export interface TtscCommonOptions {
   /**
    * Explicit TypeScript-Go executable.
    *
-   * When supplied, ttsc skips package-based tsgo resolution and shells out to
-   * this binary directly.
+   * When supplied, ttsc skips package-based tsgo resolution and launches this
+   * binary directly.
    */
   binary?: string;
 
@@ -70,7 +70,8 @@ export interface TtscCommonOptions {
    *
    * - `false`: ignore `compilerOptions.plugins` completely.
    * - Array: use these plugin entries instead of the project config entries.
-   * - `undefined`: use the project config entries as written.
+   * - `undefined`: use the project config entries and discover plugins from
+   *   direct dependencies.
    */
   plugins?: readonly ITtscProjectPluginConfig[] | false;
 }

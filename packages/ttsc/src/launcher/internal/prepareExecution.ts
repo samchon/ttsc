@@ -8,6 +8,7 @@ import { runBuild } from "../../compiler/internal/build/runBuild";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { resolveOwningProjectConfig } from "../../compiler/internal/project/resolveOwningProjectConfig";
 import { readEffectiveCompilerOptions } from "../../compiler/internal/readEffectiveCompilerOptions";
+import { SidecarEnvironment } from "../../compiler/internal/sharedHost/SidecarEnvironment";
 import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
 import { SourceBuildCacheLayout } from "../../plugin/internal/source/SourceBuildCacheLayout";
 import { resolveSourceBuildCachePaths } from "../../plugin/internal/source/resolveSourceBuildCachePaths";
@@ -294,7 +295,7 @@ function createProjectContext(
   const tsconfig = project.path;
   const root = project.root;
   const explicitCacheDir = resolveCacheDir(cwd, options.cacheDir);
-  const env = { ...process.env, ...options.env };
+  const env = SidecarEnvironment.merge(process.env, options.env);
   const defaultCache =
     explicitCacheDir === undefined
       ? defaultRuntimeCacheDir(root, env)

@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
 import { runHoldingLock } from "../../../internal/runHoldingLock";
 import { GoSourceInputs } from "./GoSourceInputs";
@@ -91,7 +92,7 @@ export function buildSourcePlugin(opts: {
   ttscVersion: string;
   tsgoVersion: string;
 }): string {
-  const env = opts.env ?? process.env;
+  const env = SidecarEnvironment.merge(opts.env ?? process.env);
   const { dir, entry, source } = resolveSourceBuildTarget(opts);
   const overlayDirs = [...(opts.overlayDirs ?? findTtscOverlayDirs())].sort();
   const contributors = opts.contributors ?? [];

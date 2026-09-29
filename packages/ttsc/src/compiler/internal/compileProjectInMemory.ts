@@ -13,8 +13,8 @@ import { isOutsideRelativePath } from "./isOutsideRelativePath";
 import { outputText } from "./outputText";
 import { packageRootDir } from "./packageRootDir";
 import { readProjectConfig } from "./project/readProjectConfig";
-import { inheritedSidecarEnv } from "./sharedHost/inheritedSidecarEnv";
 import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
+import { inheritedSidecarEnv } from "./sharedHost/inheritedSidecarEnv";
 import { spawnNative } from "./spawnNative";
 
 /**
@@ -45,7 +45,7 @@ import { spawnNative } from "./spawnNative";
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each compile observes potentially changed source and plugin effects; this API owns no proven equivalent-generation cache. The native binary builder independently reuses its valid artifact.
  *
  * @evidence contracts/performance.md#bound-retention-and-release-resources Native capture is disposed by spawnNative; plugin emission owns one temporary tree through finally removal. Cleanup failure propagates after success and aggregates with a thrown failure or a build outcome carrying nonzero status or error diagnostics, preserving its diagnostics and partial output rather than masking it.
- * @evidence contracts/portability.md#os-neutral-implementation Native paths use Node resolution and argument arrays; inheritedSidecarEnv owns child environment spelling and pathToKey normalizes returned protocol keys without changing filesystem identity.
+ * @evidence contracts/portability.md#os-neutral-implementation Native paths use Node resolution and argument arrays; inheritedSidecarEnv owns child environment spelling and pathToKey converts only host separators in returned protocol keys, preserving literal POSIX backslashes.
  */
 export function compileProjectInMemory(options: ITtscCompilerContext): {
   /** Emitted content under the project's native API output-key convention. */
@@ -262,9 +262,12 @@ function listFiles(directory: string): string[] {
   return out.sort();
 }
 
-/** Normalise a file path to a forward-slash key suitable for the output map. */
+/**
+ * Convert native separators, while retaining literal POSIX backslashes, for
+ * output keys.
+ */
 function pathToKey(file: string): string {
-  return file.replace(/\\/g, "/");
+  return file.replaceAll(path.sep, "/");
 }
 
 /**

@@ -1,5 +1,6 @@
 import path from "node:path";
 
+import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { createFilesystemPathIdentityContext } from "../../../internal/pathIdentity/createFilesystemPathIdentityContext";
 import { isFilesystemPathIdentityWithin } from "../../../internal/pathIdentity/isFilesystemPathIdentityWithin";
 import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
@@ -21,7 +22,7 @@ import { resolveSourceBuildCachePaths } from "./resolveSourceBuildCachePaths";
  * @evidence contracts/common.md#clear-and-simple-design Candidate enumeration is followed by one external-ownership filter; physical deletion and project-root protection remain the cleanup transaction's responsibility.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Legacy paths are supported migration targets; external Go storage is protected by identity rather than guessed different spellings.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs state candidate ownership, filesystem discovery and injected environment semantics rather than claiming a pure query.
- * @evidence contracts/portability.md#os-neutral-implementation Native path APIs construct candidates; the shared identity context resolves aliases and actual directory case semantics for overlap protection.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path APIs construct candidates; environment lookup honors Windows case-insensitive names, and the shared identity context resolves aliases and actual directory case semantics for overlap protection.
  * @evidence contracts/performance.md#efficient-algorithms A fixed candidate population uses one memoizing identity context to share common-ancestor resolution across overlap checks.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Cleanup candidate selection does not establish equivalence for computed build answers.
@@ -46,7 +47,7 @@ export function resolveCleanTargets(
   // `TTSC_CACHE_DIR=~/.cache`) a bare `<root>/go-build` could be the user's
   // machine-wide GOCACHE, so it must never be removed by name.
   const isTtscOwnedRoot =
-    (!cacheDir && !env.TTSC_CACHE_DIR) ||
+    (!cacheDir && !SidecarEnvironment.read(env, "TTSC_CACHE_DIR")) ||
     path.basename(paths.root) === SourceBuildCacheLayout.TTSC_CACHE_DIRNAME;
   if (isTtscOwnedRoot) {
     targets.push(
@@ -66,9 +67,10 @@ export function resolveCleanTargets(
     ),
   );
   targets.push(path.join(projectRoot, ".ttsc"));
-  if (!env.GOCACHE) return targets;
+  const externalGoCache = SidecarEnvironment.read(env, "GOCACHE");
+  if (!externalGoCache) return targets;
   const identities = createFilesystemPathIdentityContext();
-  const external = identities.resolve(env.GOCACHE);
+  const external = identities.resolve(externalGoCache);
   return targets.filter((target) => {
     const candidate = identities.resolve(target);
     return (

@@ -22,7 +22,7 @@ import { spawnSyncWithLowDescriptors } from "./spawnSyncWithLowDescriptors";
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain measured capabilities, reuse restrictions and freshness, with comments separating platform launch and cache permission from tags.
  * @evidence contracts/portability.md#os-neutral-implementation Shared environment merge and lookup apply native name identity to caller precedence and NODE_OPTIONS preload authority, including Windows aliases; Node spawn receives an executable and argv without shell syntax, and only POSIX descriptor exhaustion uses the isolated broker.
  * @evidence contracts/performance.md#efficient-algorithms Cache validation streams executable bytes in O(B) time and fixed-size buffers; an uncached probe launches one child and parses its small feature result, with one constrained descriptor retry.
- * @evidence contracts/performance.md#reuse-equivalent-work Successful stable absolute candidates share measured capability results; changed executable bytes, link/target identity, preload options or wrapper identity require another probe, and negative answers are not retained as reusable entries.
+ * @evidence contracts/performance.md#reuse-equivalent-work Stable absolute candidates that report their own executable share measured capability results, including false feature flags; changed executable bytes, link/target identity, preload options or wrapper identity require another probe, while failed probes without executable identity are not reused.
  * @evidence contracts/performance.md#bound-retention-and-release-resources A synchronous probe owns its child and any fallback capture files, released by spawn completion and finally; the historical map has one entry per absolute spelling ever successfully probed and currently has no eviction bound.
  */
 export function javascriptRuntimeCapabilities(
@@ -93,9 +93,11 @@ export function javascriptRuntimeCapabilities(
   // Cache successful absolute candidates only when the child reports that same
   // executable and both its lexical link and physical target retain the same
   // filesystem and actual content identity. Relative/bare commands and wrappers can resolve
-  // differently by cwd/PATH/environment, negative probes can become valid later,
-  // and NODE_OPTIONS can load mutable user code, so none of those states are
-  // memoized. This removes a process spawn from the common path without
+  // differently by cwd/PATH/environment, failed probes without an executable
+  // identity can become valid later, and NODE_OPTIONS can load mutable user
+  // code, so none of those states are memoized. A successful probe can report
+  // false for either feature and still be reused under the executable proof.
+  // This removes a process spawn from the common path without
   // authorizing a replaced or redirected runtime in a long-lived host.
   const afterIdentity = runtimeExecutableIdentity(runtime);
   if (

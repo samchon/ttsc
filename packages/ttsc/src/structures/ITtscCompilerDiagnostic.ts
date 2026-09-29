@@ -12,7 +12,7 @@
  * @evidence contracts/common.md#principled-implementation Nullable file identity distinguishes global findings from located findings; numeric or plugin string codes and optional coordinates preserve producer information without inventing locations.
  * @evidence contracts/common.md#clear-and-simple-design A flat diagnostic record exposes severity, identity, location and text without coupling JavaScript consumers to the native compiler's internal message-chain objects.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Category names are the supported diagnostic vocabulary; plugin identifiers remain data rather than host-side special cases for known plugins.
- * @evidence contracts/common.md#meaningful-documentation Native JSDoc states null-file semantics, coordinate bases, optional spans and flattened text; member spacing and distinct descriptive/tag paragraphs follow the documentation skill.
+ * @evidence contracts/common.md#meaningful-documentation Native JSDoc states null-file semantics, producer coordinate units, optional spans and flattened text; member spacing and distinct descriptive/tag paragraphs follow the documentation skill.
  */
 export interface ITtscCompilerDiagnostic {
   /**
@@ -43,7 +43,7 @@ export interface ITtscCompilerDiagnostic {
   /**
    * The starting position of the issue in the source file, if available.
    *
-   * TypeScript-Go reports this as a zero-based character offset. It is omitted
+   * Native TypeScript-Go reports a zero-based UTF-8 byte offset. It is omitted
    * for global diagnostics or messages that do not expose a source offset.
    */
   start?: number;
@@ -51,8 +51,9 @@ export interface ITtscCompilerDiagnostic {
   /**
    * The length of the problematic section in the source file, if available.
    *
-   * Omitted when TypeScript-Go or a native plugin reports only a point
-   * location, or when the diagnostic is not tied to a source file.
+   * Native TypeScript-Go reports a UTF-8 byte length. Omitted when it or a
+   * native plugin reports only a point location, or when the diagnostic is not
+   * tied to a source file.
    */
   length?: number;
 
@@ -65,11 +66,10 @@ export interface ITtscCompilerDiagnostic {
   line?: number;
 
   /**
-   * 1-based character (column) position where the diagnostic starts, if
-   * available.
+   * 1-based column where the diagnostic starts, if available.
    *
-   * This follows TypeScript's display convention rather than TypeScript-Go's
-   * zero-based internal column index.
+   * Native TypeScript-Go reports a UTF-8 byte column. Diagnostics parsed from
+   * another producer's rendered text retain that producer's column unit.
    */
   character?: number;
 

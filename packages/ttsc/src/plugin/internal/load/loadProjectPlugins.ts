@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { readJsonFile } from "../../../compiler/internal/project/readJsonFile";
 import { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
+import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
 import { javascriptRuntimeCapabilities } from "../../../internal/javascriptRuntimeCapabilities";
 import { resolveNodeBinary } from "../../../internal/resolveNodeBinary";
@@ -155,7 +156,7 @@ export function loadProjectPlugins(options: {
   // host-owned Node/ttsx locators into process.env. Under a Bun parent the
   // direct descriptor evaluator must remain Bun unless the caller explicitly
   // selected another runtime.
-  const effectiveEnv = { ...(options.env ?? process.env) };
+  const effectiveEnv = SidecarEnvironment.merge(options.env ?? process.env);
   const projectSnapshot = readProjectHostInputSnapshot({
     cwd: options.cwd,
     file: options.file,

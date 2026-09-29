@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { SidecarEnvironment } from "../../compiler/internal/sharedHost/SidecarEnvironment";
 import { CapabilityResolutionFormat } from "./CapabilityResolutionFormat";
 import type { ITtscCapabilityPluginSource } from "./ITtscCapabilityPluginSource";
 import type { ITtscCapabilityResolutionEntry } from "./ITtscCapabilityResolutionEntry";
@@ -122,7 +123,7 @@ export function writeCapabilityResolution(
     hostInputHashes[input] = answer.hostInputHashes[input]!;
     hostInputRealpaths[input] = answer.hostInputRealpaths[input]!;
   }
-  if (!(options.env ?? process.env).TTSC_CACHE_DIR) {
+  if (!SidecarEnvironment.read(options.env ?? process.env, "TTSC_CACHE_DIR")) {
     try {
       const physicalRoot = SourceBuildCacheLayout.markDefaultWorkspaceCacheRoot(
         path.dirname(path.dirname(file)),

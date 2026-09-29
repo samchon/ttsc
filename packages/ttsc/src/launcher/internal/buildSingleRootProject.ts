@@ -77,7 +77,7 @@ import { runtimeEmitProfile } from "./runtimeEmitProfile";
  * @evidence contracts/common.md#clear-and-simple-design This boundary owns single-root overlay construction and cleanup, delegates project parsing/building, and isolates writable-directory diagnostics in a private helper.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Private emit layout, disabled declaration/composite products and checked versus installed-package diagnostics are runtime contract distinctions, not source patches or tests-only compiler modes.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain overlay placement, wide rootDir, diagnostics and cleanup, while separately documented input members preserve their ownership facts.
- * @evidence contracts/portability.md#os-neutral-implementation Shared filesystem identity supplies the source's physical volume root; Node path/fs operations create the overlay and native compiler arguments receive explicit project/output paths without a shell or blanket case fold.
+ * @evidence contracts/portability.md#os-neutral-implementation Shared filesystem identity supplies the source's physical volume root; overlay JSON converts only native separators, preserving literal POSIX backslashes, and compiler arguments receive explicit paths without a shell or blanket case fold.
  * @evidence contracts/performance.md#efficient-algorithms Placement inspects the config chain once for configDir anchors and otherwise delegates the required root compilation; no source-directory mirror or second whole-project compilation is performed here.
  * @evidence contracts/performance.md#reuse-equivalent-work One effective-options reader for this overlay and exact forwarded tokens is shared by runtime lowering, emit classification and rootDir selection, avoiding duplicate response-file compiler queries. Callers own sharing of completed build generations.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The operation owns one transient tsconfig and attempts removal in finally after parse/build success or failure; caller owns emit storage, and a failed removal may leave this distinctly named overlay behind.
@@ -151,18 +151,18 @@ export function buildSingleRootProject(props: {
       tsconfig,
       JSON.stringify(
         {
-          extends: props.tsconfig.replace(/\\/g, "/"),
+          extends: props.tsconfig.replaceAll(path.sep, "/"),
           compilerOptions: {
             composite: false,
             declaration: false,
             declarationMap: false,
             ...(props.checked ? {} : { noEmitOnError: false }),
-            rootDir: volumeRoot.replace(/\\/g, "/"),
+            rootDir: volumeRoot.replaceAll(path.sep, "/"),
           },
           // `files` alone does not displace an inherited `include`, and an
           // inherited `exclude` could drop the root back out of the program,
           // so both are overridden explicitly.
-          files: [props.source.replace(/\\/g, "/")],
+          files: [props.source.replaceAll(path.sep, "/")],
           include: [],
           exclude: [],
         },

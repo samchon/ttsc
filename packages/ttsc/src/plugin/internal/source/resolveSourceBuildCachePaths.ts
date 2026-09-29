@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import type { ITtscSourceBuildCachePaths } from "./ITtscSourceBuildCachePaths";
 import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
 
@@ -16,7 +17,7 @@ import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
  * @evidence contracts/common.md#clear-and-simple-design Root selection and Go override selection are separate helpers; the result carries paths with their ownership discriminant.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Workspace markers and environment overrides are supported configuration inputs rather than project-name exceptions.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain each payload and independent Go ownership, separated from tags under the documentation guidance.
- * @evidence contracts/portability.md#os-neutral-implementation Native path APIs anchor ttsc overrides; external GOCACHE preserves Go's supplied spelling and validation semantics.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path APIs anchor ttsc overrides; environment names use Windows case-insensitive lookup, and external GOCACHE preserves Go's supplied spelling and validation semantics.
  * @evidence contracts/performance.md#efficient-algorithms Dominant work is ancestor discovery and small boundary snapshots, never recursive cache-payload traversal.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Shared workspace placement permits producer caches to be shared, but this path query coordinates neither completed nor in-flight computations and establishes no answer equivalence.
@@ -68,12 +69,13 @@ function resolveSourceBuildCacheRoot(
   if (cacheDir) {
     return path.resolve(projectRoot, cacheDir);
   }
-  if (env.TTSC_CACHE_DIR) {
+  const configured = SidecarEnvironment.read(env, "TTSC_CACHE_DIR");
+  if (configured) {
     // Anchor a relative TTSC_CACHE_DIR to the project root (not the process
     // cwd) so a programmatic host whose cwd differs from the project still
     // resolves — and later cleans — the same cache. Absolute values pass
     // through path.resolve unchanged.
-    return path.resolve(projectRoot, env.TTSC_CACHE_DIR);
+    return path.resolve(projectRoot, configured);
   }
   return path.join(
     resolveWorkspaceRoot(projectRoot),
@@ -248,18 +250,20 @@ function resolveGoBuildCacheRoot(
   root: string;
   source: ITtscSourceBuildCachePaths["goBuildRootSource"];
 } {
-  if (env.TTSC_GO_CACHE_DIR) {
+  const dedicated = SidecarEnvironment.read(env, "TTSC_GO_CACHE_DIR");
+  if (dedicated) {
     // Anchor a relative TTSC_GO_CACHE_DIR to the project root, matching
     // TTSC_CACHE_DIR, so the build and a later `clean` from a different cwd
     // agree on the directory. Absolute values pass through unchanged.
     return {
-      root: path.resolve(projectRoot, env.TTSC_GO_CACHE_DIR),
+      root: path.resolve(projectRoot, dedicated),
       source: "TTSC_GO_CACHE_DIR",
     };
   }
-  if (env.GOCACHE && env.GOCACHE.length > 0) {
+  const external = SidecarEnvironment.read(env, "GOCACHE");
+  if (external && external.length > 0) {
     return {
-      root: env.GOCACHE,
+      root: external,
       source: "GOCACHE",
     };
   }

@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { SidecarEnvironment } from "../../compiler/internal/sharedHost/SidecarEnvironment";
 import { runtimeExecutableIdentity } from "../../internal/runtimeExecutableIdentity";
 import { SourceBuildCacheLayout } from "./source/SourceBuildCacheLayout";
 import { resolveSourceBuildCachePaths } from "./source/resolveSourceBuildCachePaths";
@@ -88,7 +89,7 @@ export namespace CapabilityResolutionFormat {
    * @evidence contracts/common.md#clear-and-simple-design Cache-root policy is delegated once and this function adds only the capability-entry key and layout.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The NUL separator prevents ambiguous path-field concatenation; fallback means uncached resolution rather than a guessed answer.
    * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains null storage and project-wide reuse across capabilities; descriptive/tag separation follows the documentation skill.
-   * @evidence contracts/portability.md#os-neutral-implementation path.resolve/path.join and the source cache owner implement OS-neutral native path construction with the supplied environment; no POSIX concatenation or global-cache path is assumed.
+   * @evidence contracts/portability.md#os-neutral-implementation path.resolve/path.join and the source cache owner implement OS-neutral native path construction; runtime selection reads the supplied environment with Windows case-insensitive name semantics.
    * @evidence contracts/performance.md#efficient-algorithms Environment ordering costs O(e log e), while current executable content is streamed in O(B) time with fixed-buffer space; the key needs no plugin-source directory scan.
    * @evidence contracts/performance.md#reuse-equivalent-work All capabilities for the same project identity use one entry because discovery computes their complete plugin set together.
    *
@@ -104,8 +105,10 @@ export namespace CapabilityResolutionFormat {
     /** Effective environment selecting workspace-local or explicit storage. */
     env?: NodeJS.ProcessEnv;
   }): string | null {
-    const environment = options.env ?? process.env;
-    const runtime = environment.TTSC_NODE_BINARY ?? process.execPath;
+    const environment = SidecarEnvironment.merge(options.env ?? process.env);
+    const runtime =
+      SidecarEnvironment.read(environment, "TTSC_NODE_BINARY") ??
+      process.execPath;
     if (!path.isAbsolute(runtime)) return null;
     let root: string;
     let runtimeIdentity: string;
