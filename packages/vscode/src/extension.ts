@@ -468,9 +468,10 @@ async function reconcileClientsForDocuments(
       specs.set(spec.id, spec);
     }
   };
-  if (activeUri) {
-    pushSpec(resolveServerLaunchSpecForUri(activeUri));
-  }
+  const activeSpec = activeUri
+    ? resolveServerLaunchSpecForUri(activeUri)
+    : undefined;
+  pushSpec(activeSpec);
   for (const document of orderedDocuments) {
     pushSpec(resolveServerLaunchSpecForUri(document.uri));
   }
@@ -479,7 +480,7 @@ async function reconcileClientsForDocuments(
   }
   const plannedRoots = planNonOverlappingClientRoots(
     [...specs.values()].map((spec) => spec.cwd),
-    activeUri ? resolveServerLaunchSpecForUri(activeUri)?.cwd : undefined,
+    activeSpec?.cwd,
   );
   await stopClientRoots(rootsToStopForPlan(clientRoots(), plannedRoots));
   for (const root of plannedRoots) {
@@ -605,6 +606,30 @@ async function startClient(
  *   LanguageClient subclass error-handler override are supported extension
  *   points. Only the owned client map/queue are mutated.
  *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Activation registers editor boundaries and delegates root planning, client
+ *   lifetime and saved-state edits to named helpers. One queue serializes all
+ *   reconciliation, including command-initiated startup and workspace events.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Reconciliation sorts d open documents and plans r roots in O(d log d +
+ *   r squared) local work beyond project discovery. Root sets are workspace
+ *   projects, not source files; planning avoids applying a files-wide traversal
+ *   to every event. Discovery still performs one upward walk per document.
+ *
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The client map and each entry's ready promise share existing and in-flight
+ *   clients by physical root identity. One active launch spec is reused for
+ *   both the candidate set and preferred-root decision within reconciliation;
+ *   later events rediscover configuration instead of caching stale disk state.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   The context owns subscriptions and the trace channel. The client map owns
+ *   transports for planned roots; superseded roots stop before replacements,
+ *   failed starts remove their entry, and deactivation stops all entries.
+ *   Serialized event tasks remain queued until processed; there is no hard
+ *   backlog cap, and stop failures are reported rather than certified as release.
+ *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Disk-backed commands reject dirty targets before sending and before
  *   applying results; real server failures are surfaced without test-mode
@@ -625,6 +650,7 @@ async function startClient(
 
 export async function activate(context: ExtensionContext): Promise<void> {
   deactivating = false;
+  warnedRelativeServerPaths.clear();
   const specs = resolveServerLaunchSpecs();
   if (specs.length === 0) {
     window.showErrorMessage(
@@ -724,6 +750,7 @@ export async function activate(context: ExtensionContext): Promise<void> {
       if (!event.affectsConfiguration("ttsc.serverPath")) {
         return;
       }
+      warnedRelativeServerPaths.clear();
       void enqueueClientReconciliation(async () => {
         const active = window.activeTextEditor?.document;
         const activeUri =
@@ -756,6 +783,26 @@ export async function activate(context: ExtensionContext): Promise<void> {
  *   The supported LanguageClient.stop lifecycle and Promise queue own
  *   teardown. Clearing the owned map before awaiting stops prevents stale
  *   routing; errors are reported instead of pretending every process stopped.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One teardown waits for reconciliation and collects all stop outcomes.
+ *   The finalizer clears the trace reference even if teardown fails, while
+ *   the deactivating flag prevents queued work from reopening clients.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   With r retained clients, teardown creates O(r) stop promises and inspects
+ *   O(r) outcomes. Promise.allSettled lets independent stops proceed together
+ *   and preserves each rejection for reporting.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Client stops are ownership-ending effects, not equivalent computations to
+ *   cache or share across subsequent activation sessions.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   The extension clears client routing, awaits every retained transport's
+ *   stop and releases the trace reference and warning history. Context
+ *   subscriptions own editor registrations and channel disposal. Rejected
+ *   stops are logged; successful OS process release is not assumed on failure.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   No foreign methods or host globals are patched.
@@ -791,6 +838,7 @@ export async function deactivate(): Promise<void> {
     })
     .finally(() => {
       sharedTraceChannel = undefined;
+      warnedRelativeServerPaths.clear();
     });
   reconcileQueue = teardown.catch(() => {});
   await teardown;

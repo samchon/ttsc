@@ -5,8 +5,13 @@
  * read as compiler UTF-8 byte offsets.
  *
  * @evidence contracts/common.md#principled-implementation
- *   The TypeScript structural type ProtocolPosition represents LSP coordinate
- *   units.
+ *   Separate numeric line and character fields preserve the LSP's two
+ *   zero-based coordinates. isProtocolPosition checks integer/nonnegative
+ *   values before unknown replies enter the editor conversion path.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   This coordinate record contains only the two protocol components; it
+ *   leaves validation to the collector instead of adding state to each value.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   The representation follows the documented consumer contract; its fields do
@@ -33,8 +38,12 @@ export type ProtocolPosition = {
  * collector validates their shape.
  *
  * @evidence contracts/common.md#principled-implementation
- *   The TypeScript structural type ProtocolRange represents ordered LSP
- *   endpoints.
+ *   Start and end use the same UTF-16 position representation. The collector
+ *   enforces lexicographic ordering, including an equal-endpoint insertion.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Two named endpoints expose the range directly; shared position validation
+ *   avoids a second coordinate policy in the range record.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   The representation follows the documented consumer contract; its fields do
@@ -61,8 +70,13 @@ export type ProtocolRange = {
  * interpreted as editor document identifiers.
  *
  * @evidence contracts/common.md#principled-implementation
- *   The TypeScript structural type NormalizedTextEdit represents a collected
- *   command replacement.
+ *   Keeping the document URI with its ordered range and text preserves each
+ *   LSP changes-map replacement when the map is flattened. Empty text remains
+ *   a deletion and an equal-endpoint range remains an insertion.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One self-contained replacement record separates reply decoding from
+ *   constructing VS Code edits without retaining the unknown payload.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   The representation follows the documented consumer contract; its fields do
@@ -99,6 +113,10 @@ export type NormalizedTextEdit = {
  *   Object.entries and array iteration decode the supported LSP changes form.
  *   Integer/order predicates validate ranges and string checks preserve
  *   replacement text.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The collector owns map iteration; small predicates own positions, range
+ *   order and text decoding. Editor conversion remains outside this module.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   The operation returns owned records without writing documents, parsing
@@ -149,6 +167,10 @@ export function collectWorkspaceEditChanges(
  *   Recursive Array.some/Object.values and exact Set membership inspect the
  *   command payload rather than special-casing argument positions.
  *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One recursive helper handles nested values, while this entry point owns
+ *   only the argument list and the caller-supplied dirty URI set.
+ *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   This pure guard makes no filesystem or foreign API changes and uses no
  *   test-mode branch.
@@ -174,9 +196,12 @@ export function commandArgumentsContainDirtyURI(
  * guard uses exact URI identity and performs no write.
  *
  * @evidence contracts/common.md#principled-implementation
- *   Array.some and Set.has inspect every normalized replacement URI. The
- *   policy derives from saved-state commands, not filenames, tests or foreign
- *   method replacements.
+ *   Array.some implements existential membership in the exact dirty-URI set.
+ *   It returns true as soon as a replacement could overwrite unsaved text.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   This predicate checks normalized targets only. Argument decoding and
+ *   editor writes remain separate so it has no hidden document side effects.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Decision values come from the documented inputs and product protocol
@@ -204,6 +229,10 @@ export function workspaceEditChangesTouchDirtyURI(
  *
  * @evidence contracts/common.md#principled-implementation
  *   String.startsWith uses the server-announced root command namespace.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Prefix authorization is one pure predicate shared by middleware; command
+ *   dispatch and edit application remain with their respective owners.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   A nonempty-prefix guard prevents blanket application; this pure predicate

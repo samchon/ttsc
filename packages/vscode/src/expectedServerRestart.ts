@@ -11,8 +11,12 @@ import type {
  * transport-crash budget.
  *
  * @evidence contracts/common.md#principled-implementation
- *   The TypeScript structural type ExpectedServerRestartHandler represents one
- *   expected-close lifecycle flag and the supported ErrorHandler interface.
+ *   The supported ErrorHandler and a separate marking method expose the
+ *   transport policy without exposing its private one-shot boolean.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Callbacks and the marking operation form one controller interface; callers
+ *   cannot rewrite the state or replace the fallback implementation.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   The representation follows the documented consumer contract; its fields do
@@ -37,6 +41,10 @@ export type ExpectedServerRestartHandler = {
    * @evidence contracts/common.md#principled-implementation
    *   This signature exposes the owned one-shot lifecycle transition.
    *
+   * @evidence contracts/common.md#clear-and-simple-design
+   *   A parameterless marker expresses exactly the next-close transition;
+   *   callers do not need access to the transport callbacks or boolean state.
+   *
    * @evidence contracts/common.md#prohibited-implementation-shortcuts
    *   It declares no implementation or foreign mutation;
    *   createExpectedServerRestartHandler owns the flag through the supported
@@ -47,7 +55,6 @@ export type ExpectedServerRestartHandler = {
    *   later unannounced closes return to the fallback crash policy. Purpose,
    *   conditions and reasons use separate native paragraphs under the
    *   documentation skill; member comments remain beside their fields.
-   *
    */
   expectRestart(): void;
 };
@@ -66,10 +73,14 @@ export type ExpectedServerRestartHandler = {
  *   error callback arguments and one-shot state separates announced
  *   transitions from genuine crashes.
  *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One closure owns the boolean and returns the handler and marker together.
+ *   Unmarked closes and all errors delegate to the supplied fallback.
+ *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
- *   Decision values come from the documented inputs and product protocol
- *   rather than expected test answers. No compensating path is introduced to
- *   make a known example pass.
+ *   The explicit server notification is the supported reason for bypassing
+ *   one crash-budget decision. Later closes use the original handler; no
+ *   LanguageClient method or global transport is replaced.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc separates forwarded errors, one marked close and subsequent
