@@ -46,7 +46,7 @@ on:
 
 concurrency:
   group: build-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: false
 
 env:
   GOCACHE: ${{ github.workspace }}/.cache/ci/go-build

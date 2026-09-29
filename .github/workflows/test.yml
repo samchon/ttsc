@@ -11,7 +11,7 @@ on:
 
 concurrency:
   group: test-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: false
 
 # Cache Go's intermediate objects separately from each deliberately cold plugin
 # root. Native executables are always built from the current checkout.
