@@ -154,10 +154,26 @@ function selectBuild(scope) {
     : [...new Set(nativeScopes.flatMap((entry) => PLATFORM_TARGETS[entry].split(",")))] };
 }
 
-function main() {
+async function main() {
   if (!fs.existsSync(path.join(platformDir, "package.json")))
     throw new Error(`Unsupported current platform package: ttsc-${platformKey}`);
   const { plan, platformTargets } = selectBuild(process.env.TTSC_BUILD_SCOPE || "full");
+  const workers = Number(process.env.TTSC_BUILD_WORKERS ?? 1);
+  if (!Number.isSafeInteger(workers) || workers < 1)
+    throw new Error("TTSC_BUILD_WORKERS must be a positive integer");
+  if (workers > 1) {
+    const failed = await runBuildPlan(
+      plan,
+      buildDependencies(plan),
+      (target) => runAsync(target, platformTargets),
+      workers,
+    );
+    if (failed.length) {
+      console.error(`Failed builds: ${failed.map(targetName).join(", ")}`);
+      process.exitCode = 1;
+    }
+    return;
+  }
   for (const target of plan) {
     if (target === PLATFORM) {
       run(
@@ -174,6 +190,123 @@ function main() {
       run(["--filter", target, "build"]);
     }
   }
+}
+
+function targetName(target) {
+  return target === PLATFORM
+    ? "current platform"
+    : typeof target === "object"
+      ? target.filter
+      : target;
+}
+
+// Package manifest edges protect import order. Graph also runs the installed
+// native compiler, whose platform-package dependency is implicit in its script.
+function buildDependencies(plan) {
+  const targets = new Map(plan.map((target) => [targetName(target), target]));
+  const manifests = new Map();
+  for (const directory of ["packages", "tests"])
+    for (const entry of fs.readdirSync(path.join(root, directory), { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const file = path.join(root, directory, entry.name, "package.json");
+      if (!fs.existsSync(file)) continue;
+      const manifest = JSON.parse(fs.readFileSync(file, "utf8"));
+      manifests.set(manifest.name, manifest);
+    }
+  const dependencies = new Map();
+  for (const target of plan) {
+    if (target === PLATFORM) {
+      dependencies.set(target, []);
+      continue;
+    }
+    const name = targetName(target);
+    const manifest = manifests.get(name);
+    if (!manifest) throw new Error(`missing build manifest for ${name}`);
+    const declared = new Set(
+      ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"]
+        .flatMap((field) => Object.keys(manifest[field] ?? {})),
+    );
+    const parents = [...declared]
+      .filter((dependency) => targets.has(dependency))
+      .map((dependency) => targets.get(dependency));
+    if (targets.has("current platform") && name === "@ttsc/graph")
+      parents.push(PLATFORM);
+    dependencies.set(target, parents);
+  }
+  return dependencies;
+}
+
+// Only build tasks with successful prerequisites can enter the bounded worker
+// pool. Independent tasks still reach a verdict after a sibling fails.
+async function runBuildPlan(plan, dependencies, execute, workers) {
+  if (!Number.isSafeInteger(workers) || workers < 1)
+    throw new Error("build workers must be a positive integer");
+  const position = new Map(plan.map((target, index) => [target, index]));
+  for (const target of plan)
+    for (const parent of dependencies.get(target) ?? [])
+      if (!position.has(parent) || position.get(parent) >= position.get(target))
+        throw new Error(`build dependency must precede ${targetName(target)}: ${targetName(parent)}`);
+  let active = 0;
+  const waiting = [];
+  async function withWorker(task) {
+    if (active >= workers) await new Promise((resolve) => waiting.push(resolve));
+    else active++;
+    try {
+      return await task();
+    } finally {
+      if (waiting.length) waiting.shift()();
+      else active--;
+    }
+  }
+  const started = new Map();
+  function start(target) {
+    if (started.has(target)) return started.get(target);
+    const result = (async () => {
+      const statuses = await Promise.all((dependencies.get(target) ?? []).map(start));
+      if (statuses.some((status) => status !== 0)) {
+        console.error(`Build blocked by failed prerequisite: ${targetName(target)}`);
+        return 1;
+      }
+      try {
+        return await withWorker(() => execute(target));
+      } catch (error) {
+        console.error(error);
+        return 1;
+      }
+    })();
+    started.set(target, result);
+    return result;
+  }
+  const statuses = await Promise.all(plan.map(start));
+  return plan.filter((_, index) => statuses[index] !== 0);
+}
+
+function runAsync(target, platformTargets) {
+  let args;
+  let extraEnv = {};
+  if (target === PLATFORM) {
+    args = ["--dir", platformDir, "build"];
+    if (platformTargets !== undefined)
+      extraEnv = { TTSC_PLATFORM_BUILD_TARGETS: platformTargets.join(",") };
+  } else if (typeof target === "object")
+    args = ["--filter", target.filter, target.script];
+  else args = ["--filter", target, "build"];
+  const started = process.hrtime.bigint();
+  console.log(`Building ${targetName(target)}`);
+  return new Promise((resolve) => {
+    const child = cp.spawn(...pnpmCommand(args), {
+      cwd: root,
+      env: { ...process.env, ...extraEnv },
+      stdio: "inherit",
+      windowsHide: true,
+    });
+    child.on("error", (error) => console.error(error));
+    child.on("close", (code) => {
+      const seconds = Number(process.hrtime.bigint() - started) / 1e9;
+      console.log(`Build finished: ${targetName(target)}: ${code === 0 ? "passed" : "FAILED"} in ${seconds.toFixed(1)} s`);
+      resolve(code ?? 1);
+    });
+  });
 }
 
 function run(args, extraEnv = {}) {
@@ -201,6 +334,10 @@ function pnpmCommand(args) {
   return ["cmd.exe", ["/d", "/s", "/c", "pnpm", ...args]];
 }
 
-if (require.main === module) main();
+if (require.main === module)
+  main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
 
-module.exports = { PLATFORM, PLATFORM_TARGETS, SCOPES, selectBuild };
+module.exports = { PLATFORM, PLATFORM_TARGETS, SCOPES, selectBuild, buildDependencies, runBuildPlan };

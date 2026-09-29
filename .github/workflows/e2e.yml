@@ -51,6 +51,7 @@ jobs:
         run: pnpm run build:current
         env:
           TTSC_BUILD_SCOPE: full
+          TTSC_BUILD_WORKERS: 2
           TTSC_CACHE_DIR: ${{ env.TTSC_TEST_CACHE_DIR }}
       - name: Batched e2e contracts
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
