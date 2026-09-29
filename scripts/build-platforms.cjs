@@ -44,6 +44,7 @@ async function main() {
   const packageWorkers = Number(process.env.TTSC_PACKAGE_BUILD_WORKERS ?? 1);
   if (!Number.isSafeInteger(packageWorkers) || packageWorkers < 1)
     throw new Error("TTSC_PACKAGE_BUILD_WORKERS must be a positive integer");
+  const platformDirectories = listPlatformPackageDirs();
   const packageFailures = await runBuildPlan(
     PACKAGE_BUILDS_BEFORE_PLATFORMS,
     buildDependencies(PACKAGE_BUILDS_BEFORE_PLATFORMS),
@@ -57,7 +58,7 @@ async function main() {
   }
 
   const failed = await finishPlatformBuilds(
-    listPlatformPackageDirs(),
+    platformDirectories,
     (platformDir) =>
       new Promise((resolve) => {
         const started = process.hrtime.bigint();
