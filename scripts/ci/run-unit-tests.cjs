@@ -19,7 +19,7 @@ async function main() {
       args: [
         "--import",
         path.join(root, "scripts", "register-typescript-loader.mjs"),
-        path.join(root, "tests", "test-lint", "src", "index.ts"),
+        "./src/index.ts",
       ],
       cwd: path.join(root, "tests", "test-lint"),
       env: { TTSC_TEST_DIRS: "features/harness" },
