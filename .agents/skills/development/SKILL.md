@@ -21,7 +21,7 @@ description: Defines ttsc's implementation procedures, testing, validation, and 
 
 Apply the [contracts skill](../contracts/SKILL.md) before changing maintained production source, reading the common checklist and the scoped topics relevant to the affected operations.
 
-- **No forcing a broken design.** When the same failure keeps returning under patch after patch, the design is wrong. Stop, find the root cause, and fix the design instead of looping forever on symptoms.
+- When a failure disproves an implementation assumption, follow the [implementation-shortcut contract](../contracts/common.md#no-implementation-shortcuts) before adding another compensating path. Verify the cause, correct the owning behavior, and remove superseded compensations in the same repair. Do not wait for the same failure to recur before reassessing an assumption already shown false.
 - **No whack-a-mole.** Patching the one case that surfaced is whack-a-mole, and so is repairing one symptom at a time as each rerun reveals the next, which [AGENTS.md's **Collect every symptom before correcting** rule](../../../AGENTS.md#attitude) forbids. Map every case the root cause can produce through the [consequence analysis](#consequence-analysis), and seal them all with coverage so the class of failure cannot recur.
 
 ## Work Rules
@@ -153,4 +153,4 @@ Exclude generated, copied, dependency, build, and test material through explicit
 
 A hand-maintained shim or authored helper remains maintained source even beside generated files. Test and benchmark enrollment requires its own authorized scope.
 
-The [scoped contracts](../contracts/SKILL.md) guide review of their named operations. Before enrolling one, verify its selected public hosts through `list` and `inspect`, keep unrelated declarations outside that added claim, and record which private helpers remain review-only. Reference its own document rather than every topic in the skill. Until that selection is verified and committed, report the topic as review guidance, not automated enforcement.
+The [scoped contracts](../contracts/SKILL.md) guide review of their named operations. Before enrolling one, verify its selected public hosts through `list` and `inspect`, keep unrelated declarations outside that added claim, and record which private helpers remain review-only. Verify completed common and scoped answers together through the combined-selection check that skill requires. Select only the documents applicable to those hosts. Until that selection and composition are verified and committed, report the topic as review guidance, not automated enforcement.

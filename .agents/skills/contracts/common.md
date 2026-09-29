@@ -13,10 +13,15 @@ Implement behavior for supported consumers through the owning contract:
 - **No hard coding:** do not special-case a consumer, fixture name, expected answer, or measured result. Protocol constants, discriminants, and documented defaults are legitimate fixed values when the contract defines them.
 - **No monkey patching:** use supported registration, extension, and dependency-injection boundaries. Do not replace another module's methods, globals, or internals to change its behavior.
 - **No test-only logic:** do not add a branch whose sole purpose is satisfying a test or improving a measurement.
+- **No chains of workarounds:** when evidence disproves a design assumption, correct that assumption at the layer that owns the behavior. Do not keep the broken path and compensate for it with another fallback, wrapper, retry, or special case. An adapter or compatibility path is legitimate when an actual supported contract requires it and its boundary and behavior are explicit.
 
 Hard-coded answers and test-only branches can make a known case pass while leaving the supported behavior wrong. Replacing foreign behavior makes correctness depend on initialization order and dependency internals. These prohibitions share an acknowledgment because they ask whether the implementation serves the real contract through an owned or supported mechanism.
 
-Identify the source of decisions and fixed values, the extension or mutation boundary, and the real consumer behavior served by the declaration. Address all three prohibitions. For a data-only declaration, explain what its fields or literal values represent and that it introduces no executable branches or mutation.
+Compensating for a failed assumption leaves the original defect active and makes later callers depend on the compensation. Another passing example does not establish that the owning behavior was repaired. The [repair procedure](../development/SKILL.md#repair-discipline) governs collecting symptoms and correcting their whole cause.
+
+Identify the source of decisions and fixed values, the extension or mutation boundary, and the real consumer behavior served by the declaration. Address these prohibitions. For a data-only declaration, explain what its fields or literal values represent and that it introduces no executable branches or mutation.
+
+For a repair, also identify the observed failure, the disproven assumption or other root cause, and the owning path corrected. Explain which superseded compensations were removed and why any remaining adapter, fallback, or retry belongs to a supported contract. Point to verification of the repaired behavior and relevant negative or boundary cases. Report an unverified cause as unresolved rather than claiming a workaround fixed it. Record these facts in the acknowledgment of the operation responsible for the repair and in its change review; subordinate helpers describe their contribution without repeating the whole history.
 
 ## Portable behavior
 
