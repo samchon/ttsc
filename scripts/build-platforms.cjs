@@ -107,7 +107,11 @@ function buildPackage(packageName) {
   const started = process.hrtime.bigint();
   console.log(`Building package: ${packageName}`);
   return new Promise((resolve) => {
-    const child = cp.spawn(...pnpmCommand(["--filter", packageName, "build"]), {
+    const script = packageBuildScript(
+      packageName,
+      process.env.TTSC_PLATFORM_BUILD_SET ?? "all",
+    );
+    const child = cp.spawn(...pnpmCommand(["--filter", packageName, script]), {
       cwd: root,
       stdio: "inherit",
       windowsHide: true,
@@ -121,6 +125,12 @@ function buildPackage(packageName) {
       resolve(code ?? 1);
     });
   });
+}
+
+function packageBuildScript(packageName, set) {
+  return set === "ci-remainder" && packageName === "@ttsc/wasm"
+    ? "build:ts"
+    : "build";
 }
 
 function run(args) {
@@ -181,5 +191,6 @@ module.exports = {
   PACKAGE_BUILDS_AFTER_PLATFORMS,
   PACKAGE_BUILDS_BEFORE_PLATFORMS,
   finishPlatformBuilds,
+  packageBuildScript,
   selectPlatformPackageDirs,
 };

@@ -78,6 +78,20 @@ jobs:
       - name: Build @ttsc/wasm
         run: pnpm --filter @ttsc/wasm build
 
+      - name: Assert WASM dist artifacts
+        run: |
+          test -f packages/wasm/dist/ttsc.wasm
+          test -f packages/wasm/dist/wasm_exec.js
+          test -f packages/wasm/dist/go.mod
+          test -d packages/wasm/shim-vendor/shim
+
+      - name: Smoke WASM tarball
+        run: |
+          cd packages/wasm
+          pnpm pack --pack-destination /tmp
+          tar -tzf /tmp/ttsc-wasm-*.tgz | grep -q shim-vendor/shim/ast/shim.go
+          tar -tzf /tmp/ttsc-wasm-*.tgz | grep -q dist/ttsc.wasm
+
       - name: Build @ttsc/playground
         run: pnpm --filter @ttsc/playground build
 

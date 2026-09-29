@@ -4,6 +4,7 @@ const { test } = require("node:test");
 const {
   finishPlatformBuilds,
   PACKAGE_BUILDS_BEFORE_PLATFORMS,
+  packageBuildScript,
   selectPlatformPackageDirs,
 } = require("../build-platforms.cjs");
 const { buildDependencies } = require("../build-current.cjs");
@@ -57,4 +58,6 @@ test("CI builds the Linux ARM remainder and its local graph compiler", () => {
   assert.deepEqual(selectPlatformPackageDirs(all, "all", current), all);
   assert.deepEqual(selectPlatformPackageDirs(all, "ci-remainder", current), all.slice(0, 2));
   assert.throws(() => selectPlatformPackageDirs(all, "invalid", current), /unknown/);
+  assert.equal(packageBuildScript("@ttsc/wasm", "ci-remainder"), "build:ts");
+  assert.equal(packageBuildScript("@ttsc/wasm", "all"), "build");
 });
