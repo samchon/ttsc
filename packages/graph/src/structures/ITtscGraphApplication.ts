@@ -121,6 +121,7 @@ export interface ITtscGraphApplication {
    *
    * @param props Reasoning plus one graph request
    * @returns Matching `result` union member
+   *
    * @evidence contracts/common.md#principled-implementation The callable consumes the typed reasoning/request envelope and returns the typed audit, next action and result envelope asynchronously.
    * @evidence contracts/common.md#clear-and-simple-design One method delegates branch semantics to the request union instead of duplicating parameter lists.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The supported method includes escape and does not require graph use for source bodies.
