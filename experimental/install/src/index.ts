@@ -62,6 +62,19 @@ async function main() {
         process.platform === "win32" ? "junction" : "dir",
       );
     }
+    const manifestPath = path.join(workspace, "package.json");
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+    // Retain this scenario's original automatic plugin discovery as well as
+    // the explicit transforms and native TypeScript package resolution.
+    manifest.dependencies = Object.fromEntries(
+      [
+        "ttsc",
+        platformPackage,
+        "typescript",
+        ...packageTarballs.map((name) => `@ttsc/${name}`),
+      ].map((name) => [name, name === "typescript" ? "^7.0.2" : "*"]),
+    );
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
   }
   const failed = await runIndependent(
     [

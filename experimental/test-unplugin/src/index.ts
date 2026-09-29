@@ -8,6 +8,7 @@ const experimentRoot = path.resolve(import.meta.dirname, "..");
 const root = path.resolve(experimentRoot, "../..");
 const tarballs = path.join(root, "experimental", "tarballs");
 const workspace = path.join(experimentRoot, ".tmp", "project");
+const dependencyStore = path.join(experimentRoot, ".tmp", "install");
 // The consumer is rebuilt each run; its content-keyed plugin cache survives
 // beside it and joins the CI archive when a shared test root is supplied.
 const pluginCache = path.resolve(
@@ -41,9 +42,6 @@ const registryDependencies = [
   // workspace `tsc` binary through TTSC_TSGO_BINARY (set in `run`), so the
   // consumer only needs the legacy compiler here to satisfy Next.
   "typescript@6.0.3",
-  // The compiler installation scenario keeps the native TypeScript dependency
-  // while Next retains the classic compiler API it requires.
-  "typescript-native@npm:typescript@7.0.2",
   "vite@7.3.6",
   "webpack@5.107.1",
   "webpack-cli@7.2.3",
@@ -75,6 +73,9 @@ const TURBOPACK_SCOPED_GLOBS = ["{src/,}*.ts", "src/**/*.ts"];
 
 const requireFromRoot = createRequire(path.join(root, "package.json"));
 const { runIndependent } = requireFromRoot("./scripts/ci/run-independent.cjs");
+const { consumerDependencies } = requireFromRoot(
+  "./scripts/ci/consumer-dependencies.cjs",
+);
 
 // Each phase owns its output directory. The Next builds and matcher probe share
 // next.config.mjs/dist-next and therefore remain one serial phase.
@@ -153,26 +154,10 @@ export async function test_unplugin_package_e2e() {
   prepareWorkspace();
   installTarballs();
   const failed = await runIndependent(
-    Object.keys(buildPhases),
-    (phase) =>
-      new Promise((resolve) => {
-        const child = cp.spawn(
-          process.execPath,
-          [
-            ...process.execArgv,
-            path.join(experimentRoot, "src", "index.ts"),
-            `--validation-phase=${phase}`,
-          ],
-          {
-            cwd: experimentRoot,
-            env: process.env,
-            stdio: "inherit",
-            windowsHide: true,
-          },
-        );
-        child.on("error", (error) => console.error(error));
-        child.on("close", (code) => resolve(code ?? 1));
-      }),
+    Object.keys(buildPhases).filter(
+      (phase) => phase !== "bun" && phase !== "bun-runtime",
+    ),
+    executeBuildPhase,
     Number(process.env.TTSC_HOST_WORKERS ?? 1),
   );
   // Finish the host lifecycle sweep even when a standalone build failed. It
@@ -183,8 +168,34 @@ export async function test_unplugin_package_e2e() {
     console.error(error);
     failed.push("ecosystem");
   }
+  // Runtime preload writes both a source and the ancestor bunfig.toml. Keep
+  // the original order so no build or host observes those changing inputs.
+  failed.push(
+    ...(await runIndependent(["bun", "bun-runtime"], executeBuildPhase)),
+  );
   assert(failed.length === 0, `Failed packed contracts: ${failed.join(", ")}`);
   console.log("Success");
+}
+
+function executeBuildPhase(phase: string): Promise<number> {
+  return new Promise((resolve) => {
+    const child = cp.spawn(
+      process.execPath,
+      [
+        ...process.execArgv,
+        path.join(experimentRoot, "src", "index.ts"),
+        `--validation-phase=${phase}`,
+      ],
+      {
+        cwd: experimentRoot,
+        env: process.env,
+        stdio: "inherit",
+        windowsHide: true,
+      },
+    );
+    child.on("error", (error) => console.error(error));
+    child.on("close", (code) => resolve(code ?? 1));
+  });
 }
 
 function prepareCurrentTarballs() {
@@ -789,6 +800,11 @@ function writeBunConfig() {
 }
 
 function installTarballs() {
+  fs.mkdirSync(dependencyStore, { recursive: true });
+  fs.writeFileSync(
+    path.join(dependencyStore, "package.json"),
+    JSON.stringify({ private: true, name: "ttsc-validation-dependencies" }),
+  );
   const command = [
     "npm install",
     "--ignore-scripts",
@@ -801,12 +817,32 @@ function installTarballs() {
     "--fetch-retry-mintimeout=10000",
     "--fetch-retry-maxtimeout=60000",
     ...registryDependencies,
+    "typescript-native@npm:typescript@7.0.2",
     tarball("ttsc"),
     tarball(platformTarball),
     tarball("unplugin"),
     ...installedPlugins.map(tarball),
   ].join(" ");
-  run(command, workspace);
+  run(command, dependencyStore);
+  const installed = JSON.parse(
+    fs.readFileSync(path.join(dependencyStore, "package.json"), "utf8"),
+  ).dependencies;
+  const manifestPath = path.join(workspace, "package.json");
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  // The store supplies both scenarios, but automatic plugin discovery reads
+  // this consumer's direct dependencies. Preserve its original declarations.
+  manifest.dependencies = consumerDependencies(installed, [
+    "ttsc",
+    `@ttsc/${platformKey}`,
+    "@ttsc/unplugin",
+    ...registryDependencies,
+  ]);
+  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+  fs.symlinkSync(
+    path.join(dependencyStore, "node_modules"),
+    path.join(workspace, "node_modules"),
+    process.platform === "win32" ? "junction" : "dir",
+  );
 }
 
 /** Preserve the complete shipped-compiler contract in this consumer install. */
@@ -890,7 +926,7 @@ function verifyEcosystemContracts() {
     path.join(root, "scripts", "ci", "run-independent.cjs"),
     path.join(workspace, "contracts", "run-independent.cjs"),
   );
-  run("node contracts/index.mjs", workspace);
+  run("node contracts/index.mjs", workspace, {}, { inheritOutput: true });
 }
 
 function verifyViteBuild() {
@@ -1312,7 +1348,7 @@ function tarball(name) {
   return file;
 }
 
-function run(command, cwd, extraEnv = {}) {
+function run(command, cwd, extraEnv = {}, options = { inheritOutput: false }) {
   console.log(`$ ${command}`);
   try {
     const result = cp.execSync(command, {
@@ -1328,10 +1364,10 @@ function run(command, cwd, extraEnv = {}) {
         TTSC_CACHE_DIR: pluginCache,
       },
       maxBuffer: 1024 * 1024 * 64,
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: options.inheritOutput ? "inherit" : ["ignore", "pipe", "pipe"],
     });
     if (result) process.stdout.write(result);
-    return { stdout: result };
+    return { stdout: result ?? "" };
   } catch (error) {
     if (error.stdout) process.stdout.write(error.stdout);
     if (error.stderr) process.stderr.write(error.stderr);
