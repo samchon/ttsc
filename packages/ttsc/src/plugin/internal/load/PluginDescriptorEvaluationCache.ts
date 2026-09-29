@@ -90,7 +90,6 @@ export namespace PluginDescriptorEvaluationCache {
    * @param props.additionalRuntime Selected Node executable exposed to the
    *   descriptor and used by ttsx/config loaders, when distinct from runtime.
    * @param props.version This ttsc build's version.
-   *
    * @evidence contracts/common.md#principled-implementation Canonical identity includes factory context, sorted effective environment and fresh content/lexical/physical proof of both actual runtime authorities; unobserved startup preloads and unreadable runtimes cannot select a reusable entry.
    * @evidence contracts/common.md#clear-and-simple-design The locator delegates cache-root policy and runtime observation, then constructs only the descriptor entry identity.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unidentifiable runtime/storage returns null for uncached evaluation rather than weakening the key or selecting a fixture-specific runtime.
@@ -224,16 +223,26 @@ export namespace PluginDescriptorEvaluationCache {
    * observations; a partial side channel cannot establish the population. A
    * write failure only costs the next launch an evaluation.
    *
-   * @evidence contracts/common.md#principled-implementation Persistence requires declared external reads, proof for every evaluator input and agreement with declared fingerprints; later reads validate those evaluation-time observations.
+   * `defaultWorkspaceRoot` is supplied only when the caller selected default
+   * storage. Its ownership marker precedes the first answer, so a later root
+   * search does not mistake this newly populated cache for an older orphan. The
+   * answer uses the marker's returned physical root, preserving placement if an
+   * ancestor alias changes after selection.
+   *
+   * @evidence contracts/common.md#principled-implementation Persistence requires declared external reads and complete evaluation-time proof; a caller-authorized default root is marked before its first answer is published so later selection stays at that installation.
    * @evidence contracts/common.md#clear-and-simple-design One writer assembles proof and publishes the copied serialization while the loader decides whether printed side effects permit caching.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Fresh hashing is not used to bless a past answer, and missing or contradictory declaration proof refuses a write rather than compensating with guesses.
-   * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains evaluation-time identity, non-persistable inputs and best-effort writing in separate paragraphs; tag spacing follows the documentation skill.
-   * @evidence contracts/portability.md#os-neutral-implementation Native path.resolve and same-directory staging/rename avoid OS-specific shell publication or path concatenation.
+   * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain evaluation-time identity, non-persistable inputs, best-effort writing and the caller's default-root authority before the tags.
+   * @evidence contracts/portability.md#os-neutral-implementation Native path operations and the shared physical-root marker precede same-directory staging/rename without OS-specific shell publication.
    * @evidence contracts/performance.md#efficient-algorithms Set-based input deduplication and one pass over declared fingerprints assemble proof proportional to the observed population, without reading source bytes again.
    * @evidence contracts/performance.md#reuse-equivalent-work Only the fully proved evaluation is persisted under its locate key; declared fingerprints are compared with observations rather than replacing them silently.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Call-owned staging is removed in finally after failure or publication; disk answers fall under default single-file pruning, while explicit cache roots stay caller-owned.
    */
-  export function write(file: string, evaluation: IEvaluation): void {
+  export function write(
+    file: string,
+    evaluation: IEvaluation,
+    defaultWorkspaceRoot?: string,
+  ): void {
     if (
       evaluation.observationsComplete !== true ||
       !declaresHostInputReads(evaluation.descriptor)
@@ -276,13 +285,37 @@ export namespace PluginDescriptorEvaluationCache {
       format: FORMAT,
       proof: { hashes, realpaths },
     };
-    const staging = `${file}.${process.pid}.${crypto.randomUUID()}.tmp`;
+    let output = file;
+    if (defaultWorkspaceRoot !== undefined) {
+      if (
+        path.dirname(file) !==
+        path.join(
+          defaultWorkspaceRoot,
+          SourceBuildCacheLayout.DESCRIPTOR_CACHE_DIRNAME,
+        )
+      )
+        return;
+      try {
+        const physicalRoot =
+          SourceBuildCacheLayout.markDefaultWorkspaceCacheRoot(
+            defaultWorkspaceRoot,
+          );
+        output = path.join(
+          physicalRoot,
+          SourceBuildCacheLayout.DESCRIPTOR_CACHE_DIRNAME,
+          path.basename(file),
+        );
+      } catch {
+        return;
+      }
+    }
+    const staging = `${output}.${process.pid}.${crypto.randomUUID()}.tmp`;
     try {
-      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.mkdirSync(path.dirname(output), { recursive: true });
       // Written beside the entry and renamed, so a reader never sees a partial
       // entry that happens to parse.
       fs.writeFileSync(staging, JSON.stringify(entry), "utf8");
-      fs.renameSync(staging, file);
+      fs.renameSync(staging, output);
     } catch {
       // The cache is an optimization over an evaluation that still works.
     } finally {

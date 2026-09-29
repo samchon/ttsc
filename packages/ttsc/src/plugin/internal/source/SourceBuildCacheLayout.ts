@@ -134,22 +134,24 @@ export namespace SourceBuildCacheLayout {
    * The marker keeps an intentionally empty `node_modules` authoritative after
    * its first cache write changes its sole payload to `.cache/ttsc`. Creation
    * is exclusive so concurrent first writers never follow or replace an
-   * existing filesystem entry.
+   * existing filesystem entry. The selected root is pinned to its ordinary
+   * physical directory before publication; default writers use that returned
+   * directory for their payload too.
    *
-   * @evidence contracts/common.md#principled-implementation Exclusive marker creation records a previously selected installation boundary; an existing nonordinary entry is rejected rather than overwritten.
-   * @evidence contracts/common.md#clear-and-simple-design Marker publication and existing-entry validation form one small operation.
+   * @evidence contracts/common.md#principled-implementation An ordinary physical root is pinned before exclusive marker creation records its selected installation boundary; its returned path lets the producer publish under the same root.
+   * @evidence contracts/common.md#clear-and-simple-design Marker publication and existing-entry validation return one physical root for the caller's payload.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The marker represents an actual prior selection and is not fabricated workspace detection for particular consumers.
-   * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the otherwise nonobvious feedback between an empty installation and the first cache write.
-   * @evidence contracts/portability.md#os-neutral-implementation Node's wx creation and lstat distinguish an ordinary marker from symlinks or junction-related entries without OS-based case assumptions.
-   * @evidence contracts/performance.md#efficient-algorithms Publication uses a fixed number of filesystem operations; recursive parent creation scales with missing path depth.
+   * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain first-write placement stability and physical pinning before the marker's exclusive publication.
+   * @evidence contracts/portability.md#os-neutral-implementation Native lstat/realpath pin the ordinary root and Node's wx creation rejects replacement of an existing marker without OS-based case assumptions.
+   * @evidence contracts/performance.md#efficient-algorithms Publication uses a fixed number of filesystem operations plus ordinary-root validation; recursive parent creation scales with missing path depth.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation persists installation provenance, not a computed answer whose inputs can be shared.
    *
    * @evidence contracts/performance.md#bound-retention-and-release-resources At most one marker is retained per root and is reclaimed with that root; synchronous filesystem calls retain no open handle.
    */
-  export function markDefaultWorkspaceCacheRoot(root: string): void {
-    fs.mkdirSync(root, { recursive: true });
-    const marker = path.join(root, DEFAULT_WORKSPACE_CACHE_MARKER);
+  export function markDefaultWorkspaceCacheRoot(root: string): string {
+    const physicalRoot = canonicalPluginCacheRoot(root);
+    const marker = path.join(physicalRoot, DEFAULT_WORKSPACE_CACHE_MARKER);
     try {
       fs.writeFileSync(marker, "1\n", { encoding: "utf8", flag: "wx" });
     } catch (error) {
@@ -159,6 +161,7 @@ export namespace SourceBuildCacheLayout {
         throw new Error(`ttsc: unsafe workspace cache marker: ${marker}`);
       }
     }
+    return physicalRoot;
   }
 
   /**

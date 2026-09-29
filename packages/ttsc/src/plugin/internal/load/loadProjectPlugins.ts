@@ -68,7 +68,6 @@ import { visitImportMappedCandidates } from "./visitImportMappedCandidates";
  *   config-file discovery (see `ITtscPluginFactoryContext.pluginConfigDir`).
  * @param options.projectRoot - Override the project root directory.
  * @param options.tsconfig - Alias for `file`.
- *
  * @evidence contracts/common.md#principled-implementation The loader brackets project discovery observations, evaluates descriptors in isolated processes, validates declared inputs/stages/composition and builds native sources; contradictory content or physical observations are omitted from proof rather than retroactively blessed.
  * @evidence contracts/common.md#clear-and-simple-design The operation owns one ordered load generation; private helpers separate discovery, evaluation, validation, composition and proof merging, while package resolution and source building remain their own modules.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Descriptor module caches are isolated rather than deleting application singletons. ttsx retry occurs only for explicit supported TypeScript loader incompatibility, with plugins disabled to avoid recursive self-hosting; arbitrary descriptor failures are not retried into false success.
@@ -1457,7 +1456,13 @@ function loadCommonJsDescriptor(
       fs.statSync(diagnostics).size === 0 &&
       PluginDescriptorEvaluationCache.locate(cacheAuthority) === cacheFile
     ) {
-      PluginDescriptorEvaluationCache.write(cacheFile, evaluation);
+      PluginDescriptorEvaluationCache.write(
+        cacheFile,
+        evaluation,
+        !descriptorCache.cacheDir && !effectiveEnv.TTSC_CACHE_DIR
+          ? path.dirname(path.dirname(cacheFile))
+          : undefined,
+      );
     }
     return evaluation;
   } finally {

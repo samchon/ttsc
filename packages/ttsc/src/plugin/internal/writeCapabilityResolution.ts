@@ -6,6 +6,7 @@ import { CapabilityResolutionFormat } from "./CapabilityResolutionFormat";
 import type { ITtscCapabilityPluginSource } from "./ITtscCapabilityPluginSource";
 import type { ITtscCapabilityResolutionEntry } from "./ITtscCapabilityResolutionEntry";
 import type { ITtscCapabilityResolutionPlugin } from "./ITtscCapabilityResolutionPlugin";
+import { SourceBuildCacheLayout } from "./source/SourceBuildCacheLayout";
 import { pluginSourceDigest } from "./source/pluginSourceDigest";
 import { pluginSourceFilesSignature } from "./source/pluginSourceFilesSignature";
 import { pluginSourceState } from "./source/pluginSourceState";
@@ -32,11 +33,16 @@ import { pluginSourceState } from "./source/pluginSourceState";
  * Publication is not a freshness assertion: the reader must still prove its
  * recorded observations before dependent results can reuse it.
  *
- * @evidence contracts/common.md#principled-implementation Retained inputs carry load-time hash/realpath and an optional expected pre-load authority refuses changed runtime/environment identity; source digest acceleration must reconstruct the recorded build state under agreeing observations.
+ * Default workspace storage is marked before even the clock probe is written,
+ * so a first answer cannot make a later root search choose a different
+ * installation. The probe and answer use the marker's pinned physical root; an
+ * explicit `TTSC_CACHE_DIR` remains caller-owned.
+ *
+ * @evidence contracts/common.md#principled-implementation Retained inputs carry load-time hash/realpath and expected authority; default root provenance is marked before clock-probe or answer publication, while source digest acceleration must reconstruct the recorded build state.
  * @evidence contracts/common.md#clear-and-simple-design The writer persists a narrow copied answer and proof entry; descriptor discovery and binary building remain outside persistence.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Host proofs are not rehashed now to bless an answer computed earlier; unavailable proof prevents a write, and write failure does not invent a capability answer.
- * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains evaluation-time proof ownership, optional acceleration and best-effort persistence in separate paragraphs; parameter members and tags are visibly separated following the documentation skill.
- * @evidence contracts/portability.md#os-neutral-implementation Native path.resolve/join and same-directory rename keep OS-neutral filesystem identities; source witnesses use actual device metadata instead of timestamp-precision assumptions.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain evaluation-time proof, best-effort persistence and first-write default-root selection, with member/tag separation following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path.resolve/join, the shared physical-root marker and same-directory rename preserve OS-neutral identities; source witnesses use actual device metadata.
  * @evidence contracts/performance.md#efficient-algorithms Set-based path deduplication precedes one stable sort; each source digest is bracketed once, and the copied plugin answer stays proportional to the configured population.
  * @evidence contracts/performance.md#reuse-equivalent-work Persistence stores one complete project answer under the shared format key; later reuse must reprove these exact evaluation/build states rather than treating writing as validation.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Same-directory staging is call-owned and removed after failed writes; committed single-file entries belong to default source-cache pruning, while caller-selected roots remain caller-owned. Probe cleanup is delegated to the clock witness owner.
@@ -90,7 +96,7 @@ export function writeCapabilityResolution(
     plugins: readonly ITtscCapabilityResolutionPlugin[];
   },
 ): ITtscCapabilityResolutionEntry | null {
-  const file = CapabilityResolutionFormat.resolutionFile(options);
+  let file = CapabilityResolutionFormat.resolutionFile(options);
   if (file === null) return null;
   if (
     options.expectedAuthority !== undefined &&
@@ -115,6 +121,20 @@ export function writeCapabilityResolution(
       return null;
     hostInputHashes[input] = answer.hostInputHashes[input]!;
     hostInputRealpaths[input] = answer.hostInputRealpaths[input]!;
+  }
+  if (!(options.env ?? process.env).TTSC_CACHE_DIR) {
+    try {
+      const physicalRoot = SourceBuildCacheLayout.markDefaultWorkspaceCacheRoot(
+        path.dirname(path.dirname(file)),
+      );
+      file = path.join(
+        physicalRoot,
+        SourceBuildCacheLayout.CAPABILITY_CACHE_DIRNAME,
+        path.basename(file),
+      );
+    } catch {
+      return null;
+    }
   }
   const evidence = CapabilityResolutionFormat.sourceEvidence(
     CapabilityResolutionFormat.clockReference(file),
