@@ -27,17 +27,23 @@ export type { ITtscStripConfig } from "./structures/ITtscStripConfig";
  * analysis. This migration makes no measured performance improvement claim.
  *
  * @evidence contracts/common.md#principled-implementation
- *   The factory uses the host's supported default-export registration,
- *   node:path/fs/crypto APIs and the maintained banner and paths packages'
- *   TypeScript build convention.
+ *   The descriptor registers the Go driver before emit. Discovery observes
+ *   every supported filename through the first directory with a candidate,
+ *   including absent alternatives that can change native selection. Content
+ *   digests and physical targets represent different causes of invalidation;
+ *   null observations preserve read failures rather than inventing contents.
+ *   Native evaluation owns config validation and the resulting transformation.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Registration returns one descriptor while private helpers own discovery,
+ *   content observation and physical resolution. Context carries only host
+ *   anchors and entry data; no option duplicates the native strip config.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   The package name, stage, accepted entry keys and candidate filenames are
  *   native contract values, not fixture answers. Discovery reads owned
  *   observations without foreign mutation or test-only branches.
  *
- *   TypeScript source and generated declarations replace the handwritten
- *   CommonJS and export-assignment paths without a separate runtime adapter.
  *   Shared native config evaluation still uses the resolution recorder's
  *   private fallback, which remains an unresolved owning-layer concern.
  *
@@ -54,8 +60,23 @@ export type { ITtscStripConfig } from "./structures/ITtscStripConfig";
  *   and native ownership into paragraphs, including error and absent-anchor
  *   behavior. Context and result comments explain the consuming watch and
  *   reuse protocol. The documentation skill's clear prose, paragraph and
- *   rationale guidance also governs the updated maintainer walkthrough, whose
- *   source and build instructions describe generated declarations.
+ *   rationale guidance governs these comments. Member comments distinguish
+ *   negative observations, directory markers and physical target changes.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Discovery probes seven candidates at each of D ancestor directories and
+ *   hashes B total readable bytes, so content work is O(D + B). Observations
+ *   occupy O(D) entries. The explicit-path branch observes one candidate.
+ *   Filesystem calls are needed to observe current state; no AST is parsed here.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   This evaluation samples mutable filesystem state and does not coordinate
+ *   requests. The host owns reuse of descriptors and validates these returned
+ *   observations; equal context values alone cannot establish unchanged files.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Ownership of the returned observation maps transfers to the host. The
+ *   factory retains no historical entries, open handles or running tasks.
  */
 export default function createTtscStrip(
   context: TtscStripFactoryContext,
@@ -151,6 +172,7 @@ const STRIP_CONFIG_FILENAMES = [
   "strip.config.json",
 ];
 
+/** Observe discovery candidates without evaluating their exported config. */
 function stripConfigInputs(context: TtscStripFactoryContext): TtscStripInputs {
   const configFile = context.plugin?.configFile;
   const base = path.resolve(
@@ -185,6 +207,7 @@ function stripConfigInputs(context: TtscStripFactoryContext): TtscStripInputs {
   return { hashes, inputs, realpaths };
 }
 
+/** Resolve the candidate's physical target, leaving failures explicit as null. */
 function hostInputRealpath(file: string): string | null {
   try {
     return fs.realpathSync.native(file);

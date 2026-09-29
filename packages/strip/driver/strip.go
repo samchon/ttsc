@@ -21,14 +21,19 @@ type plugin struct{}
 //
 // TypeScript-Go's StatementList and ForEachChild APIs supply the traversal.
 // Filtering only changes the current parent's list or embedded body; recursion
-// belongs to ForEachChild. The previous recursion from both paths revisited
-// retained subtrees at every nesting level. No visited-node cache or depth
-// exception compensates for that duplicate ownership.
+// belongs to ForEachChild. List filtering does not visit retained subtrees,
+// leaving traversal ownership with one recursive path.
 //
 // Configuration and parsed patterns are shared for this program invocation.
 // Filtering compacts each statement list in its own backing array and clears
 // removed tail references, avoiding a replacement allocation per block. The
 // remaining dominant work is visiting AST nodes and matching configured calls.
+//
+// Only configured expression statements and debugger statements are removed.
+// Matching recognizes dotted identifiers rather than evaluating expressions;
+// argument effects are intentionally deleted with a matched whole statement.
+// Embedded bodies become source-located empty statements so required body
+// slots remain present, while retained AST nodes keep their identity.
 func (plugin) ApplyProgram(prog *driver.Program, ctx driver.PluginContext) error {
   config, err := loadStripConfigMapWithReporters(ctx.Entry.Config, ctx.Cwd, ctx.Tsconfig, ctx.ReportHostInput, ctx.ReportHostInputHash, ctx.ReportHostInputRealpath)
   if err != nil {
@@ -218,10 +223,15 @@ func shouldStripStatement(node *shimast.Node, strip *stripRewriter) bool {
   }
 }
 
-// matchesCall reports whether name matches any of the configured call patterns.
+// matchesCall reports whether name matches any configured call pattern.
+// All patterns share one segmentation of this call's name.
 func (s *stripRewriter) matchesCall(name string) bool {
+  if len(s.calls) == 0 {
+    return false
+  }
+  parts := strings.Split(name, ".")
   for _, pattern := range s.calls {
-    if pattern.matches(name) {
+    if pattern.matchesParts(parts) {
       return true
     }
   }
@@ -252,7 +262,12 @@ func parseCallPattern(text string) (callPattern, error) {
 // the pattern. Wildcard patterns require at least one extra segment beyond
 // the pattern prefix.
 func (p callPattern) matches(name string) bool {
-  parts := strings.Split(name, ".")
+  return p.matchesParts(strings.Split(name, "."))
+}
+
+// matchesParts compares already segmented names so a multi-pattern search
+// does not allocate the same segments for every candidate pattern.
+func (p callPattern) matchesParts(parts []string) bool {
   if p.wildcard {
     if len(parts) <= len(p.parts) {
       return false
@@ -273,26 +288,33 @@ func callExpressionName(expr *shimast.Node) (string, bool) {
   return dottedName(call.Expression)
 }
 
-// dottedName recursively extracts a dot-joined identifier chain from an
+// dottedName extracts a dot-joined identifier chain from an
 // expression node. Returns ("", false) for any non-identifier, non-property-
-// access node.
+// access node. Segments are collected from right to left, then emitted once
+// in source order without recursively copying a growing dotted prefix.
 func dottedName(expr *shimast.Node) (string, bool) {
-  if expr == nil {
-    return "", false
-  }
-  switch expr.Kind {
-  case shimast.KindIdentifier:
-    return expr.Text(), true
-  case shimast.KindPropertyAccessExpression:
+  var suffix []string
+  for expr != nil && expr.Kind == shimast.KindPropertyAccessExpression {
     prop := expr.AsPropertyAccessExpression()
-    left, ok := dottedName(prop.Expression)
-    if !ok || prop.Name() == nil {
+    if prop.Name() == nil {
       return "", false
     }
-    return left + "." + prop.Name().Text(), true
-  default:
+    suffix = append(suffix, prop.Name().Text())
+    expr = prop.Expression
+  }
+  if expr == nil || expr.Kind != shimast.KindIdentifier {
     return "", false
   }
+  if len(suffix) == 0 {
+    return expr.Text(), true
+  }
+  var name strings.Builder
+  name.WriteString(expr.Text())
+  for i := len(suffix) - 1; i >= 0; i-- {
+    name.WriteByte('.')
+    name.WriteString(suffix[i])
+  }
+  return name.String(), true
 }
 
 // stringArrayConfig reads a string array from config[key]. Returns nil when the

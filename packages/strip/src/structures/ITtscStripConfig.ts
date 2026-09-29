@@ -10,11 +10,16 @@
  * this only for calls whose removal is intended to change runtime behavior.
  *
  * @evidence contracts/common.md#principled-implementation
- *   This exported TypeScript interface follows the dedicated typed-config
- *   convention used by banner and the strip README. The calls and statements
- *   lists express consumer-selected native syntax removal, with defaults only
- *   when both keys are omitted; generated declarations replace handwritten
- *   export-assignment types.
+ *   Optional readonly lists represent omission separately from an empty
+ *   removal list. The native parser applies defaults only when both keys are
+ *   absent and validates syntax that TypeScript string types cannot constrain.
+ *   The representation intentionally permits input construction while runtime
+ *   validation rejects unsupported dotted patterns and statement names.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Two independent lists group call patterns and statement kinds by the
+ *   parser responsibility they configure. Filesystem discovery remains a host
+ *   entry concern instead of becoming another strip behavior option.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   The whole type is data-only, with no foreign mutation, fixture branch,
@@ -23,6 +28,15 @@
  * @evidenceExclude contracts/portability.md#os-neutral-implementation
  *   These lists identify TypeScript statement syntax to remove. They define
  *   no native filesystem, path-identity or process boundary.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   This schema carries consumer choices and performs no computation.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   The schema does not coordinate config evaluation or AST transformations.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   These value lists do not own the compiler or loader's resource lifetime.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   Interface and member JSDoc distinguish both-key defaults from one-key

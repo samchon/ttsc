@@ -152,7 +152,8 @@ func stripDiscoveryBaseDir(cwd, tsconfigPath string) string {
 
 // resolveStripConfigFilePath resolves a user-supplied config path to an
 // absolute path. Absolute paths are returned unchanged; relative paths are
-// joined to the tsconfig directory (or cwd when no tsconfig is set).
+// joined to the explicit host discovery anchor, otherwise the tsconfig
+// directory (or cwd when no tsconfig is set).
 func resolveStripConfigFilePath(configPath, cwd, tsconfigPath string) string {
   if filepath.IsAbs(configPath) {
     return configPath
@@ -391,6 +392,10 @@ func loadStripScriptConfigFileWithInputs(location string) (stripLoadedConfig, er
   return loaded, nil
 }
 
+// decodeStripConfigLoaderOutput requires the value and recorder snapshot from
+// the executed loader. Accepting a bare value would report complete dependency
+// observations even though no observations were returned. Missing probe values
+// remain legitimate nullable entries inside the snapshot maps.
 func decodeStripConfigLoaderOutput(output []byte) (stripLoadedConfig, error) {
   var envelope struct {
     Error     string             `json:"__ttscLoaderError"`
@@ -405,15 +410,8 @@ func decodeStripConfigLoaderOutput(output []byte) (stripLoadedConfig, error) {
   if envelope.Error != "" {
     return stripLoadedConfig{}, fmt.Errorf("%s", envelope.Error)
   }
-  if len(envelope.Value) == 0 {
-    // Test/fallback launchers written against the historical payload return
-    // the config value directly. Preserve that accepted contract while real
-    // loaders use the envelope to carry runtime inputs.
-    var value any
-    if err := json.Unmarshal(output, &value); err != nil {
-      return stripLoadedConfig{}, err
-    }
-    return stripLoadedConfig{value: value}, nil
+  if len(envelope.Value) == 0 || envelope.Inputs == nil || envelope.Hashes == nil || envelope.Realpaths == nil {
+    return stripLoadedConfig{}, fmt.Errorf("config loader must return a value with dependency observations")
   }
   var value any
   if err := json.Unmarshal(envelope.Value, &value); err != nil {
@@ -1104,8 +1102,8 @@ func stripSetEnv(env []string, key, value string) []string {
 // payload channel when it stops on an error it can name.
 //
 // The loader's stack goes to this process's stderr as it runs, which is where a
-// reader wants it. But the *reason* — "config file must export an object with a
-// non-empty text string" — is a fact about the user's config, and a caller
+// reader wants it. But the reason, such as a non-object config export, is a
+// fact about the user's config, and a caller
 // deserves it in the error rather than having to go find it in the log. So it
 // travels as data through the same stdout the payload uses, and only a
 // well-formed envelope is honoured: anything else leaves the process status to
