@@ -414,14 +414,16 @@ func computeLSPCodeActions(opts *lspCommandOptions) ([]lspCodeAction, int) {
 // the live buffer from stdin. Checker-dependent operations edit a temporary
 // project and return a change for the editor to apply.
 //
-// Syntax-invalid overlays and unchanged documents yield no edit. Cascades
-// must converge within the shared pass limits; acquisition/usage failures
-// return 2, and write failures return 3. Input and project-copy sizes have no
-// independent byte cap; temporary cleanup is best effort.
+// Live-buffer AST/source formatting rejects parser-reported ordinary and JS/JSX
+// errors. Checker-backed live-buffer formatting also rejects Program syntactic
+// diagnostics under the project's compiler options. Unchanged documents yield
+// no edit. Cascades must converge within the shared pass limits; acquisition
+// and usage failures return 2, and write failures return 3. Input and project-copy
+// sizes have no independent byte cap; temporary cleanup is best effort.
 //
 // @evidence contracts/common.md#principled-implementation Supported command IDs dispatch to current-source suggestion validation or atomic finding-group fixes. Live formatting uses the supplied buffer; checker-dependent fixes use a copied project and preserve original-project ownership until the editor applies the returned WorkspaceEdit.
 // @evidence contracts/common.md#clear-and-simple-design One command boundary owns option/URI validation, then focused helpers own suggestion selection, lightweight buffer formatting and checker-backed temporary cascades. Shared edit selection/application keeps overlap policy consistent with CLI fixes.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Content/finding/edit fingerprints reject stale suggestions rather than forcing a prior answer onto changed text. Temporary projects serve the actual checker requirement; invalid overlays do not receive compensating partial edits or foreign editor mutations.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Content/finding/edit fingerprints reject stale suggestions rather than forcing a prior answer onto changed text. Temporary projects serve the actual checker requirement; live-buffer AST/source formatting rejects parser-diagnosed buffers and checker-backed live-buffer formatting rejects Program syntactic diagnostics, rather than receiving compensating partial edits or foreign editor mutations.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs state original-project protection, live/disk paths, stale/no-op behavior, convergence and cleanup/size limits under documentation-skill guidance; helper prose explains logical copy spelling versus physical containment.
 // @evidence contracts/portability.md#os-neutral-implementation URI and native paths remain distinct. Physical containment guards the original target, while logical project paths locate copied aliases/junctions. Native filepath operations build temporary destinations; compiler parser inputs use the required protocol slash spelling.
 // @evidence contracts/performance.md#efficient-algorithms Built-in AST/source formatting avoids a whole-project copy/checker. Checker-dependent cascades rebuild after actual edits so facts match changed text. Validated disjoint edits copy source gaps and replacement text once using the shared linear builder, avoiding a full-string copy per edit.
@@ -451,9 +453,9 @@ func RunLSPExecuteCommand(args []string) int {
     }
     return writeJSON(edit)
   }
-  // --content-stdin selects the lightweight in-memory format path: the full
-  // document buffer is read from stdin and formatted with AST+source rules
-  // only, with no temp-workspace copy and no tsgo Program. It applies to
+  // --content-stdin supplies the live document buffer for formatting. AST/source
+  // rule sets use a single-file parse; checker-dependent contributors use a
+  // temporary project seeded with that buffer. This applies to
   // ttsc.format.document; ttsc.lint.fixAll under --content-stdin is out of
   // scope (lint-class fixes can require a type checker), so it falls back to
   // the disk-based path below.
@@ -1167,8 +1169,8 @@ func lspFormatBuffer(content string, opts *lspCommandOptions) (*lspWorkspaceEdit
   for pass := 0; pass < maxFormatPasses; pass++ {
     file := shimparser.ParseSourceFile(shimast.SourceFileParseOptions{FileName: parseName}, text, scriptKind)
     if file == nil || len(file.Diagnostics()) > 0 || len(file.JSDiagnostics()) > 0 {
-      // The parser separates ordinary syntax errors from JS/JSX-only errors.
-      // Reject both, matching the checker's syntactic diagnostics policy.
+      // Reject both parser diagnostic arrays before applying AST/source rules.
+      // Compiler-option-dependent diagnostics belong to the Program path.
       return nil, 0
     }
     findings := filterFormatFindings(engine.Run([]*shimast.SourceFile{file}, nil))
