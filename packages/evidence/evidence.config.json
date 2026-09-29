@@ -9,6 +9,8 @@
         "!src/index.ts",
         "!src/structures/index.ts",
         "!src/typings/index.ts",
+        "!src/typings/ITtscLintContributorRules.ts",
+        "!src/typings/ITtscLintRuleOptionsMap.ts",
         "!src/structures/ITtscEvidenceGraphClaimBase.ts",
         "!src/structures/ITtscEvidenceGraphMarkdownClaim.ts",
         "!src/structures/ITtscEvidenceGraphPrismaClaim.ts",
