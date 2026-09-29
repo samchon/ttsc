@@ -11,14 +11,14 @@
 //   2. builds package `b` in a separate process → expects a CACHE HIT (no cold
 //      build), proving the workspace-root `node_modules/.cache/ttsc` is shared,
 //   3. asserts the compiled binary lives under that workspace-local cache and
-//      that NOTHING was written to a global user cache.
+//      that nothing was written to a global ttsc plugin cache.
 //
 // Usage: node scripts/ci/plugin-cache-persistence.mjs --pm=pnpm|yarn|bun|npm
 //
 // Requires a real Go toolchain via TTSC_GO_BINARY (as the test workflows set
 // it) and a built current-platform ttsc (`pnpm run build:current`).
 
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import fs from "node:fs";
 import os from "node:os";
@@ -29,6 +29,9 @@ const REPO_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
   "..",
+);
+const { runIndependent } = createRequire(import.meta.url)(
+  "./run-independent.cjs",
 );
 const TTSC_BIN = path.join(
   REPO_ROOT,
@@ -99,7 +102,7 @@ function main(pm) {
 
     console.log(
       `OK [${pm}]: source plugin built once and reused across workspace ` +
-        `packages; cache is workspace-local, nothing written globally.`,
+        `packages; plugin cache is workspace-local, nothing written to a global ttsc cache.`,
     );
     return 0;
   } finally {
@@ -217,9 +220,10 @@ function buildEnv(home) {
   // harness proves the out-of-the-box behavior CI users get.
   delete env.TTSC_CACHE_DIR;
   delete env.TTSC_GO_CACHE_DIR;
-  delete env.GOCACHE;
-  // Redirect every "global cache" location at an isolated, initially-empty
-  // home so expectNoGlobalCache can prove nothing leaked out of the workspace.
+  // Go's object cache is not the plugin-binary cache under test. Keep the CI
+  // GOCACHE shared across managers while each plugin's first build stays cold.
+  // Redirect every ttsc global-cache location at an isolated, initially-empty
+  // home so expectNoGlobalCache can prove no plugin binary leaked there.
   env.HOME = home;
   env.USERPROFILE = home;
   env.XDG_CACHE_HOME = path.join(home, ".cache");
@@ -386,18 +390,39 @@ function fail(message) {
 
 try {
   const selected = parsePackageManager();
-  let failed = false;
-  for (const pm of selected === "all" ? PACKAGE_MANAGERS : [selected]) {
-    try {
-      if (main(pm) !== 0) failed = true;
-    } catch (error) {
-      console.error(`[${pm}] FAIL: ${error.stack ?? error.message}`);
-      failed = true;
-    }
+  if (selected === "all") {
+    // Each manager owns a separate workspace and fake home. Overlap two installs
+    // without changing the cold-first/warm-second check inside either one.
+    const failed = await runIndependent([...PACKAGE_MANAGERS], runManager, 2);
+    process.exitCode = failed.length ? 1 : 0;
+  } else {
+    process.exitCode = main(selected);
   }
-  process.exitCode = failed ? 1 : 0;
 } catch (error) {
-  if (!(error instanceof ExpectationFailure)) throw error;
-  console.error(`FAIL: ${error.message}`);
+  console.error(`FAIL: ${error.stack ?? error.message}`);
   process.exitCode = 1;
+}
+
+function runManager(pm) {
+  const started = process.hrtime.bigint();
+  return new Promise((resolve) => {
+    const child = spawn(
+      process.execPath,
+      [fileURLToPath(import.meta.url), `--pm=${pm}`],
+      {
+        cwd: REPO_ROOT,
+        env: process.env,
+        stdio: "inherit",
+        windowsHide: true,
+      },
+    );
+    child.on("error", (error) => console.error(error));
+    child.on("close", (code) => {
+      const seconds = Number(process.hrtime.bigint() - started) / 1e9;
+      console.log(
+        `[${pm}] persistence contract ${code === 0 ? "passed" : "FAILED"} in ${seconds.toFixed(1)} s`,
+      );
+      resolve(code ?? 1);
+    });
+  });
 }
