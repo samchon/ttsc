@@ -14,6 +14,16 @@ async function main() {
   if (nodeTests.length === 0) throw new Error("no unit tests discovered");
   const steps = [
     { name: "Node units", args: ["--test", ...nodeTests] },
+    {
+      name: "lint harness units",
+      args: [
+        "--import",
+        path.join(root, "scripts", "register-typescript-loader.mjs"),
+        path.join(root, "tests", "test-lint", "src", "index.ts"),
+      ],
+      cwd: path.join(root, "tests", "test-lint"),
+      env: { TTSC_TEST_DIRS: "features/harness" },
+    },
     ...GO_UNIT_RUNNERS.map((runner) => ({
       name: runner,
       args: [path.join(root, "scripts", runner)],
@@ -26,8 +36,8 @@ async function main() {
         const started = process.hrtime.bigint();
         console.log(`Unit: ${step.name}`);
         const child = cp.spawn(process.execPath, step.args, {
-          cwd: root,
-          env: { ...process.env, TTSC_TEST_LAYER: "unit" },
+          cwd: step.cwd ?? root,
+          env: { ...process.env, TTSC_TEST_LAYER: "unit", ...step.env },
           stdio: "inherit",
           windowsHide: true,
         });
@@ -43,7 +53,9 @@ async function main() {
     2,
   );
   if (failures.length) {
-    console.error(`Failed units: ${failures.map((step) => step.name).join(", ")}`);
+    console.error(
+      `Failed units: ${failures.map((step) => step.name).join(", ")}`,
+    );
     process.exitCode = 1;
   }
 }

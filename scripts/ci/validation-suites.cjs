@@ -91,7 +91,6 @@ const LANES = [
     "dirs": [
       "features/config",
       "features/contributor",
-      "features/harness",
       "features/plugin"
     ]
   },

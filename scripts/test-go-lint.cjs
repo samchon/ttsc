@@ -27,6 +27,10 @@ const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 
 const { copyGoTestsFlat } = require("./ci/go-test-overlay.cjs");
+const {
+  selectLintGoTests,
+  writeLintGoSelection,
+} = require("./ci/lint-go-test-selection.cjs");
 const { writeGoWork } = require("./go-work.cjs");
 
 const root = path.resolve(__dirname, "..");
@@ -143,14 +147,24 @@ try {
     env,
   );
 
-  // The three repository-only corpora invoke Go APIs in process against JSON
-  // configs. They need no product launcher, source-plugin build or Node oracle.
-  // The complete package-local suite keeps its aggregate witness gate in e2e.
-  const selection = unit
-    ? [
-        "-run=^(TestLintFixtureCorpus|TestFormatFixtureCorpus|TestCommandCheckPreservesSeverityExitContract)$",
-      ]
-    : [];
+  // The original package tests are compiled together because their helpers
+  // reach unexported linthost internals. In CI, call every test function once
+  // through the owning layer's parent subtest instead of running the whole
+  // package again in e2e. Default local test:go still runs the original suite.
+  let selection = [];
+  if (unit || e2e) {
+    const tests = selectLintGoTests(
+      lintTestsDir,
+      path.join(root, "tests", "test-lint", "go"),
+    );
+    const wrapper = writeLintGoSelection(
+      path.join(scratch, "linthost", "lint_layer_selection_test.go"),
+      tests[unit ? "unit" : "e2e"],
+      unit ? "unit" : "e2e",
+      tests.sources,
+    );
+    selection = [`-run=^${wrapper}$`];
+  }
   const result = cp.spawnSync(
     "go",
     [
