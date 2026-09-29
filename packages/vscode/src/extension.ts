@@ -600,7 +600,7 @@ async function startClient(
  * entry while other roots continue. Subscriptions own watchers, handlers and
  * the trace channel.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   VS Code commands/events, RelativePattern, WorkspaceEdit and the
  *   LanguageClient subclass error-handler override are supported extension
  *   points. Only the owned client map/queue are mutated.
@@ -752,7 +752,7 @@ export async function activate(context: ExtensionContext): Promise<void> {
  * Promise.allSettled attempts every stop and logs rejected stops, so one
  * failure does not prevent other client teardown.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   The supported LanguageClient.stop lifecycle and Promise queue own
  *   teardown. Clearing the owned map before awaiting stops prevents stale
  *   routing; errors are reported instead of pretending every process stopped.

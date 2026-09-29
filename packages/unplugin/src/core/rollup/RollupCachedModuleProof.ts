@@ -12,6 +12,7 @@ export interface RollupCachedModuleProof {
    * anything may have moved them since.
    */
   begin(): void;
+
   /**
    * Take what one delivery was handed, and return the `meta` the module carries
    * into Rollup's cache.
@@ -20,6 +21,7 @@ export interface RollupCachedModuleProof {
    *   it was handed, or `null` for a delivery no cache may serve.
    */
   deliver(delivery: TtscRollupDelivery): Record<string, TtscRollupDelivery>;
+
   /**
    * Whether Rollup must transform a module it would otherwise serve from its
    * cache, the answer of `shouldTransformCachedModule`. A module the adapter

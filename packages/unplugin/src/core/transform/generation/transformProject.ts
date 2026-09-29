@@ -69,6 +69,7 @@ export async function transformProject(props: {
   compilerOptions: Record<string, unknown>;
   currentFile: string;
   currentSource: string;
+
   /**
    * Delivery pass this compile was started for; see
    * {@link TtscCachedProjectTransform.deliveryEpoch}.
@@ -77,6 +78,7 @@ export async function transformProject(props: {
   filesystem: TtscTransformFilesystemOperations;
   plugins?: ResolvedTtscUnpluginOptions["plugins"];
   retainProjectMembership: boolean;
+
   /**
    * Whether the generation may keep watchers whose silence stands in for
    * re-reading its inputs. False once the host or the environment declares
@@ -84,6 +86,7 @@ export async function transformProject(props: {
    * against its recorded state.
    */
   retainNotifications: boolean;
+
   /**
    * The pooled host session's shared compile store, when the cache shares its
    * compiles (samchon/ttsc#1390).
@@ -91,12 +94,14 @@ export async function transformProject(props: {
   session?: string;
   trackProjectMembership: boolean;
   tsconfig: string;
+
   /**
    * Dependency-only paths the last generation of this cache key reported
    * (`TRANSFORM_CACHE_DEPENDENCY_WITNESSES`), to be witnessed before the
    * compile; see {@link TtscCachedProjectTransform.externalDependencyInputs}.
    */
   witnessedDependencies?: readonly string[];
+
   /**
    * The case policy the last generation of this cache key reported
    * (`TRANSFORM_CACHE_CASE_POLICIES`, samchon/ttsc#1545).

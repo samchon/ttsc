@@ -27,6 +27,7 @@ export interface TtscTransformHooks {
    * derivation.
    */
   addWatchFile?: (file: string, evidence?: TtscWatchInputEvidence) => void;
+
   /**
    * Batched form of {@link addWatchFile}. When supplied, the transform calls it
    * once per delivered module and does not call `addWatchFile` for that module.
@@ -35,6 +36,7 @@ export interface TtscTransformHooks {
    * spellings until the next successful delivery.
    */
   addWatchFiles?: (inputs: readonly TtscWatchInput[], failed?: boolean) => void;
+
   /**
    * Whether the batch of {@link addWatchFile} or {@link addWatchFiles} also
    * carries the project's root-file membership: one input for the project root,
@@ -44,6 +46,7 @@ export interface TtscTransformHooks {
    * record ({@link project}) always carries it.
    */
   membership?: boolean;
+
   /**
    * A build host's registration: the transform writes the project's record
    * below `toolDirectory` (`projectRecordFile`) to the generation's state and
@@ -53,14 +56,17 @@ export interface TtscTransformHooks {
   project?: {
     /** Called once per delivery, failed deliveries included. */
     register: (registration: TtscProjectRegistration) => void;
+
     /** The host's tool directory (`hostToolDirectory`), where the record lives. */
     toolDirectory: string;
+
     /**
      * Where the record lives when `toolDirectory` cannot be written
      * (`fallbackToolDirectory`, samchon/ttsc#1480), or `undefined` for a host
      * that accepts no record outside its root, or none this user can write.
      */
     fallbackToolDirectory?: string;
+
     /**
      * Whether the host watches this session. A successful delivery that can be
      * handed no record would be served from the host's watcher's silence after
@@ -70,6 +76,7 @@ export interface TtscTransformHooks {
      */
     watching?: boolean;
   };
+
   /**
    * Invoked when the module's output depends on inputs no file-dependency
    * snapshot of the module represents: the plugin declared the transformed file

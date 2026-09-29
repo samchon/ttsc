@@ -18,6 +18,7 @@
 export type TtscRollupDelivery = {
   /** The identity of the options the delivery was compiled under. */
   options: string;
+
   /**
    * The project record the delivery was handed (`projectRecordFile`), with the
    * digest of the bytes its process wrote to it (`projectRecordDigest`); absent

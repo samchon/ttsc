@@ -41,8 +41,10 @@ export function loadGraph(
   options: {
     /** Project root the graph is built for (default: `process.cwd()`). */
     cwd?: string;
+
     /** Project tsconfig, relative to `cwd` (default: `tsconfig.json`). */
     tsconfig?: string;
+
     /**
      * Absolute path to the `ttscgraph` binary. Defaults to the per-platform
      * binary resolved from the project's installed `ttsc`; pass it explicitly

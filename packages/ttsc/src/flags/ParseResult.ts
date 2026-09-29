@@ -7,6 +7,7 @@
 export interface ParseResult {
   /** Canonical flag name → resolved value. */
   readonly values: ReadonlyMap<string, string | boolean | number>;
+
   /**
    * Canonical flag name → every accepted value, in argv order. Populated only
    * for flags declared `repeatable` in `FLAG_SCHEMA` (`ttsx -r a -r b`), where
@@ -17,10 +18,13 @@ export interface ParseResult {
     string,
     readonly (string | boolean | number)[]
   >;
+
   /** Flags the engine did not consume — forwarded to tsgo. */
   readonly passthrough: readonly string[];
+
   /** Bare non-flag positional arguments, in original order. */
   readonly positional: readonly string[];
+
   /**
    * Tokens that arrived after the `forwardAfterFirstPositional` sentinel. These
    * are intended for the user's program (e.g. ttsx's entry-file argv); they are

@@ -7,6 +7,7 @@
 export interface ITtscCapabilityResolutionPlugin {
   /** Absolute path of the plugin's native sidecar executable. */
   binary: string;
+
   /** The capabilities the plugin's descriptor declared, by name. */
   capabilities: Record<string, boolean>;
 }

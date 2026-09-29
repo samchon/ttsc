@@ -26,6 +26,7 @@ export interface ITtscEvidenceGraphTypeScriptReference extends ITtscEvidenceGrap
    * File-qualified citation paths remain relative to the citing file.
    */
   root?: string;
+
   /**
    * Installed package whose declarations form this population.
    *

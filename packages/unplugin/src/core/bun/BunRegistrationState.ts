@@ -11,10 +11,13 @@ import type { TtscUnpluginOptions } from "../options/TtscUnpluginOptions";
 export interface BunRegistrationState {
   /** Options the next lock takes, detached from the caller's object. */
   activeOptions: TtscUnpluginOptions | undefined;
+
   /** Options the loader resolved with, once `optionsLocked` holds. */
   lockedOptions: TtscUnpluginOptions | undefined;
+
   /** Whether a load has started, which fixes `lockedOptions` for good. */
   optionsLocked: boolean;
+
   /** Whether the runtime already holds this state's one loader. */
   registered: boolean;
 }

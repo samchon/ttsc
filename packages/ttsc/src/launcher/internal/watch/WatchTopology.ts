@@ -54,12 +54,14 @@ export class WatchTopology {
   private directories = new Map<string, string>();
   private directoryWatchers = new Map<string, DirectoryWatcher>();
   private extraInputs: readonly string[] = [];
+
   /**
    * What each plugin input held when last observed, by path key: the digest a
    * plugin build keys it on (`pluginInputState`). A notification about an input
    * whose state did not move is not a plugin change.
    */
   private pluginInputStates = new Map<string, string>();
+
   /**
    * The plugin inputs notifications named since the last decision, by path key,
    * each with the locations noted for it (`notePluginNotification`).
@@ -67,6 +69,7 @@ export class WatchTopology {
   private pendingPluginNotifications = new Map<string, Set<string>>();
   private pluginNotificationsScheduled = false;
   private extraWatchers = new Map<string, DirectoryWatcher>();
+
   /** The plugin inputs whose directories the last sync already watched. */
   private watchedExtraInputs = new Set<string>();
   private compilerFileSnapshots = new Map<string, CompilerFileSnapshot>();

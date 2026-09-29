@@ -50,6 +50,7 @@ export function buildSourcePlugin(opts: {
   cacheDir?: string;
   contributors?: readonly ITtscBuildContributor[];
   env?: NodeJS.ProcessEnv;
+
   /**
    * Digests of the environment each build directory is keyed on, shared by
    * every build of the load and filled with this build's (`computeCacheKey`),
@@ -61,6 +62,7 @@ export function buildSourcePlugin(opts: {
   label?: string;
   overlayDirs?: readonly string[];
   quiet?: boolean;
+
   /**
    * Digests of the source directories the caller's load already read, shared by
    * every build of the load and filled with each directory this build keys on
@@ -190,6 +192,7 @@ function compileSourcePlugin(opts: {
   dir: string;
   entry: string;
   env: NodeJS.ProcessEnv;
+
   /** The toolchain paths the key read, with their metadata at that read. */
   environmentWitness: PluginBuildEnvironmentWitness.Record;
   goBinary: string;
@@ -197,6 +200,7 @@ function compileSourcePlugin(opts: {
   manageGoBuildCache: boolean;
   normalizeGoToolPermissions: boolean;
   key: string;
+
   /** The digest of every directory the key covers, as the key read it. */
   keyedDigests: ReadonlyMap<string, string>;
   label: string;

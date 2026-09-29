@@ -8,6 +8,7 @@ export interface IPlaygroundExample {
   title: string;
   description: string;
   source: string;
+
   /**
    * Optional grouping bucket. Examples are rendered grouped by this label.
    * Defaults to "Examples" when omitted.

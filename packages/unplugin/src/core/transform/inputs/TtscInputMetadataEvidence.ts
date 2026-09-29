@@ -5,8 +5,10 @@
 export interface TtscInputMetadataEvidence {
   /** The joined metadata signature of the lexical path and its link target. */
   signature: string;
+
   /** Whether a directory observer can account for every content mutation. */
   notificationAuthoritative: boolean;
+
   /**
    * Whether a later write is guaranteed to move this signature. Only a
    * signature captured with this evidence may be recorded to stand in for a

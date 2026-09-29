@@ -46,9 +46,11 @@ type LSPServerOptions struct {
   // it and forwards or handles them. RunLSPServer closes it on shutdown
   // if it also implements io.Closer so blocked frame reads can unblock.
   In io.Reader
+
   // Out is the editor-side writer; ttscserver writes both upstream
   // responses and locally-synthesized messages to it.
   Out io.Writer
+
   // Err is the upstream tsgo server's stderr sink. ttscserver does not
   // log to it directly.
   Err io.Writer
@@ -56,28 +58,36 @@ type LSPServerOptions struct {
   // Cwd is the project root used as the upstream tsgo process working
   // directory. An empty string is rejected before any process starts.
   Cwd string
+
   // TsgoBinary is the absolute path to the project-selected
   // native TypeScript (typescript) executable.
   TsgoBinary string
+
   // Source contributes ttsc plugin diagnostics / code actions /
   // executeCommand handling. Nil falls back to NullPluginSource{}.
   Source PluginSource
+
   // SymbolProvider answers textDocument/documentSymbol and
   // textDocument/references locally from ttsc's compiler-backed code graph.
   // Nil leaves those methods forwarded to upstream tsgo.
   SymbolProvider SymbolProvider
+
   // SuppressExecuteCommandProvider keeps ttsc command ids out of the
   // initialize response for clients that route wrapper commands themselves.
   SuppressExecuteCommandProvider bool
+
   // SuppressedExecuteCommandIDs filters specific ttsc command ids out of the
   // initialize response while leaving other plugin command ids registered.
   SuppressedExecuteCommandIDs []string
+
   // ExecuteCommandIDPrefix namespaces advertised executeCommand ids for hosts
   // that run multiple language clients in one global command registry.
   ExecuteCommandIDPrefix string
+
   // ProgressDelay is accepted for CLI compatibility. The external tsgo
   // LSP command does not currently expose a progress-delay flag.
   ProgressDelay time.Duration
+
   // Upstream binds one runner and its validation policy to this invocation.
   // The zero value selects the production tsgo process and validates
   // TsgoBinary. Embedders supplying a Runner may also supply a Validator;

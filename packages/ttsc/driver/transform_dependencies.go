@@ -17,6 +17,7 @@ type TransformDependencies struct {
   // Complete lists the files whose Dependencies entry is the whole input set
   // beyond the file itself and the universal compiler-option chain.
   Complete []string
+
   // Dependencies maps a transformed file to the files whose content influenced
   // its output, keyed and valued like every other envelope section.
   Dependencies map[string][]string
@@ -166,6 +167,7 @@ type pluginFileDeclaration struct {
   completeAll  bool
   dependencies map[string]map[string]struct{}
   mu           sync.Mutex
+
   // rejected holds the files whose reported list this plugin could not state
   // in full, because one of its members was unusable as a key.
   rejected map[string]struct{}

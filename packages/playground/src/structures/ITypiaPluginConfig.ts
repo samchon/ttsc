@@ -4,11 +4,13 @@ import type { IMemFSHost } from "@ttsc/wasm";
 export interface ITypiaPluginConfig {
   /** Plugin id registered with `host.Expose` (default: `"typia"`). */
   name?: string;
+
   /**
    * Module specifier the typia transform receives via `compilerOptions.plugins`
    * (default: `"typia/lib/transform"`).
    */
   transformModule?: string;
+
   /**
    * Optional hook to mount typia source files into the MemFS during boot. The
    * site fetches its pre-built typia pack and writes it under

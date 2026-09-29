@@ -10,12 +10,14 @@ export interface HostWatchBridge {
    * tell what changed during it.
    */
   begin(): number;
+
   /**
    * Close every observer and drop every owed signal. The records stay: a host's
    * persistent cache holds them as dependencies, and the next session proves
    * them against the disk.
    */
   close(): Promise<void>;
+
   /**
    * Report the records a compile of the host ended depending on, which the
    * host's watcher observes until its next compile. The moves after a signal's
@@ -35,6 +37,7 @@ export interface HostWatchBridge {
    *   path, the one `projectRecordFile` spells and the host was handed.
    */
   compiled(depends: (record: string) => boolean): void;
+
   /**
    * Whether the host has yet to run its modules against a change: a project was
    * signalled since its record last registered, the one named or any the bridge
@@ -47,6 +50,7 @@ export interface HostWatchBridge {
    * from its cache, for any project since the module names none.
    */
   owes(record?: string): boolean;
+
   /**
    * Replace the inputs observed for one project's record with a delivery's, as
    * the Vite serve watcher does for an importer. The registration answers every

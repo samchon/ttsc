@@ -9,8 +9,10 @@
 export interface ITtscCapabilityPlugin {
   /** Absolute path of the plugin's native sidecar executable. */
   binary: string;
+
   /** The `--plugins-json` payload to pass to the sidecar. */
   manifest: string;
+
   /**
    * The `--project-context-json` payload, or `undefined` when the plugin's
    * descriptor does not declare it wants one.

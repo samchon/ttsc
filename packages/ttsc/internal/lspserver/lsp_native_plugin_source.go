@@ -24,6 +24,7 @@ type NativePluginManifest struct {
   Plugins              []NativePluginConfigEntry          `json:"plugins"`
   LSPPlugins           []NativeLSPPluginEntry             `json:"lspPlugins"`
   ProjectContext       json.RawMessage                    `json:"projectContext,omitempty"`
+
   // SelectionInputs are what the plugin selection itself was loaded from. A
   // change to one ends the session like a plugin's own reload input
   // (samchon/ttsc#1507).
@@ -75,6 +76,7 @@ type NativePluginSource struct {
   // session, while the answer costs a symlink walk per ancestor, and the
   // question is asked again for every producer on every publication.
   clientProjectOnce sync.Once
+
   clientProject     string
   clientProjectKey  string
 
@@ -87,30 +89,37 @@ type NativePluginSource struct {
   // view of pluginHints, materialized on every store so the completion path
   // copies a ready slice instead of rebuilding one per keystroke.
   hintsMu         sync.RWMutex
+
   completionHints []LSPCompletionHint
+
   // pluginHints keeps each producer's corpus separately, keyed by plugin
   // identity, so one plugin's refresh cannot disturb another's. A producer's
   // entry changes only when that producer answers successfully: a refresh that
   // failed to run leaves the last known-good corpus in place rather than
   // blanking a working corpus over a transient spawn failure.
   pluginHints map[string]completionHintRecord
+
   // hintsObserver is told after every completed refresh cycle so the proxy can
   // react to a corpus that changed mid-session. Nil for any host that did not
   // register one.
   hintsObserver func()
+
   // hintsRefresh serializes and coalesces corpus refreshes. A refresh loads a
   // Program per plugin, so scheduling one per editor event without coalescing
   // would stack process spawns behind each other.
   hintsRefresh coalescingRefresh
+
   owners       map[string]NativeLSPPluginEntry
   logMu        sync.Mutex
 
   projectInputsMu sync.RWMutex
   projectInputs   LSPProjectInputSnapshot
+
   // selection is fixed for the session: its directories are watched in every
   // flattened snapshot, whatever the plugins later rediscover, and checked
   // beside its reload inputs.
   selection             pluginSelectionInputs
+
   pluginProjectInputs   map[string]projectInputRecord
   projectInputsObserver func()
   projectInputsRefresh  coalescingRefresh
@@ -124,6 +133,7 @@ type NativePluginSource struct {
   // instead of respawning per verb; serveUnsupported remembers a sidecar that
   // predates lsp-serve so the source stops retrying it and stays on exec.
   residentMu       sync.Mutex
+
   residents        map[string]*residentSidecar
   serveUnsupported map[string]bool
 }

@@ -21,15 +21,19 @@ export interface WatchBrokerSink {
    * @param eventType `"rename"` or `"change"`, as `fs.watch` names them.
    */
   event(directory: string, filename: string | null, eventType: string): void;
+
   /** An event the child could not place under any watched directory. */
   unattributed(): void;
+
   /** A watch of the registration failed or could not be opened. */
   failed(): void;
+
   /**
    * A native watch of the registration reported that events were dropped, so
    * some may have been lost (samchon/ttsc#1425).
    */
   gap(): void;
+
   /**
    * A drain's verdict on the registration's watches (samchon/ttsc#1453): the
    * directories whose stream could not be proven to have delivered, in the

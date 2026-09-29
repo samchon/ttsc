@@ -51,13 +51,16 @@ type residentSidecar struct {
   stdin      io.WriteCloser
   stdout     *bufio.Reader
   everServed bool
+
   // invalidate piggybacks a full "drop the warm Program" onto the next request,
   // set for a change the proxy cannot localize.
   invalidate bool
+
   // changed piggybacks the document URIs that changed on disk onto the next
   // request, so the daemon updates the warm Program incrementally rather than
   // rebuilding it.
   changed []string
+
   // external identifies changed entries that are declared ProjectRule inputs,
   // allowing an unknown non-Program path to retain the warm Program.
   external []string

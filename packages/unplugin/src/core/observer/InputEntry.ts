@@ -17,18 +17,23 @@ export interface InputEntry {
    * and linked components.
    */
   aliases: Set<string>;
+
   /** Latest native event already associated with this registered spelling. */
   changedAt: number;
+
   /** Recorded states by serialized evidence, each with its owners. */
   conditions: Map<string, InputCondition>;
+
   /**
    * Whether the bounded poll checks this entry: no native scope covers it, it
    * has more than one hard link, a linked component cannot be resolved, or its
    * native watcher failed.
    */
   fallback: boolean;
+
   /** Absolute spelling registered by the transform. */
   file: string;
+
   /**
    * The physical spelling of a project root registered for its membership, when
    * the root is named through a link: a backend that reports the physical path
@@ -37,10 +42,13 @@ export interface InputEntry {
    * policy is asked (samchon/ttsc#1461).
    */
   physical?: string;
+
   /** Linked spellings whose retarget can move this entry without an event on it. */
   links: Set<string>;
+
   /** Ancestor keys whose rename can move this entry. */
   renameAliases: Set<string>;
+
   /** Native observers covering the entry. */
   scopes: Set<WatchScope>;
 }

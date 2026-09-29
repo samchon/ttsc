@@ -120,6 +120,7 @@ function readReferences(
 interface RootFiles {
   /** Absolute paths, as the compiler listed them. */
   files: readonly string[];
+
   /** `Date.now()` just before the compiler was asked. */
   takenAt: number;
 }

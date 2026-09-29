@@ -133,6 +133,7 @@ export async function createHostInputMutationTracker(
     string,
     {
       directory: string;
+
       /** Entry names the watch reports, or every entry when absent. */
       names?: Set<string>;
       recursive?: boolean;

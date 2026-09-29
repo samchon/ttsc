@@ -15,10 +15,13 @@ import type { TtscWatchInputState } from "./TtscWatchInputState";
 export interface TtscWatchInputEvidence {
   /** Memoized filesystem identity of the input. */
   identity: string;
+
   /** Whether the generation recorded this input as unavailable as a file. */
   missing: boolean;
+
   /** The generation state Metro can compare with its main-process baseline. */
   state?: TtscWatchInputState;
+
   /** Which unavailable predicate must become true before invalidation. */
   unavailable?: "missing" | "not-file";
 }

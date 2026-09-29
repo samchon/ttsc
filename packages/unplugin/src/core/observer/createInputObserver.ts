@@ -77,7 +77,7 @@ import { someSet } from "./someSet";
  *   change alone.
  * @param operations Native watch seams, replaceable for tests.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   Owned registration maps and callbacks separate compiler-input conditions
  *   from Vite importer or build-record policy.
  *

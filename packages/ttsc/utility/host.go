@@ -32,6 +32,7 @@ type hostOptions struct {
   tsgoArgs       []string
   stdout         io.Writer
   stderr         io.Writer
+
   // fs overrides the filesystem the program loads from. Only the resident serve
   // host sets it (to an OverlayFS), so build/check/transform leave it nil and
   // LoadProgram falls back to the default filesystem.
@@ -53,6 +54,7 @@ type transformResult struct {
   // parsed AST syntactically, so it adds nothing of its own to either. See
   // driver.Program.TransformDependenciesFor.
   Dependencies         map[string][]string        `json:"dependencies,omitempty"`
+
   DependenciesComplete []string                   `json:"dependenciesComplete,omitempty"`
   Diagnostics          []transformDiagnostic      `json:"diagnostics,omitempty"`
   Graph                *driver.TransformGraph     `json:"graph,omitempty"`

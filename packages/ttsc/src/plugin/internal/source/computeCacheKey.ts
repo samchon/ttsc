@@ -39,12 +39,14 @@ export function computeCacheKey(inputs: {
   dir: string;
   entry: string;
   env?: NodeJS.ProcessEnv;
+
   /**
    * Digests of the environment each build directory is keyed on
    * (`pluginBuildEnvironment`), filled with this build's, so the load reports
    * its plugin sources' states without reading the environment again.
    */
   environmentDigests?: Map<string, string>;
+
   /**
    * Receives the metadata of every toolchain path the environment was read from
    * (`PluginBuildEnvironmentWitness`), so the build can prove the toolchain it
@@ -54,6 +56,7 @@ export function computeCacheKey(inputs: {
   filesystem?: Partial<SourceBuildFilesystemOperations>;
   goBinary?: string;
   overlayDirs?: readonly string[];
+
   /**
    * Digests of the source directories this load already read, by absolute path.
    * Read through, and filled with every directory this key covers.

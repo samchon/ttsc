@@ -2,13 +2,16 @@
 export interface TtscProjectMutationTracker {
   /** Absolute paths named by generation-time mutation events. */
   changes: Set<string>;
+
   /** Whether additional event paths were discarded after the witness bound. */
   changesOmitted: boolean;
+
   /**
    * Release the watchers and mark the tracker failed, so nothing trusts it
    * afterwards.
    */
   close: () => void;
+
   /**
    * Absolute spellings whose creation, change or removal this tracker would
    * report, when it watches exact names rather than whole directories.
@@ -19,8 +22,10 @@ export interface TtscProjectMutationTracker {
    * whole, which cannot answer for one name.
    */
   covered?: ReadonlySet<string>;
+
   /** Whether this is the repository-owned backend with content-event coverage. */
   contentAuthoritative?: boolean;
+
   /**
    * Wait until every event this tracker's watcher has already dispatched has
    * been applied to it.
@@ -36,16 +41,19 @@ export interface TtscProjectMutationTracker {
    * marked {@link unverified} (samchon/ttsc#1428).
    */
   drain?: () => Promise<boolean>;
+
   /**
    * Whether the watcher could not be opened, has errored, or was closed; a
    * failed tracker proves nothing either way.
    */
   failed: boolean;
+
   /**
    * Whether a rename or equivalent membership event was observed since the
    * tracker opened.
    */
   membershipChanged: boolean;
+
   /**
    * Whether the backend may have dropped events since the state was last
    * proven, as FSEvents reports it may have done (samchon/ttsc#1425), or a
@@ -55,6 +63,7 @@ export interface TtscProjectMutationTracker {
    * its silence is proof again.
    */
   unverified?: boolean;
+
   /**
    * The watched directories, in the walk's own spelling, whose backend the last
    * drain could not prove delivered (samchon/ttsc#1453): a macOS stream with no
@@ -64,13 +73,16 @@ export interface TtscProjectMutationTracker {
    * proof. Replaced by every drain, so a stream proven later proves again.
    */
   unproven?: ReadonlySet<string>;
+
   /** Compare event and input paths through this tracker's filesystem identity. */
   overlaps?: (input: string, changed: string) => boolean;
+
   /**
    * The drain currently in flight, shared by concurrent deliveries so one
    * barrier serves them all.
    */
   settle?: Promise<void>;
+
   /**
    * Re-check that every watched directory is still the one the watch opened on,
    * and fail the tracker when one is not.

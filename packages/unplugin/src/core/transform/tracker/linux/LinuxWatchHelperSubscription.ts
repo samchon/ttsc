@@ -8,11 +8,13 @@ export interface LinuxWatchHelperSubscription {
    * `false` when the directory could not be watched.
    */
   ready(live: boolean): void;
+
   /**
    * One event of the directory, or `null` for the name when events were
    * dropped, which may concern anything the subscription covers.
    */
   event(eventType: string, filename: string | null): void;
+
   /**
    * The subscription ended without being removed: the directory went away, or
    * the helper did. Nothing more is reported for it.

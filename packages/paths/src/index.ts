@@ -11,7 +11,7 @@ import path from "node:path";
  * the host reuse descriptor evaluation under the observed module graph without
  * claiming that the native transform has no project-wide dependencies.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   The factory follows the maintained banner package's TypeScript entry and
  *   compiler-generated declaration convention, and the host's supported
  *   default-export factory protocol. node:path.resolve locates sibling native
@@ -64,10 +64,13 @@ type TtscPathsFactoryContext = {
 type TtscPathsDescriptor = {
   /** No external files are read while this factory constructs its descriptor. */
   hostInputHashes: Record<string, string | null>;
+
   /** Package identity used for diagnostics and plugin registration. */
   name: string;
+
   /** Absolute Go source directory compiled and linked by the host. */
   source: string;
+
   /** Register source rewriting in the transform stage. */
   stage: "transform";
 };

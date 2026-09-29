@@ -9,6 +9,7 @@ export interface IDeclaredPaths {
    * targets.
    */
   baseDir: string;
+
   /** The raw `compilerOptions.paths` object as declared. */
   paths: Record<string, unknown>;
 }

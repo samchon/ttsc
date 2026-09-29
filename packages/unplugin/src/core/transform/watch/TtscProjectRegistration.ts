@@ -15,14 +15,17 @@ export interface TtscProjectRegistration {
    * serves the module from a cache (`createRollupCachedModuleProof`).
    */
   digest?: string;
+
   /** Whether the delivery failed and the inputs are the recovery inputs. */
   failed: boolean;
+
   /**
    * Every input of the generation, with the evidence the record holds, for a
    * bridge that observes them live. Derived on first call and memoized per
    * generation, so a host without a bridge never pays for it.
    */
   inputs: () => readonly TtscWatchInput[];
+
   /** The project record file (`projectRecordFile`), up to date. */
   record: string;
 }

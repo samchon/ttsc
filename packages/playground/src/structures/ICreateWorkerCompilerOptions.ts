@@ -5,8 +5,10 @@ import type { ITypiaPluginConfig } from "./ITypiaPluginConfig";
 export interface ICreateWorkerCompilerOptions {
   /** URL of the site's pre-built playground.wasm. */
   wasmUrl: string;
+
   /** URL of the matching wasm_exec.js. Defaults to next to wasmUrl. */
   wasmExecUrl?: string;
+
   /**
    * `globalThis[apiName]` the wasm binds. Must match the `apiName` passed to
    * `host.Expose` when the site's wasm was built.
@@ -15,8 +17,10 @@ export interface ICreateWorkerCompilerOptions {
 
   /** In-MemFS project root. Defaults to `/work`. */
   workDir?: string;
+
   /** Tsconfig path relative to `workDir`. Defaults to `tsconfig.json`. */
   tsconfigPath?: string;
+
   /** Entry source path relative to `workDir`. Defaults to `src/playground.ts`. */
   entryFile?: string;
 

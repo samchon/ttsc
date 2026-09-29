@@ -29,6 +29,7 @@ import type { TtscEnvelopeGraphIndexes } from "./TtscEnvelopeGraphIndexes";
 export interface TtscEnvelopeDerivation {
   /** One filesystem snapshot for every identity comparison in this envelope. */
   readonly identityContext: FilesystemPathIdentityContext;
+
   /**
    * The project root's two spellings, the one it was named by and the physical
    * one, resolved once for the envelope: the compiler reports its inputs
@@ -36,37 +37,45 @@ export interface TtscEnvelopeDerivation {
    * (samchon/ttsc#1451).
    */
   readonly project: TtscProjectSpellings;
+
   /** Memoized `pathIdentityKey` results, keyed by the exact input. */
   readonly identities: Map<string, string>;
+
   /**
    * Lazily built reference-graph indexes, `undefined` until the first
    * watch-input derivation. A host without an `addWatchFile` hook never pays
    * the O(edges) build.
    */
   graph?: TtscEnvelopeGraphIndexes;
+
   /**
    * Lazily collected identities of the envelope's `volatile` member files,
    * `undefined` until the first volatility predicate.
    */
   volatileFiles?: Set<string>;
+
   /**
    * Lazily collected identities of the envelope's `dependenciesComplete` member
    * files, `undefined` until the first completeness predicate.
    */
   dependenciesComplete?: Set<string>;
+
   /**
    * Lazily built identity -> envelope key index of the `typescript` map (first
    * match wins, mirroring the historical scan). `undefined` until the first
    * project-relative key miss.
    */
   outputIndex?: Map<string, string>;
+
   /**
    * Lazily built identity -> `dependencies` entries index (first match wins,
    * mirroring the historical scan). `undefined` until the first key miss.
    */
   dependencyIndex?: Map<string, unknown>;
+
   /** Per lexical delivered-module spelling memo of its final watch-input list. */
   readonly watchInputs: Map<string, string[]>;
+
   /**
    * Lazily built project-walk keys of the envelope's declared inputs, and
    * whether that build already ran. A graph-free envelope declares no input
@@ -74,6 +83,7 @@ export interface TtscEnvelopeDerivation {
    * see `sameHashes`.
    */
   declaredInputKeys?: Set<string>;
+
   /**
    * Whether {@link declaredInputKeys} was already derived, since `undefined` is
    * also a valid result.

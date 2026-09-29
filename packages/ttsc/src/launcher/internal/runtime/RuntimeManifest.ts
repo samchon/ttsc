@@ -7,33 +7,42 @@ import type { OwningModuleOptions } from "./OwningModuleOptions";
 export interface RuntimeManifest {
   /** Project root of the entry's owning tsconfig. */
   projectRoot: string;
+
   /** Source-tree root the emit mirrors (tsgo strips this prefix). */
   rootDir: string;
+
   /** Directory holding the entry project's emitted JavaScript. */
   emitDir: string;
+
   /** Physical TypeScript root whose checked preparation created this manifest. */
   entrySource?: string;
+
   /** Exact JavaScript emitted for `entrySource`. */
   entryFile?: string;
+
   /**
    * The build's record of the JavaScript it emitted, relative to `emitDir` with
    * `/` separators. Ownership is decided against it, so every process of the
    * run agrees on what the build compiled without listing the directory.
    */
   outputs?: readonly string[];
+
   /**
    * The entry tsconfig's `module` and `target`, deciding emit CJS/ESM per file.
    * `target` is not decoration: an absent `module` makes tsgo derive the module
    * kind from it.
    */
   moduleOptions?: OwningModuleOptions;
+
   /** Root directory for per-dependency build output. */
   depCacheDir: string;
+
   /**
    * Directory of the lowered orphan sources, under the run's resolved cache
    * root, which outlives the run (samchon/ttsc#1562).
    */
   orphanCacheDir?: string;
+
   /**
    * `false` when the run disabled transform plugins (`ttsx --no-plugins`). A
    * TypeScript root the program reaches outside every checked build is part of

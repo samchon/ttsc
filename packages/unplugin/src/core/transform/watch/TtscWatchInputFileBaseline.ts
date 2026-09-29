@@ -6,6 +6,7 @@ export interface TtscWatchInputFileBaseline {
    * kind, which counts anything but a directory, for a broad one.
    */
   fileExists: boolean;
+
   /**
    * Filesystem identity key of the path; evidence recorded for another identity
    * never matches.

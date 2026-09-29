@@ -72,22 +72,29 @@ import { runtimeEmitProfile } from "./runtimeEmitProfile";
 export function buildSingleRootProject(props: {
   /** The root, in the physical spelling the runtime loads it by. */
   source: string;
+
   /** The owning `tsconfig.json`, whose options the root inherits. */
   tsconfig: string;
+
   /** Directory the build runs in. */
   projectRoot: string;
+
   /** Directory-safe token, unique per concurrent build of one tsconfig. */
   key: string;
+
   /** Where the JavaScript goes. The directory must be private to this build. */
   emitDir: string;
+
   /**
    * Whether diagnostics stop the build. A root of the user's program is
    * checked; a root inside an installed package is emit-only, matching the
    * policy for every other file of that package.
    */
   checked: boolean;
+
   /** Names the root in a failure: `entry` for the launcher's own entry. */
   role: "entry" | "root";
+
   /** Build options forwarded to `runBuild`. */
   options?: TtscCommonOptions & { cacheDir?: string };
 }): { project: ReturnType<typeof readProjectConfig>; rootDir: string } {

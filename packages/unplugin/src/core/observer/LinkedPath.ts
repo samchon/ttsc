@@ -10,6 +10,7 @@ import type { InputEntry } from "./InputEntry";
 export interface LinkedPath {
   /** Physical target last observed, or `undefined` when unresolvable. */
   target: string | undefined;
+
   /** Entries reached through this link. */
   inputs: Set<InputEntry>;
 }

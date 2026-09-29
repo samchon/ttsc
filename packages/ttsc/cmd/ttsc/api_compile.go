@@ -23,6 +23,7 @@ type apiCompileResult struct {
   // Output is still returned in diagnostic cases because TypeScript-Go may
   // produce partial emit text before a build-failing error is reported.
   Diagnostics []apiCompileDiagnostic `json:"diagnostics,omitempty"`
+
   Output      map[string]string      `json:"output"`
 }
 

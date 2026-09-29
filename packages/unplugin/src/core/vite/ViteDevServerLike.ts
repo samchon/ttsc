@@ -24,17 +24,22 @@ export interface ViteDevServerLike {
       watch?: { usePolling?: boolean } | null;
     };
   };
+
   /** Per-environment graphs and channels under the environment API (Vite 6+). */
   environments?: Record<string, ViteEnvironmentLike>;
+
   /** The server-level channel; in Vite 6+ an alias of the client environment's. */
   hot?: ViteHotChannelLike;
+
   /** The mixed module graph, primary in Vite 5 and kept for compatibility after. */
   moduleGraph?: ViteModuleGraphLike;
+
   /**
    * Run Vite's own update propagation for one mixed-graph module (Vite 5), as
    * an edit to its file would (samchon/ttsc#1393).
    */
   reloadModule?(node: ViteModuleNodeLike): Promise<void>;
+
   /** The websocket channel to connected clients, present in every major. */
   ws?: ViteHotChannelLike;
 }

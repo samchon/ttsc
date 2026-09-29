@@ -58,12 +58,14 @@ export namespace GoBuildCacheCoordination {
   export interface GoBuildCacheCoordinationRecord {
     /** Path of the record file. */
     file: string;
+
     /**
      * Stop the heartbeat, mark the record complete, then delete it. Completion
      * is persisted first so a failed delete never leaves a finished task
      * looking active until it expires.
      */
     finish: () => void;
+
     /**
      * Keep the record fresh from a background worker while this thread blocks
      * in a synchronous build. Idempotent; returns `false` when no worker could

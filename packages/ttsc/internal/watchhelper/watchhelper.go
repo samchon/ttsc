@@ -34,8 +34,10 @@ package watchhelper
 type Request struct {
   // Op is `add`, `remove`, or `sync`.
   Op string `json:"op"`
+
   // ID names the subscription, or the sync being answered.
   ID int64 `json:"id"`
+
   // Path is the directory an `add` watches.
   Path string `json:"path,omitempty"`
 }
@@ -45,18 +47,25 @@ type Response struct {
   // ID names the subscription or the sync the line concerns. An overflow
   // concerns every subscription and carries none.
   ID int64 `json:"id,omitempty"`
+
   // Ready answers an `add` whose watch is live.
   Ready bool `json:"ready,omitempty"`
+
   // Error answers an `add` that could not watch its directory.
   Error string `json:"error,omitempty"`
+
   // Type is an event's `rename` or `change`.
   Type string `json:"type,omitempty"`
+
   // Name is the entry an event concerns, relative to the watched directory.
   Name string `json:"name,omitempty"`
+
   // Gone reports that the watched directory itself went away.
   Gone bool `json:"gone,omitempty"`
+
   // Overflow reports that events were dropped.
   Overflow bool `json:"overflow,omitempty"`
+
   // Synced answers a `sync`.
   Synced bool `json:"synced,omitempty"`
 }

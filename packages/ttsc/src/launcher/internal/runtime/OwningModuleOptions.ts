@@ -7,6 +7,7 @@
 export interface OwningModuleOptions {
   /** The project's `module` option as written; absent when not declared. */
   module?: string;
+
   /** The project's `target` option as written; absent when not declared. */
   target?: string;
 }

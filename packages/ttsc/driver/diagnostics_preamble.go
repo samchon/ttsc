@@ -38,10 +38,12 @@ import (
 // diagnostic.
 type preambleView struct {
   file *ast.SourceFile
+
   // start is the byte offset where the preamble was inserted, and length its
   // byte length. ApplySourcePreamble inserts after a BOM and after a hashbang
   // line, so start is not always zero.
   start  int
+
   length int
 }
 

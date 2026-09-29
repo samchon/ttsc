@@ -19,14 +19,17 @@ export interface BunLikeBuild {
   config?: {
     files?: Readonly<Record<string, unknown>>;
   };
+
   /**
    * Register a callback for the start of a bundler build.
    *
    * Optional because `Bun.plugin()` runtime builders do not expose this hook.
    */
   onStart?(callback: () => void | Promise<void>): void;
+
   /** Register a callback for deterministic bundler-session teardown. */
   onEnd?(callback: () => void | Promise<void>): void;
+
   /**
    * Register a loader callback for files matching `filter`.
    *

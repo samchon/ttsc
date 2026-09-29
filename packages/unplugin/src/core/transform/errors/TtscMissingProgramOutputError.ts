@@ -12,8 +12,10 @@
 export class TtscMissingProgramOutputError extends Error {
   /** The module the bundler asked for. */
   public readonly file: string;
+
   /** The project config whose program does not contain it. */
   public readonly tsconfig: string;
+
   /**
    * The projects its `references` lead to, all searched without one admitting
    * the file (samchon/ttsc#1397).

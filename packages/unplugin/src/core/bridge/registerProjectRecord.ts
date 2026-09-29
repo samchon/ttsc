@@ -20,8 +20,10 @@ import type { HostWatchBridge } from "./HostWatchBridge";
 export function registerProjectRecord(props: {
   /** The host's own file channel. */
   addWatchFile: (file: string) => void;
+
   /** The session's bridge, present only while the host is watching. */
   bridge?: { instance: HostWatchBridge; startedAt: number };
+
   /** What the delivery handed over (`TtscTransformHooks.project`). */
   registration: TtscProjectRegistration;
 }): void {

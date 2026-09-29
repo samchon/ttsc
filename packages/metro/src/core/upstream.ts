@@ -11,7 +11,7 @@ const nodeRequire = createRequire(import.meta.url);
  * with arguments (e.g. `{ projectRoot, enableBabelRCLookup }`), so it is typed
  * variadic.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   This structural interface describes Metro's Babel-transformer extension:
  *   one transform operation and an optional variadic cache key. It does not
  *   implement Babel, install peers or alter their exports. Concrete modules
@@ -40,7 +40,7 @@ export interface UpstreamTransformer {
    * only `src` may hold successfully transformed TypeScript. The returned AST
    * may have its locations remapped by the adapter before Metro receives it.
    *
-   * @evidence contracts/common.md#standard-implementation-practices
+   * @evidence contracts/common.md#principled-implementation
    *   This method signature represents the upstream transformer that Metro
    *   selected.
    *
@@ -66,6 +66,7 @@ export interface UpstreamTransformer {
     options: Record<string, unknown>;
     [key: string]: unknown;
   }): Promise<{ ast: object }>;
+
   /**
    * Optional upstream contribution to Metro's static transformer key.
    *
@@ -73,7 +74,7 @@ export interface UpstreamTransformer {
    * key; the adapter also treats a throwing key as nonfatal during keying,
    * while transformer loading failures still fail actual transformation.
    *
-   * @evidence contracts/common.md#standard-implementation-practices
+   * @evidence contracts/common.md#principled-implementation
    *   The optional callback follows Metro's upstream transformer contract.
    *   Arguments are variadic because Metro supplies its own key options; absence
    *   is handled by the adapter.
@@ -126,7 +127,7 @@ export const UPSTREAM_CANDIDATES = [
  * `load` is the explicit module-loading boundary. Its default uses Node's real
  * `require`; an injected loader must preserve absence versus failure semantics.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   Node createRequire loads the configured module or documented
  *   Expo/React-Native candidates. Resolution is separated from execution: only
  *   known entry-absence codes permit another automatic candidate;
@@ -216,7 +217,7 @@ export function resolveUpstreamTransformer(
  * @param resolve Resolves a module specifier from the project.
  * @returns The absolute path of the first installed candidate, or `undefined`.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   The supplied project resolver uses Node module resolution without
  *   executing candidate code. Only recognized entry-absence errors continue
  *   probing; other resolver failures propagate.

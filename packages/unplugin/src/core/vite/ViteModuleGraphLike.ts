@@ -10,8 +10,10 @@ export interface ViteModuleGraphLike {
    * spelling.
    */
   fileToModulesMap?: Map<string, Set<ViteModuleNodeLike>>;
+
   /** Fast exact lookup by slash-normalized file path. */
   getModulesByFile?(file: string): Set<ViteModuleNodeLike> | undefined;
+
   /** Drop a node's cached transform so the next request retransforms it. */
   invalidateModule?(node: ViteModuleNodeLike): void;
 }

@@ -16,14 +16,19 @@ export * from "./structures/index";
 type TtscPluginDescriptor = {
   /** Universal config-discovery inputs consumed by the native transform. */
   hostInputs?: string[];
+
   /** Evaluation-time fingerprints paired with {@link hostInputs}. */
   hostInputHashes?: Record<string, string | null>;
+
   /** Evaluation-time physical targets paired with {@link hostInputs}. */
   hostInputRealpaths?: Record<string, string | null>;
+
   /** Human-readable plugin name used in logs and error messages. */
   name: string;
+
   /** Absolute path to the Go source directory for this plugin. */
   source: string;
+
   /**
    * Pipeline stage. `"transform"` plugins may rewrite source files; `"check"`
    * plugins only produce diagnostics. The framework default is `"transform"`.
@@ -41,24 +46,31 @@ type TtscPluginDescriptor = {
 type TtscPluginFactoryContext<TConfig> = {
   /** Absolute path to the selected ttsc native helper, not a plugin binary. */
   binary: string;
+
   /** Working directory of the ttsc invocation. */
   cwd: string;
+
   /**
    * Absolute path to the directory holding this descriptor module — the
    * load-mode-independent replacement for `__dirname`.
    */
   dirname: string;
+
   /**
    * Absolute path to this descriptor module — the load-mode-independent
    * replacement for `__filename`.
    */
   filename: string;
+
   /** Host-declared anchor for implicit plugin config discovery. */
   pluginConfigDir?: string;
+
   /** The raw plugin entry from `compilerOptions.plugins[]`. */
   plugin: TConfig;
+
   /** Absolute path to the project root (directory containing tsconfig). */
   projectRoot: string;
+
   /** Absolute path to the resolved tsconfig. */
   tsconfig: string;
 };
@@ -84,7 +96,7 @@ const FRAMEWORK_KEYS = new Set<string>([
  * with a specific error so users discover the correct configuration surface
  * (the dedicated config file) rather than silently receiving no banner.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   The host's default-export factory protocol supplies module and project
  *   anchors. Node path/fs/crypto APIs produce a native driver descriptor and
  *   config observations; the Go driver owns evaluation and transformation.

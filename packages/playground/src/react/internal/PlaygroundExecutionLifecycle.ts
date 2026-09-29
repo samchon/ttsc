@@ -1,8 +1,10 @@
 export interface IPlaygroundExecutionAttempt {
   /** Signal passed through every cancellable step owned by this attempt. */
   readonly signal: AbortSignal;
+
   /** Whether this attempt may still commit messages or state. */
   isCurrent(): boolean;
+
   /** Release the active slot if this is still the current attempt. */
   finish(): boolean;
 }

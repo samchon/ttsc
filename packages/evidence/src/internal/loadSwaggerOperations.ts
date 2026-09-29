@@ -36,6 +36,7 @@ interface ISwaggerDocumentProblem {
 interface ISwaggerOperation {
   method: string;
   path: string;
+
   /**
    * The operation's own content, digested where it is understood.
    *

@@ -24,6 +24,7 @@ const HANDED = new WeakMap<
   {
     evidenced: readonly TtscWatchInput[];
     inputs: readonly TtscWatchInput[];
+
     /**
      * The records written, one per host root the generation reached, each with
      * the digest of the bytes written.

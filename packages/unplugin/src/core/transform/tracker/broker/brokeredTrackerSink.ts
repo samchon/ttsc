@@ -33,6 +33,7 @@ export function brokeredTrackerSink(
   filters: {
     /** Whether a named `change` can add one unknown program path. */
     changeAddsMembership?: (location: string, filename: string) => boolean;
+
     /**
      * The exact-input trackers' event decision. When present it is the only
      * filter applied.
@@ -42,8 +43,10 @@ export function brokeredTrackerSink(
       filename: string | null,
       eventType: string,
     ) => "change" | "mutation" | undefined;
+
     /** Whether a named event can change compiler-consumed content. */
     content?: (location: string, filename: string) => boolean;
+
     /**
      * Whether a named event can be a program membership change, for the
      * project-directory tracker, which watches whole directories and so has to

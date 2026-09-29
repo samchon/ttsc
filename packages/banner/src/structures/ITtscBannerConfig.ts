@@ -5,7 +5,7 @@
  * in this object gives JSON, JavaScript and TypeScript configuration the same
  * value contract; the tsconfig plugin entry selects the file instead.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   This ordinary exported TypeScript interface is the native loader's object
  *   contract, following the package's dedicated typed-config convention rather
  *   than adding inline banner options. Its required text field is

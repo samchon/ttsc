@@ -21,9 +21,11 @@ export function resolveTsgo(
   opts: {
     /** Explicit path to a native `tsc` binary; bypasses package resolution. */
     binary?: string;
+
     /** Directory from which to discover `typescript`. */
     cwd?: string;
     env?: NodeJS.ProcessEnv;
+
     /**
      * Fallback resolution anchor used when the package is not found at `cwd`.
      * Useful in test harnesses that install the package into a different tree.

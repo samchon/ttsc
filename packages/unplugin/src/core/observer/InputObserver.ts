@@ -10,13 +10,16 @@ export interface InputObserver {
    * tell what changed during it.
    */
   begin(): number;
+
   /**
    * Close every scope, poller, and timer, and forget every owner. The observer
    * stays open on its root, and observes owners again as they register.
    */
   dispose(): Promise<void>;
+
   /** Release every input one owner registered. */
   forget(owner: string): void;
+
   /**
    * Anchor the observer at a root, which a pinned scope then observes, unless
    * the host declared polling, which sends every input to the bounded poll
@@ -24,6 +27,7 @@ export interface InputObserver {
    * observed before the first call.
    */
   open(root: string, polling: boolean): void;
+
   /**
    * Replace one owner's inputs with a delivery's, keeping a failed delivery's
    * previous spellings for recovery. Each input is proven against the disk now,

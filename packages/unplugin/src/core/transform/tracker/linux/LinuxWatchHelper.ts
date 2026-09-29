@@ -13,14 +13,19 @@ import type { LinuxWatchHelperSubscription } from "./LinuxWatchHelperSubscriptio
 export interface LinuxWatchHelper {
   /** Whether the helper has answered anything, proving it speaks the protocol. */
   answered: boolean;
+
   /** The helper process. */
   child: ChildProcess;
+
   /** Next request id, shared by subscriptions and syncs. */
   nextId: number;
+
   /** Replies outstanding; the output stays referenced while nonzero. */
   pending: number;
+
   /** Live subscriptions by id. */
   subscriptions: Map<number, LinuxWatchHelperSubscription>;
+
   /** Syncs awaiting their answer, each released with whether it came. */
   syncs: Map<number, (answered: boolean) => void>;
 }

@@ -27,6 +27,7 @@ export function prepareExecution(
   options: TtscCommonOptions & {
     cacheDir?: string;
     project?: string;
+
     /** Internal cache key for more than one checked entry in this process. */
     runtimeCacheKey?: string;
   } = {},
@@ -34,14 +35,18 @@ export function prepareExecution(
   cleanupDir: string;
   emitDir: string;
   entryFile: string;
+
   /** Physical runtime cache root whose lock serializes this run and clean. */
   runtimeCacheDir: string;
+
   /** Physical directory holding the run, even when `project` is a link. */
   runtimeRunsDir: string;
+
   /** The build's record of its outputs, relative to `emitDir`. */
   outputs: readonly string[];
   entrySource: string;
   moduleOptions: OwningModuleOptions;
+
   /** Where the run keeps its lowered orphan sources, under its cache root. */
   orphanCacheDir: string;
   projectRoot: string;
@@ -487,8 +492,10 @@ function defaultRuntimeCacheDir(
 ): {
   /** Whether ttsc collects the root, which it does for its own default. */
   collected: boolean;
+
   /** The cache root the runtime directory lives in. */
   root: string;
+
   /** The runtime's own directory. */
   runtime: string;
 } {

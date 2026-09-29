@@ -12,6 +12,7 @@ import { createServer } from "./createServer";
 export async function startServer(options: {
   cwd?: string;
   tsconfig?: string;
+
   /** Server version reported in the MCP handshake. */
   version: string;
 }): Promise<void> {

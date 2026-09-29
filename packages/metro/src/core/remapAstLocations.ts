@@ -23,7 +23,7 @@
  *   absolute `sources`.
  * @param file Absolute path of the module.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   The adapter consumes its own source-map VLQ segments using
  *   greatest-lower-bound lookup, then updates the upstream-owned AST through
  *   Metro's returned-AST extension boundary. Iterative traversal tracks
@@ -134,10 +134,13 @@ export function remapAstLocations(
 interface Segment {
   /** Zero-based generated column. */
   generatedColumn: number;
+
   /** Index into the map's `sources`, or `-1` for an unmapped segment. */
   source: number;
+
   /** Zero-based source line. */
   line: number;
+
   /** Zero-based source column. */
   column: number;
 }

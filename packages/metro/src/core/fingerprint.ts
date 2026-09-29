@@ -108,15 +108,19 @@ const NON_REUSABLE_RUN_PREFIX = "nonce:";
 interface SnapshotState {
   /** Random epoch id minted when the main snapshot was created. */
   id: string;
+
   /** Absolute paths of every recorded derived transform input. */
   files: string[];
+
   /**
    * The recorded inputs that are plugin source directories, each also in
    * `files`, whose state the static key carries (samchon/ttsc#1487).
    */
   trees: string[];
+
   /** Whether any recorded transform declared volatile output. */
   volatile: boolean;
+
   /** Whether a transform observed state different from its run's static key. */
   tainted: boolean;
 }
@@ -130,6 +134,7 @@ interface SnapshotDocument {
    * again by no one. Present only on the main snapshot.
    */
   compacted?: string[];
+
   files: string[];
   id?: string;
   tainted: boolean;
@@ -164,7 +169,7 @@ const unhealthySnapshots = new Set<string>();
  * options — all the same value in a real Metro run), else the working directory
  * Metro was launched from.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   Node path.resolve provides one agreed base for config preparation, static
  *   keying and worker recording. A nonempty projectRoot wins; absent or empty
  *   input uses cwd.
@@ -202,7 +207,7 @@ export function resolveFingerprintBase(
  * core treats as an input is fingerprinted by the walk, the recorded snapshot,
  * or both.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   The shared project resolver owns tsconfig selection, while Node
  *   path.relative defines containment separately from program membership.
  *   Blank explicit options mean implicit discovery. An in-root config avoids a
@@ -274,7 +279,7 @@ function projectViewRoots(
  * could describe a different program than the walk hashed. Both halves travel
  * together so neither can be supplied without the other (samchon/ttsc#1316).
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   A readonly structural interface carries the selected config, discovery
  *   observations, membership policy and walk roots as one view.
  *   resolveProjectView supplies that coherent view to the recorder instead of
@@ -300,16 +305,22 @@ function projectViewRoots(
 export interface TtscMetroProjectView {
   /** The base directory both fingerprint sides agree on. */
   readonly base: string;
+
   /** Config candidates observed while selecting this transform's project. */
   readonly discoveryInputs: readonly TtscWatchInput[];
+
   /** The caller's explicit `project`, if any. */
   readonly explicitProject: string | undefined;
+
   /** The membership policy resolved for that project. */
   readonly policy: ReturnType<typeof readProjectMembershipPolicy>;
+
   /** The policy used by the routed static walk. */
   readonly walkPolicy: ReturnType<typeof readProjectMembershipPolicy>;
+
   /** Lexical roots whose fingerprint uses this project's policy. */
   readonly roots: readonly string[];
+
   /** The exact config selected for this project. */
   readonly tsconfig: string;
 }
@@ -332,7 +343,7 @@ interface TtscMetroFingerprintProjectMap {
  * shared by its recorder batch. The policy is read from source rather than
  * trusting a cached mtime/size observation, which could miss same-stamp edits.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   Shared project discovery and membership-policy APIs select the same config
  *   as the transform core, retaining positive and negative discovery
  *   predicates. Compiler-option overlays are merged through that owner.
@@ -672,7 +683,7 @@ function pathIsWithin(child: string, parent: string): boolean {
  * The run baseline retains exact hashes, identities and discovery predicates
  * so a worker can prove that its generation matches the state keyed here.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   The shared project walker/policy and input-state APIs supply real file,
  *   config, identity and recorded-input observations. Two complete
  *   observations must agree before Node sha256 publishes the key and immutable
@@ -702,9 +713,12 @@ function pathIsWithin(child: string, parent: string): boolean {
 export function computeProjectFingerprint(props: {
   compilerOptions?: Record<string, unknown>;
   explicitProject?: string;
+
   /** Test seam for proving that incomplete implicit enumeration fails closed. */
   projectDiscoveryFilesystem?: TtscProjectTreeDiscoveryFilesystem;
+
   projectRoot?: string;
+
   /** Private identity transported from `withTtsc` to this Metro run. */
   runId?: string;
 }): string {
@@ -928,7 +942,7 @@ function nonce(): string {
  * to prevent delayed contenders from moving a newer lock. Those populations
  * are not bounded by a fixed retention budget in this implementation.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   Node filesystem APIs atomically publish complete snapshot documents and a
  *   token-owned compaction lock. Worker claims are merged before deletion;
  *   retained claims are identified in the main document to prevent replay.
@@ -1259,7 +1273,7 @@ function listExpiredKeyBaselines(directory: string): string[] {
  * current file bytes; the fingerprint operation owns that validation. Reading
  * costs the number and size of outstanding documents plus their unioned paths.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   Strict snapshot parsing and Set union read worker documents before the
  *   main publication, retaining file/tree/volatile/tainted state without
  *   replaying already compacted claims. This is the owned persisted-input
@@ -1346,7 +1360,7 @@ export function readSnapshotState(base: string): SnapshotState | undefined {
  * remains dirty for retry and tries recovery storage. If both stores fail,
  * a reusable run throws rather than publishing output backed by lost evidence.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   One worker closure retains derived inputs and compares their
  *   compiler-generation evidence with its immutable run baseline through
  *   shared validation APIs. Static coverage is omitted only after a matching
@@ -1375,6 +1389,7 @@ export function createSnapshotRecorder(runId?: string): {
   /** Record one lexical input without claiming compiler-generation evidence. */
   record: (props: {
     input: string;
+
     /**
      * The project this input belongs to, with the policy its walk uses,
      * resolved once per transform through {@link resolveProjectView}.
@@ -1392,11 +1407,13 @@ export function createSnapshotRecorder(runId?: string): {
      */
     project: TtscMetroProjectView;
   }) => void;
+
   /** Record one module's input evidence and publish its cumulative snapshot. */
   recordMany: (props: {
     inputs: readonly TtscWatchInput[];
     project: TtscMetroProjectView;
   }) => void;
+
   /** Persist that a project's output depends on inputs a file key cannot prove. */
   recordVolatile: (props: { project: TtscMetroProjectView }) => void;
 } {
@@ -1929,7 +1946,7 @@ function writeSnapshotDocument(
  * and BigInt throw rather than supplying a successful key.
  * Shared with the transformer's option digest.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   Recursive Object.entries sorting and JSON primitive escaping provide a
  *   stable internal key representation, not another transport parser. The
  *   primitive return can be undefined, and map/join collapses absent array

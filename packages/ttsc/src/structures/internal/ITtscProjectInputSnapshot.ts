@@ -2,14 +2,19 @@
 export interface ITtscProjectInputSnapshot {
   /** Exact absolute paths, retained even while missing. */
   files: readonly string[];
+
   /** Absolute glob patterns using forward-slash separators. */
   globs: readonly string[];
+
   /** Exact paths whose change invalidates plugin/execution selection. */
   reloadFiles?: readonly string[];
+
   /** Directories whose immediate topology changes execution selection. */
   reloadDirectories?: readonly string[];
+
   /** Physical project root that anchored relative declarations. */
   root: string;
+
   /**
    * The spellings the contributors published, before identity normalization.
    *

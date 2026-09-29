@@ -20,23 +20,29 @@ type apiTransformResult struct {
   // TypeScript contains every non-library source file visible through the
   // Program facade, keyed the same way api-compile keys emitted files.
   Diagnostics []apiCompileDiagnostic `json:"diagnostics,omitempty"`
+
   TypeScript  map[string]string      `json:"typescript"`
+
   // Graph is the host-owned reference graph of the loaded program (direct
   // resolved reference edges, global-scope files, tsconfig extends chain),
   // keyed like TypeScript. Consumers use it to register every file whose
   // content can influence a transformed module, so bundler caches invalidate
   // soundly without per-plugin reporting.
   Graph *driver.TransformGraph `json:"graph,omitempty"`
+
   // Dependencies and DependenciesComplete are the envelope's dependency side
   // channel. This lane runs no plugin transform at all — each output is the
   // file's own parsed text — so every file is complete with an empty list
   // unless a linked plugin is active and declares otherwise; see
   // driver.Program.TransformDependenciesFor.
   Dependencies         map[string][]string `json:"dependencies,omitempty"`
+
   DependenciesComplete []string            `json:"dependenciesComplete,omitempty"`
+
   // HostInputs are absolute native plugin config files evaluated while this
   // generation loaded. JavaScript hosts merge them with descriptor inputs.
   HostInputs         []string           `json:"hostInputs,omitempty"`
+
   HostInputHashes    map[string]*string `json:"hostInputHashes,omitempty"`
   HostInputRealpaths map[string]*string `json:"hostInputRealpaths,omitempty"`
 }

@@ -230,22 +230,28 @@ type LoadProgramOptions struct {
   ForceEmit   bool
   ForceNoEmit bool
   OutDir      string
+
   // SemanticConfigPath restores the user-authored config as the semantic
   // project owner after parsing a disposable generated wrapper. Native command
   // entry points set it explicitly; nested driver calls do not inherit it.
   SemanticConfigPath string
+
   SourcePreamble     string
+
   // SingleThreaded forces TypeScript-Go's single-threaded mode (one checker,
   // serial parse/check/emit), mirroring `tsgo --singleThreaded`.
   SingleThreaded bool
+
   // Checkers overrides the type-checker pool size, mirroring `tsgo --checkers`.
   // Zero leaves TypeScript-Go's default; ignored when SingleThreaded is set.
   Checkers int
+
   // TsgoArgs carries tsgo CLI flags the `ttsc` launcher did not recognize as
   // its own (`--strict`, `--target es2020`, …). They are parsed through
   // TypeScript-Go's own command-line parser into a CompilerOptions overlay
   // that wins over the tsconfig, exactly as `tsgo`'s CLI merges them.
   TsgoArgs []string
+
   // FS overrides the filesystem the program is built on. When nil, DefaultFS
   // is used. A resident Session passes an overlay FS so in-memory edits stay
   // visible to the program and to incremental UpdateProgram calls.

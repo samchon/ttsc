@@ -13,9 +13,11 @@ Product behavior belongs to [project](../project/SKILL.md) and package documenta
 
 Package and logical-unit requirements also inform the scoped questions below. Select a question when the operation makes that design decision, not for every declaration in its package. An acknowledgment justifies the decision; it does not repeat the product specification or certify its test cases.
 
+Keep navigation between contract documents in this entry file. Sibling documents must not link to one another, so each checklist remains independently readable.
+
 ## [Common Implementation Principles](common.md)
 
-Standard approaches, prohibited shortcuts and useful documentation that follows the documentation skill.
+Principled implementation and its justification, clear and simple design, prohibited shortcuts and useful documentation that follows the documentation skill.
 
 ## [OS-Neutral Implementation](portability.md)
 

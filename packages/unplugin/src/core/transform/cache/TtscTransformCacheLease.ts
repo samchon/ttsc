@@ -5,6 +5,7 @@
 export interface TtscTransformCacheLease {
   /** Start a session that uses the cache, cancelling a pending release. */
   acquire(): void;
+
   /** End a session; the last one schedules the cache's release. */
   release(): void;
 }

@@ -15,8 +15,10 @@ export namespace PluginBuildLockOwner {
   export interface IRecord {
     /** The holder's host name. */
     hostname: string;
+
     /** The holder's process id on that host. */
     pid: number;
+
     /** When the holder took the generation, when recorded. */
     startedAt?: string;
   }

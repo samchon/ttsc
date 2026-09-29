@@ -76,6 +76,7 @@ export async function captureTransformGeneration(props: {
   filesystem: TtscTransformFilesystemOperations;
   plugins?: ResolvedTtscUnpluginOptions["plugins"];
   retainProjectMembership: boolean;
+
   /**
    * Whether the generation may keep watchers whose silence stands in for
    * re-reading its inputs. False once the host or the environment declares
@@ -83,6 +84,7 @@ export async function captureTransformGeneration(props: {
    * against its recorded state.
    */
   retainNotifications: boolean;
+
   /**
    * The pooled host session's shared compile store, when the cache shares its
    * compiles (samchon/ttsc#1390). The attempt then takes another worker's
@@ -90,6 +92,7 @@ export async function captureTransformGeneration(props: {
    * publishes its compile once proven.
    */
   session?: string;
+
   /**
    * The project state of a publication an earlier attempt adopted and found
    * refuted here (`TtscAdoptionVerdict`). A claim for that same state compiles
@@ -99,12 +102,14 @@ export async function captureTransformGeneration(props: {
   rejected?: string;
   trackProjectMembership: boolean;
   tsconfig: string;
+
   /**
    * Dependency-only paths an earlier compile of this project reported, read
    * before this compile so the state read after it can be certified
    * (samchon/ttsc#1541).
    */
   witnessedDependencies?: readonly string[];
+
   /**
    * The case policy an earlier compile of this project reported
    * (samchon/ttsc#1545), which primes this attempt's walk before its own

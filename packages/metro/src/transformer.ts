@@ -77,7 +77,7 @@ function recorder(): ReturnType<typeof createSnapshotRecorder> {
  * wrong makes every file look "outside the project" and silently skips the
  * plugin pass.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   Node path.isAbsolute/path.resolve implement Metro's filename contract.
  *   Absolute input is retained; relative input is anchored at supplied
  *   projectRoot, with cwd only for callers lacking that option.
@@ -122,7 +122,7 @@ export function resolveAbsoluteFilename(
  * author's lines, because Metro maps the AST against the file it read
  * (samchon/ttsc#1392).
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   Metro's transformer callback composes the shared Unplugin transform core
  *   with the selected Babel transformer. One resolved project view is frozen
  *   into compilation and recorder inputs. Noneligible or out-of-program files
@@ -263,7 +263,7 @@ export async function transform(params: {
  * non-fatal here: a missing peer must not crash cache-key computation. See the
  * README "Caveats" and samchon/ttsc#721.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   Node sha256 combines package identity, stable resolved options, forwarded
  *   upstream key and the project fingerprint required by Metro's
  *   one-static-key contract. Missing/throwing upstream keys have the
@@ -372,7 +372,7 @@ function upstreamCacheKey(
  * means "all TypeScript". Patterns use the supplied project-relative filename
  * literally; this operation does not normalize separators or filesystem case.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   The shared isTransformTarget predicate owns supported TypeScript
  *   extensions and declaration exclusions. Literal substring filters apply to
  *   Metro's project-relative filename, with exclusion taking precedence.

@@ -48,6 +48,7 @@ export interface IPublishedArtifacts {
    * nothing could report that the answer had changed from "none" to "some".
    */
   file: string | null;
+
   /**
    * Everything the answer was derived from, as paths this process can state for
    * itself.
@@ -58,6 +59,7 @@ export interface IPublishedArtifacts {
    * inputs, and these are those inputs.
    */
   inputs: IArtifactInputs;
+
   /**
    * The state of {@link inputs} when the answer was produced.
    *
@@ -72,6 +74,7 @@ export interface IPublishedArtifacts {
 export interface IArtifactInputs {
   /** Files stated one by one. */
   files: string[];
+
   /** Directories walked, which is what notices an added or deleted file. */
   directories: IArtifactDirectory[];
 }
@@ -80,6 +83,7 @@ export interface IArtifactInputs {
 export interface IArtifactDirectory {
   /** Absolute path of the directory to walk. */
   path: string;
+
   /**
    * Whether the walk descends.
    *

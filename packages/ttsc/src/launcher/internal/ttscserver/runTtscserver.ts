@@ -99,6 +99,7 @@ type LSPExecutionContext = {
   >;
   nativePlugins: readonly ITtscLoadedNativePlugin[];
   projectContext?: ITtscProjectIdentity;
+
   /**
    * What the plugin selection was loaded from, which ends the session when it
    * changes (`captureLSPPluginSelectionInputs`, samchon/ttsc#1507).

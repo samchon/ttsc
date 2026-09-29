@@ -10,6 +10,7 @@ export interface TtscProjectWalkFailure {
     | "directory-read-failed"
     | "file-changed-during-read"
     | "file-read-failed";
+
   /** Absolute lexical spelling observed by the walk. */
   path: string;
 }

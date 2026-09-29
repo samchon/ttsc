@@ -77,7 +77,7 @@ interface MetroConfigLike {
  * succeeding (samchon/ttsc#1321). An explicit `upstreamTransformer` option
  * still wins, since that is the caller saying it outright.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   Metro's supported babelTransformerPath boundary installs this adapter by
  *   cloning the config. Node project resolution preserves an existing upstream
  *   unless explicitly overridden, and realpath/package ownership filters

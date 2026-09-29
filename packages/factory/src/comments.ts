@@ -50,10 +50,13 @@ import { SyntaxKind } from "./syntax";
 export interface SynthesizedComment {
   /** Whether the comment renders as `//` (single-line) or `/* *\/` (multi-line). */
   kind: SyntaxKind.SingleLineCommentTrivia | SyntaxKind.MultiLineCommentTrivia;
+
   /** The raw comment body, excluding the delimiters. */
   text: string;
+
   /** Emit a line break after the comment. Always implied for single-line. */
   hasTrailingNewLine?: boolean;
+
   /** Emit a line break before a trailing comment instead of a space. */
   hasLeadingNewLine?: boolean;
 }

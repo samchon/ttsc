@@ -142,6 +142,7 @@ export namespace PluginBuildLockProtocol {
   export interface LegacyPluginBuildLockFence {
     /** The fence handed to the reclaimer, tagged as the legacy protocol. */
     fence: PluginBuildLockFence;
+
     /**
      * The legacy lock directory's mtime when the fence was first captured. An
      * ownerless legacy lock's age is measured from it, because recording the

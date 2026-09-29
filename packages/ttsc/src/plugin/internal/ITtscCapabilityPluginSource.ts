@@ -15,8 +15,10 @@
 export interface ITtscCapabilityPluginSource {
   /** The directory's state, as `pluginSourceState` reports it. */
   state: string;
+
   /** The digest of the directory's files, as `pluginSourceDigest` reads it. */
   digest?: string;
+
   /**
    * The metadata signature of exactly those files
    * (`pluginSourceFilesSignature`), taken before and after the digest was read

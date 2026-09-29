@@ -5,6 +5,7 @@ import type { TtscTransformCacheLease } from "./TtscTransformCacheLease";
 export interface TtscSharedBuildTransformCache {
   /** The shared cache. */
   cache: TtscTransformCache;
+
   /** Its lifetime across the sessions that use it. */
   lease: TtscTransformCacheLease;
 }

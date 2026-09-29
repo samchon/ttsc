@@ -25,7 +25,7 @@ const packCache = new Map<string, SourcePackEntry>();
  * scratch. Nothing else ends the load: how long a fetch takes belongs to the
  * network, not to a number chosen here.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   The source-pack loader uses fetch/AbortController and Promise sharing,
  *   with an explicit fetch injection seam for the same transport contract. It
  *   supplies source records to the existing mounting operation rather than

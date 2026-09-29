@@ -15,6 +15,7 @@ export interface TtscHostInputValidation {
     string,
     {
       path: string;
+
       /**
        * Whether the recorded state of this input has been matched to readable
        * bytes. Capture sets it immediately for compiler-proven inputs; a
@@ -27,6 +28,7 @@ export interface TtscHostInputValidation {
        */
       readable: boolean;
       realpath: string | null;
+
       /**
        * The signature that may stand in for this entry's content comparison, or
        * `undefined` when none may. A blocker keeps one regardless: it proves a
@@ -36,6 +38,7 @@ export interface TtscHostInputValidation {
       strict?: true;
     }
   >;
+
   /**
    * Lexical spellings the manifest accounts for, omitted from the per-module
    * dependency loop below.
@@ -45,11 +48,13 @@ export interface TtscHostInputValidation {
    * target would leave the alias's own retarget unvalidated.
    */
   readonly covered: Set<string>;
+
   /**
    * Missing paths grouped by the nearest directory whose listing proves them
    * absent.
    */
   readonly missing: Map<string, Set<string>>;
+
   /**
    * The plugin source directories of the generation, each with the state its
    * binary was built from, its files and build environment (samchon/ttsc#1487,
@@ -60,6 +65,7 @@ export interface TtscHostInputValidation {
    * (`pluginSourceFilesDigest`).
    */
   readonly trees: Map<string, string>;
+
   /**
    * The build environment (`processPluginBuildEnvironment` from
    * `ttsc/plugin-source`) each tree was last proven under. A tracker's silence

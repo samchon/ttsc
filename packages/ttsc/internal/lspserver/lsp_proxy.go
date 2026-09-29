@@ -93,16 +93,20 @@ type ProxyOptions struct {
   UpstreamIn  io.Writer // we write here; the tsgo LSP process reads
   UpstreamOut io.Reader // the tsgo LSP process writes here; we read
   Source      PluginSource
+
   // SuppressExecuteCommandProvider keeps ttsc command ids out of the
   // initialize response for clients that register wrapper commands themselves.
   SuppressExecuteCommandProvider bool
+
   // SuppressedExecuteCommandIDs filters specific ttsc command ids out of the
   // initialize response while leaving other PluginSource command ids advertised.
   SuppressedExecuteCommandIDs []string
+
   // ExecuteCommandIDPrefix is prepended to advertised command ids. Hosts that
   // run multiple proxy instances in one global command registry use this to
   // avoid collisions; incoming prefixed ids are mapped back before dispatch.
   ExecuteCommandIDPrefix string
+
   // SymbolProvider answers textDocument/documentSymbol and
   // textDocument/references from ttsc's compiler-backed code graph. tsgo
   // implements both methods, so the proxy forwards to tsgo whenever it
@@ -110,6 +114,7 @@ type ProxyOptions struct {
   // (tsgo did not advertise) or when ForceLocalSymbolProvider is set. Nil leaves
   // both methods forwarded to tsgo unconditionally.
   SymbolProvider SymbolProvider
+
   // ForceLocalSymbolProvider answers documentSymbol/references from
   // SymbolProvider even when upstream tsgo advertises the capability. It serves
   // a raw-LSP graph consumer (such as @samchon/graph) that wants graph-derived
@@ -142,6 +147,7 @@ type Proxy struct {
   // fault to report or the expected end of an editor-requested shutdown; see
   // editorRequestedExit.
   editorExit atomic.Bool
+
   // editorShutdown records that the editor sent the LSP `shutdown` request,
   // which decides the status an `exit` ends the session with; see
   // editorRequestedShutdown.
@@ -149,9 +155,11 @@ type Proxy struct {
 
   pendingMu      sync.Mutex
   pendingActions map[string]pendingCodeActionRequest
+
   // pendingCompletions holds the plugin items computed for a forwarded
   // completion request, keyed by request id, until upstream answers it.
   pendingCompletions       map[string]pendingCompletionRequest
+
   pendingAugmentingActions map[string]struct{}
   pendingLocalActions      map[string]struct{}
   pendingCommands          map[string]struct{}
@@ -163,14 +171,17 @@ type Proxy struct {
   upstreamCodeActionProvider     bool
   upstreamDocumentSymbolProvider bool
   upstreamReferencesProvider     bool
+
   // initializeAnswered records that the editor has received the augmented
   // capabilities, which is what makes a later trigger character "late".
   initializeAnswered bool
+
   // advertisedCompletionTriggers is the trigger set the editor was told about:
   // tsgo's own characters plus whatever the corpus contributed at that moment.
   // A refresh that produces a trigger outside this set cannot reach the editor
   // without a restart, so the proxy says so once per character.
   advertisedCompletionTriggers map[string]struct{}
+
   reportedCompletionTriggers   map[string]struct{}
   projectInputWatchDynamic     bool
   projectInputWatchRelative    bool
@@ -184,6 +195,7 @@ type Proxy struct {
   // the notification upstream, and must never wait on a publication
   // (samchon/ttsc#1441).
   diagnosticsMu               sync.Mutex
+
   upstreamDiagnostics         map[string]cachedDiagnostics
   pluginDiagnostics           map[string]cachedDiagnostics
   projectDiagnostics          cachedDiagnostics
@@ -193,6 +205,7 @@ type Proxy struct {
   documentGeneration          map[string]uint64
   dirtyDocuments              map[string]struct{}
   dirtyVersions               map[string]*int
+
   // documentText caches the live editor buffer per uri so the
   // textDocument/formatting handler can format the in-memory text instead
   // of the on-disk file. didOpen / full-sync didChange seed it with the full

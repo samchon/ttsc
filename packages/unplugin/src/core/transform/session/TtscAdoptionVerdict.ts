@@ -17,6 +17,7 @@
 export interface TtscAdoptionVerdict {
   /** Whether the publication itself failed its proof on this worker's disk. */
   refuted: boolean;
+
   /** The project state the publication was compiled for. */
   state: string;
 }

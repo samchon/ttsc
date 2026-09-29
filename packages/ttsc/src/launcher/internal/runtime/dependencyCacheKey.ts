@@ -12,6 +12,7 @@ export function dependencyCacheKey(
   options: {
     descriptorLoad?: boolean;
     descriptorNonce?: string;
+
     /**
      * The single root a root build compiles, with the digest of its content;
      * absent for a project build.

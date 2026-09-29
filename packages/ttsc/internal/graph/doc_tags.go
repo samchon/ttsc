@@ -32,17 +32,21 @@ import (
 type DocTag struct {
   // Target is the id of the graph node the tag was written on.
   Target string
+
   // Name is the tag name without its `@` (`evidence`, `evidenceExclude`,
   // `reference`).
   Name string
+
   // Text is everything after the tag name, with the comment's leading asterisks
   // and per-line indentation removed and its lines joined by single spaces.
   // Empty when the tag carries no text.
   Text string
+
   // Pos and End bound the written tag. They are not published — a tag rides its
   // target node, which carries the span a reader cites — and exist so one
   // declaration presented to the node pass twice contributes its tags once.
   Pos int
+
   End int
 }
 

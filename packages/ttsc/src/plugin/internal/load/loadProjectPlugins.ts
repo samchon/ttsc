@@ -82,6 +82,7 @@ export function loadProjectPlugins(options: {
   tsconfig?: string;
 }): {
   deferredHostInputs: string[];
+
   /**
    * Whether every descriptor declared the files it read outside its module
    * graph (`declaresHostInputReads`). When one did not, the host inputs cannot
@@ -1116,6 +1117,7 @@ function loadPluginDescriptor(
 interface DescriptorCacheOptions {
   /** The plugin cache directory the caller selected, if any. */
   cacheDir: string | undefined;
+
   /** This ttsc build's version. */
   version: string;
 }

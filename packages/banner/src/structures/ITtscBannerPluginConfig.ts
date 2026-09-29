@@ -5,7 +5,7 @@
  * the separate `ITtscBannerConfig` value so discovery and config evaluation
  * have one supported home instead of an additional inline option surface.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   This optional-field TypeScript interface follows compilerOptions.plugins
  *   registration and the package's dedicated config-file convention. enabled
  *   and transform belong to the host; configFile selects banner-owned

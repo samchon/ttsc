@@ -62,7 +62,7 @@ const KEPT_STORE_PUBLICATIONS = 32;
  * @param state Hex digest of the project state it reads.
  * @param options.adopt Whether an existing publication may be adopted.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   Filesystem directory creation coordinates independent workers, and owned
  *   tokens distinguish a claim from another holder at the same pathname.
  *

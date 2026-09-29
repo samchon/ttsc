@@ -11,10 +11,13 @@ export interface WatchBrokerRegistration {
    * forwards events, such as an input observer's scope, does not.
    */
   drains: boolean;
+
   /** Resolve the registration's wait for its watches to open. */
   ready: () => void;
+
   /** Where the registration's messages go. */
   sink: WatchBrokerSink;
+
   /**
    * The registration's own spelling for each canonical directory the child
    * watches, so a reported event is translated back before anything compares it

@@ -19,10 +19,13 @@ export namespace DependencyBuildGeneration {
   export interface BuiltProject {
     /** The generation directory holding the project's emitted JavaScript. */
     emitDir: string;
+
     /** Physical source root the emit mirrors below `emitDir`. */
     rootDir: string;
+
     /** The build's record of its outputs, relative to `emitDir`. */
     outputs: readonly string[];
+
     /** The project's `module` and `target`, deciding each file's format. */
     moduleOptions: OwningModuleOptions;
   }
@@ -41,13 +44,16 @@ export namespace DependencyBuildGeneration {
   export interface DependencyCacheMeta {
     /** The 128-bit hex id of the published generation directory. */
     generation: string;
+
     /** Physical source root of the built project. */
     rootDir: string;
+
     /**
      * The project's emit-format options. Always written; a marker without it
      * predates the field and is rebuilt rather than guessed.
      */
     moduleOptions?: OwningModuleOptions;
+
     /**
      * The build's record of the JavaScript it emitted, relative to the
      * generation directory. Always written; a marker without it predates the

@@ -15,7 +15,7 @@ import {
  * Resolution and server cwd may differ when an active file lives below its
  * project root.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   The TypeScript structural type ResolutionCandidate represents a
  *   module-resolution base, server working directory and optional selected
  *   project config.
@@ -38,8 +38,10 @@ import {
 export type ResolutionCandidate = {
   /** Working directory for project-owned server execution. */
   cwd: string;
+
   /** Directory from which Node resolves the project's ttsc package. */
   resolveFrom: string;
+
   /** Selected config candidate; absence leaves launcher discovery enabled. */
   tsconfig?: string;
 };
@@ -51,7 +53,7 @@ export type ResolutionCandidate = {
  * An absent active file leaves workspace-only discovery; an absent active
  * workspace root permits the normal ancestor search.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   The TypeScript structural type ResolutionCandidateInput represents
  *   optional active file, owning workspace root and workspace roots used to
  *   order resolution candidates.
@@ -75,8 +77,10 @@ export type ResolutionCandidate = {
 export type ResolutionCandidateInput = {
   /** Active file path; absence uses only the supplied workspace roots. */
   activeFile?: string;
+
   /** Owning workspace boundary passed to active-file project discovery. */
   activeWorkspaceRoot?: string;
+
   /** Workspace directories considered after the active file. */
   workspaceRoots?: readonly string[];
 };
@@ -89,7 +93,7 @@ export type ResolutionCandidateInput = {
  * can inject explicit identity operations without changing global filesystem
  * methods.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   The maintained ttsc/path-identity API owns filesystem equivalence instead
  *   of a second lowercase/prefix approximation. Explicit operation injection
  *   is the supported observation boundary, with throwOnRealpathError
@@ -130,7 +134,7 @@ export function createServerRootPathIdentityContext(
  * Only prequoted command-shim payloads require verbatim arguments; ordinary
  * executable arguments retain Node escaping.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   The TypeScript structural type ServerProcessOptions represents node spawn
  *   options with a working directory, environment and optional verbatim
  *   windows arguments.
@@ -153,8 +157,10 @@ export function createServerRootPathIdentityContext(
 export type ServerProcessOptions = {
   /** Project working directory passed to Node spawn. */
   cwd: string;
+
   /** Inherited environment with an optional project toolchain override. */
   env: NodeJS.ProcessEnv;
+
   /**
    * Node spawn option for an already quoted Windows command payload.
    *
@@ -171,7 +177,7 @@ export type ServerProcessOptions = {
  * JavaScript, native executable and Windows command-shim launchers require
  * distinct supported process boundaries.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   The TypeScript structural type ServerLaunchCommand represents an
  *   executable name and argument vector, with optional windows command-shim
  *   environment and verbatim flag.
@@ -194,10 +200,13 @@ export type ServerProcessOptions = {
 export type ServerLaunchCommand = {
   /** Ordinary argument vector, or explicit cmd switches and quoted payload. */
   args: string[];
+
   /** Node executable, native launcher, or Windows command processor. */
   command: string;
+
   /** Private quoted-argument environment for the Windows command boundary. */
   commandShimEnvironment?: NodeJS.ProcessEnv;
+
   /** True only for prequoted Windows command payloads; otherwise omitted. */
   windowsVerbatimArguments?: boolean;
 };
@@ -209,7 +218,7 @@ export type ServerLaunchCommand = {
  * Undefined options retain the client defaults; prepared options preserve
  * project cwd and toolchain environment.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   The TypeScript structural type ServerExecutable represents the launch
  *   command, argument vector and optional process options passed to the
  *   language client.
@@ -233,8 +242,10 @@ export type ServerLaunchCommand = {
 export type ServerExecutable = {
   /** Arguments forwarded to the selected launcher. */
   args: string[];
+
   /** Executable or command processor selected by the launch preparation. */
   command: string;
+
   /** Prepared spawn state, or undefined to retain client defaults. */
   options: ServerProcessOptions | undefined;
 };
@@ -245,7 +256,7 @@ export type ServerExecutable = {
  * The selection describes routing input, not an editor URI or permission to
  * write the file.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   The TypeScript structural type ClientRootSelection represents a file and
  *   the selected client root as filesystem paths.
  *
@@ -269,6 +280,7 @@ export type ServerExecutable = {
 export type ClientRootSelection = {
   /** Native file path routed to a client. */
   file: string;
+
   /** Selected native client root. */
   root: string;
 };
@@ -280,7 +292,7 @@ export type ClientRootSelection = {
  * The base must stay literal even when a workspace directory contains glob
  * metacharacters.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   The TypeScript structural type RelativePatternConstructor represents the
  *   vs code relativepattern constructor accepting a literal base and a glob
  *   beneath it.
@@ -318,7 +330,7 @@ const WRAPPED_COMMAND_IDS = ["ttsc.lint.fixAll", "ttsc.format.document"];
  * importing an unexported package-internal module path. The legacy launcher
  * path is used only when the manifest has no string bin entry.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   Node createRequire resolves the workspace-owned exported package anchor;
  *   fs reads the bin declaration and checks the resolved launcher. This
  *   operation neither executes the launcher nor patches module resolution.
@@ -370,7 +382,7 @@ export function resolveTtscServerLauncher(
  * The finder currently has unresolved workspace-alias and config-entry-kind
  * defects recorded in the adoption findings.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   Node dirname projects the owning finder result to a root, retaining
  *   undefined absence.
  *
@@ -408,7 +420,7 @@ export function findProjectRoot(
  * and config-named directories are unresolved defects; this description
  * records current behavior rather than promising usable-file selection.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   Node readdir and path.dirname implement the upward walk without foreign
  *   mutation or test-mode branches. Both causes are recorded in the adoption
  *   findings for separate repair.
@@ -461,7 +473,7 @@ export function findProjectConfig(
  * nearest project or workspace root. Config discovery uses the same
  * workspace boundary policy as other callers.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   Node dirname and the owning project finder supply cwd/tsconfig decisions.
  *   A Set deduplicates literal base/cwd pairs while preserving input order;
  *   later root planning applies physical identity.
@@ -525,7 +537,7 @@ export function createResolutionCandidates(
  * executables retain ordinary argument vectors. The operation prepares data
  * without spawning.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   Node executable arguments and the documented server CLI carry cwd,
  *   selected project and root-owned command namespace. A necessary Windows
  *   command-shim boundary uses one environment expansion and explicit quoting
@@ -582,7 +594,7 @@ export function createServerLaunchCommand(
  * Command-shim environment and verbatim escaping are added only to the
  * Windows command boundary; ordinary launches retain Node argument escaping.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   The supported LanguageClient Executable shape carries
  *   createServerLaunchCommand and serverProcessOptions results.
  *
@@ -630,7 +642,7 @@ export function createServerExecutable(
  * Using the constructor keeps glob metacharacters in the workspace path
  * literal rather than concatenating them into a glob.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   The supported VS Code RelativePattern boundary receives the root as base
  *   and the recursive file glob separately.
  *
@@ -663,7 +675,7 @@ export function createDocumentSelectorPattern<T>(
  * Both server arguments and middleware use the same prefix, so one client
  * does not apply another client's command replies.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   Node sha256 hashes the shared rootKey identity and the fixed ttsc.vscode
  *   protocol prefix.
  *
@@ -698,7 +710,7 @@ export function executeCommandIDPrefix(root: string): string {
  * constructor, which keeps the base literal. The caller supplies an absolute
  * root and owns any glob metacharacters in this string form.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   Node path.posix.join constructs the protocol-style glob after separator
  *   conversion.
  *
@@ -729,7 +741,7 @@ export function documentPattern(root: string): string {
  * A selected child suppresses an ancestor candidate so the active nested
  * package keeps its own server; identity aliases also collapse.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   Array, Set and Map operations select from caller values without mutating
  *   the supplied collection or patching foreign methods. Decisions follow the
  *   documented root policy rather than consumer names or test mode.
@@ -790,7 +802,7 @@ export function filterNonOverlappingCandidates(
  * without that preference deeper roots win. The returned list performs no
  * client startup or teardown.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   Array, Set and Map operations select from caller values without mutating
  *   the supplied collection or patching foreign methods. Decisions follow the
  *   documented root policy rather than consumer names or test mode.
@@ -865,7 +877,7 @@ export function planNonOverlappingClientRoots(
  * Routing must use filesystem containment rather than string prefixes that
  * confuse sibling names or physical aliases.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   The shared identity context owns containment and resolved key depth
  *   comparison.
  *
@@ -916,7 +928,7 @@ export function selectDeepestRootForPath(
  * Containment includes the root itself and handles physical aliases; a
  * shared context keeps one routing decision internally consistent.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   The maintained identity.isWithin API owns this relation. Explicit context
  *   injection reuses the filesystem model rather than maintaining an
  *   independent case-folding or prefix algorithm.
@@ -955,7 +967,7 @@ export function isPathInsideRoot(
  * Equivalent aliases and ancestor/descendant roots overlap; sibling path
  * prefixes alone do not.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   Two calls to the owning containment operation use one identity context.
  *   Boolean composition does not mutate roots, patch the resolver or branch
  *   for tests.
@@ -997,7 +1009,7 @@ export function rootsOverlap(
  * Conflicting clients must be stopped before the target starts; this helper
  * computes the set without stopping clients itself.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   Array, Set and Map operations select from caller values without mutating
  *   the supplied collection or patching foreign methods. Decisions follow the
  *   documented root policy rather than consumer names or test mode.
@@ -1039,7 +1051,7 @@ export function rootsToStopForTarget(
  * An empty plan selects every existing root for teardown. Identity aliases
  * already present in the plan remain active.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   Array, Set and Map operations select from caller values without mutating
  *   the supplied collection or patching foreign methods. Decisions follow the
  *   documented root policy rather than consumer names or test mode.
@@ -1083,7 +1095,7 @@ export function rootsToStopForPlan(
  * Removing a workspace must stop its descendants while retaining sibling
  * workspace clients.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   Array, Set and Map operations select from caller values without mutating
  *   the supplied collection or patching foreign methods. Decisions follow the
  *   documented root policy rather than consumer names or test mode.
@@ -1124,7 +1136,7 @@ export function rootsInsideRemovedWorkspace(
  * Routing, command namespaces and deduplication use one identity model
  * rather than platform-wide lowercasing.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   The maintained identity.resolve API supplies the key, including configured
  *   unresolved-path behavior. This wrapper changes neither the filesystem nor
  *   foreign resolver methods.
@@ -1225,7 +1237,7 @@ function quoteWindowsArg(arg: string): string {
  * than whichever binary appears on PATH. Missing packages and unreadable
  * resolution return no override.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   Node createRequire resolves the exported TypeScript package anchor and its
  *   supported platform package.
  *
@@ -1280,7 +1292,7 @@ export function resolveTsgoBinary(base: string): string | undefined {
  * inherited environment unchanged so the launcher owns its normal fallback;
  * the global environment is never assigned here.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   The owning resolveTsgoBinary operation supplies a toolchain override and
  *   object spread copies the environment when needed. This uses Node spawn
  *   options instead of rewriting process.env or patching the language-client

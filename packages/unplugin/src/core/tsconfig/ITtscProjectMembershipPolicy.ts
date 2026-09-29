@@ -21,12 +21,14 @@ export interface ITtscProjectMembershipPolicy {
   rootFileSpecs?: Readonly<{
     files: readonly string[];
     include: readonly string[];
+
     /**
      * The requested root and its regular/native realpath spellings, without
      * following child links. Native realpath expands Windows short names.
      */
     root?: Readonly<{ path: string; realpath: string; nativepath?: string }>;
   }>;
+
   /**
    * Absolute directory exclusions separated by the configuration entry that
    * contributed them.
@@ -40,13 +42,17 @@ export interface ITtscProjectMembershipPolicy {
     declarationDir?: string;
     exclude: readonly string[];
     outDir?: string;
+
     /** Whether output options supply TypeScript's implicit default exclude. */
     useImplicitOutputExclusions?: boolean;
   }>;
+
   /** Absolute directories the resolved configuration keeps out of the program. */
   excludedDirectories: readonly string[];
+
   /** Lowercased extensions a file needs to be a possible program input. */
   inputExtensions: readonly string[];
+
   /**
    * Every config file consulted to produce this policy, the leaf and its whole
    * `extends` ancestry.
@@ -57,6 +63,7 @@ export interface ITtscProjectMembershipPolicy {
    * this policy gives.
    */
   sources: readonly string[];
+
   /**
    * Whether the compiler compares file names case-sensitively, as the envelope
    * reported it (`IReferenceGraph.useCaseSensitiveFileNames`,

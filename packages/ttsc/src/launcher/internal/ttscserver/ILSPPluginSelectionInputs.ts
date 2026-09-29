@@ -21,6 +21,7 @@ export interface ILSPPluginSelectionInputs {
    * Only those files count.
    */
   descriptorFiles: Record<string, Record<string, string>>;
+
   /**
    * Every plugin source directory an observer watches
    * (`collectPluginSourceDirectories`), with the name of every file directly
@@ -28,18 +29,21 @@ export interface ILSPPluginSelectionInputs {
    * digest.
    */
   sourceFiles: Record<string, Record<string, string>>;
+
   /**
    * The names of files the build never keys on
    * (`GoSourceInputs.OMITTED_SOURCE_FILE_NAMES`), whose appearance in a source
    * directory changes nothing.
    */
   omittedNames: readonly string[];
+
   /**
    * The suffixes of files the build never keys on
    * (`GoSourceInputs.OMITTED_SOURCE_FILE_SUFFIXES`), such as an editor's `~`
    * backups.
    */
   omittedSuffixes: readonly string[];
+
   /**
    * The names of directories the build passes over
    * (`GoSourceInputs.PRUNED_SOURCE_DIRECTORY_NAMES`), whose appearance changes

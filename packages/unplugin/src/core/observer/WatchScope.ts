@@ -17,15 +17,19 @@ export interface WatchScope {
    * directory disappears.
    */
   directories: Set<string>;
+
   /** Entries this observer covers; an unpinned scope closes when it empties. */
   entries: Set<InputEntry>;
+
   /**
    * Whether the observer failed to open or errored, moving its entries to the
    * poll.
    */
   failed: boolean;
+
   /** Directory observed recursively. */
   root: string;
+
   /**
    * The device and file id `root` resolved to when an external observer opened,
    * re-checked by the bounded poll. A replaced root leaves an inotify or
@@ -33,13 +37,16 @@ export interface WatchScope {
    * and hands its entries to the poll (samchon/ttsc#1384).
    */
   identity?: string;
+
   /**
    * Whether the scope lives for the observer's lifetime, as the project root
    * does.
    */
   pinned: boolean;
+
   /** Change sequence at which the observer became live. */
   startedAt: number;
+
   /**
    * The native handle, absent once failed or closed. `track` exists only on a
    * directory-level backend.

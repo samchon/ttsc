@@ -8,8 +8,10 @@
 export interface ITtscLintFileTypeOrValueSpecifier {
   /** Select project-file declarations. */
   from: "file";
+
   /** Match one or more declared names. */
   name: string | readonly string[];
+
   /** Restrict the match to this project-relative declaration file. */
   path?: string;
 }
@@ -18,6 +20,7 @@ export interface ITtscLintFileTypeOrValueSpecifier {
 export interface ITtscLintLibTypeOrValueSpecifier {
   /** Select TypeScript default-library declarations. */
   from: "lib";
+
   /** Match one or more declared names. */
   name: string | readonly string[];
 }
@@ -26,8 +29,10 @@ export interface ITtscLintLibTypeOrValueSpecifier {
 export interface ITtscLintPackageTypeOrValueSpecifier {
   /** Select package declarations. */
   from: "package";
+
   /** Match one or more declared names. */
   name: string | readonly string[];
+
   /** Require declarations from this package or ambient module. */
   package: string;
 }
@@ -43,8 +48,10 @@ export type TtscLintTypeOrValueSpecifier =
 export interface ITtscLintTypeScriptNoRestrictedTypesTypeConfig {
   /** Custom text appended to the standard diagnostic. */
   message: string;
+
   /** Replacement applied automatically by `ttsc fix`. */
   fixWith?: string;
+
   /** Replacement choices exposed as opt-in editor suggestions. */
   suggest?: readonly string[];
 }
@@ -71,8 +78,10 @@ export interface ITtscLintTypeScriptNoRestrictedTypesRuleOptions {
 export interface ITtscLintTypeScriptNoFloatingPromisesRuleOptions {
   /** Functions whose returned Promises may be discarded safely. */
   allowForKnownSafeCalls?: readonly TtscLintTypeOrValueSpecifier[];
+
   /** Promise types whose values may be discarded safely. */
   allowForKnownSafePromises?: readonly TtscLintTypeOrValueSpecifier[];
+
   /**
    * Check all thenables, not just the built-in `Promise` type. Defaults to
    * `false`, matching `@typescript-eslint/no-floating-promises`.
@@ -84,11 +93,13 @@ export interface ITtscLintTypeScriptNoFloatingPromisesRuleOptions {
    * here.
    */
   checkThenables?: boolean;
+
   /**
    * Ignore immediately invoked function-expression results. Defaults to
    * `false`.
    */
   ignoreIIFE?: boolean;
+
   /** Treat `void` as an explicit discard marker. Defaults to `true`. */
   ignoreVoid?: boolean;
 }

@@ -26,6 +26,7 @@ export function collectProjectInputSnapshot(
      * which has no generation to compare against yet.
      */
     declaredKeys?: ReadonlySet<string>;
+
     /** What the resolved configuration admits into the program. */
     policy?: ITtscProjectMembershipPolicy;
   },

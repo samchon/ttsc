@@ -28,6 +28,7 @@ export function ensureExecutable(binary: string): void {
 export interface CapturedProcessOutput {
   /** Close the descriptors and remove the backing files. */
   dispose(): void;
+
   /** Read one stream's text. */
   read(stream: "stdout" | "stderr"): string;
   stderrFd: number;

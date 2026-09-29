@@ -19,6 +19,7 @@ export namespace ProjectPluginEntries {
   export type ProjectPluginEntry = {
     /** Directory the plugin's `transform` specifier is resolved against. */
     baseDir: string;
+
     /** The entry as the project declared it. */
     config: ITtscProjectPluginConfig;
   };

@@ -23,11 +23,13 @@ export interface IPlaygroundShellProps {
 
   /** Examples available in the dropdown. Empty array hides the dropdown. */
   examples?: readonly IPlaygroundExample[];
+
   /** Display labels for example groups. */
   exampleGroupLabels?: Record<string, string>;
 
   /** Toggles rendered in the Options modal. Defaults to typia + lint. */
   optionToggles?: readonly IOptionToggle[];
+
   /**
    * Initial values for the transform options. Defaults to `{typia: true, lint:
    * true}`.

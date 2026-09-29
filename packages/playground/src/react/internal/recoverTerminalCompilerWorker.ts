@@ -3,8 +3,10 @@ import { BootTtscWorkerTerminationError } from "@ttsc/wasm";
 export interface ITerminalCompilerWorkerRecovery {
   /** Atomically claim and fence the failed Worker generation. */
   claim(): boolean;
+
   /** Close and clear that Worker generation. */
   reset(): Promise<void>;
+
   /** Publish the terminal error after the old Worker is no longer reachable. */
   fail(error: unknown): void;
 }

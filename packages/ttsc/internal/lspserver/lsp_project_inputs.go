@@ -22,6 +22,7 @@ type LSPProjectInputSnapshot struct {
   ReloadDirectories      []string          `json:"reloadDirectories,omitempty"`
   ReloadFileDigests      map[string]string `json:"reloadFileDigests,omitempty"`
   ReloadDirectoryDigests map[string]string `json:"reloadDirectoryDigests,omitempty"`
+
   // WatchDirectories are directories whose entries the client must report
   // without their listing being a reload input of its own: the directories of
   // the plugin selection inputs, which judge their own changes

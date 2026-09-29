@@ -49,6 +49,7 @@ export namespace ICompilerService {
   export interface IInstallDependenciesProps {
     /** Node_modules-relative paths to text content. */
     files: Record<string, string>;
+
     /** Metadata for the packages whose files are in `files`. */
     packages: IInstalledPackage[];
   }
@@ -80,12 +81,16 @@ export namespace ICompilerService {
   export interface IDiagnostic {
     /** 1-based line number. */
     line: number;
+
     /** 1-based column number. */
     column: number;
+
     /** Length of the span in source characters; at least 1. */
     length: number;
+
     severity: "error" | "warning";
     message: string;
+
     /** Diagnostic code, e.g. `"TS2322"` or a lint rule id. */
     code?: string;
   }

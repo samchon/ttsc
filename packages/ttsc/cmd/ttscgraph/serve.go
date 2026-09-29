@@ -116,9 +116,11 @@ func (s *graphSession) artifactProducer() *graph.Producer {
 
 type serveRequest struct {
   ID int `json:"id"`
+
   // GraphSnapshotVersion opts into the incremental shard protocol. Omitted
   // requests retain the full-dump response for existing @ttsc/graph clients.
   GraphSnapshotVersion int `json:"graphSnapshotVersion,omitempty"`
+
   // Artifacts is the path to the set a plugin published for this request, which
   // the client re-derives when the documents or lint configuration behind it
   // moved. It rides every request rather than only the changed ones: the client
@@ -139,17 +141,22 @@ type serveRequest struct {
 type serveResponse struct {
   Dump     *graph.Dump         `json:"dump,omitempty"`
   Snapshot *serveGraphSnapshot `json:"snapshot,omitempty"`
+
   // Error is set when the request produced no snapshot; Mode is then
   // serveModeError.
   Error string `json:"error,omitempty"`
+
   ID    int    `json:"id"`
+
   // ProtocolVersion is serveProtocolVersion on every response, including error
   // responses: a client that cannot parse the rest still learns why.
   ProtocolVersion int `json:"protocolVersion"`
+
   // Mode is always present. It was omitempty, which meant the one field that
   // distinguishes a reuse from a full rebuild silently vanished exactly when a
   // consumer most wanted to report what happened.
   Mode         string   `json:"mode"`
+
   Capabilities []string `json:"capabilities"`
   Changed      bool     `json:"changed"`
 }
@@ -177,18 +184,21 @@ func errorResponse(id int, message string) serveResponse {
 type graphSession struct {
   cwd      string
   tsconfig string
+
   // artifacts is the set a plugin published: a second producer's facts about
   // documents this Program never read. Refreshing it is therefore not a refresh
   // of the graph — editing a Markdown heading moves the artifact and not one
   // compiler fact — so the two invalidations stay separate questions, and this
   // one is answered by adoptArtifacts rather than by the build universe.
   artifacts []graph.Artifact
+
   // artifactsDigest is the content of the set currently applied. Content, and
   // not the path or its modification time: the client overwrites one file per
   // process and project, so the path never moves for a given session, and a
   // republish triggered by a document whose headings did not actually change
   // writes the same bytes and must therefore cost nothing.
   artifactsDigest [sha256.Size]byte
+
   // artifactsFile and artifactsStat are what the digest was taken from, kept so
   // an unchanged file need not be read at all. The set is one entry per
   // document section, model field, and operation, so it is bounded by the
@@ -197,6 +207,7 @@ type graphSession struct {
   // to learn it did not move is the kind of cost a resident session pays
   // forever.
   artifactsFile string
+
   artifactsStat artifactsFileState
 
   compiler     *driver.Session
@@ -204,20 +215,24 @@ type graphSession struct {
   auxStates    map[string]diskState
   sourceHashes map[string][sha256.Size]byte
   rootFiles    []string
+
   // diskDigests is the published disk evidence for the current generation, kept
   // beside sourceHashes because the two answer different questions: one decides
   // whether to invalidate, the other is what the snapshot tells a consumer.
   diskDigests map[string]string
+
   // configDigests and roots are the build-universe fingerprint for the current
   // generation, captured from the same parse that produced configHashes and
   // rootFiles so the published evidence and the invalidation state can never
   // describe different loads.
   configDigests           []graph.FileDigest
+
   roots                   []graph.RootFile
   initialized             bool
   graphStore              *serveGraphStore
   requestProtocol         int
   requestProtocolSelected bool
+
   // pending remembers work the next request owes regardless of what the build
   // universe says: a generation whose state was captured but whose selected
   // projection failed, or an artifact set adopted after the graph carrying the
@@ -298,6 +313,7 @@ func (s *graphSession) adoptArtifacts(named *string) (bool, error) {
 // still what decides whether the set is worth applying.
 type artifactsFileState struct {
   size int64
+
   // modTime is nanoseconds since the epoch rather than a time.Time, so the
   // struct compares with == and means it. A time.Time carries a location
   // pointer and an optional monotonic reading, and comparing two of those with

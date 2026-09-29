@@ -40,14 +40,17 @@ export function writeCapabilityResolution(
      * absent, as the load reported it. An input without one was not proven.
      */
     hostInputHashes: Readonly<Record<string, string | null>>;
+
     /**
      * The evaluation-time physical path of each input, `null` for one proven
      * absent, as the load reported it. An input without one was not proven.
      */
     hostInputRealpaths: Readonly<Record<string, string | null>>;
+
     /** The files the answer was computed from, as absolute paths. */
     hostInputs: readonly string[];
     manifest: string;
+
     /**
      * The state of every directory the binaries were keyed on, as the load
      * reported it (`pluginSources`).

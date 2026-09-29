@@ -26,7 +26,7 @@ export type { ITtscStripConfig } from "./structures/ITtscStripConfig";
  * observations describe descriptor evaluation, not complete native dependency
  * analysis. This migration makes no measured performance improvement claim.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   The factory uses the host's supported default-export registration,
  *   node:path/fs/crypto APIs and the maintained banner and paths packages'
  *   TypeScript build convention.
@@ -88,10 +88,13 @@ export default function createTtscStrip(
 type TtscStripFactoryContext = {
   /** Absolute directory of the loaded descriptor module. */
   dirname: string;
+
   /** Discovery anchor, including projects with generated wrapper tsconfigs. */
   pluginConfigDir?: string;
+
   /** Original plugin entry; unknown keys are rejected rather than ignored. */
   plugin?: Record<string, unknown>;
+
   /** Absolute tsconfig path, whose directory supplies the default anchor. */
   tsconfig: string;
 };
@@ -100,8 +103,10 @@ type TtscStripFactoryContext = {
 type TtscStripInputs = {
   /** Content digest, directory marker digest, or null for a failed read. */
   hashes: Record<string, string | null>;
+
   /** Absolute candidate paths, including absent and directory candidates. */
   inputs: string[];
+
   /** Physical target of each candidate, or null when resolution fails. */
   realpaths: Record<string, string | null>;
 };
@@ -110,14 +115,19 @@ type TtscStripInputs = {
 type TtscStripDescriptor = {
   /** Evaluation-time fingerprints used to validate descriptor reuse. */
   hostInputHashes: TtscStripInputs["hashes"];
+
   /** Physical targets that detect candidate symlink or junction changes. */
   hostInputRealpaths: TtscStripInputs["realpaths"];
+
   /** Candidate paths the host watches, including negative observations. */
   hostInputs: TtscStripInputs["inputs"];
+
   /** Package identity used in plugin registration and diagnostics. */
   name: string;
+
   /** Absolute Go driver directory compiled and linked by the host. */
   source: string;
+
   /** Source transformation runs before normal JavaScript emit. */
   stage: "transform";
 };

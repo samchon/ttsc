@@ -16,15 +16,19 @@ export interface ITransformTsconfigState {
    * re-state.
    */
   effectivePaths: Record<string, string[]>;
+
   /** What the configuration admits into the program. */
   membershipPolicy: ITtscProjectMembershipPolicy;
+
   /**
    * Hash of every view plus the chain's source bytes; absent when no wrapper is
    * materialized.
    */
   signature?: string;
+
   /** Inherited `${configDir}` compiler options, made absolute for the wrapper. */
   templateCompilerOptions: Record<string, unknown>;
+
   /**
    * Inherited `${configDir}` `files`/`include`/`exclude`, made absolute for the
    * wrapper.

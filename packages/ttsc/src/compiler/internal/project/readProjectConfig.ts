@@ -73,9 +73,11 @@ const CONFIG_DIR_TEMPLATE = "${configDir}";
 type ResolvedCompilerOptions = {
   configPaths: string[];
   options: Record<string, unknown>;
+
   /** Directory of the tsconfig that last declared each option key. */
   optionBaseDirs: Record<string, string>;
   pluginBaseDirs: string[];
+
   /** True when any tsconfig in the chain explicitly declared `plugins`. */
   pluginsDeclared: boolean;
   plugins: ITtscProjectPluginConfig[];

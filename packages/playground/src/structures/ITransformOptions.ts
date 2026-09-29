@@ -8,8 +8,10 @@
 export interface ITransformOptions {
   /** Enable the typia transform plugin. Defaults to true. */
   typia?: boolean;
+
   /** Enable the `@ttsc/lint` preview rule pass. Defaults to true. */
   lint?: boolean;
+
   /** Additional site-specific toggles. */
   [key: string]: boolean | undefined;
 }

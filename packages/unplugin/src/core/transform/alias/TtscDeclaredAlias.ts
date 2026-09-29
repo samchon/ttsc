@@ -15,8 +15,10 @@
 export interface TtscDeclaredAlias {
   /** The alias key, as declared: a module specifier prefix, or a `RegExp`. */
   find: unknown;
+
   /** What the matched prefix is replaced with, as declared. */
   replacement: string;
+
   /**
    * The Vite root a replacement with a leading `/` is resolved against first,
    * as `vite:resolve` does. Absent for a caller that passes raw aliases, which

@@ -59,8 +59,10 @@ export namespace ITtscGraphOverview {
   export interface ILayer {
     /** Directory, project-relative. */
     dir: string;
+
     /** Distinct source files under it. */
     files: number;
+
     /** Exported symbols declared under it. */
     exported: number;
   }
@@ -69,12 +71,16 @@ export namespace ITtscGraphOverview {
   export interface INode {
     /** Stable handle for `details` or `trace`. */
     id: string;
+
     /** The symbol's qualified name when available. */
     name: string;
+
     /** Its declaration kind (`class`, `interface`, `function`, ...). */
     kind: string;
+
     /** Project-relative path of the file that declares it. */
     file: string;
+
     /** 1-based declaration line, when known. */
     line?: number;
   }
@@ -83,6 +89,7 @@ export namespace ITtscGraphOverview {
   export interface IHotspot extends INode {
     /** Non-structural edges pointing at this symbol. */
     fanIn: number;
+
     /** Non-structural edges leaving this symbol. */
     fanOut: number;
   }

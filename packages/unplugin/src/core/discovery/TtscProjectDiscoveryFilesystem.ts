@@ -4,6 +4,7 @@ import type fs from "node:fs";
 export interface TtscProjectDiscoveryFilesystem {
   /** Override path parsing when the observed filesystem is not the host. */
   platform?: NodeJS.Platform;
+
   /** Read metadata while following links, like an ordinary config-file open. */
   stat(
     location: string,

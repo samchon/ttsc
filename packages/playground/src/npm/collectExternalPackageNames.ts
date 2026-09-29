@@ -120,8 +120,10 @@ type Token =
   | {
       kind: "punct";
       value: string;
+
       /** Whether a slash after this closing delimiter begins a regex literal. */
       regexAllowedAfter?: boolean;
+
       /** Whether this closes a function parameter list for an expression. */
       functionBodyIsExpression?: boolean;
     }

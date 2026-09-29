@@ -40,16 +40,19 @@ export type TtscWatchInputState =
        * is the project root.
        */
       codec: "membership";
+
       /**
        * `projectMembershipDigest` of the walk: the policy and every directory
        * that can hold a program input, with its membership signature.
        */
       digest: string;
+
       /**
        * Every directory the walk enters, including those that hold no program
        * input yet, since a file created in one is a new root file.
        */
       directories: readonly string[];
+
       /** The rule the walk applied, which a re-walk must apply too. */
       policy: ITtscProjectMembershipPolicy;
     };

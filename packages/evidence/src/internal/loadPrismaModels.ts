@@ -39,6 +39,7 @@ interface IPrismaSchemaProblem {
 interface IPrismaModel {
   name: string;
   documentation: string;
+
   /**
    * The model's own declaration, digested where it is understood.
    *
@@ -48,6 +49,7 @@ interface IPrismaModel {
    * sibling as well as of the model.
    */
   digest: string;
+
   fields: IPrismaField[];
 }
 
@@ -63,6 +65,7 @@ interface IPrismaField {
   name: string;
   symbol: "column" | "relation";
   documentation: string;
+
   /**
    * The field's own declaration, digested where it is understood.
    *

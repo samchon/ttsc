@@ -11,10 +11,13 @@
 export interface TtscExternalDependencyWitness {
   /** Content or kind fingerprint, `null` when the path is absent. */
   hash: string | null;
+
   /** Physical target the path selected, `null` when it selected none. */
   realpath: string | null;
+
   /** Metadata signature, `undefined` when the path could not be stat'ed. */
   signature: string | undefined;
+
   /**
    * Whether the metadata held across the reading itself. A reading a write
    * raced describes no single state, so it witnesses nothing.

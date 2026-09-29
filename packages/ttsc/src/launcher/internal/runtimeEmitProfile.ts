@@ -30,6 +30,7 @@ export function runtimeEmitProfile(
 ): {
   /** The emit-deciding options the runtime classifies served files with. */
   moduleOptions: OwningModuleOptions;
+
   /** Whether the build must be asked for a source map. */
   forceRuntimeSourceMap: boolean;
 } {

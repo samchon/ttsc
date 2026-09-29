@@ -28,14 +28,18 @@ type NativePluginSelectionInputs struct {
   // what they resolved. Only those files count; the rest of the directory is
   // not an input.
   DescriptorFiles map[string]map[string]string `json:"descriptorFiles,omitempty"`
+
   // SourceFiles maps every plugin source directory to the name of every file
   // directly inside it that the build keys on, with its digest. A directory
   // with no such file is present with an empty map.
   SourceFiles map[string]map[string]string `json:"sourceFiles,omitempty"`
+
   // OmittedNames are the names of files the build never keys on.
   OmittedNames []string `json:"omittedNames,omitempty"`
+
   // OmittedSuffixes are the suffixes of files the build never keys on.
   OmittedSuffixes []string `json:"omittedSuffixes,omitempty"`
+
   // PrunedDirectoryNames are the names of directories the build passes over.
   PrunedDirectoryNames []string `json:"prunedDirectoryNames,omitempty"`
 }
@@ -51,8 +55,10 @@ type pluginSelectionInputs struct {
 
 type pluginSelectionDirectory struct {
   path string
+
   // files are the recorded digests by name.
   files map[string]string
+
   // listing marks a plugin source directory, whose entries are an input by
   // the build's rule, beside the recorded files.
   listing bool

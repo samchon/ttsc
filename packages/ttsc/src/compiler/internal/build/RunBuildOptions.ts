@@ -16,14 +16,17 @@ export type RunBuildOptions = TtscBuildOptions & {
    * dependency's own config must not fail the run.
    */
   skipDiagnosticsCheck?: boolean;
+
   /**
    * Pass `--listEmittedFiles` so the result carries the emitted paths even when
    * the user did not ask for them. Callers that must locate one emitted file
    * (ttsx, single-file emit) set it.
    */
   forceListEmittedFiles?: boolean;
+
   /** Keep every compiler-owned side product inside this private directory. */
   isolateOutputsTo?: string;
+
   /**
    * Hand tsgo the `rootDir` it would otherwise infer, for a build whose
    * `outDir` this process injected rather than the project declaring it.
@@ -52,18 +55,21 @@ export type RunBuildOptions = TtscBuildOptions & {
    * request, and TS5011 is then tsgo's genuine answer to it.
    */
   pinInferredRootDir?: boolean;
+
   /**
    * Receives selected native-plugin source roots after the project resolves.
    * The watch launcher uses these roots to invalidate a sidecar when its Go
    * implementation changes between rebuilds.
    */
   onWatchInputs?: (inputs: readonly string[]) => void;
+
   /**
    * Receives the reconciled project-rule filesystem dependency snapshot. Called
    * only by watch launchers; ordinary builds do not probe the optional sidecar
    * command.
    */
   onProjectInputs?: (inputs: ITtscProjectInputSnapshot) => void;
+
   /**
    * Emit an external source map from the direct tsgo build lane even when the
    * project configures none. Set by the ttsx runtime builds so a served emit
@@ -72,6 +78,7 @@ export type RunBuildOptions = TtscBuildOptions & {
    * emit honours the project's `sourceMap` setting.
    */
   forceRuntimeSourceMap?: boolean;
+
   /** Retain an already selected project's lexical identity across API lanes. */
   resolvedProject?: ITtscParsedProjectConfig;
 };

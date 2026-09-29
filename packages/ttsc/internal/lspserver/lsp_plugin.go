@@ -47,22 +47,26 @@ type LSPDiagnostic struct {
   Severity        LSPDiagnosticSeverity `json:"severity,omitempty"`
   Code            any                   `json:"code,omitempty"`
   CodeDescription *LSPCodeDescription   `json:"codeDescription,omitempty"`
+
   // Tags classify the diagnostic (1 = unnecessary, 2 = deprecated). Carried
   // through so a plugin's tag is not silently dropped when the proxy re-encodes
   // the diagnostic — the same truncation codeDescription had to be rescued from.
   Tags []int `json:"tags,omitempty"`
+
   // Data is opaque state the producer attaches to the diagnostic. The editor
   // preserves it and hands it back on a codeAction request whose context
   // includes this diagnostic, so a rule can recover what it computed without
   // recomputing it. Carried through unread — like the other optional fields, an
   // absent one it did not round-trip would be a silent truncation.
   Data json.RawMessage `json:"data,omitempty"`
+
   // RelatedInformation are secondary locations the diagnostic points at, each
   // with its own message — the editor renders them as clickable lines under the
   // diagnostic. Carried through so a sidecar's related locations survive the
   // proxy's re-encode, the same truncation the other optional fields had to be
   // rescued from.
   RelatedInformation []LSPDiagnosticRelatedInformation `json:"relatedInformation,omitempty"`
+
   Source             string                            `json:"source,omitempty"`
   Message            string                            `json:"message"`
 }
@@ -208,6 +212,7 @@ type PluginSource interface {
 type LSPCompletionHint struct {
   // Scope names the syntactic region the cursor must sit in.
   Scope string `json:"scope"`
+
   // After is a literal the line prefix must contain. The text following its
   // LAST occurrence is what the editor filters on and what Insert replaces.
   //
@@ -219,6 +224,7 @@ type LSPCompletionHint struct {
   // trigger merges. That is enough to layer a corpus without hiding a later
   // trigger behind an earlier one.
   After string `json:"after"`
+
   // Items are offered in slice order; the proxy derives the sort key from it.
   Items []LSPCompletionItem `json:"items"`
 }

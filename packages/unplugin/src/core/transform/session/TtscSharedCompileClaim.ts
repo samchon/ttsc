@@ -17,8 +17,10 @@ export type TtscSharedCompileClaim =
     }
   | {
       kind: "compile";
+
       /** Publish a proven compile for the waiting workers. Never throws. */
       publish(publication: TtscSharedCompilePublication): Promise<void>;
+
       /** Release the lock. Never throws, and a second call does nothing. */
       release(): void;
     };

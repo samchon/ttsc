@@ -48,6 +48,7 @@ type PrintedFile struct {
   JS      string
   MapText string
   MapPath string
+
   // SourceMapUrlPos is the offset of the `//# sourceMappingURL=` trailer in JS,
   // or -1 when no trailer was written — the value tsgo's emitter reports as
   // WriteFileData.SourceMapUrlPos so a caller can locate and rewrite the

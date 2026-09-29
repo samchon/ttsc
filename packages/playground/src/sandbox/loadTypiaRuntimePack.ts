@@ -32,7 +32,7 @@ const packCache = new Map<string, RuntimePackEntry>();
  * scratch. Successful packs remain cached. Nothing else ends the load: how long
  * a fetch takes belongs to the network, not to a number chosen here.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   Fetch, AbortController and Promise sharing implement the site-selected
  *   runtime-pack transport. The loader returns source records for the existing
  *   resolver rather than evaluating packages or introducing another module

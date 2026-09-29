@@ -9,10 +9,13 @@
 export interface IPluginModuleReplaceDirectory {
   /** The target's absolute path. */
   directory: string;
+
   /** The replaced module path, the directive's left side. */
   modulePath: string;
+
   /** The target as `go.mod` spells it. */
   spelled: string;
+
   /** The replaced version, when the directive names one. */
   version?: string;
 }

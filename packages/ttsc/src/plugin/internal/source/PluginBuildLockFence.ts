@@ -8,6 +8,7 @@
 export type PluginBuildLockFence = {
   /** Which lock protocol held the observed generation. */
   protocol: "legacy" | "v2";
+
   /** The 128-bit hex id of the observed generation. */
   generation: string;
 };

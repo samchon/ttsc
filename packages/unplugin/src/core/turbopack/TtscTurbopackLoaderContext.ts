@@ -13,15 +13,19 @@ export interface TtscTurbopackLoaderContext {
    * takes the transformed content and its source map in webpack's loader form.
    */
   async(): (error?: unknown, content?: string, sourceMap?: object) => void;
+
   /** Absolute path of the module being loaded. */
   resourcePath: string;
+
   /**
    * The project root Turbopack resolves from, which anchors the watch bridge's
    * pinned scope (samchon/ttsc#1388).
    */
   rootContext?: string;
+
   /** The rule's `options` object, when one was configured. */
   getOptions?(): TtscTurbopackLoaderOptions | undefined;
+
   /**
    * Register an additional file the transformed module depends on. Part of the
    * webpack loader context contract Turbopack implements; a registered file
@@ -30,6 +34,7 @@ export interface TtscTurbopackLoaderContext {
    * build that predates the method) still loads.
    */
   addDependency?(file: string): void;
+
   /**
    * Toggle result cacheability. Part of the webpack loader context contract;
    * called with `false` when the ttsc plugin declared the module volatile
@@ -37,6 +42,7 @@ export interface TtscTurbopackLoaderContext {
    * result for it. Optional so a minimal stub context still loads.
    */
   cacheable?(flag: boolean): void;
+
   /**
    * Report an error for the module without failing the loader run. Part of the
    * webpack loader context contract, which Turbopack's loader runtime provides.

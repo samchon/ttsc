@@ -13,8 +13,10 @@ export const PROJECT_SELECTION_ENTRIES = new Map<
   {
     /** The root-file selection the config implies. */
     policy: ITtscProjectMembershipPolicy;
+
     /** The configs its `references` name, in declaration order. */
     references: readonly string[];
+
     /**
      * SHA-256 of every file the entry read, or `undefined` while no read has
      * yet proven that the files held still across it, so the entry is read

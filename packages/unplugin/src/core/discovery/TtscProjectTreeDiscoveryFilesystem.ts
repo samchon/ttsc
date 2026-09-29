@@ -9,6 +9,7 @@ export interface TtscProjectTreeDiscoveryFilesystem extends TtscProjectDiscovery
     location: string,
   ): readonly (Pick<fs.Dirent, "isDirectory" | "name"> &
     Partial<Pick<fs.Dirent, "isSymbolicLink">>)[];
+
   /** Resolve physical directory identity for cycle-safe linked traversal. */
   realpath?(location: string): string;
 }

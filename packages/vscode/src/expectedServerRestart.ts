@@ -10,7 +10,7 @@ import type {
  * A server-requested plugin transition must not consume the default
  * transport-crash budget.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   The TypeScript structural type ExpectedServerRestartHandler represents one
  *   expected-close lifecycle flag and the supported ErrorHandler interface.
  *
@@ -27,13 +27,14 @@ import type {
 export type ExpectedServerRestartHandler = {
   /** Supported language-client callbacks carrying the expected-close policy. */
   errorHandler: ErrorHandler;
+
   /**
    * Mark the next close callback as a server-requested restart.
    *
    * The controller consumes this one-shot flag on close; unannounced later
    * closes return to the fallback crash policy.
    *
-   * @evidence contracts/common.md#standard-implementation-practices
+   * @evidence contracts/common.md#principled-implementation
    *   This signature exposes the owned one-shot lifecycle transition.
    *
    * @evidence contracts/common.md#prohibited-implementation-shortcuts
@@ -59,7 +60,7 @@ export type ExpectedServerRestartHandler = {
  * restart result and clears the flag; later unmarked closes preserve the
  * fallback crash policy.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   A closure implements the supported ErrorHandler extension rather than
  *   replacing LanguageClient internals. Rest-argument forwarding preserves
  *   error callback arguments and one-shot state separates announced

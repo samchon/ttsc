@@ -4,7 +4,7 @@
  * The editor protocol counts UTF-16 characters, so these values cannot be
  * read as compiler UTF-8 byte offsets.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   The TypeScript structural type ProtocolPosition represents LSP coordinate
  *   units.
  *
@@ -21,6 +21,7 @@
 export type ProtocolPosition = {
   /** Zero-based UTF-16 offset within the line. */
   character: number;
+
   /** Zero-based line number in the command's source snapshot. */
   line: number;
 };
@@ -31,7 +32,7 @@ export type ProtocolPosition = {
  * A range must be ordered; this type stores the endpoints while the
  * collector validates their shape.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   The TypeScript structural type ProtocolRange represents ordered LSP
  *   endpoints.
  *
@@ -48,6 +49,7 @@ export type ProtocolPosition = {
 export type ProtocolRange = {
   /** Exclusive endpoint in the same document as start. */
   end: ProtocolPosition;
+
   /** Inclusive starting position. */
   start: ProtocolPosition;
 };
@@ -58,7 +60,7 @@ export type ProtocolRange = {
  * The URI remains a protocol URI so filesystem paths are not accidentally
  * interpreted as editor document identifiers.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   The TypeScript structural type NormalizedTextEdit represents a collected
  *   command replacement.
  *
@@ -76,8 +78,10 @@ export type ProtocolRange = {
 export type NormalizedTextEdit = {
   /** Replacement text; an empty string deletes the covered range. */
   newText: string;
+
   /** Ordered range in the command's saved-source snapshot. */
   range: ProtocolRange;
+
   /** Protocol document URI, not a native filesystem path. */
   uri: string;
 };
@@ -91,7 +95,7 @@ export type NormalizedTextEdit = {
  * array. This normalizes the changes form only, not documentChanges or
  * resource operations.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   Object.entries and array iteration decode the supported LSP changes form.
  *   Integer/order predicates validate ranges and string checks preserve
  *   replacement text.
@@ -141,7 +145,7 @@ export function collectWorkspaceEditChanges(
  * acyclic protocol data; the operation does not resolve paths or change
  * documents.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   Recursive Array.some/Object.values and exact Set membership inspect the
  *   command payload rather than special-casing argument positions.
  *
@@ -169,7 +173,7 @@ export function commandArgumentsContainDirtyURI(
  * Disk-backed command output must not overwrite unsaved editor text. This
  * guard uses exact URI identity and performs no write.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   Array.some and Set.has inspect every normalized replacement URI. The
  *   policy derives from saved-state commands, not filenames, tests or foreign
  *   method replacements.
@@ -198,7 +202,7 @@ export function workspaceEditChangesTouchDirtyURI(
  * Server command namespaces isolate the replies this middleware applies; an
  * empty prefix never authorizes an edit.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   String.startsWith uses the server-announced root command namespace.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts

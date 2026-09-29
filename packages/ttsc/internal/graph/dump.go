@@ -92,6 +92,7 @@ type DumpNode struct {
   Kind          string `json:"kind"`
   Name          string `json:"name"`
   QualifiedName string `json:"qualifiedName,omitempty"`
+
   // Signature is the declaration head, cut where the compiler says the body
   // opens. A consumer that reconstructed it by scanning physical lines both
   // leaked implementation text when a declaration shared its line with its body
@@ -99,6 +100,7 @@ type DumpNode struct {
   // parameter, an object return type, a destructured parameter. Neither is a
   // guess the consumer can win, so the producer renders it here.
   Signature     string             `json:"signature,omitempty"`
+
   File          string             `json:"file"`
   External      bool               `json:"external"`
   Ignored       bool               `json:"ignored,omitempty"`
@@ -108,11 +110,13 @@ type DumpNode struct {
   Literals      []string           `json:"literals,omitempty"`
   EnumMembers   []DumpEnumMember   `json:"enumMembers,omitempty"`
   ObjectMembers []DumpObjectMember `json:"objectMembers,omitempty"`
+
   // Parent is the artifact containing this one, and is empty for every
   // declaration: a declaration's containment is synthesized by the TypeScript
   // memory layer, and two producers of one relation would put two answers in
   // the graph.
   Parent         string          `json:"parent,omitempty"`
+
   Evidence       *DumpEvidence   `json:"evidence,omitempty"`
   Implementation *DumpEvidence   `json:"implementation,omitempty"`
   Decorators     []DumpDecorator `json:"decorators,omitempty"`
@@ -134,15 +138,18 @@ type DumpEdge struct {
 type Dump struct {
   Project  string `json:"project"`
   Tsconfig string `json:"tsconfig"`
+
   // Provenance proves the rest of this dump came from one Program. It rides the
   // body rather than the serve envelope so a dump written to a file by the
   // one-shot command keeps its evidence, and so a consumer holding only the
   // parsed dump never has to ask where it came from.
   Provenance Provenance `json:"provenance"`
+
   // Diagnostics are the compiler's findings for the same program generation
   // that produced Nodes and Edges. Empty means the program had none, not that
   // they were not collected; the producer states that in its capabilities.
   Diagnostics []Diagnostic `json:"diagnostics"`
+
   Nodes       []DumpNode   `json:"nodes"`
   Edges       []DumpEdge   `json:"edges"`
 }

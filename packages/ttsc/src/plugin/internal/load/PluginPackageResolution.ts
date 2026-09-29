@@ -19,16 +19,22 @@ export namespace PluginPackageResolution {
   export type PackageManifest = {
     /** Runtime dependencies; scanned for packages that declare plugins. */
     dependencies?: Record<string, unknown>;
+
     /** Development dependencies; scanned the same way. */
     devDependencies?: Record<string, unknown>;
+
     /** The export map, including an optional `ttsc` condition. */
     exports?: unknown;
+
     /** Legacy CommonJS entry. */
     main?: unknown;
+
     /** Legacy ES module entry. */
     module?: unknown;
+
     /** Package name. */
     name?: unknown;
+
     /** Ttsc's own manifest block, declaring the package's plugins. */
     ttsc?: unknown;
   };

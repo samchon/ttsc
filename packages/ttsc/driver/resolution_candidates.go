@@ -15,10 +15,12 @@ type ProgramResolutionInput struct {
   // DirectoryEntries is true when the compiler enumerated this directory, so
   // membership changes as well as kind and identity must invalidate it.
   DirectoryEntries bool
+
   // IdentityOnly is true only for a selected lexical alias whose contents are
   // already owned by the resolved graph target. A link retarget must still
   // invalidate it, while an edit to the selected bytes is not counted twice.
   IdentityOnly bool
+
   Path         string
 }
 
@@ -28,14 +30,18 @@ type ProgramResolutionObservation struct {
   // Candidates maps each source to every exact resolver input other than its
   // identically spelled selected graph target.
   Candidates map[string][]string
+
   // Failures marks source files whose replay no longer matched the resident
   // resolution. A universal failure is expanded to every graph source later.
   Failures map[string]string
+
   // Inputs is the flat form used by resident non-envelope hosts.
   Inputs []ProgramResolutionInput
+
   // Universal contains automatic type discovery and resolution inputs whose
   // state can affect every source file.
   Universal        []string
+
   universalFailure bool
 }
 

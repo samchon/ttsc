@@ -45,6 +45,7 @@ const (
 type Node struct {
   ID   string
   Name string
+
   // Simple is the unqualified declared name (`create`, `OrderService`), taken
   // straight from the declaration's symbol. Name may join an owner chain to a
   // member with a single dot, and a quoted member name can itself contain a dot
@@ -52,8 +53,10 @@ type Node struct {
   // recovered from Name by splitting on a dot. Recording it here keeps the dump
   // split exact instead of guessing.
   Simple string
+
   Kind   NodeKind
   File   string
+
   // ArtifactLine is the 1-based line a published artifact starts on, and is 0
   // for every declaration — a declaration carries a real span, resolved from the
   // compiler, and does not need this. It exists because an artifact has no AST
@@ -62,28 +65,34 @@ type Node struct {
   // carries. The section's content is read from the file when someone needs it,
   // exactly as a function body is.
   ArtifactLine int
+
   // ArtifactParent is the id of the artifact containing this one — a section's
   // document or enclosing section, a column's model. Empty for every
   // declaration, whose containment the TypeScript memory layer synthesizes.
   ArtifactParent string
+
   External       bool
+
   // Exported marks a node that is part of its module's export surface, resolved
   // through the checker's export table so a re-export (`export { Foo } from`) or
   // a barrel (`export *`) counts, not only an inline `export` modifier. It is
   // the signal a public-API projection filters on.
   Exported bool
+
   // Closure marks a node declared inside another declaration's body — Vue's
   // `baseCreateRenderer.patch`, a callback bound to a const inside a method.
   // It is a name the runtime calls, and a model that asks for it by name gets
   // it; but an orientation tour ranks and walks the surface, so the surface is
   // what it sees. The flag is how a projection tells the two apart.
   Closure bool
+
   // Modifiers holds the declaration's syntactic modifiers as wire strings (a
   // subset of the TtscGraphNodeModifier union: export/default/declare/abstract/
   // static/readonly/async/const/public/private/protected). It is recorded from
   // the declaration's combined modifier flags during the build pass and emitted
   // for projections that filter on visibility and shape.
   Modifiers []string
+
   // Literals is the complete value set of a type alias or enum whose declared
   // type the checker resolved to literals, each rendered in TypeScript source
   // form ("a", 1, true, null). It is set only when every constituent is
@@ -99,6 +108,7 @@ type Node struct {
   // reported `'f'` while the members reaching it through `Kind` vanished (#732).
   // The checker has already resolved every one of them, indirection included.
   Literals []string
+
   // EnumMembers is what an enum declares, in checker order: the name a caller
   // writes and the value it carries. Empty for every other kind.
   //
@@ -110,17 +120,21 @@ type Node struct {
   // per member would grow the graph and put leaves into tour flows to index
   // what grep already does. This fills in the node that exists instead.
   EnumMembers []EnumMember
+
   // ObjectMembers is the direct, statically named outline of an object literal
   // assigned to this variable. It is captured from the compiler AST, in source
   // order, so comments and lexical trivia cannot change member identity. The
   // positions point into the same Program-owned source snapshot NewDump uses to
   // render the compact signature and line carried on the wire.
   ObjectMembers []ObjectMember
+
   // Pos and End bound the declaration in its source file (byte offsets). They
   // are for display, never identity, so an edit that shifts them does not re-key
   // the node.
   Pos int
+
   End int
+
   // SignatureEnd bounds the declaration head — everything up to where the body
   // opens. A consumer that guessed the boundary by scanning physical lines both
   // leaked implementation text when a declaration shared its line with its body
@@ -129,6 +143,7 @@ type Node struct {
   // knows where the body starts, so it says so here. Zero when the declaration
   // has no body to bound, in which case the whole declaration is the head.
   SignatureEnd       int
+
   ImplementationFile string
   ImplementationPos  int
   ImplementationEnd  int
@@ -150,12 +165,14 @@ type ObjectMember struct {
   Kind NodeKind
   Pos  int
   End  int
+
   // SignatureEnd is the AST boundary before a nested value body. When the
   // boundary lands at an opening token's full start, SignatureTokenLen says how
   // many source bytes belong to the outline (`{`, `[`, or `class`). A true
   // SignatureBoundary permits whitespace-normalizing a multiline declaration
   // through that safe endpoint; otherwise the outline stops at its first line.
   SignatureEnd      int
+
   SignatureBoundary bool
   SignatureTokenLen int
 }
@@ -235,6 +252,7 @@ type Edge struct {
   From string
   To   string
   Kind EdgeKind
+
   // Origin records the syntactic form a value-call or heritage edge came from,
   // so the JSON dump can split one internal kind into the finer schema kinds
   // (calls / instantiates / renders, extends / implements) without the
@@ -243,6 +261,7 @@ type Edge struct {
   // "jsx", or "tagged"; for EdgeHeritage it is "extends" or "implements";
   // for EdgeMemberRelation it is "implements" or "overrides".
   Origin string
+
   File   string
   Pos    int
   End    int
@@ -253,12 +272,14 @@ type Edge struct {
 type Graph struct {
   Nodes map[string]*Node
   Edges []*Edge
+
   // Decorators holds the decorators written on the workspace's declarations,
   // captured syntactically so the JSON dump can attach raw facts to each target
   // node and a consumer can interpret `@Controller`/`@Get` conventions without
   // re-parsing source. It is dump-only metadata, separate from Edges so the
   // existing checker-resolved relationships are untouched.
   Decorators []*Decorator
+
   // DocTags holds the documentation tags TypeScript does not recognize, written
   // on the workspace's declarations and captured verbatim so the JSON dump can
   // attach them to each target node. A convention that attaches a declaration to
@@ -267,10 +288,12 @@ type Graph struct {
   // otherwise see. Dump-only metadata, separate from Edges for the same reason
   // Decorators is.
   DocTags []*DocTag
+
   // docTagPositions deduplicates DocTags by where each tag is written, so a
   // declaration presented to putDeclaredNode more than once contributes its tags
   // once. Build-only, like bodyNodes.
   docTagPositions map[docTagKey]struct{}
+
   // docHosts are the declarations the node pass found documentation on, paired
   // with the node it attributed them to and keyed by their file. The edge pass
   // resolves documentation links from this set rather than from a walk of its
@@ -278,11 +301,14 @@ type Graph struct {
   // per file so a project's whole documented population is never rescanned for
   // each one. Build-only.
   docHosts         map[string][]docHost
+
   docHostPositions map[docTagKey]struct{}
+
   // bodyNodes tracks whether a callable node's display span is the overload
   // implementation rather than an overload signature. It is build-only metadata
   // and intentionally stays out of JSON dumps.
   bodyNodes map[string]bool
+
   // seen deduplicates edges in O(1) during construction, so building a graph
   // with N edges is O(N), not O(N²). Keyed by from\x00to\x00kind.
   seen map[edgeKey]struct{}
@@ -303,6 +329,7 @@ type Graph struct {
   // read through it: a changed file may delete or re-key a declaration, so its
   // old nodes must disappear before the new checker walk begins.
   baseNodes     map[string]*Node
+
   selectedFiles map[string]bool
 
   // ExportedTargets records every declaration reached through a selected

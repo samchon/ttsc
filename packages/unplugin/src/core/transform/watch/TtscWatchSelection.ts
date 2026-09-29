@@ -10,8 +10,10 @@ import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransf
 export interface TtscWatchSelection {
   /** The configs the selection read, in the order it read them. */
   readonly consulted: readonly string[];
+
   /** The filesystem the delivery reads through. */
   readonly filesystem: TtscTransformFilesystemOperations;
+
   /** The selected project's tsconfig, as the adapter names it. */
   readonly tsconfig: string;
 }

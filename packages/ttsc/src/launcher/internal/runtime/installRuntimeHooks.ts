@@ -204,6 +204,7 @@ interface LoadResult {
 
 interface ServedSource {
   source: string;
+
   /** Options of the project that emitted this source; `null` when none did. */
   moduleOptions: OwningModuleOptions | null;
   emittedFile?: string;
@@ -2142,8 +2143,10 @@ const failedProjects = new Map<string, unknown>();
 interface DependencyCachePaths {
   /** Container of this dependency's generation-stamped emit directories. */
   cacheDir: string;
+
   /** Fenced cross-process coordination directory (`<key>.lock`). */
   lockDir: string;
+
   /** Atomic completion pointer (`<key>.json`) naming the live generation. */
   metaPath: string;
   root: string;

@@ -16,8 +16,10 @@ export interface InputCondition {
    * evidence exists.
    */
   baseline?: TtscWatchInputBaseline;
+
   /** The generation's recorded state for the input. */
   evidence?: TtscWatchInputEvidence;
+
   /** The owners told when this state stops holding. */
   owners: Set<string>;
 }

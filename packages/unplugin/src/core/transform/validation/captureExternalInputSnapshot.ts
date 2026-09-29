@@ -52,11 +52,13 @@ export function captureExternalInputSnapshot(
   witness: ReadonlyMap<string, TtscExternalDependencyWitness> | undefined,
 ): {
   complete: boolean;
+
   /**
    * The plugin-reported paths no graph proves, which the next compile's witness
    * reads.
    */
   dependencies: string[];
+
   /**
    * Whether every one of {@link dependencies} had a witness that held across the
    * compile; always true for an adopted compile.

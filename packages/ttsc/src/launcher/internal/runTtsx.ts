@@ -569,8 +569,10 @@ function settleSignals(): Promise<void> {
 interface ForwardTarget {
   /** Send `signal` to the child. */
   kill(signal: NodeJS.Signals): boolean;
+
   /** The child's exit code, or `null` while it runs or after a signal. */
   exitCode: number | null;
+
   /** The signal that ended the child, or `null` while it runs. */
   signalCode: string | null;
 }

@@ -12,10 +12,13 @@ export interface TtscCommonOptions {
    * this binary directly.
    */
   binary?: string;
+
   /** Working directory for config discovery and relative file paths. */
   cwd?: string;
+
   /** Project root override for generated tsconfig wrappers. */
   projectRoot?: string;
+
   /**
    * Directory that anchors plugin config-file discovery and relative
    * `configFile` resolution (forwarded to plugin processes as
@@ -24,23 +27,29 @@ export interface TtscCommonOptions {
    * tsconfig's own directory.
    */
   pluginConfigDir?: string;
+
   /** Environment variables merged over `process.env` for child processes. */
   env?: NodeJS.ProcessEnv;
+
   /** Explicit root directory for compiled source-plugin cache artifacts. */
   cacheDir?: string;
+
   /** Normalize compiler output so diagnostics can be parsed structurally. */
   structuredDiagnostics?: boolean;
+
   /**
    * Run TypeScript-Go single-threaded — one checker, serial parse/check/emit.
    * Mirrors `tsgo --singleThreaded`. Useful for deterministic debugging and CI
    * repro.
    */
   singleThreaded?: boolean;
+
   /**
    * Type-checker pool size, mirroring `tsgo --checkers`. `undefined` leaves
    * TypeScript-Go's default; ignored when `singleThreaded` is set.
    */
   checkers?: number;
+
   /**
    * CLI tokens ttsc did not recognize as its own, forwarded verbatim to the
    * underlying `tsgo` invocation. This is how a tsgo flag ttsc has no first-
@@ -49,6 +58,7 @@ export interface TtscCommonOptions {
    * complete, arity-aware option parser — handle the rest.
    */
   passthrough?: readonly string[];
+
   /**
    * Override project plugin loading for this invocation.
    *

@@ -9,7 +9,7 @@
  * Stripping deletes the whole statement, including argument evaluation. Use
  * this only for calls whose removal is intended to change runtime behavior.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   This exported TypeScript interface follows the dedicated typed-config
  *   convention used by banner and the strip README. The calls and statements
  *   lists express consumer-selected native syntax removal, with defaults only

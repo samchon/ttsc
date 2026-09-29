@@ -14,7 +14,7 @@ import type { TtscUnpluginOptions } from "@ttsc/unplugin/api";
  * to reach them (see {@link serializeOptions}). That is why `include`/`exclude`
  * are plain substring patterns rather than `RegExp`.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   This interface extends the documented Unplugin option contract rather than
  *   defining another plugin protocol. Metro adds JSON-compatible upstream and
  *   substring filters for its config-to-worker transport.
@@ -68,7 +68,7 @@ export interface TtscMetroOptions extends TtscUnpluginOptions {
  * Fully-resolved options, split into the ttsc-side overlay and Metro-side
  * knobs.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   A structural interface separates the existing Unplugin overlay from
  *   resolved Metro filters and the private run handshake.
  *
@@ -92,12 +92,16 @@ export interface TtscMetroOptions extends TtscUnpluginOptions {
 export interface ResolvedTtscMetroOptions {
   /** Options forwarded verbatim to the `@ttsc/unplugin` transform core. */
   ttsc: TtscUnpluginOptions;
+
   /** Explicit upstream transformer module path, or `undefined` to auto-detect. */
   upstreamTransformer?: string;
+
   /** Resolved include patterns (never `undefined`). */
   include: string[];
+
   /** Resolved exclude patterns (never `undefined`). */
   exclude: string[];
+
   /** Private run identity shared by `getCacheKey` and Metro workers. */
   snapshotRunId?: string;
 }
@@ -122,7 +126,7 @@ export const ENV_KEY = "TTSC_METRO_OPTIONS";
  * returns JSON without publishing the environment variable or mutating options.
  * Values must be JSON-serialisable; serialization errors propagate.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   JSON.stringify and object spread encode the declared worker transport.
  *   JSON failures propagate rather than inventing a successful payload.
  *
@@ -161,7 +165,7 @@ export function serializeOptions(
  * plugins", the standard ttsc behaviour, and the right thing for a project that
  * called `withTtsc(config)` with no explicit options.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   JSON.parse reads the adapter-owned environment channel. The parser accepts
  *   only object payloads, filters include/exclude to strings and preserves
  *   plugins field presence so false differs from omission.

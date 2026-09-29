@@ -7,6 +7,7 @@ export interface TtscWatchInput {
    * recovery registrations.
    */
   evidence?: TtscWatchInputEvidence;
+
   /** Absolute lexical spelling of the input. */
   file: string;
 }

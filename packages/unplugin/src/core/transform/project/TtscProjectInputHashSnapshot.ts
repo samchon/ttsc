@@ -5,6 +5,7 @@ export interface TtscProjectInputHashSnapshot {
    * cache-key hosts must reject an incomplete set.
    */
   complete: boolean;
+
   /** SHA-256 of every walked input, keyed by project-relative slash path. */
   hashes: Record<string, string>;
 }

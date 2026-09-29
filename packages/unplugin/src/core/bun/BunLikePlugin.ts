@@ -10,6 +10,7 @@ import type { BunLikeBuild } from "./BunLikeBuild";
 export interface BunLikePlugin {
   /** Plugin identifier shown in Bun bundler output. */
   name: string;
+
   /** Called by Bun when the plugin is registered. */
   setup(build: BunLikeBuild): void | Promise<void>;
 }

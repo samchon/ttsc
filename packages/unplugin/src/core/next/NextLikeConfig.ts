@@ -14,6 +14,7 @@ export type NextLikeConfig = Record<string, unknown> & {
    * webpack plugin.
    */
   webpack?: (config: WebpackLikeConfig, options: unknown) => WebpackLikeConfig;
+
   /**
    * Optional existing Turbopack configuration. Preserved whole; only the ttsc
    * rules are merged into its `rules` map.

@@ -22,6 +22,7 @@ export namespace LSPProjectInputDigest {
   export type InitialLSPProjectInputSnapshot = ITtscProjectInputSnapshot & {
     /** Topology digest of each reload directory, keyed by its declared path. */
     reloadDirectoryDigests: Readonly<Record<string, string>>;
+
     /** Content digest of each reload file, keyed by its declared path. */
     reloadFileDigests: Readonly<Record<string, string>>;
   };

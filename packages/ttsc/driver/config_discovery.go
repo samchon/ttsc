@@ -11,10 +11,12 @@ type ConfigDiscovery struct {
   // Directory is the directory the search stopped in, empty when nothing
   // matched anywhere up to the filesystem root.
   Directory string
+
   // Matches are the config files present in Directory, in the caller's name
   // order. More than one is the ambiguity each plugin reports in its own
   // words; none means the search reached the root.
   Matches []string
+
   // Probed are the candidates the search examined and rejected, in every
   // directory it visited up to and including Directory.
   //
@@ -39,6 +41,7 @@ type ConfigDiscovery struct {
 type ConfigCandidate struct {
   // Directory reports that the path exists and is a directory.
   Directory bool
+
   // Path is the candidate's absolute location.
   Path string
 }

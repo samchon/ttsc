@@ -44,8 +44,10 @@ interface NativeChild {
 export interface TtscGraphSessionOptions {
   /** Project root passed to `ttscgraph serve`. */
   cwd: string;
+
   /** Project tsconfig passed to `ttscgraph serve`. */
   tsconfig: string;
+
   /** Absolute native binary path, resolved from `cwd` when omitted. */
   binary?: string;
 }
@@ -74,6 +76,7 @@ export class TtscGraphSession {
   private queue: Promise<void> = Promise.resolve();
   private current: TtscGraphMemory | undefined;
   private shardStore = new TtscGraphShardStore();
+
   /**
    * The artifact answer the resident child was last handed, and the state of
    * the inputs it came from.
@@ -84,6 +87,7 @@ export class TtscGraphSession {
    * session can notice.
    */
   private artifacts: IPublishedArtifacts | undefined;
+
   /**
    * One resident `@ttsc/lint` sidecar per plugin binary, opened lazily.
    *

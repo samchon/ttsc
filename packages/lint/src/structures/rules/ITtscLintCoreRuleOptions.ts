@@ -279,10 +279,12 @@ type TtscLintCoreNoRestrictedImportsPathNames =
   | {
       /** Imported names to reject; aliases are matched by their source name. */
       importNames?: string[];
+
       allowImportNames?: never;
     }
   | {
       importNames?: never;
+
       /** Reject every imported name outside this allowlist. */
       allowImportNames: string[];
     };
@@ -301,22 +303,27 @@ type TtscLintCoreNoRestrictedImportsPatternNames =
   | {
       /** Imported names rejected by exact match. */
       importNames?: TtscLintCoreNoRestrictedImportsNonEmptyStrings;
+
       /** Imported names rejected by a regular expression. */
       importNamePattern?: string;
+
       allowImportNames?: never;
       allowImportNamePattern?: never;
     }
   | {
       importNames?: never;
       importNamePattern?: never;
+
       /** Reject every imported name outside this allowlist. */
       allowImportNames: TtscLintCoreNoRestrictedImportsNonEmptyStrings;
+
       allowImportNamePattern?: never;
     }
   | {
       importNames?: never;
       importNamePattern?: never;
       allowImportNames?: never;
+
       /** Reject every imported name that does not match this expression. */
       allowImportNamePattern: string;
     };
@@ -331,10 +338,12 @@ export type ITtscLintCoreNoRestrictedImportsPattern =
       | {
           /** Ordered gitignore-style path patterns, including `!` negation. */
           group: TtscLintCoreNoRestrictedImportsNonEmptyStrings;
+
           regex?: never;
         }
       | {
           group?: never;
+
           /** Regular expression tested against the module specifier. */
           regex: string;
         }

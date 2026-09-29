@@ -8,6 +8,7 @@
 export type PluginBuildLockLease = {
   /** Always `"v2"`: new holders only ever acquire the current protocol. */
   protocol: "v2";
+
   /** The 128-bit hex id of the held generation. */
   generation: string;
 };

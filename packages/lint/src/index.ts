@@ -51,17 +51,22 @@ type TtscPluginDescriptor = {
 type TtscPluginFactoryContext<TConfig> = {
   binary: string;
   cwd: string;
+
   /** This descriptor's own directory — the ESM-safe replacement for `__dirname`. */
   dirname: string;
+
   /** This descriptor's own path — the ESM-safe replacement for `__filename`. */
   filename: string;
+
   plugin: TConfig;
+
   /**
    * Caller-declared anchor for plugin config-file discovery, present when the
    * embedder compiles through a generated tsconfig outside the project (see
    * `ITtscPluginFactoryContext.pluginConfigDir`).
    */
   pluginConfigDir?: string;
+
   projectRoot: string;
   tsconfig: string;
 };

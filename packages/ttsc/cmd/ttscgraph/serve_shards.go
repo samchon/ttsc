@@ -89,6 +89,7 @@ type serveGraphStore struct {
   implementationSources map[string]map[string]bool
   nodeOwners            map[string]string
   incomingEdges         map[string]map[string]int
+
   // extractedFiles records the exact authored closure read for this generation.
   // It supports phase/closure evidence without retaining an older generation.
   extractedFiles []string

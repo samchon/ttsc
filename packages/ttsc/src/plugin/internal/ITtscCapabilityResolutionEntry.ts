@@ -13,12 +13,16 @@ import type { ITtscCapabilityResolutionPlugin } from "./ITtscCapabilityResolutio
 export interface ITtscCapabilityResolutionEntry {
   /** Cache format plus the ttsc build that wrote it. */
   version: string;
+
   /** Paths whose state decides whether this answer is still the answer. */
   hostInputs: string[];
+
   /** Content hash per host input, `null` for one that does not exist. */
   hostInputHashes: Record<string, string | null>;
+
   /** Physical identity per host input, so a retargeted link is a change. */
   hostInputRealpaths: Record<string, string | null>;
+
   /**
    * The state of every directory the plugin binaries were keyed on, as the load
    * reported it (`pluginSources`: each module root, linked package, and
@@ -32,10 +36,13 @@ export interface ITtscCapabilityResolutionEntry {
    * (samchon/ttsc#1492).
    */
   pluginSources: Record<string, ITtscCapabilityPluginSource>;
+
   /** The `--plugins-json` payload, verbatim. */
   manifest: string;
+
   /** The `--project-context-json` payload, or `null` when none was wanted. */
   projectContext: string | null;
+
   /** One entry per configured native plugin, in configured order. */
   plugins: ITtscCapabilityResolutionPlugin[];
 }

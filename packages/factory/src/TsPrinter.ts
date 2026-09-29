@@ -2476,8 +2476,10 @@ export namespace TsPrinter {
   export interface IProps {
     /** Maximum line width before groups break. Defaults to `80`. */
     printWidth?: number;
+
     /** Indentation unit. Defaults to two spaces. */
     indent?: string;
+
     /** New line sequence. Defaults to `"\n"` (LineFeed). */
     newLine?: string;
   }

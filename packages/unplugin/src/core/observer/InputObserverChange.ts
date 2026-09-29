@@ -13,6 +13,7 @@ export interface InputObserverChange {
    * own (samchon/ttsc#1419).
    */
   invalidate: ReadonlySet<string>;
+
   /** Owners an input of whose last delivery changed, by absolute spelling. */
   reload: ReadonlySet<string>;
 }

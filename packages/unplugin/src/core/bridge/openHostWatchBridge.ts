@@ -56,7 +56,7 @@ import { signalProjectRecordFile } from "./signalProjectRecordFile";
  * @param root The directory whose pinned scope observes the project.
  * @param operations Native watch seams, replaceable for tests.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   The adapter uses its own record files and the host's dependency channel
  *   rather than handing each compiler input to a host with different watch
  *   semantics.

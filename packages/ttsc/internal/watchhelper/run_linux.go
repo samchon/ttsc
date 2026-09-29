@@ -131,10 +131,13 @@ type helper struct {
   fd      int
   out     *bufio.Writer
   encoder *json.Encoder
+
   // watches maps a watch descriptor to the subscriptions it serves.
   watches map[int32]map[int64]struct{}
+
   // descriptors maps a subscription to its watch descriptor.
   descriptors map[int64]int32
+
   buffer      []byte
 }
 

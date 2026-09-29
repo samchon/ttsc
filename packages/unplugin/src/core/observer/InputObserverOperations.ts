@@ -9,10 +9,13 @@
 export interface InputObserverOperations {
   /** Override case-policy discovery for a simulated host filesystem. */
   caseSensitive?(directory: string): boolean;
+
   /** Override path semantics when testing a non-host platform. */
   platform?: NodeJS.Platform;
+
   /** Open the shared fallback timer. */
   poll(listener: () => void): { close(): void };
+
   /**
    * Open one recursive native observer on `root`.
    *

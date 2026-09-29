@@ -2,6 +2,7 @@
 export interface TtscProjectDirectorySnapshot {
   /** Absolute directory spelling used by the project walk. */
   path: string;
+
   /**
    * Whether this directory's subtree can hold a program input.
    *
@@ -12,6 +13,7 @@ export interface TtscProjectDirectorySnapshot {
    * output directory rather than for fifteen names (samchon/ttsc#1307).
    */
   relevant: boolean;
+
   /**
    * Digest of the entries the walk itself considers: every immediate child the
    * ignore list does not drop, with its kind.

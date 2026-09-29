@@ -14,6 +14,7 @@
 export interface TtscProjectSpellings {
   /** The root's physical spelling, after every link. */
   readonly physical: string;
+
   /** The root as it was named. */
   readonly spelling: string;
 }
