@@ -14,8 +14,23 @@ import { make } from "../internal/make";
  * of `x = 1` and the `const` flag, it prints as:
  *
  * ```ts
- * const x = 1;
+ * const x = 1
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Ordered declarators and NodeFlags preserve variable-declaration grouping;
+ *   no flags selects var while supported flags select the corresponding keyword.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The list owns the keyword but excludes statement termination so the same
+ *   grouping works in variable statements and for-loop headers.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   NodeFlags.None is the documented var default, not inferred from fixture names.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native prose explains keyword selection and header reuse, with a corrected
+ *   semicolon-free list example and separate acknowledgment paragraphs.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param declarations The declarations.

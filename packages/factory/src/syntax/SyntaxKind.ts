@@ -61,6 +61,7 @@ export enum SyntaxKind {
   NewKeyword = "new",
   SuperKeyword = "super",
   InKeyword = "in",
+  OutKeyword = "out",
   InstanceOfKeyword = "instanceof",
   AsKeyword = "as",
   SatisfiesKeyword = "satisfies",

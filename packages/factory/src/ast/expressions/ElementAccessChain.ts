@@ -6,18 +6,26 @@ import type { Expression } from "./Expression";
  *
  * Built by {@link factory.createElementAccessChain}.
  *
+ * An absent marker continues a chain without introducing a new optional
+ * access. The index remains an expression, not a precomputed property key.
+ *
+ * @evidence contracts/common.md#principled-implementation Receiver, index and optional-link presence distinguish an optional indexed access from a plain continuation; the chain kind preserves its relation to preceding links.
+ * @evidence contracts/common.md#clear-and-simple-design This node stores one access link and reuses its receiver subtree rather than flattening or copying the entire chain.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The index is supplied expression syntax and optional access is an explicit marker, not a guessed key or patched receiver.
+ * @evidence contracts/common.md#meaningful-documentation Native prose and field comments explain marker absence, receiver and index roles; member spacing and tag separation follow documentation guidance.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  */
 export interface ElementAccessChain {
   /** Discriminant tag; always `"ElementAccessChain"`. */
   kind: "ElementAccessChain";
 
-  /** Expression. */
+  /** Receiver, possibly containing preceding optional-chain links. */
   expression: Expression;
 
-  /** QuestionDotToken. */
+  /** Presence prints `?.[`; absence prints `[` as a chain continuation. */
   questionDotToken?: Token;
 
-  /** ArgumentExpression. */
+  /** Index expression enclosed by square brackets. */
   argumentExpression: Expression;
 }

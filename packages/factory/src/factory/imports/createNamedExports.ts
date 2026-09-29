@@ -16,6 +16,21 @@ import { make } from "../internal/make";
  * { a, b }
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   Ordered ExportSpecifier elements preserve each binding and alias inside
+ *   the export brace group, without adding a module target.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   ExportDeclaration owns from/type-only statement decisions while this group
+ *   owns only the member collection, leaving separators to printing.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Binding membership is caller data rather than a patched live module export.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc distinguishes standalone brace output from the enclosing declaration
+ *   and explains broken-list commas before separate example and tag paragraphs.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param elements The elements.
  * @returns The created {@link NamedExports}.

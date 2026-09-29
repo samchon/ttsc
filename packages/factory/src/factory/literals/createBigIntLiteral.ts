@@ -11,8 +11,23 @@ import { make } from "../internal/make";
  * With `value` of `123`, this prints:
  *
  * ```ts
- * 123n;
+ * 123n
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   BigIntLiteral stores lexical digit text; appending n only when absent
+ *   matches its suffix representation. Callers must supply valid bigint digits.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One suffix normalization feeds the shared node constructor; lexical
+ *   validation and printing are separate from this literal builder.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The n suffix is bigint syntax, not a consumer-selected literal value.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc explains suffix normalization and shows its printed form. Prose,
+ *   example and acknowledgment tags use separate paragraphs.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param value The literal value.

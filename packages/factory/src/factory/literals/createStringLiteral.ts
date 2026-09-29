@@ -16,8 +16,23 @@ import { make } from "../internal/make";
  * With `text` of `he said "hi"` and the default quoting, this prints:
  *
  * ```ts
- * "he said \"hi\"";
+ * "he said \"hi\""
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   StringLiteral keeps unescaped text and quote preference separately so the
+ *   printer can escape the chosen delimiter without altering content here.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   This builder maps isSingleQuote to the outline's singleQuote field;
+ *   escaping belongs to printing and does not create a second encoding layer.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Quote preference is an explicit caller argument rather than patched output.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc explains unescaped input, quote selection and active-delimiter
+ *   escaping in separate paragraphs with an example and a blank before tags.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param text The textual content.

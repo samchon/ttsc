@@ -16,7 +16,8 @@ import { make } from "../internal/make";
  * `public get`. The `name` is the accessor key. A getter takes no value
  * parameter, so `parameters` is normally empty; the optional `type` is the
  * return type printed after the colon, and the `body` block holds the
- * statements, indented one per line.
+ * statements using that block's `multiLine` layout policy. An omitted body
+ * creates a bodyless accessor signature ending with a semicolon.
  *
  * Given a `public` modifier, the name `value`, a `number` return type, and a
  * body returning `this._value`, the printed accessor is:
@@ -26,6 +27,21 @@ import { make } from "../internal/make";
  *   return this._value;
  * }
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Property-name normalization preserves the accessor key and the node keeps
+ *   return type/body. Callers must supply getter-valid parameters, normally none.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Getter-specific return typing stays here while shared parameter and Block
+ *   builders own their subtrees; no setter policy is embedded.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The accessor is source syntax rather than an installed property descriptor.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native prose explains getter arity, return type and body, with the public
+ *   accessor example separated from acknowledgment paragraphs.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param modifiers The leading modifiers and decorators, if any.

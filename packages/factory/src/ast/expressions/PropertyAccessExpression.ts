@@ -7,6 +7,15 @@ import type { Expression } from "./Expression";
  *
  * Built by {@link factory.createPropertyAccessExpression}.
  *
+ * This is an ordinary dotted access. Use a chain node for an optional-chain
+ * continuation. The outline does not resolve members or validate private-name
+ * access in its enclosing class context.
+ *
+ * @evidence contracts/common.md#principled-implementation Receiver and identifier represent ordinary dotted syntax, distinct from a chain continuation; identifier typing does not establish member resolution or private-name legality.
+ * @evidence contracts/common.md#clear-and-simple-design Two constituents expose the access without cached lookup state or a duplicated receiver representation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The explicit member name is not selected from known consumer objects or implemented by mutating their properties.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains chain boundaries and member-resolution limits; separately documented operands and tags follow the documentation skill.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  */
 export interface PropertyAccessExpression {

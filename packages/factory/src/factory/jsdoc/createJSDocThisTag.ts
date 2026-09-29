@@ -20,6 +20,10 @@ import { createIdentifier } from "../names/createIdentifier";
  * @this {Foo}
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation The required type-expression child and supplied identifier or this default record receiver annotation syntax without binding a receiver or validating a call.
+ * @evidence contracts/common.md#clear-and-simple-design The adapter reuses the braced type payload and adds only defaulted spelling and description, avoiding receiver-state machinery.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts This is a supported tag default rather than a fixed receiver identity, and construction does not rebind foreign functions.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains receiver type, default spelling and trailing description with an example; paragraph and native-tag separation follows the documentation guidance.
  * @author Jeongho Nam - https://github.com/samchon
  * @param tagName The tag name; defaults to `this`.
  * @param typeExpression The type expression.

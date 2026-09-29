@@ -12,8 +12,13 @@ import { createPrefixUnaryExpression } from "./createPrefixUnaryExpression";
  * Given operand `a`, the printer emits:
  *
  * ```ts
- * !a;
+ * !a
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation ExclamationToken retains logical negation and the operand expression without computing truthiness at construction time.
+ * @evidence contracts/common.md#clear-and-simple-design A single prefix-builder call owns logical-not selection instead of an extra conditional expression representation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Negation remains explicit syntax rather than a guessed boolean constant or patched operand.
+ * @evidence contracts/common.md#meaningful-documentation JSDoc names logical NOT, describes the operand and supplies a standalone expression example with separated tags.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param operand The operand to negate.

@@ -12,8 +12,13 @@ import { make } from "../internal/make";
  * With `expression` of `a % b`, the printer emits:
  *
  * ```ts
- * a % b;
+ * (a % b)
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation A dedicated grouping wrapper retains explicit parentheses independently of inferred precedence and leaves the inner expression unchanged.
+ * @evidence contracts/common.md#clear-and-simple-design One make call stores the operand without reproducing its operators or precedence state.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Grouping is a structural node rather than a raw-text wrapper patched onto already printed output.
+ * @evidence contracts/common.md#meaningful-documentation Native prose states unconditional grouping and the example includes those actual parentheses; description and tags remain separate under documentation guidance.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param expression The inner expression to wrap in parentheses.

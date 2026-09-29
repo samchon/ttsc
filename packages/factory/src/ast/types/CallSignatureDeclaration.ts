@@ -7,18 +7,23 @@ import type { TypeParameterDeclaration } from "./TypeParameterDeclaration";
  *
  * Built by {@link factory.createCallSignature}.
  *
+ * @evidence contracts/common.md#principled-implementation Ordered parameters and optional generics/return annotation express a call signature; omitted annotations remain absent syntax, not inferred types stored here.
+ * @evidence contracts/common.md#clear-and-simple-design The signature owns parameter order and annotation presence; ParameterDeclaration owns each parameter's syntax.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Optional fields model caller syntax choices without hardcoded callable names or test behavior.
+ * @evidence contracts/common.md#meaningful-documentation JSDoc shows signature spelling; member prose explains omission and ordering, following the documentation skill.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  */
 export interface CallSignatureDeclaration {
   /** Discriminant tag; always `"CallSignature"`. */
   kind: "CallSignature";
 
-  /** TypeParameters. */
+  /** Generic parameters in declaration order; omitted when no generic clause exists. */
   typeParameters?: readonly TypeParameterDeclaration[];
 
-  /** Parameters. */
+  /** Parameters in call order. */
   parameters: readonly ParameterDeclaration[];
 
-  /** Type. */
+  /** Return annotation; omitted when the signature supplies none. */
   type?: TypeNode;
 }

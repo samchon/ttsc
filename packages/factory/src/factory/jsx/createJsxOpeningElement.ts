@@ -22,6 +22,22 @@ import { make } from "../internal/make";
  * <Foo bar="x">
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   Tag, generic arguments and attributes retain their opening-tag roles; this
+ *   node contains no children and does not pretend to close the element.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The opening is reusable by paired-element assembly without duplicating
+ *   child storage or closing-tag construction.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Component names do not inject attributes or generic defaults, and the
+ *   opening syntax comes from structured children rather than string replacement.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native prose distinguishes the opening half from self-closing syntax and
+ *   states the matching-tag context alongside all three parameter descriptions.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param tagName The tag name.
  * @param typeArguments The generic type arguments, if any.

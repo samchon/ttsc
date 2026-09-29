@@ -8,6 +8,14 @@ import type { JSDocTypeExpression } from "./JSDocTypeExpression";
  *
  * Built by {@link factory.createJSDocPropertyTag}.
  *
+ * Brackets mark the documented name as optional. They are independent of an
+ * omitted type and the name/type ordering flag. The tag describes a property
+ * without declaring it or checking an object's members.
+ *
+ * @evidence contracts/common.md#principled-implementation The entity name, optional braced type and independent bracket and ordering flags express property annotation forms and aliases without asserting that the property exists on a value.
+ * @evidence contracts/common.md#clear-and-simple-design Separate syntax choices remain explicit booleans beside structured operands, avoiding duplicate name-first and type-first tag types.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Property information is supplied through the public annotation record rather than known-shape hardcoding or patched object members.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains independent bracket, type and order choices and the declaration boundary; members and paragraphs are separated under the documentation guidance.
  * @author Jeongho Nam - https://github.com/samchon
  */
 export interface JSDocPropertyTag {
@@ -23,7 +31,7 @@ export interface JSDocPropertyTag {
   /** Whether the name was wrapped in brackets (optional property). */
   isBracketed: boolean;
 
-  /** The type expression, if any. */
+  /** Braced type annotation; omission does not suppress the property name. */
   typeExpression?: JSDocTypeExpression;
 
   /** Whether the name was written before the type. */

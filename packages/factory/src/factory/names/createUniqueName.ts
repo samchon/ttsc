@@ -17,8 +17,25 @@ import { createIdentifier } from "./createIdentifier";
  * With `text` of `base` and no prefix or suffix, this prints:
  *
  * ```ts
- * base;
+ * base
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   The function assembles caller text with optional affixes as an Identifier.
+ *   Its documented compatibility placeholder has no scope state, so identical
+ *   arguments produce identical names and uniqueness is not guaranteed.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One string assembly and shared identifier construction expose what the
+ *   stateless API actually does; no speculative scope allocator is hidden here.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The ignored flags and missing uniqueness guarantee remain explicit
+ *   limitations rather than compensating with consumer-specific rename rules.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native prose warns about identical-call collisions, ignored flags and caller
+ *   responsibility, using separate paragraphs before the example and tags.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param text The base name text.

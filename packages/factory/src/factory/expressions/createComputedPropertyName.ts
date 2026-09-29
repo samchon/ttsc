@@ -11,8 +11,13 @@ import { make } from "../internal/make";
  * Given expression `key`, the printer emits the key:
  *
  * ```ts
- * [key];
+ * [key]
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation The unchanged key expression remains computed-name syntax, not a string obtained by evaluating it; the caller supplies a legal member-name context.
+ * @evidence contracts/common.md#clear-and-simple-design One wrapper node records bracketed identity while the expression and printer retain their own responsibilities.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The key is not guessed from a known object or hardcoded from an expected computed result.
+ * @evidence contracts/common.md#meaningful-documentation Native prose identifies valid name positions and bracket emission; the fragment example and acknowledgment block are separated under documentation guidance.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param expression The key expression.

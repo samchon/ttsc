@@ -13,6 +13,22 @@ import { make } from "../internal/make";
  * ...string[]
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   RestTypeNode retains the operand as a type child so postfix grouping stays
+ *   meaningful; the caller supplies a legal rest position and operand type.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   A one-child wrapper separates tuple-rest syntax from expression spread and
+ *   leaves tuple ordering to its parent rather than duplicating list validation.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   No element names trigger an array conversion or output substitution; the
+ *   explicit rest wrapper is preserved for every supplied operand.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native JSDoc explains the tuple-rest role and operand, with a distinct
+ *   paragraph for the example and spacing before the acknowledgment tags.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param type The rest element type.
  * @returns The created {@link RestTypeNode}.

@@ -3,6 +3,11 @@
  *
  * Built by {@link factory.createPrivateIdentifier}.
  *
+ * @evidence contracts/common.md#principled-implementation A distinct kind and text including # preserve private-name spelling; class-scope legality is not checked here.
+ * @evidence contracts/common.md#clear-and-simple-design The private name retains only its syntax identity and spelling, separate from declaration payloads.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The # marker is language syntax, not an exception for particular callers.
+ * @evidence contracts/common.md#meaningful-documentation JSDoc and text documentation explain the leading # convention and constructor; member spacing follows the documentation skill.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  */
 export interface PrivateIdentifier {

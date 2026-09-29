@@ -23,10 +23,25 @@ import { make } from "../internal/make";
  * }
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   Guarded, handler and finalizer subtrees retain their order and optionality.
+ *   The broad shape relies on the caller to supply catch or finally for valid syntax.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Try owns composition while CatchClause and Block own bindings/statements;
+ *   construction introduces no actual exception-handling execution.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The supplied handler is syntax, not a wrapper hiding a factory failure.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native prose states the at-least-one-handler/finalizer constraint with
+ *   a complete example and separate acknowledgment paragraphs.
+ *
  * @author Jeongho Nam - https://github.com/samchon
- * @param tryBlock The tryBlock.
- * @param catchClause The catchClause.
- * @param finallyBlock The finallyBlock.
+ * @param tryBlock The guarded body.
+ * @param catchClause The optional exception handler.
+ * @param finallyBlock The optional finalizer body.
  * @returns The created {@link TryStatement}.
  */
 export const createTryStatement = (

@@ -10,8 +10,13 @@ import { createBinaryExpression } from "./createBinaryExpression";
  * With `left` of `a` and `right` of `b`, the printer emits:
  *
  * ```ts
- * a * b;
+ * a * b
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation AsteriskToken retains multiplication syntax with both original operands; numeric behavior is left to the emitted language.
+ * @evidence contracts/common.md#clear-and-simple-design The shared binary constructor owns the node, with this wrapper only choosing multiplication.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts No expected product or consumer-specific scale replaces the supplied operand expressions.
+ * @evidence contracts/common.md#meaningful-documentation JSDoc names multiplication, explains the wrapper and operand roles, and separates expression example from acknowledgment tags.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param left The left-hand operand.

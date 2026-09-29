@@ -11,8 +11,21 @@ import { createToken } from "./createToken";
  * This prints:
  *
  * ```ts
- * true;
+ * true
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   TrueKeyword selects the boolean-true token spelling through createToken.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The convenience names a token meaning while sharing token construction.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The fixed token kind defines this API's true literal, not a fixture result.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc names the no-argument token contract and shows true as an expression,
+ *   with descriptive prose and tags separated by a blank comment line.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @returns The created {@link Token}.

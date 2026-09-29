@@ -8,21 +8,30 @@ import type { ModuleName } from "./ModuleName";
  *
  * Built by {@link factory.createModuleDeclaration}.
  *
+ * A string-literal name always prints as module. For an identifier, the
+ * Namespace flag selects namespace; other flags select module. An omitted
+ * body denotes a bodyless declaration ending with a semicolon.
+ *
+ * @evidence contracts/common.md#principled-implementation ModuleName preserves quoted versus identifier names, and optional recursive body retains declaration shape; Namespace selects identifier keyword spelling without validating arbitrary NodeFlags.
+ * @evidence contracts/common.md#clear-and-simple-design Name/body/flags separate syntax choices; ModuleBody owns recursive qualification and statement grouping.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Flags are documented syntax choices rather than OS or consumer-specific module patches.
+ * @evidence contracts/common.md#meaningful-documentation JSDoc explains keyword selection and absent bodies in separate paragraphs; role-specific member comments follow the documentation skill.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  */
 export interface ModuleDeclaration {
   /** Discriminant tag; always `"ModuleDeclaration"`. */
   kind: "ModuleDeclaration";
 
-  /** Modifiers. */
+  /** Leading modifiers and decorators, if supplied. */
   modifiers?: readonly ModifierLike[];
 
-  /** Name. */
+  /** Identifier namespace/module name or quoted external module name. */
   name: ModuleName;
 
-  /** Body. */
+  /** Braced or nested declaration body; absent for a bodyless declaration. */
   body?: ModuleBody;
 
-  /** Flags. */
+  /** Namespace selects namespace for identifier names; quoted names always use module. */
   flags: NodeFlags;
 }

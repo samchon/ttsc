@@ -5,18 +5,23 @@ import type { Identifier } from "../names/Identifier";
  *
  * Built by {@link factory.createImportSpecifier}.
  *
+ * @evidence contracts/common.md#principled-implementation Source name, local name and type-only flag preserve named import direction; Identifier-only source names leave string-literal binding syntax outside this shape.
+ * @evidence contracts/common.md#clear-and-simple-design An optional source alias separates imported spelling from the required local binding.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Binding names are caller data without fixture-specific import substitutions.
+ * @evidence contracts/common.md#meaningful-documentation JSDoc identifies renaming and member comments distinguish local/source names and type-only syntax; native spacing follows the documentation skill.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  */
 export interface ImportSpecifier {
   /** Discriminant tag; always `"ImportSpecifier"`. */
   kind: "ImportSpecifier";
 
-  /** Whether this is a type-only import/export. */
+  /** Whether type precedes this imported binding. */
   isTypeOnly: boolean;
 
   /** The original (source) name, when aliased. */
   propertyName?: Identifier;
 
-  /** The name. */
+  /** Local binding identifier; also the imported name when propertyName is absent. */
   name: Identifier;
 }

@@ -15,6 +15,21 @@ import { make } from "../internal/make";
  * import { a } from "./mod";
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   SourceFile retains the ordered Statement array as its file body; empty
+ *   statements represent an empty outline rather than a synthesized declaration.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The root owns statement grouping; syntax formatting and newlines belong to
+ *   the printer, with no compiler Program or filesystem ownership here.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Caller statements are retained directly without injecting expected imports.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc states file-body ordering and empty behavior, using a separate import
+ *   example and blank comment lines before acknowledgment tags.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param statements The statements.
  * @returns The created {@link SourceFile}.

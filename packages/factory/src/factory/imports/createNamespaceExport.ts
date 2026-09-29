@@ -16,6 +16,21 @@ import { make } from "../internal/make";
  * * as ns
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   The normalized identifier is the exported namespace name; the node models
+ *   * as name and requires an enclosing export with a module target.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Namespace name and export-statement target remain separate responsibilities,
+ *   sharing identifier normalization without a second export implementation.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The namespace is represented as source syntax rather than foreign mutations.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc states the required enclosing from clause and string-name convenience,
+ *   with an example and blank comment lines before acknowledgment tags.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param name The name.
  * @returns The created {@link NamespaceExport}.

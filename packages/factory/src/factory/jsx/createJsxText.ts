@@ -14,8 +14,24 @@ import { make } from "../internal/make";
  * Given the text `Hello`, the printer emits:
  *
  * ```tsx
- * Hello;
+ * Hello
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Raw text remains unchanged and the trivia hint normalizes to a boolean;
+ *   the hint does not authorize trimming or escaping characters in emitted JSX.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Text and its annotation are the only fields; the printer owns raw-text
+ *   preservation and whitespace-safe surrounding layout rather than the builder.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Text is not matched against expected markup or secretly escaped. The
+ *   explicit raw-input contract requires callers to provide suitable JSX content.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native prose states verbatim output and the flag's lack of character effect;
+ *   the corrected Hello example contains no invented semicolon.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param text The text.

@@ -16,6 +16,22 @@ import { make } from "../internal/make";
  * {value}
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   The optional spread marker and expression remain distinct brace-content
+ *   fields; an omitted expression intentionally represents empty JSX braces.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One node serves attribute or child embedding without a source-string
+ *   parser; the caller supplies a context-valid spread/empty combination.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Expression names do not trigger substituted values or hidden conditions;
+ *   the brace form is derived from explicit nodes rather than patched text.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc explains ordinary, empty and spread braces before its example and
+ *   documents both optional inputs rather than claiming grammar validation.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param dotDotDotToken The `...` token, if a spread.
  * @param expression The expression, if any.

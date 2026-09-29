@@ -5,15 +5,20 @@ import { make } from "../internal/make";
  * Create an {@link ArrayLiteralExpression}: an `[...]` array literal.
  *
  * The elements may include {@link SpreadElement} and omitted holes. When
- * `multiLine` is `false` (the default) the printer keeps the array on one line
- * with comma-and-space separators. When `multiLine` is `true` it places each
- * element on its own indented line and appends a trailing comma.
+ * `multiLine` is false or absent, the printer selects flat or broken layout by
+ * width. When true, it requests a broken layout. Trailing punctuation depends
+ * on holes and whether the array is a value or a destructuring assignment target.
  *
  * Given elements `1`, `2`, `3` on a single line, the printer emits:
  *
  * ```ts
- * [1, 2, 3];
+ * [1, 2, 3]
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation The literal kind retains ordered expression entries including spreads and holes, and an absent list defaults to empty; valid list grammar remains caller-owned.
+ * @evidence contracts/common.md#clear-and-simple-design One make call stores entries and the optional layout hint, with punctuation and width decisions remaining printer-owned.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The empty-list default and explicit multiLine option serve documented construction and layout, not consumer-selected values or output patches.
+ * @evidence contracts/common.md#meaningful-documentation Native prose states width-dependent layout and contextual punctuation instead of promising always-inline output; examples and tags follow documentation separation guidance.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param elements The element expressions.

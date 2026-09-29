@@ -28,6 +28,21 @@ import { make } from "../internal/make";
  * }
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   InterfaceDeclaration retains its normalized name, generics, heritage and
+ *   ordered TypeElement members; callers choose interface-valid heritage clauses.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Header and member grouping belong to the declaration, while individual
+ *   signatures/properties and brace formatting keep their existing owners.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Empty members stay an empty interface rather than generated compatibility fields.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc explains generics, extends and empty member blocks with a concrete
+ *   interface example separated from tags under documentation guidance.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param modifiers The leading modifiers and decorators, if any.
  * @param name The name.

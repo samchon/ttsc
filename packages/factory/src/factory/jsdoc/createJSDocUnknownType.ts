@@ -13,6 +13,10 @@ import { make } from "../internal/make";
  * ?
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation The unknown kind and empty payload construct the bare question-mark form, preserving its distinction from a child-bearing nullable type.
+ * @evidence contracts/common.md#clear-and-simple-design A zero-argument constructor records the marker without unused child or placement options.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The question-mark node is supported grammar data rather than a fallback guessed from known input types.
+ * @evidence contracts/common.md#meaningful-documentation Native prose and the output example explain the bare marker and lack of inputs; paragraph and tag separation follows the documentation guidance.
  * @author Jeongho Nam - https://github.com/samchon
  * @returns The created {@link JSDocUnknownType}.
  */

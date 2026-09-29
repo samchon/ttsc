@@ -20,6 +20,10 @@ import { createIdentifier } from "../names/createIdentifier";
  * @augments {Base}
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation The className argument maps directly to the class payload, and an absent name receives augments while supplied aliases remain intact; construction does not resolve inheritance.
+ * @evidence contracts/common.md#clear-and-simple-design One operand mapping and one name default expose the tag's structure, reusing the existing class-expression node for generic arguments.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Augments is the documented default and aliases are caller data rather than consumer-specific inheritance guesses or foreign hierarchy mutation.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains the default, class mapping, braces and optional description with an example; separate paragraphs and parameter tags follow the documentation guidance.
  * @author Jeongho Nam - https://github.com/samchon
  * @param tagName The tag name; defaults to `augments`.
  * @param className The augmented class.

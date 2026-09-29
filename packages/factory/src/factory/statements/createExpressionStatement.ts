@@ -14,6 +14,20 @@ import { make } from "../internal/make";
  * doThing(a);
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   Wrapping an Expression in ExpressionStatement marks statement context so
+ *   the printer can supply termination and any grammar-required parentheses.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Expression structure is retained; this wrapper only changes its context.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The builder does not evaluate or substitute the expression's effects.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native prose explains effect-oriented statement use and semicolon ownership,
+ *   with a call example separate from acknowledgment paragraphs.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param expression The expression.
  * @returns The created {@link ExpressionStatement}.

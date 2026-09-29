@@ -12,8 +12,24 @@ import { make } from "../internal/make";
  * Given a `T` object type and a `"key"` index, the printer renders:
  *
  * ```ts
- * T["key"];
+ * T["key"]
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Object and index types occupy different fields, preserving a type-level
+ *   lookup; postfix operand grouping belongs to the printer.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   A two-child node represents indexed access without duplicating value-level
+ *   element access or attempting to evaluate the selected type.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Keys remain type nodes, with no lookup table for consumer-specific names or
+ *   raw bracket strings replacing the input structure.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc distinguishes object and index roles and explains why grouping is
+ *   needed, using a standalone lookup type in its example.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param objectType The object type being indexed.

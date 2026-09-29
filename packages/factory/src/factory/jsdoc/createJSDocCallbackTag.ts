@@ -16,6 +16,9 @@ import { createIdentifier } from "../names/createIdentifier";
  * The printer prints the tag and name on the first line, then the signature's
  * `@param` and `@returns` tags on their own lines.
  *
+ * The signature and its children are retained by reference. This annotation
+ * does not create a callable declaration or check its parameter consistency.
+ *
  * With the default tag name, a name of `MyCb`, and a signature taking `{number}
  * x` and returning `{void}`, the printer emits:
  *
@@ -25,6 +28,10 @@ import { createIdentifier } from "../names/createIdentifier";
  * @returns {void}
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation Directly retaining the documentation signature, optional name and comment while defaulting an absent identifier to callback preserves named and unnamed annotations without creating an executable function.
+ * @evidence contracts/common.md#clear-and-simple-design The signature owns its template, parameter and return components; this adapter adds only the heading payload and default spelling.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Callback is a supported tag default, and the supplied signature is not replaced with a known fixture shape or a foreign callable declaration.
+ * @evidence contracts/common.md#meaningful-documentation Native prose describes heading/signature layout, retained references and unchecked parameter correspondence with an example; paragraph and native-tag separation follows the documentation guidance.
  * @author Jeongho Nam - https://github.com/samchon
  * @param tagName The tag name; defaults to `callback`.
  * @param typeExpression The callback signature.

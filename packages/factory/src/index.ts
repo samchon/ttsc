@@ -33,7 +33,6 @@ export {
 export type { SynthesizedComment } from "./comments";
 export type * from "./ast";
 
-/** Outline of the legacy `ts.NodeFactory`. */
-export type NodeFactory = typeof factory;
+export type { NodeFactory } from "./NodeFactory";
 
 export default factory;

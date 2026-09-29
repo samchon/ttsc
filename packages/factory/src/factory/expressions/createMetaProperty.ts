@@ -16,8 +16,15 @@ import { make } from "../internal/make";
  * emits:
  *
  * ```ts
- * new.target;
+ * new.target
  * ```
+ *
+ * The builder does not validate keyword/name pairs or their enclosing context.
+ *
+ * @evidence contracts/common.md#principled-implementation Shared name normalization retains the supplied keyword and identifier pair; broad SyntaxKind and names require caller validity for import.meta or new.target in their supported contexts.
+ * @evidence contracts/common.md#clear-and-simple-design One name adapter and make call capture the dotted form without inventing an expression receiver.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Keyword and member are explicit inputs, not patched import objects or guessed construction targets.
+ * @evidence contracts/common.md#meaningful-documentation Native prose identifies the normal pairs and lack of contextual validation; the direct expression example and parameter descriptions are separated from tags.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param keywordToken The leading keyword token (`NewKeyword` or

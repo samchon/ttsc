@@ -18,6 +18,20 @@ import { make } from "../internal/make";
  *   break;
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   CaseClause retains its match expression and ordered statements; it does
+ *   not insert a break, preserving caller-defined fall-through behavior.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Match and body belong to the arm; switch subject/grouping remain outside it.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   No expected match value or termination is synthesized for the supplied arm.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc explains the fall-through consequence and why break must be explicit,
+ *   with its example separated from the acknowledgment block.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param expression The expression.
  * @param statements The statements.

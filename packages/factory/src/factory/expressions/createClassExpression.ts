@@ -22,6 +22,11 @@ import { make } from "../internal/make";
  * class C {}
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation An optional normalized Identifier retains named versus anonymous class syntax, with signature and ordered member fields unchanged; legal modifier and heritage combinations remain caller-owned.
+ * @evidence contracts/common.md#clear-and-simple-design Name normalization precedes one shared make call; reused class-element and clause representations avoid a duplicate class schema.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts An absent name remains absent rather than acquiring a fabricated identity; no consumer-specific base class is injected.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains optional header parts and string-name normalization, with example, parameter roles and separate tags under documentation guidance.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param modifiers The leading modifiers, if any.
  * @param name The class name, if any.

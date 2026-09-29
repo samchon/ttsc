@@ -3,10 +3,15 @@ import type { Node } from "../../ast";
 /**
  * Construct an outline node of the given `kind`.
  *
- * Generic over the node kind, so the `props` object is type-checked against the
- * exact node interface (every required field present, no stray fields, correct
- * types) and the return type is the concrete node — the factory is type-safe
- * end to end.
+ * The discriminant selects the concrete node interface so normal typed callers
+ * supply that interface's required fields and receive its specific return type.
+ * The final assertion restores the relationship TypeScript cannot express for
+ * a generic object spread; it does not perform runtime validation or guarantee
+ * excess-property rejection for structurally assignable nonliteral inputs.
+ *
+ * A fresh shallow object retains the supplied child references. Factory callers
+ * supply props without a kind field, as the signature requires; runtime-invalid
+ * values outside that typed contract are not sanitized by hidden fallbacks.
  *
  * @internal
  */

@@ -30,6 +30,22 @@ import { createIdentifier } from "../names/createIdentifier";
  * }
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   String names become Identifier while supplied ModuleName nodes preserve
+ *   literal names. NodeFlags selects module/namespace spelling independently
+ *   of modifiers and optional body; flags do not evaluate a runtime module.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The node owns name, keyword flags and body attachment; ModuleBlock owns
+ *   contained statements, allowing nested ModuleBody without a string parser.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   NodeFlags.None is the declared omitted-flags default, not a guessed keyword.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs distinguish name conversion and flag-selected keywords,
+ *   with an export-namespace example separated from acknowledgment tags.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param modifiers The leading modifiers, if any.
  * @param name The name.

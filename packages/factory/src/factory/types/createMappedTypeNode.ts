@@ -12,8 +12,9 @@ import { make } from "../internal/make";
  *
  * The type parameter supplies the key variable and its `in` constraint. When
  * `nameType` is present it adds an `as` key remap, and when `type` is present
- * it adds the `: ValueType` value. The whole thing renders inside `{ ... }` on
- * one line.
+ * it adds the `: ValueType` value. Additional `members` are retained and printed
+ * after the mapped member, separated by semicolons. The caller is responsible
+ * for whether that supplied outline is legal in the target TypeScript context.
  *
  * The `readonlyToken` and `questionToken` carry optional modifier polarity. A
  * plain `readonly` or `?` token prints as `readonly ` and `?`; a `+` or `-`
@@ -26,6 +27,23 @@ import { make } from "../internal/make";
  * ```ts
  * { [K in keyof T]: T[K] }
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Key constraint, remapping, modifier polarity, value and additional members
+ *   retain distinct AST slots. Additional members are preserved rather than
+ *   deleted to make an otherwise invalid mapped outline appear valid.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One mapped node carries the supplied structure; token interpretation and
+ *   separators remain printer responsibilities, not duplicate factory logic.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   No key names or expected mapped outputs select special branches. Grammar
+ *   validity is a caller obligation, not patched by silently dropping members.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs distinguish modifier polarity, key/value structure and
+ *   additional members; the example represents the ordinary member-free form.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param readonlyToken The `readonly` modifier with optional `+`/`-` polarity,

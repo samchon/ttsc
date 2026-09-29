@@ -6,14 +6,18 @@ import { createBinaryExpression } from "./createBinaryExpression";
  * Create a {@link BinaryExpression} with the `<` operator: less-than comparison.
  *
  * Shorthand for {@link createBinaryExpression} with the `LessThanToken`
- * operator. The printer surrounds the operator with a single space on each
- * side.
+ * operator. Flat output uses spaces around it; width can break after it.
  *
  * Given operands `a` and `b`, the printer emits:
  *
  * ```ts
- * a < b;
+ * a < b
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation LessThanToken preserves the relation and operand order without evaluating comparison or swapping it into a greater-than form.
+ * @evidence contracts/common.md#clear-and-simple-design One binary-constructor delegation defines the helper; shared node shape and precedence need no duplicate implementation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The requested relation is retained instead of selecting a constant boolean for expected operand cases.
+ * @evidence contracts/common.md#meaningful-documentation Native prose identifies the comparison and both operands, with a separate expression example and acknowledgment block under documentation guidance.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param left The left-hand operand.

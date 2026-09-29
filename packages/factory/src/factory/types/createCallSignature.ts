@@ -7,8 +7,8 @@ import type {
 import { make } from "../internal/make";
 
 /**
- * Create a {@link CallSignature}: a `(params): ReturnType` call signature for an
- * interface or type literal.
+ * Create a {@link CallSignatureDeclaration}: a `(params): ReturnType` call
+ * signature for an interface or type literal.
  *
  * Optional type parameters print first as `<...>`, then the parameter list,
  * then the return type as `: Type` when present.
@@ -20,11 +20,27 @@ import { make } from "../internal/make";
  * (x: number): string
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   Ordered type parameters and parameters populate a CallSignature, with an
+ *   optional return type. Its member role does not introduce a function name or body.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The signature retains its three required concerns as fields, while the
+ *   containing interface or type literal owns member separators.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Omitted return types stay omitted; no inferred annotation or fixture-only
+ *   parameter rewrite is inserted to force a desired signature.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc identifies the member context and optional generics/return type, with
+ *   a standalone signature example and the actual declaration type linked.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param typeParameters The generic type parameters, if any.
  * @param parameters The parameters.
  * @param type The return type, if any.
- * @returns The created {@link CallSignature}.
+ * @returns The created {@link CallSignatureDeclaration}.
  */
 export const createCallSignature = (
   typeParameters: readonly TypeParameterDeclaration[] | undefined,

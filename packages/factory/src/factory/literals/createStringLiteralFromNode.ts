@@ -18,8 +18,24 @@ import { createStringLiteral } from "./createStringLiteral";
  * With a `sourceNode` identifier named `foo`, this prints:
  *
  * ```ts
- * "foo";
+ * "foo"
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Each accepted name/literal node carries text. Passing that text to
+ *   createStringLiteral preserves content while using its default quoting.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   This adapter extracts one common field and delegates literal construction;
+ *   it does not duplicate quote policy for four source-node variants.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Supported source variants come from their text-bearing AST interfaces;
+ *   no source-node identity is used to choose a fabricated string.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native JSDoc identifies accepted variants, text copying and default quotes,
+ *   with a separate example and tags following documentation paragraph rules.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param sourceNode The node to derive the text from.

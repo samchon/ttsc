@@ -14,8 +14,24 @@ import { make } from "../internal/make";
  * Given the `StringKeyword` kind, the printer renders:
  *
  * ```ts
- * string;
+ * string
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   The SyntaxKind argument is stored as the keyword field of KeywordTypeNode;
+ *   its broad enum type does not establish that every supplied token is a type keyword.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The discriminant separates keyword types from expression tokens without a
+ *   second keyword table or token spelling conversion.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Caller tokens are not replaced by a preferred string type to force valid
+ *   output; grammar-appropriate keyword selection remains the caller's obligation.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native JSDoc describes keyword types and gives a string example; this
+ *   acknowledgment states the broad enum's validation limit explicitly.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param kind The token kind.

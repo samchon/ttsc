@@ -9,6 +9,11 @@ import type { TypeNode } from "../types/TypeNode";
  *
  * Built by {@link factory.createGetAccessorDeclaration}.
  *
+ * @evidence contracts/common.md#principled-implementation Name, modifiers, parameters and optional annotation/body preserve getter syntax; the broad parameter list does not enforce zero getter parameters.
+ * @evidence contracts/common.md#clear-and-simple-design Getter header and body parts are explicit fields sharing property-name, parameter and type nodes.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts No foreign property getter is replaced; the node retains caller-supplied syntax.
+ * @evidence contracts/common.md#meaningful-documentation JSDoc identifies getter declarations and member comments distinguish return annotation and bodyless form; native spacing follows the documentation skill.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  */
 export interface GetAccessorDeclaration {
@@ -21,12 +26,12 @@ export interface GetAccessorDeclaration {
   /** The name. */
   name: PropertyName;
 
-  /** The parameters. */
+  /** Printed parameter list; a valid getter normally supplies none. */
   parameters: readonly ParameterDeclaration[];
 
-  /** The type. */
+  /** Getter return annotation, if supplied. */
   type?: TypeNode;
 
-  /** The body. */
+  /** Getter implementation; absent for a bodyless accessor declaration. */
   body?: Block;
 }

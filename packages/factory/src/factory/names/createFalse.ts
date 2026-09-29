@@ -11,8 +11,22 @@ import { createToken } from "./createToken";
  * This prints:
  *
  * ```ts
- * false;
+ * false
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   FalseKeyword is the printer's boolean-false token kind; createToken carries
+ *   that kind rather than treating false as an identifier spelling.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   A named convenience delegates token construction instead of owning state.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   FalseKeyword is the syntax discriminant required by this zero-input API.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native JSDoc identifies the false keyword and printed literal, separated
+ *   from tags under the documentation skill's paragraph guidance.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @returns The created {@link Token}.

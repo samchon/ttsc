@@ -8,6 +8,11 @@ import type { Block } from "../statements/Block";
  *
  * Built by {@link factory.createSetAccessorDeclaration}.
  *
+ * @evidence contracts/common.md#principled-implementation Name, parameter sequence, modifiers and optional body retain setter syntax; the broad sequence does not enforce exactly one legal setter parameter.
+ * @evidence contracts/common.md#clear-and-simple-design Shared name/parameter/block nodes expose setter parts without accessor runtime state.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts This stores setter syntax without replacing foreign setters or injecting test-only assignment behavior.
+ * @evidence contracts/common.md#meaningful-documentation JSDoc identifies class setters and explains parameter-count responsibility and bodyless declarations; native spacing follows the documentation skill.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  */
 export interface SetAccessorDeclaration {
@@ -20,9 +25,9 @@ export interface SetAccessorDeclaration {
   /** The name. */
   name: PropertyName;
 
-  /** The parameters. */
+  /** Printed parameter list; a valid setter requires one suitable parameter. */
   parameters: readonly ParameterDeclaration[];
 
-  /** The body. */
+  /** Setter implementation; absent for a bodyless accessor declaration. */
   body?: Block;
 }

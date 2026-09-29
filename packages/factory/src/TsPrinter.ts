@@ -1,6 +1,7 @@
 import type {
   Block,
   Expression,
+  Identifier,
   ModifierLike,
   Node,
   SourceFile,
@@ -39,6 +40,11 @@ import { NodeFlags, SyntaxKind } from "./syntax";
  * `node.kind` narrows to its concrete type, so the walk is fully type-checked;
  * no `typescript` module is involved.
  *
+ * Nodes must form an acyclic, well-formed outline tree. Factory typing does not
+ * validate lexical spellings, legal assignment targets or complete TypeScript
+ * grammar; callers remain responsible for those input constraints. Width counts
+ * JavaScript string units, rather than terminal display columns.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @example
  *   ```typescript
@@ -46,7 +52,14 @@ import { NodeFlags, SyntaxKind } from "./syntax";
  *
  *   const printer = new TsPrinter({ printWidth: 80, indent: "  " });
  *   printer.print(factory.createStringLiteral("hello")); // "hello"
- *   ```;
+ *   ```
+ * @evidence contracts/common.md#principled-implementation Discriminant dispatch lowers each outline kind to grammar-specific documents; precedence, associativity, optional-chain boundaries and assignment-target context constrain parentheses and commas independently of layout. Inputs must be well-formed acyclic trees; arbitrary typed shapes are not a grammar validator.
+ * @evidence contracts/common.md#clear-and-simple-design The instance retains only three layout settings; private helpers own grammar boundaries, comment rendering and list layout, while the document engine owns width decisions. The exhaustive switch keeps node lowering visible in one owner.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Grammar exceptions such as rest-target commas and JSX whitespace preserve supported syntax and meaning rather than fixture answers; the printer reads package-owned comment metadata and does not patch a compiler or consumer.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains width-aware output, outline input constraints and string-unit width; examples and separately documented options apply the documentation skill's paragraph separation and reasons for nonobvious limits.
+ * @evidence contracts/performance.md#efficient-algorithms The private helpers use ordered document arrays and explicit layout stacks; union/intersection flattening visits each nested constituent once without recursive array copying. Precedence scans and group-fit lookahead can revisit subtrees, so total work depends on tree shape and configured width as well as node and text counts.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The instance is a synchronous renderer with immutable layout settings, not a cross-request computation coordinator. Node fields and synthetic-comment lists can change, so a tree identity alone cannot validate stored output.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The instance owns only its three scalar layout settings; each print call owns transient document and output buffers and retains no tree, history or native handle after completion or failure. The caller owns the returned text and the node/comment lifetime.
  */
 export class TsPrinter {
   private readonly printWidth_: number;
@@ -59,12 +72,38 @@ export class TsPrinter {
     this.newLine_ = options.newLine ?? "\n";
   }
 
-  /** Print a single node (or a whole {@link SourceFile}) into source text. */
+  /**
+   * Print a single node (or a whole {@link SourceFile}) into source text.
+   *
+   * The call reads current node and synthetic-comment contents. It does not
+   * cache text across later changes to that tree.
+   *
+   * @evidence contracts/common.md#principled-implementation Grammar-aware emission creates a document before width layout, so necessary parentheses and meaning-sensitive punctuation are decided from the outline tree rather than output width.
+   * @evidence contracts/common.md#clear-and-simple-design The public operation composes the two existing owners, node emission and document layout, without a parallel printing pipeline.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts All nodes use the same discriminant and grammar rules; current synthetic metadata is read through public helpers without replacing foreign APIs.
+   * @evidence contracts/common.md#meaningful-documentation Native prose identifies supported whole-file use and current mutable-content reads, with a separate paragraph before tags following the documentation skill.
+   * @evidence contracts/performance.md#efficient-algorithms Emission allocates documents proportional to traversed nodes and text, and linear-stack union/intersection flattening avoids copying descendants at every nesting level. Grammar lookahead and group fit checks can revisit subtrees, so adversarial nesting can still require quadratic time; the implementation does not claim a universal linear bound.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This call lowers a current mutable tree and current weak-store comments; it does not own a cross-request coordinator or a producer validity protocol. Adding identity-only text caching would change subsequent reads after mutation.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The call owns its temporary documents, layout command stacks and output fragments; they become unreachable after return or throw, with live memory driven by input tree and output size rather than previous calls. The printer instance retains only its three layout settings.
+   */
   public print(node: Node): string {
     return this.layout(this.emit(node));
   }
 
-  /** Print multiple nodes, joining them with new lines. */
+  /**
+   * Print multiple nodes, joining them with new lines.
+   *
+   * The sequence is laid out together, with a mandatory separator between
+   * adjacent nodes and no additional separator for an empty sequence.
+   *
+   * @evidence contracts/common.md#principled-implementation Each node is emitted by the same grammar owner and hardline joining represents sequence boundaries before one layout; an empty join produces empty text.
+   * @evidence contracts/common.md#clear-and-simple-design One mapped document sequence and the shared join operation express ordering explicitly, without independently maintained concatenation or per-node layout logic.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Hardline separators implement the public multi-node contract uniformly; no fixture-specific branch or external printer patch supplies the result.
+   * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs state joining, mandatory boundaries and empty behavior, applying the documentation skill's useful information and paragraph separation.
+   * @evidence contracts/performance.md#efficient-algorithms Root mapping and hardline joining are linear in root count, with one shared layout of the emitted document sequence. Descendant emission and fit lookahead determine the remaining cost, including possible quadratic revisits under adversarial nesting; flattened binary types use one work stack.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This sequence-lowering call observes current node and comment contents without coordinating other requests. Shared object identity alone supplies no invalidation witness for persistent rendered text.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The root document list, join parts, command stacks and string fragments belong to this synchronous call and are released from reachability on completion or failure. Their population follows current roots and descendant/output size; previous print calls add no retained history.
+   */
   public printNodes(nodes: readonly Node[]): string {
     return this.layout(
       join(
@@ -77,10 +116,20 @@ export class TsPrinter {
   /**
    * Print an entire source file.
    *
+   * A supplied source file takes precedence over `statements`. The output ends
+   * with one configured newline, including when the selected statement list is empty.
+   *
    * @param sourceFile A {@link SourceFile}. When omitted, one is composed from
    *   the given `statements`.
    * @param statements Statements to compose a source file from when no
    *   `sourceFile` is provided.
+   * @evidence contracts/common.md#principled-implementation The chosen statement sequence is exactly the supplied source file's list or the fallback list; shared emission and hardline joining render that sequence before the contract's final newline.
+   * @evidence contracts/common.md#clear-and-simple-design Selection is one explicit precedence decision and printing reuses the existing emission and layout owners; no synthetic SourceFile allocation is needed.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Source-file precedence and final newline are supported API behavior, not input-name exceptions or compensating printer wrappers.
+   * @evidence contracts/common.md#meaningful-documentation Native prose and parameter tags identify argument precedence, fallback use and empty-file newline behavior, with separate ideas and the documentation skill's prose-to-tag spacing.
+   * @evidence contracts/performance.md#efficient-algorithms The chosen statement list is mapped and joined once without allocating a synthetic source-file node. Costs follow statement count, descendant nodes and output text; grammar and fit lookahead may revisit nested documents, while binary-type flattening visits each flattened descendant once.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This call selects and lowers the supplied current statement list, rather than coordinating completed work across consumers. Mutable nodes and side-band comment lists lack a version protocol for cross-call text reuse.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Temporary statement documents and layout buffers live only through this call and its returned string construction; error unwinding retains no per-file cache or handle. Memory grows with the chosen tree and produced text, while the final string's lifetime belongs to its caller.
    */
   public printFile(
     sourceFile?: SourceFile,
@@ -177,15 +226,18 @@ export class TsPrinter {
     );
   }
 
-  /** Always-broken statement block (`{ ... }`). */
-  private statementBlock(items: Doc[]): Doc {
+  /** Statement block; callers choose whether the group must break. */
+  private statementBlock(items: Doc[], forceBreak: boolean = true): Doc {
     if (items.length === 0) return "{}";
-    return concat([
-      "{",
-      indent(concat([hardline, join(hardline, items)])),
-      hardline,
-      "}",
-    ]);
+    return group(
+      concat([
+        "{",
+        indent(concat([line, join(line, items)])),
+        line,
+        "}",
+      ]),
+      forceBreak,
+    );
   }
 
   private typeArguments(args: readonly Node[] | undefined): Doc {
@@ -390,7 +442,11 @@ export class TsPrinter {
    *   dropped by every other node.
    */
   private emit(node: Node, assignmentTarget: boolean = false): Doc {
-    const body: Doc = this.emitNode(node, assignmentTarget);
+    return this.withComments(node, this.emitNode(node, assignmentTarget));
+  }
+
+  /** Attach node metadata around a body, including context-specific syntax. */
+  private withComments(node: Node, body: Doc): Doc {
     const leading: SynthesizedComment[] | undefined =
       getSyntheticLeadingComments(node);
     const trailing: SynthesizedComment[] | undefined =
@@ -630,7 +686,13 @@ export class TsPrinter {
           this.emit(node.type),
         ]);
       case "NonNullExpression":
-        return concat([this.leftSideExpression(node.expression, false), "!"]);
+        return concat([
+          this.postfixBoundaryOperand(
+            node.expression,
+            this.leftSideExpression(node.expression, false),
+          ),
+          "!",
+        ]);
       case "SpreadElement":
         return concat([
           "...",
@@ -804,22 +866,25 @@ export class TsPrinter {
         ]);
       case "ReturnStatement":
         return node.expression
-          ? concat(["return ", this.emit(node.expression), ";"])
+          ? concat(["return ", this.restrictedExpression(node.expression), ";"])
           : "return;";
       case "ThrowStatement":
-        return concat(["throw ", this.emit(node.expression), ";"]);
+        return concat(["throw ", this.restrictedExpression(node.expression), ";"]);
       case "IfStatement":
         return concat([
           "if (",
           this.emit(node.expression),
           ") ",
-          this.emit(node.thenStatement),
+          this.embeddedStatement(node.thenStatement),
           node.elseStatement
-            ? concat([" else ", this.emit(node.elseStatement)])
+            ? concat([" else ", this.embeddedStatement(node.elseStatement)])
             : "",
         ]);
       case "Block":
-        return this.statementBlock(node.statements.map((s) => this.emit(s)));
+        return this.statementBlock(
+          node.statements.map((s) => this.emit(s)),
+          node.multiLine !== false,
+        );
 
       /* declarations */
       case "FunctionDeclaration":
@@ -1047,7 +1112,7 @@ export class TsPrinter {
           "; ",
           node.incrementor ? this.emit(node.incrementor) : "",
           ") ",
-          this.emit(node.statement),
+          this.embeddedStatement(node.statement),
         ]);
       case "ForInStatement":
         return concat([
@@ -1056,7 +1121,7 @@ export class TsPrinter {
           " in ",
           this.emit(node.expression),
           ") ",
-          this.emit(node.statement),
+          this.embeddedStatement(node.statement),
         ]);
       case "ForOfStatement":
         return concat([
@@ -1067,19 +1132,19 @@ export class TsPrinter {
           " of ",
           this.emit(node.expression),
           ") ",
-          this.emit(node.statement),
+          this.embeddedStatement(node.statement),
         ]);
       case "WhileStatement":
         return concat([
           "while (",
           this.emit(node.expression),
           ") ",
-          this.emit(node.statement),
+          this.embeddedStatement(node.statement),
         ]);
       case "DoStatement":
         return concat([
           "do ",
-          this.emit(node.statement),
+          this.embeddedStatement(node.statement),
           " while (",
           this.emit(node.expression),
           ");",
@@ -1141,13 +1206,9 @@ export class TsPrinter {
             : "",
         ]);
       case "BreakStatement":
-        return node.label
-          ? concat(["break ", this.emit(node.label), ";"])
-          : "break;";
+        return this.jumpStatement("break", node.label);
       case "ContinueStatement":
-        return node.label
-          ? concat(["continue ", this.emit(node.label), ";"])
-          : "continue;";
+        return this.jumpStatement("continue", node.label);
       case "TryStatement":
         return concat([
           "try ",
@@ -1167,13 +1228,17 @@ export class TsPrinter {
             ])
           : concat(["catch ", this.emit(node.block)]);
       case "LabeledStatement":
-        return concat([this.emit(node.label), ": ", this.emit(node.statement)]);
+        return concat([
+          this.emit(node.label),
+          ": ",
+          this.embeddedStatement(node.statement),
+        ]);
       case "WithStatement":
         return concat([
           "with (",
           this.emit(node.expression),
           ") ",
-          this.emit(node.statement),
+          this.embeddedStatement(node.statement),
         ]);
       case "DebuggerStatement":
         return "debugger;";
@@ -1275,6 +1340,13 @@ export class TsPrinter {
           "]",
           q,
           node.type ? concat([": ", this.emit(node.type)]) : "",
+          node.members && node.members.length !== 0
+            ? concat([
+                "; ",
+                join("; ", node.members.map((member) => this.emit(member))),
+                ";",
+              ])
+            : "",
           " }",
         ]);
       }
@@ -1306,16 +1378,28 @@ export class TsPrinter {
           // `import("m", { with: { … } }).T` — not as the trailing `with { … }`
           // an import declaration uses, so the elements are wrapped here rather
           // than emitted through the attributes node's own form.
-          node.attributes && node.attributes.elements.length > 0
+          node.attributes
             ? concat([
-                ", { ",
-                node.attributes.token,
-                ": { ",
-                join(
-                  ", ",
-                  node.attributes.elements.map((e) => this.emit(e)),
+                ", ",
+                this.withComments(
+                  node.attributes,
+                  concat([
+                    "{ ",
+                    node.attributes.token,
+                    ": ",
+                    this.delim(
+                      "{",
+                      node.attributes.elements.map((e) => this.emit(e)),
+                      "}",
+                      {
+                        space: true,
+                        trailingComma: "onBreak",
+                        forceBreak: node.attributes.multiLine === true,
+                      },
+                    ),
+                    " }",
+                  ]),
                 ),
-                " } }",
               ])
             : "",
           ")",
@@ -1368,7 +1452,13 @@ export class TsPrinter {
           "yield",
           node.asteriskToken ? "*" : "",
           node.expression
-            ? concat([" ", this.expressionForDisallowedComma(node.expression)])
+            ? concat([
+                " ",
+                this.restrictedExpression(
+                  node.expression,
+                  this.expressionForDisallowedComma(node.expression),
+                ),
+              ])
             : "",
         ]);
       case "DeleteExpression":
@@ -1528,21 +1618,24 @@ export class TsPrinter {
           node.sourceFiles.map((s) => this.emit(s)),
         );
       case "PartiallyEmittedExpression":
-        return this.emit(node.expression);
+        return this.emit(node.expression, assignmentTarget);
       case "ImportAttribute":
         return concat([this.emit(node.name), ": ", this.emit(node.value)]);
       case "ImportAttributes":
-        return node.elements.length === 0
-          ? concat([node.token, " {}"])
-          : concat([
-              node.token,
-              " { ",
-              join(
-                ", ",
-                node.elements.map((e) => this.emit(e)),
-              ),
-              " }",
-            ]);
+        return concat([
+          node.token,
+          " ",
+          this.delim(
+            "{",
+            node.elements.map((e) => this.emit(e)),
+            "}",
+            {
+              space: true,
+              trailingComma: "onBreak",
+              forceBreak: node.multiLine === true,
+            },
+          ),
+        ]);
       case "NotEmittedStatement":
       case "NotEmittedTypeElement":
         return "";
@@ -1629,9 +1722,9 @@ export class TsPrinter {
             : typeof node.comment === "string"
               ? node.comment
               : concat(node.comment.map((c) => this.emit(c)));
-        const lines: Doc[] = [concat([" * ", body])];
+        const lines: Doc[] = [concat([" * ", this.jsDocLines(body)])];
         for (const tag of node.tags ?? [])
-          lines.push(concat([" * ", this.emit(tag)]));
+          lines.push(concat([" * ", this.jsDocLines(this.emit(tag))]));
         return concat([
           "/**",
           hardline,
@@ -1772,9 +1865,10 @@ export class TsPrinter {
   }
 
   /**
-   * Emit a type in the operand position of a postfix type (`T[]`, `T[K]`),
-   * parenthesizing the lower-precedence type forms that would otherwise
-   * re-associate — matching the legacy printer's parenthesizer rules.
+   * Preserve an existing parenthesis or wrap an expression once.
+   *
+   * Partial-emission wrappers carry no printed syntax, so an inner explicit
+   * parenthesis already supplies the required grammar boundary.
    */
   private parenthesizedExpression(expression: Expression): Doc {
     return this.skipPartiallyEmittedExpressions(expression).kind ===
@@ -1947,8 +2041,26 @@ export class TsPrinter {
 
   private postfixUnaryOperand(operand: Expression): Doc {
     return this.isLeftHandSideExpression(operand)
-      ? this.emit(operand)
+      ? this.postfixBoundaryOperand(operand, this.emit(operand))
       : this.parenthesizedExpression(operand);
+  }
+
+  /** Keep trailing comment line terminators inside a postfix operand's parentheses. */
+  private postfixBoundaryOperand(expression: Expression, body: Doc): Doc {
+    let last: Node = expression;
+    while (true) {
+      if (
+        getSyntheticTrailingComments(last)?.some(
+          (comment) => this.commentHasLineBreak(comment),
+        )
+      )
+        return concat(["(", body, ")"]);
+      if (last.kind === "PartiallyEmittedExpression")
+        last = last.expression;
+      else if (last.kind === "PropertyAccessExpression") last = last.name;
+      else if (last.kind === "TaggedTemplateExpression") last = last.template;
+      else return body;
+    }
   }
 
   private conditionalCondition(condition: Expression): Doc {
@@ -2403,6 +2515,116 @@ export class TsPrinter {
     );
   }
 
+  /** Embedded statement slots must remain grammatical when a placeholder emits nothing. */
+  private embeddedStatement(statement: Statement): Doc {
+    return statement.kind === "NotEmittedStatement"
+      ? this.withComments(statement, ";")
+      : this.emit(statement);
+  }
+
+  /** No-line-terminator expression prefixes must precede the operand's comments. */
+  private restrictedExpression(
+    expression: Expression,
+    body: Doc = this.emit(expression),
+  ): Doc {
+    let first: Node | undefined = expression;
+    while (first !== undefined) {
+      if (
+        getSyntheticLeadingComments(first)?.some(
+          (comment) => this.commentHasLineBreak(comment),
+        )
+      )
+        return concat(["(", body, ")"]);
+      switch (first.kind) {
+        case "PartiallyEmittedExpression":
+        case "AsExpression":
+        case "SatisfiesExpression":
+        case "NonNullExpression":
+        case "PropertyAccessExpression":
+        case "ElementAccessExpression":
+        case "CallExpression":
+          first = first.expression;
+          break;
+        case "BinaryExpression":
+          first = first.left;
+          break;
+        case "ConditionalExpression":
+          first = first.condition;
+          break;
+        case "PostfixUnaryExpression":
+          first = first.operand;
+          break;
+        case "CommaListExpression":
+          first = first.elements[0];
+          break;
+        case "TaggedTemplateExpression":
+          first = first.tag;
+          break;
+        case "FunctionExpression":
+        case "ArrowFunction":
+          first = first.modifiers?.[0];
+          break;
+        default:
+          first = undefined;
+      }
+    }
+    return body;
+  }
+
+  /** Move a line-breaking label comment before its restricted jump keyword. */
+  private jumpStatement(keyword: "break" | "continue", label?: Identifier): Doc {
+    if (label === undefined) return keyword + ";";
+    if (
+      getSyntheticLeadingComments(label)?.some(
+        (comment) => this.commentHasLineBreak(comment),
+      )
+    )
+      return this.withComments(
+        label,
+        concat([keyword, " ", this.emitNode(label, false), ";"]),
+      );
+    return concat([keyword, " ", this.emit(label), ";"]);
+  }
+
+  /** Comment delimiters do not shield contained line terminators from grammar. */
+  private commentHasLineBreak(comment: SynthesizedComment): boolean {
+    return (
+      comment.kind === SyntaxKind.SingleLineCommentTrivia ||
+      comment.hasLeadingNewLine === true ||
+      comment.hasTrailingNewLine === true ||
+      /[\r\n]/.test(comment.text)
+    );
+  }
+
+  /** Prefix every physical JSDoc content line while retaining layout groups. */
+  private jsDocLines(doc: Doc): Doc {
+    if (typeof doc === "string")
+      return join(
+        concat([hardline, " * "]),
+        doc.replace(/\r\n?/g, "\n").split("\n"),
+      );
+    switch (doc.type) {
+      case "raw":
+        return join(
+          concat([hardline, " * "]),
+          doc.text.replace(/\r\n?/g, "\n").split("\n").map(raw),
+        );
+      case "hardline":
+        return concat([hardline, " * "]);
+      case "line":
+      case "softline":
+        return concat([doc, ifBreak(" * ")]);
+      case "concat":
+        return concat(doc.parts.map((part) => this.jsDocLines(part)));
+      case "indent":
+        return indent(this.jsDocLines(doc.doc));
+      case "group":
+        return group(this.jsDocLines(doc.doc), doc.break);
+      case "ifBreak":
+        return ifBreak(this.jsDocLines(doc.broken), this.jsDocLines(doc.flat));
+    }
+  }
+
   /** Render a JSDoc tag's trailing comment, prefixed with a space when present. */
   private jsDocComment(comment: string | readonly Node[] | undefined): Doc {
     if (comment === undefined) return "";
@@ -2434,12 +2656,19 @@ export class TsPrinter {
     types: readonly TypeNode[],
   ): TypeNode[] {
     const flattened: TypeNode[] = [];
-    for (const type of types)
-      if (operator === "|" && type.kind === "UnionTypeNode")
-        flattened.push(...this.flattenBinaryTypes(operator, type.types));
-      else if (operator === "&" && type.kind === "IntersectionTypeNode")
-        flattened.push(...this.flattenBinaryTypes(operator, type.types));
-      else flattened.push(type);
+    const pending: TypeNode[] = Array.from(types).reverse();
+    while (pending.length !== 0) {
+      const type: TypeNode = pending.pop()!;
+      if (
+        ((operator === "|" && type.kind === "UnionTypeNode") ||
+          (operator === "&" && type.kind === "IntersectionTypeNode")) &&
+        (getSyntheticLeadingComments(type)?.length ?? 0) === 0 &&
+        (getSyntheticTrailingComments(type)?.length ?? 0) === 0
+      ) {
+        for (let i = type.types.length - 1; i >= 0; --i)
+          pending.push(type.types[i]!);
+      } else flattened.push(type);
+    }
     return flattened;
   }
 
@@ -2472,7 +2701,20 @@ export class TsPrinter {
 }
 
 export namespace TsPrinter {
-  /** Options for {@link TsPrinter}. */
+  /**
+   * Options for {@link TsPrinter}.
+   *
+   * These settings choose source layout. They do not select native filesystem
+   * behavior, and the width is measured in JavaScript string units.
+   *
+   * @evidence contracts/common.md#principled-implementation Three independent optional values represent width, indentation text and newline text; nullish defaulting in the constructor preserves explicitly supplied zero or empty strings.
+   * @evidence contracts/common.md#clear-and-simple-design The record exposes the printer's three retained layout settings directly, without native-platform policy or speculative formatting modes.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Documented defaults are contract-defined layout choices and are not consumer-specific constants or test-only settings.
+   * @evidence contracts/common.md#meaningful-documentation Each separated member documents its default, while type prose identifies layout-only responsibility and width units; presentation follows the documentation skill.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms This options record defines layout input values and selects no computation algorithm; the printer operations own document-processing costs.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work The value record coordinates no producers or consumers and defines no result identity or invalidation protocol.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The options value owns no handle, running task or retained-population lifecycle; the printer decides what settings it retains.
+   */
   export interface IProps {
     /** Maximum line width before groups break. Defaults to `80`. */
     printWidth?: number;

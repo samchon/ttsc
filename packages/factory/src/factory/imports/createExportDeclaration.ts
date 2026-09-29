@@ -25,6 +25,22 @@ import { createStringLiteral } from "../literals/createStringLiteral";
  * export { a } from "./mod";
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   Named, namespace and omitted clauses distinguish brace exports, namespace
+ *   re-exports and export-star. An optional string module target is normalized
+ *   without collapsing local exports into re-exports.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Clause builders own binding shape and createStringLiteral owns textual
+ *   targets; this builder keeps statement-level type-only and from decisions.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The omitted clause is export-star grammar, not a guessed binding list.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc explains three clause forms, type-only state and module-target absence
+ *   in its native paragraph, followed by a separate example and tag block.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param modifiers The leading modifiers and decorators, if any.
  * @param isTypeOnly Whether this is a type-only import/export.

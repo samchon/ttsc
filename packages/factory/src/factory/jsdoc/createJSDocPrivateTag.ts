@@ -14,6 +14,10 @@ import { createIdentifier } from "../names/createIdentifier";
  * @private
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation The private kind retains the supplied identifier and description, defaulting only an absent name to private; the result documents visibility without enforcing access.
+ * @evidence contracts/common.md#clear-and-simple-design The adapter exposes name defaulting directly and stores no duplicate private modifier or access-checking layer.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The private spelling is annotation syntax, not an API blacklist or a mutation of foreign declaration accessibility.
+ * @evidence contracts/common.md#meaningful-documentation Native prose states the default and optional description, with a bare-tag example and distinct paragraphs under the documentation guidance.
  * @author Jeongho Nam - https://github.com/samchon
  * @param tagName The tag name; defaults to `private`.
  * @param comment The trailing comment, if any.

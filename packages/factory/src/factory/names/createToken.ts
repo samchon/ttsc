@@ -16,6 +16,23 @@ import { make } from "../internal/make";
  * ?
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   Token stores the supplied SyntaxKind in token while kind remains Token.
+ *   The generic retains its literal kind; callers must choose a token-spellable
+ *   kind because this broad signature does not validate token grammar.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The shared constructor owns outline allocation, and the printer owns the
+ *   string-valued SyntaxKind spelling; no keyword conversion table lives here.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The generic assertion preserves the input type through make's union result;
+ *   it does not manufacture a different token kind.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc distinguishes outline kind from token spelling and explains generic
+ *   propagation with an example and separated acknowledgment paragraphs.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param token The token.
  * @returns The created {@link Token}.

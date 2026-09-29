@@ -4,7 +4,7 @@ import { createExportSpecifier } from "./createExportSpecifier";
 import { createNamedExports } from "./createNamedExports";
 
 /**
- * Create an `export { name }` statement that re-exports a single local binding.
+ * Create an `export { name }` statement that exports a single local binding.
  *
  * This is a convenience wrapper that builds an {@link ExportDeclaration} whose
  * clause is a {@link NamedExports} holding one unaliased {@link ExportSpecifier}
@@ -17,8 +17,23 @@ import { createNamedExports } from "./createNamedExports";
  * export { foo };
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   One unaliased value ExportSpecifier inside NamedExports with no module target
+ *   represents a local export; this operation does not invent a from specifier.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Composition uses the existing specifier, group and declaration builders so
+ *   alias/type-only/module policies have their original owners.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The single-binding list is the explicit API meaning, not a fixture module.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native prose describes the unaliased local export and absent from clause,
+ *   with a separate printed example and acknowledgment block.
+ *
  * @author Jeongho Nam - https://github.com/samchon
- * @param exportName The exportName.
+ * @param exportName The local binding to expose under its existing name.
  * @returns The created {@link ExportDeclaration}.
  */
 export const createExternalModuleExport = (

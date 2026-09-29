@@ -18,9 +18,24 @@ import { make } from "../internal/make";
  * `head${
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   TemplateHead carries cooked text and optional raw spelling for the opening
+ *   span before the first substitution; it is not a complete expression.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Span construction keeps text representations together; the surrounding
+ *   template expression and printer own substitutions and delimiters.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The opening-span kind encodes template grammar rather than a special input.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs explain span boundaries, raw/cooked precedence and why
+ *   the head is incomplete, with an example and a blank before tags.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param text The text.
- * @param rawText The rawText.
+ * @param rawText The source spelling before escape processing, if supplied.
  * @returns The created node.
  */
 export const createTemplateHead = (

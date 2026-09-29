@@ -10,8 +10,13 @@ import { createBinaryExpression } from "./createBinaryExpression";
  * With `left` of `a` and `right` of `b`, the printer emits:
  *
  * ```ts
- * a >> b;
+ * a >> b
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation GreaterThanGreaterThanToken records signed right-shift syntax, preserving value and amount instead of substituting unsigned or division semantics.
+ * @evidence contracts/common.md#clear-and-simple-design One shared binary-constructor call keeps shift representation common with other infix operations.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The signed-shift token is explicit, without input-selected masks or precomputed shift results.
+ * @evidence contracts/common.md#meaningful-documentation Native prose identifies signed shifting and both operands; the expression example and tags are separate under documentation guidance.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param left The left-hand operand.
