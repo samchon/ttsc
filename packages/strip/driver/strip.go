@@ -18,6 +18,17 @@ type plugin struct{}
 
 // ApplyProgram strips configured call expressions and debugger statements from
 // every source file in the program.
+//
+// TypeScript-Go's StatementList and ForEachChild APIs supply the traversal.
+// Filtering only changes the current parent's list or embedded body; recursion
+// belongs to ForEachChild. The previous recursion from both paths revisited
+// retained subtrees at every nesting level. No visited-node cache or depth
+// exception compensates for that duplicate ownership.
+//
+// Configuration and parsed patterns are shared for this program invocation.
+// Filtering compacts each statement list in its own backing array and clears
+// removed tail references, avoiding a replacement allocation per block. The
+// remaining dominant work is visiting AST nodes and matching configured calls.
 func (plugin) ApplyProgram(prog *driver.Program, ctx driver.PluginContext) error {
   config, err := loadStripConfigMapWithReporters(ctx.Entry.Config, ctx.Cwd, ctx.Tsconfig, ctx.ReportHostInput, ctx.ReportHostInputHash, ctx.ReportHostInputRealpath)
   if err != nil {
@@ -90,28 +101,30 @@ func parseStrip(config map[string]any) (*stripRewriter, error) {
   return out, nil
 }
 
-// apply removes matching statements from file's top-level statement list.
+// apply filters the file through one recursive traversal. Each parent removes
+// matching list entries or replaces embedded bodies before visiting its children.
 func (s *stripRewriter) apply(file *shimast.SourceFile) {
   if s == nil || file == nil || (len(s.calls) == 0 && !s.stripDebugger) {
     return
   }
-  filterStatements(file.Statements, s)
+  filterChildStatements(file.AsNode(), s)
 }
 
 // filterStatements removes stripped statements from list in-place, preserving
-// order. Children of retained statements are recursively filtered.
+// order. It leaves recursion to filterChildStatements so a retained subtree is
+// not processed once through its statement list and again through ForEachChild.
 func filterStatements(list *shimast.NodeList, strip *stripRewriter) {
   if list == nil || len(list.Nodes) == 0 {
     return
   }
-  out := make([]*shimast.Node, 0, len(list.Nodes))
+  out := list.Nodes[:0]
   for _, stmt := range list.Nodes {
     if shouldStripStatement(stmt, strip) {
       continue
     }
-    filterChildStatements(stmt, strip)
     out = append(out, stmt)
   }
+  clear(list.Nodes[len(out):])
   list.Nodes = out
 }
 
@@ -161,9 +174,10 @@ func filterEmbeddedStatements(node *shimast.Node, strip *stripRewriter) {
   }
 }
 
-// filterEmbeddedStatement strips or recurses into a single embedded statement.
+// filterEmbeddedStatement filters a single embedded statement without recursion.
 // Returns an empty synthesized statement when stmt is to be stripped, preserving
-// the original source location for downstream source-map accuracy.
+// the original source location for downstream source-map accuracy. The parent's
+// ForEachChild traversal owns recursion into retained or replacement bodies.
 func filterEmbeddedStatement(stmt *shimast.Statement, strip *stripRewriter) *shimast.Statement {
   if stmt == nil {
     return nil
@@ -171,7 +185,6 @@ func filterEmbeddedStatement(stmt *shimast.Statement, strip *stripRewriter) *shi
   if shouldStripStatement(stmt, strip) {
     return emptyStatement(stmt)
   }
-  filterChildStatements(stmt, strip)
   return stmt
 }
 

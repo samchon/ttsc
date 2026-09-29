@@ -36,24 +36,18 @@ export type { ITtscStripConfig } from "./structures/ITtscStripConfig";
  *   native contract values, not fixture answers. Discovery reads owned
  *   observations without foreign mutation or test-only branches.
  *
- *   The former handwritten CommonJS entry was outside TypeScript selection
- *   and its handwritten export-assignment declarations prevented complete
- *   analysis. TypeScript source and compiler-generated declarations replace
- *   both paths without a compatibility adapter. Descriptor parity covers
- *   explicit, missing, directory, ambiguous and linked candidates and
- *   rejected entry keys; the existing strip suite covers native registration
- *   and removal. Compiler-emitted CommonJS is supported build output. Shared
- *   native config evaluation still uses a private resolver patch and remains
- *   an unresolved owning-layer concern; this factory neither performs nor
- *   certifies that evaluation.
+ *   TypeScript source and generated declarations replace the handwritten
+ *   CommonJS and export-assignment paths without a separate runtime adapter.
+ *   Shared native config evaluation still uses the resolution recorder's
+ *   private fallback, which remains an unresolved owning-layer concern.
  *
  * @evidence contracts/portability.md#os-neutral-implementation
  *   node:path resolves explicit paths, host anchors, ancestors and the
  *   sibling driver on Windows and POSIX. The walk terminates when dirname
  *   reaches the same volume root; filesystem APIs fingerprint bytes,
  *   directory markers and physical targets without interpreting separators or
- *   case manually. Missing or unreadable candidates yield null observations.
- *   This factory spawns no process and reads no ambient __dirname.
+ *   case manually. Missing or unreadable candidates yield null observations;
+ *   the explicit host directory supplies the driver's location.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   Native JSDoc separates host anchoring, candidate observation, validation
