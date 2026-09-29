@@ -13,10 +13,56 @@
  * such as generated code, loses its `loc`, which Babel treats as a synthesized
  * node, so it takes the mapping of the code around it.
  *
+ * Babel locations have one-based lines and zero-based UTF-16 columns; source
+ * map segments have zero-based lines and columns. The map points from generated
+ * text to the authored file. Missing or reversed mapped ends clamp to the
+ * mapped start. Traversal tracks visited objects and mutates only AST locations.
+ *
  * @param ast The upstream transformer's AST, rewritten in place.
  * @param map The adapter's map from the transformed text to `file`, with
  *   absolute `sources`.
  * @param file Absolute path of the module.
+ *
+ * @evidence contracts/common.md#standard-implementation-practices
+ *   The adapter consumes its own source-map VLQ segments using
+ *   greatest-lower-bound lookup, then updates the upstream-owned AST through
+ *   Metro's returned-AST extension boundary. Iterative traversal tracks
+ *   visited objects to handle shared/cyclic AST references. Unmapped starts
+ *   lose loc and invalid ends clamp to the mapped start rather than
+ *   manufacturing authored positions. No Babel methods or compiler internals
+ *   are patched.
+ *
+ * @evidence contracts/platform.md#portable-behavior
+ *   Absolute map source spellings normalize separators and use the existing
+ *   Windows comparison convention; no filesystem access or process invocation
+ *   occurs. Source and destination coordinates remain line/column values
+ *   independent of native newline spelling.
+ *
+ * @evidence contracts/common.md#behavioral-correctness
+ *   The source-map consumer uses greatest-lower-bound lookup with Babel
+ *   one-based lines and UTF-16 columns. Inspection confirms that unmapped
+ *   starts remove loc, missing or reversed ends clamp to the mapped start,
+ *   and visited-object tracking terminates cyclic AST traversal. Existing
+ *   remapping cases exercise inserted lines and source selection. Filename
+ *   comparison normalizes separators and globally folds case on Windows;
+ *   per-directory case-sensitive Windows behavior has not been established by
+ *   the local capability probe.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   The native JSDoc explains map direction, in-place mutation, coordinate
+ *   indexing and generated/unmapped locations. Checked against the
+ *   documentation skill: separate paragraphs state the contract and why its
+ *   nonobvious boundary matters; field comments retain their own useful
+ *   facts.
+ *
+ * @evidence contracts/coordinates.md#preserve-the-source-coordinate-meaning
+ *   The input AST addresses transformed text; the map points back to authored
+ *   file text. Babel locations use one-based lines and zero-based UTF-16
+ *   columns, while decoded mappings use zero-based lines and columns. Only
+ *   the matching source is accepted. Greatest-lower-bound lookup preserves
+ *   unmapped segments, clears an unmapped start and clamps a missing or
+ *   reversed end. No compiler UTF-8 byte offset crosses this boundary.
+ *
  */
 export function remapAstLocations(
   ast: unknown,

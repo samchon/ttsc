@@ -2,11 +2,12 @@
   "severity": "error",
   "claims": [
     {
-      "name": "maintained TypeScript production declarations",
+      "name": "maintained TypeScript declarations and native boundaries",
       "type": "typescript",
       "files": [
         "src/**/*.ts",
-        "!src/core/remapAstLocations.ts"
+        "!src/core/remapAstLocations.ts",
+        "!src/core/fingerprint.ts"
       ],
       "symbol": [
         "type",
@@ -15,7 +16,8 @@
       "reference": {
         "type": "markdown",
         "files": [
-          "contracts/common.md"
+          "contracts/common.md",
+          "contracts/platform.md"
         ],
         "symbol": "h2",
         "checklist": true,
@@ -36,7 +38,30 @@
         "type": "markdown",
         "files": [
           "contracts/common.md",
-          "contracts/coordinates.md"
+          "contracts/coordinates.md",
+          "contracts/platform.md"
+        ],
+        "symbol": "h2",
+        "checklist": true,
+        "root": "../../.agents/skills"
+      }
+    },
+    {
+      "name": "project fingerprint and retained snapshots",
+      "type": "typescript",
+      "files": [
+        "src/core/fingerprint.ts"
+      ],
+      "symbol": [
+        "type",
+        "function"
+      ],
+      "reference": {
+        "type": "markdown",
+        "files": [
+          "contracts/common.md",
+          "contracts/platform.md",
+          "contracts/performance.md"
         ],
         "symbol": "h2",
         "checklist": true,

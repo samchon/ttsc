@@ -10,14 +10,106 @@ const nodeRequire = createRequire(import.meta.url);
  * an optional export Metro folds into its transform-cache key; Metro invokes it
  * with arguments (e.g. `{ projectRoot, enableBabelRCLookup }`), so it is typed
  * variadic.
+ *
+ * @evidence contracts/common.md#standard-implementation-practices
+ *   This structural interface describes Metro's Babel-transformer extension:
+ *   one transform operation and an optional variadic cache key. It does not
+ *   implement Babel, install peers or alter their exports. Concrete modules
+ *   supply the callbacks through normal Node loading.
+ *
+ * @evidenceExclude contracts/platform.md#portable-behavior
+ *   This structural callback contract carries Metro parameters and AST
+ *   results; it does not define native module resolution or process
+ *   invocation.
+ *
+ * @evidence contracts/common.md#behavioral-correctness
+ *   The Metro consumer awaits transform to obtain an AST and optionally calls
+ *   a variadic getCacheKey. This structural type cannot validate loaded
+ *   JavaScript exports. resolveUpstreamTransformer owns module selection and
+ *   initialization failures, while the adapter preserves original
+ *   filename/options and handles absent or throwing key contributions. The
+ *   existing upstream integration cases exercise these consumers rather than
+ *   treating type compatibility as runtime validation.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   The native JSDoc explains the awaited AST result and optional cache-key
+ *   callback including forwarded arguments. Checked against the documentation
+ *   skill: separate paragraphs state the contract and why its nonobvious
+ *   boundary matters; field comments retain their own useful facts.
+ *
  */
 export interface UpstreamTransformer {
+  /**
+   * Parse the supplied source and return the Babel AST Metro consumes.
+   *
+   * The adapter preserves Metro's filename, options and additional parameters;
+   * only `src` may hold successfully transformed TypeScript. The returned AST
+   * may have its locations remapped by the adapter before Metro receives it.
+   *
+   * @evidence contracts/common.md#standard-implementation-practices
+   *   This method signature represents the upstream transformer that Metro
+   *   selected. It accepts the original Metro parameter record, with src
+   *   replaced only by the owning adapter after a successful compiler pass; the
+   *   type declares no implementation or test-specific branch.
+   *
+   * @evidenceExclude contracts/platform.md#portable-behavior
+   *   This method signature carries Metro source, filename spelling and options
+   *   to Babel without defining native path interpretation.
+   *
+   * @evidence contracts/common.md#behavioral-correctness
+   *   This method represents the awaited upstream Babel AST operation. The
+   *   adapter supplies original filename, options and additional parameters
+   *   with only successful ttsc output replacing src; errors remain rejected
+   *   operations and locations may be remapped afterward. The inspected
+   *   transform call and existing delegation cases establish this contribution.
+   *   The signature itself neither parses source nor validates an arbitrary
+   *   loaded module.
+   *
+   * @evidence contracts/common.md#meaningful-documentation
+   *   The native JSDoc explains source, filename, extra Metro parameters and
+   *   the awaited Babel AST result. Checked against the documentation skill:
+   *   separate paragraphs state the contract and why its nonobvious boundary
+   *   matters; field comments retain their own useful facts.
+   *
+   */
   transform(params: {
     src: string;
     filename: string;
     options: Record<string, unknown>;
     [key: string]: unknown;
   }): Promise<{ ast: object }>;
+  /**
+   * Optional upstream contribution to Metro's static transformer key.
+   *
+   * Metro's arguments are forwarded unchanged. Absence contributes no upstream
+   * key; the adapter also treats a throwing key as nonfatal during keying,
+   * while transformer loading failures still fail actual transformation.
+   *
+   * @evidence contracts/common.md#standard-implementation-practices
+   *   The optional callback follows Metro's upstream transformer contract.
+   *   Arguments are variadic because Metro supplies its own key options;
+   *   absence is handled by the adapter. This signature executes nothing and
+   *   never replaces a foreign callback.
+   *
+   * @evidenceExclude contracts/platform.md#portable-behavior
+   *   This optional variadic callback contributes a string key. Native
+   *   resolution belongs to the separate loader operation.
+   *
+   * @evidence contracts/common.md#behavioral-correctness
+   *   This optional signature accepts Metro arguments unchanged and returns the
+   *   upstream contribution. The inspected adapter treats absent or throwing
+   *   key callbacks as an empty contribution under its documented keying
+   *   policy; that policy does not suppress upstream loading errors during
+   *   transformation. Existing upstream-key cases cover argument forwarding.
+   *   This declaration does not enforce callback behavior at runtime.
+   *
+   * @evidence contracts/common.md#meaningful-documentation
+   *   The native JSDoc explains optional absence, forwarded Metro arguments and
+   *   the upstream key contribution. Checked against the documentation skill:
+   *   separate paragraphs state the contract and why its nonobvious boundary
+   *   matters; field comments retain their own useful facts.
+   *
+   */
   getCacheKey?: (...args: unknown[]) => string;
 }
 
@@ -49,8 +141,39 @@ export const UPSTREAM_CANDIDATES = [
  * already makes the repeated `require` a cheap lookup, and keeping no
  * module-level state lets a changed `upstreamTransformer` always take effect.
  *
- * `load` is injectable purely so the resolution order and the not-found path
- * can be tested deterministically; production always uses the real `require`.
+ * `load` is the explicit module-loading boundary. Its default uses Node's real
+ * `require`; an injected loader must preserve absence versus failure semantics.
+ *
+ * @evidence contracts/common.md#standard-implementation-practices
+ *   Node createRequire loads the configured module or documented
+ *   Expo/React-Native candidates. Resolution is separated from execution:
+ *   only known entry-absence codes permit another automatic candidate;
+ *   installed-module initialization failures preserve their cause. The loader
+ *   argument is an explicit dependency-injection boundary, not a test-only
+ *   runtime branch or a patched require.
+ *
+ * @evidence contracts/platform.md#portable-behavior
+ *   Node resolution accepts project-resolved absolute paths on Windows and
+ *   POSIX. createRequire is rooted at this module via import.meta.url; no
+ *   path is turned into a shell command. Runtime errors propagate through the
+ *   same policy on every OS.
+ *
+ * @evidence contracts/common.md#behavioral-correctness
+ *   Inspection distinguishes configured-module absence, automatic candidate
+ *   absence and installed-module initialization failure. Only recognized
+ *   entry-absence errors permit the next candidate; execution failures
+ *   preserve their cause and an unusable explicit choice does not silently
+ *   select another stack. Existing upstream absence and initialization cases
+ *   exercise the loader boundary; the injected loader must preserve those
+ *   distinctions.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   The native JSDoc explains candidate order, project versus worker
+ *   resolution and absence versus initialization failures. Checked against
+ *   the documentation skill: separate paragraphs state the contract and why
+ *   its nonobvious boundary matters; field comments retain their own useful
+ *   facts.
+ *
  */
 export function resolveUpstreamTransformer(
   customPath?: string,
@@ -118,6 +241,33 @@ export function resolveUpstreamTransformer(
  *
  * @param resolve Resolves a module specifier from the project.
  * @returns The absolute path of the first installed candidate, or `undefined`.
+ *
+ * @evidence contracts/common.md#standard-implementation-practices
+ *   The supplied project resolver uses Node module resolution without
+ *   executing candidate code. The documented optional-peer order is a product
+ *   default, not a fixture-specific answer. Only recognized entry-absence
+ *   errors continue probing; other resolver failures propagate. No module
+ *   methods are replaced.
+ *
+ * @evidence contracts/platform.md#portable-behavior
+ *   The injected resolver owns project filesystem resolution on the host OS.
+ *   This operation compares module specifiers and returns its absolute result
+ *   without inventing separators or quoting a command.
+ *
+ * @evidence contracts/common.md#behavioral-correctness
+ *   The inspected candidate loop returns the first project-resolved module
+ *   without executing it, skips recognized entry-absence errors and
+ *   propagates other resolution failures. Exhaustion returns undefined.
+ *   Existing project-owned resolution cases cover the pnpm/workspace
+ *   consuming path; worker loading remains responsible for initialization
+ *   failures rather than this probe certifying executable readiness.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   The native JSDoc explains project ownership, ordered probing,
+ *   nonexecution and the absent result. Checked against the documentation
+ *   skill: separate paragraphs state the contract and why its nonobvious
+ *   boundary matters; field comments retain their own useful facts.
+ *
  */
 export function locateProjectUpstreamTransformer(
   resolve: (specifier: string) => string,

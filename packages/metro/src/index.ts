@@ -76,6 +76,37 @@ interface MetroConfigLike {
  * `.svg` to the auto-detected Expo default instead, with the build still
  * succeeding (samchon/ttsc#1321). An explicit `upstreamTransformer` option
  * still wins, since that is the caller saying it outright.
+ *
+ * @evidence contracts/common.md#standard-implementation-practices
+ *   Metro's supported babelTransformerPath boundary installs this adapter by
+ *   cloning the config. Node project resolution preserves an existing
+ *   upstream unless explicitly overridden, and realpath/package ownership
+ *   filters inherited self-selection; explicit upstream choices remain caller-owned. Only the owned option/session
+ *   environment channels are published before workers start; foreign loaders
+ *   and methods are not patched.
+ *
+ * @evidence contracts/platform.md#portable-behavior
+ *   Node path, createRequire, realpathSync.native and fileURLToPath resolve
+ *   native paths and built module URLs. Worker options use JSON environment
+ *   inheritance rather than shell commands. Symlink spellings and Windows
+ *   drive/case handling participate in the recursion guard.
+ *
+ * @evidence contracts/common.md#behavioral-correctness
+ *   The inspected wrapper clones the config, installs this transformer and
+ *   publishes the resolved option payload before workers start. Explicit
+ *   upstream wins over the inherited transformer, then automatic candidates;
+ *   only inherited self-selection is filtered. Existing upstream-chaining and
+ *   option-transport cases exercise that consuming path. Snapshot preparation
+ *   failures carry a nonreusable token instead of claiming preserved cache
+ *   reuse, and upstream load errors remain the worker responsibility.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   The native JSDoc explains config preservation, upstream precedence, JSON
+ *   worker transport and preparation side effects. Checked against the
+ *   documentation skill: separate paragraphs state the contract and why its
+ *   nonobvious boundary matters; field comments retain their own useful
+ *   facts.
+ *
  */
 export function withTtsc<T extends MetroConfigLike>(
   config: T,
@@ -83,8 +114,8 @@ export function withTtsc<T extends MetroConfigLike>(
 ): T {
   // Prepare the reference-graph snapshot backing the transformer's cache-key
   // fingerprint (see `core/fingerprint.ts`). This runs in the single Metro
-  // config process before any worker exists, so it is the race-free moment to
-  // mint the snapshot epoch and compact the previous run's worker files.
+  // config process before its workers exist. The snapshot owner serializes
+  // concurrent config processes while compacting the previous worker records.
   const snapshotRunId = prepareSnapshot(
     typeof config.projectRoot === "string" ? config.projectRoot : undefined,
   );

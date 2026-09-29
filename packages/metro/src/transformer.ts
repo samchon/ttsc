@@ -76,6 +76,32 @@ function recorder(): ReturnType<typeof createSnapshotRecorder> {
  * monorepos and when Metro is launched from a parent directory. Getting this
  * wrong makes every file look "outside the project" and silently skips the
  * plugin pass.
+ *
+ * @evidence contracts/common.md#standard-implementation-practices
+ *   Node path.isAbsolute/path.resolve implement Metro's filename contract.
+ *   Absolute input is retained; relative input is anchored at supplied
+ *   projectRoot, with cwd only for callers lacking that option. This correct
+ *   owning anchor avoids monorepo misrouting without matching error text or
+ *   special-casing fixture names.
+ *
+ * @evidence contracts/platform.md#portable-behavior
+ *   Node path handles native separators, roots and drive letters. No URLs or
+ *   shell commands are mixed with filenames and no filesystem is changed.
+ *
+ * @evidence contracts/common.md#behavioral-correctness
+ *   The inspected branches retain an absolute filename and resolve a relative
+ *   one against Metro options.projectRoot before the invocation cwd fallback.
+ *   Transformation uses that absolute identity for the compiler but forwards
+ *   Metro original filename upstream. Existing filename and monorepo cases
+ *   cover the consuming transform boundary; cwd alone is not treated as proof
+ *   of project membership.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   The native JSDoc explains the project-relative input, absolute result and
+ *   cwd fallback reason. Checked against the documentation skill: separate
+ *   paragraphs state the contract and why its nonobvious boundary matters;
+ *   field comments retain their own useful facts.
+ *
  */
 export function resolveAbsoluteFilename(
   filename: string,
@@ -102,6 +128,38 @@ export function resolveAbsoluteFilename(
  * source, the upstream AST's locations are moved back through it to the
  * author's lines, because Metro maps the AST against the file it read
  * (samchon/ttsc#1392).
+ *
+ * @evidence contracts/common.md#standard-implementation-practices
+ *   Metro's transformer callback composes the shared Unplugin transform core
+ *   with the selected Babel transformer. One resolved project view is frozen
+ *   into compilation and recorder inputs. Noneligible or out-of-program files
+ *   follow the shared core contract; genuine compiler/load failures
+ *   propagate. Only the returned AST's owned locations are updated, with no
+ *   patched loader or test-specific production behavior.
+ *
+ * @evidence contracts/platform.md#portable-behavior
+ *   Metro-relative filenames drive substring filters; Node path.resolve
+ *   produces absolute compiler addresses. The shared core owns native
+ *   compiler/session access, while Babel retains the original filename.
+ *   Worker transport is JSON and no shell command is constructed here.
+ *
+ * @evidence contracts/common.md#behavioral-correctness
+ *   The inspected consuming path gates supported TypeScript, checks the
+ *   shared compiler generation, preserves original Metro parameters except
+ *   successfully rewritten src, and remaps returned AST locations when a map
+ *   exists. Compiler and upstream initialization failures propagate instead
+ *   of returning untransformed success. Existing Metro cases exercise these
+ *   paths; the baseline run also exposed a snapshot compaction expectation
+ *   mismatch recorded in the adoption findings, so that suite is not claimed
+ *   wholly green.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   The native JSDoc explains pass order, original parameter preservation,
+ *   project selection and AST location mutation. Checked against the
+ *   documentation skill: separate paragraphs state the contract and why its
+ *   nonobvious boundary matters; field comments retain their own useful
+ *   facts.
+ *
  */
 export async function transform(params: {
   src: string;
@@ -220,6 +278,38 @@ export async function transform(params: {
  * former manual `--reset-cache` step. Resolving the upstream is deliberately
  * non-fatal here: a missing peer must not crash cache-key computation. See the
  * README "Caveats" and samchon/ttsc#721.
+ *
+ * @evidence contracts/common.md#standard-implementation-practices
+ *   Node sha256 combines package identity, stable resolved options, forwarded
+ *   upstream key and the project fingerprint required by Metro's
+ *   one-static-key contract. Missing/throwing upstream keys have the
+ *   documented nonfatal empty contribution; transform itself still fails on
+ *   load errors. Fingerprint failure disables reuse through a nonce rather
+ *   than fabricating a proven generation.
+ *
+ * @evidence contracts/platform.md#portable-behavior
+ *   Native project roots are interpreted by the fingerprint owner and Node
+ *   module loading reads package identity. Hash input has deterministic
+ *   string representation across OSes; filesystem content and identity remain
+ *   deliberately host-specific.
+ *
+ * @evidence contracts/common.md#behavioral-correctness
+ *   The inspected key combines adapter identity, resolved options, the
+ *   upstream contribution and the project fingerprint once per run. Upstream
+ *   key absence or failure contributes an empty value under the documented
+ *   nonfatal keying policy; actual transform loading still fails when
+ *   unusable. Fingerprint uncertainty produces a nonce. The stableStringify
+ *   option representation has a reproduced undefined-array collision
+ *   documented in .wiki/evidence-adoption/findings.md, so distinct option
+ *   values are not yet proven to have distinct representations.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   The native JSDoc explains one key per run, all contributions,
+ *   project-wide invalidation and nonfatal upstream key policy. Checked
+ *   against the documentation skill: separate paragraphs state the contract
+ *   and why its nonobvious boundary matters; field comments retain their own
+ *   useful facts.
+ *
  */
 export function getCacheKey(...args: unknown[]): string {
   const opts = options();
@@ -301,7 +391,35 @@ function upstreamCacheKey(
  * Decide whether a file should run through the ttsc pass. Only TypeScript
  * sources (`.ts`/`.tsx`/`.mts`/`.cts`, excluding every declaration form)
  * qualify; `exclude` substrings win over `include`, and an empty `include`
- * means "all TypeScript". Exported for unit testing.
+ * means "all TypeScript". Patterns use the supplied project-relative filename
+ * literally; this operation does not normalize separators or filesystem case.
+ *
+ * @evidence contracts/common.md#standard-implementation-practices
+ *   The shared isTransformTarget predicate owns supported TypeScript
+ *   extensions and declaration exclusions. Literal substring filters apply to
+ *   Metro's project-relative filename, with exclusion taking precedence. This
+ *   pure decision neither invokes compilation nor mutates options, and has no
+ *   fixture or test-mode branch.
+ *
+ * @evidenceExclude contracts/platform.md#portable-behavior
+ *   This predicate matches TypeScript extensions and caller-supplied literal
+ *   substrings. It defines no filesystem identity or native path
+ *   normalization contract.
+ *
+ * @evidence contracts/common.md#behavioral-correctness
+ *   Inspection of the predicate confirms ts, tsx, mts and cts extension
+ *   matching, rejection of declaration variants, literal substring filters
+ *   and exclude precedence. Empty include accepts supported extensions;
+ *   nonmatching include or matching exclude rejects them. Existing gating
+ *   cases exercise these positive and adjacent negative shapes. The predicate
+ *   neither compiles nor claims filesystem identity equivalence.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   The native JSDoc explains eligible extensions, declaration exclusion,
+ *   empty include and exclusion precedence. Checked against the documentation
+ *   skill: separate paragraphs state the contract and why its nonobvious
+ *   boundary matters; field comments retain their own useful facts.
+ *
  */
 export function shouldTransform(
   filename: string,
