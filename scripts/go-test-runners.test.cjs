@@ -124,5 +124,7 @@ test("Go layers preserve every runner and share the mixed rule suites", () => {
   );
   assert.ok(!e2e.includes("test-go-transformer.cjs"));
   assert.ok(!e2e.includes("test-go-shim.cjs"));
+  assert.ok(unit.includes("test-go-driver.cjs"));
+  assert.ok(!e2e.includes("test-go-driver.cjs"));
   assert.throws(() => selectedRunners("typo"), /TTSC_TEST_LAYER/);
 });
