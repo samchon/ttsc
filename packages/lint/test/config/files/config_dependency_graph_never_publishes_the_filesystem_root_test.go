@@ -124,7 +124,7 @@ func TestConfigDependencyGraphNeverPublishesTheFilesystemRoot(t *testing.T) {
     configDependencyDir,
     configDependencyWatch,
   )
-  assertConfigWatchDependenciesWithin(t, owned.dependencyDigests, root)
+  assertConfigWatchDirectoriesWithin(t, owned.dependencyDigests, root)
 }
 
 // quoteJSONPath renders an absolute host path as a JSON string literal. Windows

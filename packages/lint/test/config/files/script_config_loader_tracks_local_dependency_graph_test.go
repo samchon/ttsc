@@ -106,7 +106,7 @@ module.exports = { rules: { "no-var": selection.rule } };`)
     packageEntry,
     configDependencyCache,
   )
-  assertConfigWatchDependenciesWithin(t, first.dependencyDigests, root)
+  assertConfigWatchDirectoriesWithin(t, first.dependencyDigests, root)
 
   write(packageEntry, `module.exports = "warning";`)
   second, err := loadConfigFileEvaluation(cjsConfig)
@@ -433,7 +433,7 @@ module.exports = {
     "no-var",
     "warning",
   )
-  assertConfigWatchDependenciesWithin(
+  assertConfigWatchDirectoriesWithin(
     t,
     beforeLegacyMain.dependencyDigests,
     root,
@@ -924,14 +924,17 @@ func assertConfigDependencyKindScope(
   t.Fatalf("dependency %s missing from cache graph %v", expectedPath, dependencies)
 }
 
-func assertConfigWatchDependenciesWithin(
+// Exact file and entry watches may follow an external config or a linked
+// ancestor. A directory watch outside the project would observe an unrelated
+// tree, so only directory dependencies have this containment requirement.
+func assertConfigWatchDirectoriesWithin(
   t *testing.T,
   dependencies []configDependencyFingerprint,
   root string,
 ) {
   t.Helper()
   for _, dependency := range dependencies {
-    if dependency.Scope != configDependencyWatch {
+    if dependency.Scope != configDependencyWatch || dependency.Kind != configDependencyDir {
       continue
     }
     relative, err := filepath.Rel(configTestPhysicalPath(root), configTestPhysicalPath(dependency.Path))
@@ -939,7 +942,7 @@ func assertConfigWatchDependenciesWithin(
       filepath.IsAbs(relative) ||
       startsWithParentDirectory(relative) {
       t.Fatalf(
-        "watch dependency escaped project boundary %s: %#v",
+        "watch directory escaped project boundary %s: %#v",
         root,
         dependency,
       )
