@@ -19,44 +19,53 @@ const path = require("node:path");
 
 const root = path.resolve(__dirname, "..", "..");
 
-// `shell: true` because `pnpm` and `bash` resolve through a shim on Windows,
-// where a bare spawn fails with ENOENT rather than running the command.
+// Bash resolves through a shim on Windows, where a bare spawn fails with
+// ENOENT rather than running the command. Git and Node run directly.
 function run(command, args, options = {}) {
   return cp.spawnSync(command, args, {
     cwd: root,
     encoding: "utf8",
-    shell: true,
+    shell: command === "bash",
     windowsHide: true,
     ...options,
   });
 }
 
-/** Tracked files matching `pattern`, as repository-relative POSIX paths. */
-function tracked(pattern) {
-  const result = run("git", ["ls-files", pattern]);
-  if (result.status !== 0) throw new Error(`git ls-files ${pattern} failed`);
-  return result.stdout.split("\n").filter((line) => line.trim() !== "");
+/** Tracked files as repository-relative paths, without Git's quote escaping. */
+function tracked(...patterns) {
+  const result = run("git", ["ls-files", "-z", "--", ...patterns]);
+  if (result.error) throw result.error;
+  if (result.status !== 0)
+    throw new Error(`git ls-files failed: ${result.stderr ?? ""}`);
+  return result.stdout.split("\0").filter(Boolean);
 }
 
 function prettierDrift() {
-  const result = run("pnpm", [
-    "exec",
-    "prettier",
-    "--list-different",
-    '"**/*.ts"',
-    '"**/*.md"',
-    '"**/*.mdx"',
-  ]);
-  if (result.error) throw result.error;
-  // `--list-different` exits 0 when nothing differs and 1 when something does.
-  // Anything else is prettier failing to run, and an empty stdout from a
-  // failure is indistinguishable from a clean tree — a gate that reports clean
-  // because it never ran is the condition this file exists to end.
-  if (result.status !== 0 && result.status !== 1)
-    throw new Error(
-      `prettier --list-different exited ${result.status}, so no formatting was checked:\n${result.stderr ?? ""}`,
-    );
-  return (result.stdout ?? "").split("\n").filter((line) => line.trim() !== "");
+  const prettier = require.resolve("prettier/bin/prettier.cjs", {
+    paths: [root],
+  });
+  const files = tracked("*.ts", "*.md", "*.mdx");
+  const drift = [];
+  // Keep each native command line below Windows' limit. Only tracked inputs
+  // reach Prettier, so generated consumers cannot turn an e2e run red.
+  for (let index = 0; index < files.length; index += 100) {
+    const result = run(process.execPath, [
+      prettier,
+      "--list-different",
+      "--",
+      ...files.slice(index, index + 100),
+    ]);
+    if (result.error) throw result.error;
+    if (
+      (result.status !== 0 && result.status !== 1) ||
+      (result.status === 1 && !result.stdout?.trim())
+    )
+      throw new Error(
+        `prettier --list-different exited ${result.status}, so formatting was not checked:\n${result.stderr ?? ""}`,
+      );
+    drift.push(...(result.stdout ?? "").split("\n").filter(Boolean));
+  }
+  return drift;
 }
 
 function goDrift() {

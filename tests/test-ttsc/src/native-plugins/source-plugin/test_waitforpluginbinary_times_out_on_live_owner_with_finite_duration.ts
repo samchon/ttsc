@@ -13,9 +13,9 @@ import {
  * Verifies waitForPluginBinary times out on a live owner with a finite
  * duration.
  *
- * A live holder that never publishes must eventually hit the wait budget,
- * but elapsed time cannot authorize retirement of its still-running task.
- * The error names a finite duration while the original lease remains active.
+ * A live holder that never publishes must eventually hit the wait budget, but
+ * elapsed time cannot authorize retirement of its still-running task. The error
+ * names a finite duration while the original lease remains active.
  *
  * 1. Acquire a v3 lock owned by this process so inspection stays `active`.
  * 2. Call the wait loop with a zero timeout budget.
