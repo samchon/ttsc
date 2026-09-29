@@ -26,7 +26,7 @@ on:
 
 concurrency:
   group: nestia-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   # Build the current-platform tarballs and run nestia's complete upstream

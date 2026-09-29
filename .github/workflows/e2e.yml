@@ -9,7 +9,7 @@ on:
 
 concurrency:
   group: e2e-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 # Reuse content-keyed plugins within this execution. Cold-cache tests keep
 # their isolated roots. No plugin archive is restored or uploaded.
