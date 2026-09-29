@@ -1,6 +1,6 @@
 # Common Implementation Principles
 
-These chapters address method validity, code structure, forbidden substitutions and written documentation respectively. Give grounds a reviewer can check against the actual declaration. Keep straightforward decisions brief and do not invent alternatives or development history to fill an answer.
+Give grounds a reviewer can check against the actual declaration. Keep straightforward decisions brief and do not invent alternatives or development history to fill an answer.
 
 ## Principled Implementation
 

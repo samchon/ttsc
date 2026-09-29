@@ -5,17 +5,21 @@ description: Defines implementation self-acknowledgments for production types an
 
 # Implementation Contracts
 
-Read [common.md](common.md) and only the scoped topic whose design decisions the declaration owns. Select types and functions; fields keep native documentation and are covered by their type. Include private helpers in the review of their owning operation.
+Read [common.md](common.md) and only the scoped topic whose design decisions the declaration owns. Select scoped questions by the operation's responsibility, not membership in a package.
+
+Select types and functions; fields keep native documentation and are covered by their type. Include private helpers in the review of their owning operation so delegation does not hide an implementation decision.
 
 An acknowledgment explains why the implementation approach is appropriate, the assumptions it relies on and any unresolved departure. It does not certify outputs, enumerate regression cases or claim tests passed. State an actual limitation rather than declaring compliance with a requirement the implementation does not meet.
 
-Meet all applicable requirements together. No chapter permits weakening the supported behavior to satisfy another. Benchmarks, test runs and formal proofs are not universal acknowledgment requirements.
+Meet all applicable requirements together. No chapter permits weakening the supported behavior to satisfy another.
+
+Benchmarks, test runs and formal proofs are not universal acknowledgment requirements. The answer supplies grounds for review, not a verification report.
 
 Product behavior belongs to [project](../project/SKILL.md) and package documentation. [Development](../development/SKILL.md#testing) owns tests and [Evidence adoption](../development/SKILL.md#evidence-adoption) owns selection and validation. Evidence checks that answers exist; [review](../review/SKILL.md#review-law) checks their truth. Neither replaces behavioral verification.
 
-Package and logical-unit requirements also inform the scoped questions below. Select a question when the operation makes that design decision, not for every declaration in its package. An acknowledgment justifies the decision; it does not repeat the product specification or certify its test cases.
+Keep document links in this entry file. Checklist documents must contain no links, so each checklist remains independently readable.
 
-Keep document links in this entry file. Checklist documents must contain no links, so each checklist remains independently readable. Apply the [documentation skill](../documentation/SKILL.md) when writing their prose and related repository documentation.
+Apply the [documentation skill](../documentation/SKILL.md) when writing contract prose and related repository documentation.
 
 Give each requirement one chapter owner. A declaration may answer several chapters about the same implementation, but each answer must address its own question without requesting the other answers again. Maintain these boundaries when revising the checklists:
 
