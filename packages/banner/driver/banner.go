@@ -62,6 +62,15 @@ func validateBannerConfig(config map[string]any) error {
 
 // SourcePreamble resolves the banner text from the plugin config and returns it
 // formatted as a JSDoc block comment suitable for prepending to each emitted file.
+//
+// Config loading follows driver discovery, JSON parsing and Node/ttsx evaluation.
+// The banner's observed config inputs remain universal because every emitted
+// file receives the same text. The shared resolution recorder still uses a
+// private resolver fallback on runtimes whose public hooks miss require.resolve;
+// this limitation belongs to that recorder and remains unresolved here.
+//
+// Native paths and processes use filepath and exec argument vectors. Formatting
+// normalizes CRLF and escapes a closing JSDoc delimiter in consumer-authored text.
 func (plugin) SourcePreamble(ctx driver.PluginContext) (string, error) {
   preamble, err := parseBannerWithReporters(ctx.Entry.Config, ctx.Cwd, ctx.Tsconfig, ctx.ReportHostInput, ctx.ReportHostInputHash, ctx.ReportHostInputRealpath)
   if err != nil {
@@ -1247,8 +1256,8 @@ func relativeImportSpecifier(fromDir, location string) (string, error) {
   return "./" + relative, nil
 }
 
-// setEnv returns a copy of env with key=value. If key already exists in env,
-// its value is updated in-place; otherwise the entry is appended.
+// setEnv updates env with key=value. If the key already exists its entry is
+// replaced in-place; otherwise the entry is appended to the returned slice.
 func setEnv(env []string, key, value string) []string {
   prefix := key + "="
   for i, entry := range env {

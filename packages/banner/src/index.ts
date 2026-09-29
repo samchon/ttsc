@@ -84,7 +84,46 @@ const FRAMEWORK_KEYS = new Set<string>([
  * with a specific error so users discover the correct configuration surface
  * (the dedicated config file) rather than silently receiving no banner.
  *
- * @internal
+ * @evidence contracts/common.md#standard-implementation-practices
+ *   The host's default-export factory protocol supplies module and project
+ *   anchors. Node path/fs/crypto APIs produce a native driver descriptor and
+ *   config observations; the Go driver owns evaluation and transformation.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Framework keys, candidate filenames, package identity and stage come from
+ *   the registration contract. Discovery records absent candidates rather than
+ *   compensating for them with a fabricated config. Native config evaluation
+ *   still reaches the shared recorder's private resolver fallback; that
+ *   owning-layer limitation is not certified away by this descriptor.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc separates registration from config evaluation and explains why
+ *   unknown inline keys are rejected. Context and descriptor fields document
+ *   host anchoring and observed inputs. Paragraphs and reasons follow the
+ *   documentation skill; the exported factory is documented as a host entry.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Node path operations resolve the host's explicit anchors and terminate
+ *   ancestor discovery at the native root. Filesystem reads distinguish
+ *   directory markers, readable bytes and unresolved physical targets, without
+ *   applying OS-wide case folding or constructing shell commands.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Discovery checks the fixed candidate set once per ancestor and stops at
+ *   the first matching directory. Explicit config paths limit work to one
+ *   candidate; hashing reads its content because the host needs a content
+ *   observation, not only an existence flag.
+ *
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The descriptor returns hashes and physical targets with the observed
+ *   paths so the host can reuse evaluation under its module/input contract.
+ *   The factory collects observations once for the returned descriptor; it
+ *   does not reevaluate the native configuration for each emitted file.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Candidate arrays and maps belong to one returned descriptor. Synchronous
+ *   reads close their handles internally; no watcher or child process is
+ *   retained by this factory. The host owns the descriptor's cached lifetime.
  */
 export default function createTtscBanner(
   context: TtscPluginFactoryContext<ITtscBannerPluginConfig>,

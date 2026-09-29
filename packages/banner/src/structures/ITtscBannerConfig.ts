@@ -28,6 +28,17 @@
  *   separated into native paragraphs under the documentation skill; the type
  *   acknowledgment covers its field without duplicating a checklist on that
  *   property.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   This type defines consumer-authored banner text. The native formatter
+ *   owns the algorithm that processes it.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Config evaluation and descriptor reuse belong to the factory and host;
+ *   this type defines the loaded value.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The loader and host own the config lifetime; this type defines its field.
  */
 export interface ITtscBannerConfig {
   /**

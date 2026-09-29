@@ -12,10 +12,9 @@
  *   configuration.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
- *   The type defines no runtime branch or foreign mutation, fixture answer,
- *   test-only path or compensating mechanism. Its fields describe the
- *   supported registration contract, with no alternative implementation hidden
- *   in the data shape.
+ *   Host switches and configFile represent the supported registration
+ *   contract. Banner text has one typed config-file home, preventing a second
+ *   inline option shape from bypassing that loader's validation.
  *
  * @evidence contracts/portability.md#os-neutral-implementation
  *   Registration stores a module specifier and optional filesystem path; the
@@ -30,6 +29,18 @@
  *   failure behavior. Separate paragraphs explain why generated wrapper
  *   directories cannot become the discovery base, applying the documentation
  *   skill's clear prose and rationale guidance to the complete type contract.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   The registration type defines host switches and a config path. The
+ *   factory and native loader choose the discovery algorithm.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   The host and factory own descriptor identity and evaluation reuse;
+ *   this type defines the inputs they consume.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Registration is a value contract. The host owns cached descriptors and
+ *   the native loader owns subprocess and temporary-directory lifetimes.
  */
 export interface ITtscBannerPluginConfig {
   /**
