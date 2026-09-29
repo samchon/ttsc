@@ -13,5 +13,7 @@ test("build unions preserve dependency order and link only needed native command
   assert.equal(selectBuild("test-ttsc,test-lint").platformTargets, undefined);
   assert.ok(!selectBuild("go-tests").plan.includes(PLATFORM));
   assert.deepEqual(selectBuild("full").plan, SCOPES.full);
+  assert.deepEqual(selectBuild("install-smoke").plan, ["ttsc", PLATFORM]);
+  assert.deepEqual(selectBuild("install-smoke").platformTargets, ["ttsc"]);
   assert.throws(() => selectBuild("test-lint,unknown"), /Unknown TTSC_BUILD_SCOPE/);
 });

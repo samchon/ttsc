@@ -5,6 +5,8 @@ on:
     paths:
       - ".github/workflows/typia.yml"
       - ".github/actions/validation-cache/**"
+      - "experimental/source-map/**"
+      - "website/compiler-dependencies/package.json"
       - "experimental/tarballs/**"
       - "config/**"
       - "scripts/assert-platform-package.cjs"
@@ -68,6 +70,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build ttsc tarballs (current platform only)
+        id: tarballs
         run: pnpm package:tgz
 
       - name: Clone typia next
@@ -146,3 +149,9 @@ jobs:
         run: |
           pnpm install --no-frozen-lockfile
           pnpm run test
+
+      - name: Verify typia source maps with the same tarballs
+        if: ${{ !cancelled() && steps.tarballs.outcome == 'success' }}
+        run: pnpm --dir experimental/source-map start -- --skip-pack
+        env:
+          TTSC_CACHE_DIR: ${{ github.workspace }}/.cache/ci/plugins

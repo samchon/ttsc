@@ -56,9 +56,9 @@ const COLD_BUILD_MARKER = /this runs once per cache key/;
 
 const PACKAGE_MANAGERS = new Set(["pnpm", "yarn", "bun", "npm"]);
 
-function main() {
-  const pm = parsePackageManager();
+function main(pm) {
   if (!hasCommand(pm)) {
+    if (process.env.CI) fail(`[${pm}] required package manager is missing`);
     // Local convenience: skip a manager that is not installed (bun is
     // typically absent off-CI). Each CI job installs exactly its own manager,
     // so a skip there would mean a misconfigured workflow, not a pass.
@@ -111,9 +111,9 @@ function main() {
 function parsePackageManager() {
   const arg = process.argv.slice(2).find((a) => a.startsWith("--pm="));
   const pm = arg ? arg.slice("--pm=".length) : "";
-  if (!PACKAGE_MANAGERS.has(pm)) {
+  if (pm !== "all" && !PACKAGE_MANAGERS.has(pm)) {
     fail(
-      `usage: node scripts/ci/plugin-cache-persistence.mjs --pm=<pnpm|yarn|bun|npm> ` +
+      `usage: node scripts/ci/plugin-cache-persistence.mjs --pm=<all|pnpm|yarn|bun|npm> ` +
         `(got ${JSON.stringify(pm)})`,
     );
   }
@@ -385,7 +385,17 @@ function fail(message) {
 }
 
 try {
-  process.exitCode = main();
+  const selected = parsePackageManager();
+  let failed = false;
+  for (const pm of selected === "all" ? PACKAGE_MANAGERS : [selected]) {
+    try {
+      if (main(pm) !== 0) failed = true;
+    } catch (error) {
+      console.error(`[${pm}] FAIL: ${error.stack ?? error.message}`);
+      failed = true;
+    }
+  }
+  process.exitCode = failed ? 1 : 0;
 } catch (error) {
   if (!(error instanceof ExpectationFailure)) throw error;
   console.error(`FAIL: ${error.message}`);

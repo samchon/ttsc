@@ -16,6 +16,7 @@ const PLATFORM = Symbol("platform");
 // runs `ttsc` with the typia plugin) plus the native binary; scoped lanes skip
 // packages they never package or execute.
 const SCOPES = {
+  "install-smoke": ["ttsc", PLATFORM],
   "go-tests": ["ttsc", "@ttsc/lint", "@ttsc/evidence"],
   // Everything, in dependency-safe order (native binary before graph/demo).
   // @ttsc/wasm is built types-only (`build:ts`, no Go→WASM binary) and
@@ -121,6 +122,7 @@ const SCOPES = {
 // in every one of those jobs is another independent Go build with no consumer.
 // Broad compiler coverage and the graph lane retain the binaries they exercise.
 const PLATFORM_TARGETS = {
+  "install-smoke": "ttsc",
   "test-lint": "ttsc",
   "test-packages": "ttsc",
   "test-metro": "ttsc",

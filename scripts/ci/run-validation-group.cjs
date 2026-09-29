@@ -1,6 +1,6 @@
 const cp = require("node:child_process");
 const path = require("node:path");
-const { validationSteps } = require("./validation-plan.cjs");
+const { LANES, validationSteps } = require("./validation-suites.cjs");
 const { runIndependent } = require("./run-independent.cjs");
 
 /** Run every independent step and return all failed commands. */
@@ -32,9 +32,11 @@ function execute(step) {
 if (require.main === module) {
   const argument = process.argv.find((entry) => entry.startsWith("--lanes="));
   if (!argument) throw new Error("expected --lanes=<logical lane IDs>");
+  const selection = argument.slice("--lanes=".length);
   const steps = validationSteps(
-    argument.slice("--lanes=".length).split(","),
-    process.platform,
+    selection === "all"
+      ? LANES.filter((lane) => !lane.node).map((lane) => lane.id)
+      : selection.split(","),
   );
   const concurrency = Number(
     process.argv

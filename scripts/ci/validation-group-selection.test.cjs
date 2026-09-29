@@ -1,33 +1,21 @@
 const assert = require("node:assert/strict");
 const { test } = require("node:test");
-const { fullPlan, LANES, validationSteps, planForPaths } = require("./validation-plan.cjs");
+const { LANES, NODE_FLOOR, nodeFloor, validationSteps } = require("./validation-suites.cjs");
 
-test("grouping retains the full Linux inventory and batches each executor once", () => {
-  const plan = fullPlan("test");
-  assert.equal(plan.matrix.include.length, 7);
-  assert.equal(plan.matrix.include.length + plan.platformMatrix.include.length + plan.unpluginMatrix.include.length + 2, 16);
-  assert.equal(plan.platformMatrix.include.filter((row) => row.contract_lanes).length, 2);
-  assert.ok(plan.platformMatrix.include.filter((row) => row.contract_lanes).every((row) => row.build && row.vscode_prebuilt));
-  for (const lane of LANES.filter((entry) => !entry.os)) {
-    const job = plan.matrix.include.find((entry) => entry.os === "ubuntu-latest" && entry.lanes.split(",").includes(lane.id));
-    assert.ok(job, lane.id);
-    const steps = validationSteps(job.lanes.split(","));
-    for (const command of lane.run.split(" && ")) assert.ok(steps.some((step) => step.run === command), command);
-    for (const dir of lane.dirs ?? []) assert.ok(steps.some((step) => lane.run.split(" && ").includes(step.run) && step.dirs.includes(dir)), dir);
-  }
-  const compiler = validationSteps(["ttsc-core", "ttsc-native"]);
-  assert.equal(compiler.length, 1);
-  assert.equal(compiler[0].dirs.length, new Set(compiler[0].dirs).size);
-  const lint = validationSteps(["lint-1", "lint-2"]);
-  assert.equal(lint.length, 1);
-  assert.ok(lint[0].dirs.every((dir) => !dir.includes("corpus")));
-  assert.ok(planForPaths(["tests/test-lint/src/cases/no-var.ts"]).laneIds.includes("go"));
-  assert.ok(planForPaths(["tests/utils/src/lint/TestLint.ts"]).laneIds.includes("go"));
-  const os = validationSteps(["ttsc-core", "ttsc-native", "evidence"], "win32");
-  assert.ok(os[0].dirs.includes("native-plugins/service"));
-  assert.ok(os[0].dirs.includes("native-plugins/corpus-misc"));
-  assert.ok(os[0].dirs.includes("native-plugins/cli"));
-  assert.ok(os.some((step) => step.run.includes("resident_graph_session")));
-  assert.ok(os.every((step) => !step.run.includes("test-evidence-benchmark")));
+test("one validation batch preserves every suite and merges executors", () => {
+  const selected = LANES.filter((suite) => !suite.node);
+  const steps = validationSteps(selected.map((suite) => suite.id));
+  for (const suite of selected)
+    for (const command of suite.run.split(" && ")) {
+      const step = steps.find((entry) => entry.run === command);
+      assert.ok(step, command);
+      for (const dir of suite.dirs ?? []) assert.ok(step.dirs.includes(dir), dir);
+    }
+  assert.equal(new Set(steps.map((step) => step.run)).size, steps.length);
+  assert.equal(validationSteps(["ttsc-core", "ttsc-native"]).length, 1);
+  assert.equal(validationSteps(["lint-1", "lint-2"]).length, 1);
   assert.throws(() => validationSteps(["typo"]), /unknown validation lane/);
+  assert.equal(nodeFloor({ engines: { node: ">=22.15.0" } }), "22.15.0");
+  assert.ok(NODE_FLOOR);
+  assert.throws(() => nodeFloor({ engines: { node: "^22" } }), /floor/);
 });

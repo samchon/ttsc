@@ -1,6 +1,7 @@
 // Run every independent quality gate after the shared build, even when an
-// earlier gate fails. A deferred format difference must not hide unplugin
-// features or TypeScript type errors from the same CI head.
+// earlier gate fails. A deferred format difference must not hide TypeScript
+// type errors from the same CI head. Adapter features join their native cases
+// in the validation suite's one adapter executor.
 
 const childProcess = require("node:child_process");
 const path = require("node:path");
@@ -52,11 +53,6 @@ if (require.main === module) {
       name: "format check",
       command: process.execPath,
       args: ["scripts/ci/format-check.cjs"],
-    },
-    {
-      name: "unplugin features",
-      command: "pnpm",
-      args: ["--filter", "@ttsc/test-unplugin", "start"],
     },
     { name: "TypeScript types", command: "pnpm", args: ["run", "test:typecheck"] },
   ];

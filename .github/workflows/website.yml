@@ -6,6 +6,7 @@ on:
       - master
     paths:
       - ".github/workflows/website.yml"
+      - ".github/actions/validation-cache/**"
       - "config/**"
       - "packages/ttsc/**"
       - "packages/lint/**"
@@ -24,6 +25,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/website.yml"
+      - ".github/actions/validation-cache/**"
       - "config/**"
       - "packages/ttsc/**"
       - "packages/lint/**"
@@ -45,9 +47,13 @@ concurrency:
   group: website-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+env:
+  GOCACHE: ${{ github.workspace }}/.cache/ci/go-build
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write
     steps:
@@ -60,13 +66,17 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: packages/ttsc/go.mod
-          cache-dependency-path: |
-            packages/ttsc/go.sum
-            packages/wasm/go.sum
+          cache: false
 
       - uses: pnpm/action-setup@v6
         with:
           version: 10.6.4
+
+      - uses: ./.github/actions/validation-cache
+        with:
+          group: website
+          go-group: website
+          save-go: "true"
 
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile

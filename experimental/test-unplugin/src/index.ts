@@ -8,6 +8,13 @@ const experimentRoot = path.resolve(import.meta.dirname, "..");
 const root = path.resolve(experimentRoot, "../..");
 const tarballs = path.join(root, "experimental", "tarballs");
 const workspace = path.join(experimentRoot, ".tmp", "project");
+// The consumer is rebuilt each run; its content-keyed plugin cache survives
+// beside it and joins the CI archive when a shared test root is supplied.
+const pluginCache = path.resolve(
+  process.env.TTSC_CACHE_DIR ??
+    process.env.TTSC_TEST_CACHE_DIR ??
+    path.join(experimentRoot, ".cache", "ttsc"),
+);
 const skipPack = process.argv.includes("--skip-pack");
 const packCurrent = process.argv.includes("--pack-current");
 const platformKey = `${process.platform}-${process.arch}`;
@@ -63,6 +70,32 @@ const adapterEntrypoints = [
 const TURBOPACK_SCOPED_GLOBS = ["{src/,}*.ts", "src/**/*.ts"];
 
 const requireFromRoot = createRequire(path.join(root, "package.json"));
+const { runIndependent } = requireFromRoot("./scripts/ci/run-independent.cjs");
+
+// Each phase owns its output directory. The Next builds and matcher probe share
+// next.config.mjs/dist-next and therefore remain one serial phase.
+const buildPhases = {
+  entrypoints: verifyEntrypoints,
+  vite: verifyViteBuild,
+  rollup: verifyRollupBuild,
+  rolldown: verifyRolldownBuild,
+  esbuild: verifyEsbuildBuild,
+  webpack: verifyWebpackBuild,
+  rspack: verifyRspackBuild,
+  farm: verifyFarmBuild,
+  next: async () => {
+    const failed = await runIndependent(
+      [verifyNextBuild, verifyTurbopackRecognisedGlobs],
+      async (verify) => {
+        await verify();
+        return 0;
+      },
+    );
+    if (failed.length) throw new Error("Next build or matcher contract failed");
+  },
+  bun: verifyBunBuild,
+  "bun-runtime": verifyBunRuntime,
+};
 
 /**
  * Absolute path to the workspace's native `tsc` binary, forwarded to ttsc via
@@ -88,14 +121,21 @@ const TSC_BINARY = resolveTscBinary();
 // asynchronously, so the output `run` writes for a failed command just before
 // it throws, the host matrix's failure detail among it, was cut short there.
 try {
-  test_unplugin_package_e2e();
+  const phase = process.argv
+    .find((argument) => argument.startsWith("--validation-phase="))
+    ?.slice("--validation-phase=".length);
+  if (phase === undefined) await test_unplugin_package_e2e();
+  else {
+    assert(Object.hasOwn(buildPhases, phase), `Unknown build phase: ${phase}`);
+    await buildPhases[phase]();
+  }
 } catch (error) {
   console.error(error);
   process.exitCode = 1;
 }
 
 /** Run the complete packed-package adapter contract in one consumer install. */
-export function test_unplugin_package_e2e() {
+export async function test_unplugin_package_e2e() {
   assert(
     commandExists("bun"),
     "The complete adapter contract requires Bun on PATH (CI pins its version).",
@@ -107,24 +147,44 @@ export function test_unplugin_package_e2e() {
   }
   prepareWorkspace();
   installTarballs();
-  verifyEntrypoints();
-  verifyViteBuild();
-  verifyRollupBuild();
-  verifyRolldownBuild();
-  verifyEsbuildBuild();
-  verifyWebpackBuild();
-  verifyRspackBuild();
-  verifyFarmBuild();
-  verifyNextBuild();
-  verifyTurbopackRecognisedGlobs();
-  verifyEcosystemContracts();
-  verifyBunBuild();
-  verifyBunRuntime();
+  const failed = await runIndependent(
+    Object.keys(buildPhases),
+    (phase) =>
+      new Promise((resolve) => {
+        const child = cp.spawn(
+          process.execPath,
+          [
+            ...process.execArgv,
+            path.join(experimentRoot, "src", "index.ts"),
+            `--validation-phase=${phase}`,
+          ],
+          {
+            cwd: experimentRoot,
+            env: process.env,
+            stdio: "inherit",
+            windowsHide: true,
+          },
+        );
+        child.on("error", (error) => console.error(error));
+        child.on("close", (code) => resolve(code ?? 1));
+      }),
+    Number(process.env.TTSC_HOST_WORKERS ?? 1),
+  );
+  // Finish the host lifecycle sweep even when a standalone build failed. It
+  // owns the full worker budget after basic builds, avoiding nested fan-out.
+  try {
+    verifyEcosystemContracts();
+  } catch (error) {
+    console.error(error);
+    failed.push("ecosystem");
+  }
+  assert(failed.length === 0, `Failed packed contracts: ${failed.join(", ")}`);
   console.log("Success");
 }
 
 function prepareCurrentTarballs() {
-  run("pnpm run build:current", root, { TTSC_BUILD_SCOPE: "experimental" });
+  if (process.env.TTSC_UNPLUGIN_SKIP_BUILD !== "1")
+    run("pnpm run build:current", root, { TTSC_BUILD_SCOPE: "experimental" });
 
   fs.mkdirSync(tarballs, { recursive: true });
   for (const name of ["ttsc", platformTarball, "unplugin"]) {
@@ -862,33 +922,38 @@ function verifyFarmBuild() {
   assertBuiltOutput(output, "FARM-INSTALLED-OK", "farm");
 }
 
-function verifyNextBuild() {
+async function verifyNextBuild() {
   // Both of Next's bundlers, because `withTtsc` claims both. The webpack half
   // was the only one checked for a long time, and forcing `--webpack` here is
   // what let the Turbopack half ship doing nothing at all: the build succeeded
   // and the output was simply untransformed (samchon/ttsc#1310). The assertion
   // is the same for each, and it is the one that fails when the transform did
   // not run, since it requires the transformed marker and refuses the original.
-  for (const bundler of ["--webpack", "--turbopack"]) {
-    fs.rmSync(path.join(workspace, "dist-next"), {
-      force: true,
-      recursive: true,
-    });
-    run(`npx next build ${bundler}`, workspace);
-    for (const [marker, original, extension] of [
-      ["NEXT-INSTALLED-OK", "next-installed-ok", ".ts"],
-      ["TURBOPACK-TSX-OK", "turbopack-tsx-ok", ".tsx"],
-      ["TURBOPACK-MTS-OK", "turbopack-mts-ok", ".mts"],
-      ["TURBOPACK-CTS-OK", "turbopack-cts-ok", ".cts"],
-    ]) {
-      assertBuiltTreeContains(
-        "dist-next",
-        marker,
-        `next ${bundler} (${extension})`,
-        original,
-      );
-    }
-  }
+  const failed = await runIndependent(
+    ["--webpack", "--turbopack"],
+    (bundler) => {
+      fs.rmSync(path.join(workspace, "dist-next"), {
+        force: true,
+        recursive: true,
+      });
+      run(`npx next build ${bundler}`, workspace);
+      for (const [marker, original, extension] of [
+        ["NEXT-INSTALLED-OK", "next-installed-ok", ".ts"],
+        ["TURBOPACK-TSX-OK", "turbopack-tsx-ok", ".tsx"],
+        ["TURBOPACK-MTS-OK", "turbopack-mts-ok", ".mts"],
+        ["TURBOPACK-CTS-OK", "turbopack-cts-ok", ".cts"],
+      ]) {
+        assertBuiltTreeContains(
+          "dist-next",
+          marker,
+          `next ${bundler} (${extension})`,
+          original,
+        );
+      }
+      return 0;
+    },
+  );
+  assert(failed.length === 0, `Failed Next bundlers: ${failed.join(", ")}`);
 }
 
 /**
@@ -1225,7 +1290,7 @@ function run(command, cwd, extraEnv = {}) {
         // ttsc resolves the native `tsc` binary from here, so the consumer need
         // not install the native `typescript` package (Next cannot load it).
         TTSC_TSGO_BINARY: TSC_BINARY,
-        TTSC_CACHE_DIR: path.join(workspace, ".ttsc", "source-cache"),
+        TTSC_CACHE_DIR: pluginCache,
       },
       maxBuffer: 1024 * 1024 * 64,
       stdio: ["ignore", "pipe", "pipe"],
