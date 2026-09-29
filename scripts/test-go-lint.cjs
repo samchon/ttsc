@@ -63,6 +63,9 @@ try {
     filter: (src) => !skip.has(path.basename(src)),
   });
   copyGoTestsFlat(lintTestsDir, path.join(scratch, "linthost"));
+  // Repository validation tests stay outside the product package. Overlay
+  // them beside the engine only in this disposable Go test module.
+  copyGoTestsFlat(path.join(root, "tests", "test-lint", "go"), path.join(scratch, "linthost"));
 
   // Discover every in-tree module the workspace needs to satisfy:
   //   - the lint package (whose tests we're running),
