@@ -1,5 +1,6 @@
 import cp from "node:child_process";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 
@@ -9,26 +10,75 @@ const tarballs = path.join(root, "experimental", "tarballs");
 const workspace = path.join(experimentRoot, ".tmp", "project");
 const skipPack = process.argv.includes("--skip-pack");
 const packCurrent = process.argv.includes("--pack-current");
+const consumer = process.argv
+  .find((argument) => argument.startsWith("--consumer="))
+  ?.slice("--consumer=".length);
 const platformKey = `${process.platform}-${process.arch}`;
 const platformPackage = `@ttsc/${platformKey}`;
 const platformTarball = `ttsc-${platformKey}`;
 const packageTarballs = ["banner", "lint", "paths", "strip"];
 const registryDependencies = ["typescript@^7.0.2"];
+const { runIndependent } = createRequire(import.meta.url)(
+  "../../../scripts/ci/run-independent.cjs",
+);
 
-main();
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
 
-function main() {
-  if (packCurrent) {
+async function main() {
+  if (consumer !== undefined) {
+    const relative = path.relative(
+      path.join(experimentRoot, ".tmp"),
+      path.resolve(consumer),
+    );
+    assert(
+      relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative),
+      "shared consumer must stay outside this scenario's temporary root",
+    );
+  } else if (packCurrent) {
     prepareCurrentTarballs();
   } else if (!skipPack) {
     run("pnpm package:tgz", root);
   }
   prepareWorkspace();
-  installTarballs();
-  verifyInstalledPackages();
-  verifyTtscBuild();
-  verifyTtsxRun();
-  verifyLintConfigLoaderWithRealpathTemp();
+  if (consumer === undefined) installTarballs();
+  else {
+    // Both packed contracts use one actual dependency install. Keep this
+    // scenario's sources separate from the adapter's mutable build fixtures.
+    const modules = path.join(path.resolve(consumer), "node_modules");
+    const destination = path.join(workspace, "node_modules");
+    fs.mkdirSync(destination);
+    for (const name of fs.readdirSync(modules)) {
+      const source = path.join(
+        modules,
+        name === "typescript" ? "typescript-native" : name,
+      );
+      if (!fs.statSync(source).isDirectory()) continue;
+      fs.symlinkSync(
+        source,
+        path.join(destination, name),
+        process.platform === "win32" ? "junction" : "dir",
+      );
+    }
+  }
+  const failed = await runIndependent(
+    [
+      verifyInstalledPackages,
+      verifyTtscBuild,
+      verifyTtsxRun,
+      verifyLintConfigLoaderWithRealpathTemp,
+    ],
+    (verify) => {
+      verify();
+      return 0;
+    },
+  );
+  assert(
+    failed.length === 0,
+    `Failed compiler installation contracts: ${failed.map((verify) => verify.name).join(", ")}`,
+  );
   console.log("Success");
 }
 

@@ -19,6 +19,7 @@ const skipPack = process.argv.includes("--skip-pack");
 const packCurrent = process.argv.includes("--pack-current");
 const platformKey = `${process.platform}-${process.arch}`;
 const platformTarball = `ttsc-${platformKey}`;
+const installedPlugins = ["banner", "lint", "paths", "strip"];
 const registryDependencies = [
   "@farmfe/core@1.7.11",
   "@react-router/dev@8.4.0",
@@ -40,6 +41,9 @@ const registryDependencies = [
   // workspace `tsc` binary through TTSC_TSGO_BINARY (set in `run`), so the
   // consumer only needs the legacy compiler here to satisfy Next.
   "typescript@6.0.3",
+  // The compiler installation scenario keeps the native TypeScript dependency
+  // while Next retains the classic compiler API it requires.
+  "typescript-native@npm:typescript@7.0.2",
   "vite@7.3.6",
   "webpack@5.107.1",
   "webpack-cli@7.2.3",
@@ -75,6 +79,7 @@ const { runIndependent } = requireFromRoot("./scripts/ci/run-independent.cjs");
 // Each phase owns its output directory. The Next builds and matcher probe share
 // next.config.mjs/dist-next and therefore remain one serial phase.
 const buildPhases = {
+  installed: verifyInstalledCompilerContracts,
   entrypoints: verifyEntrypoints,
   vite: verifyViteBuild,
   rollup: verifyRollupBuild,
@@ -187,13 +192,19 @@ function prepareCurrentTarballs() {
     run("pnpm run build:current", root, { TTSC_BUILD_SCOPE: "experimental" });
 
   fs.mkdirSync(tarballs, { recursive: true });
-  for (const name of ["ttsc", platformTarball, "unplugin"]) {
+  for (const name of [
+    "ttsc",
+    platformTarball,
+    "unplugin",
+    ...installedPlugins,
+  ]) {
     fs.rmSync(path.join(tarballs, `${name}.tgz`), { force: true });
   }
 
   packPackage("ttsc", "ttsc");
   packPackage(platformTarball, platformTarball);
   packPackage("unplugin", "unplugin");
+  for (const name of installedPlugins) packPackage(name, name);
 }
 
 function packPackage(packageDirName, tarballName) {
@@ -793,8 +804,32 @@ function installTarballs() {
     tarball("ttsc"),
     tarball(platformTarball),
     tarball("unplugin"),
+    ...installedPlugins.map(tarball),
   ].join(" ");
   run(command, workspace);
+}
+
+/** Preserve the complete shipped-compiler contract in this consumer install. */
+function verifyInstalledCompilerContracts() {
+  const result = cp.spawnSync(
+    process.execPath,
+    [
+      ...process.execArgv,
+      path.join(root, "experimental", "install", "src", "index.ts"),
+      `--consumer=${workspace}`,
+    ],
+    {
+      cwd: experimentRoot,
+      env: {
+        ...process.env,
+        TTSC_CACHE_DIR: pluginCache,
+      },
+      stdio: "inherit",
+      windowsHide: true,
+    },
+  );
+  if (result.error) throw result.error;
+  assert(result.status === 0, "installed compiler contracts failed");
 }
 
 function verifyEntrypoints() {
