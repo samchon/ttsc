@@ -135,7 +135,7 @@ The store is one directory per user below the system temporary directory, owned 
 
 A publication is named by what the compile is down to the compiler that ran it (`session/sharedCompileIdentity.ts`: the tsconfig, the overlays, the plugin list, the ttsc and TypeScript-Go versions by ttsc's own rule, this adapter's version, and the platform); the plugins' Go sources and build environment are proven by their state at adoption instead.
 
-The store bounds itself in `session/claimSharedCompile.ts`: an adoption marks its publication used, each publish keeps the four most recently used publications of its identity and the 32 of the whole store, and removes locks and partial writes whose writer is gone.
+The store bounds itself in `session/claimSharedCompile.ts`: an adoption marks its publication used, and each publish keeps up to four publications per identity and 32 across the store within a 256 MiB byte budget. A publication larger than that budget stays in the compiling worker, so later workers cannot adopt that new result. Pruning also removes locks and partial writes whose writer is gone; concurrent publication and failed removal can temporarily leave more than the budgets allow.
 
 The publication rule, in `generation/captureTransformGeneration.ts`: a success is published only when its whole snapshot is reusable as captured, the graph's own proofs included, since an envelope whose graph proof fails here fails it in every adopter too and a pool would then compile nothing else until its attempts ran out; a compile that ended in diagnostics only when the project held still; an exception never.
 

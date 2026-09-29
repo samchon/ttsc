@@ -29,6 +29,9 @@ const KEPT_PUBLICATIONS = 4;
  */
 const KEPT_STORE_PUBLICATIONS = 32;
 
+/** Maximum publication bytes retained by the shared store after pruning. */
+const KEPT_STORE_BYTES = 256 * 1024 * 1024;
+
 /**
  * Ask the session store for the compile named `identity` and `state`: another
  * worker's publication, or the lock to compile it here (samchon/ttsc#1390).
@@ -44,8 +47,10 @@ const KEPT_STORE_PUBLICATIONS = 32;
  *
  * The store outlives the processes that use it (samchon/ttsc#1483), so it
  * bounds itself: an adoption marks its publication used, and each publication
- * keeps the most recently used ones of its identity and of the whole store, and
- * removes locks and partial writes whose writer is gone.
+ * keeps the most recently used ones of its identity within the store's count
+ * and byte budgets, and removes locks and partial writes whose writer is gone.
+ * A publication larger than the byte budget stays in the compiling worker; it
+ * cannot be shared without making persistent storage unbounded.
  *
  * Sharing is only an optimization. Any failure to read, lock, or write the
  * store answers `undefined`, and the caller compiles for itself. With `adopt:
@@ -92,21 +97,21 @@ const KEPT_STORE_PUBLICATIONS = 32;
  *
  * @evidence contracts/performance.md#efficient-algorithms
  *   Waiters yield with capped backoff. Pruning scans the persisted store and
- *   sorts last-use entries because independent processes share its inventory;
- *   a process-local index alone would not describe that store.
+ *   sorts last-use entries, then totals their sizes once, because independent
+ *   processes share its inventory; a process-local index would not describe it.
  *
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   The identity/state pair shares one generation across workers. The producer
  *   supplies those digests and the caller validates adoption; a pathname alone
- *   does not establish input equivalence. Store failure returns control to the
- *   actual compile path when shared computation is unavailable.
+ *   does not establish input equivalence. Store failure or an oversized
+ *   publication leaves later workers on the actual compile path.
  *
  * @evidence contracts/performance.md#bound-retention-and-release-resources
- *   Each publication best-effort prunes to four files per identity and 32 in
- *   the store. Concurrent writes or failed removals may exceed those counts
- *   until a later prune, and publication bytes have no fixed bound. A holder
- *   releases its heartbeat and owned lock; later prunes remove abandoned locks
- *   and partial writes left by departed workers.
+ *   A publication over 256 MiB is not persisted. Each successful publication
+ *   best-effort prunes to four files per identity, 32 store-wide and 256 MiB of
+ *   publication bytes. Concurrent writes or failed removals can temporarily
+ *   exceed these limits. A holder releases its heartbeat and owned lock; later
+ *   prunes remove abandoned locks and partial writes of departed workers.
  */
 export async function claimSharedCompile(
   store: string,
@@ -288,7 +293,12 @@ function holdLock(
     publish: async (value) => {
       const temporary = `${publication}.${process.pid}.${crypto.randomUUID()}.tmp`;
       try {
-        await fs.promises.writeFile(temporary, JSON.stringify(value), "utf8");
+        const serialized = JSON.stringify(value);
+        if (Buffer.byteLength(serialized, "utf8") > KEPT_STORE_BYTES) {
+          await prunePublications(store, identity);
+          return;
+        }
+        await fs.promises.writeFile(temporary, serialized, "utf8");
         // A holder that lost the lock while it compiled no longer speaks for
         // the store: its successor may already have published a newer answer,
         // which this one must not replace. Checked after the write, right
@@ -327,9 +337,8 @@ function holdLock(
 }
 
 /**
- * Keep the most recently used publications of `identity` and of the whole
- * store, removing the rest, and remove the locks and partial writes of workers
- * that are gone.
+ * Keep the most recently used publications of `identity` within the store's
+ * count and byte budgets, and remove abandoned locks and partial writes.
  */
 async function prunePublications(
   store: string,
@@ -342,9 +351,10 @@ async function prunePublications(
       .map(async (entry) => {
         const file = path.join(store, entry);
         try {
-          return { entry, file, used: (await fs.promises.stat(file)).mtimeMs };
+          const stat = await fs.promises.stat(file);
+          return { entry, file, size: stat.size, used: stat.mtimeMs };
         } catch {
-          return { entry, file, used: -1 };
+          return { entry, file, size: 0, used: -1 };
         }
       }),
   );
@@ -354,6 +364,12 @@ async function prunePublications(
     ...own.slice(KEPT_PUBLICATIONS).map(({ file }) => file),
     ...dated.slice(KEPT_STORE_PUBLICATIONS).map(({ file }) => file),
   ]);
+  let keptBytes = 0;
+  for (const { file, size } of dated) {
+    if (removed.has(file)) continue;
+    if (size > KEPT_STORE_BYTES - keptBytes) removed.add(file);
+    else keptBytes += size;
+  }
   for (const file of removed) {
     await fs.promises.rm(file, { force: true }).catch(() => undefined);
   }
