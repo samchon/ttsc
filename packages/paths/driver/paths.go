@@ -31,6 +31,13 @@ type plugin struct{}
 // declaration introduced (isModuleLoader). A complete declaration would have to
 // name those, and the second of them is exactly the global-scope set the
 // declaration drops, so silence keeps the sound host-owned bound (samchon/ttsc#1263).
+//
+// The rewriter uses the program's own Checker and filesystem case policy,
+// following TypeScript-Go's module-pattern precedence and emit-path model.
+// Its per-program source index and ordered patterns are reused by all file
+// walks; the AST traversal closure is allocated once per walk. Consumer names
+// do not select transforms, and native paths become slash-separated specifiers
+// only after output mapping.
 func (plugin) ApplyProgram(prog *driver.Program, _ driver.PluginContext) error {
   rewriter := newRewriter(prog)
   for _, file := range prog.SourceFiles() {

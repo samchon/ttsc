@@ -21,20 +21,15 @@ import path from "node:path";
  *   The package name and stage are protocol values; no consumer, fixture or
  *   test determines them, and the factory patches no foreign API.
  *
- *   The prior handwritten CommonJS entry was outside TypeScript selection and
- *   could not be enrolled by the installed checker. The owning package now
- *   builds its TypeScript entry and declarations, removing the handwritten
- *   module.exports path without another adapter. Compiler-emitted CommonJS
- *   remains ordinary build output supported by the host's default-export
- *   loader. The build, Evidence check, ordinary/space/Unicode descriptor
- *   comparison and six existing paths feature cases verify registration and
- *   behavior; no performance improvement is claimed.
+ *   The TypeScript entry and generated declarations replace the handwritten
+ *   CommonJS entry and declaration path. Compiler-emitted CommonJS uses the
+ *   host's default-export loader without a separate runtime adapter.
  *
  * @evidence contracts/portability.md#os-neutral-implementation
  *   node:path.resolve constructs the absolute sibling driver path from the
- *   host-supplied dirname on Windows and POSIX. The factory performs no
- *   filesystem reads or process invocation and uses no ambient __dirname; its
- *   empty input map introduces no platform-specific state.
+ *   host-supplied dirname on Windows and POSIX. Native roots and separators
+ *   come from that supplied directory, rather than an ambient __dirname or a
+ *   manually concatenated path.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   Native JSDoc explains the host directory, driver ownership and the
