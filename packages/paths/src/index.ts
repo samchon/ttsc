@@ -12,18 +12,25 @@ import path from "node:path";
  * claiming that the native transform has no project-wide dependencies.
  *
  * @evidence contracts/common.md#principled-implementation
- *   The factory follows the maintained banner package's TypeScript entry and
- *   compiler-generated declaration convention, and the host's supported
- *   default-export factory protocol. node:path.resolve locates sibling native
- *   source from the supplied module directory.
+ *   The host evaluates the default-export factory with the loaded module's
+ *   absolute directory. Resolving its sibling driver directory identifies the
+ *   shipped Go transform independently of the caller's working directory.
+ *   The descriptor registers that source at the host's transform stage;
+ *   compiler options and alias resolution remain the native driver's inputs.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   This factory only maps the host directory to a native registration. Its
+ *   context type exposes that one input, and its result type separates source,
+ *   package identity, stage and the declaration of external descriptor inputs.
+ *   It has no duplicate alias policy or speculative plugin configuration.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   The package name and stage are protocol values; no consumer, fixture or
  *   test determines them, and the factory patches no foreign API.
  *
- *   The TypeScript entry and generated declarations replace the handwritten
- *   CommonJS entry and declaration path. Compiler-emitted CommonJS uses the
- *   host's default-export loader without a separate runtime adapter.
+ *   The default-export protocol uses the supported host loader. No wrapper
+ *   substitutes its own transform implementation or compensates for failed
+ *   source resolution.
  *
  * @evidence contracts/portability.md#os-neutral-implementation
  *   node:path.resolve constructs the absolute sibling driver path from the
@@ -36,8 +43,8 @@ import path from "node:path";
  *   limited meaning of descriptor-input reuse in separate paragraphs. Context
  *   and result members describe their consuming protocol rather than
  *   repeating their types, following the documentation skill's clear prose
- *   and rationale guidance; the maintainer walkthrough is updated for the
- *   built entry.
+ *   and rationale guidance. The README explains the compiler options that
+ *   control the separate native transformation.
  */
 export default function createTtscPaths(
   context: TtscPathsFactoryContext,
@@ -47,8 +54,7 @@ export default function createTtscPaths(
     // launch reuse its evaluation (samchon/ttsc#1561).
     hostInputHashes: {},
     name: "@ttsc/paths",
-    // `context.dirname` is this descriptor's own directory in every load mode —
-    // the ESM-safe replacement for `__dirname`.
+    // The host supplies the descriptor's directory for every load mode.
     source: path.resolve(context.dirname, "..", "driver"),
     stage: "transform",
   };
