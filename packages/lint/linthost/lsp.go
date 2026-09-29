@@ -1166,9 +1166,9 @@ func lspFormatBuffer(content string, opts *lspCommandOptions) (*lspWorkspaceEdit
   parseName := filepath.ToSlash(target)
   for pass := 0; pass < maxFormatPasses; pass++ {
     file := shimparser.ParseSourceFile(shimast.SourceFileParseOptions{FileName: parseName}, text, scriptKind)
-    if file == nil || len(file.Diagnostics()) > 0 {
-      // A recovered parse still contains syntax diagnostics. Match the checker
-      // path's no-edit policy instead of fixing only the valid parts of a buffer.
+    if file == nil || len(file.Diagnostics()) > 0 || len(file.JSDiagnostics()) > 0 {
+      // The parser separates ordinary syntax errors from JS/JSX-only errors.
+      // Reject both, matching the checker's syntactic diagnostics policy.
       return nil, 0
     }
     findings := filterFormatFindings(engine.Run([]*shimast.SourceFile{file}, nil))
