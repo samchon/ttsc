@@ -14,6 +14,9 @@ type ITtscGraphNode = TtscGraphReadonly<NodeShape>;
  * @evidence contracts/common.md#clear-and-simple-design One compact outcome is shared by direct-id, name and file-qualified resolution paths.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Ranked candidates remain unresolved choices rather than a guessed definitive node.
  * @evidence contracts/common.md#meaningful-documentation Native member comments distinguish uniquely resolved identity from ranked ambiguity.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms This outcome record chooses no search or ranking strategy; resolveGraphHandle owns those choices.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The result transfers a resolution state without coordinating reusable computation.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Callers own the optional candidate array; this record retains no independent resource.
  */
 export interface IResolvedGraphHandle {
   /** Present when the handle identifies exactly one node. */
@@ -53,6 +56,9 @@ export interface IResolvedGraphHandle {
  * @evidence contracts/common.md#clear-and-simple-design Resolution helpers each own one handle form and one shared ranker orders ambiguity consistently.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts General handle grammar and compiler export edges guide fallback, not repository-specific expected symbol lists.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe supported stale-id, file-qualified and value-receiver spellings plus preserved ambiguity.
+ * @evidence contracts/performance.md#efficient-algorithms Exact id and symbol probes use generation indexes; a dotted-suffix miss can scan all V nodes, and C matched candidates cost their indexed edge degrees plus O(C log C) sorting before the cap.
+ * @evidence contracts/performance.md#reuse-equivalent-work The graph shares id, symbol and adjacency indexes across handle resolutions; each call ranks a fresh candidate set because the spelling and requested limit can differ.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Candidate lists are request-local and returned to the caller; the resolver retains no history, handle or running task.
  */
 export function resolveGraphHandle(
   graph: TtscGraphMemory,

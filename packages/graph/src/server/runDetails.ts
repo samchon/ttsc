@@ -46,6 +46,9 @@ const CONTAINER_KINDS = new Set<ITtscGraphNode["kind"]>([
  * @evidence contracts/common.md#clear-and-simple-design Shape, relationship and source-display helpers each own one projection while this function assembles the selected details envelope.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown and ambiguous handles are not converted to guessed declarations; capped members withdraw the corresponding completeness audit.
  * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes declared shape from implementation bodies; helper documentation explains member, reference and citation limits.
+ * @evidence contracts/performance.md#efficient-algorithms Each handle uses the shared resolver, whose dotted-suffix fallback may scan V nodes; resolved relationships use indexed adjacency and cost O(D log D) to rank D candidate edges before the cap, while member/literal output scales with the declaration's own members.
+ * @evidence contracts/performance.md#reuse-equivalent-work The graph shares generation indexes and source-line adjudications across handles and requests; this call builds fresh caller-owned projections because request limits and selected handles differ.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Detail, ambiguity and unknown arrays live for this request and transfer to its caller; no query history or native handle is retained by this operation.
  */
 export function runDetails(
   graph: TtscGraphMemory,
@@ -492,6 +495,9 @@ function edgeKindRank(kind: string): number {
  * @evidence contracts/common.md#clear-and-simple-design One accessor shares decorator projection across details, lookup and tour consumers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No framework-specific reinterpretation changes the collected decorator facts.
  * @evidence contracts/common.md#meaningful-documentation The native headline states collected-fact and empty-facet behavior before the tags.
+ * @evidence contracts/performance.md#efficient-algorithms One pass copies each decorator and its arguments, costing their total population without scanning unrelated graph nodes.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This caller-owned projection performs no cross-request coordination; the graph owns the shared source facts.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned array transfers to its caller and this helper retains no state or handle.
  */
 export function decoratorsOf(
   node: ITtscGraphNode,
@@ -521,6 +527,9 @@ export function decoratorsOf(
  * @evidence contracts/common.md#clear-and-simple-design One projection helper owns tag selection and display elision for every graph result consumer.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Address matches are not re-evaluated against truncated text and long addresses are never cut into another target.
  * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain the display budget, protected address and filter-before-elision ordering.
+ * @evidence contracts/performance.md#efficient-algorithms Filtering and mapping visit the node's tags once each; elision examines the leading address and copies at most the needed display prefix.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Selection depends on a caller predicate and returns a fresh mutable projection; this helper coordinates no reusable result.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The selected and returned arrays are request-local and no historical tags are retained here.
  */
 export function docTagsOf(
   node: ITtscGraphNode,
@@ -564,6 +573,9 @@ function elideTagText(text: string): string {
  * @evidence contracts/common.md#clear-and-simple-design One coordinate mapper is shared by graph runners and node implementation evidence.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing source evidence stays absent rather than being replaced with the caller's declaration span.
  * @evidence contracts/common.md#meaningful-documentation The native headline explains public-coordinate projection and absent evidence behavior.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Copying a fixed set of optional coordinates chooses no input-dependent processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This fixed-size projection coordinates no cross-request computation.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned value transfers to its caller without a retained handle or cache.
  */
 export function edgeEvidenceOf(
   edge: ITtscGraphEdge,
@@ -600,6 +612,9 @@ function evidenceCoordinatesOf(
  * @evidence contracts/common.md#clear-and-simple-design This helper owns a short documentation projection; the source reader owns immutable generation validation and caching.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A missing or mismatched source yields absence rather than an inferred purpose from names or implementation text.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain first-sentence purpose and distinguish declaration prose from implementation bodies.
+ * @evidence contracts/performance.md#efficient-algorithms The source reader supplies indexed, cached lines; this helper scans only the adjacent comment and joins its prose, costing the comment's lines and characters.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Source-byte validation and line splitting are shared by the reader; this pure projection does not coordinate a separate result cache.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Comment and prose arrays are local to this call and no history or handle is retained.
  */
 export function docOf(
   graph: TtscGraphMemory,
@@ -652,6 +667,9 @@ export function docOf(
  * @evidence contracts/common.md#clear-and-simple-design The producer owns declaration syntax boundaries and this helper owns display length, with no second partial TypeScript parser.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing heads are not repaired by a line-scan heuristic that can leak implementation or neighboring declarations.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the producer requirement, missing-head absence and source-span escape path.
+ * @evidence contracts/performance.md#efficient-algorithms Splitting the producer head and selecting its first display lines costs the supplied signature's length; no source file or graph traversal occurs.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The producer head is already shared on the graph node, while this display projection coordinates no repeated work.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The capped text is caller-owned and this helper retains no cache or native resource.
  */
 export function signatureOf(
   _graph: TtscGraphMemory,

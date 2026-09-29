@@ -26,6 +26,8 @@
         "!src/server/runEntrypoints.ts",
         "!src/server/runLookup.ts",
         "!src/server/runOverview.ts",
+        "!src/server/runDetails.ts",
+        "!src/server/resolveHandle.ts",
         "!src/server/runTrace.ts",
         "!src/server/startServer.ts"
       ],
@@ -51,6 +53,8 @@
         "src/server/runEntrypoints.ts",
         "src/server/runLookup.ts",
         "src/server/runOverview.ts",
+        "src/server/runDetails.ts",
+        "src/server/resolveHandle.ts",
         "src/server/runTrace.ts"
       ],
       "symbol": ["type", "function"],
