@@ -178,6 +178,11 @@ export function serializeOptions(
  * behaviour for a project that called `withTtsc(config)` with no explicit
  * options.
  *
+ * A present `plugins` property is forwarded even when its value is `false`;
+ * omission leaves plugin selection to the project. The `include` and `exclude`
+ * arrays retain only string entries, while invalid array values become empty
+ * filters. Only a non-empty string is accepted as the private run identity.
+ *
  * @evidence contracts/common.md#principled-implementation
  *   JSON.parse reads the adapter-owned environment channel. The parser accepts
  *   only object payloads, filters include/exclude to strings and preserves

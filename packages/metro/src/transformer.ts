@@ -136,6 +136,10 @@ export function resolveAbsoluteFilename(
  * author's lines, because Metro maps the AST against the file it read
  * (samchon/ttsc#1392).
  *
+ * An explicit `project` option selects its tsconfig. Otherwise the adapter
+ * discovers the nearest tsconfig from the file's absolute path, using Metro's
+ * `projectRoot` or the current working directory to resolve a relative file.
+ *
  * @evidence contracts/common.md#principled-implementation
  *   Metro's transformer callback composes the shared Unplugin transform core
  *   with the selected Babel transformer. One resolved project view is frozen
