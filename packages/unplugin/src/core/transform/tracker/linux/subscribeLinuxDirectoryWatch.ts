@@ -35,6 +35,32 @@ import { syncLinuxWatchHelper } from "./syncLinuxWatchHelper";
  *
  * Throws when there is no helper to serve the watch, which the caller treats as
  * a failed tracker, falling back to snapshot validation.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   A first subscriber waits for native opening; a joining subscriber waits for
+ *   its own ordered sync before accepting later lines, preserving temporal scope.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One shared directory entry owns the native subscription; each observer owns
+ *   wrappers and a closer, with last-subscriber retirement in the shared closer.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Joining cannot consume pre-subscription queued events as fresh mutations;
+ *   failed synchronization reports unavailable coverage rather than guessed success.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs explain sharing, first and joining readiness, loss events
+ *   and failure under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   OS-neutral owners receive names and lifecycle callbacks while helper protocol
+ *   ordering remains native-owned; node:path resolves the subscription key.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Subscription lookup is expected constant work; dispatch snapshots only the
+ *   observers of that directory, O(s) in its subscriber count, not all graph files.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Resolved directory spellings share one helper watch while each join validates
+ *   its temporal boundary. Different lexical aliases may still use separate entries.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Subscriber close removes its callbacks; the final listener retires the shared
+ *   entry and native id. Failure clears callbacks and entry ownership; population
+ *   grows with distinct live directory spellings and observers, not historical joins.
  */
 export function subscribeLinuxDirectoryWatch(
   directory: string,

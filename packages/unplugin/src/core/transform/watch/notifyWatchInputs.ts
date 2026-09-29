@@ -30,6 +30,15 @@ import { selectionInputs } from "./selectionInputs";
  * A build host (`project`) receives the project's record instead, written to
  * the generation's state from every input of the generation
  * (`notifyProjectRecord`).
+ *
+ * @evidence contracts/common.md#principled-implementation Module delivery derives the selected file's dependency set, while project delivery records the full generation plus each module's consulted routing configs; membership remains an explicitly requested additional input.
+ * @evidence contracts/common.md#clear-and-simple-design Both host models share one routing observation batch, with dependency selection, evidence mapping and record persistence delegated to their actual owners.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Disposed scratch paths are removed by derivation and a missing project record marks output volatile instead of pretending module bytes cover type-only changes.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish module and project dependencies, scratch exclusion and routing, followed by separated tags under documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation Generation-owned identity and hostSpelling keep native physical identity separate from adapter spelling; routing observations use the delivery's filesystem capability.
+ * @evidence contracts/performance.md#efficient-algorithms Derivation visits the selected dependency population and maps one carrier per input; selection config hashes are captured once and their evidence shared between record and module delivery.
+ * @evidence contracts/performance.md#reuse-equivalent-work Generation-wide inputs and membership reuse their weak-keyed snapshots; actual per-module callback effects still run for every delivery and newly consulted configs extend the record snapshot.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This orchestrator owns call-local batches; generation snapshots, persistent records and watchers have separate retention owners.
  */
 export function notifyWatchInputs(
   hooks: TtscTransformHooks | undefined,
@@ -37,20 +46,31 @@ export function notifyWatchInputs(
   file: string,
   selection: TtscWatchSelection,
 ): void {
-  if (hooks === undefined) return;
+  if (
+    hooks === undefined ||
+    (hooks.project === undefined &&
+      hooks.addWatchFile === undefined &&
+      hooks.addWatchFiles === undefined)
+  ) {
+    return;
+  }
   const state = envelopeDerivation(cached);
+  const routedInputs = selectionInputs(
+    selection.consulted,
+    selection.filesystem,
+    (input) => input,
+  );
   // A module handed over without its record depends on its own bytes alone,
   // so no persistent cache may keep it.
   if (
     hooks.project !== undefined &&
-    !notifyProjectRecord(hooks.project, cached, false, () => [
-      ...generationWatchInputs(cached),
-      ...selectionInputs(
-        selection.consulted,
-        selection.filesystem,
-        (input) => input,
-      ),
-    ])
+    !notifyProjectRecord(
+      hooks.project,
+      cached,
+      false,
+      () => generationWatchInputs(cached),
+      routedInputs,
+    )
   ) {
     hooks.markVolatile?.();
   }
@@ -71,7 +91,7 @@ export function notifyWatchInputs(
     hooks.membership === true ? projectMembershipInput(cached) : undefined;
   if (membership !== undefined) inputs.push(membership);
   inputs.push(
-    ...selectionInputs(selection.consulted, selection.filesystem, spell),
+    ...routedInputs.map((input) => ({ ...input, file: spell(input.file) })),
   );
   handWatchInputs(hooks, inputs);
 }

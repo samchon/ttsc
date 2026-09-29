@@ -1,15 +1,28 @@
-import type fs from "node:fs";
-import path from "node:path";
 import type { ITtscCompilerTransformation } from "ttsc";
 import type { FilesystemPathIdentityContext } from "ttsc/path-identity";
 
 import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransformFilesystemOperations";
 import { compilerInputRealpathObservation } from "./compilerInputRealpathObservation";
+import { compilerAccessibleEntries } from "./compilerAccessibleEntries";
 import { compilerStatKind } from "./compilerStatKind";
 import { graphInputReadHash } from "./graphInputReadHash";
 import { sameHostInputRealpath } from "./sameHostInputRealpath";
 
-/** Return the exact recorded predicates that no longer hold for one spelling. */
+/**
+ * Replay the predicates recorded for one compiler-input spelling and collect
+ * every mismatch. Only recorded predicates are observed; one following stat is
+ * shared by kind, existence and read checks. Directory listings preserve sorted
+ * compiler entry names, while realpaths compare through filesystem identity.
+ *
+ * @evidence contracts/common.md#principled-implementation Each present predicate compares its recorded result with compiler-compatible replay, preserving read failure, native kind, listing order and realpath identity as separate observations.
+ * @evidence contracts/common.md#clear-and-simple-design The collector owns mismatch names and delegates stat, text normalization and physical equivalence to their single-purpose observers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Unrecorded predicates are not invented, and read or resolution failure is compared against recorded failure instead of replaced by a convenient cache match.
+ * @evidence contracts/common.md#meaningful-documentation Native prose states full collection, absent-predicate behavior and shared observations, with separated acknowledgment tags following documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation OS-neutral replay uses the supplied filesystem and identity context; accessible-entry joining selects that view's path dialect and realpath equality follows actual case capabilities.
+ * @evidence contracts/performance.md#efficient-algorithms A single stat serves four related predicates; listing work is O(E log E) for sorting and text hashing is O(B), while absent listing/read predicates perform neither operation.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This collects one current replay; the generation owner decides whether an earlier replay remains valid across requests.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Entry arrays and failure names are observation-local, with no persistent cache, descriptor or running task owned by the collector.
+ */
 export function graphInputObservationFailures(
   file: string,
   observation: ITtscCompilerTransformation.IInputObservation,
@@ -72,43 +85,4 @@ export function graphInputObservationFailures(
     }
   }
   return failures;
-}
-
-/** Replay TypeScript-Go's accessible-entry classification and sorted order. */
-function compilerAccessibleEntries(
-  directory: string,
-  filesystem: TtscTransformFilesystemOperations,
-): NonNullable<
-  ITtscCompilerTransformation.IInputObservation["accessibleEntries"]
-> {
-  const directories: string[] = [];
-  const files: string[] = [];
-  const pathApi = filesystem.platform === "win32" ? path.win32 : path.posix;
-  let entries: fs.Dirent[];
-  try {
-    entries = filesystem.readdir(directory);
-  } catch {
-    return { directories, files };
-  }
-  for (const entry of entries) {
-    if (entry.isDirectory()) {
-      directories.push(entry.name);
-      continue;
-    }
-    if (entry.isFile()) {
-      files.push(entry.name);
-      continue;
-    }
-    if (!entry.isSymbolicLink()) continue;
-    try {
-      const target = filesystem.stat(pathApi.join(directory, entry.name));
-      if (target.isDirectory()) directories.push(entry.name);
-      else if (target.isFile()) files.push(entry.name);
-    } catch {
-      // TypeScript-Go omits inaccessible and broken linked entries.
-    }
-  }
-  directories.sort();
-  files.sort();
-  return { directories, files };
 }

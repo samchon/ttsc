@@ -21,6 +21,15 @@ import type { TtscWatchInputEvidence } from "./TtscWatchInputEvidence";
  * bytes' hash. The root-file membership is a walk over many paths and never
  * stands for one, so its evidence matches nothing here; the record holds it
  * apart. Evidence without a state proves nothing and does not match.
+ *
+ * @evidence contracts/common.md#principled-implementation Each codec replays its recorded meaning: complete predicates, graph hash plus physical target, raw host hash or plugin-tree state; membership and absent state cannot establish one-path agreement.
+ * @evidence contracts/common.md#clear-and-simple-design Discriminant branches delegate each observation to the codec owner and expose one conservative boolean comparison.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Exceptions and unsupported membership fail comparison rather than manufacturing a cache match or accepting watcher silence.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain record-only consumers, codec differences and unsupported membership, with separated tags following documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation Supplied filesystem capabilities and actual physical identity comparisons preserve native semantics; plugin-tree environment validation delegates to the native build-state owner.
+ * @evidence contracts/performance.md#efficient-algorithms Only the selected codec is replayed, costing its file bytes, listing population or plugin tree; unrelated predicates and membership walks are not performed.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This asks whether current disk observations match a record; observer and plugin-tree owners establish any valid reuse, rather than caching this boolean without change witnesses.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Comparison contexts and observed buffers are call-local; retained tree caches and active watchers have separate owners.
  */
 export function watchInputEvidenceMatchesDisk(
   file: string,

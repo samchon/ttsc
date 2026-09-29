@@ -10,12 +10,30 @@ import type { TtscTransformFilesystemOperations } from "../../filesystem/TtscTra
  * re-creates whenever any watch in the host opens or closes, and whose drops it
  * discards (samchon/ttsc#1418, samchon/ttsc#1425). An embedder that supplies
  * its own `watch` observes another filesystem, and keeps it.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   A supplied filesystem watcher is authoritative; only the native host
+ *   implementation chooses isolated Windows or macOS notification ownership.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One capability guard and two platform names select the backend; opening
+ *   watches and managing child lifetime remain separate responsibilities.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Isolation addresses native failure and stream continuity at their owner;
+ *   it does not replace a supplied watcher or patch host internals.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs state the backend selection and its distinct platform
+ *   reasons, following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   OS-neutral callers delegate explicit native backend selection here.
+ *   Platform checks concern watcher capability, not path equality or casing.
  */
 export function usesWatchBroker(
   filesystem: TtscTransformFilesystemOperations,
 ): boolean {
   return (
     filesystem.watch === undefined &&
+    (filesystem.platform === undefined ||
+      filesystem.platform === process.platform) &&
     (process.platform === "win32" || process.platform === "darwin")
   );
 }

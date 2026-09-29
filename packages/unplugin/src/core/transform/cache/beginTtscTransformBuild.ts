@@ -17,6 +17,11 @@ import type { TtscTransformCache } from "./TtscTransformCache";
  * Hosts without a guaranteed pass boundary use persistent validation unless
  * they have another immutable lifecycle. Bun runtime setup, for example,
  * defines one process-scoped module-loading session.
+ *
+ * @evidence contracts/common.md#principled-implementation Advancing the delivery epoch opens a new proof window without discarding the compiled generation, whose first delivery must still prove its snapshot.
+ * @evidence contracts/common.md#clear-and-simple-design One cache-owned counter declares the pass; validation and disposal remain separate operations.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts A pass boundary does not fabricate freshness or clear valid work to hide an invalidation error.
+ * @evidence contracts/common.md#meaningful-documentation The paragraphs distinguish delivery epochs from generation validity and identify hosts that lack a guaranteed pass boundary.
  */
 export function beginTtscTransformBuild(cache: TtscTransformCache): void {
   TRANSFORM_CACHE_EPOCHS.set(

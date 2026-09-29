@@ -6,7 +6,23 @@ import { DEFAULT_FILESYSTEM_OPERATIONS } from "../filesystem/DEFAULT_FILESYSTEM_
 import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransformFilesystemOperations";
 import { pathIsWithin } from "../filesystem/pathIsWithin";
 
-/** Create compiler scratch storage outside the project snapshot and watchers. */
+/**
+ * Create compiler scratch storage outside the project snapshot and watchers.
+ *
+ * Candidate parents are checked lexically and physically before creation. The
+ * created child's postflight physical address is checked again and returned,
+ * so later compiler writes and disposal do not follow a retargeted parent link.
+ * Failed candidates are skipped only after their owned empty child is removed.
+ *
+ * @evidence contracts/common.md#principled-implementation Preflight and postflight containment reject scratch directories inside the physical project; the returned physical child address preserves the checked removal and compiler-write target.
+ * @evidence contracts/common.md#clear-and-simple-design One bounded candidate loop owns creation and immediate rejection cleanup, while the capturing generation owns the lifetime of an accepted directory.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts A failed outside-project check never falls back to project scratch, and rejected child cleanup failures propagate instead of being hidden as another candidate miss.
+ * @evidence contracts/common.md#meaningful-documentation The native paragraphs explain both identity checks, the returned physical spelling and the ownership condition on skipping a failed candidate; inline comments justify postflight removal.
+ * @evidence contracts/portability.md#os-neutral-implementation Node os and path provide native temporary/home candidates and containment; physical checks use the injected view, while actual random-child creation and removal use native fs without shell commands or blanket case folding.
+ * @evidence contracts/performance.md#efficient-algorithms A fixed candidate population is deduplicated before realpath and creation, with one successful random-child allocation; rejected candidates do not trigger a project-tree scan.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Scratch allocation is an ownership-bearing effect for one capture and must not be shared merely because two generations select the same candidate parent.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Rejected random empty children are removed synchronously and removal failure propagates; an accepted physical directory transfers to the generation owner for cleanup after compile/adoption lifetime ends.
+ */
 export function createTransformScratchDirectory(
   projectRoot: string,
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,

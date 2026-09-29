@@ -24,8 +24,14 @@ import { isPossibleProgramFileName } from "./isPossibleProgramFileName";
  * otherwise be invisible. A directory the configuration excludes is the
  * exception: the walk cannot see inside it, so the tracker must not either, or
  * emptying and recreating an `outDir` costs a compile per build. A path below a
- * name the walk skips never counts for the same reason. An event whose name the
- * host did not report is unattributable and always counts.
+ * name the walk skips never counts for the same reason. Callers handle
+ * unattributable events separately; this predicate classifies a named path.
+ *
+ * @evidence contracts/common.md#principled-implementation The same root-file and directory-exclusion policy classifies named event locations as the walk; current directory kind admits newly created source-containing subtrees while removed source filenames remain classifiable.
+ * @evidence contracts/common.md#clear-and-simple-design Policy gates precede one optional lstat, then filename classification handles deletion without requiring a current entry.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Output events are ignored by actual compiler admission and configured containment, not by broad directory-name exceptions that could hide real inputs.
+ * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain creation, deletion and output exclusion; the final sentence distinguishes caller-owned unattributable events from this named-path predicate.
+ * @evidence contracts/portability.md#os-neutral-implementation Native relative paths and separators classify event components, and the injected lstat view distinguishes directories from deleted filenames; no platform-wide lowercase rule substitutes for compiler admission.
  */
 export function reportsProgramMembership(
   root: string,
@@ -34,25 +40,27 @@ export function reportsProgramMembership(
   policy: ITtscProjectMembershipPolicy,
   filesystem: TtscTransformFilesystemOperations,
 ): boolean {
+  const platform = filesystem.platform ?? process.platform;
+  const pathApi = platform === "win32" ? path.win32 : path.posix;
   if (
-    path
+    pathApi
       .relative(root, location)
-      .split(path.sep)
+      .split(pathApi.sep)
       .some((segment) => isIgnoredProjectEntry(segment, policy))
   ) {
     return false;
   }
   if (
-    !matchesProjectRootFile(location, policy, false) &&
-    !matchesProjectRootFile(location, policy, true)
+    !matchesProjectRootFile(location, policy, false, platform) &&
+    !matchesProjectRootFile(location, policy, true, platform)
   ) {
     return false;
   }
   try {
     if (filesystem.lstat(location).isDirectory()) {
       return (
-        matchesProjectRootFile(location, policy, true) &&
-        !insideExcludedProjectDirectory(location, policy, false)
+        matchesProjectRootFile(location, policy, true, platform) &&
+        !insideExcludedProjectDirectory(location, policy, false, platform)
       );
     }
   } catch {
@@ -63,8 +71,8 @@ export function reportsProgramMembership(
     // directory the walk never descends into, because the digest cannot see
     // there either and the tracker must not be the one side that reacts.
     return (
-      matchesProjectRootFile(location, policy, false) &&
-      !insideExcludedProjectDirectory(location, policy, true)
+      matchesProjectRootFile(location, policy, false, platform) &&
+      !insideExcludedProjectDirectory(location, policy, true, platform)
     );
   }
   // Removed directories report their source removals through their own watch.

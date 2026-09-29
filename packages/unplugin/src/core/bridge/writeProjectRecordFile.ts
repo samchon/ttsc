@@ -18,6 +18,24 @@ import { projectRecordDigest } from "./projectRecordDigest";
  *
  * @returns The digest of the bytes the file holds for the record
  *   (`projectRecordDigest`), whether this call wrote them or found them there.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Sorted JSON keys make equivalent record states byte-identical; an exact
+ *   existing-byte comparison suppresses no-op writes. In-place updates preserve
+ *   inode-backed host watchers, and readers invalidate unreadable/torn records.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One operation owns serialization, byte comparison and persistence; record
+ *   validation and host refresh behavior stay with their respective consumers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   In-place writes address measured host watcher replacement semantics rather
+ *   than hiding state mismatches; no consumer path or expected output is hardcoded.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs explain idempotence, returned digest and non-atomic update
+ *   consequences; descriptive prose/tag spacing follows documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation Native parent creation and in-place writes preserve watched file identity across Windows and POSIX host watcher differences; torn or unreadable records are rejected by readers instead of claiming atomic replacement semantics.
+ * @evidence contracts/performance.md#efficient-algorithms Serialization sorts keys of each record dictionary and hashes the resulting bytes once; one existing-byte comparison avoids a native write when content is unchanged.
+ * @evidence contracts/performance.md#reuse-equivalent-work Exact persisted bytes permit sharing the existing record file across equivalent delivery states, while changed state requires a write; this does not replace filesystem validation of the recorded generation.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Synchronous native operations and serialization buffers are call-local; persisted record files deliberately outlive the process under the host cache protocol, whose deletion policy is owned by project refresh.
  */
 export function writeProjectRecordFile(
   file: string,

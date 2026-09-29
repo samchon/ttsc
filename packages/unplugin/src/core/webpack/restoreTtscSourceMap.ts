@@ -18,6 +18,11 @@ import { TTSC_SOURCE_MAP_STASH } from "./TTSC_SOURCE_MAP_STASH";
  * @param content Module text the previous loader produced.
  * @param map Source map the previous loader produced, if any.
  * @param meta Metadata the previous loader produced, handed on as is.
+ *
+ * @evidence contracts/common.md#principled-implementation Restoration requires the requesting loader context, missing incoming map, and exact transformed text; an unrelated map or changed content retains the host's result.
+ * @evidence contracts/common.md#clear-and-simple-design A single callback forwards content and metadata unchanged while choosing the one map this adapter owns.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The private WeakMap hands off owned transform output without replacing host methods or manufacturing a map to satisfy a test.
+ * @evidence contracts/common.md#meaningful-documentation The comment identifies the upstream map loss and every restoration condition; the callback receiver and pass-through parameters remain explicit.
  */
 export function restoreTtscSourceMap(
   this: {

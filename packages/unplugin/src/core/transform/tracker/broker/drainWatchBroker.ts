@@ -31,6 +31,31 @@ import type { WatchBroker } from "./WatchBroker";
  *   is given plus the same again, and a test of the wait itself passes less.
  * @param registration The registration asking, when one is; it shares the
  *   in-flight drain only when that drain covers it.
+ * @evidence contracts/common.md#principled-implementation
+ *   Id-bound replies establish ordering only for the snapshot of registrations
+ *   held before submission; timeout withdraws proof rather than certifying silence.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One scope snapshot and shared promise represent the current barrier;
+ *   startWatchBrokerDrain owns request bookkeeping and idempotent release.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Later registrations need a covering drain; a deadline cannot manufacture
+ *   native acknowledgment or be replaced with an arbitrary fixed-delay success.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs and parameters explain ordering, coverage, sharing and
+ *   false deadlines under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   OS-neutral host delivery delegates Windows loop ordering and macOS stream
+ *   probing to the native broker rather than applying one universal timing guess.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Reusing a covering barrier is constant lookup work; a new scope scans n
+ *   registrations once and retains O(n) ids, independent of project file count.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Concurrent callers share a current drain only if its snapshot contains the
+ *   requesting registration; finally clears only the promise it still owns.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Each outstanding drain owns an id, scope, timer and child reference; reply,
+ *   deadline and broker exit release them. Concurrent uncovered registrations
+ *   can create additional requests, bounded by current outstanding demand.
  */
 export function drainWatchBroker(
   broker: WatchBroker,

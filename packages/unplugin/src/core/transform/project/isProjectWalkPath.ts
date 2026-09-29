@@ -20,6 +20,12 @@ import { isPossibleProgramFileName } from "./isPossibleProgramFileName";
  * "walk-visible" here means "hashed by `collectProjectInputHashes`". Missing
  * paths and files reached through symlinks or Windows junctions are out-of-walk
  * inputs that only the reference graph can prove relevant.
+ *
+ * @evidence contracts/common.md#principled-implementation Lexical root containment, admitted filename policy and lstat of every component establish that the actual walk reaches this regular file without traversing a symlink or junction.
+ * @evidence contracts/common.md#clear-and-simple-design Ordered early rejections separate containment, policy and filesystem-kind checks; physical identity is deliberately not substituted for lexical traversal.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Unreadable, missing and linked paths remain out-of-walk so graph proof must cover them instead of silently treating an unvisited physical target as hashed.
+ * @evidence contracts/common.md#meaningful-documentation The native summary states the complete walk-membership premise, and inline paragraphs explain why canonical identity and unadmitted extensions cannot stand in for traversal.
+ * @evidence contracts/portability.md#os-neutral-implementation Node native path operations preserve root and drive boundaries, while the supplied lstat view detects symbolic links and Windows junctions without assuming global filesystem case sensitivity.
  */
 export function isProjectWalkPath(
   root: string,
@@ -28,21 +34,23 @@ export function isProjectWalkPath(
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
   policy: ITtscProjectMembershipPolicy = PERMISSIVE_PROJECT_MEMBERSHIP_POLICY,
 ): boolean {
+  const platform = filesystem.platform ?? process.platform;
+  const pathApi = platform === "win32" ? path.win32 : path.posix;
   // Walk membership is lexical. Resolving `file` to physical identity first
   // would turn `root/alias/value.ts` into `root/target/value.ts`, hide the
   // symlink segment from the lstat loop below, and falsely claim the project
   // walk hashed a path it deliberately never followed.
-  const resolvedRoot = path.resolve(root);
-  const relative = path.relative(resolvedRoot, path.resolve(file));
+  const resolvedRoot = pathApi.resolve(root);
+  const relative = pathApi.relative(resolvedRoot, pathApi.resolve(file));
   if (
     relative.length === 0 ||
     relative === ".." ||
-    relative.startsWith(`..${path.sep}`) ||
-    path.isAbsolute(relative)
+    relative.startsWith(`..${pathApi.sep}`) ||
+    pathApi.isAbsolute(relative)
   ) {
     return false;
   }
-  const segments = relative.split(path.sep);
+  const segments = relative.split(pathApi.sep);
   // The last segment is the file itself, which the walk names rather than
   // descends into, so only the directory components decide walk membership.
   if (
@@ -52,7 +60,7 @@ export function isProjectWalkPath(
   ) {
     return false;
   }
-  if (isExcludedProjectDirectory(path.dirname(path.resolve(file)), policy)) {
+  if (isExcludedProjectDirectory(pathApi.dirname(pathApi.resolve(file)), policy, platform)) {
     return false;
   }
   // The walk hashes only files that could enter the program, so a path it does
@@ -61,14 +69,14 @@ export function isProjectWalkPath(
   // `inputHashes` because the walk skipped it, and absent from the out-of-walk
   // snapshot because this predicate claimed the walk covered it.
   if (
-    !isPossibleProgramFileName(path.basename(file), policy) ||
-    !matchesProjectRootFile(file, policy, false)
+    !isPossibleProgramFileName(pathApi.basename(file), policy) ||
+    !matchesProjectRootFile(file, policy, false, platform)
   ) {
     return false;
   }
   let current = resolvedRoot;
   for (let index = 0; index < segments.length; ++index) {
-    current = path.join(current, segments[index]!);
+    current = pathApi.join(current, segments[index]!);
     let stats: fs.BigIntStats;
     try {
       stats = filesystem.lstat(current);

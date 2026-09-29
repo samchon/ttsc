@@ -6,7 +6,17 @@ import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransf
 import { createHostPathIdentityContext } from "../filesystem/createHostPathIdentityContext";
 import { graphInputObservationFailures } from "./graphInputObservationFailures";
 
-/** Validate one predicate-preserving graph proof against a filesystem view. */
+/**
+ * Normalize and replay one compiler graph observation against a filesystem view.
+ * Invalid or contradictory proof shape returns proof-conflict; otherwise the
+ * returned strings identify recorded predicates that no longer hold.
+ *
+ * @evidence contracts/common.md#principled-implementation Normalization rejects unsupported proof combinations before replay, and a filesystem-derived identity context supplies target equivalence for valid observations.
+ * @evidence contracts/common.md#clear-and-simple-design Proof-shape validation, context creation and predicate replay each retain a single owner rather than duplicating their rules here.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Malformed observations cannot bypass normalization or acquire fabricated successful predicates to match a cache entry.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains conflict versus changed-predicate results, followed by a blank acknowledgment separator under documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation OS-neutral normalization uses the supplied path dialect and constructs identity policy from that same filesystem's capabilities; recorded protocol paths are not blindly compared as native strings.
+ */
 export function validateGraphInputObservation(
   file: string,
   observation: ITtscCompilerTransformation.IInputObservation,

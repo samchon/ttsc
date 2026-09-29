@@ -18,6 +18,32 @@ import { routeLinuxWatchHelperLine } from "./routeLinuxWatchHelperLine";
  * unanswered, so each watch's observer stops vouching for anything; the next
  * watch starts a new helper. A binary that exits before answering at all is not
  * tried again.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   The compiler-owned binary resolves the native protocol producer; exit
+ *   invalidates all subscriptions and unanswered syncs before a later helper starts.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One process-wide holder owns startup and failure routing, while subscription
+ *   opening and request reference accounting stay in their dedicated operations.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   A binary that never answers is refused instead of repeatedly restarting an
+ *   unsupported command or silently replacing loss-aware native notifications.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs explain protocol provenance, failure propagation and retry
+ *   conditions under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   OS-neutral startup uses ttsc/binary and argument-array spawn with windowsHide;
+ *   native availability is observed rather than inferred from filesystem naming.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Reusing the current helper is constant work; failure walks live subscriptions
+ *   and syncs once, linear in outstanding owners rather than project file count.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   All directory subscriptions share one live helper. Failure clears only that
+ *   instance; refused binary paths prevent repeating equivalent unsupported starts.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   One current child serves process-owned subscriptions and is unreferenced
+ *   between requests; exit clears live state. Refused binary strings persist
+ *   for process lifetime and grow with distinct rejected resolved binary paths.
  */
 export function getLinuxWatchHelper(): LinuxWatchHelper | undefined {
   if (LINUX_WATCH_HELPER.current !== undefined) {

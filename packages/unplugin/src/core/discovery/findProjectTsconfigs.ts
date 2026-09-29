@@ -22,6 +22,43 @@ const HOST_PROJECT_TREE_DISCOVERY_FILESYSTEM: TtscProjectTreeDiscoveryFilesystem
  * collapsing two independent aliases of the same project. An incomplete
  * traversal is reported rather than returned as a complete project map, so a
  * cache-key caller can refuse reuse.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Each lexical directory contributes its config predicate. Physical ancestor
+ *   identities cut cycles within a branch while independent link aliases keep
+ *   their lexical projects. Unproven linked ancestry marks traversal incomplete.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Entry and exit frames on one stack maintain active physical ancestry.
+ *   Identity and ignored-directory helpers own their policies; traversal owns
+ *   completeness and lexical output.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   The filesystem view supplies native stat, directory entries and realpath.
+ *   Links and junctions use observed target kinds and physical spelling;
+ *   unresolved link identity marks incompleteness instead of guessing OS case.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Each reached lexical directory is enumerated once; a shared ancestor Set
+ *   gives constant-time cycle checks without copying ancestry at every child.
+ *   Entry/exit frames keep only active ancestry, and final sorting costs
+ *   O(c log c) for c observed config candidates.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   This traversal observes one current project tree; cross-call reuse and
+ *   proof of continued validity belong to its cache-key caller.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The returned map transfers to the caller. Pending frames and active
+ *   ancestry are temporary computation state, with no retained native handle.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Only package, VCS and host-cache directories are intentionally omitted;
+ *   unreadable state cannot masquerade as a complete empty project map.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Documentation explains lexical aliases, physical cycle guards and the
+ *   incomplete result, with reasons separated from the callback contract.
  */
 export function findProjectTsconfigs(
   root: string,
@@ -34,8 +71,9 @@ export function findProjectTsconfigs(
         ? path.win32
         : path.posix;
   type PendingDirectory = {
-    ancestors: ReadonlySet<string>;
     directory: string;
+    exiting?: boolean;
+    identity: string;
     physicalAncestorsComplete: boolean;
   };
   const rootDirectory = paths.resolve(root);
@@ -46,21 +84,28 @@ export function findProjectTsconfigs(
   );
   const pending: PendingDirectory[] = [
     {
-      ancestors: new Set([
-        rootIdentity ??
-          canonicalProjectPath(rootDirectory, filesystem.platform),
-      ]),
       directory: rootDirectory,
+      identity:
+        rootIdentity ??
+        canonicalProjectPath(rootDirectory, filesystem.platform),
       physicalAncestorsComplete:
         filesystem.realpath === undefined || rootIdentity !== undefined,
     },
   ];
   const candidates: string[] = [];
   const files: string[] = [];
+  const ancestors = new Set<string>();
   let complete =
     filesystem.realpath === undefined || rootIdentity !== undefined;
   while (pending.length !== 0) {
     const current = pending.pop()!;
+    if (current.exiting) {
+      ancestors.delete(current.identity);
+      continue;
+    }
+    if (ancestors.has(current.identity)) continue;
+    ancestors.add(current.identity);
+    pending.push({ ...current, exiting: true });
     const directory = current.directory;
     let entries: readonly (Pick<fs.Dirent, "isDirectory" | "name"> &
       Partial<Pick<fs.Dirent, "isSymbolicLink">>)[];
@@ -98,10 +143,10 @@ export function findProjectTsconfigs(
       }
       const stableIdentity =
         identity ?? canonicalProjectPath(child, filesystem.platform);
-      if (current.ancestors.has(stableIdentity)) continue;
+      if (ancestors.has(stableIdentity)) continue;
       pending.push({
-        ancestors: new Set([...current.ancestors, stableIdentity]),
         directory: child,
+        identity: stableIdentity,
         physicalAncestorsComplete,
       });
     }

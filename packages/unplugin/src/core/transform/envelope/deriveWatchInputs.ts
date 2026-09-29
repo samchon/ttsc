@@ -13,7 +13,24 @@ import { selectHostInputs } from "./selectHostInputs";
 import { selectPluginSourceInputs } from "./selectPluginSourceInputs";
 import { selectResolutionCandidateInputs } from "./selectResolutionCandidateInputs";
 
-/** Compute one file's watch-input list over the shared per-envelope state. */
+/**
+ * Compute one file's watch-input list over the shared per-envelope state.
+ *
+ * Plugin, resolver and host inputs retain distinct lexical aliases, since a
+ * symlink retarget can change one spelling independently of another. Graph
+ * reachability inputs coalesce by physical identity. The delivered file,
+ * temporary configuration and scratch inputs are excluded in their respective
+ * spelling or identity domain.
+ *
+ * The supplied file identity must come from this state's context. The caller
+ * owns memoization of the final ordered array; this operation only constructs it.
+ *
+ * @evidence contracts/common.md#principled-implementation Separate lexical and physical seen sets preserve alias-sensitive inputs while coalescing realized graph files; completeness narrows graph inputs only when the same file is not declared volatile.
+ * @evidence contracts/common.md#clear-and-simple-design Two local append policies make the different equivalence domains explicit, while specialized selectors own dependency, graph, resolver, host and plugin-source selection.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Temporary and scratch exclusions refer to generated implementation inputs, and contradictory completeness/volatility retains the conservative bound instead of compensating for missing producer evidence.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain alias preservation, exclusions, the identity precondition and memo ownership; they stay separate from acknowledgment tags under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path.resolve establishes lexical names and derivationIdentity uses the shared filesystem context for physical names; neither case folding nor separators are guessed from an OS label.
+ */
 export function deriveWatchInputs(
   state: TtscEnvelopeDerivation,
   props: {

@@ -42,7 +42,38 @@ import { subscribeLinuxDirectoryWatch } from "./subscribeLinuxDirectoryWatch";
  *   directories below that path again and watches every one `admit` now
  *   accepts, for a registration that widened what `admit` accepts there
  *   (samchon/ttsc#1419). Once every watch a `track` opened is live, the path is
- *   reported changed, since it may have changed before they were.
+ *   reported changed, since it may have changed before they were. `prune`
+ *   releases non-root directories that current admission no longer needs; call
+ *   it after an atomic registration update, once per observer.
+ * @evidence contracts/common.md#principled-implementation
+ *   Watches go live before enumeration; newly admitted directories announce
+ *   existing entries so the opening interval cannot masquerade as known absence.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One directory map owns recursive coverage; process-wide non-recursive
+ *   subscriptions own native handles and track batches own widened admission.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Admission follows caller responsibility, not a hardcoded tree blacklist;
+ *   lost names remain a conservative root-wide event and watch failures withdraw coverage.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs and return comments distinguish initial coverage, dynamic
+ *   discovery, failure and widened track scope under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   OS-neutral recursive semantics use node:path and directory metadata; native
+ *   non-recursive helper watches avoid assuming every platform supports fs recursion.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Initial traversal enumerates admitted directories and entries once, with one
+ *   watch per directory. Subtree retirement and widened admission scan current
+ *   watched directories; overflow events coalesce per microtask instead of per-watch bursts.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The observer reuses live directory entries and joins opening readiness;
+ *   shared native subscriptions avoid reopening equivalent directory watches.
+ *   Explicit subtree widening revisits only existing coverage that may admit more.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Current admitted directories own handles and pending batches; disappeared
+ *   subtrees and withdrawn admission retire entries; close retires the whole
+ *   map. Outstanding reads
+ *   check closed state before adding coverage; failed coverage remains owned
+ *   until the caller closes its observer rather than implying successful release.
  */
 export function openLinuxDirectoryObserver(
   root: string,
@@ -53,6 +84,7 @@ export function openLinuxDirectoryObserver(
   close(): void;
   ready: Promise<boolean>;
   track(file: string, subtree?: boolean): void;
+  prune(): void;
 } {
   const base = path.resolve(root);
   const watched = new Map<
@@ -225,6 +257,14 @@ export function openLinuxDirectoryObserver(
       watched.clear();
     },
     ready,
+    prune: () => {
+      if (closed || failed) return;
+      for (const [directory, subscription] of watched) {
+        if (directory === base || admit(directory)) continue;
+        subscription.close();
+        watched.delete(directory);
+      }
+    },
     track: (file, subtree = false) => {
       const absolute = path.resolve(file);
       if (!pathIsWithin(absolute, base)) return;

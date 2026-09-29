@@ -2,22 +2,38 @@ import type { ITtscCompilerTransformation } from "ttsc";
 
 import type { ITtscProjectMembershipPolicy } from "../../tsconfig/ITtscProjectMembershipPolicy";
 
-/** Exact generation state behind one derived watch input. */
+/**
+ * Exact generation state behind one derived watch input.
+ *
+ * @evidence contracts/common.md#principled-implementation The codec discriminant binds each observation to its own comparison payload; membership remains a project walk and cannot be substituted for one file's hash.
+ * @evidence contracts/common.md#clear-and-simple-design The closed union colocates each codec with only its required state, making invalid cross-codec combinations unrepresentable.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Contract-defined codec values select real observation semantics; no fixture or host-specific expected digest is encoded.
+ * @evidence contracts/common.md#meaningful-documentation Spaced native member comments explain hash provenance, physical targets, plugin environment and membership policy; separated tags follow documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation Native targets and predicate observations are explicit payloads; plugin-tree state includes the build environment rather than assuming an OS name establishes equivalence.
+ */
 export type TtscWatchInputState =
   | {
       /** A project-walk or dependency-only input read as ordinary host bytes. */
       codec: "host";
+
+      /** Raw host-byte hash, or the shared missing/directory state marker. */
       hash: string;
     }
   | {
       /** A realized compiler-graph input, including its physical target. */
       codec: "graph";
+
+      /** Compiler-normalized input hash, or the shared missing-input marker. */
       hash: string;
+
+      /** Observed physical target, or null when realpath could not be read. */
       realpath: string | null;
     }
   | {
       /** The exact compiler predicates observed for a resolver input. */
       codec: "predicates";
+
+      /** The recorded predicates; omitted facts make no claim. */
       observation: ITtscCompilerTransformation.IInputObservation;
     }
   | {
@@ -31,6 +47,8 @@ export type TtscWatchInputState =
        * metadata stands for the files below it.
        */
       codec: "tree";
+
+      /** Shared plugin-source and build-environment state digest. */
       digest: string;
     }
   | {

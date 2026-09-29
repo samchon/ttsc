@@ -10,6 +10,15 @@ import { realpath } from "./realpath";
  * event on those paths, so each link along the way must be tracked in its own
  * right. Results are memoized per component key, and a missing component stops
  * the walk, because nothing below a missing directory can exist yet.
+ *
+ * @evidence contracts/common.md#principled-implementation The component walk stays lexically inside the root, inspects each ancestor link, and stops after missing topology because later descendants cannot exist through that path.
+ * @evidence contracts/common.md#clear-and-simple-design Caller-owned memo tables share repeated component inspection; physical-target reading stays in the existing realpath helper.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Native lstat determines links, and a failed component read is conservatively remembered as missing rather than fabricated as a regular directory.
+ * @evidence contracts/common.md#meaningful-documentation The prose explains link retargeting, memo ownership, and the stopping condition that keeps the walk bounded by path depth.
+ * @evidence contracts/portability.md#os-neutral-implementation OS-neutral component traversal uses native relative/absolute boundaries, lstat link classification, and the caller's directory-policy key, rather than guessing links from names or separators.
+ * @evidence contracts/performance.md#efficient-algorithms The walk visits each ancestor at most once for this path and stops at known missing topology, avoiding a filesystem-tree scan.
+ * @evidence contracts/performance.md#reuse-equivalent-work Shared caller-owned component and missing memos reuse identical topology queries; the observer invalidates those facts after rename and ownership changes.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources This operation opens no retained handles and stores only traversed components in caller-owned tables; the observer's registration removal and disposal clear those tables.
  */
 export function linkedComponents(
   file: string,

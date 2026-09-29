@@ -10,8 +10,8 @@ import { envelopeDerivation } from "./envelopeDerivation";
 import { envelopeGraphIndexes } from "./envelopeGraphIndexes";
 
 /**
- * The generation's resolution candidates that do not exist, so its host-input
- * watcher can be told to announce their creation.
+ * The generation's resolution candidates recorded as not files, so its
+ * host-input watcher can be told to announce a later file-availability change.
  *
  * A missing candidate is the one input class no proof can be memoized for: its
  * metadata cannot be read, so the signature shortcut that stands in for every
@@ -21,10 +21,21 @@ import { envelopeGraphIndexes } from "./envelopeGraphIndexes";
  * and the same failure rules the universal inputs already run under
  * (samchon/ttsc#1261).
  *
- * Only absent candidates qualify. One that exists is validated by content and
- * physical identity like any other input, and adding it here would replace the
- * generation for a change that cannot affect a resolution the compiler already
- * declined to take.
+ * Compiler fileExists:false can describe either an absent path or a directory.
+ * Without a predicate observation, the fallback requires the host existence
+ * probe to fail. The returned candidates are the names whose probes may be
+ * replaced; watched also includes their project-local ancestor components so
+ * link retargeting cannot leave observers attached only to the old target.
+ *
+ * Outside-project paths and selections requiring more than 512 parent-directory
+ * locations retain direct probing. This function selects paths; the tracker
+ * owns actual watcher acquisition, notifications and release.
+ *
+ * @evidence contracts/common.md#principled-implementation Exact failed file predicates select unavailable resolver names, while the lexical ancestor chain witnesses component creation and retargeting; selections outside the root retain direct probes because their chain cannot be covered by project-local watchers.
+ * @evidence contracts/common.md#clear-and-simple-design Separate candidate and ancestor sets expose probe-replacement names versus required watcher paths; resource acquisition remains with the tracker instead of occurring during envelope selection.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The 512-location bound rejects the entire selection so direct validation remains active; it does not return an incomplete watch claim or special-case known candidate names to fit a measurement.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish not-file from missing, candidate versus watched lists, root coverage, the population bound and tracker ownership; acknowledgments are separate under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Native dirname/resolve and filesystem-aware root relations derive lexical ancestor chains on the host, preserving symlink and junction retarget sensitivity; physical identity is used only for temporary-input exclusion, not to collapse alias watcher names.
  */
 export function selectNotifiableAbsentInputs(props: {
   filesystem: TtscTransformFilesystemOperations;

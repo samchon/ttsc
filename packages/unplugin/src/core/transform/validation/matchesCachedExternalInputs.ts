@@ -19,11 +19,23 @@ import { MISSING_INPUT_STATE } from "./MISSING_INPUT_STATE";
  *
  * The caller adopts those signatures only once every input is proven unchanged,
  * so a signature never outlives the content comparison that justified it.
+ *
+ * @evidence contracts/common.md#principled-implementation Each lexical spelling replays its predicates or owning content codec; only stable separable metadata can replace that comparison, so aliases cannot answer for one another.
+ * @evidence contracts/common.md#clear-and-simple-design One pass returns the aggregate verdict and earned signatures, leaving all-or-nothing adoption to its caller.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Recorded missing states and absent hash keys remain distinct from successful content proof; newer reads do not rewrite the authoritative recorded hashes.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish mixed codecs, clock-qualified reuse and caller-owned signature adoption before tags.
+ * @evidence contracts/performance.md#efficient-algorithms The pass scans recorded spellings once and hashes only inputs whose separable signature no longer proves them; cost grows with those bytes and predicate listings.
+ * @evidence contracts/performance.md#reuse-equivalent-work The generation's unchanged separable signatures share prior content validation; changed metadata or clock ordering requires replay, and adopted signatures come only from a completely successful caller verdict.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned signature DTO transfers to the generation owner; this pass retains no independent cache or native resource.
+ * @evidence contracts/portability.md#os-neutral-implementation Lexical resolution remains separate from derivation identity, and native predicate/content reads use the result's filesystem operations.
  */
 export function matchesCachedExternalInputs(
   cached: TtscCachedProjectTransform,
 ): {
+  /** Whether every recorded external spelling still matches its authority. */
   matches: boolean;
+
+  /** Earned metadata witnesses adopted only after aggregate proof succeeds. */
   signatures: Record<string, string>;
 } {
   const signatures: Record<string, string> = {};

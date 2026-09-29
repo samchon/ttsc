@@ -17,6 +17,20 @@ import { sendFullReload } from "./sendFullReload";
  * whether a full reload is due. A host without that API, a server with `hmr:
  * false`, or a reload that fails, falls back to invalidating the importers and
  * requesting a full reload.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Nodes are passed to their owning environment/server reload operation so
+ *   Vite decides HMR acceptance. Disabled HMR, absent APIs and rejected promises
+ *   retain the supported invalidate-plus-full-reload behavior.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Recipient discovery precedes scheduling, and one fallback owns the degraded
+ *   path rather than duplicating transport policy at each missing capability.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Fallback handles an actual unsupported host capability or reload failure;
+ *   it does not fabricate HMR success or mutate foreign acceptance internals.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs explain importer propagation, preserved client state and
+ *   fallback conditions, with separate tags following documentation guidance.
  */
 export function reloadImporters(
   server: ViteDevServerLike,

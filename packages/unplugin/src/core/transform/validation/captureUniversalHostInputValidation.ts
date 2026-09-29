@@ -20,12 +20,30 @@ import { sameHostInputRealpath } from "../inputs/sameHostInputRealpath";
 import type { TtscHostInputValidation } from "./TtscHostInputValidation";
 import { matchesRecordedInput } from "./matchesRecordedInput";
 
-/** Capture the universal-input manifest while the generation is still fresh. */
+/**
+ * Capture the universal-input manifest while the generation is still fresh.
+ *
+ * Missing or changed publication proof returns failures without adopting a
+ * manifest. Success attaches entries, absence probes and plugin-tree witnesses
+ * to this generation for later reuse decisions.
+ *
+ * @evidence contracts/common.md#principled-implementation Evaluation-time content and physical-target witnesses must agree with the generation snapshot before metadata, absence probes and plugin-tree states can qualify later reuse.
+ * @evidence contracts/common.md#clear-and-simple-design One admission operation builds the manifest; per-entry, absence and tree validators own its subsequent checks.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts A missing publication witness declines narrow reuse instead of certifying an input from a convenient newer read.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains failed admission and successful generation attachment; inline comments justify readable-state, blocker and tree distinctions.
+ * @evidence contracts/performance.md#efficient-algorithms Capture scans universal inputs and plugin trees with map/set insertion; first validation costs their read bytes and tree enumeration rather than repeating per-module capture.
+ * @evidence contracts/performance.md#reuse-equivalent-work This shared generation manifest records exactly qualified lexical spellings, separable signatures and tree environments for later validators; changed proof requires new admission.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The generation retains one manifest proportional to universal inputs and missing-probe groups; releasing it releases those records, with no native handles acquired here.
+ * @evidence contracts/portability.md#os-neutral-implementation Injected filesystem operations and measured generation case policy qualify native metadata and missing-name spelling; an unknown directory case policy cannot admit a listing-only absence proof, while physical targets and aliases remain distinct from content identity.
+ */
 export function captureUniversalHostInputValidation(
   cached: TtscCachedProjectTransform,
   currentFile: string,
 ): {
+  /** Classified reasons why universal input authority could not be admitted. */
   failures: TtscGenerationProofFailures;
+
+  /** Present only after this complete manifest passed admission. */
   validation?: TtscHostInputValidation;
 } {
   const filesystem = resultFilesystem(cached.result);
@@ -174,6 +192,15 @@ export function captureUniversalHostInputValidation(
       });
       continue;
     }
+    const caseSensitive = state.identityContext.caseSensitive(probe.directory);
+    if (caseSensitive === undefined) {
+      recordGenerationProofFailure(failures, {
+        domain: "host",
+        kind: "case-policy-unavailable",
+        path: probe.directory,
+      });
+      return { failures };
+    }
     // The probe below proves this exact spelling absent, so the per-module loop
     // need not re-derive it either.
     let names = validation.missing.get(probe.directory);
@@ -182,10 +209,7 @@ export function captureUniversalHostInputValidation(
       validation.missing.set(probe.directory, names);
     }
     names.add(
-      normalizeHostInputName(
-        probe.name,
-        state.identityContext.caseSensitive(probe.directory),
-      ),
+      normalizeHostInputName(probe.name, caseSensitive),
     );
   }
   // A plugin binary keyed on a source other than the disk's now, whether it

@@ -4,6 +4,22 @@
  * `components` holds one matcher per path segment: a literal string, the
  * recursive `**` marker, or a compiled expression. `literal` marks a `files`
  * entry, which must match a whole path exactly and never a directory prefix.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Literal segments, recursive markers and compiled expressions represent
+ *   TypeScript's component grammar; flags preserve case, JSON and exact-file rules.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One compiled value groups grammar and matching policy, keeping the walker
+ *   from reconstructing semantics from the original spec at each input.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Its flags encode compiler grammar distinctions rather than fixture-specific
+ *   exceptions for filenames that happened to pass.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Member comments explain wildcard min.js and JSON exceptions plus literal
+ *   whole-path matching; separate comments preserve each field's meaning.
  */
 export interface IRootPattern {
   /** Whether segments compare case-sensitively, the compiler's policy. */

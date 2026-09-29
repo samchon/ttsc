@@ -13,6 +13,11 @@ import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTrans
  * before ttsc rewrote the module, because that rewrite is then dropped, so the
  * report names the likely cause instead of letting the rewrite vanish
  * silently.
+ *
+ * @evidence contracts/common.md#principled-implementation A generation-owned set suppresses repeated reports for the same resolved module while the message accurately distinguishes delivered text from the disk program being compiled.
+ * @evidence contracts/common.md#clear-and-simple-design One membership check and one stderr message own the warning; compilation and delivery policy remain outside reporting.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Divergence is exposed rather than hidden by returning the host's uncompiled text or rewriting expected module output.
+ * @evidence contracts/common.md#meaningful-documentation The native prose explains the disk-compilation premise and the differing causes of stale delivery and an earlier rewriting plugin.
  */
 export function reportDivergentDelivery(
   cached: TtscCachedProjectTransform,

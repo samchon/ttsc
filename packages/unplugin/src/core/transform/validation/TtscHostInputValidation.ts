@@ -8,12 +8,19 @@
  * directory whose listing proves them still absent. `covered` records which
  * lexical spellings the manifest answers for, so the per-module loop can skip
  * exactly those and no others.
+ *
+ * @evidence contracts/common.md#principled-implementation Existing entries, absent-name groups and source-tree states retain distinct authority; lexical covered spellings cannot be replaced by physical identity.
+ * @evidence contracts/common.md#clear-and-simple-design Separate populations expose each validator's responsibility while one generation owns their shared lifetime.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Readable content, blockers and external build environments remain explicit rather than one blanket watcher-success flag.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs and separated member comments explain optional signatures, exact coverage, absence groups and tree environments.
+ * @evidence contracts/portability.md#os-neutral-implementation Physical targets, lexical aliases, metadata clocks and qualified native notifications remain separate; actual case policy belongs to the generation context.
  */
 export interface TtscHostInputValidation {
   /** Lexical input spellings that existed when the generation was captured. */
   readonly entries: Map<
     string,
     {
+      /** Exact lexical spelling whose metadata and notifications qualify it. */
       path: string;
 
       /**
@@ -27,6 +34,8 @@ export interface TtscHostInputValidation {
        * behind it appear.
        */
       readable: boolean;
+
+      /** Physical target selected when this entry was admitted. */
       realpath: string | null;
 
       /**
@@ -35,6 +44,8 @@ export interface TtscHostInputValidation {
        * kind and an identity rather than content.
        */
       signature: string | undefined;
+
+      /** Non-directory ancestor whose kind blocks the missing descendant. */
       strict?: true;
     }
   >;

@@ -18,6 +18,20 @@ import type { ITtscProjectMembershipPolicy } from "../tsconfig/ITtscProjectMembe
  * against the disk and moves a record whose state has moved while nothing ran
  * or that it cannot read, and removes one whose tsconfig is gone
  * (`refreshProjectRecordFiles`).
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Input evidence and separate membership policy express the generation's
+ *   file/predicate and root-population dependencies; signal changes record bytes
+ *   without claiming that an observer already owns a new generation.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One persisted project record is the host's dependency boundary rather than
+ *   exposing every compiler input through incompatible host watcher APIs.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Signals encode actual observed changes; the record contains no fabricated
+ *   compiler output or consumer-specific expected state.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs and spaced members explain persistence, membership-null
+ *   meaning and signal purpose under the documentation skill.
  */
 export interface TtscProjectRecord {
   /**

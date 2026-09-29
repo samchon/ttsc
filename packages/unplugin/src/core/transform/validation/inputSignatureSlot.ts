@@ -14,15 +14,31 @@ import { toProjectKey } from "../project/toProjectKey";
  * the input, so a content comparison that succeeds can record one. Without
  * that, an input whose capture-time metadata was too recent to prove anything
  * would keep its content read for the whole life of the generation, since
- * nothing else ever revisits it. Returns `undefined` only for an input the
- * generation recorded no hash for, which no signature could stand for.
+ * nothing else ever revisits it. Returns undefined for predicate-bearing inputs
+ * or inputs without a recorded scalar hash: neither has a scalar signature slot
+ * to update.
+ *
+ * @evidence contracts/common.md#principled-implementation Predicate observations have no scalar slot; external spelling snapshots take precedence over project hashes and separate physical content keys from lexical metadata keys.
+ * @evidence contracts/common.md#clear-and-simple-design One lookup exposes the actual owning signature manifest so validators update its proof without duplicating precedence.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts An input without a recorded hash cannot acquire a metadata substitute through an invented slot.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain precedence, lazy signature admission and the exact undefined condition before tags.
+ * @evidence contracts/portability.md#os-neutral-implementation Native lexical resolution supplies metadata spelling while derivationIdentity and toProjectKey apply the generation's actual filesystem identity context.
  */
 export function inputSignatureSlot(
   cached: TtscCachedProjectTransform,
   state: TtscEnvelopeDerivation,
   input: string,
 ):
-  | { key: string; recorded: string; signatures: Record<string, string> }
+  | {
+      /** Metadata key in the actual owning signature manifest. */
+      key: string;
+
+      /** Authoritative scalar content or missing-state value. */
+      recorded: string;
+
+      /** Generation-owned signature manifest updated after qualified reads. */
+      signatures: Record<string, string>;
+    }
   | undefined {
   const identity = derivationIdentity(state, input);
   if (cached.externalInputObservations?.[path.resolve(input)] !== undefined) {

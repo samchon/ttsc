@@ -28,6 +28,11 @@ import { TtscTerminalGenerationError } from "./TtscTerminalGenerationError";
  * It carries the original error's message, stack and `cause` rather than
  * replacing them, so what a bundler reports is what it reported before the
  * verdict existed.
+ *
+ * @evidence contracts/common.md#principled-implementation The epoch records the pass that authorizes replay, while Error cause and the original stack preserve the actual failure; outside that pass callers must attempt again.
+ * @evidence contracts/common.md#clear-and-simple-design The subclass adds one replay boundary and delegates terminal-error identity instead of duplicating cached compile state.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Retry scope comes from the host's explicit epoch, not guessed message severity or synthetic output hiding an adapter failure.
+ * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain pass-boundary, immutable-session and host-without-pass behavior, and the field comment names the complete replay scope.
  */
 export class TtscPassVerdictError extends TtscTerminalGenerationError {
   /** The delivery pass this verdict belongs to, and its whole scope. */

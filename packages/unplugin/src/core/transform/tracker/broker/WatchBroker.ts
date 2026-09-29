@@ -10,6 +10,22 @@ import type { WatchBrokerRegistration } from "./WatchBrokerRegistration";
  * and drains are counted so the channel is referenced only while a reply is
  * outstanding, and each registration keeps the sink its messages go to and the
  * spelling map that translates the child's canonical paths back to its own.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Registration and request ids distinguish multiplexed owners; drain scopes
+ *   preserve the exact coverage of each acknowledgment across concurrent opens.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   This container exposes live protocol state to routing and lifecycle owners;
+ *   tracker verdicts remain behind each registration's sink.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Coverage is represented explicitly instead of assuming a later registration
+ *   shares an earlier drain or using process-wide silence as universal proof.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native type and separated member comments identify scope, reference counts
+ *   and spelling ownership under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   OS-neutral consumers use sinks and translated spellings; native child and
+ *   probe capability remain confined to this broker state boundary.
  */
 export interface WatchBroker {
   /** The isolated watch process; unreferenced whenever no reply is outstanding. */

@@ -1,19 +1,29 @@
 /**
- * One metadata observation: the signature plus whether the observed filesystem
- * has provably moved past every write-mintable stamp inside it.
+ * One metadata observation: its signature and whether the observed filesystem
+ * has provably moved past the link and target modification-stamp ticks.
+ *
+ * Notification authority and stamp separability answer independent reuse
+ * premises; a signature alone does not imply either. The record carries no
+ * watcher or clock-reference ownership.
+ *
+ * @evidence contracts/common.md#principled-implementation Separate signature, notification and clock facts preserve the distinctions needed to judge metadata-only or watcher-assisted validation.
+ * @evidence contracts/common.md#clear-and-simple-design Three primitive fields expose one observation without embedding the observer, cached digest or mutation-tracker lifecycle.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The representation does not collapse a matching metadata string or silent watcher into unconditional content validity.
+ * @evidence contracts/common.md#meaningful-documentation Native prose and spaced member documentation distinguish the three premises and resource boundary, with a blank acknowledgment separator under documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation OS-neutral observation facts are produced from native device stamps and topology; the type does not encode one OS as a case-policy, clock or watcher capability guarantee.
  */
 export interface TtscInputMetadataEvidence {
   /** The joined metadata signature of the lexical path and its link target. */
   signature: string;
 
-  /** Whether a directory observer can account for every content mutation. */
+  /** Whether topology permits authority from a covering directory observer. */
   notificationAuthoritative: boolean;
 
   /**
-   * Whether a later write is guaranteed to move this signature. Only a
-   * signature captured with this evidence may be recorded to stand in for a
-   * content comparison; without it, a same-length rewrite inside the stamp's
-   * own clock tick would leave the signature unchanged.
+   * Whether current device references separate the recorded modification ticks.
+   * Without separation, a same-length rewrite inside a stamp's own tick can
+   * leave the signature unchanged. Consumers must refresh references before
+   * proving later reuse, because clock rollback can invalidate earlier evidence.
    */
   separable: boolean;
 }

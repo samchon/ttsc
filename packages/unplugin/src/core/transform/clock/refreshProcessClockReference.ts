@@ -41,6 +41,15 @@ import { refreshFilesystemClockReference } from "./refreshFilesystemClockReferen
  *
  * @param root The project or source the probe must lie outside.
  * @param filesystem The operations whose references the proof judges against.
+ *
+ * @evidence contracts/common.md#principled-implementation Detached proofs mint a fresh reference in a process-owned directory outside the observed root; unavailable or inside-root storage clears reference authority instead.
+ * @evidence contracts/common.md#clear-and-simple-design The operation selects process storage then delegates the actual mint to the same reference writer used by generations.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts No process timestamp substitutes for a filesystem stamp, and failure preserves real content comparison without writing into the user's source tree.
+ * @evidence contracts/common.md#meaningful-documentation Paragraphs explain rollback ordering, directory-entry interference, worker sharing, and exit ownership before stating unavailable-storage behavior.
+ * @evidence contracts/portability.md#os-neutral-implementation OS-neutral storage comes from the shared user-state provider and native containment; filesystem device/time metadata determines whether a reference applies across volumes.
+ * @evidence contracts/performance.md#efficient-algorithms Each proof reuses one process directory and performs one delegated probe mint instead of creating and removing temporary trees per validation.
+ * @evidence contracts/performance.md#reuse-equivalent-work Generation-free proofs share the same process probe and per-operation reference table while still minting before every proof that depends on separability.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources One process directory is cleaned by the main-thread exit listener; crashed-process directories are reclaimed by subsequent session opening.
  */
 export function refreshProcessClockReference(
   root: string,

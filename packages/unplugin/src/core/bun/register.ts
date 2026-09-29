@@ -29,6 +29,20 @@ import { registrationState } from "./registrationState";
  *   structured-cloneable, or when a different option value is supplied after
  *   the first load. The import-time registration of the entry stays silent off
  *   Bun so the module is harmless to import from Node (tests, tooling).
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Structured cloning captures option values before installation. Before first
+ *   load the pending snapshot is replaceable; afterward deep equality permits
+ *   only idempotent calls, matching the immutable runtime module session.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The entry coordinates capability detection, snapshot creation and state
+ *   checks while ensureRegistered exclusively installs the single loader.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Off-runtime and changed-after-lock failures report unsupported requests;
+ *   they do not patch Bun or install compensating overlapping loaders.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs distinguish preload and explicit registration, option
+ *   locking and thrown failures; separated tags follow documentation guidance.
  */
 export function register(options?: TtscUnpluginOptions): void {
   const runtime = bunRuntime();

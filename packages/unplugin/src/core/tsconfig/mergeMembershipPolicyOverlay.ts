@@ -12,6 +12,28 @@ import { resolveConfigDirTemplatePath } from "./resolveConfigDirTemplatePath";
  * `allowJs` on gets a program that admits JavaScript, and a membership rule
  * that still refused it would miss files entering that program; a caller that
  * turns it off gets the narrower rule for the same reason.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Explicit boolean overlays update extension admission and output path
+ *   overlays update their own exclusion provenance. Null removes an output
+ *   directory; missing legacy provenance preserves explicit exclusions.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The operation clones extension and exclusion state rather than mutating
+ *   the source policy; one provenance flattener owns default exclusion rules.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Output-directory overlays resolve at the supplied native config anchor
+ *   through compiler separator/template rules; existing root identity and
+ *   compiler case representation transfer without OS-name reinterpretation.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Overlay values come from the actual compile options, not emitted filename
+ *   guesses or directories selected for known test projects.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   The native explanation gives the reason compile and walk overlays must
+ *   agree; exclusion defaults remain documented on the owning policy members.
  */
 export function mergeMembershipPolicyOverlay(
   policy: ITtscProjectMembershipPolicy,
@@ -67,5 +89,6 @@ export function mergeMembershipPolicyOverlay(
     ),
     inputExtensions: [...inputExtensions],
     sources: policy.sources,
+    useCaseSensitiveFileNames: policy.useCaseSensitiveFileNames,
   };
 }

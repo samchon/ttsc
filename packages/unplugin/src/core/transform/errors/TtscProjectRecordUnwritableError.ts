@@ -9,6 +9,11 @@
  * record nowhere the adapter can write, the delivery fails instead, naming the
  * directory, so the session never serves output it cannot keep current. A
  * one-shot build is correct without the record, and is never refused.
+ *
+ * @evidence contracts/common.md#principled-implementation A typed error carries the refused record and original cause, distinguishing inability to maintain a watching delivery from the one-shot path that needs no record.
+ * @evidence contracts/common.md#clear-and-simple-design The value owns failure context only; directory selection, record writing and watching-session policy remain with their respective operations.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The failure exposes missing invalidation capability instead of letting watcher silence stand in for evidence the host never received.
+ * @evidence contracts/common.md#meaningful-documentation The native paragraphs explain why a watching delivery must fail and when one-shot builds remain valid; constructor parameter comments identify the record and cause.
  */
 export class TtscProjectRecordUnwritableError extends Error {
   /** The record that could not be written. */

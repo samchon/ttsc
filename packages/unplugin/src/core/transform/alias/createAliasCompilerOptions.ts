@@ -13,6 +13,11 @@ import { readPaths } from "./readPaths";
  *
  * No `baseUrl` is emitted: TypeScript-Go removed the option (TS5102), and all
  * targets are absolute so none is needed.
+ *
+ * @evidence contracts/common.md#principled-implementation When bundler aliases require a paths overlay, effective inherited paths are restored before inline paths and final bundler mappings override them, matching replacement of the entire compiler option.
+ * @evidence contracts/common.md#clear-and-simple-design One ordered object merge produces only the needed paths overlay; configuration ancestry and path validation remain with their existing readers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The overlay does not drop unrelated project mappings or resurrect unsupported baseUrl to compensate for misplaced generated configuration.
+ * @evidence contracts/common.md#meaningful-documentation The native prose explains option-level replacement and the precedence that preserves project-only aliases.
  */
 export function createAliasCompilerOptions(
   props: {

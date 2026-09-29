@@ -32,7 +32,6 @@ import { sharedBuildTransformCache } from "./transform/cache/sharedBuildTransfor
 import { hostDeclaresPolling } from "./transform/tracker/hostDeclaresPolling";
 import { transformTtsc } from "./transform/transformTtsc";
 import { isHostWrapperQuery } from "./transform/utils/isHostWrapperQuery";
-import { stableStringify } from "./transform/utils/stableStringify";
 import { stripQuery } from "./transform/utils/stripQuery";
 import { createViteServeInputWatch } from "./vite/createViteServeInputWatch";
 import { TTSC_SOURCE_MAP_STASH } from "./webpack/TTSC_SOURCE_MAP_STASH";
@@ -70,7 +69,7 @@ const unpluginFactory: UnpluginFactory<
   // all of their sessions (samchon/ttsc#1396).
   const shared =
     meta.framework === "webpack" || meta.framework === "rspack"
-      ? sharedBuildTransformCache(stableStringify(options))
+      ? sharedBuildTransformCache(JSON.stringify(options))
       : undefined;
   shared?.lease.acquire();
   const transformCache = shared?.cache ?? createTtscTransformCache();

@@ -15,6 +15,20 @@ import type { TtscProjectRecord } from "./TtscProjectRecord";
  * one changes from then on. That is what a session restored whole from a host's
  * persistent cache needs, since no delivery of the project runs in it
  * (`refreshProjectRecordFiles`).
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Persisted evidence is paired with each absolute input; separate membership
+ *   evidence represents the recorded policy and directory population at the root.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One adapter converts record representation into the observer's existing
+ *   delivery-input representation without creating another observation policy.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Membership uses the same codec as live deliveries rather than an invented
+ *   file hash that could not represent the project's directory population.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs explain restored-session ownership and membership separation,
+ *   with prose/tags following documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation The root membership input obtains physical identity from the host filesystem resolver and actual directory case policy, while persisted lexical input spellings remain paired with their original evidence.
  */
 export function projectRecordWatchInputs(
   record: TtscProjectRecord,

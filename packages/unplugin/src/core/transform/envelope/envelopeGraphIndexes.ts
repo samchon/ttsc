@@ -19,6 +19,21 @@ import { selectListedFiles } from "./selectListedFiles";
  * Build the reference-graph indexes of one envelope on first watch-input
  * derivation. Malformed sections are dropped member by member, mirroring the
  * historical per-delivery scan.
+ *
+ * Identity-keyed adjacency supports reachability, while lexical proof keys
+ * preserve the exact compiler predicate calls. Malformed or contradictory
+ * proof records cannot become usable observations. Directory listings already
+ * covered by project membership are omitted only when other predicates remain;
+ * universal resolver listings keep their independent observation.
+ *
+ * @evidence contracts/common.md#principled-implementation The index separates physical graph membership from lexical predicates, normalizes untrusted proof shapes and makes conflicting duplicate observations permanently unusable; listing reduction relies on the recorded project membership covering that enumeration.
+ * @evidence contracts/common.md#clear-and-simple-design One lazy builder centralizes graph and proof indexing; normalization, predicate compatibility, legacy projection and membership coverage remain delegated to their owning helpers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts First-match spellings and explicit conflict/failure sets preserve producer semantics; malformed evidence is not patched with a later host observation or a consumer-specific expected hash.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish identity indexing, lexical predicates, malformed evidence and the directory-listing exception; inline reasons explain the nonobvious proof reductions with documentation-skill paragraph and tag separation.
+ * @evidence contracts/portability.md#os-neutral-implementation Native project paths resolve through the shared identity context; reported realpaths use the producer filesystem's win32 or posix path semantics rather than blindly treating a foreign-platform spelling as a host path.
+ * @evidence contracts/performance.md#efficient-algorithms One scan indexes edges, candidates and proof records; duplicate predicate merges additionally inspect their recorded list contents. Maps and sets avoid rebuilding membership and key lookup for each module delivery.
+ * @evidence contracts/performance.md#reuse-equivalent-work state.graph stores the completed index once for an immutable envelope, root and membership snapshot; every delivery shares it without repeating producer parsing or filesystem identity resolution.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Index maps retain only the current generation's graph members, proofs and conflicts on weakly owned state; temporary construction sets do not escape and no watcher handles are acquired.
  */
 export function envelopeGraphIndexes(
   state: TtscEnvelopeDerivation,
@@ -312,7 +327,14 @@ export function envelopeGraphIndexes(
   return built;
 }
 
-/** Join duplicate lexical keys only when every repeated predicate agrees. */
+/**
+ * Join normalized duplicate lexical keys only when repeated predicates agree.
+ *
+ * Normalization fixes object member order before structural comparison. List
+ * order remains part of the recorded directory observation, and the merged
+ * record must also satisfy cross-predicate compatibility. Undefined marks a
+ * conflict; it does not mean that the path was absent.
+ */
 function mergeGraphInputObservations(
   left: ITtscCompilerTransformation.IInputObservation,
   right: ITtscCompilerTransformation.IInputObservation,

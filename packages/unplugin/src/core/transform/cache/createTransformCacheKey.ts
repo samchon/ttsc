@@ -9,8 +9,15 @@ import { stableStringify } from "../utils/stableStringify";
  * the selected tsconfig's filesystem identity, the compiler-options overlay,
  * the plugin list, and the translated aliases. Two adapter configurations that
  * would compile differently therefore never share a generation, while two
- * spellings of one tsconfig do. The value is serialized with sorted keys, so
- * option objects built in a different order still map to one key.
+ * spellings of one tsconfig do. Compiler overlays, plugin payloads and alias
+ * mappings retain their JSON declaration order: tied compiler path patterns
+ * and arbitrary plugin payloads can observe it. Only the host-owned outer
+ * manifest is serialized with sorted keys.
+ *
+ * @evidence contracts/common.md#principled-implementation Native tsconfig identity and actual JSON representations of compiler overlays, plugin payloads and alias mappings distinguish requested compiles, retaining declaration order that path-pattern ties or plugins can observe.
+ * @evidence contracts/common.md#clear-and-simple-design Existing path identity and stable JSON encoding define the key; filesystem state remains the generation validator's responsibility.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Equivalent configuration spelling is normalized without dropping semantically relevant plugin order or pretending a matching key proves current inputs.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs name every key dimension and distinguish host-owned canonical manifest order from semantically observable external configuration order.
  */
 export function createTransformCacheKey(props: {
   aliasPaths: Record<string, string[]>;
@@ -19,9 +26,9 @@ export function createTransformCacheKey(props: {
   tsconfig: string;
 }): string {
   return stableStringify({
-    aliasPaths: props.aliasPaths,
-    compilerOptions: props.compilerOptions,
-    plugins: props.plugins,
+    aliasPaths: JSON.stringify(props.aliasPaths),
+    compilerOptions: JSON.stringify(props.compilerOptions),
+    plugins: JSON.stringify(props.plugins),
     tsconfig: pathIdentityKey(props.tsconfig),
   });
 }

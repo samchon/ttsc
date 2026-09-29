@@ -19,13 +19,26 @@ import { openLinuxDirectoryObserver } from "../transform/tracker/linux/openLinux
  * asynchronously (samchon/ttsc#1426), so once they are, the scope re-checks
  * every entry it covers, as an unattributed event makes it do: an entry could
  * have changed before any watch heard it.
+ *
+ * @evidence contracts/common.md#principled-implementation Linux directory-level observation watches admitted paths and triggers readiness rechecks; native recursive failures enter the same conservative fallback boundary.
+ * @evidence contracts/common.md#clear-and-simple-design Platform capability selects an existing backend, returning closure and optional tracking only.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Readiness triggers actual recorded-state checks, without assuming handle construction proves earlier unchanged inputs.
+ * @evidence contracts/common.md#meaningful-documentation The prose explains recursive emulation cost and why asynchronous startup requires an unattributed event.
+ * @evidence contracts/portability.md#os-neutral-implementation OS-neutral watch selection respects backend capability: admitted directory watches on Linux and native recursive watches where supported, with errors relinquishing observation authority.
+ * @evidence contracts/performance.md#efficient-algorithms Directory-level observation avoids Node's file-per-watch recursive emulation and traverses only directories the admission policy requires.
+ * @evidence contracts/performance.md#reuse-equivalent-work The shared Linux watch helper owns backend subscriptions, while scope callbacks keep their own coverage and proof conditions.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The nonpersistent backend returns an owned close handle; the observer closes failed, unused external, and disposed scopes.
  */
 export function openRecursiveWatch(
   root: string,
   listener: (eventType: string, file: string | null) => void,
   onError: () => void,
   admit: (directory: string) => boolean = () => true,
-): { close(): void; track?(file: string, subtree?: boolean): void } {
+): {
+  close(): void;
+  track?(file: string, subtree?: boolean): void;
+  prune?(): void;
+} {
   if (process.platform !== "darwin" && process.platform !== "win32") {
     const observer = openLinuxDirectoryObserver(root, admit, listener, onError);
     void observer.ready.then((live) => {

@@ -12,6 +12,27 @@ import { canonicalProjectPath } from "./canonicalProjectPath";
  * unresolvable identity is reported as absent rather than guessed, so the
  * caller can mark the traversal incomplete instead of claiming a full project
  * map.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   The filesystem's realpath supplies physical spelling for the branch cycle
+ *   guard; unresolvable identity returns undefined instead of a guessed target.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   This operation separates physical observation from lexical traversal and
+ *   delegates volume-root key formatting to canonicalProjectPath.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   The supplied realpath operation observes actual directory identity under
+ *   its filesystem view. The selected path API normalizes native root syntax
+ *   without folding child names by OS default.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   No native name case is inferred from the OS and missing identity does not
+ *   authorize traversal through an unproven link cycle.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native prose explains the cycle guard and absence consequence, giving the
+ *   reason for the undefined result without claiming successful enumeration.
  */
 export function projectDirectoryIdentity(
   directory: string,

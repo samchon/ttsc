@@ -69,6 +69,38 @@ const refreshed = new Set<string>();
  * ids. It also preserves transforms that produce no change and applies the
  * shared predicate itself rather than a local copy, because a broad rule glob
  * routes everything matching the extension through the loader.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   The shared inclusion predicate preserves non-program inputs. Async loader
+ *   completion delivers changed code/map or original source; project records
+ *   carry generation dependencies and only compile verdicts become failed modules
+ *   in development, while infrastructure failures remain rejected loader runs.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The loader owns callback adaptation and host hooks; compilation, records,
+ *   option normalization and verdict encoding remain their dedicated boundaries.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Bound host methods use the supported loader context. Keeping a worker for a
+ *   reported compile verdict addresses Turbopack's real discard behavior without
+ *   suppressing errors that cannot justify a reusable generation.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native prose explains loader wiring and input exclusions; nearby paragraphs
+ *   explain process lifetime, root records and failure distinctions per documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   rootContext or native cwd anchors product-owned records within Turbopack's
+ *   accepted filesystem root. The shared observer owns native case/path/watch
+ *   capabilities; optional bound methods represent host loader capabilities.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Each request performs path-length inclusion and one shared transform lookup;
+ *   the first one-shot request per tool root scans its R records. Project proof
+ *   is paid through cache validation rather than compiling all sources per module.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   A worker cache shares validated project generations across loader calls;
+ *   inherited sessions share compiles across pool workers. Without a build-start
+ *   boundary every hit validates producer inputs before selecting output.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   The worker owns its cache, bridge and refreshed-root set for its lifetime.
+ *   Turbopack exposes no loader teardown hook, so process exit ends these resources;
+ *   retained root history and generation bytes have no fixed package-wide cap.
  */
 export function turbopack(
   this: TtscTurbopackLoaderContext,

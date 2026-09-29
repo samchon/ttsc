@@ -2,7 +2,18 @@ import { TRANSFORM_CLOCK_REFERENCE_DIRECTORIES } from "../clock/TRANSFORM_CLOCK_
 import { disposeFilesystemClockReference } from "../clock/disposeFilesystemClockReference";
 import type { TtscCachedProjectTransform } from "./TtscCachedProjectTransform";
 
-/** Release one generation's watchers and retained clock probe exactly once. */
+/**
+ * Release one generation's watchers and retained clock probe exactly once.
+ *
+ * @evidence contracts/common.md#principled-implementation Removing handles from the generation before closing makes repeated disposal harmless; each independent tracker is attempted even if another close throws.
+ * @evidence contracts/common.md#clear-and-simple-design The disposer owns the three tracker fields and clock reference only, leaving cache membership and lifecycle scheduling to their callers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Catching a close failure preserves independent cleanup, without turning a failed compile or validation into a successful result.
+ * @evidence contracts/common.md#meaningful-documentation The native comment identifies generation ownership, and the internal explanation states why scheduled cleanup must not leave rejected promises.
+ * @evidence contracts/portability.md#os-neutral-implementation OS-neutral disposal invokes each native close capability and the shared owned-probe remover without assuming watchers or busy-file removal behave identically across OSes.
+ * @evidence contracts/performance.md#efficient-algorithms Disposal visits three trackers and one clock reference in bounded work rather than walking the project.
+ * @evidence contracts/performance.md#reuse-equivalent-work One disposer handles eviction and complete reset, avoiding divergent lifetime rules.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Handles and the clock association are detached before cleanup; every independent resource is attempted and repeated disposal owns no remaining handle.
+ */
 export function disposeCachedTransform(
   cached: TtscCachedProjectTransform,
 ): void {

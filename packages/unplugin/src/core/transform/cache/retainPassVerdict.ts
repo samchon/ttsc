@@ -16,6 +16,14 @@ import type { TtscTransformCache } from "./TtscTransformCache";
  * each repeating a whole-project transform to reach the same answer. Outside a
  * pass there is no such window, and a long-lived worker must keep retrying on
  * its very next delivery so a transient host failure never becomes permanent.
+ *
+ * @evidence contracts/common.md#principled-implementation Retention requires a failed envelope, a declared epoch, and the same current promise; success with one missing output cannot become a generation-wide verdict.
+ * @evidence contracts/common.md#clear-and-simple-design One WeakMap stores the existing or newly wrapped verdict for that promise, keeping pass identity in the error instead of adding another cache-entry format.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The original failure remains observable and its retention cannot escape the declared pass or conceal a successful envelope's per-module absence.
+ * @evidence contracts/common.md#meaningful-documentation The comment explains the pass's reuse rationale and why persistent workers outside a pass must retry transient failures.
+ * @evidence contracts/performance.md#efficient-algorithms Constant-time current-promise and epoch guards retain one verdict rather than repeating failed whole-project work per delivered module.
+ * @evidence contracts/performance.md#reuse-equivalent-work Remaining modules reuse the same observed failed attempt only in its pass; a successful envelope's missing output is never promoted to a reusable generation failure.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources One verdict is weakly keyed by its generation promise, and the stored epoch limits replay authority to the owning pass.
  */
 export function retainPassVerdict(
   cache: TtscTransformCache | undefined,

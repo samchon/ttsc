@@ -23,11 +23,37 @@ import { resolveRealPath } from "./resolveRealPath";
  * reached through a link, the macOS temporary directory among them, therefore
  * keeps its own spelling in every path derived here, the spelling the walk and
  * the host compare against (samchon/ttsc#1455). Only the cycle guard compares
- * physically, so two spellings of one config are read once.
+ * physically within a branch. Independent aliases keep their own relative
+ * resolution context, even when they refer to the same physical config.
  *
  * Best-effort by design, like `readEffectiveTsconfigPaths`: a missing or
  * unparsable config in the chain yields `null` here and a real config error
  * from the compiler, which owns config diagnostics.
+ *
+ * An optional configs map shares source parsing within one caller-owned read
+ * transaction. Do not retain it across transactions without validating inputs.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Own declarations win, then later extends entries are searched first. A
+ *   lexical declaring directory accompanies each value; physical identity cuts
+ *   cycles and observed sources include unresolved file candidates.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   A selector separates option-specific validity from shared inheritance and
+ *   provenance. Cycle state and collected input state have different owners.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Node native paths and host extends resolution keep lexical declaring
+ *   directories distinct from realpath cycle identities. No full-path case
+ *   folding or shell lookup replaces actual filesystem observations.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Missing configs remain unproven; collecting their candidates allows later
+ *   creation to invalidate selection instead of inventing inherited values.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc explains precedence, lexical anchors, physical guards and why collect
+ *   cannot be reused as seen; transaction-map lifetime is stated separately.
  */
 export function findDeclaredValue<T>(
   tsconfig: string,
@@ -40,19 +66,26 @@ export function findDeclaredValue<T>(
    * the leaf as already visited and answer `null` for everything.
    */
   collect?: Set<string>,
+  configs?: Map<string, unknown>,
 ): { baseDir: string; value: T } | null {
   const resolved = path.resolve(tsconfig);
   const canonical = resolveRealPath(resolved);
   if (seen.has(canonical)) {
     return null;
   }
-  seen.add(canonical);
+  const ancestors = new Set([...seen, canonical]);
   collect?.add(resolved);
 
   let parsed: { extends?: unknown };
   try {
-    parsed = parseJsonc(fs.readFileSync(resolved, "utf8")) as typeof parsed;
+    if (configs?.has(resolved)) {
+      parsed = configs.get(resolved) as typeof parsed;
+    } else {
+      parsed = parseJsonc(fs.readFileSync(resolved, "utf8")) as typeof parsed;
+      configs?.set(resolved, parsed);
+    }
   } catch {
+    configs?.set(resolved, undefined);
     return null;
   }
   if (typeof parsed !== "object" || parsed === null) {
@@ -82,7 +115,13 @@ export function findDeclaredValue<T>(
       }
       continue;
     }
-    const declared = findDeclaredValue(base, select, seen, collect);
+    const declared = findDeclaredValue(
+      base,
+      select,
+      ancestors,
+      collect,
+      configs,
+    );
     if (declared !== null) {
       return declared;
     }

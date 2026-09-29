@@ -9,6 +9,15 @@ import type { TtscCachedProjectTransform } from "./TtscCachedProjectTransform";
  * generation whose watchers never opened already takes: its recorded snapshot.
  * The clock reference and the generation itself stay, so an unchanged project
  * keeps its compile.
+ *
+ * @evidence contracts/common.md#principled-implementation Detaching all tracker fields before closure removes their authority immediately, so subsequent validation cannot rely on a tracker whose cleanup failed.
+ * @evidence contracts/common.md#clear-and-simple-design Withdrawal closes notification resources while preserving the generation and clock evidence needed by recorded-state validation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Close failures cannot create freshness proof; every independent tracker is still attempted and retained output remains subject to snapshot validation.
+ * @evidence contracts/common.md#meaningful-documentation The prose explains the authority transition, and the internal comment distinguishes cleanup failure from stale-output authorization.
+ * @evidence contracts/portability.md#os-neutral-implementation OS-neutral policy changes close through the actual backend handles; unavailable notification authority requires recorded-state proof.
+ * @evidence contracts/performance.md#efficient-algorithms Withdrawal examines only three trackers rather than discarding or recompiling the whole project.
+ * @evidence contracts/performance.md#reuse-equivalent-work Generation and clock evidence remain reusable under snapshot validation, so changed watch policy alone does not waste an equivalent compile.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources All tracker fields are detached before closing and every independent close attempt runs; repeat withdrawal sees no retained handle.
  */
 export function withdrawGenerationNotifications(
   cached: TtscCachedProjectTransform,

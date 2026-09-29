@@ -45,9 +45,10 @@ import { notifyWatchInputs } from "./watch/notifyWatchInputs";
  *
  * The function is intentionally project-scoped: it compiles the entire tsconfig
  * project in one shot and extracts the result for `id`. Subsequent calls for
- * sibling files in the same project reuse the cached result as long as none of
- * the project's input files have changed (verified by comparing SHA-256
- * hashes).
+ * sibling files reuse the admitted generation while its source, dependencies
+ * and project membership remain current. Qualified native observations or
+ * content comparisons establish that permission; a matching cache key alone
+ * does not.
  *
  * Returns `undefined` when no transform is needed (declaration files, virtual
  * modules, disabled plugins, or source unchanged after transform).
@@ -66,6 +67,14 @@ import { notifyWatchInputs } from "./watch/notifyWatchInputs";
  * @param hooks - Optional adapter callbacks; see {@link TtscTransformHooks}.
  *   Dependency notifications fire on cache hits too; watch registrations are
  *   per build, not per compilation.
+ * @evidence contracts/common.md#principled-implementation Project selection and generation-qualified cache admission preserve compiler disk authority; current outputs, terminal failures, unsupported wrappers and missing module outputs keep distinct supported outcomes.
+ * @evidence contracts/common.md#clear-and-simple-design One delivery coordinator composes project selection, cache admission, compilation, output selection and host notifications; dedicated owners handle proof and lifetime internals.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Wrapper modules cannot poison source baselines, incomplete generations cannot bypass proof, and losing an old Promise race retries the actual authoritative cache entry rather than deleting its replacement.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs and argument tags explain project scope, no-transform outcomes, cache epochs and per-build notification responsibilities with links to maintained reference context.
+ * @evidence contracts/performance.md#efficient-algorithms Each admission iteration selects or validates one project generation; in-flight or valid completed reuse avoids repeated compilation, while validation cost follows the actual required input population.
+ * @evidence contracts/performance.md#reuse-equivalent-work Cache identity covers config/options/plugins/aliases; current generations, pass-qualified terminal verdicts and in-flight Promises are shared only while their source and dependency proof remains valid.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The cache owns current generations and workers; delivery registers no independent history, withdraws untrusted notifications and delegates eviction/attempt cleanup to generation owners, with retries possible under continued concurrent invalidation.
+ * @evidence contracts/portability.md#os-neutral-implementation Native module paths and project coordinates use supported path/filesystem abstractions, while actual case policy and watcher capability come from generation proof rather than OS-name assumptions.
  */
 export async function transformTtsc(
   id: string,

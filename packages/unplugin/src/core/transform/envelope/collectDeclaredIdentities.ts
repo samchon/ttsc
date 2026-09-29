@@ -8,6 +8,12 @@ import { derivationIdentity } from "./derivationIdentity";
  * identity set. Members are keyed like `typescript`, so a project-relative and
  * an absolute spelling of the same file share one identity; a malformed member
  * is ignored rather than fatal.
+ *
+ * @evidence contracts/common.md#principled-implementation Valid declaration strings resolve against the project root before physical identity lookup, so absolute and relative aliases enter one membership set; malformed entries assert no membership.
+ * @evidence contracts/common.md#clear-and-simple-design A single list-to-set adapter serves both volatility and completeness without duplicating their path identity policy.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Non-array values and empty or non-string members are rejected by protocol shape, not special-cased by consumer or expected output.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains the shared declaration use, project-relative interpretation and malformed-entry handling; acknowledgment tags remain separated under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path.resolve interprets project-relative paths and the supplied envelope identity context handles filesystem case and realpath behavior without manually rewriting separators or guessing case by platform.
  */
 export function collectDeclaredIdentities(
   state: TtscEnvelopeDerivation,

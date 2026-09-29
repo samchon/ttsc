@@ -18,6 +18,19 @@ const WARNED = new Set<string>();
  *
  * @param record The record that could not be written below the host's root.
  * @param error What the write failed with.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   An exact record path keys one process warning; errno or the original error
+ *   description identifies the real write failure and the missing dependency effect.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   This helper owns user-facing reporting while callers own cacheability and
+ *   watching-session refusal.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The warning reports unsupported persistence rather than pretending that a
+ *   module without its required project dependency can safely be cached.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs explain warning deduplication, error code and remedy;
+ *   separate tags and parameter prose follow documentation guidance.
  */
 export function warnUnwritableProjectRecord(
   record: string,

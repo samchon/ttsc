@@ -16,6 +16,20 @@ import type { HostWatchBridge } from "./HostWatchBridge";
  * Its place in the adapter's invalidation model, and the units beside it, are
  * mapped in the maintainer page
  * `website/src/content/docs/development/reference/unplugin-invalidation.mdx`.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Watching sessions register generation inputs with the bridge before handing
+ *   the same record path to the host's dependency channel; one-shot hosts need
+ *   only that persisted dependency for their next-start proof.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One operation coordinates the two ownership boundaries without embedding
+ *   filesystem validation or bundler-specific watcher behavior.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Supported addWatchFile and adapter-owned observation replace direct compiler
+ *   input registration into host channels that cannot represent those inputs.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs identify delivery/bridge roles and the maintainer map;
+ *   spaced property comments and tag separation follow documentation guidance.
  */
 export function registerProjectRecord(props: {
   /** The host's own file channel. */

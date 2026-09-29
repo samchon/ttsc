@@ -3,31 +3,56 @@ import path from "node:path";
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransformFilesystemOperations";
 
-/** Find one directory listing that proves an absent path is still absent. */
+/**
+ * Choose an ancestor listing candidate for a path already observed as missing.
+ * The nearest existing directory supplies a child name to check. An existing
+ * nondirectory ancestor is returned as a blocker; metadata must also prove that
+ * blocker unchanged. The caller must acquire and validate the actual listing.
+ *
+ * Root exhaustion returns a candidate even when root stat failed, so this
+ * selection alone never proves absence. Path parsing follows an explicit
+ * filesystem.platform override, or the running Node host when none is supplied.
+ *
+ * @evidence contracts/common.md#principled-implementation Ancestor traversal stops at a directory, a nondirectory blocker or root; the returned candidate and optional blocker let consumers obtain the separate observations required for an absence proof.
+ * @evidence contracts/common.md#clear-and-simple-design One upward walk selects the listing boundary without acquiring watchers or asserting that selection itself certifies a missing path.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed ancestor stats continue to parents; root termination is a traversal boundary rather than invented successful accessibility or an unconditional absence result.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain blocker evidence, caller listing responsibility, root failure and explicit versus default path dialect; member comments and tags remain visibly separated following documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation OS-neutral traversal selects Node's Windows or POSIX path implementation from the observing filesystem's override, falling back to the host platform, and applies that same dialect to resolution, parent traversal and child-name extraction without inferring case policy.
+ * @evidence contracts/performance.md#efficient-algorithms At most D ancestor stats are performed for D path components; parent string operations can cost O(D times path length), and no subtree walk or content read is performed.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This selects one current probe boundary; observers own reuse of listings and blocker metadata across requests.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The walk retains only its current path and returned candidate; native watchers and saved absence proofs belong to consumers.
+ */
 export function missingPathProbe(
   file: string,
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
 ): {
+  /** Existing nondirectory ancestor whose metadata must remain unchanged. */
   blocker?: string;
+
+  /** Directory to enumerate; root exhaustion still requires a usable listing. */
   directory: string;
+
+  /** Child entry whose absence the caller checks in that listing. */
   name: string;
 } {
-  let child = path.resolve(file);
+  const pathApi =
+    (filesystem.platform ?? process.platform) === "win32" ? path.win32 : path.posix;
+  let child = pathApi.resolve(file);
   for (;;) {
-    const directory = path.dirname(child);
+    const directory = pathApi.dirname(child);
     try {
       const stats = filesystem.stat(directory);
       if (stats.isDirectory()) {
-        return { directory, name: path.basename(child) };
+        return { directory, name: pathApi.basename(child) };
       }
       return {
         blocker: directory,
-        directory: path.dirname(directory),
-        name: path.basename(directory),
+        directory: pathApi.dirname(directory),
+        name: pathApi.basename(directory),
       };
     } catch {}
     if (directory === child) {
-      return { directory, name: path.basename(child) };
+      return { directory, name: pathApi.basename(child) };
     }
     child = directory;
   }

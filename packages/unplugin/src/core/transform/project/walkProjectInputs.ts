@@ -23,6 +23,15 @@ import { isProjectWalkDirectory } from "./isProjectWalkDirectory";
  * Uses an iterative DFS instead of `fs.readdirSync` recursion to avoid
  * unbounded call-stack depth on deep project trees. The result is sorted so
  * that hash comparisons are deterministic across OS-level directory orderings.
+ *
+ * @evidence contracts/common.md#principled-implementation Iterative lexical descent applies the same configured membership policy as event classification, and metadata bracketing records incomplete or changing directories instead of certifying a torn snapshot.
+ * @evidence contracts/common.md#clear-and-simple-design One enumeration pass records child structure, then relevance propagation and digest construction use those records; the second phase is necessary because parent relevance depends on descendants.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Exclusion follows resolved compiler admission rather than compensating name lists, and failed observations remain explicit proof failures instead of disappearing from a successful result.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain iterative descent and deterministic output; inline comments explain two-phase relevance, filtered membership and the metadata helper's narrower race-detection role.
+ * @evidence contracts/portability.md#os-neutral-implementation The supplied native readdir and bigint stat view owns entry kinds and timestamps; its platform selects child joining, parent extraction and membership grammar, and final sorting removes OS enumeration-order dependence.
+ * @evidence contracts/performance.md#efficient-algorithms Iterative DFS avoids call-stack growth, a visited map bounds relevance propagation and child-directory sets avoid repeated linear membership scans; sorting each selected membership list and final paths dominates ordering work.
+ * @evidence contracts/performance.md#reuse-equivalent-work Directory metadata and entries are captured once per walk and reused for relevance and digest construction; a new walk reobserves membership rather than trusting an earlier directory timestamp.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources All traversal state is local and returned snapshots transfer to the caller; synchronous filesystem observations leave no retained watcher, handle or task.
  */
 export function walkProjectInputs(
   root: string,
@@ -34,6 +43,8 @@ export function walkProjectInputs(
   failures: TtscProjectWalkFailure[];
   files: string[];
 } {
+  const platform = filesystem.platform ?? process.platform;
+  const pathApi = platform === "win32" ? path.win32 : path.posix;
   let complete = true;
   const failures: TtscProjectWalkFailure[] = [];
   const files: string[] = [];
@@ -41,7 +52,7 @@ export function walkProjectInputs(
   // to know whether each child directory can hold program inputs, and the walk
   // learns that only after descending, so the two cannot be one pass.
   const visited: {
-    childDirectories: string[];
+    childDirectories: Set<string>;
     entries: { name: string; kind: string; possible: boolean }[];
     ownInput: boolean;
     path: string;
@@ -79,7 +90,7 @@ export function walkProjectInputs(
       });
     }
     const visit = {
-      childDirectories: [] as string[],
+      childDirectories: new Set<string>(),
       entries: [] as { name: string; kind: string; possible: boolean }[],
       ownInput: false,
       path: current,
@@ -92,12 +103,12 @@ export function walkProjectInputs(
           : `unstable:${before}:${after ?? "missing"}`,
     };
     for (const entry of entries) {
-      const file = path.join(current, entry.name);
+      const file = pathApi.join(current, entry.name);
       if (
         entry.isDirectory()
-          ? !isProjectWalkDirectory(file, policy)
+          ? !isProjectWalkDirectory(file, policy, platform)
           : isIgnoredProjectEntry(entry.name, policy) ||
-            !matchesProjectRootFile(file, policy, false)
+            !matchesProjectRootFile(file, policy, false, platform)
       ) {
         continue;
       }
@@ -112,7 +123,7 @@ export function walkProjectInputs(
         possible,
       });
       if (entry.isDirectory()) {
-        visit.childDirectories.push(file);
+        visit.childDirectories.add(file);
         stack.push(file);
       } else if (entry.isFile() && possible) {
         // Only a file that could enter the program is hashed. A file that
@@ -145,7 +156,7 @@ export function walkProjectInputs(
     let current: string | undefined = visit.path;
     while (current !== undefined && !relevant.has(current)) {
       relevant.add(current);
-      const parent = path.dirname(current);
+      const parent = pathApi.dirname(current);
       current = parent === current || !byPath.has(parent) ? undefined : parent;
     }
   }
@@ -155,10 +166,10 @@ export function walkProjectInputs(
       .filter(
         (entry) =>
           entry.possible &&
-          (!visit.childDirectories.includes(
-            path.join(visit.path, entry.name),
+          (!visit.childDirectories.has(
+            pathApi.join(visit.path, entry.name),
           ) ||
-            relevant.has(path.join(visit.path, entry.name))),
+            relevant.has(pathApi.join(visit.path, entry.name))),
       )
       .map((entry) => `${entry.name}:${entry.kind}`);
     return {

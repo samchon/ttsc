@@ -66,6 +66,11 @@ const KEPT_STORE_PUBLICATIONS = 32;
  *   Filesystem directory creation coordinates independent workers, and owned
  *   tokens distinguish a claim from another holder at the same pathname.
  *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One identity/state claim selects adoption or compile ownership. Private
+ *   helpers separate lock coordination, publication, and bounded retention;
+ *   filesystem failure leaves the caller's local compile path available.
+ *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   The optional store preserves a local compile path when sharing is
  *   unavailable rather than changing compile semantics; it uses native APIs
@@ -308,7 +313,12 @@ function holdLock(
       released = true;
       clearInterval(heartbeat);
       if (owns(lock, token)) {
-        fs.rmSync(lock, { force: true, recursive: true });
+        try {
+          fs.rmSync(lock, { force: true, recursive: true });
+        } catch {
+          // Cleanup is best effort: a failed removal must not prevent the
+          // caller's independent generation resources from being released.
+        }
       }
     },
   };
@@ -392,24 +402,68 @@ async function readPublication(
     return undefined;
   }
   try {
-    const value = JSON.parse(text) as Partial<TtscSharedCompilePublication>;
-    const type = (value.result as { type?: unknown } | undefined)?.type;
+    const value: unknown = JSON.parse(text);
     // A compile that ended in diagnostics is published like one that
     // succeeded (samchon/ttsc#1458); an exception never is.
     if (
-      (type !== "success" && type !== "failure") ||
-      typeof value.externalInputHashes !== "object" ||
-      value.externalInputHashes === null ||
-      typeof value.externalInputRealpaths !== "object" ||
-      value.externalInputRealpaths === null ||
+      !isPublicationRecord(value) ||
+      !isPublicationResult(value.result) ||
+      !isPublicationRecord(value.externalInputHashes) ||
+      !Object.values(value.externalInputHashes).every((hash) => typeof hash === "string") ||
+      !isPublicationRecord(value.externalInputRealpaths) ||
+      !Object.values(value.externalInputRealpaths).every((realpath) =>
+        realpath === null || typeof realpath === "string") ||
       typeof value.scratchDirectory !== "string" ||
       (value.temporaryTsconfig !== undefined &&
         typeof value.temporaryTsconfig !== "string")
     ) {
       return undefined;
     }
-    return value as TtscSharedCompilePublication;
+    return value as unknown as TtscSharedCompilePublication;
   } catch {
     return undefined;
   }
+}
+
+/** Persisted dictionary values must not be arrays or null. */
+function isPublicationRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Check the envelope fields read directly before advisory index validation. */
+function isPublicationResult(value: unknown): boolean {
+  if (!isPublicationRecord(value) ||
+    (value.type !== "success" && value.type !== "failure") ||
+    !isPublicationRecord(value.typescript) ||
+    !Object.values(value.typescript).every((source) => typeof source === "string"))
+    return false;
+  if (value.diagnostics !== undefined) {
+    if (!Array.isArray(value.diagnostics) ||
+      !value.diagnostics.every((diagnostic) =>
+        isPublicationRecord(diagnostic) && typeof diagnostic.messageText === "string" &&
+        (diagnostic.file === undefined || typeof diagnostic.file === "string") &&
+        (diagnostic.line === undefined || typeof diagnostic.line === "number") &&
+        (diagnostic.character === undefined || typeof diagnostic.character === "number")))
+      return false;
+  } else if (value.type === "failure") return false;
+  if (value.graph !== undefined && !isPublicationRecord(value.graph)) return false;
+  if (value.sourceMaps !== undefined &&
+    (!isPublicationRecord(value.sourceMaps) ||
+      !Object.values(value.sourceMaps).every(isPublicationSourceMap))) return false;
+  return true;
+}
+
+/** Source maps must support the native source/provenance projection safely. */
+function isPublicationSourceMap(value: unknown): boolean {
+  if (!isPublicationRecord(value) || value.version !== 3 ||
+    typeof value.mappings !== "string" ||
+    !Array.isArray(value.sources) ||
+    !value.sources.every((source) => typeof source === "string") ||
+    !Array.isArray(value.names) ||
+    !value.names.every((name) => typeof name === "string") ||
+    (value.sourceRoot !== undefined && typeof value.sourceRoot !== "string"))
+    return false;
+  return value.sourcesContent === undefined ||
+    (Array.isArray(value.sourcesContent) &&
+      value.sourcesContent.every((source) => source === null || typeof source === "string"));
 }

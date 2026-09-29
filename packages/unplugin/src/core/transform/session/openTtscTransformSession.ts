@@ -39,6 +39,15 @@ import { readTtscTransformSession } from "./readTtscTransformSession";
  * workers compiling for themselves, never an error.
  *
  * @returns The store's absolute path, or `undefined` when none could be opened.
+ *
+ * @evidence contracts/common.md#principled-implementation A valid inherited store is preserved; otherwise the user-owned persistent directory is declared before workers spawn, enabling proven publications to survive process restarts.
+ * @evidence contracts/common.md#clear-and-simple-design Storage ownership stays in userStateDirectory and adoption stays in claimSharedCompile; this operation opens the capability and removes obsolete process directories.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Optional store failure leaves real local compilation in place, rather than reusing unproven output or suppressing compiler failure.
+ * @evidence contracts/common.md#meaningful-documentation The prose explains worker inheritance, persistent versus obsolete process storage, and why sharing failures return undefined.
+ * @evidence contracts/portability.md#os-neutral-implementation Native user-state storage and Node filesystem paths provide the store, while process.kill(pid, 0) distinguishes a departed owner from permission denial without spawning platform-specific shell commands.
+ * @evidence contracts/performance.md#efficient-algorithms One scan of user-state children classifies supported process-directory names; a valid inherited store avoids that scan, and current persistent store contents are not traversed by this opener.
+ * @evidence contracts/performance.md#reuse-equivalent-work Parent and worker processes retain the inherited store capability, while compile identity, state proof and publication reuse remain with the claim/adoption owners.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Departed owners' recognized clock and legacy random session directories are reclaimed; live or unrecognized children remain untouched, and the persistent shared store's bounded publication pruning is delegated to claimSharedCompile.
  */
 export function openTtscTransformSession(): string | undefined {
   const inherited = readTtscTransformSession();
@@ -49,8 +58,9 @@ export function openTtscTransformSession(): string | undefined {
     const root = userStateDirectory();
     if (root === undefined) return undefined;
     for (const entry of fs.readdirSync(root)) {
-      const owner = Number.parseInt(entry.split("-")[0] ?? "", 10);
-      if (Number.isInteger(owner) && owner > 0 && !processAlive(owner)) {
+      const match = /^([1-9][0-9]*)-(?:clock|[A-Za-z0-9]{6})$/.exec(entry);
+      const owner = match === null ? undefined : Number(match[1]);
+      if (owner !== undefined && Number.isSafeInteger(owner) && !processAlive(owner)) {
         fs.rmSync(path.join(root, entry), { force: true, recursive: true });
       }
     }

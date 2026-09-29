@@ -6,6 +6,19 @@ import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTrans
  * proves nothing either way — it never proves the generation stale. Neither
  * does one whose events may have been dropped since the state was last proven
  * (samchon/ttsc#1425), until a delivery proves it again.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Mandatory project and host coverage must both be live and verified;
+ *   absent candidate coverage is allowed because candidate reads remain.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   A two-element mandatory check and one optional check express the different
+ *   authorities without merging absence with failure.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Failure withdraws notification proof; it never invents a stale-generation
+ *   verdict or bypasses the remaining per-delivery observations.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native prose distinguishes proof loss from positive mutation evidence;
+ *   the candidate comment explains optionality under the documentation skill.
  */
 export function notificationsProveMembership(
   cached: TtscCachedProjectTransform,

@@ -14,16 +14,26 @@ import { pathIsWithin } from "./pathIsWithin";
  *
  * @param file The absolute path to place.
  * @param project The project root's two spellings.
+ * @param platform The observed path grammar; the host platform by default.
+ *
+ * @evidence contracts/common.md#principled-implementation Both named and physical roots can place an input inside the same project; an empty relative path explicitly identifies the root itself.
+ * @evidence contracts/common.md#clear-and-simple-design At most two existing lexical-containment checks produce the relative spelling, without resolving every input again.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Link-root aliases are not repaired with prefix substitution or a platform-specific temporary-directory exception.
+ * @evidence contracts/common.md#meaningful-documentation The native paragraphs explain two-root containment, undefined, and the root's empty-string representation.
+ * @evidence contracts/portability.md#os-neutral-implementation OS-neutral containment uses native resolve/relative and root boundaries under both observed spellings, preserving cross-drive rejection without a fixed platform path policy.
  */
 export function relativeToProject(
   file: string,
   project: TtscProjectSpellings,
+  platform: NodeJS.Platform = process.platform,
 ): string | undefined {
-  const absolute = path.resolve(file);
+  const pathApi = platform === "win32" ? path.win32 : path.posix;
+  const absolute = pathApi.resolve(file);
   for (const root of project.physical === project.spelling
     ? [project.spelling]
     : [project.spelling, project.physical]) {
-    if (pathIsWithin(absolute, root)) return path.relative(root, absolute);
+    if (pathIsWithin(absolute, root, platform))
+      return pathApi.relative(root, absolute);
   }
   return undefined;
 }

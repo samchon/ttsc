@@ -38,12 +38,26 @@ import { projectWalkFailureFingerprint } from "./projectWalkFailureFingerprint";
  * A write made in the same turn as a confirmation is seen from the next turn
  * on. Every host delivers a changed module from a later turn, after its own
  * watcher has reported the change.
+ *
+ * @evidence contracts/common.md#principled-implementation Delivered-source divergence is checked against disk before reuse, and terminal retry requires a changed project/failure fingerprint or exact/tree input state; failed re-probing conservatively preserves the existing verdict.
+ * @evidence contracts/common.md#clear-and-simple-design The exported boundary handles per-delivery text and turn-shared coordination, while its private environment comparator owns walk and out-of-walk revalidation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts A text-only upstream rewrite does not replace the compiler's disk baseline, and probe failure is not treated as a fabricated change that would repeatedly compile unchanged failed state.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain confirmation rather than successful-generation proof, current-turn sharing, clock separation and next-turn freshness limitations, with props and tags visibly separated.
+ * @evidence contracts/portability.md#os-neutral-implementation Filesystem identity and metadata separation use the supplied host operations and process clock reference; plugin tree state uses the same native build environment composition that keyed its binary.
+ * @evidence contracts/performance.md#efficient-algorithms Each delivery hashes its own supplied text; the first uncached verdict per turn walks the project and uses separable matching metadata to avoid unnecessary exact-input state reads.
+ * @evidence contracts/performance.md#reuse-equivalent-work One WeakMap verdict per validation object is shared only through the current event-loop turn and removed by setImmediate; delivered-source checks remain outside that shared verdict.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Weak keys do not independently retain old terminal baselines, scheduled eviction releases each turn's verdict and the shared process-clock owner controls the retained probe lifecycle.
  */
 export function failedGenerationEnvironmentChanged(
   validation: TtscFailedGenerationValidation,
   props: {
+    /** Native source path requested by this delivery. */
     currentFile: string;
+
+    /** Host-supplied text checked separately from the turn-shared environment. */
     currentSource: string;
+
+    /** Same host filesystem boundary that observed the cached generation. */
     filesystem: TtscTransformFilesystemOperations;
   },
 ): boolean {
@@ -75,7 +89,11 @@ export function failedGenerationEnvironmentChanged(
   }
 }
 
-/** Confirm the project walk and every recorded input outside it. */
+/**
+ * Confirm the project walk and every recorded input outside it. A plugin tree
+ * always validates its full source/build state before ordinary-path metadata
+ * reuse is considered, because parent metadata cannot prove descendant state.
+ */
 function environmentChanged(
   validation: TtscFailedGenerationValidation,
   filesystem: TtscTransformFilesystemOperations,
@@ -115,14 +133,6 @@ function environmentChanged(
     return true;
   }
   for (const [input, recorded] of validation.inputStates) {
-    const evidence = inputMetadataEvidence(input, filesystem);
-    if (
-      recorded.signature !== undefined &&
-      evidence?.separable === true &&
-      evidence.signature === recorded.signature
-    ) {
-      continue;
-    }
     if (recorded.tree) {
       // A plugin source that could not be read then moved once it can be.
       if (
@@ -131,6 +141,14 @@ function environmentChanged(
           : !pluginSourceHolds(input, recorded.state, filesystem)
       )
         return true;
+      continue;
+    }
+    const evidence = inputMetadataEvidence(input, filesystem);
+    if (
+      recorded.signature !== undefined &&
+      evidence?.separable === true &&
+      evidence.signature === recorded.signature
+    ) {
       continue;
     }
     if (failedGenerationInputState(input, filesystem) !== recorded.state)

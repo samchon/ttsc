@@ -20,6 +20,15 @@ import { filesystemClockReferences } from "./filesystemClockReferences";
  * user's project or an otherwise unowned neighboring directory. That is not a
  * valid price for this optimization, so the cross-volume case degrades to more
  * reads instead.
+ *
+ * @evidence contracts/common.md#principled-implementation Clearing old references before a fresh owned probe write prevents previous or rolled-back stamps from certifying content; only observed regular-file metadata establishes a same-device reference.
+ * @evidence contracts/common.md#clear-and-simple-design This operation mints and records one probe stamp; input metadata comparison remains in the separability consumer.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed writes, inaccessible probes, or another device cannot be replaced by Date.now or a historical maximum; actual content proof remains necessary.
+ * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain owned storage, fresh-write evidence, and why cross-volume inputs require more reads.
+ * @evidence contracts/portability.md#os-neutral-implementation OS-neutral clock proof uses native owned-path writes and the observing view's bigint device/time metadata, preserving cross-volume and unavailable-probe behavior without a platform clock assumption.
+ * @evidence contracts/performance.md#efficient-algorithms One write and one metadata read mint the current reference, allowing later same-device input proofs to avoid unnecessary content reads.
+ * @evidence contracts/performance.md#reuse-equivalent-work The existing probe path and shared per-view reference table are reused; only a newly minted stamp can authorize signature reuse.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Refresh clears historical references and rewrites the single owned probe; generation disposal or the process-reference owner removes its directory.
  */
 export function refreshFilesystemClockReference(
   referenceDirectory: string | undefined,

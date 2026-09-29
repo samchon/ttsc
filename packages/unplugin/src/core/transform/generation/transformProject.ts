@@ -63,11 +63,27 @@ const TRANSFORM_GENERATION_ATTEMPTS = 2;
  * compiler's case policy is learned the same way: a walk primed with another
  * policy is taken again under the one the compile reported
  * (samchon/ttsc#1545).
+ *
+ * @evidence contracts/common.md#principled-implementation Each capture must establish config coherence plus reusable success proof or a still-current diagnostic verdict; learned compile facts and refuted publications have distinct retry premises, while movement and absolute attempt caps ensure termination.
+ * @evidence contracts/common.md#clear-and-simple-design The loop owns attempt classification and resource handoff, while capture owns proof construction and the shared error builder owns terminal rendering and final disposal.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Retrying follows actual newly learned dependencies/case policy or refuted publication state rather than an endless workaround chain; failed proof never becomes a reusable success through reaching the attempt bound.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain movement versus absolute budgets, failed-compile diagnostics and learned facts; separated props state delivery, tracking and inherited witness meaning.
+ * @evidence contracts/portability.md#os-neutral-implementation Each capture delegates native filesystem and compiler behavior to injected host boundaries; reported compiler case policy is carried between attempts rather than guessed from OS names.
+ * @evidence contracts/performance.md#efficient-algorithms At most twice the two-movement bound captures occur, reusing witnessed dependency paths and learned case policy; a successful or current diagnostic capture returns immediately.
+ * @evidence contracts/performance.md#reuse-equivalent-work The attempt carries learned input witnesses and policy forward, and session publication classification permits equivalent proven compiles to be adopted instead of redundantly compiling each worker's state.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Every nonterminal rejected capture is disposed before retry, terminal error creation disposes the final failed capture and successful/diagnostic return transfers its resources to the cache owner; at most four attempt witness sets remain local.
  */
 export async function transformProject(props: {
+  /** Adapter aliases re-stated over inherited project paths for compilation. */
   aliasPaths: Record<string, string[]>;
+
+  /** Compiler-option overlay, preserving the underlying config semantics. */
   compilerOptions: Record<string, unknown>;
+
+  /** Native path of the module whose delivery initiated this capture. */
   currentFile: string;
+
+  /** Delivered module text compared against the compiler's disk observation. */
   currentSource: string;
 
   /**
@@ -75,8 +91,14 @@ export async function transformProject(props: {
    * {@link TtscCachedProjectTransform.deliveryEpoch}.
    */
   deliveryEpoch?: number;
+
+  /** Host filesystem boundary for project and external-input proof. */
   filesystem: TtscTransformFilesystemOperations;
+
+  /** Native plugin descriptors supplied to the compiler. */
   plugins?: ResolvedTtscUnpluginOptions["plugins"];
+
+  /** Whether live membership observers may transfer to a retained generation. */
   retainProjectMembership: boolean;
 
   /**
@@ -92,7 +114,11 @@ export async function transformProject(props: {
    * compiles (samchon/ttsc#1390).
    */
   session?: string;
+
+  /** Whether a pre-compile membership tracker should witness the capture window. */
   trackProjectMembership: boolean;
+
+  /** Native project config selected for the whole-project transform. */
   tsconfig: string;
 
   /**

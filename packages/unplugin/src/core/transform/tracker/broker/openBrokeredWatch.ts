@@ -46,6 +46,32 @@ import { sweepAbandonedWatchProbes } from "./sweepAbandonedWatchProbes";
  *   given up as unable to (the sink is then told they failed); `close`, which
  *   removes the registration and retires the broker after its last one, and
  *   throws the first cleanup failure; and `drain`, the broker's barrier.
+ * @evidence contracts/common.md#principled-implementation
+ *   Canonical opening paths map back to owner spellings; readiness and native
+ *   probes establish coverage while failure remains a sink verdict.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   This single registration path serves trackers and forwarding observers;
+ *   child routing and owner event interpretation remain separate.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Failed probe preparation withdraws only probe proof, not invented watch
+ *   success; native failures stay isolated rather than patching fs.watch.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs, parameters and return comments explain isolation, probe
+ *   eligibility, deadlines and cleanup failures under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   OS-neutral ownership uses filesystem realpaths and an explicit spelling map;
+ *   optional IPC ref methods support runtimes without mutating their channel API.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Preparing n locations takes one pass and O(n) normalized records; routing
+ *   uses registration maps instead of matching all consumers' path strings.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   A process-wide broker serves independent sinks; prepared project probe
+ *   directories share one process-owned namespace and drain sharing respects scope.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   The handle owns one registration and readiness timer; close removes it and
+ *   the last owner disconnects and kills the broker, attempting all cleanup.
+ *   Prepared probe namespaces remain until process exit and grow with distinct
+ *   historical project-root spellings; no hard population cap currently exists.
  */
 export function openBrokeredWatch(
   locations: readonly WatchBrokerLocation[],

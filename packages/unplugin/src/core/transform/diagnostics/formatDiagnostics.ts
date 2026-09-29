@@ -9,6 +9,11 @@ import { stripTerminalEscapes } from "./stripTerminalEscapes";
  * output style of `tsc`. When the list is empty (e.g. a failure with no
  * attached diagnostics) returns a generic fallback message so the thrown
  * `Error` is never empty.
+ *
+ * @evidence contracts/common.md#principled-implementation Structured compiler locations and messages are rendered without inferring error categories from their text; the empty-list fallback belongs to failure formatting.
+ * @evidence contracts/common.md#clear-and-simple-design One projection joins present location components and delegates terminal escape removal to its single owner.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Formatting preserves diagnostic order and supplied positions rather than substituting expected fixture messages or synthetic success.
+ * @evidence contracts/common.md#meaningful-documentation The native comment states the rendered shape and explains why an empty failure still needs a message.
  */
 export function formatDiagnostics(
   diagnostics: ITtscCompilerDiagnostic[],

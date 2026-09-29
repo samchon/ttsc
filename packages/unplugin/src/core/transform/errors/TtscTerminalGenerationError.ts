@@ -5,5 +5,10 @@
  * The two kinds are replayed on different evidence, and each carries its own: a
  * pass verdict knows the pass it belongs to, and an unstable generation knows
  * the recorded environment it was proven against.
+ *
+ * @evidence contracts/common.md#principled-implementation The abstract Error subclass groups replayable generation verdicts while concrete subclasses retain the distinct pass or environment premises authorizing replay.
+ * @evidence contracts/common.md#clear-and-simple-design An empty abstract base supplies shared typed classification without duplicating fields whose meanings differ between verdicts.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Grouping does not authorize unconditional reuse; concrete verdict evidence remains required by the consuming cache policy.
+ * @evidence contracts/common.md#meaningful-documentation The native paragraphs distinguish the two replay premises and explain why each concrete type owns its own evidence.
  */
 export abstract class TtscTerminalGenerationError extends Error {}

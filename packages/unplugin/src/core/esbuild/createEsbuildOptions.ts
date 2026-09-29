@@ -33,6 +33,36 @@ import type { TtscProjectRegistration } from "../transform/watch/TtscProjectRegi
  * Esbuild tells a plugin nothing about whether its context watches, so the
  * bridge opens for a one-shot `build()` as well, and closes when the last
  * context of this plugin is disposed, which `build()` reports at its end.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   The native file loader returns source, parser, map and one project record
+ *   dependency together. Start establishes delivery proof; error responses retain
+ *   prior dependencies so failed builds can observe their repair.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Setup owns lifecycle registration and loader responses; shared transform and
+ *   record helpers retain compilation, validation and observation responsibility.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The adapter uses esbuild's onLoad/watchFiles/onDispose API. Previous dependency
+ *   retention covers real failed loads rather than inventing a successful result.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs explain esbuild's baseline behavior and absent watch-mode
+ *   capability; lifecycle/error comments and tag separation follow documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Native resolution anchors absWorkingDir/cwd; Node reads delivered disk files.
+ *   Host-local or accepted user fallback records avoid temporary-path assumptions,
+ *   while the shared observer owns native watch and filesystem identity differences.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   A delivery reads S source bytes and indexes its dependency set; one project
+ *   generation serves multiple modules. Previous dependency maps grow with M
+ *   loaded files instead of rebuilding dependency lists from the whole program.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Concurrent contexts of one plugin share its cache; build start resets delivery
+ *   proof, and transform validity uses generation inputs. Owner identity prevents
+ *   a setup that never started from releasing another context's cache.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Active started contexts own cache/bridge retention. The last onDispose resets
+ *   the cache and closes the bridge; previous dependency lists live with each
+ *   setup closure. Their retained bytes have no fixed cap beyond loaded modules.
  */
 export function createEsbuildOptions(
   options: ResolvedTtscUnpluginOptions,

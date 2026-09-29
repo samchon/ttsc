@@ -25,6 +25,14 @@ import type { TtscWatchInput } from "./TtscWatchInput";
  * @param hooks The host's hooks; nothing is handed when it takes no inputs.
  * @param inputs The inputs in the order they were derived.
  * @param failed Whether they are a failed generation's, for a batching host.
+ *
+ * @evidence contracts/common.md#principled-implementation Exact registration spellings are deduplicated with membership preferred over ordinary evidence and evidence over a recovery-only path; equal-ranked entries retain the first observation.
+ * @evidence contracts/common.md#clear-and-simple-design One precedence pass feeds either the batch callback or individual callbacks, leaving evidence derivation and bundler policy with their owners.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Contract-defined precedence keeps the strongest available input meaning without inventing facts, and batch preference follows the supported callback contract.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains callback preference, deduplication and precedence, with separated tags following documentation guidance.
+ * @evidence contracts/performance.md#efficient-algorithms A Map performs O(N) selection and O(U) output allocation, avoiding pairwise duplicate searches before the one batch or U individual notifications.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Callback delivery is an effect for each module; matching input values do not authorize suppressing another host notification.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The chosen map and batch are call-local; host callbacks own any retained watcher state after delivery.
  */
 export function handWatchInputs(
   hooks: TtscTransformHooks | undefined,

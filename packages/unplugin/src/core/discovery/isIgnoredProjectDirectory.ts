@@ -1,4 +1,24 @@
-/** Directories deliberately outside the shared lexical project walk. */
+/**
+ * Keep the dependency, VCS and ttsc plugin stores outside project discovery.
+ *
+ * All other names are governed by the selected project rather than guessed
+ * directory conventions.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Exact equality identifies the three stores outside this source-discovery
+ *   contract; ordinary output and hidden directories remain policy-owned.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One predicate owns the traversal's unconditional directory omissions.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   These store names express traversal ownership, not expected fixture answers
+ *   or an expanding list of guessed consumer output directories.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   The comment names the omitted stores and explains why other directory names
+ *   remain configuration decisions instead of repeating a boolean expression.
+ */
 export function isIgnoredProjectDirectory(name: string): boolean {
   // The residue of what used to be a fifteen-name list, kept to the VCS store,
   // the package manager's tree, and ttsc's own plugin cache. Everything else

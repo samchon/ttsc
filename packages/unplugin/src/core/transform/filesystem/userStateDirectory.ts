@@ -25,6 +25,15 @@ import path from "node:path";
  * backend aborts.
  *
  * @param segments The directories below the root, each created and checked.
+ *
+ * @evidence contracts/common.md#principled-implementation Internal callers use the shared-store literal or process clock name below the native temporary root; lstat rejects linked entries and POSIX uid/mode checks require user-owned private directories.
+ * @evidence contracts/common.md#clear-and-simple-design One provider creates and checks the state root and requested owned directories, leaving store contents, pruning, and probe lifetime to consumers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Native temporary-root discovery and realpath replace guessed user-directory paths; failures decline optional storage rather than fabricating a usable store.
+ * @evidence contracts/common.md#meaningful-documentation The prose explains retained output ownership, per-process probes, uid-capable checks, and the long Windows spelling required by native watchers.
+ * @evidence contracts/portability.md#os-neutral-implementation OS-neutral directory selection uses os.tmpdir, native realpath, native joins, and available uid capability; hosts without uid checks rely on their user temporary directory's native access policy.
+ * @evidence contracts/performance.md#efficient-algorithms Creation visits only the root and requested segments, with one ownership stat per directory rather than scanning the temporary tree.
+ * @evidence contracts/performance.md#reuse-equivalent-work Existing directories are reused by shared compile stores and process probes; consumers independently prove retained content instead of recompiling solely because a process restarted.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources This provider leaves no open handles; process probes own exit cleanup and the persistent shared store owns publication bounds and abandoned-process reclamation.
  */
 export function userStateDirectory(...segments: string[]): string | undefined {
   try {

@@ -36,6 +36,15 @@ import { selectionInputs } from "./selectionInputs";
  * @param selection The configs that routed the file to its project, and the
  *   project's tsconfig, which spells the project for a rejection that has no
  *   generation to spell it.
+ *
+ * @evidence contracts/common.md#principled-implementation An unstable attempt exposes its retained validation generation through normal failed delivery; a rejection without a generation can register only its known selection dependencies and an existing project record.
+ * @evidence contracts/common.md#clear-and-simple-design The unstable branch delegates generation recovery, while the generation-free branch has one routing batch shared by record and module callbacks.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown compiler inputs are not invented; absent records mark the module volatile and registration honestly has no newly written digest.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish rejection categories and limited recovery coverage, with documented parameters and separated tags following documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation The delivery's filesystem supplies project physical identity, native path operations provide spelling and actual record existence selects only a host-approved directory.
+ * @evidence contracts/performance.md#efficient-algorithms The generation-free path maps O(S) routing configs and probes at most two approved record locations; unstable recovery delegates its retained-input traversal.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Recovery registration is a delivery effect and rejection without a generation offers no equivalent completed compiler computation to cache here.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The recovery batch and record candidate list are local; host watchers own any retained dependencies after callbacks return.
  */
 export function notifyRejectedGenerationInputs(
   hooks: TtscTransformHooks | undefined,

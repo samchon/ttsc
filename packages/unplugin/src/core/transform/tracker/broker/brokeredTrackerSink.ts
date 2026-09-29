@@ -27,6 +27,21 @@ import type { WatchBrokerSink } from "./WatchBrokerSink";
  * @param filters The tracker's event decision: the exact-input trackers'
  *   classifier, or the project-directory tracker's membership, content, and
  *   new-membership filters.
+ * @evidence contracts/common.md#principled-implementation
+ *   Owner filters classify events; failed, gap and partial drain messages update
+ *   different authority fields rather than pretending they are mutations.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One sink adapts the broker protocol to tracker state and delegates exact
+ *   input classification wholesale, keeping backend policies equivalent.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Unknown names remain structural witnesses and failed coverage remains failed;
+ *   the adapter neither suppresses events nor patches a foreign watcher.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native message list and parameter comments distinguish each verdict and
+ *   classifier precedence under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   OS-neutral event construction uses node:path and owner-translated directory
+ *   spellings; native drop and probe semantics are explicit protocol inputs.
  */
 export function brokeredTrackerSink(
   tracker: TtscProjectMutationTracker,

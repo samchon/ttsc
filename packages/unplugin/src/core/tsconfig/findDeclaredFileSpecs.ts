@@ -7,7 +7,7 @@ import { resolveExtendsConfig } from "./resolveExtendsConfig";
 import { resolveRealPath } from "./resolveRealPath";
 
 /**
- * Resolve the effective `files` or `include` list of a tsconfig the way
+ * Resolve an effective `files`, `include` or `exclude` list the way
  * TypeScript-Go merges them across `extends`.
  *
  * A config that declares the key owns it, whatever the value: an array is the
@@ -19,23 +19,51 @@ import { resolveRealPath } from "./resolveRealPath";
  * has the key, which differs from that rule only for `null`, so this list is
  * resolved on its own.
  *
- * Non-string entries are dropped, as `validateSpecs` drops them. The declaring
- * directory travels with the list because relative entries are anchored there,
- * in the spelling the config was named by, as `findDeclaredValue` anchors every
- * path (samchon/ttsc#1455).
+ * `specs` drops non-string entries, as `validateSpecs` does. `rawSpecs` keeps
+ * them for generated overlays that must preserve compiler diagnostics. The
+ * declaring directory travels with the list because relative entries are
+ * anchored there, in the spelling the config was named by, as
+ * `findDeclaredValue` anchors every path (samchon/ttsc#1455).
  *
  * @returns The list and its declaring directory, `undefined` when no config in
  *   the chain supplies an array, or `null` when `tsconfig` itself cannot be
  *   read, which leaves the caller without any configuration to model.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Own key presence masks inherited lists even for invalid values; inherited
+ *   arrays replace earlier bases in declaration order. Each list keeps its
+ *   lexical declaring anchor and invalid elements do not become path specs.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   This list-specific reader owns the null-versus-inherited-array rule that
+ *   differs from ordinary nearest-value selection; readConfig owns input shape.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Relative specs retain the native declaring directory, while realpath only
+ *   guards branch cycles. Host extends resolution and candidate APIs own native
+ *   package and file naming; missing candidates retain their lexical paths.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The exception comes from compiler merge semantics, not a particular preset.
+ *   Missing candidate inputs remain collected for future invalidation.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native prose explains own versus inherited null and the three return states;
+ *   the distinction has a compiler basis and a documented consequence.
  */
 export function findDeclaredFileSpecs(
   tsconfig: string,
-  key: "files" | "include",
+  key: "files" | "include" | "exclude",
   collect?: Set<string>,
-): { baseDir: string; specs: string[] } | undefined | null {
+  /** Optional parsed-source map scoped to one caller-owned read transaction. */
+  configs?: Map<string, unknown>,
+):
+  | { baseDir: string; specs: string[]; rawSpecs: readonly unknown[] }
+  | undefined
+  | null {
   const resolved = path.resolve(tsconfig);
   collect?.add(resolved);
-  const parsed = readConfig(resolved);
+  const parsed = readConfig(resolved, configs);
   if (parsed === undefined) return null;
   return resolve(
     resolved,
@@ -43,28 +71,35 @@ export function findDeclaredFileSpecs(
     key,
     new Set([resolveRealPath(resolved)]),
     collect,
+    configs,
   );
 }
 
 function resolve(
   resolved: string,
   parsed: Record<string, unknown>,
-  key: "files" | "include",
+  key: "files" | "include" | "exclude",
   seen: Set<string>,
   collect: Set<string> | undefined,
-): { baseDir: string; specs: string[] } | undefined {
+  configs: Map<string, unknown> | undefined,
+):
+  | { baseDir: string; specs: string[]; rawSpecs: readonly unknown[] }
+  | undefined {
   if (Object.prototype.hasOwnProperty.call(parsed, key)) {
     const value = parsed[key];
     return Array.isArray(value)
       ? {
           baseDir: path.dirname(resolved),
+          rawSpecs: value.slice(),
           specs: value.filter(
             (entry): entry is string => typeof entry === "string",
           ),
         }
       : undefined;
   }
-  let inherited: { baseDir: string; specs: string[] } | undefined;
+  let inherited:
+    | { baseDir: string; specs: string[]; rawSpecs: readonly unknown[] }
+    | undefined;
   for (const specifier of extendsSpecifiers(parsed.extends)) {
     const base = resolveExtendsConfig(resolved, specifier);
     if (base === null) {
@@ -81,7 +116,7 @@ function resolve(
     collect?.add(base);
     const baseCanonical = resolveRealPath(base);
     if (seen.has(baseCanonical)) continue;
-    const baseParsed = readConfig(base);
+    const baseParsed = readConfig(base, configs);
     if (baseParsed === undefined) continue;
     const declared = resolve(
       base,
@@ -89,21 +124,29 @@ function resolve(
       key,
       new Set([...seen, baseCanonical]),
       collect,
+      configs,
     );
     if (declared !== undefined) inherited = declared;
   }
   return inherited;
 }
 
-function readConfig(file: string): Record<string, unknown> | undefined {
+function readConfig(
+  file: string,
+  configs: Map<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
   try {
-    const parsed = parseJsonc(fs.readFileSync(file, "utf8"));
+    const parsed = configs?.has(file)
+      ? configs.get(file)
+      : parseJsonc(fs.readFileSync(file, "utf8"));
+    configs?.set(file, parsed);
     return typeof parsed === "object" &&
       parsed !== null &&
       !Array.isArray(parsed)
       ? (parsed as Record<string, unknown>)
       : undefined;
   } catch {
+    configs?.set(file, undefined);
     return undefined;
   }
 }

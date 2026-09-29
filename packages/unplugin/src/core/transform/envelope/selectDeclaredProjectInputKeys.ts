@@ -14,6 +14,12 @@ import { isTransformScratchInput } from "../tsconfig/isTransformScratchInput";
  * in ignored directories invalidate an otherwise complete generation. Returns
  * `undefined` for an envelope with no graph, which declares no input set and
  * therefore keeps whole-walk comparison.
+ *
+ * @evidence contracts/common.md#principled-implementation Declared inputs intersect actual project snapshot keys, so narrowing never asks the project walk to prove out-of-walk inputs; undefined preserves whole-walk comparison when the graph cannot declare a bound.
+ * @evidence contracts/common.md#clear-and-simple-design A local add adapter owns validity, scratch exclusion and project-key intersection, while each producer input category contributes through that same rule.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Out-of-walk and unresolved inputs retain their separate proof responsibility instead of being inserted into a fictitious project snapshot; malformed entries supply no declarations.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains input categories, intersection, external proof ownership and undefined fallback, with a separate acknowledgment block under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path.resolve and the supplied FilesystemPathIdentityContext align declarations to the project's actual snapshot key semantics without hand-coded case or separator rules.
  */
 export function selectDeclaredProjectInputKeys(props: {
   identities: FilesystemPathIdentityContext;

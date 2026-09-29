@@ -13,6 +13,20 @@ const defaultOptions: ResolvedTtscUnpluginOptions = {
  * Merges provided values with defaults. The `plugins` field uses an explicit
  * `"plugins" in options` presence check rather than a falsy guard so that
  * `plugins: false` (disable all plugins) is preserved as-is.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Nullish defaults normalize the overlay and project; a presence check
+ *   preserves explicit false and undefined plugin overrides. Object spread
+ *   detaches top-level compiler keys while nested values retain caller identity.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One returned record owns option normalization; transform code receives
+ *   the same three choices without a second defaults layer.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Empty defaults implement omission semantics, and the false branch implements
+ *   the public disable request rather than a consumer-specific exception.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc identifies the normalized result and explains the non-falsy plugin
+ *   check. Separate prose and tags follow the documentation guidance.
  */
 export function resolveOptions(
   options: TtscUnpluginOptions = {},

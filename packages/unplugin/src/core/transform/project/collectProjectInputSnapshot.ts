@@ -10,7 +10,23 @@ import type { TtscProjectWalkFailure } from "./TtscProjectWalkFailure";
 import { toProjectKey } from "./toProjectKey";
 import { walkProjectInputs } from "./walkProjectInputs";
 
-/** Hash project files and snapshot the directory topology in one walk. */
+/**
+ * Hash project files and snapshot directory topology in one walk.
+ *
+ * Reuse a recorded hash only when separable metadata still matches its proven
+ * signature. Reads are bracketed by metadata observations so changing files
+ * cannot authorize a coherent generation. A validating caller may restrict
+ * hashing to its declared keys while retaining the whole membership walk.
+ *
+ * @evidence contracts/common.md#principled-implementation The snapshot separates directory completeness, file-read stability and attributable failures; only matching separable metadata substitutes for the content read that established a prior hash.
+ * @evidence contracts/common.md#clear-and-simple-design One walk feeds one file pass, with shared metadata and key helpers owning their respective boundaries; returned sets preserve which proof obligations failed.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Unreadable or changing files mark incompleteness rather than yielding successful partial hashes, and declared-key filtering does not suppress directory membership proof.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain metadata-authorized reuse and declared-key restriction; inline comments justify clock separation and failure attribution without mirroring trivial assignments.
+ * @evidence contracts/portability.md#os-neutral-implementation Enumeration and reads use the supplied native filesystem view; identity keys share its case/link policy, and bigint metadata plus filesystem clock separation avoid assuming one timestamp precision on every platform.
+ * @evidence contracts/performance.md#efficient-algorithms One membership walk and one admitted-file pass bound observation work; declared-key validation skips unused content reads, and output memory grows with observed directories, selected files and failures.
+ * @evidence contracts/performance.md#reuse-equivalent-work Proven hashes replace content reads only when the same key retains a matching separable metadata signature; absent or nonseparable evidence forces a fresh bracketed read and clock authority is rechecked.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This operation returns caller-owned proof collections and opens no retained handle; generation retention belongs to the consuming cache owner.
+ */
 export function collectProjectInputSnapshot(
   projectRoot: string,
   identities: FilesystemPathIdentityContext,

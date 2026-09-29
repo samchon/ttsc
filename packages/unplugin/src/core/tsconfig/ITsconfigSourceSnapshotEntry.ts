@@ -1,8 +1,30 @@
-/** One config-chain input captured for generation-state comparison. */
+/**
+ * One config-chain input captured for generation-state comparison.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   A source path paired with UTF-8 text or null distinguishes observed content
+ *   from an unavailable candidate, allowing config-state comparison.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Each entry contains one source observation; graph ordering and comparison
+ *   remain snapshot-reader and generation-owner responsibilities.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   The path carries lexical native spelling, not a URL or physical identity;
+ *   contents is decoded source observation and null expresses unavailable proof.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Unavailable input has an explicit null state rather than invented bytes
+ *   that would claim successful configuration evidence.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   The member comments state decoding, unavailable content and path spelling;
+ *   native property explanations are retained without property acknowledgments.
+ */
 export interface ITsconfigSourceSnapshotEntry {
-  /** Exact bytes decoded as UTF-8, or `null` when a probed config is absent. */
+  /** UTF-8 source text, or `null` when a config cannot be read or parsed. */
   contents: string | null;
 
-  /** Canonical absolute spelling when the input exists. */
+  /** Absolute lexical spelling used to read the config and anchor its bases. */
   path: string;
 }

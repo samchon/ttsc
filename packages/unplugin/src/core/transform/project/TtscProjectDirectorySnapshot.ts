@@ -1,4 +1,11 @@
-/** One directory's project-membership identity at generation time. */
+/**
+ * One directory's project-membership identity at generation time.
+ *
+ * @evidence contracts/common.md#principled-implementation The lexical directory address, subtree relevance and filtered-entry signature distinguish membership meaning from metadata changes caused by irrelevant emitted files.
+ * @evidence contracts/common.md#clear-and-simple-design Three fields carry the walk's result without duplicating its traversal or invalidation policy.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Relevance follows admitted input kinds and the resolved membership policy rather than an expanding list of fixture or output-directory names.
+ * @evidence contracts/common.md#meaningful-documentation Field paragraphs explain why irrelevant directories remain watched and why filtered membership, rather than a directory timestamp, is compared.
+ */
 export interface TtscProjectDirectorySnapshot {
   /** Absolute directory spelling used by the project walk. */
   path: string;

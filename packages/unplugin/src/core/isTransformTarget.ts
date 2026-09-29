@@ -21,6 +21,20 @@ const virtualModulePattern = /\0/;
  *
  * Also excluded: virtual modules (NUL prefix), `.d.ts` declaration files, and
  * anything inside `node_modules`.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   The shared extension predicate admits TypeScript source, then NUL ids,
+ *   declaration basenames and complete node_modules segments are rejected.
+ *   Both slash spellings belong to module-id syntax, independent of host OS.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One predicate owns adapter inclusion; declaration classification delegates
+ *   to its dedicated helper instead of duplicating suffix policy per host.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   node_modules and virtual identifiers are contractual ownership boundaries,
+ *   not fixture paths or consumer names.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs explain TypeScript-only ownership and exclusions, with
+ *   descriptive prose separated from tags per documentation guidance.
  */
 export function isTransformTarget(id: string): boolean {
   return (

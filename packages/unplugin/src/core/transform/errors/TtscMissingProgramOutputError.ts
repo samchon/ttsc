@@ -8,6 +8,11 @@
  * decision travels as a type: `@ttsc/metro` used to recognise this case by
  * searching the message text for "did not return output", which is how one
  * product came to hold two different answers to one condition.
+ *
+ * @evidence contracts/common.md#principled-implementation Typed error identity carries the missing-program condition with the requested file, selected config and searched references; consumers can continue without confusing it with compiler failure.
+ * @evidence contracts/common.md#clear-and-simple-design One error value packages the context needed to report and route this condition, without adding a retry or compilation layer.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Classification uses the class rather than a diagnostic substring, and the message names actual configuration inputs rather than test-specific exceptions.
+ * @evidence contracts/common.md#meaningful-documentation The native paragraphs explain the continuation policy and the reason for typed classification; field comments identify each diagnostic address.
  */
 export class TtscMissingProgramOutputError extends Error {
   /** The module the bundler asked for. */
@@ -21,6 +26,7 @@ export class TtscMissingProgramOutputError extends Error {
    * the file (samchon/ttsc#1397).
    */
   public readonly searched: readonly string[];
+
   public constructor(
     file: string,
     tsconfig: string,

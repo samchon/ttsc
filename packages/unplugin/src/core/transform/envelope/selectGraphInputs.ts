@@ -17,6 +17,12 @@ import { selectReachableEdges } from "./selectReachableEdges";
  * config chain: the caller established that the plugin declared its own
  * `dependencies[file]` list the complete replacement for them. Returns an empty
  * list on exceptions or without a graph.
+ *
+ * @evidence contracts/common.md#principled-implementation The direct-edge reachability closure plus globals forms the ordinary language-semantic bound, while explicit completeness drops only those two categories and preserves the universal config chain.
+ * @evidence contracts/common.md#clear-and-simple-design One completeness branch chooses graph contributions and selectReachableEdges owns traversal; resolver and plugin inputs remain separate selectors because their ownership differs.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Narrowing requires the caller's established completeness premise and does not silently discard configs or fabricate edges when a graph is absent.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain why flat bundler inputs are derived at this boundary, the exact completeness effect and empty outcomes; acknowledgment spacing follows the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Graph paths are already native absolute spellings from the shared builder, and physical reachability identity belongs to its filesystem context; this selector introduces no additional separator or case policy.
  */
 export function selectGraphInputs(
   graph: TtscEnvelopeGraphIndexes,

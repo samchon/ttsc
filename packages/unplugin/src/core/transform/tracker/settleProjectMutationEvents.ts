@@ -15,6 +15,31 @@ import { settleMutationTrackers } from "./settleMutationTrackers";
  * its silence to stand as proof. The trackers share what they read, so a
  * directory they all watch, the project root above all, costs one metadata call
  * per delivery rather than one per tracker.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Drainage precedes watched-directory identity verification so recorded
+ *   silence is read only after queued events and replacement checks.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One three-tracker list drives both phases; a delivery-local identity map
+ *   shares metadata without adding persistent validity state.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   A replaced watched directory withdraws authority; the operation does not
+ *   patch watcher paths or certify a generation from a timeout alone.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs explain event ordering, directory replacement and shared
+ *   verification under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   OS-neutral delivery uses backend-owned drains and filesystem-owned physical
+ *   identities; lexical aliases cannot prove a replaced directory unchanged.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Three trackers are visited once after concurrent drainage; identity reads
+ *   scale with distinct watched directory spellings across those trackers.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   In-flight drainage is shared by tracker and identity observations by this
+ *   delivery's map; the map is recreated for every delivery, not cached forever.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   The identity map lasts for this verification call and stores at most the
+ *   distinct queried directories; tracker-owned drains release their own tasks.
  */
 export async function settleProjectMutationEvents(
   cached: TtscCachedProjectTransform,

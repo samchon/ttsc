@@ -25,6 +25,30 @@ import { openBrokeredWatch } from "./openBrokeredWatch";
  * @param options.probeRoot The project root, below whose tool cache a probe may
  *   prove a location's stream delivered; a location outside it cannot be, and
  *   every drain names it in the tracker's unproven set.
+ * @evidence contracts/common.md#principled-implementation
+ *   The shared broker opening contract supplies readiness and drain authority;
+ *   owner filters retain the same event meaning across brokered and local paths.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   This adapter wires one registration into the tracker lifecycle; canonical
+ *   paths, child process and timeout state remain owned by openBrokeredWatch.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Closure marks coverage failed before native cleanup, and opening failure
+ *   stays a sink verdict rather than fabricated readiness success.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs and parameter comments explain readiness, filtering and
+ *   probe scope under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   OS-neutral tracker ownership delegates native isolation, stream probing and
+ *   canonical spelling translation to the broker boundary.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   One sink and registration are created; per-location preparation and child
+ *   opening cost are delegated once to the shared broker registration path.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   A process-wide broker and scope-aware in-flight drains are shared by the
+ *   opening owner; independent tracker sinks remain separate event consumers.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   The tracker receives the registration closer before awaiting readiness;
+ *   retirement withdraws authority and releases the owned broker registration.
  */
 export async function registerBrokeredMutationTracker(
   tracker: TtscProjectMutationTracker,

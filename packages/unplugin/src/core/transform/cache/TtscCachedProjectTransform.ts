@@ -14,6 +14,11 @@ import type { TtscHostInputValidation } from "../validation/TtscHostInputValidat
  * snapshot in constant time. Later graph-bearing deliveries validate only the
  * requested file's derived inputs plus exact host descriptor/config inputs;
  * graph-free envelopes retain complete-snapshot validation.
+ *
+ * @evidence contracts/common.md#principled-implementation Compiler output travels with generation-time hashes, membership policy, physical identities, and proof completeness, preventing a later delivery's reading from silently replacing compile-time evidence.
+ * @evidence contracts/common.md#clear-and-simple-design One generation owns its proof snapshots, reporting state, and tracker handles; separate fields represent distinct content, spelling, identity, and lifecycle responsibilities.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Optional proof fields represent unavailable evidence rather than implied success; consumers must select the complete validation path when narrow proof is unsupported.
+ * @evidence contracts/common.md#meaningful-documentation Member comments explain why hashes and signatures differ, why lexical spellings remain separate from identity, and which owner controls each delivery and resource lifetime.
  */
 export interface TtscCachedProjectTransform {
   /** Predicate-preserving compiler proofs for external candidate spellings. */

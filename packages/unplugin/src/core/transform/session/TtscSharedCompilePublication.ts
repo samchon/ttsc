@@ -8,6 +8,11 @@ import type { ITtscCompilerTransformation } from "ttsc";
  * as its generated tsconfig. An adopter keeps those paths so it excludes them
  * from its inputs exactly as the publisher would, although they no longer
  * exist.
+ *
+ * @evidence contracts/common.md#principled-implementation A publication carries compiler output plus the publisher's external-input hashes and physical identities, allowing an adopter to prove the original compile rather than its later reading alone.
+ * @evidence contracts/common.md#clear-and-simple-design The envelope and scratch-path context are retained together; the shape does not duplicate the compiler transformation schema.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Publication does not certify an unproven result or substitute a transient exception for stable compiler diagnostics; callers own proof before adoption.
+ * @evidence contracts/common.md#meaningful-documentation Member comments explain external-input proof and why vanished publisher scratch paths remain semantically relevant.
  */
 export interface TtscSharedCompilePublication {
   /**

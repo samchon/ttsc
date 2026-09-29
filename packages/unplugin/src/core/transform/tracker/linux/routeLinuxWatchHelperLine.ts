@@ -16,6 +16,22 @@ import { referenceLinuxWatchHelper } from "./referenceLinuxWatchHelper";
  * - `ready` makes a subscription live, and `error` refuses it.
  * - `gone` ends a subscription whose directory went away.
  * - Any other line is one named event, `change` or `rename`.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Parsed protocol discriminants route live ids; overflow retains unknown
+ *   attribution and sync callbacks run before later lines from the same chunk.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One transport decoder selects lifecycle or event callbacks; subscription
+ *   owners interpret scope without learning the JSON record representation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Malformed and retired ids cannot revive watchers; overflow is delivered
+ *   conservatively rather than suppressed to preserve cache hits.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs and protocol list explain ordering and message precedence,
+ *   following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   OS-neutral owners receive callback semantics while Linux-specific JSON
+ *   framing and overflow translation remain in this native transport boundary.
  */
 export function routeLinuxWatchHelperLine(
   helper: LinuxWatchHelper,

@@ -4,6 +4,22 @@
  * A location either watches the named entries of one directory (`names`) or,
  * with `recursive`, the whole tree below it. The name form is how exact-input
  * trackers keep their event traffic proportional to the inputs they own.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Named entries and recursive trees express observation scope; optional probe
+ *   ownership is separate from the directory whose events are classified.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One location record supplies opening data; registration-level sinks and
+ *   lifetime state are not duplicated per location.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Missing probe capability remains explicitly unproven rather than treating
+ *   backend latency as a guessed fixed-delay proof.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs and separated member comments explain named scopes and
+ *   probe containment under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   OS-neutral callers supply paths in their own spelling; the broker translates
+ *   canonical native paths and confines probe semantics to capable backends.
  */
 export interface WatchBrokerLocation {
   /**
