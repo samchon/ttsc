@@ -1,0 +1,69 @@
+{
+  "severity": "error",
+  "claims": [
+    {
+      "name": "maintained TypeScript production declarations",
+      "type": "typescript",
+      "files": [
+        "src/**/*.ts",
+        "!src/flags/COMPILER_OPTION_KINDS.ts"
+      ],
+      "symbol": [
+        "type",
+        "function",
+        "property"
+      ],
+      "reference": {
+        "type": "markdown",
+        "files": [
+          "contracts/common.md"
+        ],
+        "symbol": "h2",
+        "checklist": true,
+        "root": "../../.agents/skills"
+      }
+    },
+    {
+      "name": "maintained Go production declarations",
+      "type": "go",
+      "files": [
+        "cmd/**/*.go",
+        "driver/**/*.go",
+        "internal/**/*.go",
+        "utility/**/*.go",
+        "tools/**/*.go",
+        "shim/**/*.go",
+        "!**/*_test.go",
+        "!cmd/ttsc/flags_gen.go",
+        "!shim/ast/enums_gen.go",
+        "!shim/ast/surface.go",
+        "!shim/bundled/shim.go",
+        "!shim/checker/enums_gen.go",
+        "!shim/compiler/shim.go",
+        "!shim/core/enums_gen.go",
+        "!shim/parser/shim.go",
+        "!shim/scanner/shim.go",
+        "!shim/tsoptions/shim.go",
+        "!shim/tspath/shim.go",
+        "!shim/vfs/cachedvfs/shim.go",
+        "!shim/vfs/osvfs/shim.go",
+        "!shim/vfs/shim.go",
+        "!utility/flags_gen.go"
+      ],
+      "symbol": [
+        "type",
+        "function",
+        "property"
+      ],
+      "reference": {
+        "type": "markdown",
+        "files": [
+          "contracts/common.md"
+        ],
+        "symbol": "h2",
+        "checklist": true,
+        "root": "../../.agents/skills"
+      }
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "severity": "error",
+  "claims": [
+    {
+      "name": "maintained Go production declarations",
+      "type": "go",
+      "files": [
+        "driver/**/*.go",
+        "plugin/**/*.go"
+      ],
+      "symbol": [
+        "type",
+        "function",
+        "property"
+      ],
+      "reference": {
+        "type": "markdown",
+        "files": [
+          "contracts/common.md"
+        ],
+        "symbol": "h2",
+        "checklist": true,
+        "root": "../../.agents/skills"
+      }
+    }
+  ]
+}

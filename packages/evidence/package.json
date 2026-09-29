@@ -26,7 +26,8 @@
     "!native/*_test.go"
   ],
   "scripts": {
-    "build": "rimraf lib && tsc"
+    "build": "rimraf lib && tsc",
+    "evidence": "evidence --config evidence.config.json"
   },
   "keywords": [
     "ttsc",

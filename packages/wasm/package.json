@@ -31,7 +31,8 @@
     "build:wasm": "node build/build-wasm.cjs",
     "build:ts": "rimraf lib && tsc -p .",
     "prepack": "node build/pack-prepare.cjs --stash",
-    "postpack": "node build/pack-prepare.cjs --restore"
+    "postpack": "node build/pack-prepare.cjs --restore",
+    "evidence": "evidence --config evidence.config.json"
   },
   "repository": {
     "type": "git",

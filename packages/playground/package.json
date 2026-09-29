@@ -20,7 +20,8 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "rimraf lib && tsc -p ."
+    "build": "rimraf lib && tsc -p .",
+    "evidence": "evidence --config evidence.config.json"
   },
   "repository": {
     "type": "git",

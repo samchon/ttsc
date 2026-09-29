@@ -1,6 +1,6 @@
 # Common Engineering Contracts
 
-These contracts govern the maintained production declarations selected by `evidence.json` and guide review of their private helpers. Each H2 is one checklist obligation. Its acknowledgment addresses every requirement in that section, even when several requirements share one tag.
+These contracts govern the maintained production declarations selected by `evidence.config.json` and guide review of their private helpers. Each H2 is one checklist obligation. Its acknowledgment addresses every requirement in that section, even when several requirements share one tag.
 
 Write concrete facts about the declaration. A simple data member can describe its contract and lack of runtime operations briefly; a filesystem or process operation needs its actual mechanisms explained. A generic statement such as "all principles are satisfied" gives a reviewer nothing to verify.
 

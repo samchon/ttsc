@@ -42,5 +42,8 @@
   "bugs": {
     "url": "https://github.com/samchon/ttsc/issues"
   },
-  "homepage": "https://ttsc.dev"
+  "homepage": "https://ttsc.dev",
+  "scripts": {
+    "evidence": "evidence --config evidence.config.json"
+  }
 }

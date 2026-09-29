@@ -1,0 +1,74 @@
+{
+  "severity": "error",
+  "claims": [
+    {
+      "name": "maintained TypeScript production declarations",
+      "type": "typescript",
+      "files": [
+        "src/**/*.ts",
+        "!src/core/transform/cache/createTransformCacheKey.ts",
+        "!src/core/transform/validation/matchesCompleteInputSnapshot.ts",
+        "!src/core/transform/utils/resolveTransformSourceMap.ts"
+      ],
+      "symbol": [
+        "type",
+        "function",
+        "property"
+      ],
+      "reference": {
+        "type": "markdown",
+        "files": [
+          "contracts/common.md"
+        ],
+        "symbol": "h2",
+        "checklist": true,
+        "root": "../../.agents/skills"
+      }
+    },
+    {
+      "name": "cache-key and snapshot validation",
+      "type": "typescript",
+      "files": [
+        "src/core/transform/cache/createTransformCacheKey.ts",
+        "src/core/transform/validation/matchesCompleteInputSnapshot.ts"
+      ],
+      "symbol": [
+        "type",
+        "function",
+        "property"
+      ],
+      "reference": {
+        "type": "markdown",
+        "files": [
+          "contracts/common.md",
+          "contracts/cache.md"
+        ],
+        "symbol": "h2",
+        "checklist": true,
+        "root": "../../.agents/skills"
+      }
+    },
+    {
+      "name": "source-coordinate conversion",
+      "type": "typescript",
+      "files": [
+        "src/core/transform/utils/resolveTransformSourceMap.ts"
+      ],
+      "symbol": [
+        "type",
+        "function",
+        "property"
+      ],
+      "reference": {
+        "type": "markdown",
+        "files": [
+          "contracts/common.md",
+          "contracts/coordinates.md"
+        ],
+        "symbol": "h2",
+        "checklist": true,
+        "root": "../../.agents/skills"
+      }
+    }
+  ]
+}

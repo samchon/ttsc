@@ -66,6 +66,9 @@ importers:
       '@types/node':
         specifier: catalog:utils
         version: 25.9.1
+      '@wrtnlabs/evidence':
+        specifier: 0.1.0
+        version: 0.1.0(ttsc@0.30.4)(typescript@7.0.2)
       bumpp:
         specifier: ^10.4.1
         version: 10.4.1
@@ -2562,6 +2565,41 @@ packages:
   '@ts-morph/common@0.28.1':
     resolution: {integrity: sha512-W74iWf7ILp1ZKNYXY5qbddNaml7e9Sedv5lvU1V8lftlitkc9Pq1A+jlH23ltDgWYeZFFEqGCD1Ies9hqu3O+g==}
 
+  '@ttsc/darwin-arm64@0.30.4':
+    resolution: {integrity: sha512-+x5qOR5kTTjVJKUYqZtkIs33dS3MnNflJfu4Lg1XRvipqjqzIb6RtUlYJ0uTJcGF1ZZ6N1s+ddGocpFqxD9Zpw==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@ttsc/darwin-x64@0.30.4':
+    resolution: {integrity: sha512-thPKMLZhpqaV/HgeEEKvGq8pUrY+cV/8dLT/gF5lbBHvz3kRn5xN9CzPnommQj0dwtcpHEdn/JOSbIW16NPsCA==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@ttsc/linux-arm64@0.30.4':
+    resolution: {integrity: sha512-05Qtl4KOHiAuQIa/qRfwvp0vU7bVWjHQcOjJe0r9R9FdUsBAm51WQe18BnJTxV6cfE0xNaV/Ja/HWm7Qsq5vGQ==}
+    cpu: [arm64]
+    os: [linux]
+
+  '@ttsc/linux-arm@0.30.4':
+    resolution: {integrity: sha512-qNh2qlSnJoZXdYhsejsUXfA8nbOJEyR611S30p6Meqc2Sg6TVlsQT2XaLEDF2CrEcDALCi3pOQAhfWGjwyCa+A==}
+    cpu: [arm]
+    os: [linux]
+
+  '@ttsc/linux-x64@0.30.4':
+    resolution: {integrity: sha512-JZrx4sXeQVAJeyGpA8phlffrvbeyIjwme8ZVoBG8gvyT+BswfVgKQhskBaEGDodi6VyM3k53i53e+QcywFN+xQ==}
+    cpu: [x64]
+    os: [linux]
+
+  '@ttsc/win32-arm64@0.30.4':
+    resolution: {integrity: sha512-8B9uOwajWhuklP1wvu7ynLddvsLpDygRHtp8zATnIGpipPDqUImcFmsQ7alwI40aEeIvfbI5COFBUd5aDOfbeQ==}
+    cpu: [arm64]
+    os: [win32]
+
+  '@ttsc/win32-x64@0.30.4':
+    resolution: {integrity: sha512-DDdWzQWrmzljRkoHnVxRACO8ikiM3rjuC/QRkPMmyzina0AimihHnOfOOWKdNttfkU9sAdCe3MIkg4ktpL38mQ==}
+    cpu: [x64]
+    os: [win32]
+
   '@tweenjs/tween.js@23.1.3':
     resolution: {integrity: sha512-vJmvvwFxYuGnF2axRtPYocag6Clbb5YS7kLL+SO/TeVFzHqDIWrNKYtcsPMibjDx9O+bu+psAy9NKfWklassUA==}
 
@@ -2937,6 +2975,9 @@ packages:
     resolution: {integrity: sha512-yURCknZhvywvQItHMMmFSo+fq5arCUIyz/CVk7jD89MSai7dkaX8ufjCWp3NttLojoTVbcE72ri+be/TnEbMHw==}
     engines: {node: '>=20.0.0'}
 
+  '@typia/interface@14.0.6':
+    resolution: {integrity: sha512-Ct4cW8vt1OfZNFlRBrVFeWZZrM/KvNUg4bmeIU4amXgYYp1sZkY71h+6GdrL+ApdF0KNnRxZ92hrrlbDodsjNg==}
+
   '@typia/interface@15.0.0':
     resolution: {integrity: sha512-iLl1Xtawi+GkdIILJdRyEKi1CZxj/ZRoz5jZ636GLGX83xWy95CZEo/WMJEcjJfdc3UhVK6xbh881d9iuZ+3uA==}
 
@@ -2944,6 +2985,9 @@ packages:
     resolution: {integrity: sha512-uW+TSGTJoSeaW7kRgRrBobRL3Ak4Uo09RD7QvV/VeE4cUXbjhnatSu2OXScsJFX2+bu2XPsyzGPyXO4STewldA==}
     peerDependencies:
       '@modelcontextprotocol/sdk': '>=1.12.0'
+
+  '@typia/utils@14.0.6':
+    resolution: {integrity: sha512-g1LLQiOdPNyFR6dEQKsaa8HQnpZAAW+XAG0tVQ3/fVCARR5n4Yn59jBSI1UcNEv4F9DaM7vzHZi0b4iS+liajw==}
 
   '@typia/utils@15.0.0':
     resolution: {integrity: sha512-8gELqfowtStO/3gEc1ABRbFB8rKhabBJ7pNuhQ+7DV9aPKJGDfni6nxkRR0BCV7nuKZ5ev9DGjo8uAgnQ3vq+g==}
@@ -3051,6 +3095,13 @@ packages:
 
   '@webassemblyjs/wast-printer@1.14.1':
     resolution: {integrity: sha512-kPSSXE6De1XOR820C90RIo2ogvZG+c3KiHzqUoO/F34Y2shGzesfqv7o57xrxovZJH/MetF5UjroJ/R/3isoiw==}
+
+  '@wrtnlabs/evidence@0.1.0':
+    resolution: {integrity: sha512-tRy+NeAgbLCMaDpxTP+bhbDMygP2mwC11WEMgjmQwE5m221755Xx38mm9i4VMKQz0iL37TTYmEHINmjiCwwf8A==}
+    hasBin: true
+    peerDependencies:
+      ttsc: ^0.30.1
+      typescript: ^7.0.2
 
   '@xmldom/xmldom@0.9.12':
     resolution: {integrity: sha512-5AXjrcMClTryPe9LgZrygpB1lj7s0S9E0+W+AHaVKAVyHanafK86iPSvG5xHVSp/jC+VH1UXu0TAEmY279xH7A==}
@@ -6327,6 +6378,11 @@ packages:
   tstl@3.0.0:
     resolution: {integrity: sha512-pR83y6/tbJx6jeGRqGJXk2t/eCUynaHEE6zsOLB0Zga8ej61LXtPfoeiROdhezpoCT15+1QMbqKB1Um5kasSKg==}
 
+  ttsc@0.30.4:
+    resolution: {integrity: sha512-JDw66o8hIkelLp0gMWj7izVzXAXxT+oObILBTOa6MxBGA8a2lqdfMsP++XN0hPYYxKNpyuLVnClBBvehNZyIpw==}
+    engines: {node: '>=22.15.0'}
+    hasBin: true
+
   tunnel-agent@0.6.0:
     resolution: {integrity: sha512-McnNiV1l8RYeY8tBgEpuodCC1mLUdbSN+CYBL7kJsJNInOP8UjDDEwdk6Mw60vdLLrr5NHKZhMAOSrR2NZuQ+w==}
 
@@ -6374,6 +6430,14 @@ packages:
     resolution: {integrity: sha512-8FYau96o3NKOhbjKi/qNvG/W5jhzxkbdm5sj9AbZ/5T5sWqn3hJgLfGx27sRKZWTvyzCP8dLRBTf5tBTSRVUNA==}
     engines: {node: '>=16.20.0'}
     hasBin: true
+
+  typia@14.0.6:
+    resolution: {integrity: sha512-dWtC9sMgmlR26yms6BAHWO0/P4Vzfw/cs1Mg+ZRYFlGub1CXRnF343EVgoZcxQdzoaPh50nTOtgd2Oaym73pIg==}
+    peerDependencies:
+      ttsc: '>=0.19.2'
+    peerDependenciesMeta:
+      ttsc:
+        optional: true
 
   typia@15.0.0:
     resolution: {integrity: sha512-ZP+58aI7G4CK/NKIfgY4zoMDwtJvtEc9bzb3E3QKnAJs/PeGFJEFbjXLiMq0qYapX6z6BGbDi3NLxetmREhwFg==}
@@ -6574,6 +6638,9 @@ packages:
 
   web-namespaces@2.0.1:
     resolution: {integrity: sha512-bKr1DkiNa2krS7qxNtdrtHAmzuYGFQLiQ13TsorsdT6ULTkPLKuu5+GsFpDlg6JFjUTwX2DyhMPG2be8uPrqsQ==}
+
+  web-tree-sitter@0.27.0:
+    resolution: {integrity: sha512-XK08gj6RwTMQatAG7uVRP8MunqotL/XC19vHgkSPKmELgbGPBj4ECvB8haHOUnyj6ls2B8t42UTro14zxGgAHg==}
 
   webdriver-bidi-protocol@0.4.1:
     resolution: {integrity: sha512-ARrjNjtWRRs2w4Tk7nqrf2gBI0QXWuOmMCx2hU+1jUt6d00MjMxURrhxhGbrsoiZKJrhTSTzbIrc554iKI10qw==}
@@ -8266,6 +8333,27 @@ snapshots:
       path-browserify: 1.0.1
       tinyglobby: 0.2.16
 
+  '@ttsc/darwin-arm64@0.30.4':
+    optional: true
+
+  '@ttsc/darwin-x64@0.30.4':
+    optional: true
+
+  '@ttsc/linux-arm64@0.30.4':
+    optional: true
+
+  '@ttsc/linux-arm@0.30.4':
+    optional: true
+
+  '@ttsc/linux-x64@0.30.4':
+    optional: true
+
+  '@ttsc/win32-arm64@0.30.4':
+    optional: true
+
+  '@ttsc/win32-x64@0.30.4':
+    optional: true
+
   '@tweenjs/tween.js@23.1.3': {}
 
   '@tybys/wasm-util@0.10.2':
@@ -8634,6 +8722,8 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@typia/interface@14.0.6': {}
+
   '@typia/interface@15.0.0': {}
 
   '@typia/mcp@15.0.0(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))':
@@ -8641,6 +8731,10 @@ snapshots:
       '@modelcontextprotocol/sdk': 1.29.0(zod@4.4.3)
       '@typia/interface': 15.0.0
       '@typia/utils': 15.0.0
+
+  '@typia/utils@14.0.6':
+    dependencies:
+      '@typia/interface': 14.0.6
 
   '@typia/utils@15.0.0':
     dependencies:
@@ -8803,6 +8897,18 @@ snapshots:
     dependencies:
       '@webassemblyjs/ast': 1.14.1
       '@xtuc/long': 4.2.2
+
+  '@wrtnlabs/evidence@0.1.0(ttsc@0.30.4)(typescript@7.0.2)':
+    dependencies:
+      '@prisma/prisma-schema-wasm': 7.10.0-2.d0368e25c88e68caa4d283b5f2d88d1b76ed9356
+      '@typia/interface': 14.0.6
+      '@typia/utils': 14.0.6
+      tstl: 3.0.0
+      ttsc: 0.30.4
+      typescript: 7.0.2
+      typia: 14.0.6(ttsc@0.30.4)
+      web-tree-sitter: 0.27.0
+      yaml: 2.9.0
 
   '@xmldom/xmldom@0.9.12': {}
 
@@ -12869,6 +12975,19 @@ snapshots:
 
   tstl@3.0.0: {}
 
+  ttsc@0.30.4:
+    dependencies:
+      acorn: 8.16.0
+      cjs-module-lexer: 2.2.1
+    optionalDependencies:
+      '@ttsc/darwin-arm64': 0.30.4
+      '@ttsc/darwin-x64': 0.30.4
+      '@ttsc/linux-arm': 0.30.4
+      '@ttsc/linux-arm64': 0.30.4
+      '@ttsc/linux-x64': 0.30.4
+      '@ttsc/win32-arm64': 0.30.4
+      '@ttsc/win32-x64': 0.30.4
+
   tunnel-agent@0.6.0:
     dependencies:
       safe-buffer: 5.2.1
@@ -12933,6 +13052,14 @@ snapshots:
       '@typescript/typescript-sunos-x64': 7.0.2
       '@typescript/typescript-win32-arm64': 7.0.2
       '@typescript/typescript-win32-x64': 7.0.2
+
+  typia@14.0.6(ttsc@0.30.4):
+    dependencies:
+      '@typia/interface': 14.0.6
+      '@typia/utils': 14.0.6
+      randexp: 0.5.3
+    optionalDependencies:
+      ttsc: 0.30.4
 
   typia@15.0.0(ttsc@packages+ttsc):
     dependencies:
@@ -13121,6 +13248,8 @@ snapshots:
       minimalistic-assert: 1.0.1
 
   web-namespaces@2.0.1: {}
+
+  web-tree-sitter@0.27.0: {}
 
   webdriver-bidi-protocol@0.4.1: {}
 

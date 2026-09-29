@@ -22,7 +22,8 @@
     "access": "public"
   },
   "scripts": {
-    "build": "rimraf lib && tsc --emitDeclarationOnly && rollup -c"
+    "build": "rimraf lib && tsc --emitDeclarationOnly && rollup -c",
+    "evidence": "evidence --config evidence.config.json"
   },
   "keywords": [
     "ttsc",

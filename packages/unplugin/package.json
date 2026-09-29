@@ -181,7 +181,8 @@
     "access": "public"
   },
   "scripts": {
-    "build": "rimraf lib && tsc --emitDeclarationOnly && node scripts/emit-dual-declarations.mjs && rollup -c"
+    "build": "rimraf lib && tsc --emitDeclarationOnly && node scripts/emit-dual-declarations.mjs && rollup -c",
+    "evidence": "evidence --config evidence.config.json"
   },
   "keywords": [
     "ttsc",

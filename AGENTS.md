@@ -6,6 +6,7 @@
 
 ```bash
 pnpm install
+pnpm evidence
 pnpm format
 pnpm build
 pnpm test:go

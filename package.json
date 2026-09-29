@@ -13,6 +13,7 @@
     "experimental:unplugin-perf": "pnpm --dir experimental/unplugin-perf start",
     "assert:platform-packages": "node scripts/assert-platform-package.cjs --source",
     "check:dependencies": "node scripts/ci/dependency-audit.cjs",
+    "evidence": "pnpm --filter \"./packages/*\" -r --no-bail --workspace-concurrency=1 run evidence",
     "format": "pnpm run gen:flags && prettier --write \"**/*.ts\" \"**/*.md\" \"**/*.mdx\" && pnpm run format:go",
     "format:go": "node scripts/format-go.cjs",
     "gen:flags": "node scripts/node-strip-types.cjs packages/ttsc/scripts/gen-flags.mts",
@@ -43,6 +44,7 @@
   "devDependencies": {
     "@trivago/prettier-plugin-sort-imports": "^6.0.2",
     "@types/node": "catalog:utils",
+    "@wrtnlabs/evidence": "0.1.0",
     "bumpp": "^10.4.1",
     "prettier": "^3.8.3",
     "prettier-plugin-jsdoc": "^1.8.0",
