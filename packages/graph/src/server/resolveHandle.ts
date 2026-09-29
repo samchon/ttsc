@@ -1,11 +1,25 @@
 import { TtscGraphMemory } from "../model/TtscGraphMemory";
 import { parseTtscGraphNodeId } from "../model/TtscGraphNodeId";
-import { ITtscGraphNode } from "../structures/ITtscGraphNode";
+import { TtscGraphReadonly } from "../model/TtscGraphReadonly";
+import { ITtscGraphNode as NodeShape } from "../structures/ITtscGraphNode";
 import { exportFanIn } from "./exportSurface";
 import { isSupportPath } from "./pathPolicy";
 
+type ITtscGraphNode = TtscGraphReadonly<NodeShape>;
+
+/**
+ * Exact resolved node, ambiguous candidates or an empty unknown outcome.
+ *
+ * @evidence contracts/common.md#principled-implementation Optional node and candidates preserve the resolver's unique, ambiguous and absent states without fabricating identity.
+ * @evidence contracts/common.md#clear-and-simple-design One compact outcome is shared by direct-id, name and file-qualified resolution paths.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Ranked candidates remain unresolved choices rather than a guessed definitive node.
+ * @evidence contracts/common.md#meaningful-documentation Native member comments distinguish uniquely resolved identity from ranked ambiguity.
+ */
 export interface IResolvedGraphHandle {
+  /** Present when the handle identifies exactly one node. */
   node?: ITtscGraphNode;
+
+  /** Ranked remaining choices when more than one identity matches. */
   candidates?: ITtscGraphNode[];
 }
 
@@ -34,6 +48,11 @@ export interface IResolvedGraphHandle {
  *   method (`db.query`, `app.listen`, `repo.save`), so the member is what it
  *   means, and the candidates come back ranked when several classes declare
  *   it.
+ *
+ * @evidence contracts/common.md#principled-implementation Exact id/name resolution precedes suffix and file/member fallbacks; unique outcomes preserve identity while multiple matches remain candidates.
+ * @evidence contracts/common.md#clear-and-simple-design Resolution helpers each own one handle form and one shared ranker orders ambiguity consistently.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts General handle grammar and compiler export edges guide fallback, not repository-specific expected symbol lists.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe supported stale-id, file-qualified and value-receiver spellings plus preserved ambiguity.
  */
 export function resolveGraphHandle(
   graph: TtscGraphMemory,

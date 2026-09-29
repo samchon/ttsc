@@ -51,6 +51,15 @@ function parseViewArgs(argv: readonly string[]): ViewOptions {
  * self-contained 3D viewer on a localhost port, opening the browser. The native
  * binary produces the graph (the same `dump` the docs document); everything
  * else is local and offline. The process stays alive serving until Ctrl+C.
+ *
+ * @evidence contracts/common.md#principled-implementation A version-validated native dump is reduced before HTTP serving; only the selected payload and bundled viewer assets are exposed on loopback.
+ * @evidence contracts/common.md#clear-and-simple-design CLI parsing, native capture, reduction and loopback serving have explicit boundaries; browser opening is a best-effort convenience.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Native failure remains a nonzero outcome and viewer absence remains an installation error rather than a fallback to fabricated graph data.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains offline operation, native producer responsibility and the process lifetime.
+ * @evidence contracts/portability.md#os-neutral-implementation Binary selection and Node paths/fs use native abstractions; browser opening isolates Windows start, macOS open and other-host xdg-open commands.
+ * @evidence contracts/performance.md#efficient-algorithms Native capture and reduction process the dump once; JSON and viewer assets are materialized once and reused by HTTP responses.
+ * @evidence contracts/performance.md#reuse-equivalent-work All requests to this one-shot viewer share the same reduced graph string and asset buffers; a new source snapshot requires another viewer invocation.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Capture descriptors are disposed in finally; the HTTP server and payload remain process-owned until shutdown, and listen failure closes active connections.
  */
 export function runView(argv: readonly string[]): number | void {
   const opts = parseViewArgs(argv);
@@ -110,7 +119,7 @@ export function runView(argv: readonly string[]): number | void {
     return 1;
   }
   if (dump.status !== 0) {
-    process.stderr.write(dump.stderr || "@ttsc/graph: dump failed\n");
+    process.stderr.write(dumpStderr || "@ttsc/graph: dump failed\n");
     return dump.status ?? 1;
   }
 
@@ -205,10 +214,18 @@ function openBrowser(url: string): void {
       spawn("cmd", ["/c", "start", "", url], {
         stdio: "ignore",
         detached: true,
-      }).unref();
+        windowsHide: true,
+      })
+        .on("error", () => undefined)
+        .unref();
     else if (process.platform === "darwin")
-      spawn("open", [url], { stdio: "ignore", detached: true }).unref();
-    else spawn("xdg-open", [url], { stdio: "ignore", detached: true }).unref();
+      spawn("open", [url], { stdio: "ignore", detached: true })
+        .on("error", () => undefined)
+        .unref();
+    else
+      spawn("xdg-open", [url], { stdio: "ignore", detached: true })
+        .on("error", () => undefined)
+        .unref();
   } catch {
     /* the URL is printed; opening is a convenience */
   }

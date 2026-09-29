@@ -1,12 +1,15 @@
 import { TtscGraphMemory } from "../model/TtscGraphMemory";
+import { TtscGraphReadonly } from "../model/TtscGraphReadonly";
 import { ITtscGraphEdge } from "../structures/ITtscGraphEdge";
 import { ITtscGraphEvidence } from "../structures/ITtscGraphEvidence";
-import { ITtscGraphNode } from "../structures/ITtscGraphNode";
+import { ITtscGraphNode as NodeShape } from "../structures/ITtscGraphNode";
 import { ITtscGraphTrace } from "../structures/ITtscGraphTrace";
 import { isDeclarationFile, isExternalNode, isTestPath } from "./pathPolicy";
 import { resolveGraphHandle } from "./resolveHandle";
 import { IRunnerOutput, resultNext } from "./resultNext";
 import { edgeEvidenceOf, signatureOf } from "./runDetails";
+
+type ITtscGraphNode = TtscGraphReadonly<NodeShape>;
 
 const DEFAULT_DEPTH = 3;
 const DEFAULT_MAX_NODES = 12;
@@ -48,6 +51,14 @@ const DISPATCH_HUB = 12;
  * edges are excluded so the path is real call/type flow; forward walks callees,
  * reverse and impact walk callers. Impact additionally tags each reached node's
  * role so the blast radius on the public surface is legible.
+ *
+ * @evidence contracts/common.md#principled-implementation Breadth-first traversal preserves shortest reached depth and original edge direction; path search distinguishes found, bounded and exhausted outcomes before considering shared junctions.
+ * @evidence contracts/common.md#clear-and-simple-design Handle resolution, eligible edges, dispatch, path search and coordinate summaries have helper owners; this function assembles open or requested-path results.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Ambiguity remains candidates and dispatch follows checker implementation relations; shared references are never inserted as guessed execution edges.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains direction, structural exclusion and impact roles; request documentation states bounds and focus meanings.
+ * @evidence contracts/performance.md#efficient-algorithms A visited set prevents repeated node expansion; indexed adjacency bounds work to inspected frontier edges, though dense degrees and reverse dispatch can exceed the returned node cap.
+ * @evidence contracts/performance.md#reuse-equivalent-work Forward/reverse operations share immutable generation indexes and resolution helpers; completed trace memoization is not implemented because each request currently creates a mutable result.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Visited/frontier sets and omitted dispatch candidates exist only during the request; node/depth caps bound selected output, not every dense frontier edge inspected.
  */
 export function runTrace(
   graph: TtscGraphMemory,
@@ -476,7 +487,9 @@ function touchedBy(
       touched.set(edge.to, {
         kind: edge.kind,
         outgoing: true,
-        ...(edge.evidence !== undefined ? { evidence: edge.evidence } : {}),
+        ...(edge.evidence !== undefined
+          ? { evidence: { ...edge.evidence } }
+          : {}),
       });
   }
   for (const edge of graph.incoming(id)) {
@@ -485,7 +498,9 @@ function touchedBy(
       touched.set(edge.from, {
         kind: edge.kind,
         outgoing: false,
-        ...(edge.evidence !== undefined ? { evidence: edge.evidence } : {}),
+        ...(edge.evidence !== undefined
+          ? { evidence: { ...edge.evidence } }
+          : {}),
       });
   }
   return touched;
@@ -624,7 +639,7 @@ function findPath(
               depth: i,
             };
             if (parentEdge?.evidence !== undefined)
-              hop.evidence = parentEdge.evidence;
+              hop.evidence = { ...parentEdge.evidence };
             hops.push(hop);
           }
           return { found: { path, hops }, bounded };
@@ -817,7 +832,9 @@ function dispatchEdges(
       from: id,
       to: edge.from,
       kind: "dispatches",
-      ...(edge.evidence !== undefined ? { evidence: edge.evidence } : {}),
+      ...(edge.evidence !== undefined
+        ? { evidence: { ...edge.evidence } }
+        : {}),
     });
   }
   // Above the hub cut the fanout stops being a trace and starts being a
@@ -886,6 +903,14 @@ function reverseDispatchEdges(
  * keyword is written; and an external leaf has a body the graph deliberately
  * does not hold. Everything else is a concrete declaration, which is a real
  * destination and is never promoted through an override, whatever it calls.
+ *
+ * @evidence contracts/common.md#principled-implementation Kind, modifiers, declaration-file semantics and containing type facts identify bodyless declarations before dispatch traversal.
+ * @evidence contracts/common.md#clear-and-simple-design One shared predicate supplies the body decision to forward and reverse dispatch helpers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Body presence is not guessed solely from a function-like name or a missing explicit declare keyword.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains ambient and containing-type cases and distinguishes a possible body from execution proof.
+ * @evidence contracts/performance.md#efficient-algorithms Kind and modifier checks are constant or modifier-count work, followed by indexed containing-owner traversal rather than a graph-wide scan.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This shared declaration predicate coordinates no completed or in-flight work; trace and centrality own their producer reuse.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The predicate borrows graph facts and acquires no handle, task or retained cache.
  */
 export function hasDeclarationBody(
   graph: TtscGraphMemory,

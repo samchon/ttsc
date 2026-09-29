@@ -1,11 +1,14 @@
 import { TtscGraphMemory } from "../model/TtscGraphMemory";
+import { TtscGraphReadonly } from "../model/TtscGraphReadonly";
 import { ITtscGraphEdge } from "../structures/ITtscGraphEdge";
 import { ITtscGraphEntrypoints } from "../structures/ITtscGraphEntrypoints";
-import { ITtscGraphNode } from "../structures/ITtscGraphNode";
+import { ITtscGraphNode as NodeShape } from "../structures/ITtscGraphNode";
 import { resolveGraphHandle } from "./resolveHandle";
 import { IRunnerOutput, resultNext } from "./resultNext";
 import { decoratorsOf, edgeEvidenceOf, signatureOf } from "./runDetails";
 import { runLookup } from "./runLookup";
+
+type ITtscGraphNode = TtscGraphReadonly<NodeShape>;
 
 const DEFAULT_LIMIT = 4;
 const MAX_LIMIT = 8;
@@ -19,6 +22,14 @@ const STRUCTURAL_KINDS = new Set<string>(["contains", "exports"]);
  * gives the model stable handles, declaration signatures, and direct graph
  * context. It is deliberately not a source reader; details adds selected symbol
  * shape and ranges, not implementation text.
+ *
+ * @evidence contracts/common.md#principled-implementation Lookup hits and directly written handles seed deduplicated graph neighborhoods; unresolved mentions remain explicit instead of inferred starts.
+ * @evidence contracts/common.md#clear-and-simple-design Shared lookup and handle resolution own search semantics while this runner owns first-pass context assembly.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Node coordinates and typed fields are copied deliberately rather than leaking lookup-only tag fields into another result schema.
+ * @evidence contracts/common.md#meaningful-documentation Native prose states first-pass scope and the distinction between details ranges and implementation text.
+ * @evidence contracts/performance.md#efficient-algorithms One shared lookup supplies ranked candidates; exact mentions use indexed resolution and at most three seeds contribute bounded direct neighbors.
+ * @evidence contracts/performance.md#reuse-equivalent-work This composer borrows lookup and generation indexes; identical entrypoint DTOs are not memoized and remain caller-owned mutable results.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Seed sets and projected arrays are request-local, with fixed seed and neighbor caps; no query history or native handle survives the call.
  */
 export function runEntrypoints(
   graph: TtscGraphMemory,

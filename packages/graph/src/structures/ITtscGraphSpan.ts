@@ -11,6 +11,11 @@
  * the graph engine and the MCP results see is the whole
  * {@link ITtscGraphEvidence}. This shape exists only between the Go builder and
  * the loader.
+ *
+ * @evidence contracts/common.md#principled-implementation One-based coordinates and an optional non-derivable file preserve exact wire spans with reconstructible ordinary paths omitted.
+ * @evidence contracts/common.md#clear-and-simple-design The compact wire shape stays separate from the fully qualified memory evidence shape.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Cross-file implementations retain their explicit file instead of being forced into the owner's path.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain reconstruction ownership and member comments state coordinate units and file absence semantics.
  */
 export interface ITtscGraphSpan {
   /**

@@ -7,6 +7,11 @@
  * leaf keeps its real declaration kind and sets `external: true`.
  *
  * Used as the `kind` discriminant on {@link ITtscGraphNode}.
+ *
+ * @evidence contracts/common.md#principled-implementation Literal variants distinguish memory-layer declaration containers, refined members and published artifacts.
+ * @evidence contracts/common.md#clear-and-simple-design A single kind union is shared by node records instead of independent untyped classification strings.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Kinds express supported graph semantics, not fixture names or framework-specific categories.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain native-to-memory refinement and external leaves before the tags.
  */
 export type TtscGraphNodeKind =
   | "file"

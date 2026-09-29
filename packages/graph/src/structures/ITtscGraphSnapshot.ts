@@ -9,6 +9,11 @@ import { ITtscGraphDump } from "./ITtscGraphDump";
  * checks them; `TtscGraphSession` validates every frame against this shape
  * rather than casting it, so a drift surfaces as a precise error on the first
  * frame instead of an `undefined` several layers downstream.
+ *
+ * @evidence contracts/common.md#principled-implementation Request identity, independent protocol version and changed/error state qualify the optional full dump or shard transaction.
+ * @evidence contracts/common.md#clear-and-simple-design One transport envelope keeps response routing and computation mode outside the content payload.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Mode is a producer report rather than a guessed interpretation of generation counters.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain hand-maintained wire synchronization, version independence and error/changed payload semantics.
  */
 export interface ITtscGraphSnapshot {
   /** Echoes the request's id, so a response finds its caller. */
@@ -52,41 +57,122 @@ export interface ITtscGraphSnapshot {
 }
 
 export namespace ITtscGraphSnapshot {
-  /** Versioned content-addressed transaction emitted by `ttscgraph serve`. */
+  /**
+   * Versioned content-addressed transaction emitted by `ttscgraph serve`.
+   *
+   * Sequence and generation name this commit and its optional preceding base.
+   * The complete manifest describes the resulting shard set; upserts and
+   * deletes specify the change needed to reach it.
+   *
+   * @evidence contracts/common.md#principled-implementation Base coordinates and a complete digest manifest permit atomic validation of a delta against its preceding generation.
+   * @evidence contracts/common.md#clear-and-simple-design Transaction metadata and three shard-change collections separate generation authority from fact storage.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A delta cannot silently substitute an unrelated generation; its claimed base is explicit.
+   * @evidence contracts/common.md#meaningful-documentation Native prose explains base and manifest semantics, and member comments distinguish versions, generation coordinates and payload populations.
+   */
   export interface ITransaction {
+    /** Shard transaction protocol version. */
     protocolVersion: number;
+
+    /** Schema version of the graph facts inside the shards. */
     schemaVersion: number;
+
+    /** Producer-local absolute project locator. */
     project: string;
+
+    /** Configuration coordinate in the dump path vocabulary. */
     tsconfig: string;
+
+    /** Native binary and checker that produced the transaction. */
     producer: ITtscGraphDump.IProducer;
+
+    /** Evidence capabilities reported for this generation. */
     capabilities: string[];
+
+    /** Complete configuration and root membership inputs. */
     universe: ITtscGraphDump.IUniverse;
+
+    /** Positive consecutive transaction number within the resident session. */
     sequence: number;
+
+    /** Content-derived identity of the resulting generation. */
     generation: string;
+
+    /** Preceding transaction number, absent on the initial complete frame. */
     baseSequence?: number;
+
+    /** Preceding generation identity, absent on the initial complete frame. */
     baseGeneration?: string;
+
+    /** New or changed shard contents, qualified by their digest. */
     upserts: IShardUpsert[];
+
+    /** Keys removed from the preceding committed generation. */
     deletes: string[];
+
+    /** Complete key/digest set after applying this transaction. */
     manifest: IShardReference[];
   }
 
+  /**
+   * One replacement shard and the digest used to verify its contents.
+   *
+   * @evidence contracts/common.md#principled-implementation Pairing content with its digest lets the receiver reject a changed or incorrectly labeled shard.
+   * @evidence contracts/common.md#clear-and-simple-design The upsert contains only the payload and its content witness.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The digest qualifies actual content rather than a filename or timestamp proxy.
+   * @evidence contracts/common.md#meaningful-documentation Native member comments distinguish content witness from the replacement payload.
+   */
   export interface IShardUpsert {
+    /** Hex SHA-256 of the canonical Go JSON shard representation. */
     digest: string;
+
+    /** Complete replacement contents for the shard key inside this payload. */
     shard: IShard;
   }
 
+  /**
+   * A shard's membership and content identity in a generation manifest.
+   *
+   * @evidence contracts/common.md#principled-implementation Key and digest identify one retained shard version without requiring its content to be resent.
+   * @evidence contracts/common.md#clear-and-simple-design The manifest reference stays distinct from an upsert because unchanged entries have no payload.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A retained entry is identified by content digest rather than assumed unchanged from its key alone.
+   * @evidence contracts/common.md#meaningful-documentation Native comments explain membership key and canonical-content digest.
+   */
   export interface IShardReference {
+    /** Logical shard ownership key. */
     key: string;
+
+    /** Hex SHA-256 of the canonical Go JSON shard representation. */
     digest: string;
   }
 
-  /** One source/config or metadata-owned raw compiler fact shard. */
+  /**
+   * One source/config or metadata-owned raw compiler fact shard.
+   *
+   * Source and config attribution are mutually exclusive. With neither, this is
+   * the metadata shard for external leaves and published artifacts.
+   *
+   * @evidence contracts/common.md#principled-implementation Key plus optional input attribution defines ownership of the node, edge and diagnostic arrays validated by the shard store.
+   * @evidence contracts/common.md#clear-and-simple-design One shard carries complete owner-local facts while the transaction controls cross-shard membership.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Metadata ownership cannot be used to hide authored declarations from source attribution checks.
+   * @evidence contracts/common.md#meaningful-documentation Native prose explains mutually exclusive source/config attribution and the separate metadata role; members identify each fact population.
+   */
   export interface IShard {
+    /** Ownership coordinate shared with the generation manifest. */
     key: string;
+
+    /** Source-byte witnesses when one compiler source owns this shard. */
     source?: ITtscGraphDump.ISourceDigest;
+
+    /** Configuration-byte witness when a build configuration owns this shard. */
     config?: ITtscGraphDump.IFileDigest;
+
+    /** Raw native nodes owned by this source or metadata shard. */
     nodes: ITtscGraphDump.INode[];
+
+    /** Raw native edges whose source node this source shard owns. */
     edges: ITtscGraphDump.IEdge[];
+
+    /** Compiler findings attributed to the shard's input or metadata. */
     diagnostics: ITtscGraphDump.IDiagnostic[];
   }
 
@@ -99,6 +185,11 @@ export namespace ITtscGraphSnapshot {
    * - `incremental`: edits applied onto the reused resident program.
    * - `rebuild`: edits applied, but graph projection required a complete build.
    * - `error`: no snapshot was produced.
+   *
+   * @evidence contracts/common.md#principled-implementation Literal computation modes preserve the producer's distinction between reuse, updates, full reloads and failure.
+   * @evidence contracts/common.md#clear-and-simple-design One shared union types mode reports independently of payload availability.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The client cannot rename a rebuild incremental solely to claim better performance.
+   * @evidence contracts/common.md#meaningful-documentation Each mode's native bullet explains the producer event and whether a new snapshot exists.
    */
   export type Mode =
     | "initial"

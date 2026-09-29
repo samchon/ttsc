@@ -190,6 +190,10 @@ Nothing is forbidden. The tool description says when the graph applies and when 
 
 What keeps the agent on the graph is precision. Answers carry names, signatures, edges, and spans resolved by the TypeScript compiler, so the agent accepts them as final instead of re-verifying with its own reads. And since no file body is ever included, a large repository cannot inflate the response.
 
+Declaration signatures come from the native compiler's declaration heads. When a producer omits a head, the response omits `signature` instead of guessing from a source line that may contain an implementation body. Consumers can use the returned source span when they need the missing text.
+
+Resident graph models own detached, frozen node and edge facts. Public model accessors expose recursively readonly records and buckets; editable query results copy their nested facets. Caller-owned dump and transaction inputs remain editable without changing retained generations.
+
 ### Comparison
 
 [`serena`](https://github.com/oraios/serena) and [`codegraph`](https://github.com/colbymchenry/codegraph) fight the agent instead:

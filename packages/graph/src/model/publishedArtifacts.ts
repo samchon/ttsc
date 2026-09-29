@@ -3,7 +3,11 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { type ITtscCapabilityPlugin, resolveCapabilityPlugins } from "ttsc";
+import {
+  type ITtscCapabilityPlugin,
+  type ITtscCapabilityPluginResolution,
+  resolveCapabilityPluginResolution,
+} from "ttsc";
 
 import { TtscLintDaemon } from "./TtscLintDaemon";
 
@@ -28,7 +32,7 @@ import { TtscLintDaemon } from "./TtscLintDaemon";
  * plugin; and `packages/lint` is its own Go module that deliberately carries no
  * requirement on the compiler host. What is left is the channel the host
  * already has: a plugin declares a capability and its sidecar answers a verb,
- * exactly as `lsp-hints` does. `resolveCapabilityPlugins` is what builds and
+ * exactly as `lsp-hints` does. `resolveCapabilityPluginResolution` builds and
  * locates those sidecars, and it is the seam `ttscserver` already uses for
  * `capabilities.lsp`, published so a consumer outside the compiler can ask
  * too.
@@ -36,6 +40,15 @@ import { TtscLintDaemon } from "./TtscLintDaemon";
  * Nothing here knows what `@ttsc/evidence` is. It asks a lint install for
  * whatever its configured rules published, and a project that configured none
  * gets an empty answer.
+ *
+ * @evidence contracts/common.md#principled-implementation Publication carries the sidecar's artifact file and the input identity captured before asking for artifacts, so later input changes can invalidate that answer.
+ * @evidence contracts/common.md#clear-and-simple-design The result separates the producer exchange path, input inventory and freshness identity without embedding compiler Program state.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts A null file states an absent publication, not an invented artifact set or a successful compiler capability claim.
+ * @evidence contracts/common.md#meaningful-documentation Native member prose explains publication absence, independent document inputs and the fingerprint's ordering role.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms This result shape chooses no publication or fingerprint algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The session and freshness predicate decide continued publication reuse.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The publisher/session own exchange storage; the DTO transfers its path and witnesses.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation This result describes a path; publisher assembly and freshness helpers own native filesystem access.
  */
 export interface IPublishedArtifacts {
   /**
@@ -68,9 +81,26 @@ export interface IPublishedArtifacts {
    * invalidation watches the build universe, and none of this is in it.
    */
   fingerprint: string;
+
+  /**
+   * Owning plugin discovery proof, including successful absence. Omitted by
+   * legacy callers, whose publication cannot establish discovery freshness.
+   */
+  discovery?: ITtscCapabilityPluginResolution;
 }
 
-/** Paths an answer was derived from, split by how they are watched. */
+/**
+ * Paths an answer was derived from, split by how they are watched.
+ *
+ * @evidence contracts/common.md#principled-implementation Explicit files and watched directories represent edits and membership changes as distinct input populations.
+ * @evidence contracts/common.md#clear-and-simple-design Two lists carry sidecar-declared provenance without a second glob interpreter or compiler dependency model.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts An input inventory does not assert complete discovery provenance for a missing publisher.
+ * @evidence contracts/common.md#meaningful-documentation Native property prose identifies individual files and directories that notice additions and deletions.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms The inventory declares input populations; fingerprintInputs chooses their processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The inventory itself does not validate or coordinate publication reuse.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The publisher/session own inventory lifetime rather than this data shape.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Inventory paths are consumed by fingerprintInputs; this shape does not resolve or access them.
+ */
 export interface IArtifactInputs {
   /** Files stated one by one. */
   files: string[];
@@ -79,7 +109,18 @@ export interface IArtifactInputs {
   directories: IArtifactDirectory[];
 }
 
-/** A directory watched on behalf of the pattern that named it. */
+/**
+ * A directory watched on behalf of the pattern that named it.
+ *
+ * @evidence contracts/common.md#principled-implementation The absolute root and descent flag identify the conservative tree population needed to notice a declared pattern changing.
+ * @evidence contracts/common.md#clear-and-simple-design A directory watch contains only its native root and traversal choice; resolved files remain in the separate file list.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The depth decision follows wildcard path structure rather than an arbitrary maximum documentation depth.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains the recursive distinction and why a bare filename wildcard does not require a repository-wide scan.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms watchedBy and fingerprintInputs own the selection and traversal that consume this descriptor.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This directory value coordinates no completed or in-flight work.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The descriptor owns no directory handle or retained task.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation The directory coordinate is a value; selection and fingerprinting own its native resolution and access.
+ */
 export interface IArtifactDirectory {
   /** Absolute path of the directory to walk. */
   path: string;
@@ -87,24 +128,40 @@ export interface IArtifactDirectory {
   /**
    * Whether the walk descends.
    *
-   * Taken from the pattern rather than assumed, because assuming it is
-   * expensive in exactly the case that looks harmless: a rule declaring `*.md`
-   * has the project root for its fixed prefix, and treating that as recursive
-   * would state every file in the repository before every graph request.
+   * Taken from wildcard path structure rather than assumed, because assuming it
+   * is expensive in exactly the case that looks harmless: a rule declaring
+   * `*.md` has the project root for its fixed prefix, and treating that as
+   * recursive would state every file in the repository before every graph
+   * request.
    */
   recursive: boolean;
 }
 
+/**
+ * Discover configured publishers and synchronously publish their artifact set.
+ * Input identity is captured before the graph-nodes verbs to avoid accepting a
+ * concurrent document edit as already represented by an older answer.
+ *
+ * @evidence contracts/common.md#principled-implementation Capability discovery and each sidecar's project-inputs/graph-nodes verbs remain the authorities for plugin selection and artifact meaning.
+ * @evidence contracts/common.md#clear-and-simple-design The one-shot path composes discovery, input capture and publication through helpers also used by resident requests.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Unavailable sidecars do not produce fabricated artifacts; no evidence-rule-specific parser or private compiler mutation substitutes for the publisher.
+ * @evidence contracts/common.md#meaningful-documentation Native prose documents synchronous ownership and the freshness snapshot's required ordering.
+ * @evidence contracts/performance.md#efficient-algorithms Discovery runs once per publication, distinct input paths are merged and fingerprinted once, and publisher JSON is concatenated in one pass.
+ * @evidence contracts/performance.md#reuse-equivalent-work This one-shot caller has no resident sidecar owner; resident consumers use publishArtifactsResident and session freshness reuse instead of repeatedly spawning this path.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources SpawnSync owns each child through completion; the exchange file is overwritten per process/project, but historical project files have no explicit reclamation yet.
+ * @evidence contracts/portability.md#os-neutral-implementation Native paths and temporary storage use Node path/os APIs; sidecars receive argument arrays and hidden Windows child windows without shell composition.
+ */
 export function publishArtifacts(options: {
   cwd: string;
   tsconfig: string;
 }): IPublishedArtifacts {
-  const plugins = resolveCapabilityPlugins({
+  const discovery = resolveCapabilityPluginResolution({
     capability: "graphNodes",
     cwd: options.cwd,
     tsconfig: options.tsconfig,
   });
-  if (plugins.length === 0) return unpublished(options);
+  const plugins = discovery.plugins;
+  if (plugins.length === 0) return unpublished(options, discovery);
   // The inputs are stated before the set is asked for, never after. A document
   // edited between the two calls has to read as a change next time, and only
   // this order gives that: a fingerprint taken first describes a state at least
@@ -116,10 +173,13 @@ export function publishArtifacts(options: {
     plugins.map((plugin) => runVerb(plugin, "project-inputs", options)),
     options,
   );
+  const fingerprint = fingerprintInputs(inputs);
   return assemble(
     options,
     inputs,
+    fingerprint,
     plugins.map((plugin) => runVerb(plugin, "graph-nodes", options)),
+    discovery,
   );
 }
 
@@ -136,17 +196,27 @@ export function publishArtifacts(options: {
  * so the answer is the same one either way and only its cost differs. The
  * fallback matters more here than most: a daemon that quietly answered nothing
  * would be indistinguishable from a project that publishes nothing.
+ *
+ * @evidence contracts/common.md#principled-implementation Both paths ask the same configured sidecar verbs; input identity is captured before publication and invalidation clears the daemon's stale Program first.
+ * @evidence contracts/common.md#clear-and-simple-design The caller supplies sidecar ownership while this function owns ordered input and artifact phases and the shared result assembly.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts A failed daemon falls back to the public direct verb, not an invented empty-success result or a reimplementation of its parser.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains resident reuse, direct-command fallback and the reason to invalidate the Program before input collection.
+ * @evidence contracts/performance.md#efficient-algorithms Independent publishers run concurrently within each of two ordered phases; deduplication avoids repeatedly hashing the same declared file path.
+ * @evidence contracts/performance.md#reuse-equivalent-work Session-owned daemons reuse process and plugin loading only while binary, manifest and project context match; changed inputs rebuild the publication.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The session owns and closes daemons; this operation owns temporary outputs until assembly, with one exchange file per process/project and no historical-file reclamation.
+ * @evidence contracts/portability.md#os-neutral-implementation The fallback preserves native argument-vector invocation and Node path resolution; daemon ownership uses the same cross-platform process boundary.
  */
 export async function publishArtifactsResident(
   options: { cwd: string; tsconfig: string },
   daemon: (plugin: ITtscCapabilityPlugin) => TtscLintDaemon | undefined,
 ): Promise<IPublishedArtifacts> {
-  const plugins = resolveCapabilityPlugins({
+  const discovery = resolveCapabilityPluginResolution({
     capability: "graphNodes",
     cwd: options.cwd,
     tsconfig: options.tsconfig,
   });
-  if (plugins.length === 0) return unpublished(options);
+  const plugins = discovery.plugins;
+  if (plugins.length === 0) return unpublished(options, discovery);
   // The first request of a republish drops the daemon's warm Program. The
   // artifacts depend on which sources exist and what they declare — that is
   // what activates a claim — and between two republishes the developer has
@@ -163,14 +233,17 @@ export async function publishArtifactsResident(
     ),
     options,
   );
+  const fingerprint = fingerprintInputs(inputs);
   return assemble(
     options,
     inputs,
+    fingerprint,
     await Promise.all(
       plugins.map((plugin) =>
         askVerb(plugin, "graph-nodes", options, daemon(plugin), false),
       ),
     ),
+    discovery,
   );
 }
 
@@ -230,9 +303,10 @@ async function askVerb(
 function assemble(
   options: { cwd: string; tsconfig: string },
   inputs: IArtifactInputs,
+  fingerprint: string,
   outputs: readonly (string | null)[],
+  discovery: ITtscCapabilityPluginResolution,
 ): IPublishedArtifacts {
-  const fingerprint = fingerprintInputs(inputs);
   const published: unknown[] = [];
   for (const output of outputs) {
     if (output === null) continue;
@@ -243,7 +317,8 @@ function assemble(
       continue;
     }
   }
-  if (published.length === 0) return { file: null, fingerprint, inputs };
+  if (published.length === 0)
+    return { file: null, fingerprint, inputs, discovery };
 
   // One file per process and project, overwritten, rather than a fresh temp
   // directory per call. A directory per call is a leak nothing here is
@@ -263,24 +338,33 @@ function assemble(
     `ttsc-graph-artifacts-${String(process.pid)}-${projectKey(options)}.json`,
   );
   fs.writeFileSync(file, JSON.stringify(published));
-  return { file, fingerprint, inputs };
+  return { file, fingerprint, inputs, discovery };
 }
 
 /**
  * Whether the inputs an answer was derived from have moved since.
  *
- * Answered by stating paths this process already knows, not by asking the
- * plugin again. The question is asked before every graph request in a resident
- * session, and re-running plugin discovery per request would cost more than the
- * refresh it guards — while a `stat` per document costs less than reading one
- * of them.
+ * Published documents are compared by content identity. The owning resolver
+ * separately qualifies discovery, including successful absence. Unavailable,
+ * incomplete or changed discovery proof requires another lookup.
  *
- * The cost of being wrong in the cheap direction is what makes this worth
- * paying at all: a developer who edited only a spec section, and nothing the
- * compiler reads, otherwise saw the graph keep answering with the headings that
- * section used to have.
+ * @evidence contracts/common.md#principled-implementation The owning discovery query must still qualify this exact lookup, and exchange-file existence plus declared input identity must also hold before any publication or successful absence is reused.
+ * @evidence contracts/common.md#clear-and-simple-design Discovery freshness stays with the resolver and downstream document identity stays with fingerprintInputs; this predicate combines their independent authority.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Equal size and modification time cannot substitute for file-content equivalence, and a partial no-plugin watch list cannot prove discovery stability.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain content-based publication freshness, successful absence and conservative relookup for incomplete discovery proof.
+ * @evidence contracts/performance.md#efficient-algorithms Freshness hashes the distinct declared inputs and traverses watch roots once per inventory entry; its cost grows with watched bytes and entries rather than only stat count.
+ * @evidence contracts/performance.md#reuse-equivalent-work The resolver's original complete discovery proof authorizes sharing populated or empty results; changed or unproved selection requires relookup, and document fingerprints separately qualify overlay reuse.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This predicate borrows an inventory and returns a boolean; the publication and session own their storage and sidecars.
+ * @evidence contracts/portability.md#os-neutral-implementation Existence and fingerprints use Node filesystem APIs and native absolute paths without assumptions about platform shell commands.
  */
 export function artifactsAreStale(published: IPublishedArtifacts): boolean {
+  // Discovery remains the loader's authority, including successful absence.
+  // A downstream input list cannot replace an unavailable or incomplete proof.
+  if (
+    published.discovery?.status !== "resolved" ||
+    !published.discovery.isCurrent()
+  )
+    return true;
   // The written set is one of its own inputs, by existence alone. It lives in
   // the system temp directory, which is swept on a schedule this session has no
   // say in, and the server is handed the path on every request — so once it is
@@ -299,21 +383,15 @@ export function artifactsAreStale(published: IPublishedArtifacts): boolean {
  * The answer for a project that publishes nothing, and what to watch so that
  * answer can change.
  *
- * Configuring a plugin means editing the project's tsconfig or installing a
- * package that declares one, so those two files are what could turn this answer
- * into a different one. They are stated rather than the whole discovery being
- * re-run, because re-running it walks the dependency closure — the cost
- * samchon/ttsc#1276 is about — and paying that per request to learn nothing
- * would be worse than the staleness it prevents.
- *
- * Bounded, and deliberately: a tsconfig that inherits its plugins from an
- * extended config is not tracked here, because naming the whole extends chain
- * means asking the loader that is itself the expense.
+ * The direct config and package manifest are useful provenance, but do not
+ * cover inherited configuration or dependency installation. The attached owning
+ * discovery proof supplies that independent authority; direct paths do not
+ * stand in for it.
  */
-function unpublished(options: {
-  cwd: string;
-  tsconfig: string;
-}): IPublishedArtifacts {
+function unpublished(
+  options: { cwd: string; tsconfig: string },
+  discovery: ITtscCapabilityPluginResolution,
+): IPublishedArtifacts {
   const inputs: IArtifactInputs = {
     directories: [],
     files: [
@@ -321,7 +399,12 @@ function unpublished(options: {
       path.resolve(options.cwd, "package.json"),
     ],
   };
-  return { file: null, fingerprint: fingerprintInputs(inputs), inputs };
+  return {
+    file: null,
+    fingerprint: fingerprintInputs(inputs),
+    inputs,
+    discovery,
+  };
 }
 
 /**
@@ -403,16 +486,28 @@ function readInputs(
  * Two readings have to be right here, and both are cheap to get wrong. A
  * pattern carrying no wildcard is a path, not a tree: watching its parent
  * instead would state every sibling on every request to learn about the one
- * file that was declared. And a pattern that does not say `**` does not descend
- * — treating it as though it did is unbounded in exactly the case that looks
- * harmless, because a bare `*.md` has the project root for its prefix.
+ * file that was declared. A bare filename wildcard stays shallow; globstar or a
+ * wildcard directory component requires descent from the fixed prefix.
+ *
+ * @evidence contracts/common.md#principled-implementation Literal paths remain individual inputs; wildcard paths use their fixed directory prefix and descend when remaining path components can contain matched files.
+ * @evidence contracts/common.md#clear-and-simple-design A single fixed-prefix calculation and descent decision produce the directory descriptor consumed by fingerprinting.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Descent is not inferred solely from globstar, which would miss wildcard directory components followed by a filename.
+ * @evidence contracts/common.md#meaningful-documentation Native prose documents literal paths, bare wildcards and wildcard-directory descent.
+ * @evidence contracts/performance.md#efficient-algorithms Pattern scanning is linear in pattern length and avoids directory traversal at selection time; a bare filename wildcard keeps the walk shallow.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This pure descriptor calculation has no cross-request producer or validation coordinator; publication owns reuse.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned descriptor transfers to its caller and owns no handle or retained task.
+ * @evidence contracts/portability.md#os-neutral-implementation Both slash forms are recognized at the native-path boundary and relative roots resolve through Node path APIs.
  */
 export function watchedBy(
   pattern: string,
   cwd: string,
 ): IArtifactDirectory | null {
   if (pattern.search(GLOB_MAGIC) < 0) return null;
-  return { path: globRoot(pattern, cwd), recursive: pattern.includes("**") };
+  const magic = pattern.search(GLOB_MAGIC);
+  return {
+    path: globRoot(pattern, cwd),
+    recursive: pattern.includes("**") || /[/\\]/u.test(pattern.slice(magic)),
+  };
 }
 
 /**
@@ -462,35 +557,65 @@ function absolute(target: string, cwd: string): string {
 /**
  * The state of every input, as one comparable string.
  *
- * Files are stated by size and modification time rather than content: this runs
- * before every graph request, and hashing a documentation corpus per request
- * would cost more than the refresh it guards. Directories are walked for the
- * same pair, which is what notices a section added or a document deleted rather
- * than edited.
+ * Files are hashed by content so same-size edits with restored modification
+ * times remain observable. Directory membership is walked conservatively from
+ * declared roots; matching remains the sidecar's responsibility.
+ *
+ * @evidence contracts/common.md#principled-implementation The fingerprint includes input paths and regular-file bytes; sorted records make enumeration order irrelevant while missing paths retain an explicit marker.
+ * @evidence contracts/common.md#clear-and-simple-design File state and conservative directory traversal share one record representation before the final digest.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Metadata equality, hidden-directory skipping and arbitrary depth limits do not stand in for declared input identity.
+ * @evidence contracts/common.md#meaningful-documentation Native prose states content hashing, conservative membership and sidecar ownership of actual matching.
+ * @evidence contracts/performance.md#efficient-algorithms Cost is linear in watched regular-file bytes plus O(N log N) record sorting; broad recursive globs conservatively over-read and may invalidate unrelated edits.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This computes one validation identity; the session compares it with the publication snapshot and decides reuse.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Synchronous reads close their descriptors internally, and the record array exists only for this computation; no historical fingerprint state is retained here.
+ * @evidence contracts/portability.md#os-neutral-implementation Native stat, read and directory APIs handle platform paths; NUL-separated fields prevent filename ambiguity without shell serialization.
  */
 export function fingerprintInputs(inputs: IArtifactInputs): string {
   const parts: string[] = [];
-  for (const file of inputs.files) parts.push(stateOf(file));
+  const states = new Map<string, string>();
+  for (const file of inputs.files) parts.push(stateOf(file, states));
   for (const directory of inputs.directories)
-    parts.push(...walkState(directory.path, directory.recursive));
+    parts.push(...walkState(directory.path, directory.recursive, states));
   parts.sort();
   return createHash("sha256").update(parts.join("\n")).digest("hex");
 }
 
 /**
- * A path's size and modification time, or a marker when it is absent.
+ * A regular file's content identity, physical directory identity, or absence.
  *
  * The fields are joined on a character a path cannot contain. Separated by a
  * space, a file literally named `a 1 2` states the same string as a one-byte
  * file named `a`, and an edit to either would then read as no edit at all.
  */
-function stateOf(file: string): string {
+function stateOf(file: string, states: Map<string, string>): string {
+  const existing = states.get(file);
+  if (existing !== undefined) return existing;
   try {
     const stat = fs.statSync(file);
-    return [file, String(stat.size), String(stat.mtimeMs)].join(SEPARATOR);
-  } catch {
-    return [file, "absent"].join(SEPARATOR);
+    const identity = stat.isFile()
+      ? createHash("sha256").update(fs.readFileSync(file)).digest("hex")
+      : stat.isDirectory()
+        ? ["directory", fs.realpathSync.native(file)].join(SEPARATOR)
+        : ["other", String(stat.size), String(stat.mtimeMs)].join(SEPARATOR);
+    const state = [file, identity].join(SEPARATOR);
+    states.set(file, state);
+    return state;
+  } catch (error) {
+    if (!missingPath(error)) throw error;
+    const state = [file, "absent"].join(SEPARATOR);
+    states.set(file, state);
+    return state;
   }
+}
+
+/** Missing paths are inputs; unreadable existing inputs are failures. */
+function missingPath(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error.code === "ENOENT" || error.code === "ENOTDIR")
+  );
 }
 
 /**
@@ -520,33 +645,51 @@ function globRoot(pattern: string, cwd: string): string {
 /**
  * Every entry below `directory`, stated.
  *
- * Bounded three ways, because this runs before every graph request: it descends
- * only when the pattern that named the directory descends, it never enters
- * `node_modules`, and it stops at a depth no documentation tree reaches. Dotted
- * directories are skipped below the declared root, which is what the glob that
- * named it would have matched anyway.
+ * Descent follows the declared pattern rather than a guessed maximum depth or
+ * excluded directory name. Symlink directories are followed with a physical
+ * ancestor set so their declared contents are watched without creating cycles.
  *
  * A directory that does not exist states itself absent, which is what notices
  * one being created.
  */
-function walkState(directory: string, recursive: boolean, depth = 0): string[] {
-  if (depth > 12) return [];
+function walkState(
+  directory: string,
+  recursive: boolean,
+  inputStates: Map<string, string>,
+  ancestors: ReadonlySet<string> = new Set(),
+): string[] {
   let entries: fs.Dirent[];
+  let physical: string;
   try {
+    physical = fs.realpathSync.native(directory);
+    if (ancestors.has(physical)) return [stateOf(directory, inputStates)];
     entries = fs.readdirSync(directory, { withFileTypes: true });
-  } catch {
-    return [stateOf(directory)];
+  } catch (error) {
+    if (!missingPath(error)) throw error;
+    return [stateOf(directory, inputStates)];
   }
+  const nextAncestors = new Set(ancestors);
+  nextAncestors.add(physical);
   const states: string[] = [];
   for (const entry of entries) {
     const child = path.join(directory, entry.name);
-    if (entry.isDirectory()) {
-      if (!recursive) continue;
-      if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
-      states.push(...walkState(child, recursive, depth + 1));
+    let directoryEntry = entry.isDirectory();
+    if (entry.isSymbolicLink()) {
+      try {
+        directoryEntry = fs.statSync(child).isDirectory();
+      } catch (error) {
+        if (!missingPath(error)) throw error;
+      }
+    }
+    if (directoryEntry) {
+      if (!recursive) {
+        states.push(stateOf(child, inputStates));
+        continue;
+      }
+      states.push(...walkState(child, recursive, inputStates, nextAncestors));
       continue;
     }
-    states.push(stateOf(child));
+    states.push(stateOf(child, inputStates));
   }
   return states;
 }

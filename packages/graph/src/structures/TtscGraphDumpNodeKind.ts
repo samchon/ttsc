@@ -6,6 +6,11 @@
  * that the type system holds nothing for — and their ids are the address a
  * citation writes rather than the `path#name:kind` grammar, which is why an id
  * is parsed only after its kind says it can be.
+ *
+ * @evidence contracts/common.md#principled-implementation Native declaration and published artifact variants match the wire producer vocabulary before memory refinement.
+ * @evidence contracts/common.md#clear-and-simple-design The wire union is separate from memory kinds so module replacement does not weaken native validation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Artifact addresses are not coerced into TypeScript symbol-id grammar.
+ * @evidence contracts/common.md#meaningful-documentation Native documentation explains the artifact distinction and the gate required before parsing identities.
  */
 export type TtscGraphDumpNodeKind =
   | "module"

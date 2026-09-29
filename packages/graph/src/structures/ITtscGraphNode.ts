@@ -11,6 +11,11 @@ import { TtscGraphNodeModifier } from "./TtscGraphNodeModifier";
  * `src/order.ts#OrderService.create:method`), so inserting a line above a
  * declaration does not re-key it. Line and span live in `evidence` and are
  * never part of identity.
+ *
+ * @evidence contracts/common.md#principled-implementation Stable ids separate declaration identity from movable source positions; optional fields retain only facts the producer collected.
+ * @evidence contracts/common.md#clear-and-simple-design One node record groups identity, declaration shape and grounding while artifact parent and native flags remain optional facets.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Dynamic object members and non-enumerable types receive no fabricated outline or sampled literal set.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain stable identity, optional capability-backed facts and source-versus-implementation spans.
  */
 export interface ITtscGraphNode {
   /** Position-invariant identity (see the interface doc for the id grammar). */
@@ -123,8 +128,8 @@ export interface ITtscGraphNode {
    * interprets without re-parsing source.
    *
    * This is where a declaration says what outside the type system it answers
-   * to, and it is the only place the graph holds it: the other end of such a
-   * relation is a document section or an API operation, which is not a node.
+   * to. A plugin may also publish an artifact node for that target; the raw tag
+   * remains a declaration fact independently of whether such a node exists.
    *
    * Read it only when `provenance.capabilities` lists `docTags`. Without that
    * claim the field is absent because the producer never looked, which is a
@@ -136,13 +141,9 @@ export interface ITtscGraphNode {
    * The declaration head, cut by the producer where the compiler says the body
    * opens.
    *
-   * Absent when the producer could not bound the head, in which case a consumer
-   * falls back to reading the declaration span. That fallback is a line scan,
-   * and a physical line is not a declaration boundary: it leaks implementation
-   * text when a declaration shares its line with its body, and it stops early
-   * when the head itself contains a brace — a type-literal parameter, an object
-   * return type, a destructured parameter. Prefer this field wherever it is
-   * present.
+   * Absent when the producer could not bound the head. Consumers omit the
+   * signature rather than infer it from a physical line, which may contain an
+   * implementation body or only part of a multiline declaration head.
    */
   signature?: string;
 
@@ -156,7 +157,14 @@ export interface ITtscGraphNode {
   implementation?: ITtscGraphEvidence;
 }
 export namespace ITtscGraphNode {
-  /** One member of an enum: the name a caller writes and the value it carries. */
+  /**
+   * One member of an enum: the name a caller writes and the value it carries.
+   *
+   * @evidence contracts/common.md#principled-implementation Required name and optional folded value preserve computed enum members whose names remain known when values do not.
+   * @evidence contracts/common.md#clear-and-simple-design Two fields retain the callable spelling and value without minting a separate member node.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Unfoldable values remain absent rather than receiving expected literals.
+   * @evidence contracts/common.md#meaningful-documentation Native comments explain unqualified names and TypeScript source spelling of optional constants.
+   */
   export interface IEnumMember {
     /** The member's own name, unqualified (`Red` on `Colors.Red`). */
     name: string;
@@ -169,7 +177,14 @@ export namespace ITtscGraphNode {
     value?: string;
   }
 
-  /** One direct, statically named member of an object-literal variable. */
+  /**
+   * One direct, statically named member of an object-literal variable.
+   *
+   * @evidence contracts/common.md#principled-implementation Static name, data/callable kind and optional coordinates express a source-visible member rather than dynamic runtime keys.
+   * @evidence contracts/common.md#clear-and-simple-design The outline stores only declaration presentation; relationships remain on graph nodes.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Spreads and unresolved computed names do not acquire invented member identities.
+   * @evidence contracts/common.md#meaningful-documentation Comments document the property/method distinction, one-based line and compiler-snapshot signature.
+   */
   export interface IObjectMember {
     /** The source-visible static property name. */
     name: string;
