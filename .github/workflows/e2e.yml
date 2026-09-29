@@ -55,15 +55,11 @@ jobs:
           TTSC_CACHE_DIR: ${{ env.TTSC_TEST_CACHE_DIR }}
       - name: Batched e2e contracts
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: node scripts/ci/run-validation-group.cjs --lanes=all --concurrency=2
+        run: node scripts/ci/run-validation-group.cjs --lanes=all --concurrency=3
         env:
           TTSC_TEST_WORKERS: 2
           TTSC_GO_TEST_WORKERS: 2
           TTSC_BUN_BINARY: bun
-      - name: Packed adapter contracts
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: pnpm --dir experimental/test-unplugin start -- --pack-current
-        env:
           TTSC_HOST_WORKERS: 3
           TTSC_UNPLUGIN_SKIP_BUILD: "1"
       - name: Installed CLI smoke

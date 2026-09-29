@@ -5,6 +5,10 @@ const { LANES, NODE_FLOOR, nodeFloor, validationSteps } = require("./validation-
 test("one validation batch preserves every suite and merges executors", () => {
   const selected = LANES.filter((suite) => !suite.node);
   const steps = validationSteps(selected.map((suite) => suite.id));
+  assert.equal(
+    steps[0].run,
+    "pnpm --dir experimental/test-unplugin start -- --pack-current",
+  );
   for (const suite of selected)
     for (const command of suite.run.split(" && ")) {
       const step = steps.find((entry) => entry.run === command);

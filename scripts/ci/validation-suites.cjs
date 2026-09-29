@@ -6,6 +6,10 @@ const NODE_FLOOR = nodeFloor(JSON.parse(fs.readFileSync(path.resolve(__dirname, 
 // Logical suites are batched inside one CI job; these never create matrix rows.
 const LANES = [
   {
+    "id": "packed-adapter",
+    "run": "pnpm --dir experimental/test-unplugin start -- --pack-current"
+  },
+  {
     "id": "go",
     "run": "pnpm run test:go && pnpm --filter ttsc go:vet"
   },
