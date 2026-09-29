@@ -398,7 +398,7 @@ const PLATFORM_IDS = [
  * Physical runners for shipped native packages.
  *
  * Watch backends and VS Code installation differ by OS, not CPU architecture,
- * so only the representative x64 row for each OS owns those checks. When an
+ * so only one representative row for each OS owns those checks. When an
  * experimental package surface changes, all six rows still verify the shipped
  * native artifacts.
  */
@@ -419,13 +419,13 @@ const PLATFORM_ROWS = [
     name: "darwin-x64",
     os: "darwin",
     runner: "macos-15-intel",
-    representative: true,
+    representative: false,
   },
   {
     name: "darwin-arm64",
     os: "darwin",
     runner: "macos-15",
-    representative: false,
+    representative: true,
   },
   {
     name: "win32-x64",

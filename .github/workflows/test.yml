@@ -80,6 +80,7 @@ jobs:
       - uses: ./.github/actions/validation-cache
         with:
           group: platform-${{ matrix.name }}
+          save-go: ${{ matrix.os != 'linux' || matrix.name == 'linux-arm64' }}
 
       - uses: oven-sh/setup-bun@v2
         if: matrix.setup_bun
@@ -125,6 +126,9 @@ jobs:
       - name: Run shared OS contracts
         if: ${{ !cancelled() && matrix.contract_lanes != '' && steps.build.outcome == 'success' }}
         run: node scripts/ci/run-validation-group.cjs --lanes=${{ matrix.contract_lanes }}
+        env:
+          TTSC_TEST_WORKERS: 2
+          TTSC_GO_TEST_WORKERS: 2
 
       - name: Verify Linux Package Managers
         if: ${{ !cancelled() && matrix.plugin_cache && matrix.os == 'linux' && (steps.build.outcome == 'success' || steps.install.outcome == 'success') }}
@@ -257,6 +261,8 @@ jobs:
 
       - name: Verify @ttsc/unplugin Package Contract
         run: pnpm --dir experimental/test-unplugin start -- --pack-current
+        env:
+          TTSC_HOST_WORKERS: 3
 
   test:
     name: ${{ matrix.name }}
@@ -285,6 +291,7 @@ jobs:
       - uses: ./.github/actions/validation-cache
         with:
           group: ${{ matrix.id }}
+          save-go: ${{ matrix.id == 'native' || matrix.id == 'windows-contracts' || matrix.id == 'macos-contracts' }}
 
       - uses: oven-sh/setup-bun@v2
         if: matrix.id == 'bundlers' || matrix.id == 'windows-contracts' || matrix.id == 'macos-contracts'
@@ -317,6 +324,8 @@ jobs:
         run: ${{ matrix.run }}
         env:
           TTSC_TEST_DIRS: ${{ matrix.dirs }}
+          TTSC_TEST_WORKERS: ${{ runner.os == 'Linux' && '4' || '2' }}
+          TTSC_GO_TEST_WORKERS: 2
 
   ci:
     name: ci

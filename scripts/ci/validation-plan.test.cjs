@@ -176,7 +176,7 @@ test("compiler and platform changes select verified reverse consumers", () => {
     compiler.platformMatrix.include
       .filter((row) => row.watch && row.vscode)
       .map((row) => row.name),
-    ["linux-x64", "darwin-x64", "win32-x64"],
+    ["linux-x64", "darwin-arm64", "win32-x64"],
     "OS behavior belongs to one representative architecture per OS",
   );
   const compilerLinux = compiler.platformMatrix.include.find(
@@ -235,7 +235,7 @@ test("platform integrations reuse only the physical rows they need", () => {
   ]).platformMatrix.include;
   assert.deepEqual(
     watch.map((row) => row.name),
-    ["linux-x64", "darwin-x64", "win32-x64"],
+    ["linux-x64", "darwin-arm64", "win32-x64"],
   );
   assert.ok(
     watch.every((row) => row.watch && !row.experimental && !row.vscode),
@@ -256,7 +256,7 @@ test("platform integrations reuse only the physical rows they need", () => {
     .platformMatrix.include;
   assert.deepEqual(
     vscode.map((row) => row.name),
-    ["linux-x64", "darwin-x64", "win32-x64"],
+    ["linux-x64", "darwin-arm64", "win32-x64"],
   );
   assert.ok(
     vscode.every((row) => row.vscode && !row.experimental && !row.watch),

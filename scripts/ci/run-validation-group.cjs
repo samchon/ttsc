@@ -1,30 +1,57 @@
 const cp = require("node:child_process");
 const path = require("node:path");
 const { validationSteps } = require("./validation-plan.cjs");
+const { runIndependent } = require("./run-independent.cjs");
 
 /** Run every independent step and return all failed commands. */
-function runAll(steps, execute) {
-  return steps.filter((step) => execute(step) !== 0).map((step) => step.run);
+async function runAll(steps, execute, concurrency = 1) {
+  return (await runIndependent(steps, execute, concurrency)).map(
+    (step) => step.run,
+  );
 }
 
 function execute(step) {
   console.log(`\nValidation: ${step.run}`);
-  const result = cp.spawnSync(step.run, {
-    cwd: path.resolve(__dirname, "../.."), shell: true,
-    env: { ...process.env, TTSC_TEST_DIR: "", TTSC_TEST_DIRS: step.dirs.join(",") },
-    stdio: "inherit", windowsHide: true,
+  return new Promise((resolve) => {
+    const child = cp.spawn(step.run, {
+      cwd: path.resolve(__dirname, "../.."),
+      shell: true,
+      env: {
+        ...process.env,
+        TTSC_TEST_DIR: "",
+        TTSC_TEST_DIRS: step.dirs.join(","),
+      },
+      stdio: "inherit",
+      windowsHide: true,
+    });
+    child.on("error", (error) => console.error(error));
+    child.on("close", (code) => resolve(code ?? 1));
   });
-  if (result.error) console.error(result.error);
-  return result.error ? 1 : result.status ?? 1;
 }
 
 if (require.main === module) {
   const argument = process.argv.find((entry) => entry.startsWith("--lanes="));
   if (!argument) throw new Error("expected --lanes=<logical lane IDs>");
-  const steps = validationSteps(argument.slice("--lanes=".length).split(","), process.platform);
-  const failures = runAll(steps, execute);
-  if (failures.length) console.error(`Failed validation: ${failures.join(", ")}`);
-  process.exitCode = failures.length ? 1 : 0;
+  const steps = validationSteps(
+    argument.slice("--lanes=".length).split(","),
+    process.platform,
+  );
+  const concurrency = Number(
+    process.argv
+      .find((entry) => entry.startsWith("--concurrency="))
+      ?.slice("--concurrency=".length) ?? 1,
+  );
+  runAll(steps, execute, concurrency).then(
+    (failures) => {
+      if (failures.length)
+        console.error(`Failed validation: ${failures.join(", ")}`);
+      process.exitCode = failures.length ? 1 : 0;
+    },
+    (error) => {
+      console.error(error);
+      process.exitCode = 1;
+    },
+  );
 }
 
 module.exports = { runAll };

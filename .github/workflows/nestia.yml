@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/nestia.yml"
+      - ".github/actions/validation-cache/**"
       - "experimental/tarballs/**"
       - "config/**"
       - "scripts/assert-platform-package.cjs"
@@ -28,6 +29,9 @@ concurrency:
   group: nestia-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+env:
+  GOCACHE: ${{ github.workspace }}/.cache/ci/go-build
+
 jobs:
   # Build the current-platform tarballs and run nestia's complete upstream
   # suite in one broad last-defense job. Keeping producer and consumer on the
@@ -50,15 +54,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24.x
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
 
       - uses: actions/setup-go@v5
         with:
           go-version-file: packages/ttsc/go.mod
-          cache-dependency-path: |
-            packages/ttsc/go.sum
-            tests/go-transformer/go.mod
+          cache: false
+
+      - uses: ./.github/actions/validation-cache
+        with:
+          group: nestia
+          go-group: nestia
+          save-go: "true"
 
       - name: Install ttsc dependencies
         run: pnpm install --frozen-lockfile

@@ -10,6 +10,7 @@ const cp = require("node:child_process");
 const path = require("node:path");
 
 const { discoverNodeTests } = require("./ci/node-tests.cjs");
+const { runIndependent } = require("./ci/run-independent.cjs");
 
 const root = path.resolve(__dirname, "..");
 
@@ -53,17 +54,30 @@ function spawnNode(args) {
 }
 
 function spawnRunner(runner) {
-  return spawnNode([path.join(__dirname, runner)]);
+  return new Promise((resolve) => {
+    const child = cp.spawn(process.execPath, [path.join(__dirname, runner)], {
+      stdio: "inherit",
+      windowsHide: true,
+    });
+    child.on("error", (error) => console.error(error));
+    child.on("close", (code) => resolve(code ?? 1));
+  });
 }
 
-if (require.main === module) {
+async function main() {
   const failed = [];
   for (const test of harnessTests) {
     if (spawnNode(["--test", test]) !== 0) {
       failed.push(path.relative(__dirname, test));
     }
   }
-  failed.push(...runAll(runners, spawnRunner));
+  failed.push(
+    ...(await runIndependent(
+      runners,
+      spawnRunner,
+      Number(process.env.TTSC_GO_TEST_WORKERS ?? 1),
+    )),
+  );
   if (failed.length > 0) {
     console.error(
       `\ntest:go: ${failed.length} step(s) failed: ${failed.join(", ")}`,
@@ -71,5 +85,11 @@ if (require.main === module) {
     process.exit(1);
   }
 }
+
+if (require.main === module)
+  main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
 
 module.exports = { runAll };

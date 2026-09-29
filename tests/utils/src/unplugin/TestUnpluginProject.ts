@@ -101,7 +101,7 @@ export namespace TestUnpluginProject {
     if (process.env.TTSC_CACHE_DIR !== undefined) {
       return;
     }
-    sharedCacheDir ??= TestProject.tmpdir("ttsc-unplugin-cache-");
+    sharedCacheDir ??= TestProject.sharedPluginCache();
     process.env.TTSC_CACHE_DIR = sharedCacheDir;
   }
 

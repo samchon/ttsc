@@ -6,5 +6,5 @@ const path = require("node:path");
 const suiteRoot = path.resolve(__dirname, "..");
 process.env.TTSC_CACHE_DIR = path.resolve(
   suiteRoot,
-  process.env.TTSC_CACHE_DIR ?? path.join(".cache", "ttsc"),
+  process.env.TTSC_CACHE_DIR ?? process.env.TTSC_TEST_CACHE_DIR ?? path.join(".cache", "ttsc"),
 );

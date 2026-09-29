@@ -4,6 +4,12 @@ inputs:
   group:
     description: Physical validation group
     required: true
+  save-go:
+    description: One owner per OS and architecture saves the common Go objects
+    default: "false"
+  go-group:
+    description: Namespace for distinct complete Go build inventories
+    default: common
 runs:
   using: composite
   steps:
@@ -20,14 +26,26 @@ runs:
           ${{ steps.paths.outputs.store }}
         key: validation-deps-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.paths.outputs.version }}-${{ hashFiles('pnpm-lock.yaml', '**/go.sum') }}
     - uses: actions/cache@v5
+      if: inputs.save-go == 'true'
       with:
-        path: |
-          ${{ env.GOCACHE }}
-          ${{ env.TTSC_TEST_CACHE_DIR }}
-        # Each successful job saves the objects it added. An immutable key
-        # based only on lockfiles would keep the first, incomplete cache forever.
-        key: validation-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.paths.outputs.version }}-${{ hashFiles('pnpm-lock.yaml', '**/go.sum') }}-${{ inputs.group }}-${{ github.sha }}
+        path: ${{ env.GOCACHE }}
+        key: validation-go-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.paths.outputs.version }}-${{ inputs.go-group }}-${{ hashFiles('packages/**/*.go', 'packages/**/go.mod', 'packages/**/go.sum', 'tests/**/*.go', 'tests/go-transformer/**', 'scripts/test-go*.cjs', 'scripts/ci/go-test-overlay.cjs') }}
         restore-keys: |
-          validation-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.paths.outputs.version }}-${{ hashFiles('pnpm-lock.yaml', '**/go.sum') }}-${{ inputs.group }}-
-          validation-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.paths.outputs.version }}-${{ hashFiles('pnpm-lock.yaml', '**/go.sum') }}-
-          validation-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.paths.outputs.version }}-
+          validation-go-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.paths.outputs.version }}-${{ inputs.go-group }}-
+    - uses: actions/cache/restore@v5
+      if: inputs.save-go != 'true'
+      with:
+        path: ${{ env.GOCACHE }}
+        key: validation-go-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.paths.outputs.version }}-${{ inputs.go-group }}-${{ hashFiles('packages/**/*.go', 'packages/**/go.mod', 'packages/**/go.sum', 'tests/**/*.go', 'tests/go-transformer/**', 'scripts/test-go*.cjs', 'scripts/ci/go-test-overlay.cjs') }}
+        restore-keys: |
+          validation-go-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.paths.outputs.version }}-${{ inputs.go-group }}-
+    - uses: actions/cache@v5
+      if: env.TTSC_TEST_CACHE_DIR != ''
+      with:
+        path: ${{ env.TTSC_TEST_CACHE_DIR }}
+        # Source plugins already carry content/toolchain keys. Persist additions
+        # separately so each suite does not upload the same large Go object tree.
+        key: validation-plugins-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.paths.outputs.version }}-${{ inputs.group }}-${{ github.sha }}
+        restore-keys: |
+          validation-plugins-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.paths.outputs.version }}-${{ inputs.group }}-
+          validation-plugins-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.paths.outputs.version }}-

@@ -1,10 +1,9 @@
 /**
  * Shared helpers for tests that exercise the `TtscCompiler` JavaScript API
  * directly (as opposed to spawning the `ttsc` CLI). Provides a thin subclass
- * that injects a per-suite `TTSC_CACHE_DIR` so concurrent test runs do not
- * share cache state, plus project scaffolding utilities for common fixture
- * shapes (basic CJS project, dotted source directory, source plugin, compiler
- * plugin, etc.).
+ * that injects the shared keyed plugin cache for ordinary scenarios, plus
+ * project scaffolding utilities for common fixture shapes (basic CJS project,
+ * dotted source directory, source plugin, compiler plugin, etc.).
  */
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
@@ -18,9 +17,7 @@ import {
   type ITtscCompilerContext,
 } from "../../../../packages/ttsc/lib/index.js";
 
-const SHARED_COMPILER_CACHE_DIR = TestProject.tmpdir(
-  "ttsc-compiler-api-cache-",
-);
+const SHARED_COMPILER_CACHE_DIR = TestProject.sharedPluginCache();
 
 class TtscCompiler extends BaseTtscCompiler {
   public constructor(context: ITtscCompilerContext = {}) {

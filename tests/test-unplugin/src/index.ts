@@ -19,16 +19,17 @@ const dirs = process.env.TTSC_TEST_DIRS?.split(",")
 // directory it cannot remove is named, not turned into a failure of scenarios
 // that passed.
 const tool = path.join(process.cwd(), ".ttsc");
-process.on("exit", () => {
-  try {
-    fs.rmSync(tool, { force: true, recursive: true });
-  } catch (error) {
-    fs.writeSync(
-      2,
-      `The runner could not remove ${tool}: ${(error as Error).message}\n`,
-    );
-  }
-});
+if (!process.env.TTSC_TEST_WORKER_FILES)
+  process.on("exit", () => {
+    try {
+      fs.rmSync(tool, { force: true, recursive: true });
+    } catch (error) {
+      fs.writeSync(
+        2,
+        `The runner could not remove ${tool}: ${(error as Error).message}\n`,
+      );
+    }
+  });
 
 TestExecutor.main({
   // `features` holds the scenarios that need neither a Go host nor a bundler

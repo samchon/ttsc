@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/typia.yml"
+      - ".github/actions/validation-cache/**"
       - "experimental/tarballs/**"
       - "config/**"
       - "scripts/assert-platform-package.cjs"
@@ -28,6 +29,9 @@ concurrency:
   group: typia-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+env:
+  GOCACHE: ${{ github.workspace }}/.cache/ci/go-build
+
 jobs:
   Ubuntu:
     runs-on: ubuntu-latest
@@ -48,15 +52,17 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24.x
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
 
       - uses: actions/setup-go@v7
         with:
           go-version-file: packages/ttsc/go.mod
-          cache-dependency-path: |
-            packages/ttsc/go.sum
-            tests/go-transformer/go.mod
+          cache: false
+
+      - uses: ./.github/actions/validation-cache
+        with:
+          group: typia
+          go-group: typia
+          save-go: "true"
 
       - name: Install ttsc dependencies
         run: pnpm install --frozen-lockfile

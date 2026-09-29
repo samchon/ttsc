@@ -791,6 +791,10 @@ function verifyEcosystemContracts() {
     path.join(workspace, "contracts"),
     { recursive: true },
   );
+  fs.copyFileSync(
+    path.join(root, "scripts", "ci", "run-independent.cjs"),
+    path.join(workspace, "contracts", "run-independent.cjs"),
+  );
   run("node contracts/index.mjs", workspace);
 }
 
