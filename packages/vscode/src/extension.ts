@@ -598,13 +598,14 @@ async function startClient(
  *
  * One serialized queue prevents overlapping root plans. Active documents
  * select their own project; startup failures are shown and remove the failed
- * entry while other roots continue. Subscriptions own watchers, handlers and
- * the trace channel.
+ * entry while other roots continue. Subscriptions own command and event
+ * handlers and the trace channel.
  *
  * @evidence contracts/common.md#principled-implementation
  *   VS Code commands/events, RelativePattern, WorkspaceEdit and the
  *   LanguageClient subclass error-handler override are supported extension
- *   points. Only the owned client map/queue are mutated.
+ *   points. Extension-owned client routing, warning history and trace state
+ *   change through these boundaries.
  *
  * @evidence contracts/common.md#clear-and-simple-design
  *   Activation registers editor boundaries and delegates root planning, client

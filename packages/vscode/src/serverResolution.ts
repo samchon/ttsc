@@ -913,8 +913,9 @@ export function planNonOverlappingClientRoots(
  * confuse sibling names or physical aliases.
  *
  * @evidence contracts/common.md#principled-implementation
- *   The shared identity context owns containment and resolved key depth
- *   comparison.
+ *   The shared identity context owns containment. Among containing roots,
+ *   a descendant's resolved key extends its ancestor's key, so comparing
+ *   key lengths selects the deepest root.
  *
  * @evidence contracts/common.md#clear-and-simple-design
  *   A single scan retains the best containing root; containment and resolved
