@@ -128,7 +128,9 @@ const service = createWorkerCompiler({
 
 The typia pack itself is built by the site (typically with a `pack-typia-sources.cjs`-style script that bundles `typia/`, `@typia/utils`, and `@typia/interface` into a flat JSON map). See the ttsc website's [`build/pack-typia-sources.cjs`](https://github.com/samchon/ttsc/blob/master/website/build/pack-typia-sources.cjs) for the reference implementation.
 
-Calls for one URL share a single in-flight request; any caller's `signal` cancels that shared attempt, and a rejected attempt is evicted so the next compiler request retries the mount without starting another WASM runtime. There is no deadline over the fetch or the JSON body read — the network decides how long it takes. Pass the policy with `createTypiaSourcePackMount({ url, signal })`.
+Calls with the same URL and fetch function share a single in-flight request and decoded pack. Different injected transports have independent caches. Any caller's `signal` cancels its shared attempt, and rejection evicts that attempt so the next compiler request retries mounting without starting another WASM runtime. There is no deadline over the fetch or JSON body read; the network decides how long it takes. Pass cancellation with `createTypiaSourcePackMount({ url, signal })`.
+
+Source and runtime packs must be JSON objects mapping virtual paths to source-text strings. Arrays and non-string entries reject the load before mounting or evaluation. Successful packs assume immutable content at a URL; use a new URL when the content changes.
 
 ## Runtime npm dependency installer
 

@@ -16,8 +16,25 @@ import { createIdentifier } from "./createIdentifier";
  * With no arguments, this prints:
  *
  * ```ts
- * _i;
+ * _i
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   The documented stateless outline returns Identifier(_i), not the legacy
+ *   compiler's scope-aware generated-name object. No freshness or nested-scope
+ *   collision guarantee is established; callers must rename the placeholder.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The compatibility signature delegates name construction without introducing
+ *   hidden allocator state or an unused scope model.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   _i is the explicitly documented placeholder, not proof of collision-free
+ *   generation. The ignored reserve flag remains a semantic limitation.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs state the fixed name, ignored flag and nested-loop
+ *   collision risk, separately from the example and acknowledgment tags.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param _reservedInNestedScopes Ignored; kept for signature parity.

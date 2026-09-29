@@ -18,6 +18,15 @@ import (
 )
 
 // ProgramResolutionKind distinguishes module and type-reference resolution.
+//
+// @evidence contracts/common.md#principled-implementation The two discriminants select the compiler's distinct module-name and type-directive algorithms, retaining their different result semantics.
+// @evidence contracts/common.md#clear-and-simple-design One small enum selects the replay operation without encoding the distinction in task names or separate task containers.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The constants identify actual resolver operations rather than expected results or consumer-specific behavior.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies both resolution categories before the acknowledgment block.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation The enum selects a semantic operation and carries no native path or platform capability.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The discriminant representation does not own resolution processing.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The enum does not coordinate shared computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The enum owns no retained state or running resource.
 type ProgramResolutionKind uint8
 
 const (
@@ -28,15 +37,42 @@ const (
 // ProgramResolutionTask is one resolution already performed by a resident
 // Program. The exported fields provide deterministic host ordering while the
 // unexported fields retain the exact compiler context needed for replay.
+// Keep tasks with their originating Program options and project-reference
+// metadata unchanged; ReplayProgramResolutions accepts one coherent source's
+// task group, not arbitrary tasks from different programs.
+//
+// @evidence contracts/common.md#principled-implementation The record retains name, resolution mode, lexical containing path, expected target and originating options/project redirects, preserving the inputs needed to compare compiler resolution rather than only resolved filenames.
+// @evidence contracts/common.md#clear-and-simple-design Public ordering/provenance fields are distinct from private replay context, allowing hosts to group tasks without manufacturing the compiler state used for semantic replay.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Expected results preserve actual package and symlink identities; task construction does not synthesize answers for consumer names.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs state resident-program provenance and coherent-group ownership; documented public fields have blank source lines between them.
+// @evidence contracts/portability.md#os-neutral-implementation Lexical containing and resolved filenames remain distinct from loaded source/target filenames and canonical cache keys, preserving casing and project-reference spelling needed by native resolution.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This task record represents work selected by its producer, not the resolution algorithm owner.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The task type does not independently validate or coordinate reuse.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retention of task arrays and referenced Program metadata belongs to producer and caller operations, not independently to the record declaration.
 type ProgramResolutionTask struct {
+  // ContainingFile is the lexical source context supplied to the resolver.
   ContainingFile string
-  Kind           ProgramResolutionKind
-  Mode           core.ResolutionMode
-  Name           string
-  ResolvedFile   string
-  SourceFile     string
-  TargetFile     string
-  Universal      bool
+
+  // Kind selects module or type-reference resolution.
+  Kind ProgramResolutionKind
+
+  // Mode carries the compiler's import-versus-require resolution mode.
+  Mode core.ResolutionMode
+
+  // Name is the original module or type-directive specifier.
+  Name string
+
+  // ResolvedFile is the resident resolver's target spelling, or empty if unresolved.
+  ResolvedFile string
+
+  // SourceFile names the loaded containing source, or is empty for automatic directives.
+  SourceFile string
+
+  // TargetFile names the loaded target after project-reference substitution, if available.
+  TargetFile string
+
+  // Universal marks automatic directives whose containing context is synthetic.
+  Universal bool
 
   compilerOptions     *core.CompilerOptions
   currentDirectory    string
@@ -47,6 +83,17 @@ type ProgramResolutionTask struct {
 
 // ProgramResolutionTasks returns every cached module and type-reference
 // resolution, including unresolved entries and automatic type directives.
+// A nil Program returns nil. Returned tasks retain Program option and redirect
+// pointers; the caller owns their storage and must preserve that context.
+//
+// @evidence contracts/common.md#principled-implementation Enumerating the resident compiler's module and type-directive caches retains both successes and failures; containing paths recover loaded-source or semantic-config spelling, and expected results include package, target and link identity.
+// @evidence contracts/common.md#clear-and-simple-design One append closure shares task construction across both compiler cache traversals, while private helpers own source-redirect and project-reference context reconstruction.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The inferred-types filename is the compiler's automatic-directive context, and recovering its lexical directory addresses actual case-canonical cache keys without relaxing result comparison.
+// @evidence contracts/common.md#meaningful-documentation Native prose states cache coverage, nil behavior and retained Program-pointer lifetime; task fields document the lexical-versus-loaded path distinctions.
+// @evidence contracts/portability.md#os-neutral-implementation Compiler canonical cache keys are not replayed as lexical filenames: source/config context restores spelling, and redirects use actual filesystem Realpath plus Program case policy rather than OS guesses.
+// @evidence contracts/performance.md#efficient-algorithms The two resident-cache traversals append one task per R resolution while one project-reference metadata snapshot processes its P mappings; task and mapping storage grow with R and P instead of resolving every import again during extraction.
+// @evidence contracts/performance.md#reuse-equivalent-work Cached resident resolutions and one shared project-reference context are reused across tasks from the same Program, preserving their option and redirect identity rather than sharing across changed programs.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The caller receives an R-sized task slice retaining Program option/redirect metadata and one P-sized project context; no historical snapshot cache or task loop survives independently of that caller-owned slice.
 func ProgramResolutionTasks(program *Program) []ProgramResolutionTask {
   if program == nil {
     return nil
@@ -136,6 +183,18 @@ func programResolutionContext(program *Program, source ast.HasFileName) (module.
 
 // ReplayProgramResolutions resolves one source's tasks with one fresh upstream
 // resolver and reports whether every result still matches the resident Program.
+// Tasks must share compiler options, current directory and project-reference
+// context. An empty group, nil filesystem or missing options returns false.
+// All tasks are replayed even after a mismatch so observation sees every input.
+//
+// @evidence contracts/common.md#principled-implementation A fresh upstream resolver replays each kind with its original name, mode, lexical containing file and redirect, then compares the complete projected result including unresolved, package and symlink identity; tasks require one coherent originating context.
+// @evidence contracts/common.md#clear-and-simple-design One resolver and project-reference filesystem view belong to a group, while result projection centralizes equality and the loop preserves complete input observation after a mismatch.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Virtual declaration existence follows actual project-reference source mappings; unsupported resolver write operations panic rather than silently fabricating effects, and full result equality is not weakened to hide changed identities.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains coherent-group premises, invalid-input refusal and why replay continues after a mismatch, with separate descriptive and acknowledgment sections.
+// @evidence contracts/portability.md#os-neutral-implementation The supplied filesystem determines case sensitivity, existence and realpaths; the virtual declaration view uses canonical compiler paths and tracks native symlinks while preserving lexical resolver inputs.
+// @evidence contracts/performance.md#efficient-algorithms Each of R tasks is resolved once with a group-local resolver/cache; project declaration membership uses maps, while virtual declaration directory and known-link fallback scans grow with D directories and L links and are limited to fallback existence queries.
+// @evidence contracts/performance.md#reuse-equivalent-work One fresh resolver and cached virtual filesystem share equivalent lookups within a coherent group; a new replay filesystem prevents prior observation results from hiding changed native inputs.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Resolver caches, filesystem observations and known-link state are group-local and reclaimed after synchronous replay; retained entries grow with observed files/directories and links, with no historical cache or spawned task owned here.
 func ReplayProgramResolutions(tasks []ProgramResolutionTask, filesystem vfs.FS) bool {
   if len(tasks) == 0 || filesystem == nil || tasks[0].compilerOptions == nil {
     return false
@@ -392,6 +451,16 @@ func (fs *projectReferenceResolutionFS) directoryExistsIfProjectReferenceDeclara
 
 // ReplayAutomaticTypeDirectiveDiscovery repeats the compiler's exact wildcard
 // type-root enumeration over filesystem so a host can observe its inputs.
+// Nil program, filesystem or compiler options performs no discovery.
+//
+// @evidence contracts/common.md#principled-implementation The compiler's automatic-type directive enumeration receives the resident options and current directory over the observation filesystem, reproducing wildcard discovery inputs rather than inferring them from only previously resolved targets.
+// @evidence contracts/common.md#clear-and-simple-design A minimal resolution host exposes filesystem and cwd directly to the owning discovery helper; enumeration results need not be retained because observation is the required effect.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Replay preserves real enumeration effects through a supported host instead of injecting assumed type-package names or patching the compiler's cache.
+// @evidence contracts/common.md#meaningful-documentation Native prose states wildcard discovery's observation purpose and nil-input no-op behavior, with separate tags.
+// @evidence contracts/portability.md#os-neutral-implementation Discovery obtains directories and entries from the caller's filesystem and resident cwd through the compiler host, without inferring type-root availability or casing from the OS.
+// @evidence contracts/performance.md#efficient-algorithms The upstream helper enumerates applicable type roots and package entries once per call, proportional to roots and entries; discarding its returned names avoids retaining an additional result in this observation adapter.
+// @evidence contracts/performance.md#reuse-equivalent-work Enumeration itself is the input-observation effect, so a resident list cannot replace traversal on a new filesystem observation; callers may share the resulting observation proof only when its filesystem snapshot is equivalent.
+// @evidence contracts/performance.md#bound-retention-and-release-resources This synchronous adapter retains no names, handles or tasks after discovery; the supplied filesystem owns any collected observation entries and their lifetime.
 func ReplayAutomaticTypeDirectiveDiscovery(program *Program, filesystem vfs.FS) {
   if program == nil || filesystem == nil || program.Options() == nil {
     return

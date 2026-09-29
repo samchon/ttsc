@@ -14,10 +14,16 @@
  *
  * Rollup keeps a module's `meta` in its cache, and restores it with the module,
  * so the value is plain JSON.
+ *
+ * @evidence contracts/common.md#principled-implementation Option identity and optional record digest preserve the configuration and input-state conditions under which this module was delivered; null explicitly denies cache reuse.
+ * @evidence contracts/common.md#clear-and-simple-design Plain JSON metadata stores only proof references rather than the generation or native observation resources.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing record and null have distinct meanings, so a volatile or unprovable delivery cannot masquerade as a disabled-plugin pass-through.
+ * @evidence contracts/common.md#meaningful-documentation The prose explains host source-only caching, option identity, optional records, null, and serializable metadata ownership.
  */
 export type TtscRollupDelivery = {
   /** The identity of the options the delivery was compiled under. */
   options: string;
+
   /**
    * The project record the delivery was handed (`projectRecordFile`), with the
    * digest of the bytes its process wrote to it (`projectRecordDigest`); absent

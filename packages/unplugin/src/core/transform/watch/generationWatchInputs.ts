@@ -29,10 +29,21 @@ const GENERATION_WATCH_INPUTS = new WeakMap<
  * The disposed transform scratch tree is dropped, and so is the temporary
  * tsconfig the compile ran under.
  *
- * Memoized per generation: the record is written once per generation, and each
- * delivery hands the bridge the same inputs. Every path is the compiler's own
- * spelling: the record is read by the adapter alone, and the host is handed
- * only the record.
+ * Memoized per generation. Project-record delivery can separately add configs
+ * consulted while routing another module; this generation-wide input union
+ * retains one readonly snapshot. Consumers must not mutate its array or entries.
+ *
+ * Every path is the compiler's own spelling: the record is read by the adapter
+ * alone, and the host is handed only the record.
+ *
+ * @evidence contracts/common.md#principled-implementation The union covers compiler graph, reported dependencies, host inputs and plugin-source roots while excluding disposed scratch and temporary configuration paths.
+ * @evidence contracts/common.md#clear-and-simple-design A single append boundary centralizes lexical deduplication and evidence mapping; the memo returns one generation-wide readonly snapshot.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Scratch exclusion reflects disposed ownership, and dependency entries are validated before path use rather than supplemented with consumer-specific guesses.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains generation-wide derivation and memoization; callers must treat the returned array and its entries as immutable, with separated tags following documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path resolution and generation identity preserve filesystem semantics; lexical spellings remain distinct registration keys even when their physical identities agree.
+ * @evidence contracts/performance.md#efficient-algorithms A Set makes the first union linear in candidate count plus path/identity work, retaining only unique inputs and avoiding repeated evidence conversion for duplicates.
+ * @evidence contracts/performance.md#reuse-equivalent-work The WeakMap shares the completed input union by cached-generation identity; a newly compiled generation receives a new key and derivation.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Snapshot storage is O(unique generation inputs) per live generation and weak-keyed, so old snapshots become collectible with their generation rather than accumulating in a strong process-wide map.
  */
 export function generationWatchInputs(
   cached: TtscCachedProjectTransform,

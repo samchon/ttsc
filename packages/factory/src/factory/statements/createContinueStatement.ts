@@ -20,6 +20,20 @@ import { make } from "../internal/make";
  * continue outer;
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   Optional normalized label preserves labeled versus unlabeled continue;
+ *   enclosing loop validity cannot be established by this standalone node.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Target-name normalization shares asName; loop ownership stays with callers.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   No retry or simulated control flow replaces the requested continue syntax.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc distinguishes plain continue from an enclosing-loop label, with
+ *   separated examples and blank comment lines before acknowledgment tags.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param label The label.
  * @returns The created {@link ContinueStatement}.

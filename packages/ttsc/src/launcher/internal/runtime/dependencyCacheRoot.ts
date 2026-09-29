@@ -1,8 +1,9 @@
-import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
+import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
 import { ProcessOwnedDirectory } from "./ProcessOwnedDirectory";
 import { RuntimeManifestRegistry } from "./RuntimeManifestRegistry";
 
@@ -24,6 +25,15 @@ import { RuntimeManifestRegistry } from "./RuntimeManifestRegistry";
  * killed) is swept by the next one that starts.
  *
  * @param env Environment to read the descriptor-evaluation variables from.
+ *
+ * @evidence contracts/common.md#principled-implementation Descriptor-owned output, a checked run's depCacheDir and a manifest-less process directory are distinct lifetime authorities; selecting in that order keeps dependency emit with the owner that removes it.
+ * @evidence contracts/common.md#clear-and-simple-design One root selector owns the three supported execution contexts, with process-directory acquisition isolated in a private helper.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts A missing manifest selects a genuinely process-owned cache rather than persistent path-only reuse; descriptor channels are explicit host inputs, not fixture-specific names.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain descriptor, run and process ownership and cleanup after forced termination, with the injected environment documented following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Plain environment reads use native Windows alias rules; path and fs operations create a canonical temporary child so retargeting a temp alias cannot redirect exit cleanup.
+ * @evidence contracts/performance.md#efficient-algorithms Root selection visits registered manifests until one supplies a cache; first manifest-less acquisition sweeps sibling owner records once, and later requests return the stored root directly.
+ * @evidence contracts/performance.md#reuse-equivalent-work All manifest-less dependency builds in one process share its lazily acquired root; descriptor and run roots share only their explicit owning evaluation or run, avoiding cross-run stale path-only cache reuse.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The process owns one private directory and one exit callback; failed admission rolls back the canonical child, exit removes it best-effort, and a later process sweeps provably abandoned roots after a killed owner.
  */
 export function dependencyCacheRoot(
   env: NodeJS.ProcessEnv = process.env,
@@ -32,15 +42,16 @@ export function dependencyCacheRoot(
   // generation in the shared temp cache per load. Their result file already
   // lives in the evaluator-owned directory that the parent removes in
   // `finally`; put dependency emits beside it so that cleanup owns both.
+  const descriptorOutput = SidecarEnvironment.read(
+    env,
+    "TTSC_PLUGIN_DESCRIPTOR_OUT",
+  );
   if (
-    env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1" &&
-    typeof env.TTSC_PLUGIN_DESCRIPTOR_OUT === "string" &&
-    path.isAbsolute(env.TTSC_PLUGIN_DESCRIPTOR_OUT)
+    SidecarEnvironment.read(env, "TTSC_PLUGIN_DESCRIPTOR_LOAD") === "1" &&
+    descriptorOutput !== undefined &&
+    path.isAbsolute(descriptorOutput)
   ) {
-    return path.join(
-      path.dirname(env.TTSC_PLUGIN_DESCRIPTOR_OUT),
-      "dependency-cache",
-    );
+    return path.join(path.dirname(descriptorOutput), "dependency-cache");
   }
   const owner = RuntimeManifestRegistry.runtimeManifests().find(
     (candidate) => candidate.depCacheDir.length !== 0,
@@ -68,11 +79,24 @@ function processPrivateRoot(): string {
     (name) => name.startsWith(PROCESS_ROOT_PREFIX),
     true,
   );
-  const directory = path.join(
+  fs.mkdirSync(PROCESS_ROOT_PARENT, { recursive: true });
+  const directory = createCanonicalTempDirectory(
+    `${PROCESS_ROOT_PREFIX}${process.pid}-`,
     PROCESS_ROOT_PARENT,
-    `${PROCESS_ROOT_PREFIX}${process.pid}-${crypto.randomBytes(8).toString("hex")}`,
   );
-  ProcessOwnedDirectory.claim(directory);
+  try {
+    ProcessOwnedDirectory.admit(directory, process.pid);
+  } catch (error) {
+    try {
+      fs.rmSync(directory, { force: true, recursive: true });
+    } catch (cleanupError) {
+      throw new AggregateError(
+        [error, cleanupError],
+        "ttsx: failed to admit and remove the private dependency cache",
+      );
+    }
+    throw error;
+  }
   process.once("exit", () => {
     try {
       fs.rmSync(directory, { force: true, recursive: true });

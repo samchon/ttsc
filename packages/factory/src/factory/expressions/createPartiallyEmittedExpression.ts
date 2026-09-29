@@ -6,15 +6,19 @@ import { make } from "../internal/make";
  * only its inner `expression`.
  *
  * This node exists to carry transform bookkeeping such as the `original` source
- * node while the surrounding syntax (for example a stripped type assertion) is
- * dropped. The printer emits the inner expression alone; the wrapper itself
- * adds nothing to the output.
+ * node. The printer emits the inner expression alone and ignores `original`;
+ * this constructor does not strip type syntax from the inner expression.
  *
  * With `expression` of `a`, the printer emits:
  *
  * ```ts
- * a;
+ * a
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation Inner expression and optional original provenance remain separate; transparent printer dispatch emits the operand without deriving output from original or erasing its inner type syntax.
+ * @evidence contracts/common.md#clear-and-simple-design One make call retains emission input and provenance, leaving transform policy outside this bookkeeping wrapper.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The wrapper does not reinterpret original to disguise a missing transformation or patch already printed output.
+ * @evidence contracts/common.md#meaningful-documentation Native prose states ignored provenance and no implicit type erasure; example, parameter roles and acknowledgment tags use separate blocks.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param expression The expression to emit.

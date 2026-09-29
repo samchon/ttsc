@@ -231,6 +231,20 @@ type serveLSPResponse struct {
 //
 // in and out are explicit so the loop is testable; dispatch wires them to
 // os.Stdin and os.Stdout.
+//
+// Requests run serially under fixed project options. The daemon releases warm
+// Programs when invalidated, superseded or stopped. Callers supply nonnil
+// streams. Startup, input and reply-write failures return 2; verb failures are
+// returned in the reply.
+//
+// @evidence contracts/common.md#principled-implementation Explicit read verbs preserve one-shot result semantics while fixed project options and compiler-compatible source transitions determine warm Program reuse; write commands keep their separate temporary-workspace ownership.
+// @evidence contracts/common.md#clear-and-simple-design One serial protocol loop owns caches and dispatch; per-verb computation retains its existing responsibility and project-cycle state is reset at acquisition.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler incremental updates and explicit reloads handle supported source transitions; a checker-bearing Program legitimately serves checker-free requests without disguising missing checker capability.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes resident read verbs, one-shot writes, streams, resource release and failure channels; paragraphs and tags follow documentation guidance.
+// @evidence contracts/portability.md#os-neutral-implementation Changed file URIs pass through native URI conversion and physical project identity helpers, so source matching uses compiler paths instead of assumed drive spelling or case folding.
+// @evidence contracts/performance.md#efficient-algorithms A change scans each retained Program's changed-path set and updates only known source files; a verb's diagnostics still incur its rule walk, and protocol buffers scale with the current request and result.
+// @evidence contracts/performance.md#reuse-equivalent-work Fixed daemon options define Program keys, compatible changed sources update them, unknown topology changes invalidate them and checker-bearing entries satisfy checker-free requests; rule-config memo reuse independently validates recorded dependencies.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Under one fixed project the cache retains one Program, upgrades release checker-free entries and invalidation or exit closes all entries. Rule memo retains one resolver snapshot; per-request result buffers are not accumulated.
 func RunLSPServe(in io.Reader, out io.Writer, args []string) int {
   base, ok := parseLSPCommandOptions("lsp-serve", args)
   if !ok {
@@ -251,7 +265,10 @@ func RunLSPServe(in io.Reader, out io.Writer, args []string) int {
   for {
     raw, err := reader.ReadString('\n')
     if line := strings.TrimSpace(raw); line != "" {
-      handleServeLSPLine(line, base, encoder)
+      if err := handleServeLSPLine(line, base, encoder); err != nil {
+        fmt.Fprintf(os.Stderr, "@ttsc/lint lsp-serve: write error: %v\n", err)
+        return 2
+      }
     }
     if err != nil {
       if err != io.EOF {
@@ -267,17 +284,16 @@ func RunLSPServe(in io.Reader, out io.Writer, args []string) int {
 // contained so one bad request drops to a nonzero code rather than taking down
 // the daemon and every document with it — the resident analog of the one-shot
 // process's isolation.
-func handleServeLSPLine(line string, base *lspCommandOptions, encoder *json.Encoder) {
+func handleServeLSPLine(line string, base *lspCommandOptions, encoder *json.Encoder) (writeErr error) {
   defer func() {
     if recovered := recover(); recovered != nil {
       fmt.Fprintf(os.Stderr, "@ttsc/lint lsp-serve: request panicked: %v\n", recovered)
-      _ = encoder.Encode(serveLSPResponse{Code: 2})
+      writeErr = encoder.Encode(serveLSPResponse{Code: 2})
     }
   }()
   var req serveLSPRequest
   if err := json.Unmarshal([]byte(line), &req); err != nil {
-    _ = encoder.Encode(serveLSPResponse{Code: 2})
-    return
+    return encoder.Encode(serveLSPResponse{Code: 2})
   }
   if req.Invalidate {
     // The Program only. The rule memo validates itself against the files it was
@@ -310,16 +326,16 @@ func handleServeLSPLine(line string, base *lspCommandOptions, encoder *json.Enco
   switch req.Verb {
   case "lsp-diagnostics":
     result, code := computeLSPDiagnostics(&opts)
-    encodeServeResult(encoder, result, code)
+    return encodeServeResult(encoder, result, code)
   case "lsp-project-diagnostics":
     result, code := computeLSPProjectDiagnostics(&opts)
-    encodeServeResult(encoder, result, code)
+    return encodeServeResult(encoder, result, code)
   case "lsp-code-actions":
     result, code := computeLSPCodeActions(&opts)
-    encodeServeResult(encoder, result, code)
+    return encodeServeResult(encoder, result, code)
   case "lsp-hints":
     result, code := computeLSPHints(&opts)
-    encodeServeResult(encoder, result, code)
+    return encodeServeResult(encoder, result, code)
   case "graph-nodes":
     // Neither of these describes a document, so neither carries a uri. They
     // describe the project, and they join the daemon for the reason the other
@@ -327,34 +343,32 @@ func handleServeLSPLine(line string, base *lspCommandOptions, encoder *json.Enco
     // watches moves would otherwise pay a process, a plugin load, and a Program
     // for every edit.
     result, code := computeGraphNodes(&opts)
-    encodeServeResult(encoder, result, code)
+    return encodeServeResult(encoder, result, code)
   case "project-inputs":
     result, code := computeProjectInputs(&opts)
-    encodeServeResult(encoder, result, code)
+    return encodeServeResult(encoder, result, code)
   case "lsp-command-ids":
-    encodeServeResult(encoder, lspCommandIDs(), 0)
+    return encodeServeResult(encoder, lspCommandIDs(), 0)
   case "lsp-code-action-kinds":
-    encodeServeResult(encoder, lspCodeActionKinds(), 0)
+    return encodeServeResult(encoder, lspCodeActionKinds(), 0)
   case "":
     // A bare invalidate carries no verb; acknowledge it.
-    _ = encoder.Encode(serveLSPResponse{Code: 0})
+    return encoder.Encode(serveLSPResponse{Code: 0})
   default:
     fmt.Fprintf(os.Stderr, "@ttsc/lint lsp-serve: unknown verb %q\n", req.Verb)
-    _ = encoder.Encode(serveLSPResponse{Code: 2})
+    return encoder.Encode(serveLSPResponse{Code: 2})
   }
 }
 
 // encodeServeResult marshals a verb result and writes it with its code. A
 // marshal failure degrades to a nonzero code rather than a malformed line.
-func encodeServeResult(encoder *json.Encoder, result any, code int) {
+func encodeServeResult(encoder *json.Encoder, result any, code int) error {
   if code != 0 {
-    _ = encoder.Encode(serveLSPResponse{Code: code})
-    return
+    return encoder.Encode(serveLSPResponse{Code: code})
   }
   raw, err := json.Marshal(result)
   if err != nil {
-    _ = encoder.Encode(serveLSPResponse{Code: 2})
-    return
+    return encoder.Encode(serveLSPResponse{Code: 2})
   }
-  _ = encoder.Encode(serveLSPResponse{Result: raw, Code: 0})
+  return encoder.Encode(serveLSPResponse{Result: raw, Code: 0})
 }

@@ -6,6 +6,11 @@
  * A flag must declare at least one consumer. `forwardTo` declares where the
  * flag travels when the consuming layer does not absorb it (e.g. ttsc-owned
  * flags that the JS launcher consumes and re-emits as different tsgo flags).
+ *
+ * @evidence contracts/common.md#principled-implementation These literals identify actual consumers in the launcher, build coordinator, native compiler and plugin hosts; consumedBy and forwardTo can therefore express ownership separately from transport.
+ * @evidence contracts/common.md#clear-and-simple-design One shared vocabulary records the pipeline boundaries while FlagSpec owns per-flag routing, avoiding independent layer-specific interpretations.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Host and lint identities name supported native boundaries; their fixed spellings are schema discriminants rather than fixture-dependent routing.
+ * @evidence contracts/common.md#meaningful-documentation The native comment explains pipeline order and consumption versus forwarding, with inline member context identifying the implementation owners in accordance with the documentation skill.
  */
 export type FlagLayer =
   | "launcher" // JS layer (`runTtsc.ts` / `runTtsx.ts`)

@@ -5,27 +5,46 @@ import { CachePrunePolicy } from "./CachePrunePolicy";
 import type { IPluginCachePruneOptions } from "./IPluginCachePruneOptions";
 import { PluginBuildLockOwner } from "./PluginBuildLockOwner";
 import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
+import type { PluginBuildLockLease } from "./PluginBuildLockLease";
 import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
+import { acquirePluginBuildLock } from "./acquirePluginBuildLock";
 import { inspectPluginBuildLock } from "./inspectPluginBuildLock";
+import { reclaimPluginBuildLock } from "./reclaimPluginBuildLock";
+import { releasePluginBuildLock } from "./releasePluginBuildLock";
 
 /**
  * Opportunistically bound the plugin binary cache.
  *
- * At most once a day (unless `force`), entries unused for 30 days are evicted
+ * Normally once a day (unless `force`), entries unused for 30 days are evicted
  * and, past a 2 GiB ceiling, the least-recently used down to 80% of it
- * (`CachePrunePolicy`). Entries used within the protection window and entries
- * named in `protectedEntries` (the binary a cold build just returned) survive.
- * When the protected set alone keeps the root over the ceiling, the daily
- * marker is backdated so another pass runs soon instead of a day later.
- * Failures are swallowed: pruning must never fail a build.
+ * (`CachePrunePolicy`). A target-sized cohort of recently used entries, active
+ * builds and entries named in `protectedEntries` survive. When the protected
+ * set alone keeps the root over the ceiling, the daily marker is backdated so
+ * another pass runs soon instead of a day later. Failures are swallowed:
+ * pruning must never fail a build.
  *
- * An evicted entry takes its build-lock state with it, and every pass drops the
- * retired-generation tombstones whose recorded holder is provably gone, so the
- * coordination state of keys no longer built stays bounded too
- * (samchon/ttsc#1558). A tombstone fences a late release of its generation, and
- * the lock only keeps two processes from building one key at once: publication
- * is an atomic rename of a complete binary, so a fence given up this way can at
- * worst let a key be built twice, never publish a partial or foreign binary.
+ * Payload deletion acquires the same v3 per-key lease as a builder. A task
+ * retired while it was still running remains protected until its exact
+ * release-owned completion or proven process absence. Old v2 clients use an
+ * independent namespace, so their liveness check is conservative observation
+ * rather than atomic cross-version serialization.
+ *
+ * Binary eviction preserves coordination roots. A v3 retired generation is
+ * reclaimed only after its holder and every registered observer are provably
+ * gone; their tokens may otherwise still act on that generation. Older v2
+ * generations have no observer registry and remain untouched. Persistent roots
+ * therefore still grow with historical keys even after binaries are evicted.
+ *
+ * @evidence contracts/common.md#principled-implementation Binary deletion holds a nonblocking v3 lease and rechecks old v2 plus unfinished retired-task ownership; completed payload work and reusable fence history have distinct proofs.
+ * @evidence contracts/common.md#clear-and-simple-design Binary accounting and generation-history reclamation remain separate phases because their ownership lifetimes differ.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Old v2 capabilities are not assumed expired; unknown ownership defers reclamation instead of hiding protocol uncertainty under a timeout.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish target-sized recent protection, retry behavior and persistent coordination-root growth.
+ * @evidence contracts/portability.md#os-neutral-implementation Root/child lstat and physical parent checks avoid link traversal; native deletion tolerates sharing restrictions without assuming volume case policy.
+ * @evidence contracts/performance.md#efficient-algorithms Binary scans visit retained files and sorts cost O(entries log entries); per-key unfinished-task checks and history collection add generation/observer metadata reads without reading binary contents.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Producers and build locks establish valid binary reuse; this operation selects reclamation candidates.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Binary eviction owns and finally retires one nonblocking lease; failed release can defer future coordination. Dead v3 history is reclaimed, while old v2 history and persistent per-key roots remain unbounded.
  */
 export function prunePluginCacheRoot(
   root: string,
@@ -72,7 +91,7 @@ export function prunePluginCacheRoot(
   }
 }
 
-/** Resolve explicit GC exclusions without allowing an alias outside root. */
+/** Resolve explicit GC exclusions without accepting aliases outside root. */
 function canonicalPluginCacheProtectedEntries(
   root: string,
   entries: readonly string[],
@@ -95,6 +114,7 @@ function canonicalPluginCacheProtectedEntries(
   return protectedEntries;
 }
 
+/** Evict unused binary entries and then oldest unprotected entries over budget. */
 function prunePluginCacheEntries(
   root: string,
   options: {
@@ -110,7 +130,7 @@ function prunePluginCacheEntries(
     if (
       options.now - entry.lastUsedAt <= CachePrunePolicy.ENTRY_MAX_AGE_MS ||
       options.protectedEntries.has(entry.dir) ||
-      pluginCacheEntryHasActiveBuild(entry, options.now)
+      pluginCacheEntryHasActiveBuild(entry)
     ) {
       continue;
     }
@@ -127,7 +147,7 @@ function prunePluginCacheEntries(
   for (const entry of [...remaining].sort(
     (a, b) => b.lastUsedAt - a.lastUsedAt,
   )) {
-    if (pluginCacheEntryHasActiveBuild(entry, options.now)) {
+    if (pluginCacheEntryHasActiveBuild(entry)) {
       protectedEntries.add(entry.dir);
       continue;
     }
@@ -147,26 +167,120 @@ function prunePluginCacheEntries(
   return total;
 }
 
-/** Conservatively protect an entry while any build generation owns its key. */
-function pluginCacheEntryHasActiveBuild(
-  entry: PluginCacheEntry,
-  now: number,
-): boolean {
+/** Protect a binary while current or previous-protocol ownership may be live. */
+function pluginCacheEntryHasActiveBuild(entry: PluginCacheEntry): boolean {
   const lockDir = `${entry.dir}.lock`;
   try {
-    return inspectPluginBuildLock(lockDir, now).state === "active";
+    if (pluginCacheEntryHasLiveV2Build(entry)) return true;
+    return inspectPluginBuildLock(lockDir).state === "active";
   } catch {
     // Malformed or unreadable coordination state cannot disprove ownership.
     return true;
   }
 }
 
+/**
+ * Protect an old v2 current owner unless its absence is established. Old
+ * clients do not share the v3 acquisition transaction, so this observation
+ * cannot provide atomic exclusion against a later old-client acquisition.
+ */
+function pluginCacheEntryHasLiveV2Build(entry: PluginCacheEntry): boolean {
+  const current = path.join(`${entry.dir}.lock.v2`, "current");
+  try {
+    fs.lstatSync(current);
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code !== "ENOENT";
+  }
+  try {
+    const generation = fs
+      .readFileSync(
+        path.join(
+          current,
+          PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_GENERATION_FILE,
+        ),
+        "utf8",
+      )
+      .trim();
+    const owner = readQualifiedPluginCacheTaskOwner(current, generation);
+    return owner === null || !PluginBuildLockOwner.gone(owner);
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Protect payloads of retired tasks that may still publish or delete.
+ *
+ * Exact release-owned completion ends payload activity without revoking the
+ * independently retained fence. A live or uncertain holder without that witness
+ * remains protected, even though current ownership has moved on.
+ */
+function pluginCacheEntryHasUnfinishedRetiredTask(lockDir: string): boolean {
+  const protocolRoot =
+    PluginBuildLockProtocol.pluginBuildLockProtocolDir(lockDir);
+  const retired = path.join(
+    protocolRoot,
+    PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_RETIRED_DIR,
+  );
+  if (!isOrdinaryCacheChild(protocolRoot, retired)) return true;
+  try {
+    for (const generation of fs.readdirSync(retired)) {
+      const location = path.join(retired, generation);
+      if (!isOrdinaryCacheChild(retired, location)) return true;
+      if (PluginBuildLockOwner.taskComplete(location, generation)) continue;
+      const owner = readQualifiedPluginCacheTaskOwner(location, generation);
+      if (owner === null || !PluginBuildLockOwner.gone(owner)) return true;
+    }
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Correlate a holder's absence proof with the generation being reclaimed. A
+ * syntactically valid but unrelated owner record cannot authorize payload or
+ * history deletion; its generation and the immutable generation file must
+ * identify this same task.
+ */
+function readQualifiedPluginCacheTaskOwner(
+  location: string,
+  generation: string,
+): PluginBuildLockOwner.IRecord | null {
+  if (!PluginBuildLockProtocol.isPluginBuildLockGeneration(generation)) {
+    return null;
+  }
+  try {
+    const recorded = fs
+      .readFileSync(
+        path.join(
+          location,
+          PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_GENERATION_FILE,
+        ),
+        "utf8",
+      )
+      .trim();
+    if (recorded !== generation) return null;
+    const owner = PluginBuildLockOwner.read(location);
+    return owner?.generation === generation ? owner : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Binary-entry metadata used by one eviction pass. */
 interface PluginCacheEntry {
+  /** Ordinary binary-entry directory under the physical cache root. */
   dir: string;
+
+  /** Last-use timestamp in milliseconds. */
   lastUsedAt: number;
+
+  /** Recursively observed payload bytes. */
   size: number;
 }
 
+/** Snapshot ordinary binary directories separately from coordination roots. */
 function collectPluginCacheEntries(
   root: string,
   now: number,
@@ -197,6 +311,7 @@ function collectPluginCacheEntries(
   return entries;
 }
 
+/** Read usage metadata, falling back to binary or directory timestamps. */
 function readCacheEntryLastUsedAt(dir: string, now: number): number {
   const touched = SourceBuildCacheLayout.readTimestamp(
     path.join(dir, SourceBuildCacheLayout.CACHE_LAST_USED_FILE),
@@ -216,6 +331,7 @@ function readCacheEntryLastUsedAt(dir: string, now: number): number {
   }
 }
 
+/** Sum ordinary payload-file bytes without following listed symbolic entries. */
 function directorySize(dir: string): number {
   let total = 0;
   let entries: fs.Dirent[];
@@ -237,31 +353,63 @@ function directorySize(dir: string): number {
   return total;
 }
 
+/** Remove one binary payload while preserving independent lock capabilities. */
 function removeCacheEntry(entry: PluginCacheEntry): boolean {
+  const lockDir = `${entry.dir}.lock`;
+  let lease: PluginBuildLockLease | null = null;
   try {
+    lease = acquirePluginBuildLock(lockDir);
+    if (lease === null) {
+      const observed = inspectPluginBuildLock(lockDir);
+      if (observed.state === "abandoned" && observed.fence.protocol === "v3") {
+        const current = path.join(
+          PluginBuildLockProtocol.pluginBuildLockProtocolDir(lockDir),
+          PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_CURRENT_DIR,
+        );
+        const owner = readQualifiedPluginCacheTaskOwner(
+          current,
+          observed.fence.generation,
+        );
+        // One proven-dead generation may be retired before one acquisition
+        // retry. A deadline or missing owner never authorizes GC stealing.
+        if (
+          owner !== null &&
+          owner.generation === observed.fence.generation &&
+          PluginBuildLockOwner.gone(owner) &&
+          reclaimPluginBuildLock(lockDir, observed.fence)
+        ) {
+          lease = acquirePluginBuildLock(lockDir);
+        }
+      }
+    }
+    if (
+      lease === null ||
+      pluginCacheEntryHasLiveV2Build(entry) ||
+      pluginCacheEntryHasUnfinishedRetiredTask(lockDir)
+    ) {
+      return false;
+    }
     fs.rmSync(entry.dir, { recursive: true, force: true });
     if (fs.existsSync(entry.dir)) return false;
+    return true;
   } catch {
-    // Windows may reject removal while a plugin binary is still running.
+    // Failed acquisition or native sharing errors defer optional eviction.
     return false;
-  }
-  // The key's lock was inactive when the entry was chosen, so its protocol
-  // directory, with its tombstones, and a released legacy lock go with it.
-  for (const lock of [`${entry.dir}.lock.v2`, `${entry.dir}.lock`]) {
-    try {
-      fs.rmSync(lock, { recursive: true, force: true });
-    } catch {
-      // Left for the next pass.
+  } finally {
+    if (lease !== null) {
+      try {
+        releasePluginBuildLock(lockDir, lease);
+      } catch {
+        // Preserve generation history; never remove a successor to force GC.
+      }
     }
   }
-  return true;
 }
 
 /**
- * Remove every retired-generation tombstone whose recorded holder is provably
- * gone (`PluginBuildLockOwner.gone`): a holder that cannot run cannot release
- * its generation late, which is all its tombstone fences. A tombstone whose
- * holder is on another host, alive, or unrecorded is kept.
+ * Reclaim v3 tombstones only when their owner and every registered observer are
+ * provably gone. Missing, malformed or unreadable ownership is retained. v2 has
+ * no observer registry and cannot supply this proof.
  */
 function pruneRetiredLockGenerations(root: string): void {
   let names: string[];
@@ -271,12 +419,14 @@ function pruneRetiredLockGenerations(root: string): void {
     return;
   }
   for (const name of names) {
-    if (!name.endsWith(".lock.v2")) continue;
+    if (!name.endsWith(".lock.v3")) continue;
+    const protocolRoot = path.join(root, name);
+    if (!isOrdinaryCacheChild(root, protocolRoot)) continue;
     const retired = path.join(
-      root,
-      name,
+      protocolRoot,
       PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_RETIRED_DIR,
     );
+    if (!isOrdinaryCacheChild(protocolRoot, retired)) continue;
     let tombstones: string[];
     try {
       tombstones = fs.readdirSync(retired);
@@ -285,13 +435,56 @@ function pruneRetiredLockGenerations(root: string): void {
     }
     for (const tombstone of tombstones) {
       const location = path.join(retired, tombstone);
-      const owner = PluginBuildLockOwner.read(location);
+      if (!isOrdinaryCacheChild(retired, location)) continue;
+      const owner = readQualifiedPluginCacheTaskOwner(location, tombstone);
       if (owner === null || !PluginBuildLockOwner.gone(owner)) continue;
+      const observers = path.join(
+        location,
+        PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_OBSERVERS_DIR,
+      );
+      let allObserversGone = true;
+      try {
+        if (!isOrdinaryCacheChild(location, observers)) {
+          // Absence is the valid no-observer state. A present alias or a
+          // nonordinary entry cannot prove that registered observers are gone.
+          fs.lstatSync(observers);
+          continue;
+        }
+        for (const observer of fs.readdirSync(observers)) {
+          const observerDirectory = path.join(observers, observer);
+          if (!isOrdinaryCacheChild(observers, observerDirectory)) {
+            allObserversGone = false;
+            break;
+          }
+          const holder = PluginBuildLockOwner.read(observerDirectory);
+          if (holder === null || !PluginBuildLockOwner.gone(holder)) {
+            allObserversGone = false;
+            break;
+          }
+        }
+      } catch (error) {
+        allObserversGone = (error as NodeJS.ErrnoException).code === "ENOENT";
+      }
+      if (!allObserversGone) continue;
       try {
         fs.rmSync(location, { recursive: true, force: true });
       } catch {
         // Left for the next pass.
       }
     }
+  }
+}
+
+/** Require an ordinary immediate physical child before tombstone traversal. */
+function isOrdinaryCacheChild(parent: string, child: string): boolean {
+  try {
+    const stats = fs.lstatSync(child);
+    return (
+      stats.isDirectory() &&
+      !stats.isSymbolicLink() &&
+      path.dirname(fs.realpathSync.native(child)) === parent
+    );
+  } catch {
+    return false;
   }
 }

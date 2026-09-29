@@ -10,8 +10,13 @@ import { createBinaryExpression } from "./createBinaryExpression";
  * With `left` of `a` and `right` of `b`, the printer emits:
  *
  * ```ts
- * a - b;
+ * a - b
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation MinusToken preserves minuend/subtrahend order as subtraction syntax, without converting the expressions to numbers in the builder.
+ * @evidence contracts/common.md#clear-and-simple-design One binary-builder delegation captures subtraction; it does not rewrite the operation into addition plus unary negation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The minus token represents the named operation, not a correction constant or known difference.
+ * @evidence contracts/common.md#meaningful-documentation Native prose states subtraction and operand order, with an expression example separated from tags following documentation guidance.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param left The left-hand operand.

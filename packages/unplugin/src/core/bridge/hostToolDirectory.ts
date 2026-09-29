@@ -31,6 +31,19 @@ import path from "node:path";
  *   adapters and the Next wrapper, Farm's configured root for Farm,
  *   `absWorkingDir` for esbuild, and the root Turbopack resolved
  *   (`rootContext`) for its loader.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Native join locates the package-owned .ttsc directory under the actual host
+ *   root, satisfying dependency-root restrictions without relocating watched paths.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One helper owns the project-local directory convention shared by host adapters.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   .ttsc is the product's directory convention; host-specific roots implement
+ *   actual dependency acceptance rules rather than consumer path exceptions.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs explain native watched-directory constraints and root
+ *   meaning for each adapter, with tag separation per documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation Node's native join preserves the actual host root's volume and spelling; records stay under that root to satisfy filesystem-root, same-drive and Windows watched-directory constraints.
  */
 export function hostToolDirectory(root: string): string {
   return path.join(root, ".ttsc");

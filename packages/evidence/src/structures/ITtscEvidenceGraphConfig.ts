@@ -8,6 +8,11 @@ import type { ITtscEvidenceGraphClaim } from "./ITtscEvidenceGraphClaim";
  * evidence it must cite with a reason. The configuration defines those
  * boundaries without hardcoding a repository's folder layout or its notion of
  * proof.
+ *
+ * @evidence contracts/common.md#principled-implementation A graph is represented by independent claims, each carrying its own references, so the type preserves the boundary at which coverage is evaluated.
+ * @evidence contracts/common.md#clear-and-simple-design The root holds only the claim collection; population and policy decisions stay in claim and reference types.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts No repository-specific path, expected coverage result or bypass flag is embedded in this root representation.
+ * @evidence contracts/common.md#meaningful-documentation The root and claims comments explain relationship direction, independent coverage and the nonempty-array runtime requirement that TypeScript's array type cannot enforce.
  */
 export interface ITtscEvidenceGraphConfig {
   /**

@@ -1,15 +1,17 @@
 # `@ttsc/strip`: Statement Removal
 
+This walkthrough is for plugin authors implementing statement removal through the linked Go driver.
+
 `@ttsc/strip` deletes `debugger;` statements and call expressions whose callee matches a pattern like `console.log` or `assert.*` from TypeScript source before emit. The package introduces the patterns every "remove a syntactic construct" plugin uses: matching call shapes, filtering `NodeList.Nodes`, recursing into block-bodied statements, and the embedded-statement substitution trick (replacing `if (x) console.log(y)` with `if (x);` rather than `if (x)`, which would be invalid).
 
-If you completed [`@ttsc/banner`](/docs/development/walkthroughs/banner), the standalone `main.go` dispatcher will look familiar, strip's is identical except for the package name. The published descriptor points at linked `driver/` source, so the new material on this page is the linked rewriter in `driver/strip.go`.
+If you completed [`@ttsc/banner`](/docs/development/walkthroughs/banner), the standalone `main.go` dispatcher will look familiar. Strip's dispatcher is identical except for the package name. The published descriptor points at linked `driver/` source, so the new material on this page is the linked rewriter in `driver/strip.go`.
 
 ## What it does for the consumer
 
 With no plugin options, `@ttsc/strip` removes the default patterns: `console.log`, `console.debug`, `assert.*`, and `debugger;`.
 
 ```jsonc
-// tsconfig.json — opt in with defaults
+// tsconfig.json: opt in with defaults
 {
   "compilerOptions": {
     "outDir": "dist",
@@ -46,163 +48,40 @@ export default {
 
 Two configuration knobs:
 
-- **`calls`**: match call statements by dotted name. `console.log` matches exactly `console.log(...)`; `myLogger.*` matches `myLogger.<anything>(...)` for any single property access. Wildcards are only supported at the **end** of a pattern.
+- **`calls`**: match call statements by dotted name. `console.log` matches exactly `console.log(...)`; `myLogger.*` matches `myLogger.<anything>(...)` for one or more property accesses after the prefix. Wildcards are only supported at the **end** of a pattern.
 - **`statements`**: match statement-level syntax. Today only `debugger` is supported; the slot exists so future statement kinds can be added without a breaking change.
 
 `@ttsc/strip` discovers its config by walking upward from the tsconfig directory (or from the launcher-provided `TTSC_PLUGIN_CONFIG_DIR` project root when the compile runs through a generated wrapper tsconfig), looking for `strip.config.{ts,cts,mts,js,cjs,mjs,json}`. To point at a specific file, set `configFile` on the tsconfig entry: `{ "transform": "@ttsc/strip", "configFile": "./config/strip.config.ts" }`.
 
 ## Directory layout
 
-```text
-packages/strip/
-├── package.json
-├── src/
-│   ├── index.cjs        ← JS descriptor (hand-written CommonJS)
-│   └── index.d.ts       ← hand-written types (exports ITtscStripConfig)
-├── go.mod
-├── driver/
-│   ├── strip.go         ← Linked transform logic
-│   └── config.go        ← strip.config.* file loading
-└── plugin/
-    ├── main.go          ← 36-line dispatcher
-    └── strip.go         ← Blank-imports the linked driver package
-```
+`packages/strip/src/index.ts` defines the descriptor factory. `src/structures/ITtscStripConfig.ts` defines the consumer config type, re-exported by the entry. Run `pnpm --filter @ttsc/strip build` to generate `lib/index.js` and `lib/index.d.ts`, the runtime and type entries selected by the package manifest.
 
-Strip's descriptor is a hand-written CommonJS file with a hand-written `index.d.ts` alongside it, no `lib/`, no compile step. The `.d.ts` exports `ITtscStripConfig`, the shape of a `strip.config.*` file.
+The linked transform lives in `driver/strip.go`, with config loading in `driver/config.go`. `plugin/main.go` is the standalone dispatcher and `plugin/strip.go` imports the linked driver. The Go source remains in the published package because the host compiles it for the selected native toolchain.
 
-## The JS descriptor (`src/index.cjs`)
+## The TypeScript descriptor (`src/index.ts`)
 
-This is the shipped `packages/strip/src/index.cjs`:
+The default-exported factory validates plugin-entry keys and returns the native registration. Its core registration is:
 
-```js
-// @ts-check
-"use strict";
-
-const fs = require("node:fs");
-const crypto = require("node:crypto");
-const path = require("node:path");
-
-// Keys from the tsconfig plugin entry that @ttsc/strip accepts. All other keys
-// are rejected so that stale inline options (calls, statements) surface as a
-// clear error rather than silently falling back to defaults.
-const ALLOWED_TSCONFIG_KEYS = new Set([
-  "configFile",
-  "enabled",
-  "name",
-  "stage",
-  "transform",
-]);
-
-module.exports = function createTtscStrip(context) {
-  const plugin =
-    context && typeof context === "object" && context.plugin != null
-      ? context.plugin
-      : {};
-  for (const key of Object.keys(plugin)) {
-    if (!ALLOWED_TSCONFIG_KEYS.has(key)) {
-      throw new Error(
-        `@ttsc/strip: tsconfig plugin entry contains unsupported key ${JSON.stringify(key)}; ` +
-          `strip configuration must be supplied via a strip.config.* file ` +
-          `(use the "configFile" key to point at a custom path)`,
-      );
-    }
-  }
-  const configInputs = stripConfigInputs(context);
-  return {
-    hostInputHashes: configInputs.hashes,
-    hostInputRealpaths: configInputs.realpaths,
-    hostInputs: configInputs.inputs,
-    name: "@ttsc/strip",
-    // `context.dirname` is this descriptor's own directory in every load mode —
-    // the ESM-safe replacement for `__dirname`.
-    source: path.resolve(context.dirname, "..", "driver"),
-    stage: "transform",
-  };
+```ts
+const configInputs = stripConfigInputs(context);
+return {
+  hostInputHashes: configInputs.hashes,
+  hostInputRealpaths: configInputs.realpaths,
+  hostInputs: configInputs.inputs,
+  name: "@ttsc/strip",
+  source: path.resolve(context.dirname, "..", "driver"),
+  stage: "transform",
 };
-
-const STRIP_CONFIG_FILENAMES = [
-  "strip.config.ts",
-  "strip.config.mts",
-  "strip.config.cts",
-  "strip.config.js",
-  "strip.config.mjs",
-  "strip.config.cjs",
-  "strip.config.json",
-];
-
-function stripConfigInputs(context) {
-  const configFile = context.plugin?.configFile;
-  const base = path.resolve(
-    context.pluginConfigDir ?? path.dirname(context.tsconfig),
-  );
-  if (typeof configFile === "string" && configFile.trim() !== "") {
-    const file = path.isAbsolute(configFile)
-      ? path.resolve(configFile)
-      : path.resolve(base, configFile);
-    return {
-      hashes: { [file]: hostInputHash(file) },
-      inputs: [file],
-      realpaths: { [file]: hostInputRealpath(file) },
-    };
-  }
-  const inputs = [];
-  const hashes = {};
-  const realpaths = {};
-  for (let directory = base; ; directory = path.dirname(directory)) {
-    const candidates = STRIP_CONFIG_FILENAMES.map((name) =>
-      path.join(directory, name),
-    );
-    inputs.push(...candidates);
-    for (const candidate of candidates) {
-      hashes[candidate] = hostInputHash(candidate);
-      realpaths[candidate] = hostInputRealpath(candidate);
-    }
-    if (candidates.some(configCandidateExists)) break;
-    const parent = path.dirname(directory);
-    if (parent === directory) break;
-  }
-  return { hashes, inputs, realpaths };
-}
-
-function hostInputRealpath(file) {
-  try {
-    return fs.realpathSync.native(file);
-  } catch {
-    return null;
-  }
-}
-
-/** Hash the exact candidate state observed before discovery selects a file. */
-function hostInputHash(file) {
-  try {
-    if (fs.statSync(file).isDirectory()) {
-      return crypto
-        .createHash("sha256")
-        .update("ttsc:host-input:directory\0")
-        .digest("hex");
-    }
-    return crypto
-      .createHash("sha256")
-      .update(fs.readFileSync(file))
-      .digest("hex");
-  } catch {
-    return null;
-  }
-}
-
-/** Match the native discovery rule: a directory is never a config file. */
-function configCandidateExists(file) {
-  try {
-    return !fs.statSync(file).isDirectory();
-  } catch {
-    return false;
-  }
-}
 ```
 
-This is the same descriptor as banner, written in CommonJS, including the declaration of the `strip.config.*` candidates the native transform reads: `hostInputs` makes `ttsc` watch them, `hostInputHashes` lets a later launch reuse this evaluation, and `hostInputRealpaths` pins each candidate's physical file ([banner → The JS descriptor](/docs/development/walkthroughs/banner#the-js-descriptor-srcindexts) explains each field). The `// @ts-check` pragma asks the TypeScript checker to validate this file even though it has no `.ts` source. Useful when the manifest is hand-edited.
+The host supplies the loaded module's absolute directory in `context.dirname`, so the sibling Go source resolves independently of the caller's working directory. The build uses the workspace TypeScript compiler and emits both JavaScript and declarations from maintained TypeScript source.
 
-`module.exports` is CommonJS's "default export". The host calls this function to get the descriptor object.
+Discovery starts from `context.pluginConfigDir` when supplied, otherwise from the tsconfig directory. An explicit nonblank string `configFile` records only that path. Implicit discovery records all seven candidate names in each ancestor directory until it finds a file or reaches the filesystem root. Directory candidates do not stop the walk.
+
+`hostInputs` makes the host watch both present and absent candidates. `hostInputHashes` records file bytes, directory markers or failed reads; `hostInputRealpaths` records physical targets. A nearer config appearing or a symlink changing must invalidate reuse even when the previously selected config is unchanged. The native loader validates the selected config and rejects multiple files in the same directory; this factory observes discovery inputs without evaluating configuration.
+
+Unknown entry keys throw rather than silently turning stale inline options into default stripping. The consumer's `ITtscStripConfig` belongs in a dedicated config file. Declaring either `calls` or `statements` replaces both built-in lists; omitting both selects the defaults. Removing a matched call statement also removes evaluation of its arguments, which is the intentional product effect.
 
 ## The standalone sidecar (`plugin/main.go`)
 
@@ -337,7 +216,7 @@ The linked driver registers itself with the host in `init()` (`driver.RegisterPl
 
 ```go
 func (plugin) ApplyProgram(prog *driver.Program, ctx driver.PluginContext) error {
-  config, err := loadStripConfigMap(ctx.Entry.Config, ctx.Cwd, ctx.Tsconfig)
+  config, err := loadStripConfigMapWithReporters(ctx.Entry.Config, ctx.Cwd, ctx.Tsconfig, ctx.ReportHostInput, ctx.ReportHostInputHash, ctx.ReportHostInputRealpath, ctx.ReportObservationIncomplete)
   if err != nil {
     return err
   }
@@ -345,6 +224,7 @@ func (plugin) ApplyProgram(prog *driver.Program, ctx driver.PluginContext) error
   if err != nil {
     return err
   }
+  ctx.ReportDependenciesComplete()
   for _, file := range prog.SourceFiles() {
     rewriter.apply(file)
   }
@@ -352,7 +232,9 @@ func (plugin) ApplyProgram(prog *driver.Program, ctx driver.PluginContext) error
 }
 ```
 
-`loadStripConfigMap` (in `driver/config.go`) rejects unsupported inline keys on the tsconfig entry, then resolves the config file: an explicit `configFile` wins, otherwise `strip.config.*` is discovered by upward walk. The resulting map feeds `parseStrip` from step 1.
+`loadStripConfigMapWithReporters` (in `driver/config.go`) rejects unsupported inline keys on the tsconfig entry, then resolves the config file: an explicit `configFile` wins, otherwise `strip.config.*` is discovered by upward walk. It reports observed configuration inputs and any incomplete observation to the host. The resulting map feeds `parseStrip` from step 1.
+
+The rewrite reads each file's AST and the reported configuration, so it can declare its source dependencies complete. Configuration observation has a separate completeness signal; this declaration does not override it.
 
 `prog.SourceFiles()` drops declaration files, but it returns every non-declaration implementation source resident in the Program, including imported raw TypeScript or JavaScript dependencies. This plugin deliberately applies the strip rules to that complete implementation-source set; filter paths explicitly if a plugin should mutate project-owned files only.
 
@@ -363,7 +245,7 @@ func (s *stripRewriter) apply(file *shimast.SourceFile) {
   if s == nil || file == nil || (len(s.calls) == 0 && !s.stripDebugger) {
     return
   }
-  filterStatements(file.Statements, s)
+  filterChildStatements(file.AsNode(), s)
 }
 ```
 
@@ -378,23 +260,24 @@ func filterStatements(list *shimast.NodeList, strip *stripRewriter) {
   if list == nil || len(list.Nodes) == 0 {
     return
   }
-  out := make([]*shimast.Node, 0, len(list.Nodes))
+  out := list.Nodes[:0]
   for _, stmt := range list.Nodes {
     if shouldStripStatement(stmt, strip) {
       continue
     }
-    filterChildStatements(stmt, strip)
     out = append(out, stmt)
   }
+  clear(list.Nodes[len(out):])
   list.Nodes = out
 }
 ```
 
-- **`make([]T, 0, capacity)`**: allocates the backing array with `capacity` slots but exposes length 0; `append` fills slots without reallocation until the cap is exhausted. Useful when you know an upper bound on the final length (here, `len(list.Nodes)`). Length and capacity are independent; newcomers conflate them.
+- **`list.Nodes[:0]`**: starts an empty output slice over the existing backing array. The output position never passes the current read position, so appending retained statements cannot overwrite unread entries.
 - **`for _, stmt := range list.Nodes`**: iterate over a slice. The first value is the index (we discard it with `_`); the second is a copy of the element. For pointer-element slices like `[]*Node`, the copy is the pointer, not the underlying struct. Since Go 1.22 the loop variable `stmt` is scoped _per iteration_, so closures capture distinct values each pass. Pre-1.22 code reused one variable across iterations, a classic foot-gun when saving `stmt` into a goroutine or callback.
 - **`continue`**: skip to the next iteration. Here it means "drop this statement; do not append to `out`."
 - **`append(out, stmt)`**: Go's variadic list-extend. `append` returns a (possibly new) slice; you must reassign the result.
-- **`list.Nodes = out`**: replace the underlying slice. The original `list.Nodes` is garbage-collected once nothing references it.
+- **`clear(list.Nodes[len(out):])`**: clears removed tail references in the retained backing array, allowing discarded subtrees to be collected when no other owner holds them.
+- **`list.Nodes = out`**: publishes the shortened slice without allocating a replacement backing array.
 
 The function is in-place: it mutates `list.Nodes` to a smaller slice and is therefore visible to anyone holding a pointer to the same `*NodeList`. This is exactly what the printer reads when it renders the file back to TypeScript text.
 
@@ -425,8 +308,8 @@ func filterChildStatements(node *shimast.Node, strip *stripRewriter) {
 Three things happen per node:
 
 1. **`filterEmbeddedStatements`** handles statements that live in _single-statement slots_ (the body of `if (x) <stmt>`, `while (x) <stmt>`, etc.). See step 5 below.
-2. **`node.CanHaveStatements()`** is true for `Block`, `SourceFile`, `ModuleDeclaration`, `CaseClause`, etc.: every node kind whose body is a `NodeList` of statements. When true, recurse into the body's statement list with the same `filterStatements`. (`CanHaveStatements` and `StatementList` are methods on `*shimast.Node` itself; the full surface is in [AST & Checker](/docs/development/concepts/tsgo#ast-basics).)
-3. **`node.ForEachChild(fn)`** iterates child nodes regardless of kind. We recurse into each one to find nested function bodies, lambdas, arrow expressions, etc.
+2. **`node.CanHaveStatements()`** identifies nodes exposing a statement list. `filterStatements` compacts that list without recursing. (`CanHaveStatements` and `StatementList` are methods on `*shimast.Node` itself; the full surface is in [AST & Checker](/docs/development/concepts/tsgo#ast-basics).)
+3. **`node.ForEachChild(fn)`** owns recursion into retained children, including nested function bodies, lambdas and arrow expressions. List filtering and embedded-statement replacement leave traversal to this one path, avoiding repeated visits to the same subtree.
 
 The visitor passes `func(child) bool` returning `false`. The contract: returning `true` short-circuits the iteration; returning `false` keeps going. Strip never short-circuits, so it always returns `false`.
 
@@ -443,9 +326,11 @@ node.ForEachChild(func(child *shimast.Node) bool {
 
 Closures in Go capture variables **by reference**, not by value. The inner function sees later mutations to the captured variable. Here `strip` is captured so the recursive call still has the rewriter state; nothing mutates `strip` after the closure is created, so the capture-by-reference detail is invisible. It matters when you capture a loop variable you intend to reassign or pass into a goroutine. The pre-1.22 loop-variable trap mentioned above is exactly this. This closure shape is the standard Go pattern for tree walking; you will see it again in the `@ttsc/paths` `rewriter`.
 
-### Sidebar: `node.AsX()` returns nil, branch on `Kind` first
+### Sidebar: check `Kind` before `node.AsX()`
 
-`node.AsCallExpression()`, `node.AsIfStatement()`, etc. Return `nil` when `node.Kind` does not match instead of panicking. The `case shimast.KindIfStatement: stmt := node.AsIfStatement()` pattern in `filterEmbeddedStatements` is safe only because the `case` already proved the kind. Outside a kind-checked `switch`, for example after a `ForEachChild` that yields heterogeneous children. Check `if stmt == nil { return }` before dereferencing any field. `node.AsCallExpression().Expression` on a non-call panics with a nil-deref, which the host surfaces as exit 2 with a Go stack on stderr. The same rule applies to `node.Symbol()`, which is nil for non-declaration nodes; see [Pitfalls → AST and Checker](/docs/development/reference/pitfalls#ast-and-checker).
+`node.AsCallExpression()`, `node.AsIfStatement()` and other typed accessors assert the node's internal data type. A wrong kind can panic during the accessor call; checking its result for nil is too late. Check the node is non-nil and prove its `Kind` before calling the matching accessor. The `case shimast.KindIfStatement: stmt := node.AsIfStatement()` pattern in `filterEmbeddedStatements` supplies that proof.
+
+`ForEachChild` yields heterogeneous nodes, so its callback must establish the kind before using a typed accessor. `node.Symbol()` has a separate contract and can return nil; see [Pitfalls → AST and Checker](/docs/development/reference/pitfalls#ast-and-checker).
 
 ### 5. Substitute embedded statements
 
@@ -495,7 +380,6 @@ func filterEmbeddedStatement(stmt *shimast.Statement, strip *stripRewriter) *shi
   if shouldStripStatement(stmt, strip) {
     return emptyStatement(stmt)
   }
-  filterChildStatements(stmt, strip)
   return stmt
 }
 
@@ -525,7 +409,7 @@ Three rules of thumb:
 
 ### 6. Match call patterns
 
-The dotted-name match is the cleanest call-shape recognizer in the repo:
+The call matcher recognizes identifier chains without evaluating the callee:
 
 ```go
 func shouldStripStatement(node *shimast.Node, strip *stripRewriter) bool {
@@ -553,48 +437,57 @@ func callExpressionName(expr *shimast.Node) (string, bool) {
 }
 
 func dottedName(expr *shimast.Node) (string, bool) {
-  if expr == nil {
-    return "", false
-  }
-  switch expr.Kind {
-  case shimast.KindIdentifier:
-    return expr.Text(), true
-  case shimast.KindPropertyAccessExpression:
+  var suffix []string
+  for expr != nil && expr.Kind == shimast.KindPropertyAccessExpression {
     prop := expr.AsPropertyAccessExpression()
-    left, ok := dottedName(prop.Expression)
-    if !ok || prop.Name() == nil {
+    if prop.Name() == nil {
       return "", false
     }
-    return left + "." + prop.Name().Text(), true
-  default:
+    suffix = append(suffix, prop.Name().Text())
+    expr = prop.Expression
+  }
+  if expr == nil || expr.Kind != shimast.KindIdentifier {
     return "", false
   }
+  if len(suffix) == 0 {
+    return expr.Text(), true
+  }
+  var name strings.Builder
+  name.WriteString(expr.Text())
+  for i := len(suffix) - 1; i >= 0; i-- {
+    name.WriteByte('.')
+    name.WriteString(suffix[i])
+  }
+  return name.String(), true
 }
 ```
 
-`dottedName` recursively converts `console.log` into the string `"console.log"`:
+`dottedName` converts `console.log` into the string `"console.log"`:
 
 - `console.log` is a `PropertyAccessExpression` with expression `console` (an `Identifier`) and name `log` (another `Identifier`).
-- The recursion: `dottedName(console.log)` → `dottedName(console)` returns `"console"`, then `"console" + "." + "log"` → `"console.log"`.
+- The loop collects property names from right to left, reaches the identifier `console`, then writes the identifier and reversed suffix through one `strings.Builder`. Long chains avoid repeatedly copying a growing prefix.
 
-For more complex shapes, `obj["log"]()`, `(this as Logger).log()`, optional chaining, `dottedName` returns `("", false)` because those node kinds are not in the switch. Strip deliberately handles only the simple syntactic shape; if a user wants to strip a complex callee, they can use a regular `console.log` (or change the call site).
+For shapes such as `obj["log"]()` and `(this as Logger).log()`, `dottedName` returns `("", false)` because the callee is not an identifier/property-access chain. Optional access or call tokens do not change those node kinds, so `console?.log()` and `console.log?.()` still produce `"console.log"` and match the configured pattern. Strip recognizes the syntax without evaluating the callee; stripping the statement also removes its argument effects.
 
-`expr.Text()` is safe inside the `case shimast.KindIdentifier:` branch because the kind check filters out kinds where `Text()` would panic. See [Pitfalls → AST and Checker](/docs/development/reference/pitfalls#ast-and-checker).
+`expr.Text()` is safe after the `expr == nil || expr.Kind != shimast.KindIdentifier` guard because it excludes nil and every non-identifier kind before the call. See [Pitfalls → AST and Checker](/docs/development/reference/pitfalls#ast-and-checker).
 
 The matcher itself:
 
 ```go
 func (s *stripRewriter) matchesCall(name string) bool {
+  if len(s.calls) == 0 {
+    return false
+  }
+  parts := strings.Split(name, ".")
   for _, pattern := range s.calls {
-    if pattern.matches(name) {
+    if pattern.matchesParts(parts) {
       return true
     }
   }
   return false
 }
 
-func (p callPattern) matches(name string) bool {
-  parts := strings.Split(name, ".")
+func (p callPattern) matchesParts(parts []string) bool {
   if p.wildcard {
     if len(parts) <= len(p.parts) {
       return false
@@ -607,16 +500,16 @@ func (p callPattern) matches(name string) bool {
 
 For `console.log`, `parts = ["console", "log"]`. A pattern `console.log` with `wildcard: false` requires exact length and element-equality. A pattern `console.*` (parsed into `parts: ["console"], wildcard: true`) requires _strictly more_ name segments than pattern segments. Note the early-return `if len(parts) <= len(p.parts) { return false }`, so `console.*` matches `console.log` but **not** the bare identifier `console`. After that guard, the prefix segments must match element-wise.
 
-That's the whole matcher, 15 lines of Go for `pkg.fn` and `pkg.*` semantics.
+The call name is segmented once and reused across candidate patterns.
 
 ## What to copy, what to ignore
 
 **Copy:**
 
-- The `filterStatements` shape: `make` a fresh slice, conditionally `append`, then assign back. This is the canonical Go pattern for in-place list filtering.
+- The `filterStatements` shape: compact retained statements in the existing backing array, clear removed tail references and publish the shorter slice. Let one visitor own recursion into retained children.
 - The `filterEmbeddedStatements` enumeration of statement kinds. If you ever need to walk single-statement-bearing nodes, this list is exhaustive for ES2022.
 - The `emptyStatement` constructor pattern: factory → set `Synthesized` flag → preserve `Loc`. This is the right shape whenever your rewrite must substitute a placeholder for a removed node.
-- The `dottedName` recursion. It is the same shape `@ttsc/lint`'s console rule uses; copy it whenever you need to recognize `pkg.fn` or `obj.method` callees.
+- The `dottedName` loop and builder when recognizing `pkg.fn` or `obj.method` callees. Check node kinds before calling typed accessors.
 
 **Do not copy:**
 

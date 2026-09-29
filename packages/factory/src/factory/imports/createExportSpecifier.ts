@@ -14,8 +14,23 @@ import { make } from "../internal/make";
  * Given source name `x` aliased to `y`, this prints:
  *
  * ```ts
- * x as y;
+ * x as y
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Optional propertyName is the source name and name is the exposed name;
+ *   string normalization preserves the alias distinction and type-only marker.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The specifier carries binding syntax; NamedExports and ExportDeclaration
+ *   own grouping and any from clause.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Aliasing constructs source syntax rather than mutating an actual export table.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native prose explains omitted aliases, string inputs and type-only prefixes,
+ *   with a source-as-target example and separate tag paragraphs.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param isTypeOnly Whether this is a type-only import/export.

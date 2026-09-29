@@ -22,6 +22,15 @@ import { envelopeDerivation } from "./envelopeDerivation";
  * differently-cased path. The map is read under the key the text was found
  * under, so the two always describe the same envelope entry
  * (samchon/ttsc#1392).
+ *
+ * @evidence contracts/common.md#principled-implementation The matched producer key selects both transformed text and its own source map, preventing provenance from another alias entry; exception/failure results and missing program output raise their distinct supported errors.
+ * @evidence contracts/common.md#clear-and-simple-design Result discrimination precedes lookup, a local output adapter binds code to map, and the shared identity index isolates alternate-spelling lookup from error reporting.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The fallback supports real producer key spelling differences with first-match precedence; absent output is reported rather than synthesized from original source or a different module's map.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe source/map coupling, error behavior and exact versus identity lookup; the acknowledgment block follows the documentation skill's spacing guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation Project key matching and alternate key identities use the envelope's filesystem context, so physical aliases and native case behavior are not guessed from lowercased strings.
+ * @evidence contracts/performance.md#efficient-algorithms Exact record lookup is the common path; a miss builds the output-key index once in O(number of output keys), and subsequent misses use keyed identity access instead of rescanning every output.
+ * @evidence contracts/performance.md#reuse-equivalent-work The output index is reused only for the same immutable generation and project root; text and maps remain coupled by the saved producer key, not by an inferred equality of their contents.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources One key per physical output identity is retained in weakly owned envelope state; returned artifacts reference generation output, and this selector owns no independent handle or cross-generation history.
  */
 export function selectTransformedSource(props: {
   file: string;

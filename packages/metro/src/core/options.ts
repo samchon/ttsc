@@ -10,17 +10,45 @@ import type { TtscUnpluginOptions } from "@ttsc/unplugin/api";
  *
  * Every field is JSON-serialisable on purpose: `withTtsc` runs in the Metro
  * **config** process, but the transformer runs in Metro's **worker** processes,
- * so the resolved options have to survive a structured-clone / env round-trip
+ * so the resolved options have to survive a JSON / env round-trip
  * to reach them (see {@link serializeOptions}). That is why `include`/`exclude`
  * are plain substring patterns rather than `RegExp`.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   This interface extends the documented Unplugin option contract rather than
+ *   defining another plugin protocol. Metro adds JSON-compatible upstream and
+ *   substring filters for its config-to-worker transport.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Inheritance keeps shared compiler options with Unplugin; this interface
+ *   adds only upstream selection and the two Metro substring filters.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The representation follows the documented consumer contract; its fields do
+ *   not introduce fixture-selected variants.
+ *
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   This declaration defines or transports JSON-compatible option values.
+ *   Native project and module resolution belong to the separate compiler and
+ *   upstream loader operations; literal filters define no filesystem identity
+ *   contract.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   The native JSDoc explains inherited options, JSON transport, upstream
+ *   precedence and the include/exclude relationship. Checked against the
+ *   documentation skill: separate paragraphs state the contract and why its
+ *   nonobvious boundary matters; field comments retain their own useful
+ *   facts.
  */
 export interface TtscMetroOptions extends TtscUnpluginOptions {
   /**
    * Explicit module path of the upstream Metro Babel transformer to delegate to
    * after the ttsc pass.
    *
-   * When omitted it is auto-detected: `@expo/metro-config/babel-transformer`
-   * first (Expo), then `@react-native/metro-babel-transformer`, then the legacy
+   * When omitted, `withTtsc` inherits the config's existing transformer unless
+   * it names this adapter. Without one it detects
+   * `@expo/metro-config/babel-transformer` first (Expo), then
+   * `@react-native/metro-babel-transformer`, then the legacy
    * `metro-react-native-babel-transformer`.
    */
   upstreamTransformer?: string;
@@ -43,16 +71,45 @@ export interface TtscMetroOptions extends TtscUnpluginOptions {
 /**
  * Fully-resolved options, split into the ttsc-side overlay and Metro-side
  * knobs.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   A structural interface separates the existing Unplugin overlay from
+ *   resolved Metro filters and the private run handshake.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The ttsc member groups the forwarded overlay, while always-present filter
+ *   arrays remove optional-array handling from every worker delivery.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Its optional upstream/run identity and always-present arrays describe
+ *   worker state without executable branches or mutation.
+ *
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   This declaration defines or transports JSON-compatible option values.
+ *   Native project and module resolution belong to the separate compiler and
+ *   upstream loader operations; literal filters define no filesystem identity
+ *   contract.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   The native JSDoc explains the forwarded overlay, empty filter arrays,
+ *   optional upstream and private snapshot identity. Checked against the
+ *   documentation skill: separate paragraphs state the contract and why its
+ *   nonobvious boundary matters; field comments retain their own useful
+ *   facts.
  */
 export interface ResolvedTtscMetroOptions {
   /** Options forwarded verbatim to the `@ttsc/unplugin` transform core. */
   ttsc: TtscUnpluginOptions;
+
   /** Explicit upstream transformer module path, or `undefined` to auto-detect. */
   upstreamTransformer?: string;
+
   /** Resolved include patterns (never `undefined`). */
   include: string[];
+
   /** Resolved exclude patterns (never `undefined`). */
   exclude: string[];
+
   /** Private run identity shared by `getCacheKey` and Metro workers. */
   snapshotRunId?: string;
 }
@@ -72,6 +129,35 @@ export const ENV_KEY = "TTSC_METRO_OPTIONS";
 /**
  * Serialise user options for transport to the worker processes via
  * {@link ENV_KEY}.
+ *
+ * A supplied private run identity is written into the payload. This function
+ * returns JSON without publishing the environment variable or mutating options.
+ * Values must be JSON-serialisable; serialization errors propagate.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   JSON.stringify and object spread encode the declared worker transport.
+ *   JSON failures propagate rather than inventing a successful payload.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   A single serializer owns the config-to-worker payload. Publication stays
+ *   with withTtsc, so encoding has no environment side effect.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   A supplied private run identity overrides that transport field; this
+ *   operation returns bytes and does not replace process methods, loader
+ *   internals or caller options.
+ *
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   This declaration defines or transports JSON-compatible option values.
+ *   Native project and module resolution belong to the separate compiler and
+ *   upstream loader operations; literal filters define no filesystem identity
+ *   contract.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   The native JSDoc explains the JSON payload, supplied run identity and
+ *   serialization failure boundary. Checked against the documentation skill:
+ *   separate paragraphs state the contract and why its nonobvious boundary
+ *   matters; field comments retain their own useful facts.
  */
 export function serializeOptions(
   options: TtscMetroOptions,
@@ -86,10 +172,42 @@ export function serializeOptions(
 /**
  * Reconstruct the resolved options inside a worker process.
  *
- * Reads {@link ENV_KEY}; when it is unset or malformed the adapter falls back to
- * defaults, which means "auto-discover `tsconfig.json` and read its configured
- * plugins", the standard ttsc behaviour, and the right thing for a project that
- * called `withTtsc(config)` with no explicit options.
+ * Reads {@link ENV_KEY}; when it is unset or contains invalid JSON or a
+ * non-object payload, the adapter falls back to defaults: auto-discover
+ * `tsconfig.json` and read its configured plugins. This is the standard ttsc
+ * behaviour for a project that called `withTtsc(config)` with no explicit
+ * options.
+ *
+ * A present `plugins` property is forwarded even when its value is `false`;
+ * omission leaves plugin selection to the project. The `include` and `exclude`
+ * arrays retain only string entries, while invalid array values become empty
+ * filters. Only a non-empty string is accepted as the private run identity.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   JSON.parse reads the adapter-owned environment channel. The parser accepts
+ *   only object payloads, filters include/exclude to strings and preserves
+ *   plugins field presence so false differs from omission.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One reconstruction function separates transport parsing and string-array
+ *   normalization from the resolved object workers consume.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Invalid JSON and non-object payloads use documented defaults, not a failed
+ *   compiler fallback; this parser patches no global APIs.
+ *
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   This declaration defines or transports JSON-compatible option values.
+ *   Native project and module resolution belong to the separate compiler and
+ *   upstream loader operations; literal filters define no filesystem identity
+ *   contract.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   The native JSDoc explains absent, invalid-JSON and non-object defaults,
+ *   plugin-presence semantics and filter normalization. Checked against the
+ *   documentation skill: separate paragraphs state the contract and why its
+ *   nonobvious boundary matters; field comments retain their own useful
+ *   facts.
  */
 export function resolveOptionsFromEnv(): ResolvedTtscMetroOptions {
   const raw = process.env[ENV_KEY];

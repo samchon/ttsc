@@ -5,6 +5,11 @@
  * separation, and special groups all by position. By default, declaration-level
  * sorting and merging are limited to erased `import type` blocks. Runtime
  * imports retain source order unless {@link unsafeSortRuntimeImports} is set.
+ *
+ * @evidence contracts/common.md#principled-implementation Group expressions and explicit unsafe opt-in distinguish erased type-import ordering from runtime module evaluation order.
+ * @evidence contracts/common.md#clear-and-simple-design Group order, comparison, merging and runtime permission remain separate options within one import-sorting record.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Runtime reordering requires the supported explicit option rather than assuming every consumer's imports are pure.
+ * @evidence contracts/common.md#meaningful-documentation Native comments document placeholders, blank-group syntax, examples, defaults and side-effect risk; paragraphs and member boundaries follow documentation guidance.
  */
 export interface ITtscLintFormatSortImports {
   /**

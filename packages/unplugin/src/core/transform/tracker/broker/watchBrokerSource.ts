@@ -54,6 +54,34 @@ import { WATCH_PROBE_TIMEOUT_MS } from "./WATCH_PROBE_TIMEOUT_MS";
  *
  * @param fsevents Where the `fsevents` binding is, on macOS. `null` when it
  *   cannot be loaded there, and `undefined` on every other platform.
+ * @evidence contracts/common.md#principled-implementation
+ *   The child protocol keeps per-registration streams and ordered drains;
+ *   macOS proof requires actual probe delivery and dropped flags withdraw coverage.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One maintained child program serves both native backends; this function only
+ *   injects resolved capability and the shared timeout, with JSON-safe path encoding.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Native flags and deadlines express backend contracts, not fixture-specific
+ *   repairs. Missing bindings and probes report uncertainty rather than silent success.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs explain ordering, native loss, probe lifecycle and absence;
+ *   embedded-program comments identify state ownership under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   OS-neutral parent code delegates native flags and watcher capability to this
+ *   child boundary; node:path handles relative names and canonical stream roots.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Producing source is linear in the fixed program text; the child indexes
+ *   registrations and name Sets, and a drain writes one probe per eligible
+ *   directory shared by its streams rather than one per project input.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The constant program is reused for every child start; within a drain,
+ *   equivalent probe-directory work is shared while each stream must observe it.
+ *   Separate openings retain their own temporal probe boundary.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Parent source strings live through spawn. The child owns current registrations,
+ *   streams, probe files and timers; removal, failed opening and probe completion
+ *   retire them. Outstanding drain population follows current parent demand;
+ *   process termination ends remaining native resources.
  */
 export function watchBrokerSource(fsevents?: string | null): string {
   return `const fseventsPath = ${fsevents === undefined ? "undefined" : JSON.stringify(fsevents)};\nconst probeTimeoutMs = ${WATCH_PROBE_TIMEOUT_MS};\n${WATCH_BROKER_PROGRAM}`;

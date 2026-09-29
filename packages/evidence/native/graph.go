@@ -15,6 +15,18 @@ func (graphRule) Name() string { return graphRuleName }
 
 func (graphRule) NeedsTypeChecker() bool { return false }
 
+// Check builds artifact populations and checks each active claim's obligations.
+//
+// Claim populations are loaded first because a healthy empty population owes
+// nothing; its references must not trigger unrelated reads or failures. Failed
+// populations remain active, and their health prevents partial inventories from
+// producing a false coverage result. TypeScript identities come from parsed
+// declarations, while Markdown, Prisma and Swagger retain their own hierarchies.
+//
+// Inventory construction, address resolution and obligation evaluation are
+// separate stages so selectors never invent declarations or decide identity.
+// Successful publication reuses those inventories for editor hints; diagnostics
+// and Program-cycle coordination remain owned by the host's project-rule API.
 func (graphRule) Check(ctx *rule.ProjectContext) {
   if ctx == nil {
     return

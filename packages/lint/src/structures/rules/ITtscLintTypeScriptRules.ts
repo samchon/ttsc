@@ -14,11 +14,10 @@ import type {
  * TypeScript-only rules and `@typescript-eslint` plugin equivalents, exposed
  * under the `typescript/*` namespace.
  *
- * Every rule listed here either requires TypeScript syntax (interface, `enum`,
- * `namespace`, `as`, `!`, `import type`, type parameters, declaration merging,
- * parameter properties, triple-slash references) or originates from
- * `@typescript-eslint` as a TS-aware extension that has no counterpart in plain
- * ESLint.
+ * This family includes TypeScript syntax policies (interfaces, `enum`,
+ * `namespace`, assertions and type-only imports), checker-based policies and
+ * TypeScript-aware extensions of generic source rules. Some extend a core
+ * ESLint policy, such as `require-await`, with type information.
  *
  * Generic JS/TS rules (such as `eqeqeq`, `no-console`) stay unnamespaced in
  * {@link ITtscLintCoreRules}.
@@ -28,6 +27,11 @@ import type {
  * names or `@typescript-eslint/*` aliases for these rules.
  *
  * @reference https://typescript-eslint.io/rules/
+ *
+ * @evidence contracts/common.md#principled-implementation Explicit typescript keys preserve severity-only settings and the five dedicated object-option shapes, so checker-oriented policies remain distinct from bare core identities.
+ * @evidence contracts/common.md#clear-and-simple-design One namespace groups TypeScript-specific policies while shared setting aliases and separate options interfaces avoid duplicating configuration representation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported typescript identities are declared directly; legacy aliases and arbitrary built-in option payloads are not added to satisfy individual consumers.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains namespace and checker boundaries, while member comments state implemented subsets and fix effects; paragraphs and member spacing follow documentation guidance.
  */
 export interface ITtscLintTypeScriptRules {
   /**
@@ -290,8 +294,9 @@ export interface ITtscLintTypeScriptRules {
   /**
    * Reject empty `interface` declarations.
    *
-   * An empty interface that does not `extends` anything is equivalent to
-   * `unknown` and almost always represents incomplete typing work.
+   * An empty interface with no base type accepts any non-nullish value, like
+   * `{}`. It does not restrict values to objects and does not admit nullish
+   * values as `unknown` does.
    *
    * @reference https://typescript-eslint.io/rules/no-empty-interface
    */

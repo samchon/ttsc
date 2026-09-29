@@ -7,20 +7,73 @@
 // new family shipped into the graph with no entry beside it until someone opened
 // both files.
 
-/** The slice of the DOM the legend needs, so a test can drive it without one. */
+/**
+ * Structural DOM capabilities needed to construct the viewer legend.
+ *
+ * @evidence contracts/common.md#principled-implementation Text-compatible append/prepend and style/class fields match the browser element operations used by legend construction.
+ * @evidence contracts/common.md#clear-and-simple-design The boundary exposes only required DOM capabilities, keeping legend construction independent of renderer startup.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Browser elements are supplied structurally without patching DOM globals or adding test-dependent rendering logic.
+ * @evidence contracts/common.md#meaningful-documentation Native members identify class/style mutation and node insertion semantics rather than framing production behavior as a test utility.
+ */
 export interface LegendElement {
+  /** CSS class assignment for generated swatches and their containers. */
   className: string;
+
+  /** Background color property used by a legend swatch. */
   style: { background: string };
+
   // `unknown[]`, because the real `Document` types these as `(Node | string)[]`
   // and a narrower parameter is not assignable to it. `src/viewer` is excluded
   // from the declaration build, so nothing would have reported that.
+  /**
+   * Append DOM nodes or strings in argument order after current children.
+   *
+   * @evidence contracts/common.md#principled-implementation The structural signature admits browser node/string arguments without inventing a different insertion protocol.
+   * @evidence contracts/common.md#clear-and-simple-design One required insertion capability supplies swatch content without a larger element wrapper.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Implementations use the host's normal append operation rather than monkey-patching document behavior.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states insertion order and accepted browser content categories.
+   */
   append(...nodes: unknown[]): void;
+
+  /**
+   * Insert DOM nodes or strings before current children, preserving argument
+   * order.
+   *
+   * @evidence contracts/common.md#principled-implementation Prepending generated legend entries retains the existing footer note after those entries.
+   * @evidence contracts/common.md#clear-and-simple-design The host owns child insertion; legend construction does not rebuild the footer.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Existing markup is preserved instead of replaced with fixture-specific HTML.
+   * @evidence contracts/common.md#meaningful-documentation Native prose explains ordering relative to existing children.
+   */
   prepend(...nodes: unknown[]): void;
 }
 
-/** The slice of `document` the legend needs. */
+/**
+ * Document lookup and creation capabilities used by legend construction.
+ *
+ * @evidence contracts/common.md#principled-implementation Nullable id lookup and element creation represent the browser document operations the legend needs.
+ * @evidence contracts/common.md#clear-and-simple-design Two capabilities avoid coupling the legend to the full browser document or 3D scene.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The host is injected through the supported structural boundary without mutating document globals.
+ * @evidence contracts/common.md#meaningful-documentation Native method comments explain lookup absence and returned element ownership.
+ */
 export interface LegendDocument {
+  /**
+   * Find an existing element by id, returning null when it is absent.
+   *
+   * @evidence contracts/common.md#principled-implementation Nullable lookup preserves the distinction between a missing footer and an empty existing footer.
+   * @evidence contracts/common.md#clear-and-simple-design One host lookup avoids global document access inside the renderer-independent legend.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing markup is not fabricated by replacing document APIs.
+   * @evidence contracts/common.md#meaningful-documentation Native prose specifies id lookup and null absence.
+   */
   getElementById(id: string): LegendElement | null;
+
+  /**
+   * Create an unattached element for the supplied browser tag name.
+   *
+   * @evidence contracts/common.md#principled-implementation The host creates ordinary elements subsequently attached through its native insertion capabilities.
+   * @evidence contracts/common.md#clear-and-simple-design Creation is separate from placement so one host can serve all generated swatches.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The contract does not substitute serialized fixture markup for actual element construction.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states the tag input and unattached ownership boundary.
+   */
   createElement(tag: string): LegendElement;
 }
 
@@ -88,6 +141,11 @@ const rendered = new WeakSet<LegendElement>();
  * markup keeps — the order the hand-written markup had. The website viewer has
  * always derived its legend this way
  * (`website/src/components/graph/TtscWebsiteGraphViewer3D.tsx`).
+ *
+ * @evidence contracts/common.md#principled-implementation The shared link-color map supplies every generated family name and swatch, and a WeakSet prevents duplicate insertion into the same footer.
+ * @evidence contracts/common.md#clear-and-simple-design This DOM-only module is separate from fetch/3D startup; element construction and insertion stay with the injected document boundary.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Legend names and colors derive from the rendering vocabulary rather than repeated fixture-specific markup.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain map ownership and insertion before the static note, with typed host capabilities documented separately.
  */
 export function renderLegend(host: LegendDocument): void {
   const legend = host.getElementById("legend");

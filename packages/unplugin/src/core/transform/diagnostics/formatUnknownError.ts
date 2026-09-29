@@ -7,6 +7,11 @@ import { stripTerminalEscapes } from "./stripTerminalEscapes";
  * is stringified. Terminal escape sequences are always stripped, because the
  * text ends up in a Vite overlay, a webpack report, or a CI annotation, where
  * colour codes render as noise around the file and line the reader needs.
+ *
+ * @evidence contracts/common.md#principled-implementation Error instances and message-bearing objects contribute their message; remaining thrown values use JavaScript string conversion before removing terminal control sequences.
+ * @evidence contracts/common.md#clear-and-simple-design Three direct representation cases share one escape-removal helper instead of introducing a separate exception taxonomy.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The formatter does not guess recovery or success from message text and does not mutate the thrown object.
+ * @evidence contracts/common.md#meaningful-documentation The native paragraphs describe opaque thrown values and explain why terminal rendering cannot be carried into bundler reports.
  */
 export function formatUnknownError(error: unknown): string {
   if (error instanceof Error) {

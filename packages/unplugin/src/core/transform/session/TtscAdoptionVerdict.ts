@@ -13,10 +13,16 @@
  * nothing against the publication, only that the project moved, exactly as it
  * would of a compile made here, so the retry claims the state it then reads,
  * adopting the same publication when the project's content never changed.
+ *
+ * @evidence contracts/common.md#principled-implementation Refutation and the claimed state are separate because a bad publication requires replacement, while a changed local proof window requires a new state claim.
+ * @evidence contracts/common.md#clear-and-simple-design Two fields preserve the retry decision without storing another copy of the envelope or transient attempt state.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The verdict does not label every failed attempt a corrupt publication or bypass the next snapshot proof.
+ * @evidence contracts/common.md#meaningful-documentation The prose explains both failure classes and their opposite retries; each member's meaning remains explicit.
  */
 export interface TtscAdoptionVerdict {
   /** Whether the publication itself failed its proof on this worker's disk. */
   refuted: boolean;
+
   /** The project state the publication was compiled for. */
   state: string;
 }

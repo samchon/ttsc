@@ -6,6 +6,11 @@ import { ITtscGraphEvidence } from "./ITtscGraphEvidence";
  * Source-free facts for a few selected handles, not a file reader: signatures,
  * member outlines, direct calls and types, implementation candidates,
  * dependency summaries, and sourceSpan citation anchors.
+ *
+ * @evidence contracts/common.md#principled-implementation Nodes, unknown handles and ambiguity records distinguish resolved declaration facts from unresolved or multiply resolved inputs.
+ * @evidence contracts/common.md#clear-and-simple-design The envelope keeps resolution status outside each node's declaration shape.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Ambiguous names retain candidates instead of selecting a convenient declaration.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain source-free details and why ambiguity requires exact ids.
  */
 export interface ITtscGraphDetails {
   /** Discriminator for selected symbol inspection. */
@@ -29,7 +34,14 @@ export interface ITtscGraphDetails {
   ambiguous?: ITtscGraphDetails.IAmbiguity[];
 }
 export namespace ITtscGraphDetails {
-  /** Which selected handles to inspect, and how much of each to return. */
+  /**
+   * Which selected handles to inspect, and how much of each to return.
+   *
+   * @evidence contracts/common.md#principled-implementation Handles identify declarations while independent limits select member, dependency and optional neighbor projections.
+   * @evidence contracts/common.md#clear-and-simple-design One request groups projection options around the handles they inspect.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Limits are documented caller choices; complete members are the default rather than a hidden sample.
+   * @evidence contracts/common.md#meaningful-documentation Native comments explain default bounds, external inclusion and when trace should replace a wider details request.
+   */
   export interface IRequest {
     /** Discriminator for selected symbol inspection. */
     type: "details";
@@ -83,7 +95,14 @@ export namespace ITtscGraphDetails {
     includeExternal?: boolean;
   }
 
-  /** One handle and the several nodes it names. */
+  /**
+   * One handle and the several nodes it names.
+   *
+   * @evidence contracts/common.md#principled-implementation Submitted handle and candidate list preserve the exact ambiguous resolution outcome.
+   * @evidence contracts/common.md#clear-and-simple-design Two fields keep the unresolved choice separate from inspected node facts.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts No candidate is promoted to a resolved node solely to avoid clarification.
+   * @evidence contracts/common.md#meaningful-documentation Native comments explain submitted spelling and candidate ids for a follow-up selection.
+   */
   export interface IAmbiguity {
     /** The handle as submitted. */
     handle: string;
@@ -92,7 +111,14 @@ export namespace ITtscGraphDetails {
     candidates: ICandidate[];
   }
 
-  /** One node a handle could mean: enough to choose, not to answer from. */
+  /**
+   * One node a handle could mean: enough to choose, not to answer from.
+   *
+   * @evidence contracts/common.md#principled-implementation Stable id and declaration coordinates distinguish same-named candidates without claiming their bodies were inspected.
+   * @evidence contracts/common.md#clear-and-simple-design Only disambiguation facts are carried rather than a full details payload.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Candidate names do not replace exact identity when selecting one declaration.
+   * @evidence contracts/common.md#meaningful-documentation Comments state follow-up id usage, qualified names and optional one-based line.
+   */
   export interface ICandidate {
     /** Stable node id: submit this as the handle to select this one. */
     id: string;
@@ -110,7 +136,14 @@ export namespace ITtscGraphDetails {
     line?: number;
   }
 
-  /** One inspected node: its declared shape and graph coordinates. */
+  /**
+   * One inspected node: its declared shape and graph coordinates.
+   *
+   * @evidence contracts/common.md#principled-implementation Optional shape, relationships and literal values preserve distinct checker facts alongside stable identity and declaration coordinates.
+   * @evidence contracts/common.md#clear-and-simple-design Independent optional facets support the same node without embedding bodies or a second graph snapshot.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Documentation tags remain reported claims, and missing literal enumeration stays absent rather than guessed from signatures.
+   * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain complete literals and members versus sliced relationships, tag interpretation limits and implementation coordinates.
+   */
   export interface INode {
     /** Stable node id for subsequent `details` or `trace` calls. */
     id: string;
@@ -187,7 +220,14 @@ export namespace ITtscGraphDetails {
     dependedOnBy?: IReference[];
   }
 
-  /** One member of a container node, with its signature but not its body. */
+  /**
+   * One member of a container node, with its signature but not its body.
+   *
+   * @evidence contracts/common.md#principled-implementation Name, kind and optional declaration facts express a container outline without evaluating a member's implementation.
+   * @evidence contracts/common.md#clear-and-simple-design The outline omits relationships and bodies owned by deeper node inspection.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Optional signature and decorators are available source facts rather than synthesized member content.
+   * @evidence contracts/common.md#meaningful-documentation Comments distinguish qualified member names, one-based lines and declaration signatures.
+   */
   export interface IMember {
     /** Member name, qualified when the graph records an owner-qualified handle. */
     name: string;
@@ -205,7 +245,14 @@ export namespace ITtscGraphDetails {
     decorators?: ITtscGraphDecorator[];
   }
 
-  /** A dependency neighbor of an inspected node and the edge that links them. */
+  /**
+   * A dependency neighbor of an inspected node and the edge that links them.
+   *
+   * @evidence contracts/common.md#principled-implementation Neighbor coordinates, relationship kind and optional edge span represent the resolved adjacency and its grounding.
+   * @evidence contracts/common.md#clear-and-simple-design Node presentation and relation cause share one compact record without repeating source bodies.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A source span is citation evidence, not an invented instruction to verify the graph's fact.
+   * @evidence contracts/common.md#meaningful-documentation Native comments explain stable handles, relation kinds and evidence as coordinates rather than file-read cues.
+   */
   export interface IReference {
     /** Stable id of the neighboring node. */
     id: string;

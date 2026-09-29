@@ -38,6 +38,21 @@ import { signalProjectRecordFile } from "./signalProjectRecordFile";
  *
  * @param file The project record (`projectRecordFile`).
  * @param bridge The watching session's bridge, when the host has one.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   An unreadable record proves nothing and is signaled; a vanished project is
+ *   removed. Watching restoration transfers evidence to the bridge, while a
+ *   one-shot cache restore directly re-proves the recorded filesystem state.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The operation owns refresh effects and delegates decoding, evidence conversion
+ *   and state proof to the record-format and validation owners.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   A failed proof invalidates rather than inventing validity; removing deleted
+ *   projects avoids a retry schedule no future delivery could settle.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs explain cached-session restoration and proof failure effects,
+ *   with lifecycle comments and tag separation per documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation Record persistence remains on the host's native filesystem, while project existence and proof use the supplied observation view; deletion errors remain retryable rather than being treated as successful removal.
  */
 export function refreshProjectRecordFile(
   file: string,
@@ -63,7 +78,7 @@ export function refreshProjectRecordFile(
   // delivery left to end it, and every proof would rewrite it forever.
   // Removing it is the move, which every host hears as the dependency it holds
   // going away, and it ends there.
-  if (!fs.existsSync(record.tsconfig)) {
+  if (!filesystem.exists(record.tsconfig)) {
     try {
       fs.rmSync(file, { force: true });
     } catch {

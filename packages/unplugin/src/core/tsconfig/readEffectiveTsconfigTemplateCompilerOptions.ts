@@ -19,6 +19,28 @@ import { startsWithConfigDirTemplate } from "./startsWithConfigDirTemplate";
  * @param configDir The directory `${configDir}` stands for: that of the final
  *   consumer as its reader spells it, which for the compiler is the physical
  *   one (samchon/ttsc#1456). Defaults to the config's own directory as named.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Only template-bearing inherited options are materialized at the final
+ *   consumer directory. Mixed lists preserve ordinary entries; a paths overlay
+ *   re-emits every mapping so whole-option replacement loses no base aliases.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Scalar, list and paths options have explicit grammar groups; shared
+ *   declaration readers and anchor helpers retain one inheritance policy.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   The caller supplies final-consumer native spelling; shared path helpers
+ *   preserve compiler separator and anchor rules without OS-name case folding
+ *   or assumptions about temporary-directory mount spellings.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Option groups are compiler-defined template carriers, not a directory
+ *   exception added to compensate for moving the generated wrapper.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc explains final-consumer template ownership and why ordinary inherited
+ *   paths stay untouched, with the configDir argument's spelling stated.
  */
 export function readEffectiveTsconfigTemplateCompilerOptions(
   tsconfig: string,

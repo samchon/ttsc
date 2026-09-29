@@ -13,6 +13,12 @@ import type { ITtscProjectPluginConfig } from "./ITtscProjectPluginConfig";
  * instance when any of these fields must change.
  *
  * @author Jeongho Nam - https://github.com/samchon
+ *
+ * @evidence contracts/common.md#principled-implementation Optional construction inputs preserve explicit override versus discovery/default behavior; project root, config origin and invocation cwd remain distinct because wrappers and plugin resolution can use different anchors.
+ * @evidence contracts/common.md#clear-and-simple-design The context groups one compiler instance's environment and selection policy; operations use this context instead of accepting competing per-call plugin overrides.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Binary, environment and plugin overrides are supported embedding inputs, not fabricated compiler results or foreign-method replacements.
+ * @evidence contracts/common.md#meaningful-documentation Native JSDoc states override precedence, default cache ownership, plugin selection states and child-environment effects; documented members and prose/tag separation follow the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Path fields are native filesystem inputs with individually documented cwd/project/config bases; the representation does not require POSIX separators or collapse Windows paths, lexical selection and physical identity into one value. Process environment is supplied as Node's environment map, not shell assignment syntax.
  */
 export interface ITtscCompilerContext {
   /**

@@ -32,6 +32,15 @@ import { openBrokeredWatch } from "../transform/tracker/broker/openBrokeredWatch
  *   broker may then prove the scope's stream delivered, through a probe below
  *   the project's tool cache (samchon/ttsc#1453). An external scope names
  *   none.
+ *
+ * @evidence contracts/common.md#principled-implementation Broker isolation contains native watcher failures; opening confirmation and gaps trigger rechecks rather than authorizing unchanged inputs silently.
+ * @evidence contracts/common.md#clear-and-simple-design One registration forwards events and failures while the input observer owns conditions, polling, and consumer actions.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The owned broker protocol does not patch native methods, and dropped events cannot become freshness proof.
+ * @evidence contracts/common.md#meaningful-documentation The prose explains isolation, asynchronous readiness, gaps, and project-only probe ownership.
+ * @evidence contracts/portability.md#os-neutral-implementation OS-neutral observation routes Windows and macOS native capability differences through the shared broker; native path joining reconstructs event paths, while failure and gaps require rechecks.
+ * @evidence contracts/performance.md#efficient-algorithms One registration forwards each event without rewalking conditions in the transport; the observer batches and validates the affected entries.
+ * @evidence contracts/performance.md#reuse-equivalent-work Existing broker infrastructure is shared across scopes, while this registration retains its own event sink and observation authority.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The returned close handle marks the sink inactive and releases its broker registration; late readiness cannot reactivate a closed watch.
  */
 export function openIsolatedRecursiveWatch(
   root: string,

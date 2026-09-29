@@ -23,6 +23,11 @@ import type { TtscLintSeverity } from "@ttsc/lint";
  * these. They tighten a count inside the per-reference obligation; that one
  * gives the obligation a host dimension, and it is documented on the Markdown
  * reference because no other artifact kind is read item by item.
+ *
+ * @evidence contracts/common.md#principled-implementation Optional policy fields independently constrain one reference relation, preserving inherited severity and permissive zero-value semantics without pooling sibling obligations.
+ * @evidence contracts/common.md#clear-and-simple-design One generic base owns shared acknowledgment policies while artifact-specific references own their populations and Markdown alone owns checklist semantics.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts These explicit policies constrain real graph relations; requireReview documents its limited assurance instead of claiming a fingerprint proves review sincerity.
+ * @evidence contracts/common.md#meaningful-documentation Property comments explain counting identities, aggregate scopes, expiry and the limitations of review fingerprints; separate paragraphs and member gaps keep distinct requirements readable.
  */
 export interface ITtscEvidenceGraphReferenceBase<Type extends string> {
   /** Identifies the artifact kind this population materializes. */

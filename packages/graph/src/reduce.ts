@@ -8,53 +8,177 @@
 // before serving, so the browser viewer only ever renders a ready
 // `{ nodes, links }`.
 
+/**
+ * Minimal native node facts consumed by the viewer reduction.
+ *
+ * @evidence contracts/common.md#principled-implementation Stable id and declaration coordinates preserve node identity; optional external/ignored flags permit older dumps without inventing provenance.
+ * @evidence contracts/common.md#clear-and-simple-design The reducer accepts only the wire facts it needs rather than the complete MCP node model.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Authored selection uses producer boundary flags instead of named consumer fixtures.
+ * @evidence contracts/common.md#meaningful-documentation Native member comments document portable coordinates and optional producer flags.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms This input node shape chooses no processing algorithm; reduce owns selection.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The input record coordinates no completed or in-flight computation.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The transferred node value does not own its consumers' storage lifecycle.
+ */
 export interface RawNode {
+  /** Position-invariant native identity or a published artifact address. */
   id: string;
+
+  /** Producer's display name. */
   name: string;
+
+  /** Native declaration or artifact category. */
   kind: string;
+
+  /** Portable dump coordinate, or a legacy native path. */
   file: string;
+
+  /** Dependency-boundary declaration when reported by the producer. */
   external?: boolean;
+
+  /** Git-ignored generated source when reported by the producer. */
   ignored?: boolean;
 }
 
+/**
+ * Directed native relationship before viewer display-family grouping.
+ *
+ * @evidence contracts/common.md#principled-implementation From/to ids and native kind retain relation direction without carrying duplicate node payloads.
+ * @evidence contracts/common.md#clear-and-simple-design Three fields suffice for filtering, degree calculation and display grouping.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Endpoints remain producer identities rather than shortened display-name guesses.
+ * @evidence contracts/common.md#meaningful-documentation Native member comments distinguish directed ids from the ungrouped relationship kind.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms The edge shape transfers endpoints without choosing a traversal.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Edge values do not coordinate computation across requests.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The edge value acquires no handle and owns no retained container.
+ */
 export interface RawEdge {
+  /** Native source node identity. */
   from: string;
+
+  /** Native target node identity. */
   to: string;
+
+  /** Producer relationship category before display-family mapping. */
   kind: string;
 }
 
+/**
+ * Minimal graph dump accepted by the pure viewer projection.
+ *
+ * @evidence contracts/common.md#principled-implementation Node and edge arrays carry the complete input population while optional project preserves legacy dump compatibility.
+ * @evidence contracts/common.md#clear-and-simple-design The projection boundary omits provenance validation owned by parseDump and direct producer consumers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Reduction does not treat this minimal structural type as proof of compiler correctness.
+ * @evidence contracts/common.md#meaningful-documentation Native members explain input populations and optional project label.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms The dump shape groups inputs; reduce owns traversal strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This input envelope coordinates no producer sharing.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The consumer owns the arrays' duration; this shape declares no lifecycle operation.
+ */
 export interface RawDump {
+  /** Project locator or display label, absent on older inputs. */
   project?: string;
+
+  /** All nodes available before viewer selection. */
   nodes: RawNode[];
+
+  /** All directed edges before endpoint selection. */
   edges: RawEdge[];
 }
 
+/**
+ * Connected viewer node with its degree in the final displayed subgraph.
+ *
+ * @evidence contracts/common.md#principled-implementation Rewritten identity and file coordinates remain paired; degree counts only final visible incident edges.
+ * @evidence contracts/common.md#clear-and-simple-design One compact display record omits native provenance and source spans unnecessary for drawing.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Name is presentation, not a substitute identity that could merge distinct declarations.
+ * @evidence contracts/common.md#meaningful-documentation Native members identify display coordinates and final-subgraph degree.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms The completed display node chooses no projection algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A display value coordinates no repeated computation.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Viewer consumers own display storage; this value acquires no resource.
+ */
 export interface ViewerNode {
+  /** Identity rewritten with the same path policy as incident edges. */
   id: string;
+
+  /** Producer declaration display name. */
   name: string;
+
+  /** Node category used for viewer colors. */
   kind: string;
+
+  /** Display path after optional legacy rerooting. */
   file: string;
+
+  /** Incident edge count after final node selection. */
   degree: number;
 }
 
+/**
+ * Viewer edge joining two retained display identities.
+ *
+ * @evidence contracts/common.md#principled-implementation Source and target use the node rewrite policy while kind groups native relationships into supported visual families.
+ * @evidence contracts/common.md#clear-and-simple-design The display relation carries only endpoints and color-family category.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown relationship kinds pass through rather than being relabeled as a known family.
+ * @evidence contracts/common.md#meaningful-documentation Native members describe rewritten endpoints and display-family kind.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms The completed link contains projection output rather than a processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This display relation does not coordinate producer reuse.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Consumers own link-array lifetime; the relation itself owns no handle.
+ */
 export interface ViewerLink {
+  /** Retained source viewer node id. */
   source: string;
+
+  /** Retained target viewer node id. */
   target: string;
+
+  /** Grouped display family, or an unchanged unknown native kind. */
   kind: string;
 }
 
+/**
+ * Reduced connected graph and the populations removed by its filters.
+ *
+ * @evidence contracts/common.md#principled-implementation Final nodes/links describe the drawn subgraph while counters retain raw totals and distinct boundary/cap omissions.
+ * @evidence contracts/common.md#clear-and-simple-design One payload carries drawing inputs and explanatory totals without preserving a second full raw graph.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Selection losses are exposed as counters rather than hidden to imply the full project was drawn.
+ * @evidence contracts/common.md#meaningful-documentation Native member comments define each count's population and distinguish selected nodes from cap/boundary removals.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms The payload declares result populations; reduce chooses their processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The HTTP viewer owns sharing this completed payload across consumers.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The viewer owns the payload's storage duration; this DTO exposes no retention operation.
+ */
 export interface ViewerPayload {
+  /** Display project label, empty when not supplied. */
   project: string;
+
+  /** Input/output totals and disjoint removal categories. */
   counts: {
+    /** Node count before viewer filtering. */
     rawNodes: number;
+
+    /** Edge count before viewer filtering. */
     rawEdges: number;
+
+    /** Connected nodes in the final payload. */
     nodes: number;
+
+    /** Edges whose rewritten endpoints both survive. */
     links: number;
+
+    /** External nodes omitted when boundary filtering is enabled. */
     droppedExternal: number;
+
+    /** Nonexternal ignored nodes omitted when generated filtering is enabled. */
     droppedIgnored: number;
+
+    /**
+     * Boundary-surviving nodes removed by the degree cap, before isolated-node
+     * removal.
+     */
     droppedByCap: number;
   };
+
+  /** Connected display nodes. */
   nodes: ViewerNode[];
+
+  /** Directed display edges between retained nodes. */
   links: ViewerLink[];
 }
 
@@ -236,6 +360,21 @@ function displayKind(kind: string): string {
   return DISPLAY_KIND[kind] ?? kind;
 }
 
+/**
+ * Project a dump into a connected viewer graph, retaining high-degree nodes.
+ *
+ * Current portable coordinates retain their spelling. Legacy absolute paths are
+ * rerooted together, and node ids and edge endpoints use the same rewrite.
+ * Boundary and cap counters explain selection; isolated nodes are not drawn.
+ *
+ * @evidence contracts/common.md#principled-implementation Boundary selection precedes induced-edge filtering and degree ranking; final edge membership and matching identity rewrites preserve the displayed subgraph.
+ * @evidence contracts/common.md#clear-and-simple-design Pure projection separates path/identity codec, degree calculation and display-family mapping through private helpers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Paths outside the common root keep identity rather than collapse to basename; filters use producer flags and general kinds without fixture lists.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains legacy/current coordinates and selection losses; DTO members document identity, degree and each counter.
+ * @evidence contracts/performance.md#efficient-algorithms Node/edge scans and degree maps cost O(N+E); degree selection sorts at most N nodes, adding O(N log N), with temporary maps/arrays proportional to the input.
+ * @evidence contracts/performance.md#reuse-equivalent-work Within one projection, indexed live/kept id sets and degree maps serve multiple filters; callers share the resulting payload across render requests rather than repeat reduction.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Temporary arrays and indexes become unreachable after return; the caller owns only selected DTO arrays and counts, with selected populations bounded by maxNodes and induced edges.
+ */
 export function reduce(
   raw: RawDump,
   {

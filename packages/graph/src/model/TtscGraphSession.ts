@@ -40,17 +40,41 @@ interface NativeChild {
   stderr: string;
 }
 
-/** Construction options for a resident native graph session. */
+/**
+ * Construction options for a resident native graph session.
+ *
+ * @evidence contracts/common.md#principled-implementation Project coordinates and optional binary determine the native producer for one resident session.
+ * @evidence contracts/common.md#clear-and-simple-design Construction identity is separate from per-call cancellation controls.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts An explicit binary remains supported rather than injecting a fixture-dependent resolver.
+ * @evidence contracts/common.md#meaningful-documentation Member comments document producer project coordinates, binary absoluteness and project-relative resolution.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Coordinates select a producer but choose no processing strategy; graph owns execution.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Construction options do not coordinate completed or in-flight computation.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Session graph/close own resources; this options shape acquires none.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation The options shape transfers coordinates; session construction and spawning perform native resolution.
+ */
 export interface TtscGraphSessionOptions {
   /** Project root passed to `ttscgraph serve`. */
   cwd: string;
+
   /** Project tsconfig passed to `ttscgraph serve`. */
   tsconfig: string;
+
   /** Absolute native binary path, resolved from `cwd` when omitted. */
   binary?: string;
 }
 
-/** Per-call controls for a native graph refresh. */
+/**
+ * Per-call controls for a native graph refresh.
+ *
+ * @evidence contracts/common.md#principled-implementation An optional AbortSignal represents caller cancellation independently of shared project identity.
+ * @evidence contracts/common.md#clear-and-simple-design One field carries the only per-request lifecycle control without duplicating constructor options.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Cancellation is a supported caller signal rather than an idle reset or hidden timeout.
+ * @evidence contracts/common.md#meaningful-documentation The member comment explains that cancellation also retires the native session.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A signal descriptor chooses no queue or cancellation processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work graph owns producer reuse and request coordination; these options only carry caller control.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources graph owns abort registrations and tasks; the options shape exposes no acquisition or release operation.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation An AbortSignal descriptor performs no native operation itself.
+ */
 export interface TtscGraphRequestOptions {
   /** Cancel this refresh and retire its native session. */
   signal?: AbortSignal;
@@ -63,6 +87,15 @@ export interface TtscGraphRequestOptions {
  * snapshot. Unchanged requests reuse the existing {@link TtscGraphMemory}; an
  * edited source reuses tsgo's resident Program through `driver.Session`, while
  * config and root-file-set changes force a safe full reload.
+ *
+ * @evidence contracts/common.md#principled-implementation Validated versioned responses and atomic shard transactions preserve generation consistency while serialized requests correlate native replies by id.
+ * @evidence contracts/common.md#clear-and-simple-design One owner coordinates native child, shard store, graph snapshot and artifact sidecars; transport and shard validation have separate helper owners.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Compatible full dumps remain an explicit protocol fallback; malformed or mismatched responses retire the child rather than producing partial trusted facts.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain resident reuse, reload boundaries and artifact ownership, while public methods describe request and shutdown behavior.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms graph owns refresh, admission and private request helpers; this declaration describes their resident state.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work graph owns coordination of model/producer reuse and its invalidation decisions.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources graph/close own actual acquisition and retirement; the class declaration describes the owner without a separate lifecycle operation.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Native project resolution and process control are reviewed through graph and close, including their private helpers.
  */
 export class TtscGraphSession {
   private readonly cwd: string;
@@ -74,6 +107,7 @@ export class TtscGraphSession {
   private queue: Promise<void> = Promise.resolve();
   private current: TtscGraphMemory | undefined;
   private shardStore = new TtscGraphShardStore();
+
   /**
    * The artifact answer the resident child was last handed, and the state of
    * the inputs it came from.
@@ -84,6 +118,7 @@ export class TtscGraphSession {
    * session can notice.
    */
   private artifacts: IPublishedArtifacts | undefined;
+
   /**
    * One resident `@ttsc/lint` sidecar per plugin binary, opened lazily.
    *
@@ -94,6 +129,7 @@ export class TtscGraphSession {
    * binary answering for the same project.
    */
   private readonly daemons = new Map<string, TtscLintDaemon>();
+  private readonly daemonIdentities = new Map<string, string>();
   private closed = false;
 
   public constructor(options: TtscGraphSessionOptions) {
@@ -115,7 +151,21 @@ export class TtscGraphSession {
     this.binary = binary;
   }
 
-  /** Return a graph for the current disk snapshot, serialized per tool call. */
+  /**
+   * Return a graph for the current disk snapshot, serialized per tool call.
+   *
+   * Cancellation rejects a queued request before it starts or retires its
+   * active child. Closed sessions reject new requests and do not respawn.
+   *
+   * @evidence contracts/common.md#principled-implementation Queue serialization refreshes one current native generation, and single-settlement callbacks preserve request results across cancellation races.
+   * @evidence contracts/common.md#clear-and-simple-design Admission owns queue/cancellation timing; refresh owns artifact synchronization, response semantics and model replacement.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A cancelled or closed request cannot be fulfilled from fabricated empty facts or restart a disposed session.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states serialized snapshot timing, queued/active cancellation and closed-session behavior.
+   * @evidence contracts/portability.md#os-neutral-implementation Native binary resolution, argv spawning and Node termination APIs own host differences; project coordinates are never passed through a shell.
+   * @evidence contracts/performance.md#efficient-algorithms An unchanged request validates artifact inputs and a native frame, then returns the resident model; changed frames additionally validate shards and rebuild model indexes.
+   * @evidence contracts/performance.md#reuse-equivalent-work Current memory is shared only after the native producer confirms unchanged inputs; changed generations replace it and changed artifacts are republished before requesting facts.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The session owns one graph child, current model, shard map and current publisher sidecars; republishing retires removed publishers, while pending/queued demand grows with submitted requests and completion/cancellation remove registrations.
+   */
   public graph(
     options: TtscGraphRequestOptions = {},
   ): Promise<TtscGraphMemory> {
@@ -161,7 +211,21 @@ export class TtscGraphSession {
     return result;
   }
 
-  /** Close the native session. Safe to call more than once. */
+  /**
+   * Close the native session. Safe to call more than once.
+   *
+   * Retires artifact sidecars and rejects pending native requests. Queued
+   * requests observe the closed state before they can create another child.
+   *
+   * @evidence contracts/common.md#principled-implementation The closed flag precedes sidecar disposal and child failure, so every pending or subsequent native operation observes retired ownership.
+   * @evidence contracts/common.md#clear-and-simple-design The explicit close path reuses failChild/failPending cleanup instead of a second cancellation implementation.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Disposing a session cannot trigger a compensating respawn or pretend outstanding requests succeeded.
+   * @evidence contracts/common.md#meaningful-documentation Native prose documents idempotence, pending rejection and queued-request behavior.
+   * @evidence contracts/portability.md#os-neutral-implementation Node child termination ends stdin, signals the process and escalates after a grace period without platform shell commands.
+   * @evidence contracts/performance.md#efficient-algorithms Shutdown visits sidecars and pending replies once; a delayed force-kill timer is cancelled when the child exits.
+   * @evidence contracts/performance.md#reuse-equivalent-work Closure ends this owner's permission to reuse native Program, model and sidecars; subsequent graph calls reject.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Sidecars are cleared, native readers and reply listeners are removed, current model/shards are released with child retirement, and termination owns its finite grace timer.
+   */
   public close(): void {
     if (this.closed) return;
     this.closed = true;
@@ -171,6 +235,7 @@ export class TtscGraphSession {
     // ran.
     for (const daemon of this.daemons.values()) daemon.close();
     this.daemons.clear();
+    this.daemonIdentities.clear();
     const error = new Error("@ttsc/graph: native session closed");
     if (this.child !== undefined) this.failChild(this.child, error);
     else this.failPending(error);
@@ -264,10 +329,20 @@ export class TtscGraphSession {
     // here to keep fresh until one does.
     if (this.child === undefined || this.artifacts === undefined) return;
     if (!artifactsAreStale(this.artifacts)) return;
+    const publishers = new Set<string>();
     const next = await publishArtifactsResident(
       { cwd: this.cwd, tsconfig: this.tsconfig },
-      (plugin) => this.daemon(plugin),
+      (plugin) => {
+        publishers.add(plugin.binary);
+        return this.daemon(plugin);
+      },
     );
+    for (const [binary, daemon] of this.daemons) {
+      if (publishers.has(binary)) continue;
+      daemon.close();
+      this.daemons.delete(binary);
+      this.daemonIdentities.delete(binary);
+    }
     // The new answer is taken whatever it says, including that the project now
     // publishes nothing. Keeping the old set on a `null` would be guessing that
     // the publisher failed rather than that it was removed, and guessing wrong
@@ -284,9 +359,16 @@ export class TtscGraphSession {
     projectContext?: string;
   }): TtscLintDaemon {
     const open = this.daemons.get(plugin.binary);
-    if (open !== undefined) return open;
+    const identity = JSON.stringify([plugin.manifest, plugin.projectContext]);
+    if (
+      open !== undefined &&
+      this.daemonIdentities.get(plugin.binary) === identity
+    )
+      return open;
+    open?.close();
     const created = new TtscLintDaemon(plugin, this.cwd, this.tsconfig);
     this.daemons.set(plugin.binary, created);
+    this.daemonIdentities.set(plugin.binary, identity);
     return created;
   }
 

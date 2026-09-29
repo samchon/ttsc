@@ -14,6 +14,21 @@ import { make } from "../internal/make";
  * @deco
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   Decorator stores its expression; the printer supplies @ at a declaration
+ *   boundary instead of changing the supplied expression's AST.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One expression field is sufficient; declaration attachment belongs to the
+ *   caller and no decorator registry is introduced.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Decoration is represented as syntax, not applied by patching a class.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc explains expression ownership and the missing surrounding declaration,
+ *   with an example and separate acknowledgment paragraphs.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param expression The expression.
  * @returns The created {@link Decorator}.

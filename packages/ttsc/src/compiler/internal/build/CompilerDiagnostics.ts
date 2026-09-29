@@ -11,9 +11,34 @@ import type { TtscBuildResult } from "../../../structures/internal/TtscBuildResu
  * {@link ITtscCompilerDiagnostic} values and decide when two reports are the
  * same problem. The comparison is what lets a failed plugin run fall back to a
  * plain type-check without printing each TypeScript error twice.
+ *
+ * @evidence contracts/common.md#principled-implementation Rendered-format parsing and typed diagnostic identity are grouped without conflating report suppression with successful build status.
+ * @evidence contracts/common.md#clear-and-simple-design Public parsing, terminal-text cleaning and fallback selection share private normalizers/indexing rather than duplicating compiler report semantics across build lanes.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The API compares actual producer reports and preserves plugin codes instead of treating selected error strings as authoritative expected answers.
+ * @evidence contracts/common.md#meaningful-documentation Namespace prose explains both producer formats and the failed-plugin fallback purpose; selected functions state coordinates, identity rules and null outcomes.
+ *
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation This namespace grouping owns no native operation; selected parsing and filtering functions acknowledge their filename boundary separately.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Processing choices belong to the selected parser/filter functions, not this namespace representation.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The grouping retains no diagnostic index across invocations; each selection operation owns its applicable reuse.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No resource or historical diagnostic store is acquired by the namespace.
  */
 export namespace CompilerDiagnostics {
-  /** Return only fallback diagnostics the failed plugin did not already report. */
+  /**
+   * Return fallback diagnostics the failed plugin did not already report.
+   * Matching offsets take precedence only when both reports carry offsets;
+   * otherwise rendered line and column determine the position. A completely
+   * redundant fallback returns null; surviving text keeps its context lines.
+   *
+   * @evidence contracts/common.md#principled-implementation Identity includes category, typed code, file and headline; separate offset and rendered-position indexes preserve the pairwise rule when an offset is missing.
+   * @evidence contracts/common.md#clear-and-simple-design Structured selection precedes rendered-text filtering, keeping diagnostic identity in one index helper and continuation handling in one text helper.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Fallback suppression compares actual reports and preserves surviving output; it does not recognize fixed error codes or suppress a failing status to satisfy an example.
+   * @evidence contracts/common.md#meaningful-documentation The native comment explains position precedence, the null result and text-context preservation with prose separated from tags.
+   * @evidence contracts/portability.md#os-neutral-implementation Rendered relative filenames are resolved by node:path against the compiler cwd; report filenames otherwise retain the producer's native spelling without guessed case folding.
+   * @evidence contracts/performance.md#efficient-algorithms Indexed diagnostic membership avoids failure-by-fallback and selected-by-line cross products; processing is linear in diagnostic and text size apart from native path normalization.
+   * @evidence contracts/performance.md#reuse-equivalent-work The selected diagnostic index is shared by stdout and stderr filtering, since both outputs refer to the same surviving population.
+   *
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Diagnostic indexes and output arrays are invocation-local; this function owns no persistent cache or handle.
+   */
   export function filterReportedTypeScriptDiagnostics(
     failure: TtscBuildResult,
     typechecked: TtscBuildResult,
@@ -22,35 +47,26 @@ export namespace CompilerDiagnostics {
     if (typechecked.diagnostics.length === 0) {
       return typechecked.status === 0 ? null : typechecked;
     }
+    const alreadyReported = indexCompilerDiagnostics(failure.diagnostics);
     const diagnostics = typechecked.diagnostics.filter(
-      (diagnostic) =>
-        !failure.diagnostics.some((existing) =>
-          compilerDiagnosticsEqual(existing, diagnostic),
-        ),
+      (diagnostic) => !alreadyReported(diagnostic),
     );
     if (diagnostics.length === 0) return null;
     if (diagnostics.length === typechecked.diagnostics.length)
       return typechecked;
+    const selected = indexCompilerDiagnostics(diagnostics);
     return {
       ...typechecked,
       diagnostics,
-      stderr: filterCompilerDiagnosticText(
-        typechecked.stderr,
-        diagnostics,
-        cwd,
-      ),
-      stdout: filterCompilerDiagnosticText(
-        typechecked.stdout,
-        diagnostics,
-        cwd,
-      ),
+      stderr: filterCompilerDiagnosticText(typechecked.stderr, selected, cwd),
+      stdout: filterCompilerDiagnosticText(typechecked.stdout, selected, cwd),
     };
   }
 
   /** Remove diagnostic lines absent from the selected structured result. */
   function filterCompilerDiagnosticText(
     text: string,
-    diagnostics: readonly ITtscCompilerDiagnostic[],
+    selected: (diagnostic: ITtscCompilerDiagnostic) => boolean,
     cwd: string,
   ): string {
     const out: string[] = [];
@@ -59,9 +75,7 @@ export namespace CompilerDiagnostics {
       const plain = stripAnsi(line);
       const diagnostic = parseDiagnosticLine(plain, cwd);
       if (diagnostic !== null) {
-        keepContinuation = diagnostics.some((selected) =>
-          compilerDiagnosticsEqual(selected, diagnostic),
-        );
+        keepContinuation = selected(diagnostic);
         if (keepContinuation) out.push(line);
         continue;
       }
@@ -73,30 +87,86 @@ export namespace CompilerDiagnostics {
     return out.join("\n");
   }
 
-  /** Compare normalized compiler diagnostics before appending fallback output. */
-  function compilerDiagnosticsEqual(
-    left: ITtscCompilerDiagnostic,
-    right: ITtscCompilerDiagnostic,
-  ): boolean {
-    return (
-      left.category === right.category &&
-      left.code === right.code &&
-      left.file === right.file &&
-      diagnosticPositionsEqual(left, right) &&
-      diagnosticHeadline(left.messageText) ===
-        diagnosticHeadline(right.messageText)
-    );
+  /**
+   * Index pairwise diagnostic matches without treating them as an equivalence
+   * relation: an offset-bearing report can match an offset-free report by
+   * rendered position, even when two offset-bearing reports do not match.
+   * Separate fallback positions preserve that distinction. NaN never equals
+   * itself under the original strict numeric comparison.
+   */
+  function indexCompilerDiagnostics(
+    diagnostics: readonly ITtscCompilerDiagnostic[],
+  ): (diagnostic: ITtscCompilerDiagnostic) => boolean {
+    const indexed = new Map<
+      string,
+      {
+        starts: Set<number>;
+        positions: Set<string>;
+        fallbackPositions: Set<string>;
+      }
+    >();
+    for (const diagnostic of diagnostics) {
+      const identity = diagnosticIdentity(diagnostic);
+      if (identity === undefined) continue;
+      let positions = indexed.get(identity);
+      if (positions === undefined) {
+        positions = {
+          starts: new Set(),
+          positions: new Set(),
+          fallbackPositions: new Set(),
+        };
+        indexed.set(identity, positions);
+      }
+      const rendered = diagnosticRenderedPosition(diagnostic);
+      if (rendered !== undefined) {
+        positions.positions.add(rendered);
+        if (diagnostic.start === undefined)
+          positions.fallbackPositions.add(rendered);
+      }
+      if (diagnostic.start !== undefined && !Number.isNaN(diagnostic.start))
+        positions.starts.add(diagnostic.start);
+    }
+    return (diagnostic) => {
+      const identity = diagnosticIdentity(diagnostic);
+      if (identity === undefined) return false;
+      const positions = indexed.get(identity);
+      if (positions === undefined) return false;
+      const rendered = diagnosticRenderedPosition(diagnostic);
+      if (diagnostic.start === undefined)
+        return rendered !== undefined && positions.positions.has(rendered);
+      return (
+        (!Number.isNaN(diagnostic.start) &&
+          positions.starts.has(diagnostic.start)) ||
+        (rendered !== undefined && positions.fallbackPositions.has(rendered))
+      );
+    };
   }
 
-  /** Compare offsets when available, otherwise compare rendered line/column. */
-  function diagnosticPositionsEqual(
-    left: ITtscCompilerDiagnostic,
-    right: ITtscCompilerDiagnostic,
-  ): boolean {
-    if (left.start !== undefined && right.start !== undefined) {
-      return left.start === right.start;
-    }
-    return left.line === right.line && left.character === right.character;
+  /** Preserve numeric versus plugin-string codes in an unambiguous tuple. */
+  function diagnosticIdentity(
+    diagnostic: ITtscCompilerDiagnostic,
+  ): string | undefined {
+    if (typeof diagnostic.code === "number" && Number.isNaN(diagnostic.code))
+      return undefined;
+    return JSON.stringify([
+      diagnostic.category,
+      typeof diagnostic.code,
+      String(diagnostic.code),
+      diagnostic.file,
+      diagnosticHeadline(diagnostic.messageText),
+    ]);
+  }
+
+  /** Missing positions match missing positions, but NaN coordinates never do. */
+  function diagnosticRenderedPosition(
+    diagnostic: ITtscCompilerDiagnostic,
+  ): string | undefined {
+    if (Number.isNaN(diagnostic.line) || Number.isNaN(diagnostic.character))
+      return undefined;
+    return JSON.stringify([
+      diagnostic.line === undefined ? null : String(diagnostic.line),
+      diagnostic.character === undefined ? null : String(diagnostic.character),
+    ]);
   }
 
   /** Remove pretty-rendered source context from a diagnostic message. */
@@ -112,7 +182,19 @@ export namespace CompilerDiagnostics {
    * - `file(line,col): category TSxxxx: message` (paren style, classic tsc)
    * - `category TSxxxx: message` (global, no file)
    *
-   * Returns `null` when the line does not match any format.
+   * Codes may also be bare digits or plugin-defined tokens. Line and column
+   * retain the producer's one-based coordinates. Relative filenames remain
+   * relative when cwd is absent. Returns null for an unrecognized line.
+   *
+   * @evidence contracts/common.md#principled-implementation Anchored format recognizers distinguish file and global reports; only TS-prefixed or bare numeric codes become numbers, preserving plugin-code identity.
+   * @evidence contracts/common.md#clear-and-simple-design Three explicit render formats feed the same category, code and filename normalizers; unrecognized text is left for the caller's continuation handling.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Patterns implement compiler and plugin render formats instead of matching selected messages or coercing arbitrary plugin prefixes into TypeScript numbers.
+   * @evidence contracts/common.md#meaningful-documentation Native documentation gives accepted forms, coordinate units, optional cwd meaning and the null outcome in separated paragraphs.
+   * @evidence contracts/portability.md#os-neutral-implementation Native node:path recognizes absolute paths and resolves relative paths against cwd; greedy filename captures retain drive colons without treating protocol spelling as filesystem identity.
+   * @evidence contracts/performance.md#efficient-algorithms At most three anchored matches inspect one line; temporary capture and result storage scale with that line's text.
+   *
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This parser coordinates no repeated producer or cross-request computation; diagnostic indexing belongs to the selecting operation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A parsed record is returned immediately; the parser retains no history or native resource.
    */
   export function parseDiagnosticLine(
     line: string,
@@ -161,9 +243,8 @@ export namespace CompilerDiagnostics {
   }
 
   /**
-   * Return an absolute file path. When `file` is already absolute it is
-   * returned unchanged; relative paths are resolved against `cwd` when
-   * available.
+   * Preserve absolute filenames and resolve relative filenames against cwd when
+   * supplied; an absent cwd preserves the relative producer spelling.
    */
   function normalizeDiagnosticFile(
     file: string,
@@ -205,6 +286,18 @@ export namespace CompilerDiagnostics {
   /**
    * Strip ANSI escape sequences from `text` for line-by-line diagnostic
    * parsing.
+   *
+   * @evidence contracts/common.md#principled-implementation The CSI pattern removes terminal control sequences while retaining diagnostic text for format parsing.
+   * @evidence contracts/common.md#clear-and-simple-design One text transformation serves both structured parsing and selected-output filtering without coupling either caller's state.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts This strips recognized control syntax, not error messages or producer-specific expected outputs.
+   * @evidence contracts/common.md#meaningful-documentation The native comment states the parsing purpose and supported escape family; descriptive prose precedes the acknowledgment block.
+   *
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation This function transforms terminal text without accessing native paths, filesystem capabilities or processes.
+   *
+   * @evidence contracts/performance.md#efficient-algorithms One global scan constructs the stripped text in space proportional to the input; no per-character array or repeated prefix concatenation is used.
+   *
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Stripping one supplied string does not coordinate a shared producer or retained cross-request result.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The string transformation owns no retained cache or handle.
    */
   export function stripAnsi(text: string): string {
     return text.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, "");

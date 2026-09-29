@@ -22,6 +22,7 @@ type coalescingRefresh struct {
   generation uint64
   running    bool
   queued     bool
+  closed     bool
 }
 
 // schedule requests a run of task. It returns immediately: the run happens on
@@ -32,6 +33,10 @@ func (r *coalescingRefresh) schedule(task func(generation uint64)) {
     return
   }
   r.mu.Lock()
+  if r.closed {
+    r.mu.Unlock()
+    return
+  }
   r.task = task
   if r.running {
     r.queued = true
@@ -57,7 +62,7 @@ func (r *coalescingRefresh) run(generation uint64) {
       task(generation)
     }
     r.mu.Lock()
-    if !r.queued {
+    if r.closed || !r.queued {
       r.running = false
       r.mu.Unlock()
       return
@@ -67,4 +72,14 @@ func (r *coalescingRefresh) run(generation uint64) {
     generation = r.generation
     r.mu.Unlock()
   }
+}
+
+// close prevents new runs and drops queued work. The owner must separately
+// cancel any computation already in flight before releasing its resources.
+func (r *coalescingRefresh) close() {
+  r.mu.Lock()
+  defer r.mu.Unlock()
+  r.closed = true
+  r.queued = false
+  r.task = nil
 }

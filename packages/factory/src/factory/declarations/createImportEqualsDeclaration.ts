@@ -23,6 +23,21 @@ import { make } from "../internal/make";
  * export import app = require("./app");
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   Identifier normalization supplies the local binding; ModuleReference retains
+ *   external require syntax or an entity-name alias, independently of type-only.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One import-equals node combines binding and reference without resolving
+ *   modules; external-reference builders own require operand syntax.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Type-only and reference choices are caller fields, not live-module mutation.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native prose explains exported/type-only forms and the two reference kinds,
+ *   with separate import example and acknowledgment paragraphs.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param modifiers The leading modifiers, if any.
  * @param isTypeOnly Whether the import is type-only (`import type`).

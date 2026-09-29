@@ -10,6 +10,8 @@
  */
 import { parentPort } from "node:worker_threads";
 
+import { CompilerContextSnapshot } from "../../internal/CompilerContextSnapshot";
+import { serializeCompilerError } from "../../internal/serializeCompilerError";
 import type { TransformProjectWorkerReply } from "./TransformProjectWorkerReply";
 import type { TransformProjectWorkerRequest } from "./TransformProjectWorkerRequest";
 import { transformProjectInMemory } from "./transformProjectInMemory";
@@ -18,13 +20,17 @@ parentPort?.on("message", (request: TransformProjectWorkerRequest) => {
   adoptEnvironment(request.env);
   let reply: TransformProjectWorkerReply;
   try {
-    reply = { output: transformProjectInMemory(request.context) };
+    reply = {
+      output: transformProjectInMemory(
+        CompilerContextSnapshot.restorePlugins(
+          request.context,
+          request.serializedPlugins,
+        ),
+      ),
+    };
   } catch (error) {
     reply = {
-      thrown:
-        error instanceof Error
-          ? { message: error.message, name: error.name, stack: error.stack }
-          : { message: String(error) },
+      thrown: serializeCompilerError(error),
     };
   }
   parentPort!.postMessage(reply);

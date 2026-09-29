@@ -1,6 +1,7 @@
 import * as path from "node:path";
 import {
   ExtensionContext,
+  FileSystemWatcher,
   LogOutputChannel,
   Range,
   RelativePattern,
@@ -58,6 +59,7 @@ type ClientEntry = {
   client: TtscLanguageClient;
   ready: Promise<void>;
   root: string;
+  watcher: FileSystemWatcher;
 };
 
 const METHOD_PLUGIN_SELECTION_CHANGED = "ttsc/pluginSelectionChanged";
@@ -242,6 +244,7 @@ function collectResolutionCandidates() {
 function buildClientOptions(
   traceChannel: LogOutputChannel,
   spec: ServerLaunchSpec,
+  watcher: FileSystemWatcher,
 ): LanguageClientOptions {
   // vscode-languageclient types this as the protocol string pattern, but the
   // value is passed through to VS Code's DocumentFilter where RelativePattern is
@@ -259,9 +262,7 @@ function buildClientOptions(
       { scheme: "file", language: "javascriptreact", pattern },
     ],
     synchronize: {
-      fileEvents: workspace.createFileSystemWatcher(
-        new RelativePattern(spec.cwd, "**/{tsconfig,jsconfig}*.json"),
-      ),
+      fileEvents: watcher,
       configurationSection: "ttsc",
     },
     middleware: {
@@ -468,9 +469,10 @@ async function reconcileClientsForDocuments(
       specs.set(spec.id, spec);
     }
   };
-  if (activeUri) {
-    pushSpec(resolveServerLaunchSpecForUri(activeUri));
-  }
+  const activeSpec = activeUri
+    ? resolveServerLaunchSpecForUri(activeUri)
+    : undefined;
+  pushSpec(activeSpec);
   for (const document of orderedDocuments) {
     pushSpec(resolveServerLaunchSpecForUri(document.uri));
   }
@@ -479,7 +481,7 @@ async function reconcileClientsForDocuments(
   }
   const plannedRoots = planNonOverlappingClientRoots(
     [...specs.values()].map((spec) => spec.cwd),
-    activeUri ? resolveServerLaunchSpecForUri(activeUri)?.cwd : undefined,
+    activeSpec?.cwd,
   );
   await stopClientRoots(rootsToStopForPlan(clientRoots(), plannedRoots));
   for (const root of plannedRoots) {
@@ -545,7 +547,11 @@ async function stopClientRoot(root: string): Promise<void> {
     return;
   }
   clients.delete(key);
-  await entry.client.stop();
+  try {
+    await entry.client.stop();
+  } finally {
+    entry.watcher.dispose();
+  }
 }
 
 function isSupportedDocument(document: {
@@ -564,44 +570,103 @@ async function startClient(
   spec: ServerLaunchSpec,
   traceChannel: LogOutputChannel,
 ): Promise<void> {
-  const client = new TtscLanguageClient(
-    "ttsc",
-    spec.name,
-    spec.serverOptions,
-    buildClientOptions(traceChannel, spec),
+  const watcher = workspace.createFileSystemWatcher(
+    new RelativePattern(spec.cwd, "**/{tsconfig,jsconfig}*.json"),
   );
-  client.onNotification(METHOD_PLUGIN_SELECTION_CHANGED, () => {
-    client.expectPluginSelectionRestart();
-  });
-  const ready = client.start().catch((error) => {
-    if (clients.get(spec.id)?.client === client) {
-      clients.delete(spec.id);
-    }
-    window.showErrorMessage(
-      `ttsc: failed to start language server for ${spec.cwd} — ${error}`,
-    );
-    throw error;
-  });
-  clients.set(spec.id, { client, ready, root: spec.cwd });
   try {
-    await ready;
+    const client = new TtscLanguageClient(
+      "ttsc",
+      spec.name,
+      spec.serverOptions,
+      buildClientOptions(traceChannel, spec, watcher),
+    );
+    client.onNotification(METHOD_PLUGIN_SELECTION_CHANGED, () => {
+      client.expectPluginSelectionRestart();
+    });
+    const ready = client.start().catch((error) => {
+      if (clients.get(spec.id)?.client === client) {
+        clients.delete(spec.id);
+      }
+      watcher.dispose();
+      window.showErrorMessage(
+        `ttsc: failed to start language server for ${spec.cwd} — ${error}`,
+      );
+      throw error;
+    });
+    clients.set(spec.id, { client, ready, root: spec.cwd, watcher });
+    try {
+      await ready;
+    } catch (error) {
+      // Error already surfaced above. Reconciliation keeps going so one broken
+      // workspace folder does not prevent other clients from starting.
+    }
   } catch (error) {
-    // Error already surfaced above. Reconciliation keeps going so one broken
-    // workspace folder does not prevent other clients from starting.
+    watcher.dispose();
+    throw error;
   }
 }
 
 /**
- * VS Code extension entry point — called by the host when the extension is
- * first activated.
+ * Register extension commands and workspace events, then reconcile
+ * project-owned language clients.
  *
- * Resolves the ttscserver launcher, creates the `LanguageClient`, registers the
- * restart command, and starts the language server. Shows a clear error message
- * if the initial launcher cannot be resolved while leaving commands registered
- * so a later file-open or command target can trigger lazy resolution.
+ * One serialized queue prevents overlapping root plans. Active documents select
+ * their own project; startup failures are shown and remove the failed entry
+ * while other roots continue. Client entries own config watchers; subscriptions
+ * own command and event handlers and the trace channel.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   VS Code commands/events, RelativePattern, WorkspaceEdit and the
+ *   LanguageClient subclass error-handler override are supported extension
+ *   points. Extension-owned client routing, warning history and trace state
+ *   change through these boundaries.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Activation registers editor boundaries and delegates root planning, client
+ *   lifetime and saved-state edits to named helpers. One queue serializes all
+ *   reconciliation, including command-initiated startup and workspace events.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Reconciliation sorts d open documents and plans r roots in O(d log d +
+ *   r squared) local work beyond project discovery. Root sets are workspace
+ *   projects, not source files; planning avoids applying a files-wide traversal
+ *   to every event. Discovery still performs one upward walk per document.
+ *
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The client map and each entry's ready promise share existing and in-flight
+ *   clients by physical root identity. One active launch spec is reused for
+ *   both the candidate set and preferred-root decision within reconciliation;
+ *   later events rediscover configuration instead of caching stale disk state.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   The context owns subscriptions and the trace channel. Client entries own
+ *   transports and config watchers for planned roots; superseded roots stop
+ *   before replacements, failed starts release watchers, and deactivation
+ *   stops and releases all entries.
+ *   Serialized event tasks remain queued until processed; there is no hard
+ *   backlog cap, and stop failures are reported rather than certified as release.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Disk-backed commands reject dirty targets before sending and before
+ *   applying results; real server failures are surfaced without test-mode
+ *   branches or replaced foreign methods.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   File URIs use Uri.fsPath for Node resolution and Uri.parse/Uri.file at
+ *   explicit conversion boundaries. Shared root identity handles native
+ *   aliases; server launchers use platform-specific argument preparation.
+ *   Protocol ranges remain zero-based UTF-16, not compiler byte offsets.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc separates command/event registration, serialized reconciliation,
+ *   startup failure handling and subscription ownership. Purpose, conditions
+ *   and reasons use separate native paragraphs under the documentation skill;
+ *   member comments remain beside their fields.
  */
+
 export async function activate(context: ExtensionContext): Promise<void> {
   deactivating = false;
+  warnedRelativeServerPaths.clear();
   const specs = resolveServerLaunchSpecs();
   if (specs.length === 0) {
     window.showErrorMessage(
@@ -701,6 +766,7 @@ export async function activate(context: ExtensionContext): Promise<void> {
       if (!event.affectsConfiguration("ttsc.serverPath")) {
         return;
       }
+      warnedRelativeServerPaths.clear();
       void enqueueClientReconciliation(async () => {
         const active = window.activeTextEditor?.document;
         const activeUri =
@@ -722,20 +788,65 @@ export async function activate(context: ExtensionContext): Promise<void> {
 }
 
 /**
- * VS Code extension teardown — called by the host when the extension is
- * deactivated or the window is closed.
+ * Stop every retained language client and release its config watcher after
+ * queued reconciliation, then clear the shared trace reference.
  *
- * Stops the language server if it is running and clears the module-level
- * `client` reference so any stale event handlers cannot interact with a stopped
- * client.
+ * The deactivating flag makes queued startup tasks no-ops. Promise.allSettled
+ * attempts every stop and logs rejected stops, so one failure does not prevent
+ * other client teardown. Each watcher is released even when its client stop
+ * rejects.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   The supported LanguageClient.stop lifecycle and Promise queue own
+ *   teardown. Clearing the owned map before awaiting stops prevents stale
+ *   routing; errors are reported instead of pretending every process stopped.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One teardown waits for reconciliation and collects all stop outcomes.
+ *   The finalizer clears the trace reference even if teardown fails, while
+ *   the deactivating flag prevents queued work from reopening clients.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   With r retained clients, teardown creates O(r) stop promises and inspects
+ *   O(r) outcomes. Promise.allSettled lets independent stops proceed together
+ *   and preserves each rejection for reporting.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Client stops are ownership-ending effects, not equivalent computations to
+ *   cache or share across subsequent activation sessions.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   The extension clears client routing, awaits every retained transport's
+ *   stop and releases its watcher, trace reference and warning history. Context
+ *   subscriptions own editor registrations and channel disposal. Rejected
+ *   stops are logged; successful OS process release is not assumed on failure.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   No foreign methods or host globals are patched.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   No new process command or filesystem operation occurs here. Each client
+ *   owns its supported native transport shutdown; all roots follow the same
+ *   settled-results policy.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc explains the deactivation flag, queue ordering, all-client stop
+ *   attempts and rejected-stop logging so one failure does not skip teardown.
+ *   Purpose, conditions and reasons use separate native paragraphs under the
+ *   documentation skill; member comments remain beside their fields.
  */
+
 export async function deactivate(): Promise<void> {
   deactivating = true;
   const teardown = reconcileQueue
     .then(async () => {
-      const stopping = [...clients.values()].map((entry) =>
-        entry.client.stop(),
-      );
+      const stopping = [...clients.values()].map(async (entry) => {
+        try {
+          await entry.client.stop();
+        } finally {
+          entry.watcher.dispose();
+        }
+      });
       clients.clear();
       const results = await Promise.allSettled(stopping);
       for (const result of results) {
@@ -748,6 +859,7 @@ export async function deactivate(): Promise<void> {
     })
     .finally(() => {
       sharedTraceChannel = undefined;
+      warnedRelativeServerPaths.clear();
     });
   reconcileQueue = teardown.catch(() => {});
   await teardown;

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 
 import { DependencyBuildGeneration } from "./DependencyBuildGeneration";
+import { RuntimeEmitProvenance } from "./RuntimeEmitProvenance";
 import { projectModuleOptions } from "./projectModuleOptions";
 
 /**
@@ -14,7 +15,21 @@ import { projectModuleOptions } from "./projectModuleOptions";
  * marker swap points at the new one — never a mix of old metadata and a partial
  * new emit.
  *
- * Exported for the ttsx dependency-cache regressions.
+ * Unreadable, malformed or incomplete markers are cache misses and leave
+ * rebuilding to the dependency-build owner.
+ *
+ * Markers without actual compiler emit provenance are historical misses even
+ * when their output filenames resemble the requested source.
+ *
+ * @evidence contracts/common.md#principled-implementation Validated metadata and actual emit provenance select one immutable JavaScript-bearing generation; malformed or legacy records are misses, preventing publication mixing and filename-based guesses about source membership.
+ * @evidence contracts/common.md#clear-and-simple-design Marker decoding, generation selection and the built-project result form one read boundary; module-option projection and physical identity use their shared owners.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing historical module, output or emitted-source fields trigger owning rebuild rather than guessing emit format or reconstructing source membership from a stem.
+ * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain atomic generation publication and miss behavior; returned source identity and invalid historical markers are documented where they matter.
+ * @evidence contracts/portability.md#os-neutral-implementation Native fs and generation path construction preserve platform spelling; the source root uses the shared filesystem-identity resolver with its documented best-effort fallback.
+ * @evidence contracts/performance.md#efficient-algorithms Parsing costs marker bytes and output entries; the emit walk stops at the first JavaScript file, with worst-case O(E) directory entries and recursion depth equal to tree depth.
+ * @evidence contracts/performance.md#reuse-equivalent-work The published generation binds metadata to immutable emit; ensureProjectBuilt memoizes by the computed cache directory including current compiler proof, while an invalid marker requests new compilation.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The read returns build metadata to its caller and closes synchronous reads immediately; generation directories are owned and reclaimed by the dependency cache container, not this reader.
  */
 export function readDependencyCache(
   cacheDir: string,
@@ -29,6 +44,9 @@ export function readDependencyCache(
     return null;
   }
   if (
+    meta === null ||
+    typeof meta !== "object" ||
+    Array.isArray(meta) ||
     !DependencyBuildGeneration.isDependencyGeneration(meta.generation) ||
     typeof meta.rootDir !== "string" ||
     // A marker with no `moduleOptions` object predates this field and cannot
@@ -39,8 +57,13 @@ export function readDependencyCache(
     typeof meta.moduleOptions !== "object" ||
     meta.moduleOptions === null ||
     Array.isArray(meta.moduleOptions) ||
+    (meta.moduleOptions.module !== undefined &&
+      typeof meta.moduleOptions.module !== "string") ||
+    (meta.moduleOptions.target !== undefined &&
+      typeof meta.moduleOptions.target !== "string") ||
     !Array.isArray(meta.outputs) ||
-    !meta.outputs.every((output) => typeof output === "string")
+    !meta.outputs.every((output) => typeof output === "string") ||
+    !RuntimeEmitProvenance.isRecord(meta.emittedSources)
   ) {
     return null;
   }
@@ -54,17 +77,14 @@ export function readDependencyCache(
   return {
     emitDir,
     outputs: meta.outputs,
+    emittedSources: meta.emittedSources,
+    emittedSourceProofFailures: meta.emittedSourceProofFailures,
     moduleOptions: projectModuleOptions(
       meta.moduleOptions as Record<string, unknown>,
     ),
-    // Resolved on the way out, not trusted as written. `rootDir` never gated
-    // reuse — the marker's generation, module options, and a non-empty emit do
-    // — so a marker carrying an unresolved spelling was already being reused,
-    // and every file of that dependency then missed the ownership index's
-    // cheap forward mirror. The pass is idempotent and runs only on a hit, which
-    // `ensureProjectBuilt` memoizes per tsconfig. Every cache root is scoped to
-    // one run or one process and removed with it, so a marker never meets a
-    // ttsc other than the one that wrote it.
+    // Resolve source-root context through the shared native identity owner.
+    // Exact source ownership comes from captured emittedSources, not this
+    // root's spelling or a reconstruction of the output layout.
     rootDir: DependencyBuildGeneration.resolvePhysicalPath(meta.rootDir),
   };
 }

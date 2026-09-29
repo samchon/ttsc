@@ -17,6 +17,16 @@ import type { ITtscProjectInputSnapshot } from "../../../structures/internal/ITt
  * @param fallbackRoot The selected project root every snapshot must share.
  * @param identities Identity resolver for this merge; one is created when
  *   omitted.
+ *
+ * @evidence contracts/common.md#principled-implementation Identity keys merge physical targets while separate declared spellings retain every alias a watcher must observe; incompatible project roots throw.
+ * @evidence contracts/common.md#clear-and-simple-design Four parallel identity maps represent the four snapshot categories; one spelling helper handles alias membership without changing their distinct meanings.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Alias retention follows filesystem identity and the watch contract, rather than replacing filesystem methods or recognizing particular projects.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain root rejection, physical deduplication and why declared aliases survive; parameter documentation is separated from acknowledgments.
+ * @evidence contracts/portability.md#os-neutral-implementation The supplied identity context owns filesystem capabilities; node:path resolves native declarations and only glob output changes separators to protocol slashes.
+ * @evidence contracts/performance.md#efficient-algorithms Each declaration performs map/set membership instead of scanning earlier aliases; canonical sorting costs O(U log U) for U retained entries after identity resolution.
+ * @evidence contracts/performance.md#reuse-equivalent-work One identity context memoizes resolution across roots and repeated declarations in this merge; its caller controls reuse beyond this transaction and must invalidate changed filesystem observations.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources These maps are local to the merge and returned snapshot; the supplied identity context and watcher own retained state beyond this operation.
  */
 export function mergeProjectInputSnapshots(
   fallbackRoot: string,
@@ -31,10 +41,10 @@ export function mergeProjectInputSnapshots(
   // wrote. Normalization resolves a declaration through its symlinks, which is
   // right for every comparison and wrong for the watcher that has to observe
   // the link itself being retargeted.
-  const declaredFiles = new Map<string, string[]>();
-  const declaredGlobs = new Map<string, string[]>();
-  const declaredReloadDirectories = new Map<string, string[]>();
-  const declaredReloadFiles = new Map<string, string[]>();
+  const declaredFiles = new Map<string, Set<string>>();
+  const declaredGlobs = new Map<string, Set<string>>();
+  const declaredReloadDirectories = new Map<string, Set<string>>();
+  const declaredReloadFiles = new Map<string, Set<string>>();
   const rootIdentity = identities.resolve(fallbackRoot);
   for (const snapshot of snapshots) {
     const candidateRoot = identities.resolve(snapshot.root);
@@ -84,10 +94,14 @@ export function mergeProjectInputSnapshots(
     reloadFiles: [...reloadFiles.values()].sort(),
   };
   const declared = {
-    files: [...declaredFiles.values()].flat().sort(),
-    globs: [...declaredGlobs.values()].flat().sort(),
-    reloadDirectories: [...declaredReloadDirectories.values()].flat().sort(),
-    reloadFiles: [...declaredReloadFiles.values()].flat().sort(),
+    files: [...declaredFiles.values()].flatMap((values) => [...values]).sort(),
+    globs: [...declaredGlobs.values()].flatMap((values) => [...values]).sort(),
+    reloadDirectories: [...declaredReloadDirectories.values()]
+      .flatMap((values) => [...values])
+      .sort(),
+    reloadFiles: [...declaredReloadFiles.values()]
+      .flatMap((values) => [...values])
+      .sort(),
   };
   // Carried only when it says something the normalized arrays do not. A tree
   // with no alias on any declaration produces the same four lists, and a
@@ -119,15 +133,14 @@ function arraysEqual(
  * order is not canonical, so the caller sorts the flattened result.
  */
 function retainDeclaredSpelling(
-  target: Map<string, string[]>,
+  target: Map<string, Set<string>>,
   key: string,
   declared: string,
 ): void {
   const previous = target.get(key);
   if (previous === undefined) {
-    target.set(key, [declared]);
+    target.set(key, new Set([declared]));
     return;
   }
-  if (previous.includes(declared)) return;
-  previous.push(declared);
+  previous.add(declared);
 }

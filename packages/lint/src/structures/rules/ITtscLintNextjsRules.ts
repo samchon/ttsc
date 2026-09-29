@@ -9,6 +9,11 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
  * runtime treats as load-bearing.
  *
  * @reference https://nextjs.org/docs/app/api-reference/config/eslint
+ *
+ * @evidence contracts/common.md#principled-implementation Optional nextjs keys pair each framework policy with the severity-only setting union; unspecified keys do not impose an application policy.
+ * @evidence contracts/common.md#clear-and-simple-design One map owns Next.js rule enablement, leaving framework detection and diagnostics to native implementations instead of embedding them in configuration types.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Framework rule names are contract-defined keys, not consumer-specific cases, and the interface introduces no untyped options bypass.
+ * @evidence contracts/common.md#meaningful-documentation Native family and member comments explain routing, component and asset-loading concerns with examples of affected syntax; paragraph and member separation follow documentation guidance.
  */
 export interface ITtscLintNextjsRules {
   /**

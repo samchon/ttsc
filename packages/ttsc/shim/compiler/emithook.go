@@ -28,5 +28,10 @@ import (
 // between. Re-check this when the pin moves: a new use of the parameter inside
 // getScriptTransformers could make the two roles diverge further.
 //
+// @evidence contracts/common.md#principled-implementation Linking the pinned builtin chain preserves compiler transform ordering; the parse-tree argument supplies stable linked-reference marks that transformed nodes retrieve through EmitContext provenance.
+// @evidence contracts/common.md#clear-and-simple-design The helper exposes chain assembly without running transforms, keeping plugin insertion in the driver and builtin ordering in the compiler.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The source-file distinction follows the pinned helper's marking semantics rather than masking an arbitrary transform failure; linkage exposes the function without replacing its implementation.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs explain chain contents, marking versus transformation roles and the version-pin premise, with Go linkage retained outside the prose section.
+//
 //go:linkname GetScriptTransformers github.com/microsoft/typescript-go/internal/compiler.getScriptTransformers
 func GetScriptTransformers(emitContext *innerprinter.EmitContext, host innerprinter.EmitHost, sourceFile *innerast.SourceFile) []*innertransformers.Transformer

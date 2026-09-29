@@ -12,8 +12,28 @@
  * Every field is optional and defaults to `false`. Plugin authors opt in by
  * setting only the capabilities their sidecar actually implements; ttsc keeps
  * the conservative default for everything else.
+ *
+ * @evidence contracts/common.md#principled-implementation Optional booleans represent independent descriptor opt-ins; an omitted capability means the host must not send a protocol the sidecar has not declared.
+ * @evidence contracts/common.md#clear-and-simple-design Each supported protocol has its own named field so callers can negotiate one behavior without inferring unrelated support.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Capability declarations replace plugin-name special cases; false defaults are the conservative protocol contract rather than test accommodations.
+ * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains each protocol, its false default and relevant independence from other capabilities; documented members and descriptive prose are separated according to the documentation skill.
  */
 export interface ITtscPluginCapabilities {
+  /**
+   * Whether a check-stage host accepts `--check-observations-json=<absolute
+   * private path>` and writes the host input observations from that same check
+   * Program to the private channel.
+   *
+   * The channel preserves input paths, content and physical-identity witnesses,
+   * and explicit observation incompleteness independently of text diagnostics
+   * and process status. Hosts report it for unsuccessful checks as well. A
+   * missing capability keeps the option out of strict hosts' argv; it does not
+   * imply that their input population was completely observed.
+   *
+   * @default false
+   */
+  checkObservations?: true;
+
   /**
    * Whether the sidecar accepts `--diagnostics` and `--extendedDiagnostics` on
    * its command line and may print plugin-owned timing detail to stdout.
@@ -36,6 +56,22 @@ export interface ITtscPluginCapabilities {
    * @default false
    */
   lsp?: boolean;
+
+  /**
+   * Whether the sidecar supports the compiler-owned emit provenance protocol.
+   *
+   * An opted-in host accepts `--emit-provenance-json=<absolute private path>`
+   * and reports the physical source identities of outputs it actually wrote.
+   * Runtime consumers use that ledger instead of inferring source ownership
+   * from an output filename or configuration prediction.
+   *
+   * When omitted, ttsc does not pass the option to a strict third-party host. A
+   * runtime operation requiring verified emit provenance must then report that
+   * the selected host does not support it.
+   *
+   * @default false
+   */
+  emitProvenance?: true;
 
   /**
    * Whether the sidecar accepts ttsc's `--project-context-json` identity

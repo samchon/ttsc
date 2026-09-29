@@ -9,6 +9,12 @@ import type { ITtscEvidenceGraphReferenceBase } from "./ITtscEvidenceGraphRefere
  * while allowing one file or heading target to acknowledge its selected
  * descendants. Citations remain anchored in the outline, so an editorial change
  * cannot silently preserve a claim whose grounds disappeared.
+ *
+ * @evidence contracts/common.md#principled-implementation The Markdown discriminator and heading selector describe outline evidence; the checklist flag adds a per-host obligation rather than changing how a heading target is identified.
+ * @evidence contracts/common.md#clear-and-simple-design Markdown population and checklist details stay together while ordinary reference policies remain inherited from the shared base.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Checklist mode explicitly rejects aggregate positive citations and incompatible cardinality policies instead of allowing one answer to impersonate every item's answer.
+ * @evidence contracts/common.md#meaningful-documentation Separate property paragraphs explain rooted addresses, ordered glob selection, checklist denominator, exclusion behavior and policy incompatibilities without relying on these tags as instructions.
+ * @evidence contracts/portability.md#os-neutral-implementation Root describes a stable native directory including links and junctions, while evidence addresses use root-relative protocol spelling; drive-relative paths are refused and graph identity does not guess host filesystem case rules.
  */
 export interface ITtscEvidenceGraphMarkdownReference extends ITtscEvidenceGraphReferenceBase<"markdown"> {
   /**

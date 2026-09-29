@@ -6,6 +6,15 @@ import type { Expression } from "./Expression";
  *
  * Built by {@link factory.createBinaryExpression}.
  *
+ * SyntaxKind is broader than the set of binary operators. Callers must choose
+ * a binary operator and operands legal for that operator, including assignment
+ * target restrictions. The type performs no semantic validation.
+ *
+ * @evidence contracts/common.md#principled-implementation Left and right operands retain ordered roles around one lexical operator; broad SyntaxKind and Expression fields require caller-owned operator and assignment-target validity.
+ * @evidence contracts/common.md#clear-and-simple-design Three direct constituents avoid separate representations for each binary operator; the printer owns precedence and associativity parentheses.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The caller's operator remains explicit syntax rather than selecting an operator from known answers or rewriting foreign nodes.
+ * @evidence contracts/common.md#meaningful-documentation Native prose states the broad-token limitation and assignment target premise; operand comments remain distinct from acknowledgment tags under documentation guidance.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  */
 export interface BinaryExpression {

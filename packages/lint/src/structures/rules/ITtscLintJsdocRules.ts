@@ -12,6 +12,11 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
  * top-level `format` block, not here.
  *
  * @reference https://github.com/gajus/eslint-plugin-jsdoc
+ *
+ * @evidence contracts/common.md#principled-implementation Explicit optional jsdoc keys use severity-only settings for the implemented content and syntax checks; no formatter settings are folded into this rule map.
+ * @evidence contracts/common.md#clear-and-simple-design JSDoc content and the single TSDoc syntax rule share the comment-validation family, leaving formatting configuration with its own owner.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The named syntax subset and rule identifiers are declared directly instead of widening the map to claim all upstream options or grammar coverage.
+ * @evidence contracts/common.md#meaningful-documentation Native comments describe useful tag checks and explicitly limit check-values and tsdoc-syntax coverage; member spacing and prose-to-tag separation follow documentation guidance.
  */
 export interface ITtscLintJsdocRules {
   /**

@@ -28,10 +28,11 @@
  *   ```
  */
 import { openTtscTransformSession } from "@ttsc/unplugin/api";
-import { readFileSync, realpathSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createFilesystemPathIdentityContext } from "ttsc/path-identity";
 
 import { prepareSnapshot } from "./core/fingerprint";
 import type { TtscMetroOptions } from "./core/options";
@@ -76,6 +77,37 @@ interface MetroConfigLike {
  * `.svg` to the auto-detected Expo default instead, with the build still
  * succeeding (samchon/ttsc#1321). An explicit `upstreamTransformer` option
  * still wins, since that is the caller saying it outright.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Metro's supported babelTransformerPath boundary installs this adapter by
+ *   cloning the config. Node project resolution preserves an existing upstream
+ *   unless explicitly overridden, and realpath/package ownership filters
+ *   inherited self-selection; explicit upstream choices remain caller-owned.
+ *   Only the owned option/session environment channels are published before
+ *   workers start; foreign loaders and methods are not patched.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The entry point prepares run ownership and worker transport, then clones
+ *   the config's transformer field. Separate helpers own upstream inheritance
+ *   and module identity instead of repeating those policies in workers.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Decision values come from the documented inputs and product protocol
+ *   rather than expected test answers. No compensating path is introduced to
+ *   make a known example pass.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Node paths, createRequire and fileURLToPath resolve native paths and module
+ *   URLs. The shared filesystem-identity resolver handles links and actual
+ *   directory case capabilities in the recursion guard, instead of folding
+ *   all names by OS. Worker options use JSON environment inheritance.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   The native JSDoc explains config preservation, upstream precedence, JSON
+ *   worker transport and preparation side effects. Checked against the
+ *   documentation skill: separate paragraphs state the contract and why its
+ *   nonobvious boundary matters; field comments retain their own useful
+ *   facts.
  */
 export function withTtsc<T extends MetroConfigLike>(
   config: T,
@@ -83,8 +115,8 @@ export function withTtsc<T extends MetroConfigLike>(
 ): T {
   // Prepare the reference-graph snapshot backing the transformer's cache-key
   // fingerprint (see `core/fingerprint.ts`). This runs in the single Metro
-  // config process before any worker exists, so it is the race-free moment to
-  // mint the snapshot epoch and compact the previous run's worker files.
+  // config process before its workers exist. The snapshot owner serializes
+  // concurrent config processes while compacting the previous worker records.
   const snapshotRunId = prepareSnapshot(
     typeof config.projectRoot === "string" ? config.projectRoot : undefined,
   );
@@ -237,21 +269,15 @@ function isOwnTransformer(declared: string): boolean {
 /**
  * Whether two paths name the same file on disk.
  *
- * Resolved through `realpath` so a symlinked install and its target compare
- * equal, and case-folded on Windows, where `D:\` and `d:\` and a differently
- * cased base name all address one file.
+ * The shared resolver observes physical spelling and directory capabilities
+ * within this comparison. Symlinks can identify the same installed file while
+ * case-sensitive native names remain distinct.
  */
 function sameRealPath(left: string, right: string): boolean {
-  const identity = (file: string): string => {
-    let resolved = resolve(file);
-    try {
-      resolved = realpathSync.native(resolved);
-    } catch {
-      // Not on disk: the resolved spelling is the best identity available.
-    }
-    return process.platform === "win32" ? resolved.toLowerCase() : resolved;
-  };
-  return identity(left) === identity(right);
+  const identities = createFilesystemPathIdentityContext({
+    throwOnRealpathError: false,
+  });
+  return identities.resolve(left).key === identities.resolve(right).key;
 }
 
 /**

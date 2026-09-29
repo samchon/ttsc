@@ -15,6 +15,20 @@ import { selectPersistentHostInputs } from "./selectPersistentHostInputs";
  * Snapshot every input outside the project walk that could change a retry, each
  * plugin source directory by its state among them (`pluginSourceState`,
  * samchon/ttsc#1487, samchon/ttsc#1493).
+ *
+ * Ordinary-path signatures are observed before full state and retained only
+ * when the filesystem clock proves separation. Plugin trees carry no single
+ * path signature because their source/build environment requires whole-tree
+ * validation. The returned map belongs to the terminal comparison baseline.
+ *
+ * @evidence contracts/common.md#principled-implementation External paths, surviving host paths, attributed failures and plugin source roots form the retry environment; metadata-before-state observation prevents a concurrent read from authorizing unchanged-state reuse incorrectly.
+ * @evidence contracts/common.md#clear-and-simple-design This capture constructs one baseline map, delegating persistence selection, metadata evidence and ordinary/tree state composition to their owning helpers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Disposed scratch paths are excluded by ownership rather than a blanket dependency filter; missing plugin source state remains a missing marker and tree state is not inferred from parent metadata.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish ordinary signature timing, plugin-tree validation and transferred baseline ownership, with separated tags under documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path.resolve normalizes observed spellings and resultFilesystem supplies filesystem capabilities; plugin source state uses the shared native Go/build environment boundary.
+ * @evidence contracts/performance.md#efficient-algorithms Set union deduplicates paths before one sorted traversal; each unique tree or exact path is captured once, with state cost driven by file bytes or directory/subtree population.
+ * @evidence contracts/performance.md#reuse-equivalent-work Shared envelope selectors and one path union avoid repeated observations of the same spelling; recorded separable signatures permit the later validator's metadata-first state reuse.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources This call transfers one map sized by relevant distinct inputs to terminal validation; it retains no observer or scratch directory and the terminal generation owner controls baseline lifetime.
  */
 export function captureFailedGenerationInputStates(
   cached: TtscCachedProjectTransform,

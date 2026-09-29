@@ -8,43 +8,94 @@ import { runBuild } from "../../compiler/internal/build/runBuild";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { resolveOwningProjectConfig } from "../../compiler/internal/project/resolveOwningProjectConfig";
 import { readEffectiveCompilerOptions } from "../../compiler/internal/readEffectiveCompilerOptions";
+import { SidecarEnvironment } from "../../compiler/internal/sharedHost/SidecarEnvironment";
 import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
 import { SourceBuildCacheLayout } from "../../plugin/internal/source/SourceBuildCacheLayout";
 import { resolveSourceBuildCachePaths } from "../../plugin/internal/source/resolveSourceBuildCachePaths";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
 import { buildSingleRootProject } from "./buildSingleRootProject";
 import { linkVirtualEntry } from "./linkVirtualEntry";
+import { resolveCacheDir } from "./resolveCacheDir";
 import { type OwningModuleOptions } from "./runtime/OwningModuleOptions";
 import { ProcessOwnedDirectory } from "./runtime/ProcessOwnedDirectory";
+import { RuntimeEmitProvenance } from "./runtime/RuntimeEmitProvenance";
 import { runtimeRunKey } from "./runtime/runtimeRunKey";
 import { withRuntimeDirectoryLock } from "./runtime/withRuntimeDirectoryLock";
 import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
 import { runtimeEmitProfile } from "./runtimeEmitProfile";
 
-/** Build the owning project and locate the emitted JavaScript entry for `ttsx`. */
+/**
+ * Build the owning project and locate the JavaScript emitted from the requested
+ * entry for `ttsx`. An entry excluded from that project receives a checked
+ * single-entry build inheriting its compiler settings.
+ *
+ * Discovery uses the caller's spelling while emit ownership uses filesystem
+ * identity. The result transfers the process-owned runtime directory to the
+ * caller for execution and cleanup. Preparation failure relinquishes it here;
+ * successful execution must release it through the runtime directory protocol.
+ *
+ * Source ownership comes from the completed compiler's output-to-source record;
+ * a producer without that record is unsupported for checked execution.
+ *
+ * @evidence contracts/common.md#principled-implementation Project discovery retains the requested lexical anchor; validated compiler provenance, not a stem or source-map inference, supplies EmitOwnershipIndex with actual output ownership, and an excluded entry uses the supported checked single-root build with its own ledger.
+ * @evidence contracts/common.md#clear-and-simple-design Context creation, project compilation, entry fallback and output selection have distinct helpers; one top-level failure boundary cleans the prepared generation before propagating the error.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing or malformed producer provenance fails instead of being reconstructed from filenames; the excluded-entry build inherits actual project settings rather than stripping source through a test-only lane.
+ * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain discovery, cleanup and mandatory producer provenance; result members distinguish relative output-list paths from absolute output-to-source records without property acknowledgments.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path/identity helpers separate lexical discovery from physical Node loading; directory locks pin runtime ownership and the virtual layout encodes distinct volume roots without OS-specific shell operations.
+ * @evidence contracts/performance.md#efficient-algorithms Each completed build validates its provenance once in O(outputs + contributing sources) entries and retains it for entry lookup and runtime transfer; only a proven-unowned entry receives an additional single-entry build, and mirrored ancestor traversal has an explicit depth/safety boundary.
+ * @evidence contracts/performance.md#reuse-equivalent-work One context shares the completed build's validated ledger, output inventory and emit profile with lookup and execution rather than rereading or recomputing producer observations; a fallback replaces the complete emit generation together.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Preparation owns one claimed generation under a pinned cache root; failures relinquish/remove it under the lock, while success transfers cleanupDir and runtimeCacheDir to the caller's execution lifecycle.
+ */
 export function prepareExecution(
   entryFile: string,
   options: TtscCommonOptions & {
+    /** Explicit runtime/plugin cache path relative to the invocation directory. */
     cacheDir?: string;
+
+    /** Explicit project config; absence discovers the entry's owning project. */
     project?: string;
+
     /** Internal cache key for more than one checked entry in this process. */
     runtimeCacheKey?: string;
   } = {},
 ): {
+  /** Claimed runtime generation whose cleanup ownership transfers to the caller. */
   cleanupDir: string;
+
+  /** Physical directory containing this preparation's emitted output. */
   emitDir: string;
+
+  /** Emitted JavaScript file owned by the requested source entry. */
   entryFile: string;
+
   /** Physical runtime cache root whose lock serializes this run and clean. */
   runtimeCacheDir: string;
+
   /** Physical directory holding the run, even when `project` is a link. */
   runtimeRunsDir: string;
+
   /** The build's record of its outputs, relative to `emitDir`. */
   outputs: readonly string[];
+
+  /** Compiler-observed absolute output paths and their contributing sources. */
+  emittedSources: Readonly<Record<string, readonly string[]>>;
+
+  /** Output-specific observed proof failures, without an ownership guarantee. */
+  emittedSourceProofFailures?: Readonly<Record<string, string>>;
+
+  /** Physical source-entry spelling used for emit ownership and Node loading. */
   entrySource: string;
+
+  /** Effective project module settings used to classify emitted runtime files. */
   moduleOptions: OwningModuleOptions;
+
   /** Where the run keeps its lowered orphan sources, under its cache root. */
   orphanCacheDir: string;
+
+  /** Owning project's physical directory. */
   projectRoot: string;
+
+  /** Physical source root whose relative paths are mirrored in the runtime emit. */
   rootDir: string;
 } {
   // Two paths, because two different questions are being asked.
@@ -82,6 +133,8 @@ export function prepareExecution(
       runtimeRunsDir: path.dirname(context.processDir),
       entrySource: entry,
       outputs: context.outputs,
+      emittedSources: executionProvenance(context),
+      emittedSourceProofFailures: context.emittedSourceProofFailures,
       moduleOptions: context.moduleOptions,
       orphanCacheDir: context.orphanCacheDir,
       projectRoot: context.root,
@@ -109,9 +162,9 @@ const MAX_VIRTUAL_PARENT_DEPTH = 3;
 const ENTRY_PROJECT_EMIT_DIR = "entry-project";
 
 /**
- * The JavaScript this build emitted from `entry`, or `null` when it emitted
- * none — which is the signal that the entry sits outside the project's file
- * set.
+ * The JavaScript this build proves it emitted from `entry`, or `null` when its
+ * complete provenance excludes that source. Missing, incomplete or ambiguous
+ * ownership throws instead of being treated as an excluded entry.
  *
  * Only an output proven to come from the entry itself counts. A
  * `scripts/index.ts` outside `include` shares its name with the `src/index.js`
@@ -124,6 +177,8 @@ function emittedEntryOf(
 ): string | null {
   return new EmitOwnershipIndex({
     emitDir: context.emitDir,
+    emittedSources: executionProvenance(context),
+    emittedSourceProofFailures: context.emittedSourceProofFailures,
     outputs: context.outputs,
     rootDir: context.runtimeRootDir,
   }).find(entry);
@@ -140,18 +195,24 @@ function buildEntryProject(
   entry: string,
 ): void {
   const emitDir = path.join(context.virtualRoot, ENTRY_PROJECT_EMIT_DIR);
-  const { rootDir } = buildSingleRootProject({
-    checked: true,
-    emitDir,
-    key: context.runtimeCacheKey,
-    options: { ...options, cacheDir: context.pluginCacheDir },
-    projectRoot: context.root,
-    role: "entry",
-    source: entry,
-    tsconfig: context.tsconfig,
-  });
+  const { rootDir, emittedSources, emittedSourceProofFailures } =
+    buildSingleRootProject({
+      checked: true,
+      emitDir,
+      key: context.runtimeCacheKey,
+      options: { ...options, cacheDir: context.pluginCacheDir },
+      projectRoot: context.root,
+      role: "entry",
+      source: entry,
+      tsconfig: context.tsconfig,
+    });
   context.emitDir = emitDir;
+  context.emittedSourceProofFailures = emittedSourceProofFailures;
   context.outputs = EmitOwnershipIndex.listOutputs(emitDir);
+  context.emittedSources = requireEmitProvenance(
+    emittedSources,
+    context.tsconfig,
+  );
   context.runtimeRootDir = rootDir;
   // Classified by the project itself: the synthesized config only extends it
   // with overrides that do not touch the module format, and it is already
@@ -207,6 +268,15 @@ function resolveRuntimeCacheKey(runtimeCacheKey: string | undefined): string {
 }
 
 /**
+ * Discover the project and acquire a pinned, process-owned runtime generation.
+ * Emit profile and source-root observations are shared by the initial project
+ * build and any required single-entry fallback.
+ *
+ * The cache-root identity is fixed before descriptor execution can retarget a
+ * lexical alias. Under its directory lock, abandoned generations are swept and
+ * this run claims one private layout. The returned context owns it until
+ * failure cleanup or successful transfer to the execution caller.
+ *
  * @param discoveryFile - The entry as the user named it. Project discovery
  *   walks up from here, so it must not be retargeted through a symlink.
  */
@@ -225,7 +295,7 @@ function createProjectContext(
   const tsconfig = project.path;
   const root = project.root;
   const explicitCacheDir = resolveCacheDir(cwd, options.cacheDir);
-  const env = { ...process.env, ...options.env };
+  const env = SidecarEnvironment.merge(process.env, options.env);
   const defaultCache =
     explicitCacheDir === undefined
       ? defaultRuntimeCacheDir(root, env)
@@ -311,6 +381,12 @@ function createProjectContext(
     forceRuntimeSourceMap: emitProfile.forceRuntimeSourceMap,
     built: false,
     outputs: [] as readonly string[],
+    emittedSourceProofFailures: undefined as
+      | Readonly<Record<string, string>>
+      | undefined,
+    emittedSources: undefined as
+      | Readonly<Record<string, readonly string[]>>
+      | undefined,
   };
 }
 
@@ -404,6 +480,15 @@ function resolveRuntimeSourceRoot(
   ).path;
 }
 
+/**
+ * Complete the context's checked project build once, with all compiler output
+ * locations confined to its private emit directory.
+ *
+ * Record emitted files before linking source neighbors, so linked user files
+ * cannot masquerade as compiler output. Only a successful build publishes the
+ * completed context. Failure releases the claimed generation and preserves the
+ * compiler's diagnostic output in the thrown error.
+ */
 function buildProject(
   context: ReturnType<typeof createProjectContext>,
   options: NonNullable<Parameters<typeof prepareExecution>[1]>,
@@ -442,6 +527,7 @@ function buildProject(
     // flag, so it never reaches a native plugin host's argument parser (issue
     // #353).
     forceRuntimeSourceMap: context.forceRuntimeSourceMap,
+    forceEmitProvenance: true,
     pluginConfigDir: options.pluginConfigDir,
     plugins: options.plugins,
     quiet: true,
@@ -455,6 +541,11 @@ function buildProject(
     // mirror of the project root, and a `tool.js` linked there from the user's
     // tree would otherwise be recorded as the output of `tool.ts`.
     context.outputs = EmitOwnershipIndex.listOutputs(context.emitDir);
+    context.emittedSources = requireEmitProvenance(
+      result.emittedSources,
+      context.tsconfig,
+    );
+    context.emittedSourceProofFailures = result.emittedSourceProofFailures;
     linkVirtualProjectLayout(context);
     context.built = true;
     return;
@@ -468,6 +559,37 @@ function buildProject(
     .filter((line) => line.trim().length !== 0)
     .join("\n");
   throw new Error(detail);
+}
+
+/**
+ * Validate a completed producer's ledger before publishing its runtime context.
+ * An empty record is authoritative absence; an omitted or malformed record must
+ * not be replaced by source-map or filename inference.
+ */
+function requireEmitProvenance(
+  value: unknown,
+  tsconfig: string,
+): Readonly<Record<string, readonly string[]>> {
+  if (!RuntimeEmitProvenance.isRecord(value)) {
+    throw new Error(
+      `ttsx: selected emitting producer cannot provide source ownership for ${JSON.stringify(tsconfig)}`,
+    );
+  }
+  return value;
+}
+
+/**
+ * Read the ledger already validated when this context's build completed.
+ * Preparation cannot route or transfer a context whose build never published
+ * it.
+ */
+function executionProvenance(
+  context: ReturnType<typeof createProjectContext>,
+): Readonly<Record<string, readonly string[]>> {
+  if (context.emittedSources === undefined) {
+    throw new Error("ttsx: completed emit has no source ownership record");
+  }
+  return context.emittedSources;
 }
 
 /**
@@ -487,8 +609,10 @@ function defaultRuntimeCacheDir(
 ): {
   /** Whether ttsc collects the root, which it does for its own default. */
   collected: boolean;
+
   /** The cache root the runtime directory lives in. */
   root: string;
+
   /** The runtime's own directory. */
   runtime: string;
 } {
@@ -524,6 +648,12 @@ function defaultRuntimeCacheDir(
   return { collected: false, root: fallback, runtime: fallback };
 }
 
+/**
+ * Relinquish and remove a pinned generation under its runtime-directory lock.
+ * Cleanup is best effort during failure handling; a cleanup error must not hide
+ * the original compiler or preparation error. Abandoned runs remain
+ * discoverable by the process-ownership sweep.
+ */
 function removeRuntimeOutput(directory: string, runtimeCacheDir: string): void {
   try {
     withRuntimeDirectoryLock(runtimeCacheDir, () => {
@@ -535,13 +665,14 @@ function removeRuntimeOutput(directory: string, runtimeCacheDir: string): void {
   }
 }
 
-function resolveCacheDir(cwd: string, cacheDir?: string): string | undefined {
-  if (!cacheDir) {
-    return undefined;
-  }
-  return path.isAbsolute(cacheDir) ? cacheDir : path.resolve(cwd, cacheDir);
-}
-
+/**
+ * Mirror selected project ancestors beside emitted output so native module
+ * lookup can reach source neighbors and installed dependencies.
+ *
+ * Existing virtual entries, including compiler output, win over linked user
+ * entries. Each source directory is enumerated once; linkVirtualEntry owns the
+ * native file/directory link representation.
+ */
 function linkVirtualProjectLayout(
   context: ReturnType<typeof createProjectContext>,
 ): void {
@@ -562,9 +693,9 @@ function linkVirtualProjectLayout(
 /**
  * Walk from `projectRoot` upward (up to `MAX_VIRTUAL_PARENT_DEPTH` steps),
  * stopping early at a workspace root (`pnpm-workspace.yaml` or `.git`). The
- * collected directories are reversed so callers can iterate outermost-first,
- * which lets inner symlinks override outer ones without conflicting mkdir
- * calls.
+ * collected directories are reversed so callers can construct parent layouts
+ * before their children. Existing virtual entries win when neighboring source
+ * entries are linked, preserving the compiler's own emitted files.
  */
 function collectLinkDirectories(projectRoot: string): string[] {
   const out: string[] = [];
@@ -610,16 +741,21 @@ function isUnsafeVirtualParent(
  *
  * On POSIX the root is always `/`, so every path shares the same prefix —
  * represented here as `"posix"`. On Windows, drive letters and UNC roots each
- * get a sanitized label (e.g. `"C_"` for `C:\`), preventing collisions between
- * paths from different drives inside the same virtual root.
+ * get a full SHA-256 label of their UTF-16 root spelling. This fixed-size
+ * native component distinguishes roots such as UNC shares `a-b` and `a_b` under
+ * the hash's collision-resistance premise, without punctuation folding or
+ * expansion beyond the host's component-length limit. Relative paths remain
+ * unchanged.
  */
 function virtualPath(root: string, absolute: string): string {
   const parsed = path.parse(path.resolve(absolute));
   const label =
     parsed.root === path.sep
       ? "posix"
-      : parsed.root.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "") ||
-        "root";
+      : crypto
+          .createHash("sha256")
+          .update(parsed.root, "utf16le")
+          .digest("hex");
   const relative = path.relative(parsed.root, path.resolve(absolute));
   return path.join(root, label, relative);
 }

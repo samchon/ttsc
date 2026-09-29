@@ -22,6 +22,22 @@ import { make } from "../internal/make";
  * <Foo bar="x">Hello</Foo>
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   Opening, ordered children and closing remain separate boundaries; children
+ *   are not collapsed into text, preserving expressions and raw JSX content.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The parent assembles existing pieces without duplicating tag-name or
+ *   attribute construction. Its printer owns whitespace-safe child layout.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Component names do not select synthetic children or raw-source templates,
+ *   and no child is omitted merely to make paired output match expectations.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs distinguish the three pieces and supported child forms;
+ *   the example demonstrates assembly while each argument retains its own description.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param openingElement The opening element.
  * @param children The children.

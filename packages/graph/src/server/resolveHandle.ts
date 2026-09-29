@@ -1,11 +1,28 @@
 import { TtscGraphMemory } from "../model/TtscGraphMemory";
 import { parseTtscGraphNodeId } from "../model/TtscGraphNodeId";
-import { ITtscGraphNode } from "../structures/ITtscGraphNode";
+import { TtscGraphReadonly } from "../model/TtscGraphReadonly";
+import { ITtscGraphNode as NodeShape } from "../structures/ITtscGraphNode";
 import { exportFanIn } from "./exportSurface";
 import { isSupportPath } from "./pathPolicy";
 
+type ITtscGraphNode = TtscGraphReadonly<NodeShape>;
+
+/**
+ * Exact resolved node, ambiguous candidates or an empty unknown outcome.
+ *
+ * @evidence contracts/common.md#principled-implementation Optional node and candidates preserve the resolver's unique, ambiguous and absent states without fabricating identity.
+ * @evidence contracts/common.md#clear-and-simple-design One compact outcome is shared by direct-id, name and file-qualified resolution paths.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Ranked candidates remain unresolved choices rather than a guessed definitive node.
+ * @evidence contracts/common.md#meaningful-documentation Native member comments distinguish uniquely resolved identity from ranked ambiguity.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms This outcome record chooses no search or ranking strategy; resolveGraphHandle owns those choices.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The result transfers a resolution state without coordinating reusable computation.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Callers own the optional candidate array; this record retains no independent resource.
+ */
 export interface IResolvedGraphHandle {
+  /** Present when the handle identifies exactly one node. */
   node?: ITtscGraphNode;
+
+  /** Ranked remaining choices when more than one identity matches. */
   candidates?: ITtscGraphNode[];
 }
 
@@ -34,6 +51,14 @@ export interface IResolvedGraphHandle {
  *   method (`db.query`, `app.listen`, `repo.save`), so the member is what it
  *   means, and the candidates come back ranked when several classes declare
  *   it.
+ *
+ * @evidence contracts/common.md#principled-implementation Exact id/name resolution precedes suffix and file/member fallbacks; unique outcomes preserve identity while multiple matches remain candidates.
+ * @evidence contracts/common.md#clear-and-simple-design Resolution helpers each own one handle form and one shared ranker orders ambiguity consistently.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts General handle grammar and compiler export edges guide fallback, not repository-specific expected symbol lists.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe supported stale-id, file-qualified and value-receiver spellings plus preserved ambiguity.
+ * @evidence contracts/performance.md#efficient-algorithms Exact id and symbol probes use generation indexes; a dotted-suffix miss can scan V nodes and collect C matches, while ranking their indexed edge neighborhoods retains the best K in O(CK) time and O(K) additional space for the normal small cap.
+ * @evidence contracts/performance.md#reuse-equivalent-work The graph shares id, symbol and adjacency indexes across handle resolutions; each call ranks a fresh candidate set because the spelling and requested limit can differ.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Candidate lists are request-local and returned to the caller; the resolver retains no history, handle or running task.
  */
 export function resolveGraphHandle(
   graph: TtscGraphMemory,
@@ -142,15 +167,38 @@ function rank(
   candidateLimit: number,
 ): IResolvedGraphHandle {
   if (resolved.candidates === undefined) return resolved;
-  const ranked = resolved.candidates
-    .map((node) => ({ node, score: candidateScore(graph, node) }))
-    .sort((a, b) => {
-      const score = b.score - a.score;
-      return score !== 0 ? score : compareIdentity(a.node.id, b.node.id);
-    })
-    .slice(0, candidateLimit)
-    .map(({ node }) => node);
-  return { candidates: ranked };
+  const candidates = resolved.candidates;
+  const cap = Math.trunc(candidateLimit);
+  const compare = (
+    a: { node: ITtscGraphNode; score: number },
+    b: { node: ITtscGraphNode; score: number },
+  ): number => {
+    const score = b.score - a.score;
+    return score !== 0 ? score : compareIdentity(a.node.id, b.node.id);
+  };
+  // Large or unusual public caps retain Array.slice semantics; the normal
+  // small cap need not sort every ambiguous declaration in the project.
+  if (!Number.isFinite(cap) || cap < 0 || cap > 32) {
+    return {
+      candidates: candidates
+        .map((node) => ({ node, score: candidateScore(graph, node) }))
+        .sort(compare)
+        .slice(0, candidateLimit)
+        .map(({ node }) => node),
+    };
+  }
+  const ranked: Array<{ node: ITtscGraphNode; score: number }> = [];
+  for (const node of candidates) {
+    const item = { node, score: candidateScore(graph, node) };
+    const position = ranked.findIndex((other) => compare(item, other) < 0);
+    if (position < 0) {
+      if (ranked.length < cap) ranked.push(item);
+    } else if (position < cap) {
+      ranked.splice(position, 0, item);
+      if (ranked.length > cap) ranked.pop();
+    }
+  }
+  return { candidates: ranked.map(({ node }) => node) };
 }
 
 /** Compare position-invariant ids without locale-dependent collation. */

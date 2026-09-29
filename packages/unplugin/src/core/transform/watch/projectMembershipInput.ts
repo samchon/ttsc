@@ -25,6 +25,15 @@ const PROJECT_MEMBERSHIP_INPUTS = new WeakMap<
  *
  * Built once per recorded directory list, so every module of a generation hands
  * the host the same object.
+ *
+ * @evidence contracts/common.md#principled-implementation The root path carries the adapter's actual membership digest, directory population and walk policy, expressing root-file selection rather than equating it with one compiler input hash.
+ * @evidence contracts/common.md#clear-and-simple-design One optional carrier represents a recorded project walk, with a memo keyed by generation and the recorded directory-list reference.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts A generation without a recorded walk returns undefined rather than inventing a default membership result from its root name.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain membership ownership, absent walks and reference reuse, with separated tags following documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation Root identity comes from the generation's native context and directory spellings retain the walk's observed policy rather than relying on an OS-wide case model.
+ * @evidence contracts/performance.md#efficient-algorithms First construction hashes the recorded membership and maps O(D) directory paths; a matching recorded list returns the existing carrier without another walk.
+ * @evidence contracts/performance.md#reuse-equivalent-work The weak memo shares by generation and directory-array identity, assuming its membership policy and recorded directory entries remain immutable; a replacement list rebuilds the carrier.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources One O(D) carrier is retained per live generation through a WeakMap and replaced on a new directory list; no native watcher or descriptor is acquired.
  */
 export function projectMembershipInput(
   cached: TtscCachedProjectTransform,

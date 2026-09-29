@@ -14,8 +14,23 @@ import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
  * Every build and every maintenance pass publishes a record in a private
  * directory of the cache and keeps it fresh with a heartbeat. Pruning skips the
  * cohort a live build may still read, and an abandoned record expires after a
- * grace period, so a crashed process never pins the cache forever and a running
- * build never has its objects deleted underneath it.
+ * grace period. Unreadable records or a failed clock-skew repair defer pruning
+ * conservatively; this is opportunistic coordination rather than an absolute
+ * proof that every abandoned record can be reclaimed.
+ *
+ * Age-based expiry assumes a running task can keep its heartbeat fresh. A
+ * prolonged suspension or failed heartbeat after startup can outlast the grace;
+ * elapsed time alone does not prove that its Go process has ended.
+ *
+ * @evidence contracts/common.md#principled-implementation Published task status and independently refreshed mtimes implement the documented freshness policy; unreadable state defers pruning, but grace expiry is not process-absence proof after heartbeat failure.
+ * @evidence contracts/common.md#clear-and-simple-design Root validation, task publication and collection form one coordination boundary used by builders and maintenance.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Time windows are documented coordination policy; worker/process alternatives address actual synchronous-build and native spawn constraints rather than known fixtures.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains lease purpose and conservative unreadable/clock-skew limits; function and member comments describe release and startup outcomes.
+ * @evidence contracts/portability.md#os-neutral-implementation Native filesystem metadata and Node worker/process APIs provide the boundary without assuming an OS's case policy.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms The namespace itself groups separately reviewed operations and performs no scan.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Namespace membership establishes no computed-result identity.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Actual records and workers are owned by create/finish operations rather than the namespace declaration.
  */
 export namespace GoBuildCacheCoordination {
   /** Directory of the cache holding one record per running Go build. */
@@ -39,6 +54,16 @@ export namespace GoBuildCacheCoordination {
    * symlink or junction there would let LRU deletion escape into an arbitrary
    * two-hex directory. Returning the canonical spelling also keeps the build,
    * leases, and maintenance on the same directory if an ancestor alias moves.
+   *
+   * @evidence contracts/common.md#principled-implementation lstat rejects aliased leaves and physical parent validation confines the returned Go root to its resolved parent before deletion or builds use it.
+   * @evidence contracts/common.md#clear-and-simple-design Validation returns one physical spelling or throws, so consumers do not carry partially safe paths.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Native filesystem facts establish ownership boundaries, not guessed cache names or foreign API mutation.
+   * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain project-controlled leaf risk and ancestor alias pinning rather than merely restating mkdir and realpath.
+   * @evidence contracts/portability.md#os-neutral-implementation Native realpath/lstat preserve actual identity; no Windows-name check supplies volume case semantics.
+   * @evidence contracts/performance.md#efficient-algorithms Fixed metadata calls validate the leaf; path resolution and recursive creation scale with ancestor depth.
+   *
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Mutable aliases are checked per operation rather than cached without an invalidation witness.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Validation opens no persistent handle and owns no cache entries.
    */
   export function canonicalGoBuildCacheRoot(root: string): string {
     fs.mkdirSync(root, { recursive: true });
@@ -54,20 +79,58 @@ export namespace GoBuildCacheCoordination {
     return physicalRoot;
   }
 
-  /** One published build or maintenance record, owned by this process. */
+  /**
+   * One published build or maintenance record, owned by this process.
+   *
+   * @evidence contracts/common.md#principled-implementation Record identity and lifecycle callbacks represent the same owned task; completion cannot be mistaken for another task's lease.
+   * @evidence contracts/common.md#clear-and-simple-design The interface exposes only its published path, startup and terminal release.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The callbacks are explicit ownership operations, not mutation of external worker APIs.
+   * @evidence contracts/common.md#meaningful-documentation Member prose explains terminal completion, startup failure and synchronous-build purpose with blank-separated fields.
+   * @evidence contracts/portability.md#os-neutral-implementation The path denotes a native coordination file while callbacks hide worker versus process startup differences.
+   *
+   * @evidenceExclude contracts/performance.md#efficient-algorithms This interface declares an ownership capability and chooses no algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work The interface is not a computed-result coordinator.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Actual acquisition and release are performed by the factory and callbacks, not this type declaration.
+   */
   export interface GoBuildCacheCoordinationRecord {
     /** Path of the record file. */
     file: string;
+
     /**
-     * Stop the heartbeat, mark the record complete, then delete it. Completion
-     * is persisted first so a failed delete never leaves a finished task
-     * looking active until it expires.
+     * Stop the heartbeat, attempt to mark the record complete, then delete it.
+     * A successful completion write prevents a failed delete from leaving the
+     * task active; if both writes and deletion fail, stale-timeout handling
+     * remains the collector's fallback.
+     *
+     * @evidence contracts/common.md#principled-implementation The terminal callback stops refresh and attempts complete-state publication before removal; only successful publication establishes completion if deletion fails.
+     * @evidence contracts/common.md#clear-and-simple-design Release is one idempotent operation and prevents later heartbeat restart.
+     * @evidence contracts/common.md#prohibited-implementation-shortcuts Completion persistence addresses a real failed-unlink state rather than simulating successful cleanup.
+     * @evidence contracts/common.md#meaningful-documentation Native prose states ordering and its failure consequence, separated from tags.
+     * @evidence contracts/portability.md#os-neutral-implementation Native worker termination and file removal failures are encapsulated by the owning callback.
+     * @evidence contracts/performance.md#efficient-algorithms Release performs fixed task-control and small metadata operations, independent of cache contents.
+     *
+     * @evidenceExclude contracts/performance.md#reuse-equivalent-work This callback closes one owned task, not a reusable computation.
+     *
+     * @evidence contracts/performance.md#bound-retention-and-release-resources Completion stops the worker/process and removes its record best-effort; a failed removal remains marked complete when publication succeeds.
      */
     finish: () => void;
+
     /**
      * Keep the record fresh from a background worker while this thread blocks
      * in a synchronous build. Idempotent; returns `false` when no worker could
-     * be started (the record then relies on its stale timeout).
+     * initialize within the startup grace (the record then relies on its stale
+     * timeout). Finished records cannot be restarted.
+     *
+     * @evidence contracts/common.md#principled-implementation Initialization acknowledgement is required before the callback reports an independently refreshing task; a completed record has no restart capability.
+     * @evidence contracts/common.md#clear-and-simple-design Lazy initialization preserves one heartbeat per unfinished record.
+     * @evidence contracts/common.md#prohibited-implementation-shortcuts Worker and low-descriptor child paths support actual runtime capability differences, not fixture-specific outcomes.
+     * @evidence contracts/common.md#meaningful-documentation Native prose names synchronous-build purpose, idempotence, initialization failure and terminal-state behavior.
+     * @evidence contracts/portability.md#os-neutral-implementation Node workers or the current Node executable provide native background work without shell command quoting.
+     * @evidence contracts/performance.md#efficient-algorithms Repeated starts reuse one live heartbeat; first startup waits at most the bounded initialization grace per attempted mechanism.
+     *
+     * @evidenceExclude contracts/performance.md#reuse-equivalent-work Reusing a heartbeat capability is lifecycle ownership, not equivalent build-result reuse.
+     *
+     * @evidence contracts/performance.md#bound-retention-and-release-resources At most one successful background task is retained per record and finish owns its termination; startup failures clean their task state.
      */
     startHeartbeat: () => boolean;
   }
@@ -75,6 +138,17 @@ export namespace GoBuildCacheCoordination {
   /**
    * Publish an `active` record for this process in the coordination directory
    * `directoryName` of the cache at `root`.
+   *
+   * @evidence contracts/common.md#principled-implementation A random process-qualified record distinguishes concurrent tasks, atomic metadata publishes active/complete states and terminal finish prevents restart.
+   * @evidence contracts/common.md#clear-and-simple-design Returned callbacks close over exactly one record, heartbeat and terminal flag rather than a global task registry.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Random uniqueness and completion-before-unlink address real concurrent publication and cleanup failures; no consumer identity is privileged.
+   * @evidence contracts/common.md#meaningful-documentation Native type/member comments describe ownership and release semantics while the factory identifies the publication location.
+   * @evidence contracts/portability.md#os-neutral-implementation Native path, hostname and atomic entry publication identify the local task without assuming PID meaning on another host.
+   * @evidence contracts/performance.md#efficient-algorithms Publication writes one small record; startup work is lazy and reused for subsequent start calls.
+   *
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work A task lease is not a cached build answer; producer identity and lock sharing belong to the build owner.
+   *
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The caller receives ownership of one record and optional heartbeat, must finish it, and collectors age abandoned records conservatively.
    */
   export function createGoBuildCacheCoordinationRecord(
     root: string,
@@ -97,10 +171,17 @@ export namespace GoBuildCacheCoordination {
     };
     writeGoBuildCacheCoordinationRecord(record, metadata, "active");
     let heartbeat: GoBuildCacheHeartbeat | undefined;
+    let finished = false;
     return {
       file: record,
       finish: () => {
-        heartbeat?.stop();
+        if (finished) return;
+        finished = true;
+        try {
+          heartbeat?.stop();
+        } catch {
+          // Native termination failure must not skip completion publication.
+        }
         heartbeat = undefined;
         // A failed unlink must not leave a completed task looking active until
         // its stale timeout. Persist completion first; collectors discard it.
@@ -112,12 +193,14 @@ export namespace GoBuildCacheCoordination {
         } catch {}
       },
       startHeartbeat: () => {
+        if (finished) return false;
         heartbeat ??= startGoBuildCacheHeartbeat(record);
         return heartbeat !== undefined;
       },
     };
   }
 
+  /** Publish a complete coordination state through the shared atomic writer. */
   function writeGoBuildCacheCoordinationRecord(
     file: string,
     metadata: {
@@ -134,11 +217,19 @@ export namespace GoBuildCacheCoordination {
     );
   }
 
+  /** The sole release capability for one background refresher. */
   interface GoBuildCacheHeartbeat {
+    /** Terminate this refresher without retaining the parent process. */
     stop: () => void;
   }
 
-  /** Refresh one synchronous cache task's record from a background worker. */
+  /**
+   * Refresh one synchronous task independently of the blocked parent thread.
+   *
+   * Initialization is acknowledged before success. Later inaccessible record
+   * writes can still stop freshness, so collection retains its conservative
+   * grace and uncertainty policy rather than claiming perfect liveness.
+   */
   function startGoBuildCacheHeartbeat(
     file: string,
   ): GoBuildCacheHeartbeat | undefined {
@@ -150,9 +241,11 @@ export namespace GoBuildCacheCoordination {
           'const fs = process.getBuiltinModule("node:fs");',
           'const { workerData } = process.getBuiltinModule("node:worker_threads");',
           "const state = new Int32Array(workerData.control);",
+          "Atomics.store(state, 0, 1);",
+          "Atomics.notify(state, 0);",
           "for (;;) {",
-          "  const result = Atomics.wait(state, 0, 0, workerData.interval);",
-          '  if (result !== "timed-out" || Atomics.load(state, 0) !== 0) break;',
+          "  const result = Atomics.wait(state, 0, 1, workerData.interval);",
+          '  if (result !== "timed-out" || Atomics.load(state, 0) !== 1) break;',
           "  try {",
           "    const now = new Date();",
           "    fs.utimesSync(workerData.file, now, now);",
@@ -168,20 +261,32 @@ export namespace GoBuildCacheCoordination {
           },
         },
       );
+      worker.on("error", () => {
+        Atomics.store(state, 0, 2);
+        Atomics.notify(state, 0);
+      });
       worker.unref();
-      return {
-        stop: () => {
-          Atomics.store(state, 0, 1);
-          Atomics.notify(state, 0);
-          void worker.terminate();
-        },
-      };
+      Atomics.wait(state, 0, 0, GO_BUILD_CACHE_COORDINATION_HEARTBEAT_MS);
+      if (Atomics.load(state, 0) === 1) {
+        return {
+          stop: () => {
+            Atomics.store(state, 0, 2);
+            Atomics.notify(state, 0);
+            void worker.terminate();
+          },
+        };
+      }
+      Atomics.store(state, 0, 2);
+      Atomics.notify(state, 0);
+      void worker.terminate();
     } catch {}
 
     // Node's permission model can deny Worker construction while still allowing
     // the child process required for `go build`. The fallback inherits only the
     // low standard descriptors and checks its parent PID. An IPC channel would
     // allocate another high descriptor and recreate Darwin's spawn EBADF limit.
+    const ready = `${file}.heartbeat-${crypto.randomBytes(16).toString("hex")}`;
+    let heartbeatChild: ReturnType<typeof spawn> | undefined;
     try {
       const child = spawn(
         process.execPath,
@@ -192,38 +297,77 @@ export namespace GoBuildCacheCoordination {
             "const file = process.argv[1];",
             "const interval = Number(process.argv[2]);",
             "const parent = Number(process.argv[3]);",
+            "const ready = process.argv[4];",
             "const timer = setInterval(() => {",
             "  try { process.kill(parent, 0); } catch { clearInterval(timer); process.exit(0); }",
             "  try {",
+            '    if (JSON.parse(fs.readFileSync(file, "utf8")).status === "complete") {',
+            "      clearInterval(timer); process.exit(0);",
+            "    }",
             "    const now = new Date();",
             "    fs.utimesSync(file, now, now);",
-            "  } catch {}",
+            '  } catch (error) { if (error.code === "ENOENT") { clearInterval(timer); process.exit(0); } }',
             "}, interval);",
+            'try { fs.writeFileSync(ready, "ready", { flag: "wx" }); }',
+            "catch { clearInterval(timer); process.exit(1); }",
           ].join("\n"),
           file,
           String(GO_BUILD_CACHE_COORDINATION_HEARTBEAT_MS),
           String(process.pid),
+          ready,
         ],
         {
           stdio: [0, 1, 2],
           windowsHide: true,
         },
       );
+      heartbeatChild = child;
+      child.on("error", () => {
+        // spawn reports OS launch failures asynchronously, outside this try.
+      });
       child.unref();
+      if (child.pid === undefined) return undefined;
+      const deadline =
+        performance.now() + GO_BUILD_CACHE_COORDINATION_HEARTBEAT_MS;
+      while (!fs.existsSync(ready)) {
+        if (performance.now() >= deadline) {
+          child.kill();
+          return undefined;
+        }
+        Atomics.wait(state, 0, Atomics.load(state, 0), 10);
+      }
       return {
         stop: () => {
           child.kill();
         },
       };
     } catch {
+      try {
+        heartbeatChild?.kill();
+      } catch {}
       return undefined;
+    } finally {
+      try {
+        fs.rmSync(ready, { force: true });
+      } catch {}
     }
   }
 
   /**
-   * The live records of one coordination directory at `now`. Completed, stale,
-   * or unreadable records are deleted as they are found, so the directory does
-   * not grow with every crashed process.
+   * The live records of one coordination directory at `now`. Completed and
+   * provably stale records are deleted; inaccessible metadata is retained when
+   * its age cannot be established safely.
+   *
+   * @evidence contracts/common.md#principled-implementation Completed state overrides age; stale ordinary records are removed while inaccessible or clock-skew-uncertain state conservatively protects possible work.
+   * @evidence contracts/common.md#clear-and-simple-design One snapshot feeds a liveness helper and best-effort removal, returning only the protected paths.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts PID lifetime is not substituted for task lifetime; actual task status and heartbeat age drive selection.
+   * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes completed/stale reclamation from inaccessible metadata retention.
+   * @evidence contracts/portability.md#os-neutral-implementation Native Dirents exclude nonordinary files and coordination-directory validation pins physical ownership.
+   * @evidence contracts/performance.md#efficient-algorithms One listing and per-record metadata reads cost O(record count plus metadata bytes), using O(record count) temporary paths.
+   *
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Liveness is time-sensitive and filesystem-mutating collection is not memoized.
+   *
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Completed and stale records are reclaimed; unknown state or failed deletion can retain metadata beyond the normal grace.
    */
   export function collectLiveGoBuildCacheCoordinationRecords(
     root: string,
@@ -302,6 +446,7 @@ export namespace GoBuildCacheCoordination {
     return physicalDirectory;
   }
 
+  /** Classify task freshness without deleting under uncertain native state. */
   function goBuildCacheCoordinationRecordIsLive(
     file: string,
     directoryName: string,

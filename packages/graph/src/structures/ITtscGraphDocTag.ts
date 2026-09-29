@@ -22,10 +22,15 @@
  * The parser also decides where a tag begins, and that decision is reported
  * rather than second-guessed. TypeScript opens a tag at an `@` wherever it sits
  * inside a documentation block, so a tag name written mid-sentence arrives here
- * as a tag, while a `//` comment is not documentation and contributes nothing at
- * all. A convention that wants the stricter rule enforces it in its own linter,
- * where the author gets a diagnostic; the graph reports what the compiler
- * parsed.
+ * as a tag, while a `//` comment is not documentation and contributes nothing
+ * at all. A convention that wants the stricter rule enforces it in its own
+ * linter, where the author gets a diagnostic; the graph reports what the
+ * compiler parsed.
+ *
+ * @evidence contracts/common.md#principled-implementation Name and optional text preserve the compiler-parsed custom tag without asserting target resolution or truth.
+ * @evidence contracts/common.md#clear-and-simple-design Parsing authority remains with the compiler; the record carries only its two reported facts.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts No tag-name allowlist or consumer-specific reinterpretation replaces compiler parsing.
+ * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain unknown tags, unresolved targets, inline links and absent text rather than repeating field types.
  */
 export interface ITtscGraphDocTag {
   /** The tag name without its `@`: `evidence`, `evidenceExclude`, `reference`. */
@@ -34,10 +39,10 @@ export interface ITtscGraphDocTag {
   /**
    * Everything written after the tag name, joined into one line.
    *
-   * An inline link keeps the braced form it was written in (`{@link ISale}`),
-   * so a consumer matching a citation target sees what the author typed. The
-   * same link is separately a resolved edge on the node, which is what says
-   * *which* `ISale` — a name can be declared twice and only the checker knows.
+   * An inline link keeps the braced form it was written in (`{@link ISale}`), so
+   * a consumer matching a citation target sees what the author typed. The same
+   * link is separately a resolved edge on the node, which is what says _which_
+   * `ISale` — a name can be declared twice and only the checker knows.
    *
    * Absent when the tag carries no text.
    */

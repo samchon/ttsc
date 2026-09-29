@@ -13,8 +13,24 @@ import { make } from "../internal/make";
  * Given the label `name` and a `string` type, the printer renders:
  *
  * ```ts
- * name: string;
+ * name: string
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   The label becomes an Identifier while rest, optionality and element type
+ *   remain independent fields. Tuple-position legality is a caller responsibility.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One labeled element retains its markers without creating a variable
+ *   declaration or duplicating tuple-list ordering in the factory.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Labels and marker combinations are not rewritten from expected tuple
+ *   output; the supplied type remains the element's actual child.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc explains the named tuple element and marker order, using the element
+ *   itself rather than an unrelated statement as the example.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param dotDotDotToken The rest marker (`...`), if any.

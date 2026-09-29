@@ -28,6 +28,32 @@ import { watchBrokerSource } from "./watchBrokerSource";
  *   {@link watchBrokerSource}.
  *
  * The child is unreferenced between requests, so it never keeps a host alive.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Native failures are isolated in one protocol child; exit fails registrations
+ *   and releases drains false instead of certifying their silence.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One holder owns startup and process failure routing; registration lifetime
+ *   and drain scope remain with their owning operations.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The optional macOS binding is resolved normally; no fs.watch patch or
+ *   guessed delay substitutes for dropped-event capability.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native platform-reason list and lifecycle paragraph explain isolation and
+ *   process ownership under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   OS-neutral startup uses the current Node executable and argument-array spawn;
+ *   native FSEvents loading and platform differences remain in this boundary.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   The current broker lookup is constant work; failure visits registrations and
+ *   outstanding drains once, linear in those owners rather than watched files.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   All native tracker and observer registrations share the current broker;
+ *   failure clears that instance so later opens never reuse a dead producer.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Registrations own broker demand and the last closer disconnects and kills it;
+ *   requests reference the channel while awaiting replies. Failed children clear
+ *   registrations and drains, allowing their timers and waiters to retire.
  */
 export function getWatchBroker(): WatchBroker {
   if (WATCH_BROKER.current !== undefined) {

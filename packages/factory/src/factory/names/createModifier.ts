@@ -14,8 +14,22 @@ import { createToken } from "./createToken";
  * With `kind` of the `readonly` keyword, this prints:
  *
  * ```ts
- * readonly;
+ * readonly
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Delegation retains the chosen SyntaxKind as a token; modifier-position
+ *   validity is the caller's responsibility under the broad kind signature.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The API names modifier intent but shares createToken's representation.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   No modifier policy is patched into the printer or caller's declaration.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native documentation explicitly states the absence of extra modifier
+ *   behavior and supplies readonly as a separate example before tags.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param kind The token kind.

@@ -1,3 +1,5 @@
+import { PLUGIN_INPUT_OBSERVATION_PATH } from "./RESOLUTION_INPUT_RECORDER_PATH";
+
 /**
  * The descriptor shim's emitted source.
  *
@@ -12,6 +14,7 @@
 export const PLUGIN_DESCRIPTOR_SHIM_SOURCE = [
   `// @ts-nocheck`,
   `import { writeFileSync } from "node:fs";`,
+  `import { createRequire } from "node:module";`,
   `import { pathToFileURL } from "node:url";`,
   // The import is inside the try, not above it. A descriptor that cannot be
   // found, or whose module body throws, fails exactly where a descriptor
@@ -19,6 +22,7 @@ export const PLUGIN_DESCRIPTOR_SHIM_SOURCE = [
   // both — "Cannot find module ./missing" is as actionable as anything the
   // factory could have said.
   `try {`,
+  `  const { PluginDescriptorInputObservation } = createRequire(import.meta.url)(${JSON.stringify(PLUGIN_INPUT_OBSERVATION_PATH)});`,
   // Runtime hooks are installed before this shim loads. Arm their internal
   // side channel only for the descriptor import itself, after this shim's own
   // imports have resolved, so ttsc implementation files never become project
@@ -29,7 +33,10 @@ export const PLUGIN_DESCRIPTOR_SHIM_SOURCE = [
   `  const candidate = mod.createTtscPlugin ?? mod.default ?? mod.plugin ?? mod;`,
   `  const descriptor =`,
   `    typeof candidate === "function" ? candidate(context) : candidate;`,
-  `  writeFileSync(process.env.TTSC_PLUGIN_DESCRIPTOR_OUT, JSON.stringify(descriptor));`,
+  `  const serializedDescriptor = JSON.stringify(descriptor);`,
+  `  const payload = { observation: PluginDescriptorInputObservation.snapshot() };`,
+  `  if (serializedDescriptor !== undefined) payload.descriptor = JSON.parse(serializedDescriptor);`,
+  `  writeFileSync(process.env.TTSC_PLUGIN_DESCRIPTOR_OUT, JSON.stringify(payload));`,
   `} catch (error) {`,
   // The stack streams to the user's stderr on its own. This puts the reason
   // a caller can act on into the channel the parent already reads, so the

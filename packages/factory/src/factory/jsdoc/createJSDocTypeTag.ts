@@ -21,6 +21,10 @@ import { createIdentifier } from "../names/createIdentifier";
  * @type {number}
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation The supplied braced type is retained and an absent identifier receives type, constructing an annotation without inferring or checking the documented value's type.
+ * @evidence contracts/common.md#clear-and-simple-design Brace ownership stays with the type-expression child, leaving this adapter to map name, payload and optional description directly.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The type spelling is the documented default, and caller types are not replaced with known-fixture annotations or foreign checker results.
+ * @evidence contracts/common.md#meaningful-documentation Native prose describes the brace-wrapped payload and default name with an output example; separate paragraphs and parameter descriptions follow the documentation guidance.
  * @author Jeongho Nam - https://github.com/samchon
  * @param tagName The tag name; defaults to `type`.
  * @param typeExpression The type expression.

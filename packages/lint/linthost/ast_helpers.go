@@ -6,6 +6,7 @@ import (
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimscanner "github.com/microsoft/typescript-go/shim/scanner"
+  "github.com/samchon/ttsc/packages/lint/rule/astutil"
 )
 
 // nodeText returns the source text under a node with all leading
@@ -15,16 +16,7 @@ import (
 // would include any preceding comment because tsgo's Pos points at
 // the start of leading trivia, not the actual token.
 func nodeText(file *shimast.SourceFile, node *shimast.Node) string {
-  if file == nil || node == nil {
-    return ""
-  }
-  src := file.Text()
-  end := node.End()
-  pos := shimscanner.SkipTrivia(src, node.Pos())
-  if pos < 0 || end > len(src) || pos >= end {
-    return ""
-  }
-  return strings.TrimRight(src[pos:end], " \t\r\n")
+  return astutil.NodeText(file, node)
 }
 
 // templateRawNewlinePattern is acorn's TemplateElement raw normalization
@@ -60,31 +52,7 @@ func isTaggedTemplateQuasi(node *shimast.Node) bool {
 // keywordStart returns the source offset of a declaration keyword such as
 // `var` or `let` at the start of a node after leading trivia.
 func keywordStart(file *shimast.SourceFile, node *shimast.Node, keyword string) int {
-  if file == nil || node == nil || keyword == "" {
-    return -1
-  }
-  src := file.Text()
-  pos := shimscanner.SkipTrivia(src, node.Pos())
-  end := pos + len(keyword)
-  if pos < 0 || end > len(src) {
-    return -1
-  }
-  if strings.HasPrefix(src[pos:], keyword) && (end == len(src) || !isIdentifierPart(src[end])) {
-    return pos
-  }
-  limit := node.End()
-  if limit > len(src) {
-    limit = len(src)
-  }
-  for i := pos; i+len(keyword) <= limit && i < pos+32; i++ {
-    end = i + len(keyword)
-    if strings.HasPrefix(src[i:], keyword) &&
-      (i == 0 || !isIdentifierPart(src[i-1])) &&
-      (end == len(src) || !isIdentifierPart(src[end])) {
-      return i
-    }
-  }
-  return -1
+  return astutil.KeywordStart(file, node, keyword)
 }
 
 // findKeyword scans [pos, end) for a keyword token whose lexeme is
@@ -93,38 +61,10 @@ func keywordStart(file *shimast.SourceFile, node *shimast.Node, keyword string) 
 // leading-trivia start, so it can locate `module` inside a
 // ModuleDeclaration or insert points like the end of `import`.
 //
-// The match is identifier-aware: a hit must be preceded and followed by
-// a non-identifier byte so that e.g. searching for `import` does not
-// match the `import` prefix of `importStr`.
+// Matching uses compiler keyword tokens and excludes parser-classified
+// literals, comments and Unicode identifier prefixes.
 func findKeyword(file *shimast.SourceFile, pos, end int, keyword string) int {
-  if file == nil || keyword == "" {
-    return -1
-  }
-  src := file.Text()
-  if pos < 0 {
-    pos = 0
-  }
-  if end > len(src) {
-    end = len(src)
-  }
-  limit := end - len(keyword)
-  for i := pos; i <= limit; i++ {
-    if src[i] != keyword[0] {
-      continue
-    }
-    tail := i + len(keyword)
-    if src[i:tail] != keyword {
-      continue
-    }
-    if i > 0 && isIdentifierPart(src[i-1]) {
-      continue
-    }
-    if tail < len(src) && isIdentifierPart(src[tail]) {
-      continue
-    }
-    return i
-  }
-  return -1
+  return astutil.FindKeyword(file, pos, end, keyword)
 }
 
 // tokenRange returns the half-open byte range [pos, end) of `node` with
@@ -132,16 +72,7 @@ func findKeyword(file *shimast.SourceFile, pos, end int, keyword string) int {
 // Returns (-1, -1) when either argument is nil or the computed range is
 // out of bounds.
 func tokenRange(file *shimast.SourceFile, node *shimast.Node) (int, int) {
-  if file == nil || node == nil {
-    return -1, -1
-  }
-  src := file.Text()
-  pos := shimscanner.SkipTrivia(src, node.Pos())
-  end := node.End()
-  if pos < 0 || pos > len(src) || end < pos || end > len(src) {
-    return -1, -1
-  }
-  return pos, end
+  return astutil.TokenRange(file, node)
 }
 
 // isTaggedTemplateElement reports whether a template token — a
@@ -242,9 +173,8 @@ func hasCommentBetween(src string, from, to int) bool {
 }
 
 // isIdentifierPart reports whether `ch` can appear inside a JavaScript
-// identifier — used as a word-boundary guard by keyword search helpers.
-// Handles only ASCII; multibyte Unicode identifier parts are treated as
-// non-identifier (conservative; callers only need ASCII keyword tokens).
+// identifier in ASCII-oriented textual rule checks. It does not classify
+// Unicode identifier parts; language keyword search uses the compiler scanner.
 func isIdentifierPart(ch byte) bool {
   return (ch >= 'a' && ch <= 'z') ||
     (ch >= 'A' && ch <= 'Z') ||

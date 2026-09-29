@@ -10,6 +10,11 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
  * rules.
  *
  * @reference https://github.com/eslint-community/eslint-plugin-promise
+ *
+ * @evidence contracts/common.md#principled-implementation Optional promise keys express AST-based chain policies through severity-only settings, keeping their representation distinct from checker-based typescript rules.
+ * @evidence contracts/common.md#clear-and-simple-design The family groups promise-chain configuration and shares severity construction; it does not introduce asynchronous execution behavior into the type.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit policy keys and a closed setting union provide the configuration boundary without monkey patching Promise or adding test-only forms.
+ * @evidence contracts/common.md#meaningful-documentation Native prose states the AST scope and the no-multiple-resolved limitation, while member comments explain failure channels; paragraph and member separation follow documentation guidance.
  */
 export interface ITtscLintPromiseRules {
   /**

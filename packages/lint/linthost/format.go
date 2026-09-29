@@ -20,6 +20,11 @@ const maxFormatPasses = 10
 // only. Write-only by contract: no diagnostic output, no typecheck
 // recheck. Mirrors RunFix in flag handling so the host launcher can
 // forward the same option shape.
+//
+// @evidence contracts/common.md#principled-implementation The command rejects emit and runs only format findings inside project-owned writable sources, applying atomic edits until convergence or the explicit pass limit.
+// @evidence contracts/common.md#clear-and-simple-design Format reuses fix parsing and edit application while owning its format-only selection and absence of final typecheck diagnostics.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Nonconvergence returns a visible failure; default formatting is a documented command policy rather than a test-dependent activation.
+// @evidence contracts/common.md#meaningful-documentation Native prose states format-only and write-only behavior, and cascade comments explain failure at the pass bound.
 func RunFormat(args []string) int {
   opts, err := parseSubcommandFlags("format", args)
   if err != nil {

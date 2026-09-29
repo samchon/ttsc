@@ -34,11 +34,23 @@ import (
 )
 
 // RunCheck implements `@ttsc/lint check` — typecheck + lint, no emit.
+//
+// @evidence contracts/common.md#principled-implementation Process streams delegate to the same no-emit check entry point used by injected-stream callers.
+// @evidence contracts/common.md#clear-and-simple-design This wrapper owns only default stream selection.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Delegation preserves the supported command path without an alternate diagnostic implementation.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies the check command and its no-emit effect; tags are separated from prose.
 func RunCheck(args []string) int {
   return RunCheckWithIO(args, os.Stdout, os.Stderr)
 }
 
 // RunCheckWithIO runs check with invocation-owned output streams.
+// Writers must be nonnil. Returns 0 on success or 2 for configuration,
+// compiler or lint errors; warnings do not fail the check.
+//
+// @evidence contracts/common.md#principled-implementation Shared flag parsing forces noEmit before project loading, so lint and compiler diagnostics share the loaded program without producing JavaScript.
+// @evidence contracts/common.md#clear-and-simple-design Shared orchestration owns setup and diagnostics while this entry point selects check policy.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Supported writer injection carries output without replacing process globals.
+// @evidence contracts/common.md#meaningful-documentation Native prose names invocation ownership of writers; the underlying command documentation explains no emit.
 func RunCheckWithIO(args []string, stdout, stderr io.Writer) int {
   opts, err := parseSubcommandFlagsWithIO("check", args, stdout, stderr)
   if err != nil {
@@ -51,11 +63,23 @@ func RunCheckWithIO(args []string, stdout, stderr io.Writer) int {
 
 // RunBuild implements `@ttsc/lint build` — same diagnostic flow as
 // `check`, plus the tsgo emit pipeline when emit is requested.
+//
+// @evidence contracts/common.md#principled-implementation Default process writers delegate to the build entry point that preserves compiler emit configuration.
+// @evidence contracts/common.md#clear-and-simple-design The wrapper adds only process stream selection to shared build behavior.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Emit uses the compiler pipeline rather than rewriting generated output for expected examples.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes build's emission from check's no-emit operation; tags are separated.
 func RunBuild(args []string) int {
   return RunBuildWithIO(args, os.Stdout, os.Stderr)
 }
 
 // RunBuildWithIO runs build with invocation-owned output streams.
+// Writers must be nonnil. Returns 0 on success, 2 for configuration or
+// diagnostics errors, or 3 when the compiler produces no emit result.
+//
+// @evidence contracts/common.md#principled-implementation Shared setup forwards compiler options and performs lint and compiler diagnostics before compiler-owned emission.
+// @evidence contracts/common.md#clear-and-simple-design The project runner owns the common pipeline and this adapter owns command policy and streams.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Writer injection preserves invocation isolation through the documented boundary.
+// @evidence contracts/common.md#meaningful-documentation Native prose states stream ownership and the adjacent build documentation states the emit distinction.
 func RunBuildWithIO(args []string, stdout, stderr io.Writer) int {
   opts, err := parseSubcommandFlagsWithIO("build", args, stdout, stderr)
   if err != nil {
@@ -68,11 +92,24 @@ func RunBuildWithIO(args []string, stdout, stderr io.Writer) int {
 // RunTransform implements `@ttsc/lint transform --file=PATH`. Lint rules
 // still run for the whole program (lint quality depends on context), but
 // emit is restricted to the requested file's JS output.
+//
+// @evidence contracts/common.md#principled-implementation The default-stream wrapper preserves project-wide diagnostics and target-only JavaScript emission in its delegated implementation.
+// @evidence contracts/common.md#clear-and-simple-design This wrapper selects process output without duplicating transformation orchestration.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Transformation remains compiler-owned rather than a special source-text substitute.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains whole-program lint context and the target-only emit boundary.
 func RunTransform(args []string) int {
   return RunTransformWithIO(args, os.Stdout, os.Stderr)
 }
 
 // RunTransformWithIO runs transform with invocation-owned output streams.
+// Writers must be nonnil. Output goes to stdout unless --out selects a file;
+// returns 2 for configuration or diagnostics errors and 3 for failed emission
+// or output writes. A successful transformation returns 0.
+//
+// @evidence contracts/common.md#principled-implementation Parsed project context selects a normalized source file from the loaded program; compiler emission captures only JavaScript output for that target and surfaces missing output or write failures.
+// @evidence contracts/common.md#clear-and-simple-design Flag parsing, diagnostics, target lookup and output capture form one explicit command pipeline.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Supported emit callbacks and stream injection replace neither compiler globals nor generated content.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies stream ownership while the transform declaration explains project context and output scope.
 func RunTransformWithIO(args []string, stdout, stderr io.Writer) int {
   semanticConfigPath := os.Getenv(semanticConfigPathEnv)
   fs := flag.NewFlagSet("transform", flag.ContinueOnError)

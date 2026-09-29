@@ -1,6 +1,8 @@
 package linthost
 
 import (
+  "strings"
+
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
@@ -37,15 +39,32 @@ import (
 // PrintContext bundles the per-file inputs every per-node printer
 // needs. The dispatcher constructs one per top-level reflow and threads
 // it into every recursive call.
+//
+// @evidence contracts/common.md#principled-implementation The source file, its exact text and resolved layout options keep recursive printers in one byte-coordinate and formatting context.
+// @evidence contracts/common.md#clear-and-simple-design One context groups stable per-file inputs instead of resolving policy in every node printer.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Printers receive actual source and options rather than expected-output fragments or modified foreign AST methods.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies per-file scope and members describe source ownership and layout options; member gaps and tags follow documentation guidance.
 type PrintContext struct {
+  // File is the immutable compiler source file being reflowed.
   File   *shimast.SourceFile
+
+  // Source is the same file's original text, using compiler byte positions.
   Source string
+
+  // Opts controls layout decisions throughout this reflow.
   Opts   PrintOptions
 }
 
 // NewPrintContext returns a context wired to `file` and `opts`. The
 // helper exists so call sites do not have to remember to read
 // `file.Text()` and Opts defaults at every level.
+//
+// The file must be nonnil. A zero PrintWidth selects the complete default option set.
+//
+// @evidence contracts/common.md#principled-implementation The nonnil source file supplies exact text and zero-width callers receive the documented complete defaults.
+// @evidence contracts/common.md#clear-and-simple-design One constructor establishes the recursive print inputs and default selection once.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Defaults are the public formatting policy rather than fixture-specific widths or source substitutions.
+// @evidence contracts/common.md#meaningful-documentation Native prose states the nonnil premise and whole-default behavior; separated tags follow documentation guidance.
 func NewPrintContext(file *shimast.SourceFile, opts PrintOptions) *PrintContext {
   if opts.PrintWidth == 0 {
     opts = DefaultPrintOptions()
@@ -62,6 +81,14 @@ func NewPrintContext(file *shimast.SourceFile, opts PrintOptions) *PrintContext 
 // The formatPrintWidth rule consults `covered` to decide whether to
 // emit an edit at all — see the coverage-signal note at the top of this
 // file. A `false` reading is a hard abstain, not a soft hint.
+//
+// A nonnil node requires a nonnil context for that node's source file. A nil
+// node contributes an empty Doc and is covered.
+//
+// @evidence contracts/common.md#principled-implementation Supported node printers return a layout plus coverage; unsupported nodes preserve original bytes and mark multiline verbatim subtrees unsafe for surrounding reflow.
+// @evidence contracts/common.md#clear-and-simple-design One dispatcher owns grammar selection and one fallback retains unknown syntax without duplicating per-node policies.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Verbatim fallback is the supported partial-printer boundary, not an invented replacement for unknown grammar; the false coverage signal prevents applying an incomplete rewrite.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains partial grammar coverage, byte-preserving fallback and abstention; paragraphs and tags follow documentation guidance.
 func PrintNode(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   if node == nil {
     return Doc{}, true
@@ -156,7 +183,7 @@ func dispatchNode(ctx *PrintContext, node *shimast.Node) (Doc, bool, bool) {
 // verbatim as `covered`. A multi-line verbatim node freezes its
 // interior columns and is reported uncovered.
 func nodeSpansMultipleLines(ctx *PrintContext, node *shimast.Node) bool {
-  if node == nil {
+  if node == nil || ctx == nil || node.Pos() < 0 || node.Pos() > len(ctx.Source) {
     return false
   }
   start := shimscanner.SkipTrivia(ctx.Source, node.Pos())
@@ -164,12 +191,7 @@ func nodeSpansMultipleLines(ctx *PrintContext, node *shimast.Node) bool {
   if start < 0 || end < start || end > len(ctx.Source) {
     return false
   }
-  for i := start; i < end; i++ {
-    if ctx.Source[i] == '\n' {
-      return true
-    }
-  }
-  return false
+  return strings.ContainsAny(ctx.Source[start:end], "\r\n\u2028\u2029")
 }
 
 // verbatim returns the original source bytes for `node`, leading trivia
@@ -177,7 +199,7 @@ func nodeSpansMultipleLines(ctx *PrintContext, node *shimast.Node) bool {
 // surrounding doc tree still flows, but the verbatim slice carries
 // whatever the user wrote, including comments and embedded line breaks.
 func verbatim(ctx *PrintContext, node *shimast.Node) Doc {
-  if node == nil {
+  if node == nil || ctx == nil || node.Pos() < 0 || node.Pos() > len(ctx.Source) {
     return Doc{}
   }
   start := shimscanner.SkipTrivia(ctx.Source, node.Pos())

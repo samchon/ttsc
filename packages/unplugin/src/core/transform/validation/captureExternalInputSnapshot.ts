@@ -45,27 +45,49 @@ import type { TtscExternalDependencyWitness } from "./TtscExternalDependencyWitn
  * @param witness The dependency states read before the compile, or `undefined`
  *   for an adopted compile, whose publisher already proved the state it
  *   published and whose adopter matches it against that publication.
+ *
+ * @evidence contracts/common.md#principled-implementation Compiler predicates qualify realized graph sources; plugin-only dependencies require a stable precompile witness, so postcompile reads cannot invent an earlier coherent state.
+ * @evidence contracts/common.md#clear-and-simple-design One capture separates predicate observations, content identities and dependency witnesses while shared codec helpers own their native meanings.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing or conflicting compiler proof remains an explicit failure; neither a new host read nor a guessed dependency baseline repairs it.
+ * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain source versus dependency authority, adopted-generation premises and the witness argument before tags.
+ * @evidence contracts/performance.md#efficient-algorithms Sets classify reported paths and realized outputs once; capture scans external inputs with dominant cost in bytes read and directory entries replayed by their predicates.
+ * @evidence contracts/performance.md#reuse-equivalent-work Only compiler-qualified or witnessed content earns a separable metadata signature; later validators share it while the same spelling and generation remain valid.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned manifest transfers to the generation owner; this capture retains no independent history or native handle.
+ * @evidence contracts/portability.md#os-neutral-implementation The generation's filesystem and identity context qualify physical aliases and actual case policy; lexical resolved spellings remain distinct metadata witnesses.
  */
 export function captureExternalInputSnapshot(
   cached: TtscCachedProjectTransform,
   paths: readonly string[],
   witness: ReadonlyMap<string, TtscExternalDependencyWitness> | undefined,
 ): {
+  /** Whether every external input retained the authority required for reuse. */
   complete: boolean;
+
   /**
    * The plugin-reported paths no graph proves, which the next compile's witness
    * reads.
    */
   dependencies: string[];
+
   /**
    * Whether every one of {@link dependencies} had a witness that held across the
    * compile; always true for an adopted compile.
    */
   dependenciesProven: boolean;
+
+  /** Classified coherence failures for the generation admission boundary. */
   failures: TtscGenerationProofFailures;
+
+  /** Content identities under the generation's physical identity keys. */
   hashes: Record<string, string>;
+
+  /** Compiler predicates preserved under their exact lexical spellings. */
   observations: Record<string, ITtscCompilerTransformation.IInputObservation>;
+
+  /** Physical targets witnessed for graph-owned content identities. */
   realpaths: Record<string, string | null>;
+
+  /** Separable metadata witnesses earned around successful comparisons. */
   signatures: Record<string, string>;
 } {
   const state = envelopeDerivation(cached);

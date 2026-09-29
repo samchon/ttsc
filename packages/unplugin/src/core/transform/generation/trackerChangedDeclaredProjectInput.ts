@@ -3,7 +3,20 @@ import path from "node:path";
 import { pathIsWithin } from "../filesystem/pathIsWithin";
 import type { TtscProjectMutationTracker } from "../tracker/TtscProjectMutationTracker";
 
-/** Whether a compile-time content event overlaps any declared project input. */
+/**
+ * Whether compile-time events overlap a declared input, including an ancestor
+ * replacement. Unknown declared scope and dropped events conservatively count
+ * as change; no tracker means this helper has no positive event witness.
+ *
+ * @evidence contracts/common.md#principled-implementation Reported changes use the tracker's actual overlap capability when available, otherwise bidirectional containment catches input or ancestor replacement; omitted events cannot establish silence.
+ * @evidence contracts/common.md#clear-and-simple-design This predicate owns declared-scope event selection while backend event collection and path identity remain with the tracker and filesystem helpers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing event identities remain conservative, and no source extension or bundler-specific path whitelist suppresses a declared-input event.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains ancestor overlap, undefined declared scope, omitted events and absent tracker meaning with separated acknowledgments.
+ * @evidence contracts/portability.md#os-neutral-implementation Declared keys are anchored through Node native paths; the tracker can supply filesystem-aware overlap, with native containment as fallback rather than a universal lowercase rule.
+ * @evidence contracts/performance.md#efficient-algorithms Declared paths are resolved once, then at most changes times declared-input comparisons are made with short-circuit success; empty events and unknown scope return before allocating the path list.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This event predicate coordinates no cache or completed computation; the enclosing capture owns shared tracker observations.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Tracker acquisition and closure belong to capture; this predicate retains no event history beyond its temporary declared-path array.
+ */
 export function trackerChangedDeclaredProjectInput(
   tracker: TtscProjectMutationTracker | undefined,
   declared: ReadonlySet<string> | undefined,

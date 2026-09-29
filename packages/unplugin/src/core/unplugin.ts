@@ -32,7 +32,6 @@ import { sharedBuildTransformCache } from "./transform/cache/sharedBuildTransfor
 import { hostDeclaresPolling } from "./transform/tracker/hostDeclaresPolling";
 import { transformTtsc } from "./transform/transformTtsc";
 import { isHostWrapperQuery } from "./transform/utils/isHostWrapperQuery";
-import { stableStringify } from "./transform/utils/stableStringify";
 import { stripQuery } from "./transform/utils/stripQuery";
 import { createViteServeInputWatch } from "./vite/createViteServeInputWatch";
 import { TTSC_SOURCE_MAP_STASH } from "./webpack/TTSC_SOURCE_MAP_STASH";
@@ -70,7 +69,7 @@ const unpluginFactory: UnpluginFactory<
   // all of their sessions (samchon/ttsc#1396).
   const shared =
     meta.framework === "webpack" || meta.framework === "rspack"
-      ? sharedBuildTransformCache(stableStringify(options))
+      ? sharedBuildTransformCache(JSON.stringify(options))
       : undefined;
   shared?.lease.acquire();
   const transformCache = shared?.cache ?? createTtscTransformCache();
@@ -107,7 +106,7 @@ const unpluginFactory: UnpluginFactory<
   // Farm reports no watch mode to a transform. Its development mode is the one
   // that watches: `farm start` and `farm watch` resolve it, `farm build` does
   // not.
-  let farmWatching = false;
+  let farmWatching: boolean | undefined;
   // Farm's configured root, which Farm relates every watch file to and cannot
   // relate one on another Windows drive to, so its record lives below it, as
   // the Turbopack loader's lives below the root Turbopack resolved. Every other
@@ -149,7 +148,7 @@ const unpluginFactory: UnpluginFactory<
     return native?.framework === "webpack" || native?.framework === "rspack"
       ? (native.compiler as { watchMode?: boolean }).watchMode === true
       : native?.framework === "farm"
-        ? farmWatching
+        ? farmWatching === true
         : native === undefined && context.meta?.watchMode === true;
   };
   // Whether the adapter transforms a module id. A host-generated wrapper such
@@ -533,6 +532,18 @@ const unpluginFactory: UnpluginFactory<
         native?.framework === "webpack" || native?.framework === "rspack"
           ? native.loaderContext
           : undefined;
+      // Lifecycle admission needs an actual host declaration, rather than the
+      // ordinary bridge helper's default when no watch capability is reported.
+      const watching =
+        viteCommand === "serve"
+          ? true
+          : viteCommand === "build"
+            ? viteBuildWatching
+            : native?.framework === "webpack" || native?.framework === "rspack"
+              ? (native.compiler as { watchMode?: boolean }).watchMode
+              : native?.framework === "farm"
+                ? farmWatching
+                : (this as { meta?: { watchMode?: boolean } }).meta?.watchMode;
       const addWatchFile: (input: string) => void =
         native?.framework === "farm"
           ? (input) => native.context.addWatchFile(file, input)
@@ -552,6 +563,7 @@ const unpluginFactory: UnpluginFactory<
         aliases,
         transformCache,
         {
+          watching,
           // A dev server keys each importer on its own inputs through its
           // module graph; a watcherless one has no invalidation channel and
           // needs no derivation.
@@ -594,16 +606,14 @@ const unpluginFactory: UnpluginFactory<
           // A module the plugin declared volatile depends on non-file inputs,
           // which no file-dependency snapshot can represent; mark it
           // uncacheable where the bundler exposes that control.
-          markVolatile: () => {
-            handed.unprovable = true;
-            const native = this.getNativeBuildContext?.();
-            if (
-              native?.framework === "webpack" ||
-              native?.framework === "rspack"
-            ) {
-              native.loaderContext?.cacheable?.(false);
-            }
-          },
+          ...(answersRollupCache(this) || loaderContext?.cacheable !== undefined
+            ? {
+                markVolatile: () => {
+                  handed.unprovable = true;
+                  loaderContext?.cacheable?.(false);
+                },
+              }
+            : {}),
         },
       );
       // Unplugin's webpack and Rspack loaders drop the map of a module that

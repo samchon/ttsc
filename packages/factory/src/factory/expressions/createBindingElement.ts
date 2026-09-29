@@ -20,13 +20,21 @@ import { createIdentifier } from "../names/createIdentifier";
  *
  * The printer renders the parts as `...`, `propertyName: name` and `= default`,
  * each present only when supplied. A plain element named `a` prints as `a`;
- * with an initializer `def` it prints as `c = def`; a rest element named `rest`
+ * with an initializer `def` it prints as `a = def`; a rest element named `rest`
  * prints as `...rest`. With a property name `src` mapping to local `dst` it
  * prints:
  *
  * ```ts
- * src: dst;
+ * src: dst
  * ```
+ *
+ * Callers ensure rest, default and property mapping form a legal combination
+ * in the enclosing pattern; the builder does not check those constraints.
+ *
+ * @evidence contracts/common.md#principled-implementation Optional source key and local BindingName stay distinct, strings normalize to names, and rest/default fields preserve supplied syntax; legal combinations remain caller-owned.
+ * @evidence contracts/common.md#clear-and-simple-design Shared name adapters and make perform normalization once while enclosing patterns own position and punctuation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts String normalization creates explicit name nodes rather than invented bindings or a guessed source-property mapping.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains source/local mapping, rest and defaults plus combination limits; examples and parameter descriptions are separated from tags.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param dotDotDotToken The rest token, if this is a rest element.

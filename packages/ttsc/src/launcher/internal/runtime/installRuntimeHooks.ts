@@ -1,7 +1,6 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import {
-  Module,
   createRequire,
   isBuiltin,
   registerHooks,
@@ -18,6 +17,7 @@ import { resolveTsgo } from "../../../compiler/internal/resolveTsgo";
 import { spawnNative } from "../../../compiler/internal/spawnNative";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
 import { runHoldingLock } from "../../../internal/runHoldingLock";
+import { runtimeExecutableIdentity } from "../../../internal/runtimeExecutableIdentity";
 import { moduleResolutionBaseSelects } from "../../../plugin/internal/load/moduleResolutionBaseSelects";
 import { observeImportSearchRoots } from "../../../plugin/internal/load/observeImportSearchRoots";
 import { visitImportMappedCandidates } from "../../../plugin/internal/load/visitImportMappedCandidates";
@@ -38,6 +38,8 @@ import { RuntimeLoaderCapabilities } from "./RuntimeLoaderCapabilities";
 import type { RuntimeManifest } from "./RuntimeManifest";
 import { RuntimeManifestRegistry } from "./RuntimeManifestRegistry";
 import { RuntimeModuleFormat } from "./RuntimeModuleFormat";
+import { RuntimeEmitProvenance } from "./RuntimeEmitProvenance";
+import { PluginDescriptorInputObservation } from "./PluginDescriptorInputObservation";
 import { acquireDependencyBuildLock } from "./acquireDependencyBuildLock";
 import { checkNodeRuntimeSupport } from "./checkNodeRuntimeSupport";
 import { commonJsImportFacade } from "./commonJsImportFacade";
@@ -64,7 +66,8 @@ import { restoreStrippedNodeBuiltinScheme } from "./restoreStrippedNodeBuiltinSc
  * pointing at the source tree. Three load paths:
  *
  * 1. A `.ts` belonging to the entry project: serve the pre-built emitted JS
- *    (transform plugins already applied), mapped by the project's `rootDir`.
+ *    (transform plugins already applied) under the producer's captured physical
+ *    source-to-written-output ownership.
  * 2. Any other raw `.ts` dependency (a published or workspace package that ships
  *    source): build its own owning `tsconfig.json` once via `runBuild` and
  *    serve the emit. A real build (not a type-strip) is required because Node's
@@ -79,16 +82,26 @@ import { restoreStrippedNodeBuiltinScheme } from "./restoreStrippedNodeBuiltinSc
  * that is what lets a CommonJS `require("./x")` chain reach them and what makes
  * `require.resolve(..., { paths })` inside `runBuild`'s plugin loader behave.
  *
- * Both graphs go through `registerHooks`, the supported customization API, on
- * every supported release (samchon/ttsc#1517). A `require()` reaches the hooks
- * on its own. A CommonJS module an ESM `import` reaches is served as an ESM
- * facade that loads it through the CommonJS loader (`commonJsImportFacade`):
- * handed to the ESM loader with source, the module's own `require()` bypasses
- * the hooks on some releases, so a nested `require("./x.js")` backed only by
- * `x.ts` failed there (samchon/ttsc#1280). The one reach the API lacks on some
- * releases is `require.resolve`, which is probed at installation
- * (`RuntimeLoaderCapabilities`) and rescued only where the hooks miss it
- * (`installRequireResolveRescue`).
+ * Both graphs go through `registerHooks`, the supported customization API. A
+ * CommonJS module an ESM `import` reaches is served as an ESM facade that loads
+ * it through the CommonJS loader (`commonJsImportFacade`): handed to the ESM
+ * loader with source, the module's own `require()` bypasses the hooks on some
+ * releases, so a nested `require("./x.js")` backed only by `x.ts` failed there
+ * (samchon/ttsc#1280). The one reach the API lacks on some releases is
+ * `require.resolve`, which is probed before installation. A host that bypasses
+ * public resolve hooks is rejected with an actionable error; foreign resolver
+ * methods and extension registries are never replaced. Ecosystem tools must use
+ * the registered loader rather than require a `require.extensions`
+ * advertisement.
+ *
+ * @evidence contracts/common.md#principled-implementation Resolution preserves successful Node decisions, rescues source spellings only after documented resolution fails, and serves only outputs whose ownership index names the exact source. CommonJS facades retain Node's own evaluation and binding semantics; hosts whose require.resolve bypasses the public hooks are rejected before installation.
+ * @evidence contracts/common.md#clear-and-simple-design One synchronous hook owner coordinates source selection, emission ownership and descriptor observation; the entry, owning-project and orphan lanes remain explicit because they have distinct compilation premises. Private helpers carry those policies without a second foreign-resolver layer.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Public registerHooks handles resolution and loading; installation no longer mutates Module._resolveFilename or require.extensions. Source-extension recovery implements emitted-to-source spelling under the runtime contract, while incapable hosts fail instead of preserving an unsupported resolver beneath patches.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe the three serving lanes, compile gates, source identity, capability failure and the absence of extension-registry advertising; helper comments state ownership and failure effects with descriptive prose separated from tags.
+ * @evidence contracts/portability.md#os-neutral-implementation Node URL conversion, native filesystem paths and physical resolution preserve OS spelling boundaries. Actual public-hook probes select runtime capabilities, native emit uses executable arguments without shell interpolation, and unresolved filesystem observation refuses reusable descriptor proof.
+ * @evidence contracts/performance.md#efficient-algorithms Source ownership indexes avoid a complete emit scan on each load; export discovery visits each graph node once per traversal, and config-chain validation scans its discovered inputs. Compiler identity validation streams B executable bytes per lookup because metadata cannot certify unchanged bytes. Native compilation is required for a new project or orphan; recursive graphs remain subject to the JavaScript stack limit.
+ * @evidence contracts/performance.md#reuse-equivalent-work Entry emits and dependency generations are shared within the current run; root keys include source bytes and orphan keys include source bytes, format, lowering policy and content-proven compiler identity. Nearest-config selection revalidates candidate existence. Project and failed-build memos still use a per-process module-evaluation snapshot and do not certify arbitrary mid-run config or dependency edits.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Hooks and memoized module roles/builds live for this process, growing with distinct loaded projects, roots and export scans without a fixed historical cap. Isolated output directories and publication staging belong to synchronous operations and are reclaimed on failure; WeakMap ownership indexes do not extend their build lifetime. Cross-process generations follow their cache owner's retention policy.
  */
 export function installRuntimeHooks(options: RuntimeHookOptions = {}): void {
   if (options.prepareEntry !== undefined) {
@@ -98,45 +111,24 @@ export function installRuntimeHooks(options: RuntimeHookOptions = {}): void {
     return;
   }
   assertNodeRuntimeSupport();
-  installed = true;
-  // Map error stacks through the source maps the serve path now inlines, so a
-  // thrown frame reports the true `.ts` line:col out of the box (no
-  // `--enable-source-maps` needed). Applied before the entry loads; user code
-  // that later toggles it wins, since this is a plain runtime switch.
+  // Probed before the runtime's hooks exist, so nothing the probes load is
+  // served or recorded as an input of the program.
+  if (!RuntimeLoaderCapabilities.requireResolveConsultsHooks()) {
+    throw new Error(
+      `ttsx: Node.js ${process.versions.node} bypasses module.registerHooks in require.resolve. ` +
+        "Upgrade to a Node.js release whose synchronous hooks cover require.resolve " +
+        "(Node.js 24.18.0 is verified). The runtime does not patch Node's private resolver.",
+    );
+  }
+  RuntimeLoaderCapabilities.commonJsNamespaceCarriesModuleExports();
+  // Error stacks use the served source maps. This supported switch is applied
+  // only after the required public loader capabilities have been established.
   if (typeof process.setSourceMapsEnabled === "function") {
     process.setSourceMapsEnabled(true);
   }
-  // Probed before the runtime's hooks exist, so nothing the probes load is
-  // served or recorded as an input of the program.
-  const rescueRequireResolve =
-    !RuntimeLoaderCapabilities.requireResolveConsultsHooks();
-  RuntimeLoaderCapabilities.commonJsNamespaceCarriesModuleExports();
   registerHooks({ load, resolve });
-  advertiseTypeScriptExtensions();
-  if (rescueRequireResolve) installRequireResolveRescue();
-}
-
-/**
- * Declare the TypeScript extensions in `require.extensions`, each bound to
- * Node's own `.js` handler (samchon/ttsc#1560).
- *
- * `require.extensions` is how the CommonJS ecosystem learns which files this
- * process can `require()`: `rechoir`, which `webpack-cli`, `gulp-cli`, and
- * `knex` use to load a `.ts` config, takes a present key as "a loader is
- * installed" and otherwise tries to install one of its own, and fails when none
- * is found. Node defines no TypeScript key on any release, so without this a
- * config ttsx can serve is refused before it is required. The handler is
- * Node's, not ttsx's: serving and compiling stay in the hooks, which hand the
- * `.js` handler the served source. Node also probes these keys, after its own,
- * for an extensionless request, so `require("./x")` and
- * `require.resolve("./x")` find a lone `x.ts` while an `x.js` beside it still
- * wins, as it does for Node.
- */
-function advertiseTypeScriptExtensions(): void {
-  const extensions = require.extensions;
-  for (const extension of [".ts", ".tsx", ".cts"]) {
-    extensions[extension] ??= extensions[".js"]!;
-  }
+  PluginDescriptorInputObservation.begin();
+  installed = true;
 }
 
 /**
@@ -204,6 +196,7 @@ interface LoadResult {
 
 interface ServedSource {
   source: string;
+
   /** Options of the project that emitted this source; `null` when none did. */
   moduleOptions: OwningModuleOptions | null;
   emittedFile?: string;
@@ -234,116 +227,6 @@ function assertNodeRuntimeSupport(): void {
 let installed = false;
 
 let prepareRuntimeEntry: ((filename: string) => RuntimeManifest) | undefined;
-
-/**
- * Rescue on `require.resolve` what the resolve hook rescues everywhere else, on
- * a runtime whose `require.resolve` does not consult `module.registerHooks`
- * (`RuntimeLoaderCapabilities.requireResolveConsultsHooks`).
- *
- * TypeScript asks authors to write the emitted `.js` extension in a relative
- * specifier, and an extensionless one names a source by its stem, so
- * `require.resolve("./x.js")` and `require.resolve("./x")` must find `x.ts` as
- * `require()` does. Where the hooks see `require.resolve`, they answer it and
- * nothing is installed. Where they do not, the one entry point
- * `require.resolve` reaches, `Module._resolveFilename`, answers only a request
- * Node's own resolver already refused, so a resolution that succeeds is never
- * perturbed, and a request no candidate satisfies rethrows Node's original
- * error with its `MODULE_NOT_FOUND` code and `requireStack` intact.
- */
-function installRequireResolveRescue(): void {
-  const internals = Module as unknown as {
-    _resolveFilename(
-      request: string,
-      parent: { filename?: string | null } | null | undefined,
-      isMain: boolean,
-      options?: unknown,
-    ): string;
-  };
-  const original = internals._resolveFilename;
-  internals._resolveFilename = function resolveFilename(
-    this: unknown,
-    request: string,
-    parent: { filename?: string | null } | null | undefined,
-    isMain: boolean,
-    options?: unknown,
-  ): string {
-    if (typeof request !== "string") {
-      return original.call(this, request, parent, isMain, options);
-    }
-    // What the resolve hook records of a descriptor's resolution, recorded
-    // here for the resolutions the hooks do not see.
-    const parentURL =
-      typeof parent?.filename === "string"
-        ? pathToFileURL(parent.filename).href
-        : undefined;
-    const candidates = observePluginDescriptorResolutionCandidates(
-      request,
-      parentURL,
-    );
-    let selected: string | undefined;
-    try {
-      let resolved: string;
-      try {
-        resolved = original.call(this, request, parent, isMain, options);
-      } catch (error) {
-        const rescued = rescueCommonJsRequest(request, parent, options);
-        if (rescued === null) {
-          throw error;
-        }
-        resolved = rescued;
-      }
-      if (path.isAbsolute(resolved)) {
-        selected = pathToFileURL(resolved).href;
-        recordPluginDescriptorResolution(request, parentURL, selected);
-      }
-      return resolved;
-    } finally {
-      candidates.commit(selected);
-    }
-  };
-}
-
-/**
- * The TypeScript source a refused CommonJS request names, or `null`, by the
- * rescue the resolve hook applies (`probeRescuableSpecifier`).
- *
- * A relative request resolves from the parent's directory, or, in the
- * `require.resolve(request, { paths })` form, from each listed directory in
- * order, as Node resolves it; an absolute request names its own location either
- * way. A bare specifier is a package lookup Node already made, and a non-string
- * request reaches this internal entry point as readily as a specifier does, so
- * both decline and keep Node's own error.
- */
-function rescueCommonJsRequest(
-  request: unknown,
-  parent: { filename?: string | null } | null | undefined,
-  options?: unknown,
-): string | null {
-  if (typeof request !== "string") return null;
-  const paths =
-    typeof options === "object" &&
-    options !== null &&
-    Array.isArray((options as { paths?: unknown }).paths)
-      ? (options as { paths: unknown[] }).paths
-      : undefined;
-  const parents: (string | undefined)[] = path.isAbsolute(request)
-    ? [undefined]
-    : paths !== undefined
-      ? paths
-          .filter((entry): entry is string => typeof entry === "string")
-          .map(
-            (entry) =>
-              pathToFileURL(path.join(path.resolve(entry), "index.js")).href,
-          )
-      : typeof parent?.filename === "string"
-        ? [pathToFileURL(parent.filename).href]
-        : [];
-  for (const parentURL of parents) {
-    const rescued = probeRescuableSpecifier(request, parentURL);
-    if (rescued !== null) return fileURLToPath(rescued);
-  }
-  return null;
-}
 
 /** TypeScript URLs resolved at a JavaScript-to-TypeScript entry boundary. */
 const runtimeEntryUrls = new Set<string>();
@@ -640,8 +523,6 @@ function recordPluginDescriptorResolution(
   resolvedURL: string,
 ): void {
   if (process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE !== "1") return;
-  const out = process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_OUT;
-  if (out === undefined || out.length === 0) return;
   const resolved = runtimeFilePath(resolvedURL);
   if (resolved === undefined) return;
   const parent = runtimeFilePath(parentURL);
@@ -692,11 +573,10 @@ function observePluginDescriptorInput(record: {
   unstable?: boolean;
 }): string[] {
   if (process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE !== "1") return [];
-  const out = process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_OUT;
-  if (out === undefined || out.length === 0) return [];
   const lines: string[] = [];
   const observe = (line: string | undefined): void => {
     if (line !== undefined) lines.push(line);
+    else PluginDescriptorInputObservation.invalidate();
   };
   observe(observePluginDescriptorInputOnce(record));
   const resolved = path.resolve(record.resolved);
@@ -721,13 +601,16 @@ function observePluginDescriptorInput(record: {
 function appendPluginDescriptorInputs(lines: readonly string[]): void {
   if (lines.length === 0) return;
   if (process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE !== "1") return;
+  PluginDescriptorInputObservation.record(lines);
   const out = process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_OUT;
-  if (out === undefined || out.length === 0) return;
+  if (out === undefined || out.length === 0) {
+    PluginDescriptorInputObservation.invalidate();
+    return;
+  }
   try {
     fs.appendFileSync(out, lines.join(""), "utf8");
   } catch {
-    // Dependency reporting is advisory to cache reuse; the selected entry is
-    // still retained by the parent if this best-effort side channel fails.
+    PluginDescriptorInputObservation.invalidate();
   }
 }
 
@@ -1082,6 +965,8 @@ function readPluginDescriptorProjectConfig(
     recordPluginDescriptorProjectInputs(observed, true);
     throw error;
   }
+  if (!project.configInputsComplete)
+    PluginDescriptorInputObservation.invalidate();
   let inputs = normalizedProjectConfigPaths(project, tsconfig);
   for (let attempt = 0; attempt < 3; attempt += 1) {
     for (const input of inputs) observed.add(input);
@@ -1095,6 +980,8 @@ function readPluginDescriptorProjectConfig(
       recordPluginDescriptorProjectInputs(observed, true);
       throw error;
     }
+    if (!candidate.configInputsComplete)
+      PluginDescriptorInputObservation.invalidate();
     const candidateInputs = normalizedProjectConfigPaths(candidate, tsconfig);
     for (const input of candidateInputs) observed.add(input);
     const after = pluginDescriptorInputHashes(candidateInputs);
@@ -1132,9 +1019,11 @@ function normalizedProjectConfigPaths(
 ): string[] {
   return [
     ...new Set(
-      [requestedConfig, ...project.configPaths].map((file) =>
-        path.resolve(file),
-      ),
+      [
+        requestedConfig,
+        ...project.configPaths,
+        ...(project.configInputs ?? []),
+      ].map((file) => path.resolve(file)),
     ),
   ].sort();
 }
@@ -1231,7 +1120,7 @@ function resolveServedSource(
   // prepared its one entry before the child started.
   const prepareEntry = prepareAsEntry ? prepareRuntimeEntry : undefined;
   if (prepareEntry !== undefined) {
-    RuntimeManifestRegistry.registeredManifests.push(prepareEntry(real));
+    RuntimeManifestRegistry.registerManifest(prepareEntry(real));
     served = serveEntryEmit(real);
     if (served === null) {
       throw new Error(`ttsx: prepared entry emit not found for ${filename}`);
@@ -1360,7 +1249,8 @@ function emitOrphanSource(
       writeOrphanCache(cache.file, lowered);
     }
     return lowered;
-  } catch {
+  } catch (error) {
+    if (error instanceof RuntimeEmitOwnershipError) throw error;
     return null;
   } finally {
     fs.rmSync(outDir, { force: true, recursive: true });
@@ -1430,7 +1320,8 @@ function emitCommonJsForNameScan(filename: string): string | null {
     const lowered = emitted === null ? null : readFileOrNull(emitted);
     commonJsNameScanSources.set(real, lowered);
     return lowered;
-  } catch {
+  } catch (error) {
+    if (error instanceof RuntimeEmitOwnershipError) throw error;
     commonJsNameScanSources.set(real, null);
     return null;
   } finally {
@@ -1461,12 +1352,9 @@ function orphanCacheRoot(): string {
 }
 
 /**
- * What a compiler binary is, as far as the filesystem can say without reading
- * its whole content: its physical path, file identity, size, and modification
- * and change times. Replacing the binary, whether by a package upgrade, an
- * atomic swap, or a rewrite of a wrapper at the same path, changes at least one
- * of them; the change time moves with every write even when a rewrite keeps the
- * size and restores the modification time.
+ * Content-proven identity of the compiler executable. Unreadable or unstable
+ * executable bytes produce a new nonce, so no previous generation can answer
+ * for an executable whose identity could not be established.
  *
  * Read afresh at every use, never remembered by path: a long-lived process can
  * lower orphans before and after the compiler at that path is replaced, and an
@@ -1474,20 +1362,7 @@ function orphanCacheRoot(): string {
  * a later process to adopt (samchon/ttsc#1521).
  */
 function compilerIdentity(binary: string): string {
-  try {
-    const real = realPath(binary);
-    const stat = fs.statSync(real, { bigint: true });
-    return [
-      real,
-      stat.dev,
-      stat.ino,
-      stat.size,
-      stat.mtimeNs,
-      stat.ctimeNs,
-    ].join("\0");
-  } catch {
-    return binary;
-  }
+  return runtimeExecutableIdentity(binary) ?? crypto.randomUUID();
 }
 
 /** The version of this ttsc package, which owns the orphan post-processing. */
@@ -1605,29 +1480,45 @@ function orphanSourceSignature(filename: string): string | undefined {
  * means the next process re-lowers.
  */
 function writeOrphanCache(cacheFile: string, lowered: string): void {
+  const tmp = `${cacheFile}.${process.pid}.${crypto.randomUUID()}.tmp`;
   try {
     fs.mkdirSync(path.dirname(cacheFile), { recursive: true });
-    const tmp = `${cacheFile}.${process.pid}.${Date.now()}.tmp`;
     fs.writeFileSync(tmp, lowered);
     fs.renameSync(tmp, cacheFile);
   } catch {
     // ignore — caching is an optimization, correctness does not depend on it
+  } finally {
+    try {
+      fs.rmSync(tmp, { force: true });
+    } catch {
+      // Cache admission remains optional when the filesystem denies cleanup.
+    }
   }
 }
 
 /**
  * The JavaScript an isolated single-file emit wrote for `input`, or `null`.
  *
- * With one input and no config, the compiler's source root is the input's own
- * directory, so the output sits at the input's name inside `outDir`. That is
- * the one file looked for; nothing else in the directory is an answer.
+ * Both callers pass exactly one positional source with ignoreConfig, noResolve
+ * and isolatedModules to a compiler without plugin injection. Their freshly
+ * acquired private directory contains no earlier JavaScript. The actual
+ * completed output population therefore belongs to that source, independently
+ * of filename or extension priority. A declaration-only input may emit none;
+ * multiple executable outputs contradict this protocol and are an error.
  */
 function isolatedEmitOf(input: string, outDir: string): string | null {
-  return new EmitOwnershipIndex({
-    emitDir: outDir,
-    rootDir: path.dirname(input),
-  }).find(input);
+  const outputs = EmitOwnershipIndex.listOutputs(outDir);
+  if (outputs.length === 0) return null;
+  if (outputs.length !== 1) {
+    throw new RuntimeEmitOwnershipError(
+      `ttsx: isolated emit of ${input} produced ${outputs.length} executable outputs; single-input ownership cannot be established`,
+    );
+  }
+  return path.resolve(outDir, outputs[0]!);
 }
+
+/** A violated single-input emit authority cannot use the type-strip fallback. */
+class RuntimeEmitOwnershipError extends Error {}
 
 /**
  * The names an ESM importer of a served CommonJS module sees besides `default`,
@@ -1818,8 +1709,9 @@ function serveEntryEmit(real: string): ServedSource | null {
 
 /**
  * Serve `real` through the project that owns it, or `null` when no tsconfig
- * owns it or an emit-only root build of it failed; the caller then falls back
- * to the isolated emit.
+ * owns it. An empty project emit can leave this file outside its root set;
+ * other project or root failures retain their original diagnostic instead of
+ * silently discarding the project's compiler and plugin policy.
  *
  * The project is built once per run, honouring its own tsconfig (transform
  * plugins included), so a source-shipping package that needs a transform
@@ -1843,27 +1735,18 @@ function serveProjectEmit(real: string): ServedSource | null {
   let built: DependencyBuildGeneration.BuiltProject | null;
   try {
     built = ensureProjectBuilt(tsconfig);
-  } catch {
+  } catch (error) {
     // The project's build produced nothing at all — a config that lists no
     // files emits nothing, for one. That says nothing about this file, which is
     // then a root like any other the build did not compile.
+    if (!(error instanceof EmptyProjectEmitError)) throw error;
     built = null;
   }
   const served = built === null ? null : serveBuiltDependency(built, real);
   if (served !== null) {
     return served;
   }
-  let root: DependencyBuildGeneration.BuiltProject;
-  try {
-    root = ensureRootBuilt(tsconfig, real);
-  } catch (error) {
-    // A checked root's failure is the run's type gate and stops it. An
-    // emit-only root has no gate to report: its build failing (a read-only
-    // install that refuses the synthesized config, say) leaves the file where
-    // it stood before any project was consulted, the isolated emit.
-    if (rootIsChecked(real)) throw error;
-    return null;
-  }
+  const root = ensureRootBuilt(tsconfig, real);
   const emitted = serveBuiltDependency(root, real);
   if (emitted === null) {
     throw new Error(
@@ -1898,6 +1781,8 @@ function builtProjectIndex(
     index = new EmitOwnershipIndex({
       emitDir: built.emitDir,
       outputs: built.outputs,
+      emittedSources: built.emittedSources,
+      emittedSourceProofFailures: built.emittedSourceProofFailures,
       rootDir: built.rootDir,
     });
     builtProjectIndexes.set(built, index);
@@ -1937,7 +1822,9 @@ function ensureRootBuilt(
   source: string,
 ): DependencyBuildGeneration.BuiltProject {
   const identity = `${source}\0${contentDigest(source)}`;
-  const memo = `${tsconfig}\0${identity}`;
+  const { cacheDir, lockDir, metaPath, root, compilerProof } =
+    dependencyCachePaths(tsconfig, identity);
+  const memo = cacheDir;
   const cached = builtRoots.get(memo);
   if (cached !== undefined) {
     return cached;
@@ -1946,10 +1833,6 @@ function ensureRootBuilt(
   if (failed !== undefined) {
     throw failed;
   }
-  const { cacheDir, lockDir, metaPath, root } = dependencyCachePaths(
-    tsconfig,
-    identity,
-  );
   const reuse = readDependencyCache(cacheDir, metaPath);
   if (reuse !== null) {
     builtRoots.set(memo, reuse);
@@ -1959,7 +1842,7 @@ function ensureRootBuilt(
   let built: DependencyBuildGeneration.BuiltProject;
   try {
     built = withBuildLock(cacheDir, metaPath, lockDir, () =>
-      buildRoot(tsconfig, source, cacheDir, metaPath),
+      buildRoot(tsconfig, source, cacheDir, metaPath, compilerProof),
     );
   } catch (error) {
     // The same content fails the same way, so a second reach of this root in
@@ -2001,6 +1884,7 @@ function buildRoot(
   source: string,
   cacheDir: string,
   metaPath: string,
+  compilerProof?: string,
 ): DependencyBuildGeneration.BuiltProject {
   // Read through the descriptor-input recorder, so a plugin descriptor that
   // reaches this root reports the config chain it was compiled under.
@@ -2011,9 +1895,8 @@ function buildRoot(
     generation,
   );
   fs.rmSync(emitDir, { force: true, recursive: true });
-  let built: ReturnType<typeof buildSingleRootProject>;
   try {
-    built = buildSingleRootProject({
+    const built = buildSingleRootProject({
       checked: rootIsChecked(source),
       emitDir,
       key: `${process.pid}-${generation}`,
@@ -2023,20 +1906,38 @@ function buildRoot(
       source,
       tsconfig,
     });
+    const rootDir = DependencyBuildGeneration.resolvePhysicalPath(
+      built.rootDir,
+    );
+    const moduleOptions = projectModuleOptions(built.project.compilerOptions);
+    const outputs = EmitOwnershipIndex.listOutputs(emitDir);
+    const emittedSources = built.emittedSources;
+    const emittedSourceProofFailures = built.emittedSourceProofFailures;
+    if (!RuntimeEmitProvenance.isRecord(emittedSources)) {
+      throw new Error(
+        `ttsx: root build of ${source} did not report authoritative emit provenance`,
+      );
+    }
+    assertCompilerStillCurrent(tsconfig, compilerProof);
+    publishDependencyMeta(metaPath, {
+      generation,
+      moduleOptions,
+      outputs,
+      rootDir,
+      emittedSources,
+      emittedSourceProofFailures,
+    });
+    return {
+      emitDir,
+      moduleOptions,
+      outputs,
+      rootDir,
+      emittedSources,
+      emittedSourceProofFailures,
+    };
   } catch (error) {
-    fs.rmSync(emitDir, { force: true, recursive: true });
-    throw error;
+    throwAfterFailedArtifactCleanup(error, emitDir, true);
   }
-  const rootDir = DependencyBuildGeneration.resolvePhysicalPath(built.rootDir);
-  const moduleOptions = projectModuleOptions(built.project.compilerOptions);
-  const outputs = EmitOwnershipIndex.listOutputs(emitDir);
-  publishDependencyMeta(metaPath, {
-    generation,
-    moduleOptions,
-    outputs,
-    rootDir,
-  });
-  return { emitDir, moduleOptions, outputs, rootDir };
 }
 
 /**
@@ -2100,19 +2001,20 @@ function isInstalledPackageSource(real: string): boolean {
 function ensureProjectBuilt(
   tsconfig: string,
 ): DependencyBuildGeneration.BuiltProject {
-  const cached = builtProjects.get(tsconfig);
+  const { cacheDir, lockDir, metaPath, root, compilerProof } =
+    dependencyCachePaths(tsconfig);
+  const cached = builtProjects.get(cacheDir);
   if (cached !== undefined) {
     return cached;
   }
-  const failed = failedProjects.get(tsconfig);
+  const failed = failedProjects.get(cacheDir);
   if (failed !== undefined) {
     throw failed;
   }
-  const { cacheDir, lockDir, metaPath, root } = dependencyCachePaths(tsconfig);
 
   const reuse = readDependencyCache(cacheDir, metaPath);
   if (reuse !== null) {
-    builtProjects.set(tsconfig, reuse);
+    builtProjects.set(cacheDir, reuse);
     return reuse;
   }
 
@@ -2120,32 +2022,38 @@ function ensureProjectBuilt(
   let built: DependencyBuildGeneration.BuiltProject;
   try {
     built = withBuildLock(cacheDir, metaPath, lockDir, () =>
-      buildDependency(tsconfig, cacheDir, metaPath),
+      buildDependency(tsconfig, cacheDir, metaPath, compilerProof),
     );
   } catch (error) {
     // Every file the project owns asks for this build before its own root
     // lane, so a build that produced nothing would otherwise run again for
     // each of them. It is built once per process either way, like a success.
-    failedProjects.set(tsconfig, error);
+    failedProjects.set(cacheDir, error);
     throw error;
   }
-  builtProjects.set(tsconfig, built);
+  builtProjects.set(cacheDir, built);
   return built;
 }
 
 /**
- * Project builds that failed in this process, by tsconfig, the counterpart of
- * {@link builtProjects}.
+ * Project builds that failed in this process, by full cache identity, paired
+ * with {@link builtProjects}.
  */
 const failedProjects = new Map<string, unknown>();
 
 interface DependencyCachePaths {
   /** Container of this dependency's generation-stamped emit directories. */
   cacheDir: string;
+
   /** Fenced cross-process coordination directory (`<key>.lock`). */
   lockDir: string;
+
   /** Atomic completion pointer (`<key>.json`) naming the live generation. */
   metaPath: string;
+
+  /** Executable content proof whose key must still hold before publication. */
+  compilerProof?: string;
+
   root: string;
 }
 
@@ -2153,14 +2061,39 @@ function dependencyCachePaths(
   tsconfig: string,
   rootSource?: string,
 ): DependencyCachePaths {
-  const key = dependencyCacheKey(tsconfig, { root: rootSource });
+  let compilerProof: string | undefined;
+  try {
+    compilerProof = runtimeExecutableIdentity(
+      resolveTsgo({ cwd: path.dirname(tsconfig) }).binary,
+    );
+  } catch {
+    // An unobservable executable gets a unique, non-reusable generation key.
+  }
+  const key = dependencyCacheKey(tsconfig, {
+    root: rootSource,
+    compilerIdentity: compilerProof ?? crypto.randomUUID(),
+  });
   const root = dependencyCacheRoot();
   return {
     cacheDir: path.join(root, key),
     lockDir: path.join(root, `${key}.lock`),
     metaPath: path.join(root, `${key}.json`),
+    compilerProof,
     root,
   };
+}
+
+/** A runtime build may publish only under the compiler content that keyed it. */
+function assertCompilerStillCurrent(tsconfig: string, proof?: string): void {
+  if (proof === undefined) return;
+  const current = runtimeExecutableIdentity(
+    resolveTsgo({ cwd: path.dirname(tsconfig) }).binary,
+  );
+  if (current !== proof) {
+    throw new Error(
+      `ttsx: compiler changed while building ${tsconfig}; the runtime generation was not published`,
+    );
+  }
 }
 
 /**
@@ -2243,6 +2176,7 @@ function buildDependency(
   tsconfig: string,
   cacheDir: string,
   metaPath: string,
+  compilerProof?: string,
 ): DependencyBuildGeneration.BuiltProject {
   const project = readPluginDescriptorProjectConfig(tsconfig);
   const generation = DependencyBuildGeneration.newDependencyGeneration();
@@ -2251,84 +2185,108 @@ function buildDependency(
     generation,
   );
   fs.rmSync(emitDir, { force: true, recursive: true });
-  fs.mkdirSync(emitDir, { recursive: true });
-  const result = runBuild({
-    cwd: project.root,
-    // Emit-only means diagnostics never withhold the emit, so a dependency's
-    // own `noEmitOnError` is switched off: honoured, it would turn any
-    // diagnostic into an empty output and the isolated fallback below.
-    passthrough: [...runtimeCompilerArgs(project), "--noEmitOnError", "false"],
-    emit: true,
-    outDir: emitDir,
-    // Every output this build writes stays in ttsx's private directory: a
-    // declared `declarationDir`, `tsBuildInfoFile`, or `outFile`, and any
-    // output location forwarded on the command line, would otherwise land in
-    // the user's tree (samchon/ttsc#1404).
-    isolateOutputsTo: emitDir,
-    // The generation directory is an `outDir` this lane injected, not one the
-    // dependency declared, and tsgo demands an explicit `rootDir` (TS5011) as
-    // soon as any `outDir` is in play. Pinning the root tsgo would infer keeps
-    // a source-shipping dependency that declares no output buildable, and it is
-    // the same root `resolveDependencySourceRoot` publishes for it below —
-    // without it that dependency falls back to type-stripping (issue #1172).
-    pinInferredRootDir: true,
-    // Emit a source map on the transient dependency emit (it never reaches the
-    // dependency's published `lib/`) so the serve path can inline it under the
-    // source URL, but only when the dependency configures none itself. Routed
-    // as a dedicated build option, not a forwarded tsgo flag, so it never
-    // reaches a native plugin host's argument parser (issue #353).
-    forceRuntimeSourceMap:
-      project.compilerOptions.sourceMap !== true &&
-      project.compilerOptions.inlineSourceMap !== true,
-    // Honour the dependency's own transform plugins: a source-shipping package
-    // can itself depend on a transform (e.g. a fixture whose values are built
-    // with `typia.createRandom`), and its runtime behaviour is wrong without it.
-    // `runBuild` runs on this main thread, so its plugin resolution works the
-    // same as the entry build's. The exception is loading a plugin descriptor
-    // (`TTSC_PLUGIN_DESCRIPTOR_LOAD`): there the descriptor's own — possibly
-    // self-hosting — transform must NOT run, or it re-enters plugin loading and
-    // deadlocks, so every dependency in that graph builds with plugins off.
-    plugins:
-      process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1" ? false : undefined,
-    quiet: true,
-    resolvedProject: project,
-    // Emit only: the entry project's up-front check is the type gate. A
-    // dependency build pulls its own transitive sources into the program and
-    // would otherwise fail on type diagnostics that belong to those packages
-    // under their own (laxer) config — e.g. unused-type-parameter warnings in a
-    // transitively imported library. We still want the type-aware emit (for
-    // type-only elision), just not the error gate.
-    skipDiagnosticsCheck: true,
-    tsconfig,
-  });
-  // Success is "the project wrote JavaScript", not the exit status: the build is
-  // emit-only, so diagnostics do not fail it, and a native transform host
-  // (typia, @ttsc/banner, …) writes its output on its own. A genuinely empty
-  // output directory is the real failure; the caller then falls back to
-  // isolated emit of the one file.
-  if (!DependencyBuildGeneration.emittedAnything(emitDir)) {
-    // Drop the failed generation so its partial directory can never be mistaken
-    // for a reusable build.
-    fs.rmSync(emitDir, { force: true, recursive: true });
-    throw new Error(
-      [
-        `ttsx: dependency build produced no output for ${tsconfig}`,
-        result.stderr || result.stdout,
-      ]
-        .filter((line) => line.trim().length !== 0)
-        .join("\n"),
-    );
+  try {
+    fs.mkdirSync(emitDir, { recursive: true });
+    const result = runBuild({
+      cwd: project.root,
+      forceEmitProvenance: true,
+      // Emit-only means diagnostics never withhold the emit, so a dependency's
+      // own `noEmitOnError` is switched off: honoured, it would turn any
+      // diagnostic into an empty output and the isolated fallback below.
+      passthrough: [
+        ...runtimeCompilerArgs(project),
+        "--noEmitOnError",
+        "false",
+      ],
+      emit: true,
+      outDir: emitDir,
+      // Every output this build writes stays in ttsx's private directory: a
+      // declared `declarationDir`, `tsBuildInfoFile`, or `outFile`, and any
+      // output location forwarded on the command line, would otherwise land in
+      // the user's tree (samchon/ttsc#1404).
+      isolateOutputsTo: emitDir,
+      // The generation directory is an `outDir` this lane injected, not one the
+      // dependency declared, and tsgo demands an explicit `rootDir` (TS5011) as
+      // soon as any `outDir` is in play. Pinning the root tsgo would infer keeps
+      // a source-shipping dependency that declares no output buildable, and it is
+      // the same root `resolveDependencySourceRoot` publishes for it below —
+      // without it that dependency falls back to type-stripping (issue #1172).
+      pinInferredRootDir: true,
+      // Emit a source map on the transient dependency emit (it never reaches the
+      // dependency's published `lib/`) so the serve path can inline it under the
+      // source URL, but only when the dependency configures none itself. Routed
+      // as a dedicated build option, not a forwarded tsgo flag, so it never
+      // reaches a native plugin host's argument parser (issue #353).
+      forceRuntimeSourceMap:
+        project.compilerOptions.sourceMap !== true &&
+        project.compilerOptions.inlineSourceMap !== true,
+      // Honour the dependency's own transform plugins: a source-shipping package
+      // can itself depend on a transform (e.g. a fixture whose values are built
+      // with `typia.createRandom`), and its runtime behaviour is wrong without it.
+      // `runBuild` runs on this main thread, so its plugin resolution works the
+      // same as the entry build's. The exception is loading a plugin descriptor
+      // (`TTSC_PLUGIN_DESCRIPTOR_LOAD`): there the descriptor's own — possibly
+      // self-hosting — transform must NOT run, or it re-enters plugin loading and
+      // deadlocks, so every dependency in that graph builds with plugins off.
+      plugins:
+        process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1" ? false : undefined,
+      quiet: true,
+      resolvedProject: project,
+      // Emit only: the entry project's up-front check is the type gate. A
+      // dependency build pulls its own transitive sources into the program and
+      // would otherwise fail on type diagnostics that belong to those packages
+      // under their own (laxer) config — e.g. unused-type-parameter warnings in a
+      // transitively imported library. We still want the type-aware emit (for
+      // type-only elision), just not the error gate.
+      skipDiagnosticsCheck: true,
+      tsconfig,
+    });
+    const emittedSources = result.emittedSources;
+    const emittedSourceProofFailures = result.emittedSourceProofFailures;
+    if (!RuntimeEmitProvenance.isRecord(emittedSources)) {
+      throw new Error(
+        `ttsx: dependency build of ${tsconfig} did not report authoritative emit provenance`,
+        { cause: result },
+      );
+    }
+    // Success is "the project wrote JavaScript", not the exit status: the build is
+    // emit-only, so diagnostics do not fail it, and a native transform host
+    // (typia, @ttsc/banner, …) writes its output on its own. A genuinely empty
+    // output directory is the real failure; the caller then falls back to
+    // isolated emit of the one file.
+    if (!DependencyBuildGeneration.emittedAnything(emitDir)) {
+      throw new EmptyProjectEmitError(
+        [
+          `ttsx: dependency build produced no output for ${tsconfig}`,
+          result.stderr || result.stdout,
+        ]
+          .filter((line) => line.trim().length !== 0)
+          .join("\n"),
+      );
+    }
+    const rootDir = resolveDependencySourceRoot(project);
+    const moduleOptions = projectModuleOptions(project.compilerOptions);
+    const outputs = EmitOwnershipIndex.listOutputs(emitDir);
+    assertCompilerStillCurrent(tsconfig, compilerProof);
+    publishDependencyMeta(metaPath, {
+      generation,
+      moduleOptions,
+      outputs,
+      rootDir,
+      emittedSources,
+      emittedSourceProofFailures,
+    });
+    return {
+      emitDir,
+      moduleOptions,
+      outputs,
+      rootDir,
+      emittedSources,
+      emittedSourceProofFailures,
+    };
+  } catch (error) {
+    throwAfterFailedArtifactCleanup(error, emitDir, true);
   }
-  const rootDir = resolveDependencySourceRoot(project);
-  const moduleOptions = projectModuleOptions(project.compilerOptions);
-  const outputs = EmitOwnershipIndex.listOutputs(emitDir);
-  publishDependencyMeta(metaPath, {
-    generation,
-    moduleOptions,
-    outputs,
-    rootDir,
-  });
-  return { emitDir, moduleOptions, outputs, rootDir };
 }
 
 /**
@@ -2347,14 +2305,41 @@ function publishDependencyMeta(
   const tmp = `${metaPath}.${process.pid}.${Date.now()}.${crypto
     .randomBytes(6)
     .toString("hex")}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(meta), "utf8");
   try {
+    fs.writeFileSync(tmp, JSON.stringify(meta), "utf8");
     fs.renameSync(tmp, metaPath);
   } catch (error) {
-    fs.rmSync(tmp, { force: true });
-    throw error;
+    throwAfterFailedArtifactCleanup(error, tmp, false);
   }
 }
+
+/**
+ * Remove only the artifact owned by the failed publication. Preserve its
+ * original failure; a refused removal adds a second causal outcome rather than
+ * replacing the compiler or marker error with a filesystem error.
+ */
+function throwAfterFailedArtifactCleanup(
+  error: unknown,
+  location: string,
+  recursive: boolean,
+): never {
+  try {
+    fs.rmSync(location, { force: true, recursive });
+  } catch (cleanupError) {
+    throw new AggregateError(
+      [error, cleanupError],
+      `ttsx: publication failed and its private artifact could not be removed: ${location}`,
+      { cause: error },
+    );
+  }
+  throw error;
+}
+
+/**
+ * A complete project build with no JavaScript does not establish root
+ * ownership.
+ */
+class EmptyProjectEmitError extends Error {}
 
 // -----------------------------------------------------------------------------
 // Fenced dependency-build lock.
@@ -2445,20 +2430,15 @@ interface ITsconfigLookup {
 function owningTsconfig(real: string): string | null {
   const nearest = nearestTsconfig(real);
   if (nearest === null) return null;
-  const memo = `${nearest}\0${real}`;
-  let owning = owningTsconfigCache.get(memo);
-  if (owning === undefined) {
-    owning = resolveOwningProjectConfig({
-      file: real,
-      onConfig: (config) => recordPluginDescriptorTsconfigCandidates([config]),
-      tsconfig: nearest,
-    });
-    owningTsconfigCache.set(memo, owning);
-  }
-  return owning;
+  // Config spelling and target identity do not prove that inherited options,
+  // reference roots or directory membership are unchanged. The resolver owns
+  // lookup-scoped reuse; a later import must ask it for a current answer.
+  return resolveOwningProjectConfig({
+    file: real,
+    onConfig: (config) => recordPluginDescriptorTsconfigCandidates([config]),
+    tsconfig: nearest,
+  });
 }
-
-const owningTsconfigCache = new Map<string, string>();
 
 const tsconfigCache = new Map<string, ITsconfigLookup>();
 
@@ -2480,9 +2460,6 @@ function nearestTsconfig(file: string): string | null {
   for (;;) {
     const cached = tsconfigCache.get(directory);
     if (cached !== undefined) {
-      if (process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE !== "1") {
-        return rememberTsconfig(chain, cached.result, cached.candidates);
-      }
       // Bracket the cached selection with the same candidate observations the
       // parent later reconciles. A nearer config created between a liveness
       // check and reporting must conflict, not be paired with the cached

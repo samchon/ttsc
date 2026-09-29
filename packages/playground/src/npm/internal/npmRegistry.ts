@@ -14,6 +14,14 @@ interface IPackageJson {
   peerDependenciesMeta?: Record<string, { optional?: boolean }>;
 }
 
+/**
+ * Version-specific registry manifest; absent dist metadata cannot supply a tarball.
+ *
+ * @evidence contracts/common.md#principled-implementation Identity, dependency fields and optional distribution witnesses express the registry subset consumed by version selection and authentication.
+ * @evidence contracts/common.md#clear-and-simple-design Registry metadata remains separate from unpacked files and mounted state.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Optional authentication fields represent historical metadata compatibility, not fabricated integrity evidence.
+ * @evidence contracts/common.md#meaningful-documentation Native prose states subset and absent distribution meaning, separated from tags under the documentation skill.
+ */
 export interface INpmVersionMetadata {
   name: string;
   version: string;
@@ -28,17 +36,41 @@ export interface INpmVersionMetadata {
   };
 }
 
+/**
+ * Registry packument subset, indexed by exact version with optional tag aliases.
+ *
+ * @evidence contracts/common.md#principled-implementation Version entries and dist-tag mappings provide the domain over which semver constraints are resolved.
+ * @evidence contracts/common.md#clear-and-simple-design The packument index is independent of a particular install request or mounted graph.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing entries remain representable instead of inventing a version from a requested tag.
+ * @evidence contracts/common.md#meaningful-documentation Native prose defines version indexing and tag purpose with tag separation under the documentation skill.
+ */
 export interface INpmMetadata {
   name: string;
   "dist-tags"?: Record<string, string>;
   versions: Record<string, INpmVersionMetadata | undefined>;
 }
 
+/**
+ * Confined package-relative text files and the decoded manifest subset.
+ *
+ * @evidence contracts/common.md#principled-implementation Files omit the safe archive root while packageJson supplies dependency metadata for graph traversal.
+ * @evidence contracts/common.md#clear-and-simple-design Extraction output is separate from consumer-specific mounted path maps.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Archive contents determine files without consumer-specific manufactured declarations.
+ * @evidence contracts/common.md#meaningful-documentation Native prose defines confinement and path namespace with tag separation under the documentation skill.
+ */
 export interface IUnpackedPackage {
   files: Record<string, string>;
   packageJson: IPackageJson;
 }
 
+/**
+ * One exposed package queued for registry solving, retaining all active edges.
+ *
+ * @evidence contracts/common.md#principled-implementation Exposed name and optional registryName distinguish aliases; requests preserve intersecting ranges and origin while optionality describes whether omission is permitted.
+ * @evidence contracts/common.md#clear-and-simple-design Mutable queue coordination is isolated from published immutable identity records.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit edge state prevents silently ignoring a late required constraint.
+ * @evidence contracts/common.md#meaningful-documentation Native prose states queue role and active-edge retention with tag separation under the documentation skill.
+ */
 export interface IQueueItem {
   name: string;
   range: string;
@@ -48,12 +80,28 @@ export interface IQueueItem {
   requests?: IVersionRequest[];
 }
 
+/**
+ * A normalized semver range or registry tag together with requesting origin.
+ *
+ * @evidence contracts/common.md#principled-implementation Range and origin retain the constraint while optional marks whether incompatible omission is allowed.
+ * @evidence contracts/common.md#clear-and-simple-design This edge record is independent of mounted package identity and registry transport.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Optionality is a declared graph distinction, not guessed from a missing package response.
+ * @evidence contracts/common.md#meaningful-documentation Native prose states range, origin and omission role with tag separation under the documentation skill.
+ */
 export interface IVersionRequest {
   optional: boolean;
   range: string;
   requester: string;
 }
 
+/**
+ * Standard string-URL fetch transport used by registry and tarball requests.
+ *
+ * @evidence contracts/common.md#principled-implementation RequestInit and Response preserve status, headers, abort and body contracts needed by browser installation.
+ * @evidence contracts/common.md#clear-and-simple-design A named callable signature keeps transport injectable without exposing solver state.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Injection uses an explicit callback instead of replacing global transport internals.
+ * @evidence contracts/common.md#meaningful-documentation Native prose defines transport responsibility with tag separation under the documentation skill.
+ */
 export type FetchLike = (
   input: string,
   init?: RequestInit,
@@ -69,12 +117,28 @@ const TEXT_FILE_REGEXP =
 export const DECLARATION_FILE_REGEXP = /\.d\.[cm]?ts$/i;
 const RUNTIME_FILE_REGEXP = /(^package\.json$|\.([cm]?js|json)$)/i;
 
+/**
+ * Preserve the signal's abort reason; use AbortError only when no reason exists.
+ *
+ * @evidence contracts/common.md#principled-implementation AbortSignal.aborted gates rejection and its reason remains the deciding thrown value.
+ * @evidence contracts/common.md#clear-and-simple-design One guard centralizes cancellation semantics across transport and archive phases.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Cancellation is caller policy rather than a fabricated timeout or successful empty result.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains reason preservation with tag separation under the documentation skill.
+ */
 export function throwIfAborted(signal: AbortSignal | undefined): void {
   if (!signal?.aborted) return;
   if (signal.reason !== undefined) throw signal.reason;
   throw new DOMException("The operation was aborted.", "AbortError");
 }
 
+/**
+ * Fetch the public registry packument; only an optional package's 404 is omitted.
+ *
+ * @evidence contracts/common.md#principled-implementation Encoded package identity forms the registry URL; status handling distinguishes an allowed optional absence from transport failure and decodes the requested metadata.
+ * @evidence contracts/common.md#clear-and-simple-design Transport and abort helpers serve one metadata request while version solving stays separate.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Only the declared optional-404 contract yields null; other failures cannot masquerade as installed metadata.
+ * @evidence contracts/common.md#meaningful-documentation Native prose identifies registry ownership and omission semantics with tag separation under the documentation skill.
+ */
 export async function fetchNpmMetadata(
   fetchImpl: FetchLike,
   packageName: string,
@@ -115,6 +179,15 @@ export async function fetchNpmMetadata(
   return metadata;
 }
 
+/**
+ * Select the highest published exact version satisfying every requested range;
+ * tags resolve through registry metadata and missing candidates throw.
+ *
+ * @evidence contracts/common.md#principled-implementation Semver validates ranges and tag mappings, then filters published versions by the intersection before highest-version selection.
+ * @evidence contracts/common.md#clear-and-simple-design This pure selector owns constraint intersection while callers own optional edges and mounted-version pins.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts No package-specific version is chosen and incompatible constraints remain an error rather than an arbitrary latest fallback.
+ * @evidence contracts/common.md#meaningful-documentation Native prose defines highest-version and failure semantics with tag separation under the documentation skill.
+ */
 export function selectVersion(
   metadata: INpmMetadata,
   ranges: readonly string[] | string,
@@ -154,6 +227,15 @@ export function selectVersion(
   );
 }
 
+/**
+ * Read compressed archive bytes within the validated budget; cancel unused
+ * bodies on status failure, excessive declared length or cancellation.
+ *
+ * @evidence contracts/common.md#principled-implementation Header checks reject obvious excess while streamed accounting enforces actual compressed bytes even when Content-Length is absent or inaccurate.
+ * @evidence contracts/common.md#clear-and-simple-design Fetching and body-budget enforcement delegate cancellation and bounded collection to shared helpers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Every archive receives the same budget and failures remain visible without returning truncated synthetic success.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs state byte domain and body disposal with tag separation under the documentation skill.
+ */
 export async function downloadTarball(
   fetchImpl: FetchLike,
   tarball: string,
@@ -190,7 +272,16 @@ export async function downloadTarball(
   );
 }
 
-/** Verify registry authentication metadata against the compressed bytes. */
+/**
+ * Verify registry authentication metadata against compressed bytes. The strongest
+ * supported SRI group wins; absent SRI falls back to shasum, and absent both is
+ * accepted without an authentication claim.
+ *
+ * @evidence contracts/common.md#principled-implementation Web Crypto digests the actual compressed bytes and equalBytes compares against the strongest supported witnesses; malformed metadata or mismatch rejects.
+ * @evidence contracts/common.md#clear-and-simple-design Authentication precedes decompression and keeps digest parsing separate from byte comparison.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Historical unauthenticated metadata is explicitly supported; missing witnesses are not fabricated and weaker hashes cannot override a failing stronger witness.
+ * @evidence contracts/common.md#meaningful-documentation Native prose states hash precedence and unauthenticated compatibility with tag separation under the documentation skill.
+ */
 export async function verifyTarball(
   tgz: ArrayBuffer,
   dist: { integrity?: string; shasum?: string },
@@ -231,6 +322,16 @@ export async function verifyTarball(
   }
 }
 
+/**
+ * Expand one bounded gzip archive and extract supported text files below one
+ * safe archive root. Unsupported tar entry kinds are omitted; truncated bodies,
+ * unsafe paths and missing end markers reject the archive.
+ *
+ * @evidence contracts/common.md#principled-implementation Safe integer sizes and padded extents bound every tar slice; PAX and GNU path overrides still pass the common confinement gate before text decoding.
+ * @evidence contracts/common.md#clear-and-simple-design The sequential tar reader delegates gzip budgeting, path validation and header decoding to focused local helpers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported metadata paths use format rules rather than known package names; unsafe entries are rejected instead of redirected into a guessed mount.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs state extraction domain and failure boundaries; confinement comments explain variable npm roots under the documentation skill.
+ */
 export async function unpackNpmTarball(
   tgz: ArrayBuffer,
   signal: AbortSignal | undefined,
@@ -336,12 +437,29 @@ async function gunzip(
   );
 }
 
+/**
+ * One package's files mapped to compiler, editor URI and runtime namespaces.
+ *
+ * @evidence contracts/common.md#principled-implementation Distinct string maps carry the path conventions expected by each consumer without changing the source text.
+ * @evidence contracts/common.md#clear-and-simple-design The three named lanes make downstream mounting explicit and avoid repeated namespace inference.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Namespace mapping follows consumer protocols rather than per-package exceptions.
+ * @evidence contracts/common.md#meaningful-documentation Native prose defines the consumer lanes with tag separation under the documentation skill.
+ */
 export interface IMountedFiles {
   compilerFiles: Record<string, string>;
   editorLibs: Record<string, string>;
   runtimeFiles: Record<string, string>;
 }
 
+/**
+ * Map confined relative files to consumer namespaces, selecting declarations
+ * for Monaco and JavaScript/JSON for the CommonJS runtime pack.
+ *
+ * @evidence contracts/common.md#principled-implementation Each source file gets a compiler key; extension predicates select appropriate editor and runtime content without coercing text.
+ * @evidence contracts/common.md#clear-and-simple-design One traversal constructs all three views while archive confinement stays with extraction.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Extension selection applies uniformly to packages rather than synthesizing missing declarations or runtime code.
+ * @evidence contracts/common.md#meaningful-documentation Native prose defines input provenance and view selection with tag separation under the documentation skill.
+ */
 export function mountPackageFiles(
   packageName: string,
   files: Record<string, string>,
@@ -364,6 +482,15 @@ export function mountPackageFiles(
   return { compilerFiles, editorLibs, runtimeFiles };
 }
 
+/**
+ * Publish supported registry edges: optional dependencies override regular
+ * dependencies of the same name; optional peers are not installed.
+ *
+ * @evidence contracts/common.md#principled-implementation npm dependency precedence and peer optionality determine edge requirements; registry range classification excludes unsupported source transports.
+ * @evidence contracts/common.md#clear-and-simple-design This operation emits normalized graph edges while queue deduplication and version solving remain with the installer.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Required peers remain required; unsupported non-registry sources are omitted as a declared browser-installer limitation, not silently claimed installed.
+ * @evidence contracts/common.md#meaningful-documentation Native prose states dependency precedence and optional peers; inline comments explain required-peer propagation under the documentation skill.
+ */
 export function enqueuePackageDependencies(
   packageJson: {
     dependencies?: Record<string, string>;
@@ -416,6 +543,14 @@ function isRegistryRange(range: string): boolean {
   return spec.length > 0 && encodeURIComponent(spec) === spec;
 }
 
+/**
+ * Convert an npm identity to DefinitelyTyped spelling, flattening scoped names.
+ *
+ * @evidence contracts/common.md#principled-implementation Unscoped names gain @types/ and valid scoped names use the established scope__name convention.
+ * @evidence contracts/common.md#clear-and-simple-design One name mapping stays separate from whether a declaration fallback is needed.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The convention applies to every package identity rather than maintaining a list of known declaration packages.
+ * @evidence contracts/common.md#meaningful-documentation Native prose defines the mapping purpose with tag separation under the documentation skill.
+ */
 export function toTypesPackageName(packageName: string): string {
   if (!packageName.startsWith("@")) return `@types/${packageName}`;
   const [scope, name] = packageName.slice(1).split("/");
@@ -665,7 +800,14 @@ function formatByteLimit(bytes: number): string {
   return `${bytes.toLocaleString("en-US")}-byte`;
 }
 
-/** Validate one public npm archive byte budget before starting related work. */
+/**
+ * Validate an archive byte budget as a positive safe integer before related work.
+ *
+ * @evidence contracts/common.md#principled-implementation Safe positive integers support exact byte accounting and a branded result distinguishes budgets that passed the numeric gate.
+ * @evidence contracts/common.md#clear-and-simple-design One validation gate serves compressed and expanded budgets without duplicating numeric policy.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Validation is uniform and rejects invalid limits instead of selecting hidden fixture-specific defaults.
+ * @evidence contracts/common.md#meaningful-documentation Native prose states units, positivity and validation timing with tag separation under the documentation skill.
+ */
 export function validateNpmByteLimit(
   maxBytes: number,
   kind: "compressed" | "expanded",

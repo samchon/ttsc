@@ -14,6 +14,11 @@ import type { TtscHostInputValidation } from "../validation/TtscHostInputValidat
  * snapshot in constant time. Later graph-bearing deliveries validate only the
  * requested file's derived inputs plus exact host descriptor/config inputs;
  * graph-free envelopes retain complete-snapshot validation.
+ *
+ * @evidence contracts/common.md#principled-implementation Compiler output travels with generation-time hashes, membership policy, physical identities, and proof completeness, preventing a later delivery's reading from silently replacing compile-time evidence.
+ * @evidence contracts/common.md#clear-and-simple-design One generation owns its proof snapshots, reporting state, and tracker handles; separate fields represent distinct content, spelling, identity, and lifecycle responsibilities.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Optional proof fields represent unavailable evidence rather than implied success; consumers must select the complete validation path when narrow proof is unsupported.
+ * @evidence contracts/common.md#meaningful-documentation Member comments explain why hashes and signatures differ, why lexical spellings remain separate from identity, and which owner controls each delivery and resource lifetime.
  */
 export interface TtscCachedProjectTransform {
   /** Predicate-preserving compiler proofs for external candidate spellings. */
@@ -21,6 +26,7 @@ export interface TtscCachedProjectTransform {
     string,
     ITtscCompilerTransformation.IInputObservation
   >;
+
   /**
    * SHA-256 hash of every input the compiler reported outside the project walk
    * (keyed by filesystem identity), captured at the time of the transform.
@@ -37,6 +43,7 @@ export interface TtscCachedProjectTransform {
    * delivery its notifications cannot vouch for.
    */
   externalInputHashes?: Record<string, string>;
+
   /**
    * Compiler-time physical identities for graph-owned entries in
    * {@link externalInputHashes}. Dependency-only paths have no generation
@@ -44,18 +51,21 @@ export interface TtscCachedProjectTransform {
    * selected is compared only across its own compile (samchon/ttsc#1541).
    */
   externalInputRealpaths?: Record<string, string | null>;
+
   /**
    * The plugin-reported dependency-only paths among {@link externalInputPaths},
    * which the next compile of the project reads before it starts, so the state
    * it reads after can be certified (samchon/ttsc#1541).
    */
   externalDependencyInputs?: string[];
+
   /**
    * Original absolute spellings of {@link externalInputHashes} inputs. These
    * stay separate from their identity keys so validation reads the paths the
    * compiler reported rather than a normalized replacement spelling.
    */
   externalInputPaths?: string[];
+
   /**
    * Metadata signature of each out-of-walk input, captured around the read that
    * proved its {@link externalInputHashes} entry and recorded only once the
@@ -70,11 +80,13 @@ export interface TtscCachedProjectTransform {
    * signature and force both to be re-read on every delivery.
    */
   externalInputSignatures?: Record<string, string>;
+
   /**
    * SHA-256 hash of each project-relative input path at the time of the
    * transform.
    */
   inputHashes: Record<string, string>;
+
   /**
    * What the resolved configuration admitted into this generation's program.
    *
@@ -85,27 +97,32 @@ export interface TtscCachedProjectTransform {
    * generation and its policy together.
    */
   membershipPolicy: ITtscProjectMembershipPolicy;
+
   /**
    * Files whose delivered text was found to differ from the file on disk, so
    * the notice is one per file per generation (samchon/ttsc#1394).
    */
   divergentDeliveryReported?: Set<string>;
+
   /**
    * Files already reported as absent from the program, and the pass that
    * reporting belongs to, so the notice is one per file per pass rather than
    * one per delivery.
    */
   missingOutputReported?: Set<string>;
+
   /**
    * The pass {@link missingOutputReported} belongs to; a new pass clears the
    * set.
    */
   missingOutputEpoch?: number;
+
   /**
    * The project config this generation compiled, so a module the program does
    * not contain can be told which program that was.
    */
   tsconfig: string;
+
   /**
    * Metadata signature of each {@link inputHashes} entry whose hash was proven
    * against an unracing read of the file on disk, in a tick the observed
@@ -116,6 +133,7 @@ export interface TtscCachedProjectTransform {
    * the delivered text never replaces it (samchon/ttsc#1394).
    */
   inputSignatures?: Record<string, string>;
+
   /**
    * Raw source hash of every readable key in the transform output, keyed by
    * filesystem identity. Unlike {@link inputHashes}, this includes source
@@ -123,10 +141,13 @@ export interface TtscCachedProjectTransform {
    * the complete project snapshot.
    */
   sourceHashes?: Record<string, string>;
+
   /** Metadata snapshot of every directory in the stable generation walk. */
   projectDirectories?: TtscProjectDirectorySnapshot[];
+
   /** Live notification state for universal host-input changes. */
   hostInputMutationTracker?: TtscProjectMutationTracker;
+
   /**
    * Live notification state for the generation's absent resolution candidates
    * and the directories that carry them.
@@ -145,6 +166,7 @@ export interface TtscCachedProjectTransform {
    * package manager replaces the entry instead, which is a rename.
    */
   candidateMutationTracker?: TtscProjectMutationTracker;
+
   /**
    * Universal descriptor/config inputs proven once at generation time, then by
    * metadata.
@@ -155,10 +177,13 @@ export interface TtscCachedProjectTransform {
    * generation's recorded inputs under another envelope's proof.
    */
   hostInputValidation?: TtscHostInputValidation;
+
   /** Live notification state for file/directory creation, deletion, and rename. */
   projectMutationTracker?: TtscProjectMutationTracker;
+
   /** Whether a generated wrapper and its source config graph stayed coherent. */
   configStateComplete?: boolean;
+
   /**
    * Whether the project and its configuration held still across the compile, as
    * `projectWalkStable` decides from the walks before and after it and the
@@ -170,14 +195,25 @@ export interface TtscCachedProjectTransform {
    * publisher read them (samchon/ttsc#1458).
    */
   projectHeldStill?: boolean;
+
   /**
    * Whether the generation-time project walk observed every directory and file
    * it attempted to snapshot. An incomplete walk may never authorize narrow
    * validation; a later complete walk must be allowed to replace it.
    */
   projectSnapshotComplete?: boolean;
+
+  /**
+   * A locally admitted answer with incomplete host observations cannot be
+   * retained for resident, shared or persistent reuse. Successful answers need
+   * only explicit unavailable observations; diagnostic admission keeps its
+   * existing current-verdict policy. This flag never grants admission itself.
+   */
+  freshDeliveryOnly?: boolean;
+
   /** Absolute path to the directory that owns the tsconfig. */
   projectRoot: string;
+
   /**
    * Raw compiler output: what `TtscCompiler.transformAsync` returned for this
    * generation's compile (samchon/ttsc#1391), or the publication another worker
@@ -185,6 +221,7 @@ export interface TtscCachedProjectTransform {
    * (samchon/ttsc#1390).
    */
   result: ITtscCompilerTransformation;
+
   /**
    * The delivery epoch this generation is currently settled against, or
    * `undefined` for a generation no epoch has proven.
@@ -196,6 +233,7 @@ export interface TtscCachedProjectTransform {
    * compiled its own generation (samchon/ttsc#1300).
    */
   deliveryEpoch?: number;
+
   /**
    * Whether this generation's non-error diagnostics have been surfaced at all,
    * and the epoch they were last surfaced in.
@@ -208,11 +246,13 @@ export interface TtscCachedProjectTransform {
    * time.
    */
   diagnosticsReported?: boolean;
+
   /**
    * The pass the diagnostics were last surfaced in; see
    * {@link diagnosticsReported}.
    */
   diagnosticsEpoch?: number;
+
   /**
    * Files already delivered from this generation, keyed by filesystem identity.
    * A cache with a delivery epoch uses this to skip persistent validation only
@@ -220,6 +260,7 @@ export interface TtscCachedProjectTransform {
    * whenever a new epoch's gate re-proves the generation.
    */
   servedFiles?: Set<string>;
+
   /**
    * Absolute path of the adapter-owned scratch directory used for this
    * generation. It is disposed after compilation, so none of its compiler,
@@ -228,6 +269,7 @@ export interface TtscCachedProjectTransform {
    * its envelope names.
    */
   scratchDirectory?: string;
+
   /**
    * Absolute path of the generated temp-dir tsconfig this compile ran against,
    * when an alias/compiler-options overlay required one. The compiler reports

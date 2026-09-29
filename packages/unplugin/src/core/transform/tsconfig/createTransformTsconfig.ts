@@ -26,6 +26,12 @@ import { normalizeCompilerOptionsForGeneratedTsconfig } from "./normalizeCompile
  *
  * @param compiler The project's config path and directory as the compiler
  *   spells them.
+ *
+ * @evidence contracts/common.md#principled-implementation The unchanged-config path avoids unnecessary wrapping; a needed wrapper extends the physical compiler config and reanchors inherited templates and aliases so scratch placement does not change resolution meaning.
+ * @evidence contracts/common.md#clear-and-simple-design Existing alias and normalization helpers construct one overlay, while this operation owns only deciding whether to write and materializing the wrapper.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The wrapper preserves inherited template semantics instead of adding synthetic baseUrl, rewriting project files or compensating for scratch-directory misanchoring.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the no-overlay path, scratch ownership, inherited configDir behavior and the compiler's physical spelling; inline comments explain why inherited templates are restated.
+ * @evidence contracts/portability.md#os-neutral-implementation Compiler physical spelling anchors every path-valued overlay, Node path addresses the owned scratch file and slash encoding applies only to compiler configuration protocol values; native writes require no shell or fixed volume.
  */
 export function createTransformTsconfig(
   props: {

@@ -7,6 +7,11 @@ import type { JsxTagName } from "./JsxTagName";
  *
  * Built by {@link factory.createJsxSelfClosingElement}.
  *
+ * @evidence contracts/common.md#principled-implementation Tag, optional type arguments and attributes preserve self-closing syntax with no child sequence; semantic component validity is not established by the shape.
+ * @evidence contracts/common.md#clear-and-simple-design Opening-header fields suffice because this form has no independent closing node or children.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Self-closing syntax is explicit rather than a fixture-selected suppression of child rendering.
+ * @evidence contracts/common.md#meaningful-documentation JSDoc illustrates the self-closing delimiter and explains header payloads and generic absence; native spacing follows the documentation skill.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  */
 export interface JsxSelfClosingElement {

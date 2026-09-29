@@ -1,13 +1,16 @@
 import { TtscGraphMemory, leadingToken } from "../model/TtscGraphMemory";
+import { TtscGraphReadonly } from "../model/TtscGraphReadonly";
 import { ITtscGraphDecorator } from "../structures/ITtscGraphDecorator";
 import { ITtscGraphDetails } from "../structures/ITtscGraphDetails";
 import { ITtscGraphDocTag } from "../structures/ITtscGraphDocTag";
 import { ITtscGraphEdge } from "../structures/ITtscGraphEdge";
 import { ITtscGraphEvidence } from "../structures/ITtscGraphEvidence";
-import { ITtscGraphNode } from "../structures/ITtscGraphNode";
+import { ITtscGraphNode as NodeShape } from "../structures/ITtscGraphNode";
 import { isExternalNode, isTestPath } from "./pathPolicy";
 import { resolveGraphHandle } from "./resolveHandle";
 import { IRunnerOutput, resultNext } from "./resultNext";
+
+type ITtscGraphNode = TtscGraphReadonly<NodeShape>;
 
 // A signature is the declaration head up to the body brace: a handful of lines.
 const MAX_SIGNATURE_LINES = 4;
@@ -38,6 +41,14 @@ const CONTAINER_KINDS = new Set<ITtscGraphNode["kind"]>([
  * Resolve each handle to its declared shape: sourceSpan anchors, signature,
  * direct dependencies, and for containers, member outlines. It answers from the
  * graph's resolved structure instead of inlining implementation bodies.
+ *
+ * @evidence contracts/common.md#principled-implementation Resolved handles select exact node facts, complete literal/member identities and explicitly bounded relationship slices; ambiguity is returned separately.
+ * @evidence contracts/common.md#clear-and-simple-design Shape, relationship and source-display helpers each own one projection while this function assembles the selected details envelope.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown and ambiguous handles are not converted to guessed declarations; capped members withdraw the corresponding completeness audit.
+ * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes declared shape from implementation bodies; helper documentation explains member, reference and citation limits.
+ * @evidence contracts/performance.md#efficient-algorithms Each handle uses the shared resolver, whose dotted-suffix fallback may scan V nodes; resolved relationships inspect D incident edges and retain only K ranked references in O(DK) time and O(K) temporary space, where K is at most four, while member/literal output scales with the declaration's own members.
+ * @evidence contracts/performance.md#reuse-equivalent-work The graph shares generation indexes and source-line adjudications across handles and requests; this call builds fresh caller-owned projections because request limits and selected handles differ.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Detail, ambiguity and unknown arrays live for this request and transfer to its caller; no query history or native handle is retained by this operation.
  */
 export function runDetails(
   graph: TtscGraphMemory,
@@ -170,7 +181,7 @@ export function runDetails(
       if (shown.length > 0) detail.members = shown;
     }
     if (node.literals !== undefined && node.literals.length > 0) {
-      detail.literals = node.literals;
+      detail.literals = [...node.literals];
     }
     if (wantNeighbors) {
       detail.dependsOn = refs(
@@ -285,7 +296,8 @@ function refs(
   limit: number,
   includeExternal: boolean,
 ): ITtscGraphDetails.IReference[] {
-  const ranked: Array<{ ref: ITtscGraphDetails.IReference; rank: number }> = [];
+  const ranked: RankedReference[] = [];
+  let order = 0;
   for (const edge of edges) {
     if (STRUCTURAL_KINDS.has(edge.kind)) continue;
     const other = graph.node(end === "to" ? edge.to : edge.from);
@@ -301,13 +313,9 @@ function refs(
     if (other.evidence?.startLine) ref.line = other.evidence.startLine;
     const evidence = edgeEvidenceOf(edge);
     if (evidence !== undefined) ref.evidence = evidence;
-    ranked.push({ ref, rank: refRank(ref, edge) });
+    retainRanked(ranked, { ref, rank: refRank(ref, edge), order: order++ }, limit);
   }
-  // Ranked so a caller that does throttle (the tour) keeps the strongest refs,
-  // not the ones nearest the top of a file. Uncapped, `limit` is Infinity and
-  // the sort is just a stable order.
-  ranked.sort((a, b) => a.rank - b.rank);
-  return ranked.map((item) => item.ref).slice(0, limit);
+  return ranked.map((item) => item.ref);
 }
 
 const executionKinds = new Set([
@@ -326,7 +334,8 @@ function dependencyRefs(
   limit: number,
   includeExternal: boolean,
 ): ITtscGraphDetails.IReference[] {
-  const ranked: Array<{ ref: ITtscGraphDetails.IReference; rank: number }> = [];
+  const ranked: RankedReference[] = [];
+  let order = 0;
   for (const edge of graph.outgoing(node.id)) {
     if (!kinds.has(edge.kind)) continue;
     const other = graph.node(edge.to);
@@ -343,12 +352,14 @@ function dependencyRefs(
     if (other.evidence?.startLine) ref.line = other.evidence.startLine;
     const evidence = edgeEvidenceOf(edge);
     if (evidence !== undefined) ref.evidence = evidence;
-    ranked.push({
-      ref,
-      rank: refRank(ref, edge),
-    });
+    retainRanked(
+      ranked,
+      { ref, rank: refRank(ref, edge), order: order++ },
+      limit,
+      true,
+    );
   }
-  return rankedRefs(ranked, limit);
+  return ranked.map((item) => item.ref);
 }
 
 function incomingDependencyRefs(
@@ -358,7 +369,8 @@ function incomingDependencyRefs(
   limit: number,
   includeExternal: boolean,
 ): ITtscGraphDetails.IReference[] {
-  const ranked: Array<{ ref: ITtscGraphDetails.IReference; rank: number }> = [];
+  const ranked: RankedReference[] = [];
+  let order = 0;
   for (const edge of graph.incoming(node.id)) {
     if (!kinds.has(edge.kind)) continue;
     const other = graph.node(edge.from);
@@ -374,30 +386,52 @@ function incomingDependencyRefs(
     if (other.evidence?.startLine) ref.line = other.evidence.startLine;
     const evidence = edgeEvidenceOf(edge);
     if (evidence !== undefined) ref.evidence = evidence;
-    ranked.push({
-      ref,
-      rank: refRank(ref, edge),
-    });
+    retainRanked(
+      ranked,
+      { ref, rank: refRank(ref, edge), order: order++ },
+      limit,
+      true,
+    );
   }
-  return rankedRefs(ranked, limit);
+  return ranked.map((item) => item.ref);
 }
 
-/** Sort by rank, drop duplicate (relation, id) pairs, and cut to `limit`. */
-function rankedRefs(
-  ranked: Array<{ ref: ITtscGraphDetails.IReference; rank: number }>,
+interface RankedReference {
+  ref: ITtscGraphDetails.IReference;
+  rank: number;
+  order: number;
+}
+
+/** Keep the best capped references in stable score order as edges arrive. */
+function retainRanked(
+  ranked: RankedReference[],
+  candidate: RankedReference,
   limit: number,
-): ITtscGraphDetails.IReference[] {
-  ranked.sort((a, b) => a.rank - b.rank);
-  const out: ITtscGraphDetails.IReference[] = [];
-  const seen = new Set<string>();
-  for (const item of ranked) {
-    const key = `${item.ref.relation}:${item.ref.id}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(item.ref);
-    if (out.length >= limit) break;
+  deduplicate = false,
+): void {
+  if (deduplicate) {
+    const duplicate = ranked.findIndex(
+      (item) =>
+        item.ref.relation === candidate.ref.relation &&
+        item.ref.id === candidate.ref.id,
+    );
+    if (duplicate >= 0) {
+      if (ranked[duplicate]!.rank <= candidate.rank) return;
+      ranked.splice(duplicate, 1);
+    }
   }
-  return out;
+  const position = ranked.findIndex(
+    (item) =>
+      candidate.rank < item.rank ||
+      (candidate.rank === item.rank && candidate.order < item.order),
+  );
+  if (position < 0) {
+    if (ranked.length < limit) ranked.push(candidate);
+    return;
+  }
+  if (position >= limit) return;
+  ranked.splice(position, 0, candidate);
+  if (ranked.length > limit) ranked.pop();
 }
 
 /**
@@ -477,12 +511,25 @@ function edgeKindRank(kind: string): number {
   }
 }
 
-/** Decorator facts already captured on a node, omitted when absent. */
+/**
+ * Decorator facts already captured on a node, omitted when absent or empty.
+ *
+ * @evidence contracts/common.md#principled-implementation The adapter preserves collected decorator order and values while omitting an empty optional facet.
+ * @evidence contracts/common.md#clear-and-simple-design One accessor shares decorator projection across details, lookup and tour consumers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts No framework-specific reinterpretation changes the collected decorator facts.
+ * @evidence contracts/common.md#meaningful-documentation The native headline states collected-fact and empty-facet behavior before the tags.
+ * @evidence contracts/performance.md#efficient-algorithms One pass copies each decorator and its arguments, costing their total population without scanning unrelated graph nodes.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This caller-owned projection performs no cross-request coordination; the graph owns the shared source facts.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned array transfers to its caller and this helper retains no state or handle.
+ */
 export function decoratorsOf(
   node: ITtscGraphNode,
 ): ITtscGraphDecorator[] | undefined {
   return node.decorators !== undefined && node.decorators.length > 0
-    ? node.decorators
+    ? node.decorators.map((decorator) => ({
+        name: decorator.name,
+        arguments: decorator.arguments.map((argument) => ({ ...argument })),
+      }))
     : undefined;
 }
 
@@ -498,10 +545,18 @@ export function decoratorsOf(
  * The optional filter narrows to the tags a caller matched. It runs on the
  * node's own tags, before any elision, so a tag found by an address longer than
  * the budget is still recognized as the one that matched.
+ *
+ * @evidence contracts/common.md#principled-implementation Filtering original tags before eliding preserves matching addresses; the shared leading-token rule keeps whole citation prefixes intact.
+ * @evidence contracts/common.md#clear-and-simple-design One projection helper owns tag selection and display elision for every graph result consumer.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Address matches are not re-evaluated against truncated text and long addresses are never cut into another target.
+ * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain the display budget, protected address and filter-before-elision ordering.
+ * @evidence contracts/performance.md#efficient-algorithms Filtering and mapping visit the node's tags once each; elision examines the leading address and copies at most the needed display prefix.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Selection depends on a caller predicate and returns a fresh mutable projection; this helper coordinates no reusable result.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The selected and returned arrays are request-local and no historical tags are retained here.
  */
 export function docTagsOf(
   node: ITtscGraphNode,
-  keep?: (tag: ITtscGraphDocTag) => boolean,
+  keep?: (tag: TtscGraphReadonly<ITtscGraphDocTag>) => boolean,
 ): ITtscGraphDocTag[] | undefined {
   if (node.docTags === undefined || node.docTags.length === 0) return undefined;
   const selected =
@@ -510,7 +565,7 @@ export function docTagsOf(
   return selected.map((tag) =>
     tag.text !== undefined && tag.text.length > MAX_DOC_CHARS
       ? { ...tag, text: elideTagText(tag.text) }
-      : tag,
+      : { ...tag },
   );
 }
 
@@ -534,7 +589,17 @@ function elideTagText(text: string): string {
   return text.slice(0, keep).trimEnd() + "…";
 }
 
-/** Relationship evidence as public coordinates, omitted when absent. */
+/**
+ * Relationship evidence as public coordinates, omitted when absent.
+ *
+ * @evidence contracts/common.md#principled-implementation Copying the actual edge span preserves file and optional endpoints without inferring missing coordinates.
+ * @evidence contracts/common.md#clear-and-simple-design One coordinate mapper is shared by graph runners and node implementation evidence.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing source evidence stays absent rather than being replaced with the caller's declaration span.
+ * @evidence contracts/common.md#meaningful-documentation The native headline explains public-coordinate projection and absent evidence behavior.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Copying a fixed set of optional coordinates chooses no input-dependent processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This fixed-size projection coordinates no cross-request computation.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned value transfers to its caller without a retained handle or cache.
+ */
 export function edgeEvidenceOf(
   edge: ITtscGraphEdge,
 ): ITtscGraphEvidence | undefined {
@@ -565,6 +630,14 @@ function evidenceCoordinatesOf(
  * sentence above the declaration, and the compiler carries it. It is the
  * declaration's documentation, not the body of the work: an index that lists a
  * symbol with what it is for is doing an index's job.
+ *
+ * @evidence contracts/common.md#principled-implementation Provenance-gated lines are scanned immediately above the declaration for JSDoc prose, stopping before tags and returning its first sentence.
+ * @evidence contracts/common.md#clear-and-simple-design This helper owns a short documentation projection; the source reader owns immutable generation validation and caching.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts A missing or mismatched source yields absence rather than an inferred purpose from names or implementation text.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain first-sentence purpose and distinguish declaration prose from implementation bodies.
+ * @evidence contracts/performance.md#efficient-algorithms The source reader supplies indexed, cached lines; this helper scans only the adjacent comment and joins its prose, costing the comment's lines and characters.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Source-byte validation and line splitting are shared by the reader; this pure projection does not coordinate a separate result cache.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Comment and prose arrays are local to this call and no history or handle is retained.
  */
 export function docOf(
   graph: TtscGraphMemory,
@@ -606,47 +679,29 @@ export function docOf(
 }
 
 /**
- * The declaration signature: the head of the declaration up to and including
- * the line that opens its body (`{`), or the single declaration line when there
- * is no brace, capped so a wrapped signature cannot run away.
+ * The producer's compiler-bounded declaration head, limited to display lines.
  *
- * It never runs past the declaration's own span. The stop used to be the brace,
- * the trailing semicolon, or the line cap, and a declaration ending in none of
- * them read its neighbors instead: an enum member ends in a comma, so `VIEW`
- * came back as itself plus the two members after it and the closing brace. The
- * span is the fact that says where the declaration ends, and it was already on
- * the node.
+ * Without a producer signature, return undefined. Physical lines cannot
+ * establish where a declaration head ends: a body may share its line and a
+ * parameter or return type may itself contain braces. The source span remains
+ * available when a caller needs to read the declaration.
+ *
+ * @evidence contracts/common.md#principled-implementation Only the AST-bounded producer head establishes a declaration-only signature; limiting its lines preserves that established boundary.
+ * @evidence contracts/common.md#clear-and-simple-design The producer owns declaration syntax boundaries and this helper owns display length, with no second partial TypeScript parser.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing heads are not repaired by a line-scan heuristic that can leak implementation or neighboring declarations.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the producer requirement, missing-head absence and source-span escape path.
+ * @evidence contracts/performance.md#efficient-algorithms Splitting the producer head and selecting its first display lines costs the supplied signature's length; no source file or graph traversal occurs.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The producer head is already shared on the graph node, while this display projection coordinates no repeated work.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The capped text is caller-owned and this helper retains no cache or native resource.
  */
 export function signatureOf(
-  graph: TtscGraphMemory,
+  _graph: TtscGraphMemory,
   node: ITtscGraphNode,
 ): string | undefined {
-  // The producer cuts the head where the compiler says the body opens, so when
-  // it supplied one there is nothing left to infer. The scan below only runs
-  // where it could not: it reads whole physical lines and stops at the first one
-  // holding a `{`, which leaks implementation text when a declaration shares its
-  // line with its body and stops early when the head itself contains a brace.
   if (node.signature !== undefined && node.signature !== "") {
     const capped = node.signature.split("\n").slice(0, MAX_SIGNATURE_LINES);
     const head = capped.join("\n").trim();
     if (head !== "") return head;
   }
-  const evidence = node.evidence;
-  const lines =
-    evidence === undefined ? undefined : graph.source.lines(evidence.file);
-  if (lines === undefined || evidence === undefined) return undefined;
-  const start = Math.max(0, evidence.startLine - 1);
-  const last =
-    evidence.endLine === undefined
-      ? lines.length - 1
-      : Math.min(lines.length - 1, evidence.endLine - 1);
-  const out: string[] = [];
-  for (let i = start; i <= last && out.length < MAX_SIGNATURE_LINES; i++) {
-    const line = lines[i];
-    if (line === undefined) break;
-    out.push(line);
-    if (line.includes("{") || line.trimEnd().endsWith(";")) break;
-  }
-  const text = out.join("\n").trim();
-  return text === "" ? undefined : text;
+  return undefined;
 }

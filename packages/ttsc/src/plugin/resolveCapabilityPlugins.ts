@@ -3,7 +3,13 @@ import path from "node:path";
 
 import { createNativeProjectContextJson } from "../compiler/internal/project/createNativeProjectContextJson";
 import { resolveBinary } from "../compiler/internal/resolveBinary";
-import type { ITtscCapabilityPlugin } from "./ITtscCapabilityPlugin";
+import { javascriptRuntimeCapabilities } from "../internal/javascriptRuntimeCapabilities";
+import type {
+  ITtscCapabilityPlugin,
+  ITtscCapabilityPluginResolution,
+} from "./ITtscCapabilityPlugin";
+import type { ITtscCapabilityResolutionEntry } from "./internal/ITtscCapabilityResolutionEntry";
+import { CapabilityResolutionFormat } from "./internal/CapabilityResolutionFormat";
 import { loadProjectPlugins } from "./internal/load/loadProjectPlugins";
 import { readCapabilityResolution } from "./internal/readCapabilityResolution";
 import { writeCapabilityResolution } from "./internal/writeCapabilityResolution";
@@ -32,20 +38,76 @@ import { writeCapabilityResolution } from "./internal/writeCapabilityResolution"
  *   declare.
  * @param options.cwd - Project root. Defaults to the current directory.
  * @param options.tsconfig - Project tsconfig path, relative to `cwd`.
+ *
  * @returns One entry per declaring plugin, in configured plugin order.
+ *
+ * @evidence contracts/common.md#principled-implementation The compatibility API returns declaring sidecars from the shared capability-resolution owner; callers needing reusable empty-result proof use the richer resolution API.
+ * @evidence contracts/common.md#clear-and-simple-design One wrapper preserves the established array result without duplicating discovery, evaluation or build policy.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Empty degraded results remain the legacy contract, but are not advertised as evidence of absence; capability selection does not route by package name.
+ * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains full discovery/build ownership, configured order and capability meaning, with separated paragraphs/tags following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Native invocation paths and sidecar identity remain with the owning resolver; this wrapper introduces no path parsing or shell invocation.
+ * @evidence contracts/performance.md#efficient-algorithms A shallow array copy preserves the mutable legacy return in O(selected plugins), while shared lookup avoids duplicated discovery algorithms.
+ * @evidence contracts/performance.md#reuse-equivalent-work The owning resolver uses the same proved persistent answer; this legacy wrapper adds no independent cache or incomplete freshness assumption.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The wrapper returns caller-owned data and acquires no persistent process or retained result population.
  */
 export function resolveCapabilityPlugins(options: {
   capability: string;
   cwd?: string;
   tsconfig?: string;
 }): ITtscCapabilityPlugin[] {
+  return [...resolveCapabilityPluginResolution(options).plugins];
+}
+
+/**
+ * Resolve a capability with an owning freshness query, including empty answers.
+ *
+ * Unavailable native tools or invalid plugin configuration yield an unavailable
+ * result whose freshness is always false. A successful lookup is reusable only
+ * while its complete recorded discovery and evaluation proof remains current.
+ * The query never re-evaluates a descriptor or builds a plugin.
+ *
+ * Unrecorded descriptor reads, module-based config inheritance, indirect
+ * runtime authority and failed persistence can leave a successful lookup
+ * without reusable proof. Its query then returns false; successful discovery is
+ * distinct from permission to reuse.
+ *
+ * @evidence contracts/common.md#principled-implementation Successful selection preserves the complete manifest and opt-in context; the result distinguishes degraded failure and validates the exact recorded input/build proof before authorizing dependent reuse.
+ * @evidence contracts/common.md#clear-and-simple-design One owner combines discovery and cache acceptance, exposing only selected plugins, outcome and an opaque validity query to downstream consumers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Unproved or unavailable empty answers are never reusable success; consumers do not reconstruct a partial resolver or bypass descriptor-read declarations.
+ * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains empty-answer proof, unavailable outcomes and the non-evaluating query; the result type documents consumer responsibility and closure lifetime following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Native resolve and shared filesystem observers preserve actual lexical/physical identities; executable and full JSON argv payloads cross the sidecar boundary without shell composition.
+ * @evidence contracts/performance.md#efficient-algorithms A valid persisted answer avoids descriptor startup and Go builds; freshness rechecks recorded observations and source-state witnesses rather than repeating discovery evaluation.
+ * @evidence contracts/performance.md#reuse-equivalent-work Persistent identity includes project, product version, complete environment/runtime authority and actual input/source states; callback equality additionally keeps the original resolution generation's proof.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Each result retains one proof snapshot through its closure, with no global result map or live sidecar; disk entries belong to source-cache pruning and result release is the consumer's responsibility.
+ */
+export function resolveCapabilityPluginResolution(options: {
+  /** Capability name that selected sidecars must explicitly declare true. */
+  capability: string;
+
+  /** Invocation directory for native project/config resolution. */
+  cwd?: string;
+
+  /** Explicit config relative to cwd, or the resolver's default discovery. */
+  tsconfig?: string;
+}): ITtscCapabilityPluginResolution {
   const cwd = path.resolve(options.cwd ?? process.cwd());
-  const tsconfig = options.tsconfig ?? "tsconfig.json";
-  const cached = readCapabilityResolution({ cwd, tsconfig, version });
-  if (cached !== null) return select(cached, options.capability);
+  // Discovery and an explicit local tsconfig can select different files from
+  // the same cwd. NUL cannot occur in a filename, so this discovery key cannot
+  // collide with an explicitly supplied path.
+  const tsconfig = options.tsconfig ?? `${String.fromCharCode(0)}discovered`;
+  const runtimeProved = capabilityRuntimeAuthorityComplete(cwd);
+  const authority = runtimeProved
+    ? CapabilityResolutionFormat.resolutionFile({ cwd, tsconfig })
+    : null;
+  const cached = runtimeProved
+    ? readCapabilityResolution({ cwd, tsconfig, version })
+    : null;
+  if (cached !== null)
+    return resolved(cached, options.capability, cwd, tsconfig, authority);
 
   const binary = resolveBinary();
-  if (binary === null || binary === undefined) return [];
+  if (binary === null || binary === undefined) return unavailable();
   try {
     const loaded = loadProjectPlugins({
       binary,
@@ -96,16 +158,96 @@ export function resolveCapabilityPlugins(options: {
     };
     // A descriptor that did not declare what it read computed an answer no
     // recorded input can prove to a later call (samchon/ttsc#1561).
-    if (loaded.descriptorReadsDeclared)
-      writeCapabilityResolution({ cwd, tsconfig, version }, answer);
-    return select(answer, options.capability);
+    const recorded =
+      runtimeProved &&
+      authority !== null &&
+      CapabilityResolutionFormat.resolutionFile({ cwd, tsconfig }) ===
+        authority &&
+      loaded.descriptorReadsDeclared &&
+      loaded.discoveryInputsComplete
+        ? writeCapabilityResolution(
+            { cwd, tsconfig, version, expectedAuthority: authority },
+            answer,
+          )
+        : null;
+    return recorded === null
+      ? {
+          isCurrent: () => false,
+          plugins: select(answer, options.capability),
+          status: "resolved",
+        }
+      : resolved(recorded, options.capability, cwd, tsconfig, authority);
   } catch {
     // A project whose plugin configuration does not load is a project the user
     // already sees an error for, from the command that compiles it. Failing here
     // would turn "your lint config has a typo" into "the graph is broken", and
     // the caller's own degraded answer is the honest one.
-    return [];
+    return unavailable();
   }
+}
+
+/**
+ * Whether the keyed executable is the actual sole descriptor runtime.
+ *
+ * A direct hook-capable Node executable selects itself for both direct and ttsx
+ * evaluation. Bun, wrappers and startup preloads introduce additional
+ * authorities that this cache format does not observe, so they are not reused.
+ */
+function capabilityRuntimeAuthorityComplete(cwd: string): boolean {
+  if (process.env.NODE_OPTIONS?.trim()) return false;
+  const runtime = process.env.TTSC_NODE_BINARY ?? process.execPath;
+  if (!path.isAbsolute(runtime)) return false;
+  try {
+    const capabilities = javascriptRuntimeCapabilities(
+      runtime,
+      process.env,
+      cwd,
+    );
+    return (
+      !capabilities.bun &&
+      capabilities.registerHooks &&
+      capabilities.executable !== undefined &&
+      fs.realpathSync.native(capabilities.executable) ===
+        fs.realpathSync.native(runtime)
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** A complete accepted cache generation and its owning validity query. */
+function resolved(
+  entry: ITtscCapabilityResolutionEntry,
+  capability: string,
+  cwd: string,
+  tsconfig: string,
+  authority: string | null,
+): ITtscCapabilityPluginResolution {
+  const proof = JSON.stringify(entry);
+  return {
+    isCurrent: () => {
+      try {
+        if (
+          authority === null ||
+          !capabilityRuntimeAuthorityComplete(cwd) ||
+          CapabilityResolutionFormat.resolutionFile({ cwd, tsconfig }) !==
+            authority
+        )
+          return false;
+        const current = readCapabilityResolution({ cwd, tsconfig, version });
+        return current !== null && JSON.stringify(current) === proof;
+      } catch {
+        return false;
+      }
+    },
+    plugins: select(entry, capability),
+    status: "resolved",
+  };
+}
+
+/** Degraded absence is never evidence that the project has no publisher. */
+function unavailable(): ITtscCapabilityPluginResolution {
+  return { isCurrent: () => false, plugins: [], status: "unavailable" };
 }
 
 /** The declaring plugins, from a resolution however it was obtained. */

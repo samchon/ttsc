@@ -7,11 +7,16 @@ import type { PluginBuildLockFence } from "./PluginBuildLockFence";
  * - `released`: the observed generation no longer exists and no binary appeared —
  *   the holder freed the key normally, so the caller should retry ordinary
  *   acquisition without reporting or removing anything.
- * - `abandoned`: the lock still exists but is provably stale (dead owner, old
- *   legacy lock) or the wait budget expired; the caller may report and retire
- *   precisely the attached generation.
+ * - `abandoned`: the inspector supplied an abandoned-owner observation; the
+ *   caller may report and retire precisely the attached generation.
  *
- * Exported for unit tests.
+ * The fence permits retirement only of the generation this wait observed;
+ * wait-budget expiry throws without returning a retirement capability.
+ *
+ * @evidence contracts/common.md#principled-implementation The discriminated union distinguishes published reuse, ordinary reacquisition and fenced retirement; only retirement carries the reason and exact observed-generation capability.
+ * @evidence contracts/common.md#clear-and-simple-design Three outcomes expose the caller's next action without optional reason/fence fields on unrelated states.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Elapsed time never supplies an abandoned result; a bounded-wait failure leaves the potentially active task's ownership intact.
+ * @evidence contracts/common.md#meaningful-documentation Native bullets explain acquisition/retirement consequences and distinguish timeout failure from a returned abandonment capability, with blank separation before tags.
  */
 export type PluginBinaryWaitResult =
   | { outcome: "published" }

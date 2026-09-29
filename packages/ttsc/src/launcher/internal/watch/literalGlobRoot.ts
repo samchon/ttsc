@@ -6,6 +6,12 @@ import path from "node:path";
  *
  * A pattern without any wildcard names one file, so its directory is returned.
  * A wildcard in the first segment yields the volume root.
+ *
+ * @evidence contracts/common.md#principled-implementation The last separator before the first supported wildcard identifies the deepest literal directory that can contain every match.
+ * @evidence contracts/common.md#clear-and-simple-design Resolve, locate the wildcard boundary and preserve the volume root in one direct calculation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The root derives from the declared pattern instead of known project directory names.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain wildcard-free and root-level patterns following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path.resolve, dirname and parse preserve Windows drive/UNC roots and POSIX roots; slash normalization is only the supported glob spelling boundary.
  */
 export function literalGlobRoot(pattern: string): string {
   const resolved = path.resolve(pattern);

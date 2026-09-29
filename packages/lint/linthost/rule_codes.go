@@ -53,6 +53,11 @@ func invalidateRuntimeRuleCodes() {
 // Built-in assignments come from the append-only ledger. Runtime contributor
 // assignments are recomputed over the complete sorted contributor set, so the
 // same set receives the same codes regardless of registration order.
+//
+// @evidence contracts/common.md#principled-implementation Frozen built-in assignments are preserved while complete sorted contributor names receive collision-free assignments from the same reserved code interval.
+// @evidence contracts/common.md#clear-and-simple-design One public lookup centralizes the compatibility ledger and invalidated runtime allocation.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The append-only ledger is explicit diagnostic compatibility data; contributors use the allocator instead of name-specific code exceptions.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains built-in stability and registration-order independence; separated tags follow documentation guidance.
 func RuleCode(name string) int32 {
   if code, exists := builtInRuleCodes[name]; exists {
     return code

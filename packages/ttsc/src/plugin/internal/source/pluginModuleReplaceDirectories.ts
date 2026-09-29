@@ -30,10 +30,22 @@ import { spawnGoTool } from "./spawnGoTool";
  * @param env The build's effective environment.
  * @param goBinary The Go tool the build runs, or `undefined` to resolve it as
  *   the build does.
+ *
  * @returns Each replacement outside the module, sorted by module path: the
  *   replaced module path and version, the target as `go.mod` spells it, and the
  *   target's absolute path.
+ *
  * @throws When `go.mod` exists and Go cannot read it, as the build would fail.
+ *
+ * @evidence contracts/common.md#principled-implementation Go parses its own replace grammar; only unversioned local targets outside the physical main module are reported, resolving relative targets from the original module rather than scratch cwd.
+ * @evidence contracts/common.md#clear-and-simple-design A cheap no-replace scan avoids an unnecessary subprocess, while Go JSON parsing and physical containment stay in one owning operation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The implementation uses Go's supported mod-edit interface instead of a handwritten grammar or special-casing particular dependency names.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain external versus internal replacement ownership, original-directory resolution and returned spellings; failure behavior is documented.
+ * @evidence contracts/portability.md#os-neutral-implementation Node path and physical-path resolution determine containment; Go local-path syntax accepts native absolute paths and Windows-relative backslashes only on Windows.
+ * @evidence contracts/performance.md#efficient-algorithms Reading M manifest bytes can skip the subprocess when replace is absent; R returned directives require one pass and O(R log R) ordering without walking replacement contents here.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This reader establishes the current module directives; callers share resulting source readings in computeCacheKey, not a stale directive memo here.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Subprocess capture is synchronously released by spawnGoTool; this operation retains only its returned directory list.
  */
 export function pluginModuleReplaceDirectories(
   moduleRoot: string,
@@ -44,8 +56,9 @@ export function pluginModuleReplaceDirectories(
   let text: string;
   try {
     text = fs.readFileSync(path.join(root, "go.mod"), "utf8");
-  } catch {
-    return [];
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw error;
   }
   // Every `replace` directive spells the word, so a file without it has none,
   // and Go need not be run to read it. A file with it is read by Go itself.

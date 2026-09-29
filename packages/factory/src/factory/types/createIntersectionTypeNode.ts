@@ -12,8 +12,24 @@ import { make } from "../internal/make";
  * Given the constituents `A` and `B`, the printer renders:
  *
  * ```ts
- * A & B;
+ * A & B
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Ordered constituent types remain an intersection node; the printer groups
+ *   lower-precedence constituents rather than changing their intersection meaning.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   A single list models the composition without flattening nested nodes or
+ *   implementing assignability and intersection reduction in a constructor.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Constituent names and expected results do not select branches; empty or
+ *   invalid caller outlines are not disguised with a fabricated fallback type.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc explains the intersection list and its layout, with an example of the
+ *   bare type and the constituent array documented.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param types The constituent types.

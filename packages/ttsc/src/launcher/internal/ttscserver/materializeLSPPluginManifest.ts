@@ -8,9 +8,22 @@ import { createCanonicalTempDirectory } from "../../../internal/createCanonicalT
  * read.
  *
  * The file lives in its own canonical temporary directory, is created
- * exclusively with owner-only permissions, and is removed by `dispose`, so a
- * second server or another user on the machine can neither read nor replace the
- * selection this server made.
+ * exclusively with POSIX mode 0600. Windows access follows the temporary
+ * directory's inherited ACL; that mode does not establish an ACL guarantee. The
+ * native child consumes the file and `dispose` removes the directory after the
+ * invocation. A failed disposal can be retried; forced termination can prevent
+ * either cleanup owner from running.
+ *
+ * @evidence contracts/common.md#principled-implementation A unique canonical directory and exclusive file creation bind one serialized selection to one invocation; removal belongs to both the consuming child and the launcher's final disposal boundary.
+ * @evidence contracts/common.md#clear-and-simple-design The returned path and disposer expose only the transport ownership needed by the launcher; serialization, acquisition and rollback stay together.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The real manifest is written through native filesystem APIs without environment-size truncation or a substituted payload; cleanup failure is reported rather than disguised as successful removal.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs state POSIX permissions, Windows ACL limits, retry and forced-termination limits with separated acknowledgment tags following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Canonical temporary-directory creation and native path joining preserve OS-neutral paths; exclusive creation is portable but POSIX mode bits are explicitly distinguished from Windows ACLs.
+ * @evidence contracts/performance.md#efficient-algorithms Serialization and writing scale with manifest bytes; one private file avoids repeated environment-block copies and uses no extra per-plugin filesystem artifact.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each invocation owns a separate consumable file, so sharing a prior transport would violate lifetime and child consumption even if JSON matched.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources One directory and file are owned by the returned disposer; acquisition rollback preserves both errors when removal also fails, and successful disposal marks completion only after removal so a failed cleanup remains retryable.
  */
 export function materializeLSPPluginManifest(manifest: unknown): {
   dispose(): void;
@@ -25,15 +38,22 @@ export function materializeLSPPluginManifest(manifest: unknown): {
       mode: 0o600,
     });
   } catch (error) {
-    fs.rmSync(directory, { force: true, recursive: true });
+    try {
+      fs.rmSync(directory, { force: true, recursive: true });
+    } catch (cleanupError) {
+      throw new AggregateError(
+        [error, cleanupError],
+        "ttscserver: manifest creation and cleanup failed",
+      );
+    }
     throw error;
   }
   let disposed = false;
   return {
     dispose(): void {
       if (disposed) return;
-      disposed = true;
       fs.rmSync(directory, { force: true, recursive: true });
+      disposed = true;
     },
     path: location,
   };

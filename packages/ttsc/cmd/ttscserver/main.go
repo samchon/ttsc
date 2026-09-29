@@ -179,13 +179,14 @@ func runLSP(args []string) int {
 //
 // The manifest names every resolved project plugin and its launch context, so
 // the copy this process was given to own is consumed exactly once: the file the
-// launcher named with the flag is removed as soon as it has been read, which
-// means a forcibly terminated launcher cannot leave the payload on disk. Both
-// transport variables are cleared from this process either way, so no plugin
-// sidecar spawned later inherits the payload or a path to it. The environment
-// forms remain accepted because an editor pointed straight at a native binary
-// has no launcher to pass the flag, and a manifest supplied that way is read
-// without being removed, because it belongs to whoever wrote it.
+// launcher named with the flag must be removed after a successful read before
+// startup continues. A removal failure is reported; deletion cannot be promised
+// if the process is killed before consumption or the filesystem denies it.
+//
+// Both transport variables are cleared from this process either way, so later
+// plugin sidecars inherit neither the payload nor its path. Environment forms
+// support editors that invoke a native binary directly. Those files remain
+// caller-owned and are read without removal.
 func lspPluginManifestJSON(flagLocation string) (string, error) {
   defer func() {
     os.Unsetenv("TTSC_LSP_PLUGINS_FILE")
@@ -197,11 +198,11 @@ func lspPluginManifestJSON(flagLocation string) (string, error) {
       return "", err
     }
     // Only the flag names a file the launcher created for this process, so
-    // only that one is consumed here. Removing it is what keeps a forcibly
-    // terminated launcher from leaving the payload on disk. A path supplied
-    // out of band belongs to whoever wrote it and must survive the read, or
-    // the next session would start without the plugins it declared.
-    os.Remove(flagLocation)
+    // only that one is consumed here. An out-of-band file remains caller-owned.
+    // Another cleanup owner may already have removed it after the read.
+    if err := os.Remove(flagLocation); err != nil && !errors.Is(err, os.ErrNotExist) {
+      return "", fmt.Errorf("consume --lsp-plugins-file: %w", err)
+    }
     return body, nil
   }
   location := strings.TrimSpace(os.Getenv("TTSC_LSP_PLUGINS_FILE"))

@@ -14,6 +14,12 @@ import type { TtscPluginStage } from "./TtscPluginStage";
  * behavior and where it participates in the TypeScript-Go pipeline. ttsc then
  * builds the Go source lazily with the bundled Go toolchain and passes the
  * original project plugin config through `--plugins-json`.
+ *
+ * @evidence contracts/common.md#principled-implementation The descriptor distinguishes Go source composition, stage and declared capabilities, with explicit host-input proofs for files outside the compiler graph; these inputs determine build and reuse identity rather than plugin labels.
+ * @evidence contracts/common.md#clear-and-simple-design One descriptor states the native implementation and its declared inputs, while factory evaluation, building and pipeline dispatch remain host responsibilities.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Source-based Go composition and capability opt-ins are supported extension mechanisms; routing never depends on name, and undeclared reads cannot be made cache-safe by compensating guesses.
+ * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains source ownership, stage, horizontal/vertical composition, capabilities and input-proof obligations; documented-member spacing and prose/tag separation follow the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Source and host-input paths are native identities with documented absolute/relative bases; content hashes and physical realpaths are separate proof fields so symlink retargeting remains a change. The descriptor requests Go-source building rather than a hardcoded executable suffix or shell command.
  */
 export interface ITtscPlugin {
   /**

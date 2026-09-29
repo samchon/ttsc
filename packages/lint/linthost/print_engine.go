@@ -80,20 +80,43 @@ import "strings"
 //
 // Defaults of 0 keep the engine usable for top-of-file reflow without
 // a wrapper.
+//
+// @evidence contracts/common.md#principled-implementation Width, indentation, line terminator, comma policy and starting geometry represent the decisions needed to render the doc algebra in its surrounding source position.
+// @evidence contracts/common.md#clear-and-simple-design One options record keeps output policy separate from layout structure and source grammar dispatch.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Options encode supported formatting policy instead of fixture-dependent widths or post-render patches.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains column units, first-line asymmetry, continuation indentation and defaults; members and tags follow documentation guidance.
 type PrintOptions struct {
+  // PrintWidth is the preferred line budget in display columns.
   PrintWidth     int
+
+  // TabWidth is the column increment for one indentation step.
   TabWidth       int
+
+  // UseTabs emits tabs for full indentation steps and spaces for alignment remainder.
   UseTabs        bool
+
+  // EndOfLine selects generated line breaks; empty means LF.
   EndOfLine      string
+
+  // TrailingComma is all, es5 or none; empty retains the all default.
   TrailingComma  string
+
+  // StartingColumn accounts for text preceding the first printed character.
   StartingColumn int
+
+  // BaseIndent anchors continuation lines independently from StartingColumn.
   BaseIndent     int
 }
 
 // DefaultPrintOptions returns the Prettier defaults: 80-column lines,
 // 2-space indentation, LF line terminators, trailing commas on every
 // multi-line list (the `trailingComma: "all"` default Prettier adopted
-// in v2).
+// in v3).
+//
+// @evidence contracts/common.md#principled-implementation The returned values instantiate the documented Prettier-aligned layout policy without changing the caller's source geometry.
+// @evidence contracts/common.md#clear-and-simple-design One constructor centralizes defaults shared by context creation and rendering.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Numeric widths and string modes are documented defaults rather than known-answer special cases.
+// @evidence contracts/common.md#meaningful-documentation Native prose names line, indentation and comma defaults; tags follow documentation guidance.
 func DefaultPrintOptions() PrintOptions {
   return PrintOptions{PrintWidth: 80, TabWidth: 2, UseTabs: false, EndOfLine: "lf", TrailingComma: "all"}
 }
@@ -117,6 +140,11 @@ type printFrame struct {
 // resulting string. The output never contains a trailing line break the
 // doc tree did not request; trailing whitespace inside text fragments
 // is preserved verbatim.
+//
+// @evidence contracts/common.md#principled-implementation The stack interpreter applies the documented doc variants and group fit decisions while preserving text payloads and ordering deferred suffixes before generated breaks.
+// @evidence contracts/common.md#clear-and-simple-design Rendering, fit measurement and source grammar dispatch remain distinct operations; the per-call stack and suffix queue hold only the current print's state.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The renderer follows explicit layout operations rather than reparsing expected strings or patching foreign formatter behavior.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains the algorithm, verbatim whitespace and requested breaks; option members document geometry and paragraphs and tags follow documentation guidance.
 func Print(doc Doc, opts PrintOptions) string {
   if opts.PrintWidth <= 0 {
     opts.PrintWidth = 80
@@ -136,6 +164,14 @@ func Print(doc Doc, opts PrintOptions) string {
   col := opts.StartingColumn
   var lineSuffix []Doc
   stack := []printFrame{{indent: opts.BaseIndent, mode: modeBreak, doc: doc}}
+  writeText := func(text string) {
+    out.WriteString(text)
+    if strings.ContainsAny(text, "\r\n\u2028\u2029") {
+      col = displayWidthAfterLastNewline(text)
+    } else {
+      col += displayWidth(text)
+    }
+  }
 
   flushLineSuffix := func() {
     if len(lineSuffix) == 0 {
@@ -153,12 +189,7 @@ func Print(doc Doc, opts PrintOptions) string {
     lineSuffix = nil
     for _, d := range pending {
       s := Print(d, opts)
-      out.WriteString(s)
-      if idx := strings.LastIndex(s, "\n"); idx >= 0 {
-        col = len(s) - idx - 1
-      } else {
-        col += len(s)
-      }
+      writeText(s)
     }
   }
 
@@ -188,15 +219,7 @@ func Print(doc Doc, opts PrintOptions) string {
     case docNil:
       // no-op
     case docText:
-      out.WriteString(top.doc.Text)
-      // Update column. A text fragment may contain embedded
-      // newlines (verbatim slices). The column tracker counts
-      // from the last newline.
-      if strings.Contains(top.doc.Text, "\n") {
-        col = displayWidthAfterLastNewline(top.doc.Text)
-      } else {
-        col += displayWidth(top.doc.Text)
-      }
+      writeText(top.doc.Text)
     case docConcat:
       // Push children in reverse so they pop in source order.
       for i := len(top.doc.Children) - 1; i >= 0; i-- {
@@ -321,12 +344,7 @@ func Print(doc Doc, opts PrintOptions) string {
   // that.
   for _, d := range lineSuffix {
     s := Print(d, opts)
-    out.WriteString(s)
-    if idx := strings.LastIndex(s, "\n"); idx >= 0 {
-      col = len(s) - idx - 1
-    } else {
-      col += len(s)
-    }
+    writeText(s)
   }
   _ = col
 
@@ -374,7 +392,7 @@ func fits(doc Doc, remaining int, indent int) bool {
       // true here would let the surrounding group commit to a flat
       // layout that already contains a newline, defeating the entire
       // fit-or-break decision. Force the caller to broken mode.
-      if strings.Contains(top.doc.Text, "\n") {
+      if strings.ContainsAny(top.doc.Text, "\r\n\u2028\u2029") {
         return false
       }
     case docConcat:
@@ -464,7 +482,7 @@ func fitsFirstLine(doc Doc, remaining int) bool {
     stack = stack[:len(stack)-1]
     switch top.Kind {
     case docText:
-      if idx := strings.IndexByte(top.Text, '\n'); idx >= 0 {
+      if idx := strings.IndexAny(top.Text, "\r\n\u2028\u2029"); idx >= 0 {
         // A multi-line Text ends the first line at its first newline.
         return remaining-displayWidth(top.Text[:idx]) >= 0
       }
@@ -514,7 +532,7 @@ func fitsFirstLine(doc Doc, remaining int) bool {
 func flatten(doc Doc) (Doc, bool) {
   switch doc.Kind {
   case docText:
-    if strings.Contains(doc.Text, "\n") {
+    if strings.ContainsAny(doc.Text, "\r\n\u2028\u2029") {
       return Doc{}, false
     }
     return doc, true

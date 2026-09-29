@@ -9,6 +9,7 @@ import (
   "fmt"
   "io"
   "sort"
+  "sync"
 
   "golang.org/x/sys/unix"
 )
@@ -30,6 +31,22 @@ const endMask = unix.IN_IGNORED | unix.IN_DELETE_SELF | unix.IN_MOVE_SELF |
 // One loop polls the inotify instance and a wake pipe the stdin reader writes
 // after queueing each request, so events and replies leave in the order they
 // were produced, and a `sync` can read the instance empty before it answers.
+//
+// stdin and the output streams remain caller-owned. The helper owns and closes
+// its inotify and wake descriptors on every return. Its reader can remain
+// blocked on caller input after an early backend failure; the command process
+// ends when Run returns, while a library caller must close its input.
+// Queue sends are canceled on return, and wake writes are synchronized with
+// descriptor closure so a delayed reader cannot write to a reused descriptor.
+//
+// @evidence contracts/common.md#principled-implementation The Linux inotify instance reports actual overflow and directory loss. One poll loop drains queued events before acknowledging sync, preserving the protocol's observation ordering without guessing that quiet means unchanged.
+// @evidence contracts/common.md#clear-and-simple-design A stdin reader only decodes and queues requests; one helper loop owns watch state, ordered emission and synchronization. Kernel handles remain behind this native backend.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Supported syscalls supply watch capabilities; no foreign runtime method is replaced and no test event substitutes for an actual ready or drain boundary.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs state ordering, exit and stream ownership, including the blocked-reader limitation. The package describes every protocol message separately under documentation-skill guidance.
+// @evidence contracts/portability.md#os-neutral-implementation A Linux build constraint isolates inotify and poll. Native directory paths remain syscall inputs, not shell text; other platforms select an explicit unsupported helper and use adapter-owned watching.
+// @evidence contracts/performance.md#efficient-algorithms Each kernel batch is decoded linearly; fanout visits its K subscribers. Sorting O(K log K) is shared until membership changes instead of repeated for every event. Removing a subscription uses indexed descriptor lookup, and no polling traversal scans watched directories.
+// @evidence contracts/performance.md#reuse-equivalent-work Kernel watch descriptors are shared by subscribers of the same directory. Ordered subscriber IDs are cached per descriptor and invalidated on add, remove or directory loss; all mutation belongs to the same event loop.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Deferred cleanup cancels queued reader sends and closes all three owned descriptors; a mutex prevents late wake writes after closure. A blocking input read remains caller-owned. The request channel holds at most 256 values, the scanner accepts at most a 16 MiB line, and event decoding reuses 64 KiB. Subscription maps and order slices grow with live client subscriptions and are released on remove/gone or process exit; subscriptions have no independent numeric cap.
 func Run(stdin io.Reader, stdout io.Writer, stderr io.Writer) int {
   fd, err := unix.InotifyInit1(unix.IN_NONBLOCK | unix.IN_CLOEXEC)
   if err != nil {
@@ -43,10 +60,27 @@ func Run(stdin io.Reader, stdout io.Writer, stderr io.Writer) int {
     return 1
   }
   defer unix.Close(wake[0])
-  defer unix.Close(wake[1])
-
   requests := make(chan Request, 256)
-  go readRequests(stdin, requests, wake[1])
+  done := make(chan struct{})
+  var wakeMu sync.Mutex
+  notify := func() {
+    wakeMu.Lock()
+    defer wakeMu.Unlock()
+    select {
+    case <-done:
+      return
+    default:
+      // A full nonblocking pipe already holds a wake-up.
+      _, _ = unix.Write(wake[1], []byte{0})
+    }
+  }
+  defer func() {
+    wakeMu.Lock()
+    close(done)
+    _ = unix.Close(wake[1])
+    wakeMu.Unlock()
+  }()
+  go readRequests(stdin, requests, done, notify)
 
   h := newHelper(fd, stdout)
   fds := []unix.PollFd{
@@ -95,7 +129,9 @@ func Run(stdin io.Reader, stdout io.Writer, stderr io.Writer) int {
 
 // readRequests decodes stdin into requests, waking the loop after each, and
 // closes the channel at the end of input.
-func readRequests(stdin io.Reader, requests chan<- Request, wake int) {
+func readRequests(stdin io.Reader, requests chan<- Request, done <-chan struct{}, notify func()) {
+  defer notify()
+  defer close(requests)
   scanner := bufio.NewScanner(stdin)
   scanner.Buffer(make([]byte, 64*1024), 16*1024*1024)
   for scanner.Scan() {
@@ -103,12 +139,13 @@ func readRequests(stdin io.Reader, requests chan<- Request, wake int) {
     if json.Unmarshal(scanner.Bytes(), &request) != nil {
       continue
     }
-    requests <- request
-    // A full pipe already holds a wake-up.
-    unix.Write(wake, []byte{0})
+    select {
+    case requests <- request:
+      notify()
+    case <-done:
+      return
+    }
   }
-  close(requests)
-  unix.Write(wake, []byte{0})
 }
 
 // emptyWake reads the wake pipe empty.
@@ -131,11 +168,17 @@ type helper struct {
   fd      int
   out     *bufio.Writer
   encoder *json.Encoder
+
   // watches maps a watch descriptor to the subscriptions it serves.
   watches map[int32]map[int64]struct{}
+
   // descriptors maps a subscription to its watch descriptor.
   descriptors map[int64]int32
-  buffer      []byte
+
+  // ordered shares deterministic subscriber order until membership changes.
+  ordered map[int32][]int64
+
+  buffer []byte
 }
 
 func newHelper(fd int, stdout io.Writer) *helper {
@@ -146,6 +189,7 @@ func newHelper(fd int, stdout io.Writer) *helper {
     encoder:     json.NewEncoder(out),
     watches:     map[int32]map[int64]struct{}{},
     descriptors: map[int64]int32{},
+    ordered:     map[int32][]int64{},
     buffer:      make([]byte, 64*1024),
   }
 }
@@ -185,6 +229,7 @@ func (h *helper) add(id int64, path string) {
   }
   subscriptions[id] = struct{}{}
   h.descriptors[id] = descriptor
+  delete(h.ordered, descriptor)
   h.emit(Response{ID: id, Ready: true})
 }
 
@@ -196,6 +241,7 @@ func (h *helper) remove(id int64) {
   delete(h.descriptors, id)
   subscriptions := h.watches[descriptor]
   delete(subscriptions, id)
+  delete(h.ordered, descriptor)
   if len(subscriptions) != 0 {
     return
   }
@@ -255,13 +301,18 @@ func (h *helper) event(wd int32, mask uint32, name string) {
   if len(subscriptions) == 0 {
     return
   }
-  ids := sortedIDs(subscriptions)
+  ids := h.ordered[wd]
+  if ids == nil {
+    ids = sortedIDs(subscriptions)
+    h.ordered[wd] = ids
+  }
   if mask&endMask != 0 {
     for _, id := range ids {
       delete(h.descriptors, id)
       h.emit(Response{ID: id, Gone: true})
     }
     delete(h.watches, wd)
+    delete(h.ordered, wd)
     // A moved directory keeps its watch, which now follows another path.
     if mask&unix.IN_IGNORED == 0 {
       unix.InotifyRmWatch(h.fd, uint32(wd))

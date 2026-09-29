@@ -15,8 +15,24 @@ import { make } from "../internal/make";
  * leading space):
  *
  * ```tsx
- * bar = "x";
+ *  bar="x"
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Attribute and spread entries remain ordered, preserving JSX's override and
+ *   evaluation sequence. The empty list emits no attribute separator.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One list is reusable by paired and self-closing openings; each child owns
+ *   its syntax while the attributes printer owns leading separating spaces.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Entries are neither sorted by name nor merged into a fabricated props
+ *   object; no expected attribute value controls retention.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native prose explains empty output and the standalone leading space; the
+ *   example now includes that space and the actual = spelling.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param properties The attribute properties.

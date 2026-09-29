@@ -30,10 +30,10 @@ import { signalProjectRecordFile } from "./signalProjectRecordFile";
  * after the move: Turbopack when it processes the loader's result
  * (samchon/ttsc#1423), Rspack when its watcher records the file's time after a
  * build, Rolldown after the build a change landed in. So the record is moved
- * again, with a delay that grows fourfold each time without end, until a
+ * again, with a delay that grows fourfold up to Node's timer maximum, until a
  * registration answers: however late the host takes its baseline, a later move
  * lands after it, and a record the host never registers again costs a number of
- * moves that grows only with the logarithm of the time it stays stale. A host
+ * moves reduced by exponential backoff before that maximum. A host
  * that heard the first move runs the project's modules before the second is
  * due, and their registrations end it; a pool worker that never sees the
  * registration keeps moving the record after another worker delivered, and the
@@ -55,6 +55,56 @@ import { signalProjectRecordFile } from "./signalProjectRecordFile";
  *
  * @param root The directory whose pinned scope observes the project.
  * @param operations Native watch seams, replaceable for tests.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Each record owns generation input evidence. A change remains owed until a
+ *   registration replaces that evidence; replacement immediately signals again
+ *   when its capture token predates a change. Repeated moves protect host baselines
+ *   taken after the first move, and compile dependency reports suppress retries
+ *   only where the host has no watcher for that record.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One observer owns input truth; registered/owed/pending/unwatched collections
+ *   separately express delivery identity, unsettled changes, timers and host
+ *   participation. Helpers centralize settlement and movement so every lifecycle
+ *   transition updates the same owned state rather than mutating host watchers.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   This preserves the host filesystem boundary while one owned observer
+ *   serves project records; record signalling does not replace the host's
+ *   methods.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   The JSDoc explains why the adapter owns observation, why a record
+ *   represents a project and when a delivery can settle an owed signal.
+ *   Purpose and reasons are separate native paragraphs under the documentation
+ *   skill; the returned interface documents its lifecycle operations.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Native paths and Node filesystem operations locate records below the
+ *   host's resolved root. Input identity and notification transport are
+ *   delegated to the shared observer, which isolates Windows and macOS brokers
+ *   from other native watches. Host dependency channels remain the adapter
+ *   boundary rather than an assumed common watcher API.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   R participating records use map/set lookup for registration and movement;
+ *   compiled scans R once for the reported dependency set. Identical input-array
+ *   and capture-token deliveries skip repeat registration. Owed moves grow their
+ *   delay fourfold up to the timer maximum instead of rescanning inputs per move.
+ *
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   One observer shares subscriptions by filesystem identity and condition.
+ *   Identical generation input arrays with the same capture token reuse their
+ *   established live registration; a failed delivery or different token cannot.
+ *   Change sequence and input evidence, not a quiet host watcher, validate reuse.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   The bridge owns its observer and at most one retry timer per owed watched
+ *   record. Registration settles that timer; compiled removes timers for absent
+ *   dependencies; close clears timers and record state before observer disposal.
+ *   Historical registrations grow with participating projects until close and
+ *   there is no fixed cap on their retained input bytes.
  */
 export function openHostWatchBridge(
   root: string,
@@ -148,12 +198,10 @@ export function openHostWatchBridge(
       (record === undefined ? owed.size !== 0 : owed.has(path.resolve(record))),
     register(file, inputs, failed, startedAt) {
       const record = path.resolve(file);
-      // Every module of a generation registers the same inputs, the same
-      // array, against the same pass, and the first registration established
-      // the observation: the observer is live from then on and reports every
-      // later change itself, so the rest register nothing again and settle
-      // nothing either, since a delivery of the same generation carries the
-      // state the first did.
+      // Deliveries with the same immutable input population and pass reuse
+      // the established observation. A generation whose later module adds
+      // selection inputs publishes a new array, which must update coverage
+      // rather than being mistaken for another identical delivery.
       const last = registered.get(record);
       if (
         last !== undefined &&

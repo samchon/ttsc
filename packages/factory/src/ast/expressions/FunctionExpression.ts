@@ -11,6 +11,15 @@ import type { TypeParameterDeclaration } from "../types/TypeParameterDeclaration
  *
  * Built by {@link factory.createFunctionExpression}.
  *
+ * An absent name creates anonymous function syntax. The generator marker and
+ * return annotation are optional; their compatibility with parameters and
+ * the surrounding context is not checked by this representation.
+ *
+ * @evidence contracts/common.md#principled-implementation Optional name and generator marker distinguish anonymous, named and generator forms, while a required Block preserves the statement-body form of a function expression; context legality remains caller-owned.
+ * @evidence contracts/common.md#clear-and-simple-design Signature constituents and one block are direct members, with no execution state or duplicate declaration representation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Anonymous functions remain unnamed; the generator marker records supplied syntax rather than patching function behavior.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains optional identity and generator context, while members describe annotation omission and block ownership with documentation-compliant separation.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  */
 export interface FunctionExpression {
@@ -23,7 +32,7 @@ export interface FunctionExpression {
   /** The generator marker (`*`), if any. */
   asteriskToken?: Token;
 
-  /** The name. */
+  /** Local name; absent represents an anonymous function. */
   name?: Identifier;
 
   /** The generic type parameters, if any. */
@@ -32,9 +41,9 @@ export interface FunctionExpression {
   /** The parameters. */
   parameters: readonly ParameterDeclaration[];
 
-  /** The type. */
+  /** Explicit return annotation; absent prints no return annotation. */
   type?: TypeNode;
 
-  /** The body. */
+  /** Required statement body, unlike an arrow's possible concise expression. */
   body: Block;
 }

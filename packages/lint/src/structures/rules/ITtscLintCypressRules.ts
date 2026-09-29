@@ -14,6 +14,11 @@ import type { ITtscLintCypressUnsafeToChainCommandRuleOptions } from "./ITtscLin
  * selectors.
  *
  * @reference https://github.com/cypress-io/eslint-plugin-cypress
+ *
+ * @evidence contracts/common.md#principled-implementation Optional cypress keys accept severity-only settings except unsafe-to-chain-command, whose tuple carries the typed command policy object.
+ * @evidence contracts/common.md#clear-and-simple-design One family groups Cypress queue and test-body policies while reusing the common setting aliases and a separate configurable command schema.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Cypress identifiers are the public configuration vocabulary; the command options enter through an explicit interface rather than consumer exceptions.
+ * @evidence contracts/common.md#meaningful-documentation Family prose identifies the runner surface and member comments explain queue, assertion and debugging concerns; blank paragraphs and member boundaries follow documentation guidance.
  */
 export interface ITtscLintCypressRules {
   /**

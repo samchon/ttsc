@@ -26,14 +26,26 @@ const RELEASE_GRACE_MS = 2_000;
  * it is kept for a short grace. A session acquired within that grace opens its
  * own delivery pass, and the pass's first delivery proves the kept generation
  * against the filesystem. A cache still unowned after the grace is reset.
+ * Optional registry hooks observe acquisition and final idle reclamation;
+ * they do not change the generation's validation or the lease's owner count.
+ *
+ * @evidence contracts/common.md#principled-implementation Active-session counting prevents premature reset, and final release schedules a grace timer whose callback rechecks ownership before resetting the generation.
+ * @evidence contracts/common.md#clear-and-simple-design One counter and one pending timer represent active ownership and the between-session grace; reacquisition cancels that timer.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The measured grace controls reuse cost only; it cannot replace the new pass's filesystem proof or manufacture a valid generation.
+ * @evidence contracts/common.md#meaningful-documentation Separate paragraphs explain the repeated-host compile cost, memory-only retained generation, and proof required by a reacquiring session.
+ * @evidence contracts/performance.md#efficient-algorithms Acquisition and release update one counter and timer in constant time; only the final idle grace resets the generations.
+ * @evidence contracts/performance.md#reuse-equivalent-work Adjacent compiler sessions share the cache through teardown gaps; a new pass still proves input equivalence before serving output.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Reacquisition cancels cleanup; one unreferenced timer clears retained generations after the final owner remains idle for the grace.
  */
 export function createTransformCacheLease(
   cache: TtscTransformCache,
+  registry?: { acquire(): void; idle(): void },
 ): TtscTransformCacheLease {
   let owners = 0;
   let pending: NodeJS.Timeout | undefined;
   return {
     acquire() {
+      registry?.acquire();
       owners += 1;
       if (pending !== undefined) {
         clearTimeout(pending);
@@ -45,7 +57,10 @@ export function createTransformCacheLease(
       if (owners !== 0 || pending !== undefined) return;
       pending = setTimeout(() => {
         pending = undefined;
-        if (owners === 0) resetTtscTransformCache(cache);
+        if (owners === 0) {
+          resetTtscTransformCache(cache);
+          registry?.idle();
+        }
       }, RELEASE_GRACE_MS);
       pending.unref();
     },

@@ -4,9 +4,27 @@ import { createHash } from "node:crypto";
 import { ITtscGraphDump } from "../structures/ITtscGraphDump";
 import { ITtscGraphSnapshot } from "../structures/ITtscGraphSnapshot";
 import { isArtifactNodeKind } from "../structures/TtscGraphArtifactNodeKind";
+import {
+  TtscGraphReadonly,
+  copyGraphRecords,
+  copyGraphSnapshot,
+} from "./TtscGraphReadonly";
 import { DUMP_SCHEMA_VERSION } from "./loadGraph";
 
-/** Atomic validator and assembler for native `ttscgraph` shard transactions. */
+/**
+ * Atomic validator and assembler for native ttscgraph shard transactions.
+ *
+ * A transaction is committed only after base coordinates, digests, ownership
+ * and the complete manifest agree. Rejected transactions preserve prior state.
+ *
+ * @evidence contracts/common.md#principled-implementation Content digests and consecutive base coordinates qualify source-owned shards before cross-shard assembly and atomic state replacement.
+ * @evidence contracts/common.md#clear-and-simple-design The store owns committed generation state; private validation and assembly helpers keep wire checks outside consumers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Stale bases or inconsistent contents are rejected rather than merged under compensating guesses.
+ * @evidence contracts/common.md#meaningful-documentation Native prose states the commit boundary and preserved prior state; public methods describe validation and canonical hashing.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms apply owns staged validation and assembly algorithms; this declaration defines committed state.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work apply establishes permission to reuse unchanged shard payloads.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources apply owns population replacement and the session owns store retirement; the class declaration performs no independent lifecycle transition.
+ */
 export class TtscGraphShardStore {
   static readonly PROTOCOL_VERSION = 1;
 
@@ -16,10 +34,25 @@ export class TtscGraphShardStore {
   private tsconfig: string | undefined;
   private shards = new Map<
     string,
-    { digest: string; shard: ITtscGraphSnapshot.IShard }
+    { digest: string; shard: TtscGraphReadonly<ITtscGraphSnapshot.IShard> }
   >();
 
-  /** Validate and atomically commit one complete or base-generation delta. */
+  /**
+   * Validate and atomically commit one complete or base-generation delta.
+   *
+   * Throws on invalid coordinates, repeated changes, content/manifest mismatch
+   * or inconsistent ownership. The prior generation remains committed until
+   * full dump assembly succeeds. Retained shard records are detached and
+   * frozen; the returned dump owns mutable copies of those records.
+   *
+   * @evidence contracts/common.md#principled-implementation A staged shard map validates changes, exact manifest and generation hash before assembly establishes node/edge/config ownership and commits state together.
+   * @evidence contracts/common.md#clear-and-simple-design One operation owns transaction staging and the final state swap; helper validators do not independently mutate committed fields.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A bad delta is not retried against an invented base or partially applied to the resident store.
+   * @evidence contracts/common.md#meaningful-documentation Native prose documents rejection causes and the unchanged-state guarantee before the tags.
+   * @evidence contracts/performance.md#efficient-algorithms Map staging and manifest/ownership scans are linear in shards and facts; canonical hashes cost changed content bytes and deterministic dump sorting costs O(N log N + E log E).
+   * @evidence contracts/performance.md#reuse-equivalent-work Unchanged frozen shard payloads retain their validated digest in the staged map; only upserts are rehashed, while the generation manifest validates continued membership and mutable output copies cannot change retained facts.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The store retains only the current manifest's shards and coordinates; commit drops removed payloads and rejection leaves the prior generation intact.
+   */
   apply(transaction: ITtscGraphSnapshot.ITransaction): ITtscGraphDump {
     this.assertCoordinates(transaction);
     const next = new Map(this.shards);
@@ -50,7 +83,10 @@ export class TtscGraphShardStore {
           `@ttsc/graph: native shard ${upsert.shard.key} digest ${upsert.digest} does not match ${digest}`,
         );
       }
-      next.set(upsert.shard.key, { digest, shard: upsert.shard });
+      next.set(upsert.shard.key, {
+        digest,
+        shard: copyGraphSnapshot(upsert.shard),
+      });
     }
 
     const manifest = [...transaction.manifest];
@@ -101,7 +137,20 @@ export class TtscGraphShardStore {
     return dump;
   }
 
-  /** SHA-256 over the producer's deterministic Go JSON encoding. */
+  /**
+   * SHA-256 over the producer's deterministic Go JSON encoding.
+   *
+   * JSON-serializable wire shards use producer field order and Go's escaping
+   * for HTML-sensitive characters and Unicode line separators.
+   *
+   * @evidence contracts/common.md#principled-implementation Canonical Go-compatible JSON escaping and UTF-8 SHA-256 reproduce the producer's content witness for the supplied wire shard.
+   * @evidence contracts/common.md#clear-and-simple-design One helper shares canonical digest logic with generation verification.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Digest checks compare content rather than a size/time proxy or expected fixture hash.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states serializability, ordering and escaping premises needed for cross-language digest equivalence.
+   * @evidence contracts/performance.md#efficient-algorithms Serialization preserves the wire object's insertion order, escapes Go-sensitive characters in one text pass and hashes the resulting bytes once.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This digest primitive computes one shard identity; apply coordinates continued reuse of validated payloads.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The digest string transfers to its caller and the canonical buffer is local to this computation.
+   */
   static shardDigest(shard: ITtscGraphSnapshot.IShard): string {
     return digest(shard);
   }
@@ -165,7 +214,7 @@ function assemble(
   transaction: ITtscGraphSnapshot.ITransaction,
   committed: ReadonlyMap<
     string,
-    { digest: string; shard: ITtscGraphSnapshot.IShard }
+    { digest: string; shard: TtscGraphReadonly<ITtscGraphSnapshot.IShard> }
   >,
 ): ITtscGraphDump {
   const nodes: ITtscGraphDump.INode[] = [];
@@ -176,7 +225,7 @@ function assemble(
   const sourceFiles = new Set<string>();
   const configInputs = new Map<string, string>();
   for (const [key, value] of committed) {
-    const shard = value.shard;
+    const shard = copyGraphRecords<ITtscGraphSnapshot.IShard>(value.shard);
     if (shard.key !== key) {
       throw new Error(`@ttsc/graph: native shard key disagrees at ${key}`);
     }

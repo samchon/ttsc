@@ -22,6 +22,11 @@ import { TtscGraphDumpNodeKind } from "./TtscGraphDumpNodeKind";
  * and a virtual compiler source stays `bundled:///…`. Raw absolute identities
  * are never emitted. A source on another drive or UNC share makes the producer
  * fail unless a future contract supplies a logical root for it.
+ *
+ * @evidence contracts/common.md#principled-implementation Provenance, diagnostics and complete node/edge arrays represent one producer generation with explicit portable identity coordinates.
+ * @evidence contracts/common.md#clear-and-simple-design The wire envelope separates origin and build universe from graph facts; span paths are reconstructed by the loader.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Native output is the full graph rather than a fixture-specific capped subset.
+ * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain producer/consumer roles, generation ownership and the portable path vocabulary.
  */
 export interface ITtscGraphDump {
   /** Absolute path of the project root the graph was built for. */
@@ -62,6 +67,11 @@ export namespace ITtscGraphDump {
    * This carries no source text. A digest is the opposite of inlining: it is
    * what lets a consumer prove byte-identity against text it read itself,
    * without the graph ever shipping that text.
+   *
+   * @evidence contracts/common.md#principled-implementation Schema, producer, universe and source digests ground one snapshot; separate artifact producer identifies facts outside its Program.
+   * @evidence contracts/common.md#clear-and-simple-design Capabilities distinguish absent evidence from collected-empty evidence without version-specific field guesses.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown capabilities remain permitted rather than rejecting a newer producer by a hardcoded list.
+   * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain digest evidence, independent versions, capability extensibility and the second producer's scope.
    */
   export interface IProvenance {
     /**
@@ -77,11 +87,11 @@ export namespace ITtscGraphDump {
      * uncollected one look identical on the wire.
      *
      * The known members are `universe`, `sourceDigests`, `diskDigests`,
-     * `diagnostics`, and `docTags`. The type stays `string[]` rather than a union of those on
-     * purpose: a union would make `typia.assert` reject a newer producer for
-     * naming a capability this client has not heard of, turning "proves more
-     * than you know about" into a hard failure. An unknown capability is
-     * exactly the case a consumer should ignore.
+     * `diagnostics`, and `docTags`. The type stays `string[]` rather than a
+     * union of those on purpose: a union would make `typia.assert` reject a
+     * newer producer for naming a capability this client has not heard of,
+     * turning "proves more than you know about" into a hard failure. An unknown
+     * capability is exactly the case a consumer should ignore.
      */
     capabilities: string[];
 
@@ -114,6 +124,11 @@ export namespace ITtscGraphDump {
    * stamped at release, the internal viewer tool is not versioned at all — so
    * folding the name in would hand a consumer that parses a version a tool
    * name.
+   *
+   * @evidence contracts/common.md#principled-implementation Tool, build version and TypeScript version identify distinct producer facts without conflating their version schemes.
+   * @evidence contracts/common.md#clear-and-simple-design Three textual coordinates are sufficient for provenance and permit unversioned producer builds.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Empty build version remains an explicit supported producer state, not a fabricated release number.
+   * @evidence contracts/common.md#meaningful-documentation Comments explain dev placeholders, unversioned tools and the checker version independently.
    */
   export interface IProducer {
     /** The producing binary's name, such as `ttscgraph`. */
@@ -135,6 +150,11 @@ export namespace ITtscGraphDump {
    * contains, as opposed to what is inside them. A change to any of them can
    * add or drop whole files, so a consumer reusing facts across snapshots must
    * treat a universe change as invalidating everything.
+   *
+   * @evidence contracts/common.md#principled-implementation Config digests and attributed roots represent the inputs deciding Program membership independently of source contents.
+   * @evidence contracts/common.md#clear-and-simple-design Two collections separate configuration content from root attribution instead of duplicating whole sources.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A missing configured root remains part of the universe rather than disappearing from invalidation evidence.
+   * @evidence contracts/common.md#meaningful-documentation Native documentation explains why compiler options and currently missing roots remain build inputs.
    */
   export interface IUniverse {
     /**
@@ -154,7 +174,14 @@ export namespace ITtscGraphDump {
     roots: IRootFile[];
   }
 
-  /** A root file attributed to the config that named it. */
+  /**
+   * A root file attributed to the config that named it.
+   *
+   * @evidence contracts/common.md#principled-implementation Config and file form the attribution pair, permitting one root to be named by multiple configurations.
+   * @evidence contracts/common.md#clear-and-simple-design Two portable coordinates express attribution without repeating config content.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Root identity is not collapsed to a basename or guessed project owner.
+   * @evidence contracts/common.md#meaningful-documentation Both member comments specify the dump path vocabulary and config ownership.
+   */
   export interface IRootFile {
     /** The tsconfig that named this root, in the dump's path vocabulary. */
     config: string;
@@ -163,7 +190,14 @@ export namespace ITtscGraphDump {
     file: string;
   }
 
-  /** A file and the hex-encoded SHA-256 of its on-disk bytes. */
+  /**
+   * A file and the hex-encoded SHA-256 of its on-disk bytes.
+   *
+   * @evidence contracts/common.md#principled-implementation The file coordinate pairs with a content digest, distinguishing byte identity from file timestamps.
+   * @evidence contracts/common.md#clear-and-simple-design One path and digest carry exactly the input witness needed by the build universe.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The contract names content hashing rather than treating size or quiet watchers as content identity.
+   * @evidence contracts/common.md#meaningful-documentation Native comments identify path vocabulary and hexadecimal SHA-256 encoding.
+   */
   export interface IFileDigest {
     /** In the dump's path vocabulary. */
     file: string;
@@ -180,6 +214,11 @@ export namespace ITtscGraphDump {
    * compares against. They diverge when a source-preamble plugin injects text
    * ahead of the file before tsgo parses it, which a real plugin project does
    * on every build.
+   *
+   * @evidence contracts/common.md#principled-implementation Separate checker and disk digests preserve the distinction between transformed compiler text and raw source bytes.
+   * @evidence contracts/common.md#clear-and-simple-design The manifest retains only file and two witnesses, leaving source text outside the wire protocol.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing raw bytes are an empty witness; augmented source does not receive a fabricated disk-equivalence claim.
+   * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain preamble divergence, capability gating and empty-digest meaning.
    */
   export interface ISourceDigest {
     /** In the dump's path vocabulary. */
@@ -210,7 +249,14 @@ export namespace ITtscGraphDump {
     diskDigest: string;
   }
 
-  /** One compiler diagnostic from the generation that produced the facts. */
+  /**
+   * One compiler diagnostic from the generation that produced the facts.
+   *
+   * @evidence contracts/common.md#principled-implementation Coordinates, compiler code, severity and message describe the actual finding for the same graph generation.
+   * @evidence contracts/common.md#clear-and-simple-design A self-contained diagnostic record avoids parsing codes and severity from prose.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Diagnostic categories are explicit wire values, not inferred from expected test output.
+   * @evidence contracts/common.md#meaningful-documentation Native comments document one-based coordinates, diagnostic code and message without its code prefix.
+   */
   export interface IDiagnostic {
     /** In the dump's path vocabulary. */
     file: string;
@@ -239,6 +285,11 @@ export namespace ITtscGraphDump {
    * span was the same string a second time, once per node. It is the reader's
    * to reconstruct, and {@link TtscGraphMemory} does, so nothing downstream of
    * the loader sees a span without its file.
+   *
+   * @evidence contracts/common.md#principled-implementation Omit replaces memory-layer span and kind fields with native wire equivalents; parent applies only to published artifact containment.
+   * @evidence contracts/common.md#clear-and-simple-design Shared node facts are inherited while repeated declaration paths are removed from wire spans.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Implementation spans may retain another file; they are not forced into declaration coordinates for compactness.
+   * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain reconstruction, artifact parent ownership and cross-file implementation spans.
    */
   export interface INode extends Omit<
     ITtscGraphNode,
@@ -271,6 +322,11 @@ export namespace ITtscGraphDump {
    * An edge as the builder sends it. Its span is in the file its `from` id
    * names — the id is `path#Qualified.Name:kind` — so the path rode the wire a
    * second time on every edge, and edges outnumber nodes several times over.
+   *
+   * @evidence contracts/common.md#principled-implementation Native kind and compact span replace memory fields while endpoint ids determine the expression's source file.
+   * @evidence contracts/common.md#clear-and-simple-design Omit reuses relation fields and avoids repeating the source path inside each wire edge.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Compression preserves endpoint identity and actual evidence rather than shortening ids heuristically.
+   * @evidence contracts/common.md#meaningful-documentation Native comments explain id-based path reconstruction and the producer's relationship vocabulary.
    */
   export interface IEdge extends Omit<ITtscGraphEdge, "evidence" | "kind"> {
     /** Relationship kind written by the native producer. */

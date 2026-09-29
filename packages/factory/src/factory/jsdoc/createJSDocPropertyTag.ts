@@ -18,6 +18,9 @@ import { createIdentifier } from "../names/createIdentifier";
  * the type, when `false` the type prints first. The `comment` is the trailing
  * description.
  *
+ * Omitting the type retains the property name and its optional brackets. Child
+ * nodes are retained by reference, and no object-member existence check occurs.
+ *
  * With the default tag name, name `x`, a `{number}` type expression, `the x`
  * comment, and `isNameFirst` of `true`, the printer emits:
  *
@@ -25,6 +28,10 @@ import { createIdentifier } from "../names/createIdentifier";
  * @prop x {number} the x
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation The name, bracket flag, optional braced type and comment map directly to property syntax, with boolean order normalization and a prop default for absent names; object membership is not established.
+ * @evidence contracts/common.md#clear-and-simple-design Structured operands and independent syntax flags retain both orderings without another property model or flattened annotation parser.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Prop and type-first ordering are supported defaults, while arbitrary member nodes remain caller data rather than a known-object shape or foreign member mutation.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains optional brackets, ordering, omitted types and retained references with a concrete example; separate paragraphs and native tags follow the documentation guidance.
  * @author Jeongho Nam - https://github.com/samchon
  * @param tagName The tag name; defaults to `prop`.
  * @param name The property name.

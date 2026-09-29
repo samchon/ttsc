@@ -5,6 +5,7 @@ import { runBuild } from "../../compiler/internal/build/runBuild";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { readEffectiveCompilerOptions } from "../../compiler/internal/readEffectiveCompilerOptions";
 import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
+import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
 import { DependencyBuildGeneration } from "./runtime/DependencyBuildGeneration";
 import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
@@ -65,32 +66,63 @@ import { runtimeEmitProfile } from "./runtimeEmitProfile";
  * an empty output and an inherited `noEmitOnError` would turn any diagnostic
  * into one.
  *
- * @returns The project the build compiled and the `rootDir` it was pinned to.
+ * @returns The project, effective `rootDir` and compiler-owned source
+ *   provenance for actual written outputs. Missing provenance is not
+ *   synthesized from maps.
+ *
  * @throws When the build fails. A checked build fails on any diagnostic; an
  *   emit-only build fails only when it produced no JavaScript at all.
+ *
+ * @evidence contracts/common.md#principled-implementation A transient extends overlay changes only roots and runtime output constraints, while preserving configDir-sensitive anchors; effective rootDir is returned for output ownership rather than inferred from emitted filenames.
+ * @evidence contracts/common.md#clear-and-simple-design This boundary owns single-root overlay construction and cleanup, delegates project parsing/building, and isolates writable-directory diagnostics in a private helper.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Private emit layout, disabled declaration/composite products and checked versus installed-package diagnostics are runtime contract distinctions, not source patches or tests-only compiler modes.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain overlay placement, wide rootDir, diagnostics and cleanup, while separately documented input members preserve their ownership facts.
+ * @evidence contracts/portability.md#os-neutral-implementation Shared filesystem identity supplies the source's physical volume root; overlay JSON converts only native separators, preserving literal POSIX backslashes, and compiler arguments receive explicit paths without a shell or blanket case fold.
+ * @evidence contracts/performance.md#efficient-algorithms Placement inspects the config chain once for configDir anchors and otherwise delegates the required root compilation; no source-directory mirror or second whole-project compilation is performed here.
+ * @evidence contracts/performance.md#reuse-equivalent-work One effective-options reader for this overlay and exact forwarded tokens is shared by runtime lowering, emit classification and rootDir selection, avoiding duplicate response-file compiler queries. Callers own sharing of completed build generations.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The operation owns one transient tsconfig and attempts removal in finally after parse/build success or failure; caller owns emit storage, and a failed removal may leave this distinctly named overlay behind.
  */
 export function buildSingleRootProject(props: {
   /** The root, in the physical spelling the runtime loads it by. */
   source: string;
+
   /** The owning `tsconfig.json`, whose options the root inherits. */
   tsconfig: string;
+
   /** Directory the build runs in. */
   projectRoot: string;
+
   /** Directory-safe token, unique per concurrent build of one tsconfig. */
   key: string;
+
   /** Where the JavaScript goes. The directory must be private to this build. */
   emitDir: string;
+
   /**
    * Whether diagnostics stop the build. A root of the user's program is
    * checked; a root inside an installed package is emit-only, matching the
    * policy for every other file of that package.
    */
   checked: boolean;
+
   /** Names the root in a failure: `entry` for the launcher's own entry. */
   role: "entry" | "root";
+
   /** Build options forwarded to `runBuild`. */
   options?: TtscCommonOptions & { cacheDir?: string };
-}): { project: ReturnType<typeof readProjectConfig>; rootDir: string } {
+}): {
+  /** Parsed overlay project whose compiler options governed this build. */
+  project: ReturnType<typeof readProjectConfig>;
+
+  /** Effective native layout root, including any forwarded rootDir override. */
+  rootDir: string;
+
+  /** Actual written output to compile-time source ledger; absent means unknown. */
+  emittedSources?: TtscBuildResult["emittedSources"];
+
+  /** Actual output-specific proof refusal context, independent of diagnostics. */
+  emittedSourceProofFailures?: TtscBuildResult["emittedSourceProofFailures"];
+} {
   const options = props.options ?? {};
   // `source` already carries the one spelling the runtime decided on. tsgo
   // compares it against `rootDir` textually — `GetCommonSourceDirectory` takes
@@ -119,18 +151,18 @@ export function buildSingleRootProject(props: {
       tsconfig,
       JSON.stringify(
         {
-          extends: props.tsconfig.replace(/\\/g, "/"),
+          extends: props.tsconfig.replaceAll(path.sep, "/"),
           compilerOptions: {
             composite: false,
             declaration: false,
             declarationMap: false,
             ...(props.checked ? {} : { noEmitOnError: false }),
-            rootDir: volumeRoot.replace(/\\/g, "/"),
+            rootDir: volumeRoot.replaceAll(path.sep, "/"),
           },
           // `files` alone does not displace an inherited `include`, and an
           // inherited `exclude` could drop the root back out of the program,
           // so both are overridden explicitly.
-          files: [props.source.replace(/\\/g, "/")],
+          files: [props.source.replaceAll(path.sep, "/")],
           include: [],
           exclude: [],
         },
@@ -152,6 +184,11 @@ export function buildSingleRootProject(props: {
       tsconfig,
     });
     fs.mkdirSync(props.emitDir, { recursive: true });
+    const effectiveOptions = readEffectiveCompilerOptions(
+      project,
+      options.passthrough,
+      options.binary,
+    );
     const result = runBuild({
       binary: options.binary,
       checkers: options.checkers,
@@ -169,6 +206,7 @@ export function buildSingleRootProject(props: {
         project,
         options.passthrough,
         options.binary,
+        effectiveOptions,
       ),
       // A source map on the transient emit lets the serve path inline it under
       // the source URL; a project that configures its own keeps it.
@@ -176,7 +214,9 @@ export function buildSingleRootProject(props: {
         project,
         options.passthrough,
         options.binary,
+        effectiveOptions,
       ).forceRuntimeSourceMap,
+      forceEmitProvenance: true,
       // Native plugins discover their config files from the tsconfig's
       // directory, which for a private tsconfig is ttsx's cache; anchor them
       // at the real one, as a bundler adapter's temporary overlay does.
@@ -210,12 +250,10 @@ export function buildSingleRootProject(props: {
     }
     // The root the compiler actually laid the outputs against: the one written
     // above unless the command line forwarded another.
-    const effective = readEffectiveCompilerOptions(
-      project,
-      options.passthrough,
-      options.binary,
-    )?.("rootDir");
+    const effective = effectiveOptions?.("rootDir");
     return {
+      emittedSources: result.emittedSources,
+      emittedSourceProofFailures: result.emittedSourceProofFailures,
       project,
       rootDir:
         typeof effective === "string"

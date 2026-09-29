@@ -11,6 +11,17 @@ import type { TtscTransformResult } from "../TtscTransformResult";
  *
  * @param result The transform result to hand to a contents-only host.
  * @returns The contents to return from the host's `onLoad`.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   JSON encoded as UTF-8 base64 gives contents-only hosts an inline v3 map;
+ *   a line boundary prevents the directive from joining the final source line.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   This helper adapts an already-validated result without owning map validation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The data URI and directive use source-map conventions, not host internals.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs explain why Bun/esbuild need an inline map and why absence
+ *   returns bare code, with prose separated from tags per documentation guidance.
  */
 export function inlineSourceMap(result: TtscTransformResult): string {
   if (result.map === undefined) {

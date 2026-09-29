@@ -18,6 +18,13 @@ import (
 // records the explicit null, and the merge honors it.
 //
 // Returns nil when the command line recorded no raw options.
+// The wrapper retains the original ordered map; callers must not mutate it
+// while configuration merging reads the command line.
+//
+// @evidence contracts/common.md#principled-implementation The compilerOptions wrapper preserves the parsed ordered raw values, including explicit null, because config merging distinguishes an absent option from a supplied zero-like value.
+// @evidence contracts/common.md#clear-and-simple-design Nil and raw-shape checks precede one ordered-map wrapper, keeping representation adaptation separate from the config parser that owns merging.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts compilerOptions is the compiler's merge-envelope key, not a consumer exception; the adapter preserves upstream parsing rather than patching fields or inventing reset values.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains explicit-null reset semantics, nil results and shared-map ownership, keeping the example and ownership note in distinct paragraphs.
 func CommandLineRawOptions(commandLine *tsoptions.ParsedCommandLine) *collections.OrderedMap[string, any] {
   if commandLine == nil {
     return nil

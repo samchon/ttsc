@@ -33,7 +33,7 @@ The knowledge base is where overlapping observations are collected and then comb
 A discovery round audits the entire declared scope against the cycle baseline under the [review law](../review/SKILL.md#review-law). A round is never partitioned by package, concern, validation lane, the areas an earlier round touched, or a slice of the scope.
 
 1. Audit source, tests, documentation, CI, packaging, generated artifacts, platform behavior, upstream and downstream provenance, and open and closed issues and pull requests. Exercise real workflows; source is only one evidence layer.
-2. Audit the implementation and its history against the development skill's [Forbidden](../development/SKILL.md#forbidden) section, even where tests pass. Prove a violation from purpose, control flow, consequence, and history; resemblance or stylistic preference is not evidence.
+2. Audit the implementation and its history against the [engineering contracts](../contracts/SKILL.md), even where tests pass. Prove a violation from purpose, control flow, consequence, and history; resemblance or stylistic preference is not evidence.
 3. Record every raw candidate and its evidence in the knowledge base before judging it.
 4. Vet the full candidate pool as the next section describes, then publish the surviving issues when publication is authorized.
 5. If any meaningful candidate survived, add the accepted issues to the cycle ledger and start another complete round against the same cycle baseline. Finding enough work for a pull request is not a reason to stop, and rechecking earlier candidates does not replace a new round. There is no round limit.
@@ -45,7 +45,7 @@ Implementation stays closed until a complete round produces no meaningful candid
 Vet each candidate before publication:
 
 1. Reopen its evidence and reproduce the behavior.
-2. Verify ownership, provenance, and any claimed Forbidden classification.
+2. Verify ownership, provenance, and any claimed engineering-principle classification.
 3. Trace its full consequence surface.
 4. Compare it with open and closed issues and pull requests.
 5. Record accept, partial acceptance, rewrite, combine, split, reject, or defer, with the evidence, so a later round does not rediscover a rejected premise as new.
@@ -57,7 +57,7 @@ Publish only the adjudicated form, and only with user authorization.
 Write enough context for a fresh agent to begin implementation from the issue alone, without the local `.wiki`, the discovery conversation, or unstated repository knowledge. Cover these sections when they apply:
 
 - **Problem:** current and expected behavior, impact, and affected users.
-- **Evidence:** exact reproduction, outputs or artifacts, stable symbols, verified root cause, ownership, and provenance. For a Forbidden violation, prove the classification from behavior, control flow, and history instead of naming the prohibition. Line numbers are navigation, not proof.
+- **Evidence:** exact reproduction, outputs or artifacts, stable symbols, verified root cause, ownership, and provenance. For an engineering-principle violation, prove the classification from behavior, control flow, and history instead of naming the prohibition. Line numbers are navigation, not proof.
 - **Consequence surface:** affected consumers, states, platforms, compatibility and failure paths, and the complete case matrix for the cause.
 - **Approach:** the invariant and its architectural owner, without prescribing an unverified implementation.
 - **Acceptance and verification:** positive, negative, boundary, and regression outcomes with narrow and broader proving commands.

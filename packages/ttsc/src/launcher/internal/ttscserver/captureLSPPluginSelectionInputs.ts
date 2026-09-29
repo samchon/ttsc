@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import { hashHostInputPaths } from "../../../plugin/internal/load/hashHostInputPaths";
+import { realpathHostInputPaths } from "../../../plugin/internal/load/realpathHostInputPaths";
 import { GoSourceInputs } from "../../../plugin/internal/source/GoSourceInputs";
 import { collectPluginSourceDirectories } from "../../../plugin/internal/source/collectPluginSourceDirectories";
 import { collectPluginSourceFiles } from "../../../plugin/internal/source/collectPluginSourceFiles";
@@ -29,18 +30,30 @@ import { LSPProjectInputDigest } from "./LSPProjectInputDigest";
  * among its own project inputs.
  *
  * Everything is fingerprinted now, and then required to agree with what the
- * load proved: every input the load hashed still has that hash, and every
- * plugin source still holds the state its binary was keyed on. A change after
+ * load proved: recorded content hashes and physical targets still match, and
+ * every plugin source holds the state its binary was keyed on. A change after
  * the load and before the fingerprint would otherwise be recorded as the state
  * the session was selected from.
  *
  * @param loaded The plugin load of the session.
+ *
  * @returns The inputs, or `undefined` when the load no longer describes the
  *   filesystem and the selection has to be loaded again.
+ *
+ * @evidence contracts/common.md#principled-implementation The native manifest groups candidate and source-file digests by directory; capture is accepted only while the loader's content, physical-target and binary-source observations still hold, so post-load drift cannot become a new baseline for old plugins.
+ * @evidence contracts/common.md#clear-and-simple-design Candidate filtering, source enumeration and proof comparison remain separate; the private recorder owns basename insertion into prototype-free maps, including names such as __proto__.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Source omission rules come from the binary builder's shared constants; stale proofs return undefined instead of replacing a loaded selection with guessed current evidence.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain selection versus program refresh, deferred config inputs and the startup race; parameter/result documentation and separated tags follow the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path operations retain declared spellings and actual realpath observations detect symlink or junction retargeting independently of content equality; no OS name supplies filesystem case policy.
+ * @evidence contracts/performance.md#efficient-algorithms Work scales with descriptor candidates, source-tree entries and bytes fingerprinted; directory-grouped output avoids repeating directory keys per file, while content and physical identity remain separate required observations.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This capture validates a particular completed load against current filesystem state; retained plugin/binary reuse belongs to that load's owner, and cached post-load readings would miss drift.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returned maps transfer to the session builder; synchronous readers retain no open handle or historical capture.
  */
 export function captureLSPPluginSelectionInputs(loaded: {
   deferredHostInputs: readonly string[];
   hostInputHashes: Readonly<Record<string, string | null>>;
+  hostInputRealpaths: Readonly<Record<string, string | null>>;
   hostInputs: readonly string[];
   pluginSources: Readonly<Record<string, string>>;
 }): ILSPPluginSelectionInputs | undefined {
@@ -55,7 +68,7 @@ export function captureLSPPluginSelectionInputs(loaded: {
   const sourceFiles: Record<string, Record<string, string>> = {};
   for (const source of Object.keys(loaded.pluginSources)) {
     for (const directory of collectPluginSourceDirectories(source))
-      sourceFiles[path.resolve(directory)] ??= {};
+      sourceFiles[path.resolve(directory)] ??= Object.create(null);
     for (const file of collectPluginSourceFiles(source))
       record(sourceFiles, path.resolve(file));
   }
@@ -64,6 +77,16 @@ export function captureLSPPluginSelectionInputs(loaded: {
   );
   const current = hashHostInputPaths(proven);
   if (proven.some((file) => current[file] !== loaded.hostInputHashes[file]))
+    return undefined;
+  const physicalInputs = descriptorInputs.filter((file) =>
+    Object.prototype.hasOwnProperty.call(loaded.hostInputRealpaths, file),
+  );
+  const currentRealpaths = realpathHostInputPaths(physicalInputs);
+  if (
+    physicalInputs.some(
+      (file) => currentRealpaths[file] !== loaded.hostInputRealpaths[file],
+    )
+  )
     return undefined;
   for (const [directory, state] of Object.entries(loaded.pluginSources))
     if (!pluginSourceStateHolds(directory, state)) return undefined;
@@ -81,6 +104,7 @@ function record(
   directories: Record<string, Record<string, string>>,
   file: string,
 ): void {
-  (directories[path.dirname(file)] ??= {})[path.basename(file)] =
-    LSPProjectInputDigest.lspProjectInputFileDigest(file);
+  (directories[path.dirname(file)] ??= Object.create(null))[
+    path.basename(file)
+  ] = LSPProjectInputDigest.lspProjectInputFileDigest(file);
 }

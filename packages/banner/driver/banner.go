@@ -61,9 +61,31 @@ func validateBannerConfig(config map[string]any) error {
 }
 
 // SourcePreamble resolves the banner text from the plugin config and returns it
-// formatted as a JSDoc block comment suitable for prepending to each emitted file.
+// formatted as JSDoc source for the host to prepend before parsing.
+//
+// Failure returns no preamble and does not report dependency completeness.
+// Successful evaluation reports universal config inputs because the same banner
+// text applies to every file. The host invokes this operation once per Program,
+// then its filesystem wrapper injects the returned text and applies emit policy.
+//
+// CRLF normalization, trailing blank-line removal and closing-delimiter escaping
+// make consumer text a closed comment. The host owns placement, authored-position
+// remapping and removeComments. Discovery probes seven names per ancestor, then
+// parsing and formatting process the config/banner bytes linearly.
+//
+// JSON loads need no child. Executable config uses a child process and TypeScript
+// also owns a temporary directory, removed by defer. stderr streams to the
+// parent; stdout has no byte cap and evaluation has no deadline. Cleanup errors
+// are not reported. Successful loader output must carry dependency observations;
+// unsupported public resolution observation is reported separately from input
+// mutation, so fresh evaluation can succeed without claiming reusable inputs.
+//
+// Native paths use filepath; slash conversion is reserved for import/tsconfig
+// spelling. Child arguments are separate from executable paths. A loader's temp
+// directory stays on the config volume, with Windows junctions used when native
+// symlink creation is unavailable.
 func (plugin) SourcePreamble(ctx driver.PluginContext) (string, error) {
-  preamble, err := parseBannerWithReporters(ctx.Entry.Config, ctx.Cwd, ctx.Tsconfig, ctx.ReportHostInput, ctx.ReportHostInputHash, ctx.ReportHostInputRealpath)
+  preamble, err := parseBannerWithReporters(ctx.Entry.Config, ctx.Cwd, ctx.Tsconfig, ctx.ReportHostInput, ctx.ReportHostInputHash, ctx.ReportHostInputRealpath, ctx.ReportObservationIncomplete)
   if err != nil {
     return "", err
   }
@@ -87,8 +109,11 @@ func parseBannerWithReporter(config map[string]any, cwd, tsconfigPath string, re
   return parseBannerWithReporters(config, cwd, tsconfigPath, reporter, nil, nil)
 }
 
-func parseBannerWithReporters(config map[string]any, cwd, tsconfigPath string, reporter func(string), hashReporter func(string, *string), realpathReporter func(string, *string)) (string, error) {
-  text, err := resolveBannerTextWithReporters(config, cwd, tsconfigPath, reporter, hashReporter, realpathReporter)
+// parseBannerWithReporters formats text while forwarding exact config witnesses.
+// Optional incomplete reporters disclose unavailable public resolution observation
+// without deleting known witnesses or treating an evaluated value as a failure.
+func parseBannerWithReporters(config map[string]any, cwd, tsconfigPath string, reporter func(string), hashReporter func(string, *string), realpathReporter func(string, *string), incompleteReporters ...func()) (string, error) {
+  text, err := resolveBannerTextWithReporters(config, cwd, tsconfigPath, reporter, hashReporter, realpathReporter, incompleteReporters...)
   if err != nil {
     return "", err
   }
@@ -136,7 +161,9 @@ func resolveBannerTextWithReporter(config map[string]any, cwd, tsconfigPath stri
   return resolveBannerTextWithReporters(config, cwd, tsconfigPath, reporter, nil, nil)
 }
 
-func resolveBannerTextWithReporters(config map[string]any, cwd, tsconfigPath string, reporter func(string), hashReporter func(string, *string), realpathReporter func(string, *string)) (string, error) {
+// resolveBannerTextWithReporters keeps configuration value loading separate from
+// observation capability. Incomplete reports cannot restore a missing input proof.
+func resolveBannerTextWithReporters(config map[string]any, cwd, tsconfigPath string, reporter func(string), hashReporter func(string, *string), realpathReporter func(string, *string), incompleteReporters ...func()) (string, error) {
   if err := validateBannerConfig(config); err != nil {
     return "", err
   }
@@ -153,6 +180,13 @@ func resolveBannerTextWithReporters(config map[string]any, cwd, tsconfigPath str
       return "", err
     }
     reportBannerConfigInputs(loaded.inputs, loaded.hashes, loaded.realpaths, reporter, hashReporter, realpathReporter)
+    if !loaded.complete {
+      for _, report := range incompleteReporters {
+        if report != nil {
+          report()
+        }
+      }
+    }
     text, ok, err := bannerTextFromConfigValue(loaded.value, filepath.Base(location))
     if err != nil {
       return "", err
@@ -180,6 +214,13 @@ func resolveBannerTextWithReporters(config map[string]any, cwd, tsconfigPath str
     return "", err
   }
   reportBannerConfigInputs(loaded.inputs, loaded.hashes, loaded.realpaths, reporter, hashReporter, realpathReporter)
+  if !loaded.complete {
+    for _, report := range incompleteReporters {
+      if report != nil {
+        report()
+      }
+    }
+  }
   text, ok, err := bannerTextFromConfigValue(loaded.value, filepath.Base(location))
   if err != nil {
     return "", err
@@ -215,7 +256,8 @@ func bannerTextFromConfigValue(raw any, label string) (string, bool, error) {
   return text, true, nil
 }
 
-// bannerConfigFilenames is the discovery name list, in precedence order.
+// bannerConfigFilenames lists supported discovery names. Multiple files in one
+// directory are ambiguous; this order does not select a preferred format.
 var bannerConfigFilenames = []string{
   "banner.config.json",
   "banner.config.js",
@@ -292,6 +334,9 @@ func loadBannerConfigFile(location, resolutionRoot string) (any, error) {
 }
 
 type bannerLoadedConfig struct {
+  // complete concerns resolution capability; missing per-input proofs still signal instability.
+  complete bool
+
   hashes    map[string]*string
   inputs    []string
   realpaths map[string]*string
@@ -311,7 +356,7 @@ func loadBannerConfigFileWithInputs(location, resolutionRoot string) (bannerLoad
     }
     value, err := parseBannerJSONConfigFile(location, body)
     digest := fmt.Sprintf("%x", sha256.Sum256(body))
-    return bannerLoadedConfig{hashes: map[string]*string{location: &digest}, inputs: []string{location}, realpaths: map[string]*string{location: physicalHostInput(location)}, value: value}, err
+    return bannerLoadedConfig{complete: true, hashes: map[string]*string{location: &digest}, inputs: []string{location}, realpaths: map[string]*string{location: physicalHostInput(location)}, value: value}, err
   case ".js", ".cjs", ".mjs":
     return loadBannerScriptConfigFileWithInputs(location)
   }
@@ -477,7 +522,7 @@ observeResolutions(recorder);
   const value = typeof current === "function" ? await current() : current;
   const serializedValue = toSerializableBanner(value);
   const recorded = recorder.finish();
-  process.stdout.write(JSON.stringify({ value: serializedValue, hashes: recorded.hashes, inputs: recorded.inputs, realpaths: recorded.realpaths }));
+  process.stdout.write(JSON.stringify({ value: serializedValue, complete: recorded.complete, hashes: recorded.hashes, inputs: recorded.inputs, realpaths: recorded.realpaths }));
 })().catch((error) => {
   process.stderr.write(error && error.stack ? error.stack : String(error));
   process.exitCode = 1;
@@ -530,8 +575,14 @@ function toSerializableBanner(value) {
   return loaded, nil
 }
 
+// decodeBannerConfigLoaderOutput requires the value and recorder snapshot from
+// the executed loader. Accepting a bare value would report complete dependency
+// observations even though no observations were returned. Missing probe values
+// remain legitimate nullable entries inside the snapshot maps.
 func decodeBannerConfigLoaderOutput(output []byte) (bannerLoadedConfig, error) {
   var envelope struct {
+    Complete *bool `json:"complete"`
+
     Error     string             `json:"__ttscLoaderError"`
     Hashes    map[string]*string `json:"hashes"`
     Inputs    []string           `json:"inputs"`
@@ -544,21 +595,14 @@ func decodeBannerConfigLoaderOutput(output []byte) (bannerLoadedConfig, error) {
   if envelope.Error != "" {
     return bannerLoadedConfig{}, fmt.Errorf("%s", envelope.Error)
   }
-  if len(envelope.Value) == 0 {
-    // Test/fallback launchers written against the historical payload return
-    // the config value directly. Preserve that accepted contract while real
-    // loaders use the envelope to carry runtime inputs.
-    var value any
-    if err := json.Unmarshal(output, &value); err != nil {
-      return bannerLoadedConfig{}, err
-    }
-    return bannerLoadedConfig{value: value}, nil
+  if len(envelope.Value) == 0 || envelope.Complete == nil || envelope.Inputs == nil || envelope.Hashes == nil || envelope.Realpaths == nil {
+    return bannerLoadedConfig{}, fmt.Errorf("config loader must return a value with dependency observations")
   }
   var value any
   if err := json.Unmarshal(envelope.Value, &value); err != nil {
     return bannerLoadedConfig{}, err
   }
-  return bannerLoadedConfig{hashes: envelope.Hashes, inputs: envelope.Inputs, realpaths: envelope.Realpaths, value: value}, nil
+  return bannerLoadedConfig{complete: *envelope.Complete, hashes: envelope.Hashes, inputs: envelope.Inputs, realpaths: envelope.Realpaths, value: value}, nil
 }
 
 // loadBannerTypeScriptConfigFile compiles and runs a TypeScript banner config
@@ -685,6 +729,7 @@ declare const process: {
     process.stdout.write(JSON.stringify({
       value: serializedValue,
       hashes: recorded.hashes,
+      complete: recorded.complete,
       inputs: recorded.inputs,
       realpaths: recorded.realpaths,
     }));
@@ -1247,8 +1292,8 @@ func relativeImportSpecifier(fromDir, location string) (string, error) {
   return "./" + relative, nil
 }
 
-// setEnv returns a copy of env with key=value. If key already exists in env,
-// its value is updated in-place; otherwise the entry is appended.
+// setEnv updates env with key=value. If the key already exists its entry is
+// replaced in-place; otherwise the entry is appended to the returned slice.
 func setEnv(env []string, key, value string) []string {
   prefix := key + "="
   for i, entry := range env {

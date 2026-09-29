@@ -31,14 +31,8 @@ func normalizeFingerprintText(text string) string {
   for len(lines) != 0 && lines[len(lines)-1] == "" {
     lines = lines[:len(lines)-1]
   }
-  // Leading blank lines go for a sharper reason. A TypeScript node's position is
-  // its *full* start, meaning the end of the previous token, so an undocumented
-  // declaration's span begins with whatever blank lines and `//` comments sit
-  // above it. Keeping them made inserting one blank line elsewhere in the file
-  // expire a review, and inconsistently: the same edit above a *documented*
-  // declaration is neutral, because the whole leading run through `*/` is
-  // excluded as a tag position. Dropping them makes both cases agree and honors
-  // the rule that a reformat which changes no content expires nothing.
+  // Leading whitespace remains artifact content. TypeScript declaration spans
+  // discard their unowned leading trivia separately in withoutLeadingTrivia.
   return strings.Join(lines, "\n")
 }
 

@@ -25,6 +25,23 @@ import { userStateDirectory } from "../transform/filesystem/userStateDirectory";
  * another drive, does not take it (`hostToolDirectory`).
  *
  * @param root The host's root, as `hostToolDirectory` names it.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   A resolved-root digest gives each host a stable directory beneath the
+ *   validated user state root; absence remains explicit when no safe root exists.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   This helper owns root-to-fallback naming while userStateDirectory owns
+ *   directory trust and hosts decide whether outside-root dependencies are allowed.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The fallback handles actual unwritable roots using a product-owned user
+ *   directory, not an arbitrary globally writable or fixture-specific location.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs explain stable paths, Windows long spelling and hosts
+ *   that cannot accept the fallback, following documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation The validated user state boundary obtains a private native directory and long Windows spelling; native root resolution determines naming, while adapters separately reject fallback locations their host cannot watch.
+ * @evidence contracts/performance.md#efficient-algorithms Root resolution and SHA-256 naming cost O(R) in root spelling length; a process map avoids repeated trust lookup and hashing for an already named root.
+ * @evidence contracts/performance.md#reuse-equivalent-work A resolved host root shares its stable fallback naming within the process; actual write capability is checked by writers rather than certified by the cached name, and an unavailable initial user root remains unavailable here.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The module map retains one optional naming result per distinct resolved root for the process lifetime, without an eviction bound; no native handle is retained, and record-directory persistence belongs to the host cache protocol.
  */
 export function fallbackToolDirectory(root: string): string | undefined {
   const key = path.resolve(root);

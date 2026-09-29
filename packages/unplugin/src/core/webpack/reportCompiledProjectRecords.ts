@@ -21,6 +21,11 @@ import type { HostWatchBridge } from "../bridge/HostWatchBridge";
  * @param bridge The session's bridge, when one is open.
  * @param dependencies The ended compilation's `fileDependencies`: a set of
  *   absolute paths, or any iterable of them.
+ *
+ * @evidence contracts/common.md#principled-implementation A completed compilation's dependency membership supplies the bridge's acknowledgment, including modules restored from the host cache.
+ * @evidence contracts/common.md#clear-and-simple-design The adapter passes one membership predicate to the existing bridge; it creates a Set only when the iterable lacks a lookup operation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The actual dependency collection decides acknowledgment, without target-name exceptions or a synthetic success when the bridge is absent.
+ * @evidence contracts/common.md#meaningful-documentation The comment explains cached modules, separate target compilers, and first-demand compilation, which determine why dependency membership owns acknowledgment.
  */
 export function reportCompiledProjectRecords(
   bridge: HostWatchBridge | undefined,

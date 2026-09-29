@@ -1,6 +1,8 @@
 # `@ttsc/paths`: Module Specifier Rewriting
 
-`@ttsc/paths` rewrites `import "@lib/foo"` into something like `import "./modules/foo.js"` by consulting `compilerOptions.paths`, the Program's actual source files, and `rootDir` / `outDir`. It is the most ambitious of the three transform plugins because the rewrite must agree with the _output_ file layout, not just the source, TypeScript paths get resolved relative to the source tree, but the emitted JavaScript has to use a path that the runtime (Node, the bundler) can actually load.
+This walkthrough is for plugin authors implementing Program-backed module rewriting and leaf-text AST mutations.
+
+`@ttsc/paths` rewrites `import "@lib/foo"` into something like `import "./modules/foo.js"` by consulting `compilerOptions.paths`, the Program's actual source files, and `rootDir` / `outDir`. It is the most ambitious of the three transform plugins because the rewrite must agree with the _output_ file layout, not just the source. Alias targets resolve from the config's paths base, while emitted JavaScript needs a path relative to its output file that the runtime (Node or a bundler) can load.
 
 This page is also the canonical reference for **leaf-text AST mutation**, changing a string literal's `Text` field correctly. The invariant lives in three lines of code at the heart of `rewriter.apply`.
 
@@ -13,7 +15,7 @@ If [`@ttsc/strip`](/docs/development/walkthroughs/strip) felt manageable, this s
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "commonjs",
+    "module": "ESNext",
     "rootDir": "src",
     "outDir": "dist",
     "declaration": true,
@@ -60,7 +62,7 @@ The same source AST is shared between JavaScript and declaration emit, so the re
 packages/paths/
 ├── package.json
 ├── src/
-│   └── index.cjs        ← JS descriptor (CommonJS)
+│   └── index.ts         ← TypeScript descriptor (built with tsc)
 ├── go.mod
 ├── driver/
 │   └── paths.go         ← Linked transform logic
@@ -69,7 +71,9 @@ packages/paths/
     └── paths.go         ← Blank-imports the linked driver package
 ```
 
-Identical shape to strip. The descriptor at `src/index.cjs` points at linked `driver/` source, while `plugin/main.go` is a standalone utility dispatcher with the same shape shown in the [banner walkthrough](/docs/development/walkthroughs/banner#the-standalone-sidecar-pluginmaingo). Skip ahead to the real logic.
+The maintained descriptor is `src/index.ts`. Run `pnpm --filter @ttsc/paths build` to compile it with `tsc`; the package exposes `lib/index.js` and its generated `lib/index.d.ts`. Keeping the factory in TypeScript lets its source receive the same declaration checks as other maintained plugins.
+
+The host supplies the loaded module directory, so the factory resolves the sibling `driver/` from either its source or compiled location. `plugin/main.go` is a standalone utility dispatcher with the same shape shown in the [banner walkthrough](/docs/development/walkthroughs/banner#the-standalone-sidecar-pluginmaingo).
 
 ## The real logic: `rewriter` in `driver/paths.go`
 
@@ -87,6 +91,7 @@ Everything below is in [`packages/paths/driver/paths.go`](https://github.com/sam
 ```go
 type rewriter struct {
   checker     *shimchecker.Checker
+  canonicalFileName func(string) string
   basePath    string
   jsxPreserve bool
   outDir      string
@@ -101,7 +106,13 @@ type pathPattern struct {
 }
 
 func newRewriter(prog *driver.Program) *rewriter {
-  out := &rewriter{sourceFiles: map[string]string{}}
+  caseSensitive := useCaseSensitiveFileNames(prog)
+  out := &rewriter{
+    canonicalFileName: func(name string) string {
+      return shimtspath.GetCanonicalFileName(name, caseSensitive)
+    },
+    sourceFiles: map[string]string{},
+  }
   if prog == nil || prog.ParsedConfig == nil ||
     prog.ParsedConfig.ParsedConfig == nil ||
     prog.ParsedConfig.ParsedConfig.CompilerOptions == nil {
@@ -123,7 +134,7 @@ func newRewriter(prog *driver.Program) *rewriter {
     out.rootDir = inferredRootDir(options.ConfigFilePath, fileNames, cwd, useCaseSensitiveFileNames(prog))
   }
   for _, name := range fileNames {
-    out.sourceFiles[name] = name
+    out.sourceFiles[out.sourceKey(name)] = name
   }
   if options.Paths != nil {
     for pattern, targets := range options.Paths.Entries() {
@@ -142,14 +153,14 @@ The constructor pulls four facts out of the Program and caches them as an in-mem
 
 **`basePath`**, the directory that paths in `compilerOptions.paths` resolve relative to. Tsgo's `GetPathsBasePath` handles the `baseUrl` vs no-`baseUrl` logic.
 
-**`outDir`** and **`rootDir`**, where emitted JavaScript lands and which subtree owns the source. If `rootDir` is empty, `inferredRootDir` mirrors TypeScript-Go's own `GetCommonSourceDirectory` fallback chain: the tsconfig's directory when the program was loaded from one, else the deepest directory shared by every input file (`commonSourceDir`, a per-component intersection that reports "no common root" for inputs that span two Windows volumes instead of walking forever — the #310 hang). Anchoring exactly where tsgo anchors emit keeps the rewritten specifiers in agreement with the real output layout.
+**`outDir`** and **`rootDir`** determine where emitted JavaScript lands and which subtree owns the source. If `rootDir` is empty, `inferredRootDir` mirrors TypeScript-Go's `GetCommonSourceDirectory` fallback: the tsconfig's directory when the program was loaded from one, else the deepest directory shared by every input file. `commonSourceDir` compares path components and reports no common root for inputs spanning two Windows volumes, avoiding the loop reported in #310. Using the compiler's emit anchor keeps rewritten specifiers in agreement with its output layout.
 
-**`sourceFiles`**, a string → string map of every user source file, keyed by its exact normalized path:
+**`sourceFiles`**, a string → string map of implementation source files. Keys follow the Program filesystem's case policy; values retain the original normalized spelling:
 
 ```go
 for _, file := range files {
   name := normalizePath(file.FileName())
-  out.sourceFiles[name] = name
+  out.sourceFiles[out.sourceKey(name)] = name
 }
 ```
 
@@ -163,7 +174,9 @@ Notice the explicit `orderPatterns(out.patterns)` at the end. Without sorting, t
 
 ### Sidebar: `filepath.ToSlash` and the Windows path discipline
 
-Notice the helper `normalizePath` (`filepath.ToSlash(filepath.Clean(value))`) that wraps every path before it lands in `sourceFiles`. tsgo normalises filenames to forward slashes internally on every platform; `filepath.Join` and `filepath.Rel` use the OS separator (`\` on Windows). A Windows plugin that compares `prog.SourceFiles()[i].FileName()` against `filepath.Join(cwd, "src/main.ts")` without normalising hits no match and silently no-ops the rewrite. Run every external path through `filepath.ToSlash` before keying any map or comparing strings; see [Pitfalls → Windows Path Failures](/docs/development/reference/pitfalls#windows-path-failures) for the catalogue entry.
+The helper `normalizePath` (`filepath.ToSlash(filepath.Clean(value))`) reconciles native separators with the compiler's forward-slash filenames. `sourceKey` then applies `shimtspath.GetCanonicalFileName` using `prog.FS.UseCaseSensitiveFileNames()`. Insertion and lookup use the same key policy, while emitted paths retain source spelling.
+
+Separator normalization alone does not establish file identity. Use the actual host's case policy rather than assuming every Windows filesystem ignores case. See [Pitfalls → Windows Path Failures](/docs/development/reference/pitfalls#windows-path-failures) for the catalogue entry.
 
 ### 2. Sort patterns by specificity
 
@@ -187,7 +200,7 @@ func patternPrefixLength(pattern string) int {
 }
 ```
 
-The order is tsc's `matchPatternOrExact` contract: an exact pattern (no `*`) always wins, and among wildcards the longest literal _prefix_ wins — `@lib/foo/*` (prefix 9) beats `@lib/*` (prefix 5). Ranking by total literal length instead would let a long-suffix pattern like `*-styles` capture a specifier that tsc's module resolution routes through `@app/*`, and the rewrite would then disagree with the type checker.
+The order follows tsc's `matchPatternOrExact` contract: an exact pattern (no `*`) wins, and among wildcards the longest literal prefix wins. `@lib/foo/*` (prefix 9) beats `@lib/*` (prefix 5). Ranking by total literal length would let a long-suffix pattern like `*-styles` capture a specifier that tsc's module resolution routes through `@app/*`, making the rewrite disagree with the type checker.
 
 ### 3. Walk every node that could hold a module reference
 
@@ -314,7 +327,7 @@ walk = func(node *X) bool {
 walk(root)
 ```
 
-returning `false` keeps the iteration alive. Returning `true` would short-circuit, useful for "find the first node matching predicate," not useful when you want to visit every node. Declare the recursion closure once per walk and hand the same value to every `ForEachChild` call — building a fresh closure at each node allocates once per AST node, which a program-wide pass pays millions of times.
+Returning `false` keeps the iteration alive. Returning `true` short-circuits when searching for one matching node. Declare the recursion closure once per walk and pass the same visitor to each `ForEachChild` call so traversal ownership remains explicit. Actual closure allocations depend on Go's escape analysis.
 
 ### 4. Resolving a specifier
 
@@ -343,7 +356,7 @@ func (r *rewriter) rewrite(fromSource string, specifier string) (string, bool) {
 
 The contract: `rewrite("/proj/src/main.ts", "@lib/greet")` returns `("./modules/greet.js", true)`.
 
-The fast-path bail-outs at the top are important, `.` and `/` prefixes are already relative or absolute paths and never match a path alias. An empty specifier is a parse error in real TypeScript but the visitor still walks it.
+The fast-path bail-outs at the top are important: `.` and `/` prefixes are already relative or absolute paths and never match a path alias. An empty specifier is a parse error in real TypeScript but the visitor still walks it.
 
 The resolution chain:
 
@@ -397,7 +410,7 @@ For pattern `@lib/*` and specifier `@lib/greet`:
 - `specifier` has the prefix `@lib/` and the suffix `""`: match.
 - Return `specifier[5 : 10-0] = "greet"` (length 10 minus suffix length 0).
 
-The two guards mirror tsc: a pattern with more than one `*` is not a pattern at all (`TryParsePattern` discards it), and a specifier shorter than the literal halves combined must not match — it can still satisfy both the prefix and suffix probes (`"@lib/x"` against `"@lib/x*x"`), and slicing the star capture out of it would panic on inverted bounds.
+The two guards mirror tsc: `TryParsePattern` discards a pattern with more than one `*`, and a specifier shorter than the combined literal halves must not match. That short specifier can still satisfy both prefix and suffix probes (`"@lib/x"` against `"@lib/x*x"`); slicing its wildcard capture would panic on inverted bounds.
 
 Resolution also _commits_ to the first (best-precedence) matching pattern, exactly like tsc's `tryLoadModuleUsingPaths`: only that pattern's targets are tried, and when none of them names a program source the specifier stays unrewritten. Falling through to a weaker pattern would rewrite the import at a module the type checker never resolved.
 
@@ -412,8 +425,8 @@ func (r *rewriter) outputPathForSource(source string) string {
   if r.outDir == "" || r.rootDir == "" {
     return ""
   }
-  rel, err := filepath.Rel(r.rootDir, source)
-  if err != nil || isOutsideRelativePath(rel) {
+  rel, ok := r.pathBelowRootDir(source)
+  if !ok {
     return ""
   }
   return normalizePath(filepath.Join(r.outDir, replaceSourceExtension(rel, emittedExtension(rel, r.jsxPreserve))))
@@ -439,9 +452,13 @@ func emittedExtension(source string, jsxPreserve bool) string {
 }
 ```
 
-The mapping is tsgo's emit rule, replicated here because the plugin needs to predict the output path the compiler will write. `replaceSourceExtension(rel, ext)` strips the source extension and appends the predicted one. TypeScript/JavaScript-family sources transpile to `.js`, `.mjs`, `.cjs`, or `.jsx` depending on the matched source and `jsx` mode. The `default` branch returns the source's own extension unchanged, so an asset the compiler _copies_ rather than transpiles — a `.json` source pulled in by `resolveJsonModule` — keeps its extension and the rewritten specifier names the file tsgo actually writes (`./data.json`) instead of an invented `./data.js` that never exists on disk.
+The mapping follows tsgo's emit rule because the plugin needs to predict the compiler's output path. `replaceSourceExtension(rel, ext)` strips the source extension and appends the predicted one. TypeScript/JavaScript-family sources transpile to `.js`, `.mjs`, `.cjs` or `.jsx` depending on the source and `jsx` mode.
 
-`isOutsideRelativePath` checks `rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator))`, sources outside the rootDir do not have a well-defined output and the rewriter bails out.
+The default branch preserves the source extension. A `.json` source imported through `resolveJsonModule` is copied with that extension, so its rewritten specifier names the emitted `./data.json`.
+
+`pathBelowRootDir` normalizes the root and source, then compares the root prefix through `sourceKey` using the Program's case policy. It preserves the remaining source spelling for the output path. Sources outside that root return no output path.
+
+This follows the compiler's comparison rather than the operating system's `filepath.Rel` behavior. A case-insensitive volume on POSIX can contain a source spelled `SRC/DIRECTORY/index.ts` beneath a configured `src` root even though the native lexical comparison distinguishes those spellings.
 
 ### 6. Mutating a string literal: the synthesize-flag invariant
 

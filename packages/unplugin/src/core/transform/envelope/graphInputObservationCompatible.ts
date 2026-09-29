@@ -1,6 +1,17 @@
 import type { ITtscCompilerTransformation } from "ttsc";
 
-/** Whether one predicate set can describe a single stable filesystem state. */
+/**
+ * Whether normalized predicates can describe one stable filesystem state.
+ *
+ * Nonempty directory entries establish directory presence, but empty entries
+ * and failed reads establish neither presence nor absence. Unqueried predicates
+ * remain unknown; this check compares recorded results without probing the host.
+ *
+ * @evidence contracts/common.md#principled-implementation Successful reads require file-compatible predicates, nonempty listings require directory-compatible predicates, and explicit stat kinds rule out conflicting existence results; unknown and failed-read values are not treated as absence.
+ * @evidence contracts/common.md#clear-and-simple-design Explicit contradiction checks compare one normalized record without combining schema parsing, host observation or legacy encoding in the same predicate.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed reads and empty listings retain their weaker meaning rather than gaining synthetic existence facts to make a proof acceptable.
+ * @evidence contracts/common.md#meaningful-documentation Native prose states the normalized-input premise and the weaker meaning of failed reads, empty lists and unqueried operations; paragraph/tag separation follows the documentation skill.
+ */
 export function graphInputObservationCompatible(
   observation: ITtscCompilerTransformation.IInputObservation,
 ): boolean {

@@ -29,6 +29,11 @@ import type {
  * checker when lexical identity is part of the upstream contract.
  *
  * @reference https://github.com/sindresorhus/eslint-plugin-unicorn
+ *
+ * @evidence contracts/common.md#principled-implementation Explicit optional unicorn identifiers preserve severity-only settings and the twelve dedicated options interfaces, keeping distinct policy values tied to their rule names.
+ * @evidence contracts/common.md#clear-and-simple-design The modernization family shares severity tuple construction while separate option schemas own filename, import, source-pattern and target-environment policies.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Public and retained legacy identifiers are documented configuration keys; the map contains no generic built-in options fallback or fixture-specific setting.
+ * @evidence contracts/common.md#meaningful-documentation Native comments identify modernization intent, default-free string patterns and retained legacy naming; family context, paragraphs and member spacing follow documentation guidance.
  */
 export interface ITtscLintUnicornRules {
   /**

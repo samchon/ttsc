@@ -14,6 +14,9 @@ import { make } from "../internal/make";
  * tags, and `type` is the `@returns` tag. The printer emits each on its own
  * line, in that order.
  *
+ * Arrays and tag nodes are retained by reference. The constructor does not
+ * compare their names or types with an executable function.
+ *
  * With no type parameters, a single `@param {number} x the x` tag, and an
  * `@returns {boolean}` tag, the printer emits:
  *
@@ -22,6 +25,10 @@ import { make } from "../internal/make";
  * @returns {boolean}
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation Direct assignments retain the template, parameter and optional return tag roles, whose printer order expresses a documentation signature without checking executable-function correspondence.
+ * @evidence contracts/common.md#clear-and-simple-design The constructor exposes three signature roles rather than another flattened tag list or a generic signature-building layer.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The supplied tag sequence is not replaced by a known callback shape or reconciled through foreign declaration patches.
+ * @evidence contracts/common.md#meaningful-documentation Native prose describes template/parameter/return ordering, retained references and the validation boundary with an example; paragraphs and native tags follow the documentation guidance.
  * @author Jeongho Nam - https://github.com/samchon
  * @param typeParameters The `@template` type parameters, if any.
  * @param parameters The `@param` tags.

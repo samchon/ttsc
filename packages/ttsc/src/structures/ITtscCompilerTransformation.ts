@@ -7,6 +7,11 @@ import type { ITtscCompilerDiagnostic } from "./ITtscCompilerDiagnostic";
  * Unlike {@link ITtscCompilerResult}, this contract is not an emit contract: the
  * `typescript` map must contain TypeScript source text, not generated
  * JavaScript, declaration files, or source maps.
+ *
+ * @evidence contracts/common.md#principled-implementation The discriminated union separates completed source transformation from failure and host exception; its TypeScript text map is distinct from emit output.
+ * @evidence contracts/common.md#clear-and-simple-design Named result variants share advisory dependency types but retain outcome-specific requirements, allowing callers to narrow by type.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Source text and optional invalidation metadata describe actual producer outputs; the contract does not substitute emitted JavaScript for transformed TypeScript.
+ * @evidence contracts/common.md#meaningful-documentation Native JSDoc distinguishes transformation from emit, then explains result and advisory-data semantics on their declarations; paragraphs, member spacing and tag separation follow the documentation skill.
  */
 export type ITtscCompilerTransformation =
   | ITtscCompilerTransformation.ISuccess
@@ -29,6 +34,11 @@ export namespace ITtscCompilerTransformation {
    * Keys and values follow the same convention as {@link ISuccess.typescript}:
    * project-relative slash paths, falling back to absolute slash paths outside
    * the project root.
+   *
+   * @evidence contracts/common.md#principled-implementation Direct reference edges, universal globals/configs and resolver predicates preserve different input influences; consumers derive reachability and replay only the observed filesystem predicates.
+   * @evidence contracts/common.md#clear-and-simple-design The graph separates realized references from candidate observations and proof failures so adapters can invalidate conservatively without attributing compiler reads to plugins.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing or failed proofs remain refusals to reuse; neither an empty candidate map nor a guessed platform case policy fabricates compiler evidence.
+   * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains path vocabulary, global influence, optional legacy fields and the compiler-owned case policy; documented members and distinct paragraphs follow the documentation skill.
    */
   export interface IReferenceGraph {
     /**
@@ -104,7 +114,14 @@ export namespace ITtscCompilerTransformation {
     useCaseSensitiveFileNames?: boolean;
   }
 
-  /** Predicate-preserving compiler filesystem proof for one lexical path. */
+  /**
+   * Predicate-preserving compiler filesystem proof for one lexical path.
+   *
+   * @evidence contracts/common.md#principled-implementation Independent optional predicates preserve what the compiler actually queried; file absence can coexist with directory presence, and ok-discriminated reads/realpaths distinguish failure from a successful value.
+   * @evidence contracts/common.md#clear-and-simple-design A single observation collects distinct results for one lexical path without flattening them into ambiguous generic existence.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Omitted predicates make no assertion; a failed read is not replaced with a synthetic content hash or path.
+   * @evidence contracts/common.md#meaningful-documentation Native member comments identify each compiler operation and its result shape, with blank lines between documented members and before acknowledgments as required by the documentation skill.
+   */
   export interface IInputObservation {
     /** Result returned by `GetAccessibleEntries`, preserving both name lists. */
     accessibleEntries?: {
@@ -149,6 +166,11 @@ export namespace ITtscCompilerTransformation {
    * {@link sourceRoot} when one is set. `sourcesContent` carries the text each
    * source was transformed from, so a consumer can confirm the map describes
    * the text it holds before handing it on.
+   *
+   * @evidence contracts/common.md#principled-implementation The version-3 shape separates VLQ mappings, names and source identities; optional embedded source text allows consumers to compare the map's origin with their actual input.
+   * @evidence contracts/common.md#clear-and-simple-design The standard source-map fields stay together as one transform artifact instead of introducing a competing custom mapping representation.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Version 3 is the supported map format; absent source content remains absent rather than synthesized to make a consumer accept a map.
+   * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains mapping direction, sourceRoot resolution and embedded-content meaning, with documented member spacing and separate acknowledgment prose under the documentation skill.
    */
   export interface ISourceMap {
     /** Always `3`. */
@@ -173,9 +195,19 @@ export namespace ITtscCompilerTransformation {
     mappings: string;
   }
 
-  /** Successful source-to-source transformation result. */
+  /**
+   * Successful source-to-source transformation result.
+   *
+   * A zero-status operation without error diagnostics can retain non-fatal
+   * findings alongside its transformed source and advisory input metadata.
+   *
+   * @evidence contracts/common.md#principled-implementation Success preserves TypeScript text and optional non-error findings; dependency completeness and volatility remain independent producer declarations governing reuse, not inferred correctness.
+   * @evidence contracts/common.md#clear-and-simple-design Required source text and optional maps/input metadata expose one generation without mixing emission or forcing plugins to implement narrower invalidation.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Completeness is an explicit responsibility transfer; unknown or volatile inputs retain conservative behavior rather than gaining fabricated cache eligibility.
+   * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains source-map absence, host versus plugin inputs, completeness and volatility in separate paragraphs; member spacing and tag separation follow the documentation skill.
+   */
   export interface ISuccess {
-    /** Indicates that transformation completed without diagnostics. */
+    /** Indicates successful completion without error diagnostics. */
     type: "success";
 
     /** Non-fatal diagnostics reported during transformation. */
@@ -284,6 +316,27 @@ export namespace ITtscCompilerTransformation {
     hostInputRealpaths?: Record<string, string | null>;
 
     /**
+     * Host-input paths for which the producer could not complete observation,
+     * keyed by absolute native path.
+     *
+     * The reason records unavailable observation only. It does not excuse a
+     * changed hash, changed physical identity, or contradictory observations.
+     * Consumers validate every available witness before handling this refusal.
+     */
+    hostInputProofFailures?: Record<string, "observation-unavailable">;
+
+    /**
+     * Explicit refusal to claim complete producer observation. A producer
+     * reports `false` when its observation channel or supported hooks could not
+     * account for every input influencing this generation.
+     *
+     * This is a negative signal: absence asserts no completeness. Consumers
+     * must establish reuse authority from the actual input witnesses and
+     * producer protocol independently; this field never grants it.
+     */
+    observationsComplete?: false;
+
+    /**
      * The state of every Go source directory the transform's plugins supplied
      * to their binaries, by absolute path: each plugin's module root and each
      * contributor's source, with the digest of the files the build keyed its
@@ -313,7 +366,15 @@ export namespace ITtscCompilerTransformation {
     volatile?: string[];
   }
 
-  /** Source-to-source transformation result that completed with diagnostics. */
+  /**
+   * Source-to-source transformation result that completed unsuccessfully or
+   * reported error diagnostics.
+   *
+   * @evidence contracts/common.md#principled-implementation Failure retains partial transformed source and mandatory findings together with any available generation metadata, so callers do not lose completed work or mistake it for success.
+   * @evidence contracts/common.md#clear-and-simple-design The completed-failure payload mirrors success's advisory shapes while making diagnostics mandatory; serialized host exceptions remain a different variant.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Partial metadata is not promoted to a completeness claim, and partial text is not supplemented with expected fixture output.
+   * @evidence contracts/common.md#meaningful-documentation Native JSDoc states which outputs may be partial and refers each reused field to its authoritative semantics within the same type namespace; member and tag separation follow the documentation skill.
+   */
   export interface IFailure {
     /** Indicates that transformation completed with diagnostics. */
     type: "failure";
@@ -366,6 +427,18 @@ export namespace ITtscCompilerTransformation {
     /** Generation-time physical host-input identities. */
     hostInputRealpaths?: Record<string, string | null>;
 
+    /**
+     * Unavailable host-input observations; same contract as
+     * {@link ISuccess.hostInputProofFailures}, including mutation refusal.
+     */
+    hostInputProofFailures?: Record<string, "observation-unavailable">;
+
+    /**
+     * Explicit observation incompleteness; same negative-only contract as
+     * {@link ISuccess.observationsComplete}.
+     */
+    observationsComplete?: false;
+
     /** Plugin source states; same contract as {@link ISuccess.pluginSources}. */
     pluginSources?: Record<string, string>;
 
@@ -376,7 +449,21 @@ export namespace ITtscCompilerTransformation {
     volatile?: string[];
   }
 
-  /** Unexpected host-level error during transformation. */
+  /**
+   * Unexpected host-level error during transformation.
+   *
+   * Error name, message, stack, causes, aggregate failures and enumerable
+   * outcome data are preserved in a finite description.
+   *
+   * Repeated objects use `$ttscReference` JSON-pointer markers. Exceptional
+   * scalars, accessors and failed inspection use `$ttscValue` markers. Getters
+   * are not invoked, and foreign class internal slots are not copied.
+   *
+   * @evidence contracts/common.md#principled-implementation Unknown represents finite causal error descriptions and tagged exceptional values, while an optional classifier identifies recognized host/plugin origins without consumer message parsing.
+   * @evidence contracts/common.md#clear-and-simple-design A separate exception variant avoids requiring unavailable source maps or diagnostics after abnormal host failure.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts An unrecognized origin remains unknown; no recovery wrapper fabricates a completed transformation.
+   * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain finite causal serialization, reference/value markers and accessor limits alongside classifier meanings; list, member and tag spacing follow the documentation skill.
+   */
   export interface IException {
     /** Indicates that transformation could not complete normally. */
     type: "exception";
@@ -393,7 +480,7 @@ export namespace ITtscCompilerTransformation {
      */
     kind?: "plugin" | "host" | "unknown";
 
-    /** Raw error thrown by the ttsc host. */
+    /** Finite causal description of the value thrown by the ttsc host. */
     error: unknown;
   }
 }

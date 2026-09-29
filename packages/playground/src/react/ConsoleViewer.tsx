@@ -9,6 +9,15 @@ interface ConsoleViewerProps {
   empty?: string;
 }
 
+/**
+ * Render captured console calls in order, with argument values formatted as
+ * React text and nested containers truncated after four levels.
+ *
+ * @evidence contracts/common.md#principled-implementation Console types choose display colors and argument values become escaped React text; depth-limited container recursion handles circular values. Object entry access can invoke getters, so formatting is not a user-code isolation boundary.
+ * @evidence contracts/common.md#clear-and-simple-design Row layout delegates color and value formatting to local helpers while the caller owns captured-message state.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Color choices are presentation constants and the depth limit is a general rendering bound, not source-specific output substitution.
+ * @evidence contracts/common.md#meaningful-documentation Native prose states ordering, text rendering and truncation semantics, separated from tags under the documentation skill.
+ */
 export function ConsoleViewer({
   messages,
   empty = "No output yet. Click Execute to run the compiled JavaScript.",
@@ -79,6 +88,7 @@ function formatValue(value: unknown, depth = 0): JSX.Element {
     return <span className="text-slate-500">undefined</span>;
   if (typeof value === "function")
     return <span className="text-slate-500">[Function]</span>;
+  if (depth > 4) return <span className="text-slate-500">[...]</span>;
   if (Array.isArray(value))
     return (
       <span>
@@ -101,7 +111,6 @@ function formatValue(value: unknown, depth = 0): JSX.Element {
   try {
     const entries = Object.entries(value as Record<string, unknown>);
     if (entries.length === 0) return <span>{"{}"}</span>;
-    if (depth > 4) return <span className="text-slate-500">[...]</span>;
     return (
       <span>
         {"{"}

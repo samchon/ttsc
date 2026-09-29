@@ -24,7 +24,9 @@ Everything behind the hosted playground ships as the [`@ttsc/playground`](https:
 
 `PlaygroundShell` passes each `executeBundle` call an abort signal. Source or compiler-option changes, a newer Execute, and unmount abort obsolete setup and prevent its messages from committing. Pass that signal to `loadTypiaRuntimePack`; the loader imposes no deadline of its own and removes failed shared loads so a later Execute can retry. Synchronous evaluated code cannot be interrupted by an `AbortSignal`.
 
-The worker's Typia source-pack mount is unbounded across both the response and JSON body for the same reason. Loads for one URL share a request; any caller's signal cancels that shared attempt, and rejection evicts it so the next compiler request retries the mount on the existing WASM runtime instead of inheriting a pending fetch or starting another runtime.
+The worker's Typia source-pack mount has no deadline across either the response or JSON body for the same reason. Loads share a request only when both their URL and fetch function match; separate injected transports keep separate caches. Any caller's signal cancels that shared attempt, and rejection evicts it so the next compiler request retries the mount on the existing WASM runtime instead of inheriting a pending fetch or starting another runtime.
+
+Source and runtime packs must decode to objects whose values are source strings. Malformed packs fail the load before their entries are mounted or executed.
 
 The npm loader authenticates archives with registry SRI (or legacy shasum), confines files below one safe and consistent archive root, and enforces independent compressed and expanded byte limits. Metadata without either digest remains compatible but unauthenticated. These checks protect the install handoff and browser-tab availability; they do not make downloaded code trustworthy.
 

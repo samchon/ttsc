@@ -21,45 +21,108 @@ import (
 // transform use, adding `result` when an endpoint has a JSON payload. `code`
 // follows the native CLI exit-code contract (0 success, 2 compiler/config/
 // usage error, 3 runtime error).
+//
+// @evidence contracts/common.md#principled-implementation Explicit stream fields mirror invocation capture and the JavaScript envelope.
+// @evidence contracts/common.md#clear-and-simple-design One capture value separates exit status and the two streams, leaving project JSON to the JavaScript envelope.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The exit code remains data rather than being replaced by a success-only output shape.
+// @evidence contracts/common.md#meaningful-documentation Native comments explain channels and exit codes under the documentation skill's context guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This capture value has no native path, process-launch representation or platform capability decision.
 type APIResult struct {
+  // Code is the plugin's CLI exit status.
   Code   int    `json:"code"`
+
+  // Stdout contains this invocation's standard output.
   Stdout string `json:"stdout"`
+
+  // Stderr contains this invocation's diagnostic output.
   Stderr string `json:"stderr"`
 }
 
 // CompileResult mirrors `ttsc api-compile`. Field names are TypeScript-style
 // so JS callers can use it directly without remapping.
+//
+// @evidence contracts/common.md#principled-implementation JSON field tags preserve the TypeScript-facing compiler payload and optional diagnostic list.
+// @evidence contracts/common.md#clear-and-simple-design Diagnostics reuse one wire DTO while output text is keyed by destination; the transport envelope stays outside this payload.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Emitted paths and contents remain compiler data rather than a consumer-shaped output schema.
+// @evidence contracts/common.md#meaningful-documentation Comments identify the wire shape, omission and output path base under the documentation skill's context rule.
+// @evidence contracts/portability.md#os-neutral-implementation Output keys preserve driver path identity and case; filepath.Rel chooses project-relative keys and filepath.ToSlash converts only their wire spelling. Different-volume or outside paths remain absolute.
 type CompileResult struct {
+  // Diagnostics is omitted when the result has no messages.
   Diagnostics []CompileDiagnostic `json:"diagnostics,omitempty"`
-  // Output maps cwd-relative paths to emitted JS / d.ts text. Empty when
-  // the program produced no files (e.g. `noEmit` projects).
+
+  // Output maps emitted paths to JS / d.ts text. Paths inside cwd are relative;
+  // outside destinations stay absolute. Empty when no files were produced.
   Output map[string]string `json:"output"`
 }
 
 // TransformResult is the no-emit companion. The `typescript` map keys files
 // the same way `output` does in compile mode.
+//
+// @evidence contracts/common.md#principled-implementation A distinct source-text map avoids conflating transformed TypeScript with emitted output.
+// @evidence contracts/common.md#clear-and-simple-design The source-text map and shared diagnostics form one transform payload, separate from compile output and invocation streams.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The payload represents actual program text instead of reconstructing it from JavaScript emit.
+// @evidence contracts/common.md#meaningful-documentation Native comments distinguish the source stage and optional messages under the documentation skill's clarity rule.
+// @evidence contracts/portability.md#os-neutral-implementation Source keys use the shared filepath-based relative/absolute projection and slash wire spelling, without changing filesystem case or inferring native identity from an OS name.
 type TransformResult struct {
+  // Diagnostics is omitted when the result has no messages.
   Diagnostics []CompileDiagnostic `json:"diagnostics,omitempty"`
+
+  // TypeScript holds post-plugin text under project-relative or outside absolute paths.
   TypeScript  map[string]string   `json:"typescript"`
 }
 
 // CompileDiagnostic is the public TypeScript-side diagnostic DTO. Mirrors the
 // shape `ttsc api-compile` writes so the JS host can render it without
 // remapping fields.
+//
+// Start/Length are UTF-8 byte offsets and lengths. Line/Character are 1-based;
+// Character counts UTF-8 bytes from the line start, as the native driver does.
+// Zero display locations are omitted when no source context is available.
+//
+// @evidence contracts/common.md#principled-implementation Nullable file and optional location fields follow the driver's diagnostic projection through JSON.
+// @evidence contracts/common.md#clear-and-simple-design File identity, severity, byte span and display location remain distinct fields, with pointers for absent spans rather than an alternate diagnostic model.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler coordinates are preserved rather than guessed from JavaScript text indices.
+// @evidence contracts/common.md#meaningful-documentation Separate comments explain coordinate units and absence under the documentation skill's paragraph guidance.
+// @evidence contracts/portability.md#os-neutral-implementation The driver supplies native source identity; projection changes separators with filepath.ToSlash while preserving case. A nil file represents project-wide diagnostics rather than a platform-specific sentinel path.
 type CompileDiagnostic struct {
+  // File is an absolute slash path, or nil for a project-wide message.
   File        *string `json:"file"`
+
+  // Category is error or warning; errors affect the command exit code.
   Category    string  `json:"category"`
+
+  // Code is the compiler or plugin diagnostic identifier.
   Code        int32   `json:"code"`
+
+  // Start is the optional inclusive UTF-8 byte offset.
   Start       *int    `json:"start,omitempty"`
+
+  // Length is the optional span length in UTF-8 bytes.
   Length      *int    `json:"length,omitempty"`
+
+  // Line is 1-based and omitted without a display location.
   Line        int     `json:"line,omitempty"`
+
+  // Character is a 1-based UTF-8 byte column, omitted without a location.
   Character   int     `json:"character,omitempty"`
+
+  // MessageText is the complete compiler or plugin message.
   MessageText string  `json:"messageText"`
 }
 
 // Build runs `ttsc build`-shaped emit: load the project, emit JS, return the
 // emitted text map + diagnostics as JSON. `cwd` must be an absolute path
 // inside the host filesystem; `tsconfigPath` may be relative to cwd.
+//
+// The loaded Program is closed on every return after acquisition. Compiler
+// diagnostics still accompany emitted files; code 2 reports compiler errors,
+// while code 3 reports emit or serialization failures.
+//
+// @evidence contracts/common.md#principled-implementation LoadProgram and EmitAll own compiler behavior; encoding/json projects their results through the documented envelope.
+// @evidence contracts/common.md#clear-and-simple-design One emit pipeline owns project acquisition, supported WriteFile capture and diagnostics; shared projection helpers centralize path and diagnostic policy.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Emit uses supported compiler hooks, without patching foreign emitters or synthesizing expected outputs.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs explain paths, ownership and failure stages under the documentation skill's rationale guidance.
+// @evidence contracts/portability.md#os-neutral-implementation LoadProgram owns filesystem access through the driver's supported host. Native filepath.Rel identifies inside/outside destinations, including volume differences, and ToSlash changes JSON spelling without lowercasing identity.
 func Build(cwd, tsconfigPath string) ([]byte, int, error) {
   prog, diags, err := driver.LoadProgram(cwd, tsconfigPath, driver.LoadProgramOptions{
     ForceEmit: true,
@@ -106,6 +169,12 @@ func Build(cwd, tsconfigPath string) ([]byte, int, error) {
 
 // Check runs the typecheck pipeline without emitting JS. The returned JSON
 // has the same shape as Build but with an empty `output` map.
+//
+// @evidence contracts/common.md#principled-implementation ForceNoEmit selects the driver's check pipeline and a deferred Close owns the loaded program.
+// @evidence contracts/common.md#clear-and-simple-design The no-emit entry keeps loading and diagnostic projection explicit while sharing DTO and path helpers with the emit entry.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No-emit is requested from the compiler rather than hiding an unnecessary emit behind an empty result.
+// @evidence contracts/common.md#meaningful-documentation Native comments explain no-emit and payload equivalence under the documentation skill's context guidance.
+// @evidence contracts/portability.md#os-neutral-implementation The driver resolves cwd/config through its filesystem host; diagnostic paths use filepath.ToSlash only for wire spelling. The adapter neither guesses case policy nor constructs a shell command.
 func Check(cwd, tsconfigPath string) ([]byte, int, error) {
   prog, diags, err := driver.LoadProgram(cwd, tsconfigPath, driver.LoadProgramOptions{
     ForceNoEmit: true,
@@ -138,6 +207,15 @@ func Check(cwd, tsconfigPath string) ([]byte, int, error) {
 // Transform returns every source file the program saw, keyed by
 // project-relative path. The playground uses this to render the TS view
 // after source rewrites (e.g. paths rewriting) have been applied.
+//
+// Sources inside cwd use relative keys; outside sources retain absolute slash
+// paths. The invocation closes the loaded Program after copying its source text.
+//
+// @evidence contracts/common.md#principled-implementation LoadProgram supplies post-plugin SourceFiles and encoding/json preserves their source-text projection.
+// @evidence contracts/common.md#clear-and-simple-design The source projection is separate from emit, and common path/diagnostic helpers keep their shared representation policy in one place.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The program's own text is authoritative, without a secondary emitter-based reconstruction.
+// @evidence contracts/common.md#meaningful-documentation Separate paragraphs explain stage, path convention and ownership under the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Source identities come from LoadProgram, then the shared filepath relative/absolute mapping preserves native case and handles outside/other-volume paths before slash serialization.
 func Transform(cwd, tsconfigPath string) ([]byte, int, error) {
   prog, diags, err := driver.LoadProgram(cwd, tsconfigPath, driver.LoadProgramOptions{
     ForceNoEmit: true,

@@ -4,6 +4,15 @@ import { useState } from "react";
 
 import type { ICompilerService } from "../structures/ICompilerService";
 
+/**
+ * Display severity totals and a collapsible list of supplied diagnostic
+ * locations; expansion changes presentation without rerunning compilation.
+ *
+ * @evidence contracts/common.md#principled-implementation Counts derive from actual severity fields and location text uses the normalized one-based diagnostic contract.
+ * @evidence contracts/common.md#clear-and-simple-design Local expansion state owns presentation only; producers own findings and failure interpretation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Empty presentation derives from the supplied list rather than inventing a successful compiler result.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains totals and expansion ownership, separated from tags under the documentation skill.
+ */
 export function DiagnosticsPanel({
   diagnostics,
 }: {

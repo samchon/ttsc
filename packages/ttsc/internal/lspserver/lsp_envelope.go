@@ -18,6 +18,11 @@ var ErrInvalidJSONRPC = errors.New("lsp: jsonrpc field must be \"2.0\"")
 // messages without re-serializing them. id is decoded as json.RawMessage
 // because LSP allows both numbers and strings and we must round-trip
 // whichever shape the editor used in correlating responses.
+//
+// @evidence contracts/common.md#principled-implementation Raw IDs and payloads preserve numeric precision and nested JSON while Method supports dispatch.
+// @evidence contracts/common.md#clear-and-simple-design Routing fields are viewed independently of method-specific payload types.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown payloads are not reconstructed from expected answers.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains raw ID ownership and the routing view, following the documentation skill.
 type Envelope struct {
   JSONRPC string          `json:"jsonrpc,omitempty"`
   ID      json.RawMessage `json:"id,omitempty"`
@@ -31,6 +36,11 @@ type Envelope struct {
 // inner params/result/error payloads. Unknown fields are ignored, which
 // matches the LSP base protocol's forward-compatibility expectation. A
 // non-empty `jsonrpc` value other than "2.0" is rejected.
+//
+// @evidence contracts/common.md#principled-implementation JSON decoding validates syntax and retains raw payloads; a nonempty incompatible version returns the shared error.
+// @evidence contracts/common.md#clear-and-simple-design Decoding and version validation form one dispatch entry boundary.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Missing version is explicit compatibility policy; malformed JSON is not repaired.
+// @evidence contracts/common.md#meaningful-documentation Native prose states version tolerance and unknown-field behavior, following the documentation skill.
 func ParseEnvelope(body []byte) (Envelope, error) {
   var env Envelope
   if err := json.Unmarshal(body, &env); err != nil {
@@ -44,17 +54,32 @@ func ParseEnvelope(body []byte) (Envelope, error) {
 
 // IsRequest reports whether the envelope represents a request expecting
 // a response (id present, method present).
+//
+// @evidence contracts/common.md#principled-implementation ID presence and nonempty Method identify the request routing shape.
+// @evidence contracts/common.md#clear-and-simple-design Handlers share one field-based request predicate.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Classification does not special-case known method names.
+// @evidence contracts/common.md#meaningful-documentation Native prose states classification premises, following the documentation skill.
 func (e Envelope) IsRequest() bool {
   return len(e.ID) > 0 && e.Method != ""
 }
 
 // IsNotification reports whether the envelope is a one-way notification.
+//
+// @evidence contracts/common.md#principled-implementation Method presence without an ID identifies one-way routing.
+// @evidence contracts/common.md#clear-and-simple-design Classification is independent of notification payload types.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No editor-specific notification identity is substituted.
+// @evidence contracts/common.md#meaningful-documentation Native prose states one-way meaning, following the documentation skill.
 func (e Envelope) IsNotification() bool {
   return len(e.ID) == 0 && e.Method != ""
 }
 
 // IsResponse reports whether the envelope is a response (id present,
 // method absent — either result or error will be set).
+//
+// @evidence contracts/common.md#principled-implementation ID presence without Method identifies response routing; consumers validate payload meaning.
+// @evidence contracts/common.md#clear-and-simple-design Correlation shares one response predicate.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The predicate fabricates neither result nor error.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies routing fields, following the documentation skill.
 func (e Envelope) IsResponse() bool {
   return len(e.ID) > 0 && e.Method == ""
 }
@@ -63,6 +88,11 @@ func (e Envelope) IsResponse() bool {
 // object. JSON-RPC §5.1 forbids `result` and `error` both being present
 // on the same response, so the proxy uses this to skip merging plugin
 // contributions into upstream failures.
+//
+// @evidence contracts/common.md#principled-implementation A non-null error on a response prevents result augmentation.
+// @evidence contracts/common.md#clear-and-simple-design Response classification is reused before error inspection.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Failures are not rewritten as successful contributions.
+// @evidence contracts/common.md#meaningful-documentation Native prose states the result/error protocol constraint, following the documentation skill.
 func (e Envelope) IsErrorResponse() bool {
   return e.IsResponse() && len(e.Error) > 0 && !bytes.Equal(bytes.TrimSpace(e.Error), []byte("null"))
 }
@@ -75,12 +105,22 @@ func (e Envelope) IsErrorResponse() bool {
 // string id `"42"`. Ids whose JSON value is not a number or string
 // (LSP forbids these as request ids) produce the empty key, which
 // callers treat as "no entry".
+//
+// @evidence contracts/common.md#principled-implementation The number-aware helper preserves integer precision and separates quoted strings from numeric IDs; float-shaped normalization is restricted to the exact safe range.
+// @evidence contracts/common.md#clear-and-simple-design Raw cancellation IDs and envelope correlation share one helper.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Large IDs are not rounded to make differently encoded examples match.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs explain numeric equivalence, string distinction and invalid-ID absence, following the documentation skill.
 func (e Envelope) IDKey() string {
   return idKeyFromRaw(e.ID)
 }
 
 // IDKeyFromRaw exposes the shared id-key normalizer to the public driver
 // compatibility layer without exporting the helper from that package.
+//
+// @evidence contracts/common.md#principled-implementation Delegation preserves Envelope.IDKey's correlation semantics for raw callers.
+// @evidence contracts/common.md#clear-and-simple-design The compatibility entry exposes the existing normalizer without duplicating parsing.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts This wrapper shares the owning parser rather than compensating for a conflicting implementation.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains the compatibility caller, following the documentation skill.
 func IDKeyFromRaw(raw json.RawMessage) string {
   return idKeyFromRaw(raw)
 }

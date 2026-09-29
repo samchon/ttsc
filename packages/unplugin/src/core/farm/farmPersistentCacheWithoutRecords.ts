@@ -26,6 +26,11 @@ import { farmRecordFallback } from "./farmRecordFallback";
  * @param config Farm's user configuration, as its `config` hook receives it.
  * @param cwd The directory Farm runs in, the root when the configuration names
  *   none.
+ *
+ * @evidence contracts/common.md#principled-implementation Farm may retain transformed modules only when a writable project record can carry compiler-input invalidation; absent that capability, disabling its whole persistent cache preserves freshness.
+ * @evidence contracts/common.md#clear-and-simple-design The configuration hook probes the two existing record locations and changes only persistentCache, preserving unrelated user configuration.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts This is a host capability boundary with a stated invalidation reason, rather than a test-only bypass, patched cache implementation, or assumed writable directory.
+ * @evidence contracts/common.md#meaningful-documentation The comment explains why per-module opt-out is unavailable and why the warning and configuration-level fallback are necessary.
  */
 export function farmPersistentCacheWithoutRecords<
   Config extends {

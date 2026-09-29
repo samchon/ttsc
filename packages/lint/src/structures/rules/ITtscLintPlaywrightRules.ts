@@ -8,6 +8,11 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
  * focused/slowed tests — that would otherwise compile and run silently.
  *
  * @reference https://github.com/playwright-community/eslint-plugin-playwright
+ *
+ * @evidence contracts/common.md#principled-implementation Explicit optional playwright keys accept only the shared severity forms, representing selectable policies without adding option fields unsupported by this public interface.
+ * @evidence contracts/common.md#clear-and-simple-design Locator, assertion and runner policies share a family map while their implementations remain separate from the setting representation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Public Playwright policy identifiers are typed configuration entries, with no repository-test exception or arbitrary payload added to the map.
+ * @evidence contracts/common.md#meaningful-documentation Native comments explain locator snapshots, waiting and runner-state concerns; family context, separate paragraphs and member spacing follow documentation guidance.
  */
 export interface ITtscLintPlaywrightRules {
   /**

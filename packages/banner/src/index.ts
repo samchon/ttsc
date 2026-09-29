@@ -14,16 +14,24 @@ export * from "./structures/index";
  * executable sidecar or linked native source.
  */
 type TtscPluginDescriptor = {
+  /** The bundled driver host records actual writes and their physical sources. */
+  capabilities: { emitProvenance: true };
+
   /** Universal config-discovery inputs consumed by the native transform. */
   hostInputs?: string[];
+
   /** Evaluation-time fingerprints paired with {@link hostInputs}. */
   hostInputHashes?: Record<string, string | null>;
+
   /** Evaluation-time physical targets paired with {@link hostInputs}. */
   hostInputRealpaths?: Record<string, string | null>;
+
   /** Human-readable plugin name used in logs and error messages. */
   name: string;
+
   /** Absolute path to the Go source directory for this plugin. */
   source: string;
+
   /**
    * Pipeline stage. `"transform"` plugins may rewrite source files; `"check"`
    * plugins only produce diagnostics. The framework default is `"transform"`.
@@ -34,39 +42,45 @@ type TtscPluginDescriptor = {
 /**
  * Context object passed by the ttsc host to every plugin factory function.
  *
- * The factory may inspect the context to customise the descriptor — for example
- * selecting a different Go source directory based on `plugin` config — but most
- * factories ignore it.
+ * Module anchors locate shipped Go source. Project anchors locate user
+ * configuration, including when the host uses a generated wrapper tsconfig.
  */
 type TtscPluginFactoryContext<TConfig> = {
   /** Absolute path to the selected ttsc native helper, not a plugin binary. */
   binary: string;
+
   /** Working directory of the ttsc invocation. */
   cwd: string;
+
   /**
-   * Absolute path to the directory holding this descriptor module — the
+   * Absolute path to the directory holding this descriptor module, the
    * load-mode-independent replacement for `__dirname`.
    */
   dirname: string;
+
   /**
-   * Absolute path to this descriptor module — the load-mode-independent
+   * Absolute path to this descriptor module, the load-mode-independent
    * replacement for `__filename`.
    */
   filename: string;
+
   /** Host-declared anchor for implicit plugin config discovery. */
   pluginConfigDir?: string;
+
   /** The raw plugin entry from `compilerOptions.plugins[]`. */
   plugin: TConfig;
+
   /** Absolute path to the project root (directory containing tsconfig). */
   projectRoot: string;
+
   /** Absolute path to the resolved tsconfig. */
   tsconfig: string;
 };
 
 /**
  * Keys that the ttsc plugin host injects into every plugin entry and are not
- * owned by `@ttsc/banner`. These pass through the factory without validation so
- * the host can freely add new framework keys in the future.
+ * owned by `@ttsc/banner`. The host validates registration; this factory
+ * rejects unknown banner options without rejecting those registration keys.
  */
 const FRAMEWORK_KEYS = new Set<string>([
   "enabled",
@@ -76,15 +90,66 @@ const FRAMEWORK_KEYS = new Set<string>([
 ]);
 
 /**
- * Plugin factory for `@ttsc/banner` — called by the ttsc host to obtain the
- * plugin descriptor.
+ * Plugin factory called by the ttsc host to obtain the `@ttsc/banner` descriptor.
  *
  * The only banner-specific key accepted in the tsconfig plugin entry is
  * `configFile`. Any other key that is not a known framework key is rejected
  * with a specific error so users discover the correct configuration surface
  * (the dedicated config file) rather than silently receiving no banner.
  *
- * @internal
+ * @evidence contracts/common.md#principled-implementation
+ *   The default-export factory maps host module anchors to the shipped driver
+ *   and project anchors to config candidates. Discovery records every higher
+ *   priority candidate through the first matching ancestor, including absent
+ *   paths and directory markers, so creating a nearer config changes the
+ *   descriptor inputs. Native evaluation validates ambiguous or invalid config;
+ *   this factory supplies observations rather than treating existence as a
+ *   valid banner. SHA-256 covers candidate bytes and a distinct directory marker.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Registration validation, discovery observations and descriptor construction
+ *   have separate responsibilities. Private helpers isolate path discovery and
+ *   filesystem observations; they do not implement another config evaluator.
+ *   The driver path follows the installed package layout, while config anchors
+ *   follow the project because those two directories have different owners.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Framework keys, candidate filenames, package identity and stage encode the
+ *   supported registration contract. The descriptor neither evaluates user
+ *   JavaScript nor changes a foreign loader; it records failed filesystem probes
+ *   as unknown observations so native evaluation can report the actual error.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc separates registration from config evaluation and explains why
+ *   unknown inline keys are rejected. Context and descriptor fields document
+ *   host anchoring and observed inputs. Paragraphs and reasons follow the
+ *   documentation skill; the exported factory is documented as a host entry.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Node path operations resolve the host anchors and stop discovery when the
+ *   parent equals the current native root. realpathSync.native reports physical
+ *   targets independently of byte hashes; unresolved targets remain null.
+ *   No OS name determines case policy and no path becomes a shell command.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   For ancestor depth H and total readable candidate bytes B, discovery performs seven
+ *   candidate probes per ancestor and hashes O(B) bytes, stopping at the first
+ *   matching ancestor. Its maps retain O(H) candidate entries. An explicit
+ *   config path probes only that file. Reading bytes is necessary to distinguish
+ *   edits that preserve size and timestamps; an existence index cannot replace
+ *   those content observations.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   This factory produces one descriptor and its filesystem observations. It
+ *   owns no cache or coordination across calls. The host owns descriptor reuse;
+ *   native configuration is evaluated once at the Program's preamble boundary.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Each synchronous filesystem operation acquires and closes its own handle.
+ *   Candidate maps are transferred in the returned descriptor, whose lifetime
+ *   the host owns. Discovery retains no module-level history, watcher or child
+ *   task; candidate entries grow with ancestor depth and transient file bytes
+ *   with candidate size, without an independent byte limit.
  */
 export default function createTtscBanner(
   context: TtscPluginFactoryContext<ITtscBannerPluginConfig>,
@@ -102,6 +167,7 @@ export default function createTtscBanner(
 
   const configInputs = bannerConfigInputs(context);
   return {
+    capabilities: { emitProvenance: true },
     hostInputHashes: configInputs.hashes,
     hostInputRealpaths: configInputs.realpaths,
     hostInputs: configInputs.inputs,

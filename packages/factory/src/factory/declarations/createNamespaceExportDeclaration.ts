@@ -15,6 +15,20 @@ import { make } from "../internal/make";
  * export as namespace App;
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   A normalized Identifier supplies the UMD global name for export-as-namespace
+ *   syntax; it does not construct the module's runtime namespace object.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One name models this declaration; actual module exports have other node kinds.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The global declaration is explicit source input, not a global runtime patch.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc explains .d.ts/UMD usage and the exposed global name with a separate
+ *   declaration example and blank comment lines before acknowledgment tags.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param name The name.
  * @returns The created {@link NamespaceExportDeclaration}.

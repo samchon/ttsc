@@ -15,33 +15,81 @@ interface SourcePackCancellation {
   dispose: () => void;
 }
 
-const packCache = new Map<string, SourcePackEntry>();
+const packCaches = new WeakMap<
+  NonNullable<IInstallTypiaSourcePackOptions["fetch"]>,
+  Map<string, SourcePackEntry>
+>();
 
 /**
- * Fetch the typia source pack JSON once per URL.
+ * Fetch the typia source pack JSON once per URL and transport identity.
  *
  * Concurrent callers share one load. A caller abort cancels that shared
  * attempt; rejection removes it from the cache so the next call retries from
  * scratch. Nothing else ends the load: how long a fetch takes belongs to the
  * network, not to a number chosen here.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   The source-pack loader uses fetch/AbortController and Promise sharing,
+ *   with an explicit fetch injection seam for the same transport contract. It
+ *   supplies source records to the existing mounting operation rather than
+ *   coupling network loading to compiler execution.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One transport-specific URL map owns attempt sharing; cancellation helpers
+ *   keep event ownership separate from response decoding and source mounting.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The site supplies the URL and transport; no package name, test case or
+ *   fixed deadline decides success. The injected transport leaves global fetch
+ *   intact. Rejection evicts only this attempt, preserving the real failure
+ *   instead of inventing a successful empty source pack.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc explains the once-per-URL purpose, shared cancellation, rejection
+ *   eviction and why an arbitrary timeout is not the network policy. Purpose
+ *   and reasons use separate native paragraphs under the documentation skill;
+ *   IInstallTypiaSourcePackOptions owns option documentation.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Map lookup indexes loads, and event-driven cancellation avoids polling.
+ *   Fetch and JSON decoding perform the requested transport work once per
+ *   shared attempt; mounting owns the later filesystem writes.
+ *
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The URL and actual fetch function identity share loading and decoded records
+ *   across mount requests. Reuse assumes immutable content for that URL during
+ *   the transport lifetime; a new URL or transport creates independent work.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Failure evicts its attempt and cancellation listeners are disposed.
+ *   Weak transport keys permit abandoned injected transports and their records
+ *   to be collected. Live transports retain successful URL records, with memory
+ *   scaling with distinct URLs and pack contents and no fixed eviction budget.
  */
 export function loadTypiaSourcePack(
   options: IInstallTypiaSourcePackOptions,
 ): Promise<Record<string, string>> {
-  const cached = packCache.get(options.url);
-  if (cached) {
-    attachSourcePackCancellation(cached, options.signal);
-    return cached.promise;
-  }
-
-  const fetchImpl = options.fetch ?? globalThis.fetch?.bind(globalThis);
+  const fetchImpl = options.fetch ?? globalThis.fetch;
   if (!fetchImpl) {
     throw new Error(
       "loadTypiaSourcePack: no fetch implementation available in this environment.",
     );
   }
 
+  let packCache = packCaches.get(fetchImpl);
+  if (!packCache) {
+    packCache = new Map();
+    packCaches.set(fetchImpl, packCache);
+  }
+  const cache = packCache;
+  const cached = cache.get(options.url);
+  if (cached) {
+    attachSourcePackCancellation(cached, options.signal);
+    return cached.promise;
+  }
+
   const url = options.url;
+  const fetchPack = options.fetch ? fetchImpl : fetchImpl.bind(globalThis);
   const controller = new AbortController();
   let phase = `fetching ${url}`;
   const cancellation = createSourcePackCancellation(
@@ -51,7 +99,7 @@ export function loadTypiaSourcePack(
   let entry!: SourcePackEntry;
   const promise = (async () => {
     const response = await raceSourcePackCancellation(
-      fetchImpl(url, { signal: controller.signal }),
+      fetchPack(url, { signal: controller.signal }),
       cancellation.promise,
       controller.signal,
       () => phase,
@@ -63,21 +111,30 @@ export function loadTypiaSourcePack(
     }
 
     phase = `reading JSON from ${url}`;
-    return (await raceSourcePackCancellation(
+    const pack: unknown = await raceSourcePackCancellation(
       response.json(),
       cancellation.promise,
       controller.signal,
       () => phase,
-    )) as Record<string, string>;
+    );
+    if (
+      !pack ||
+      typeof pack !== "object" ||
+      Array.isArray(pack) ||
+      !Object.values(pack).every((value) => typeof value === "string")
+    ) {
+      throw new Error("loadTypiaSourcePack: expected a source-text record map.");
+    }
+    return pack as Record<string, string>;
   })()
     .catch((error) => {
-      if (packCache.get(url) === entry) packCache.delete(url);
+      if (cache.get(url) === entry) cache.delete(url);
       throw error;
     })
     .finally(cancellation.dispose);
 
   entry = { controller, promise };
-  packCache.set(url, entry);
+  cache.set(url, entry);
   attachSourcePackCancellation(entry, options.signal);
   return promise;
 }

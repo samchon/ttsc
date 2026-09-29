@@ -5,10 +5,19 @@ import (
   "github.com/microsoft/typescript-go/internal/diagnostics"
 )
 
-// IsValidRegularExpressionLiteral reports whether text is one complete,
-// grammar-valid ECMAScript regular-expression literal. It deliberately uses
+// IsValidRegularExpressionLiteral reports whether text contains one
+// grammar-valid ECMAScript regular-expression literal after optional leading
+// scanner trivia. It deliberately uses
 // typescript-go's own scanner and regexp parser so callers share the compiler's
 // handling of escapes, flags, Unicode mode, and Unicode Sets syntax.
+//
+// Trailing text is rejected, including whitespace after the literal. Scanner
+// diagnostics cause a false result rather than escaping.
+//
+// @evidence contracts/common.md#principled-implementation The initial slash token enters upstream's regexp rescan mode; success requires a regexp token, no scanner diagnostic, and a token end equal to the input byte length, establishing one literal after the scanner's permitted leading trivia.
+// @evidence contracts/common.md#clear-and-simple-design A fresh local scanner and diagnostic flag handle one input without shared parser state or an independent regexp grammar.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Slash and slash-equals are the scanner's documented regexp-entry tokens; the diagnostic callback uses supported injection rather than replacing scanner internals.
+// @evidence contracts/common.md#meaningful-documentation Native prose states compiler grammar ownership, leading-trivia acceptance, trailing-text rejection and diagnostic-to-false behavior, with a separate acknowledgment section.
 func IsValidRegularExpressionLiteral(text string) bool {
   scanner := NewScanner()
   valid := true

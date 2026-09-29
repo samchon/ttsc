@@ -11,6 +11,11 @@ import { normalizeNodeModulePath } from "./normalizeNodeModulePath";
  * `ICompilerService`. The dependency installer (UI side) feeds keys like
  * `node_modules/uuid/dist/index.js`; we normalize, sanity-check, and copy each
  * entry under the project root.
+ *
+ * @evidence contracts/common.md#principled-implementation Every file passes the node_modules-relative path gate before virtual writes; count reports accepted writes and metadata remains the caller's submitted list.
+ * @evidence contracts/common.md#clear-and-simple-design Mounting is one loop with path policy delegated to normalizeNodeModulePath and no registry-resolution responsibility.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Malformed paths are uniformly skipped according to the declared mounting contract, without package-specific exemptions.
+ * @evidence contracts/common.md#meaningful-documentation Native prose defines input namespace, project-root mapping and consumer ownership, following documentation-skill paragraphs.
  */
 export function installDependenciesIntoMemFS(
   host: IMemFSHost,

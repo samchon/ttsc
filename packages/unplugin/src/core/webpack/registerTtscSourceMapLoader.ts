@@ -14,6 +14,11 @@ import { TTSC_SOURCE_MAP_LOADER } from "./TTSC_SOURCE_MAP_LOADER";
  * Only a module the transform can target gets the loader.
  *
  * @param compiler The compiler being set up, whose rules are extended.
+ *
+ * @evidence contracts/common.md#principled-implementation The pre-loader order places map restoration immediately after the owned transform, so downstream loaders receive maps for that transform's text.
+ * @evidence contracts/common.md#clear-and-simple-design One filtered rule installs the adapter; it does not introduce another transform pipeline or duplicate host loader execution.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The compiler's documented rule extension owns this integration; no foreign loader method is patched and the identifier names the adapter rule.
+ * @evidence contracts/common.md#meaningful-documentation The native comment explains reverse loader order and the transformed-module filter, so the seemingly reversed insertion order remains maintainable.
  */
 export function registerTtscSourceMapLoader(compiler: {
   options: { module: { rules: unknown[] } };

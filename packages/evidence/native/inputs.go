@@ -117,7 +117,9 @@ func globInputs(root string, globs globSet) []rule.ProjectInput {
 // contract removes.
 //
 // The boundary is also real rather than imposed: a URL has no filesystem event
-// to observe, so its freshness is per-evaluation and belongs to the loader.
+// to observe. The loader reuses a successful fetch until its process ends and
+// retries failed fetches on later evaluations; restarting the session refreshes
+// a remote document that changed while the process remained alive.
 //
 // A local path is published exactly as it normalized, including one that
 // ascends out of the project or names an absolute location. The host resolves

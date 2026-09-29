@@ -207,6 +207,17 @@ import type { UnionTypeNode } from "./types/UnionTypeNode";
  * Every AST node produced by {@link factory}: the discriminated union over all
  * node kinds, narrowed by the `kind` tag.
  *
+ * These are printable data nodes; the union does not establish semantic
+ * validity of combinations or perform TypeScript checking.
+ *
+ * Callers provide a finite tree for printing. Structural typing does not
+ * prevent runtime mutation from constructing cycles between node payloads.
+ *
+ * @evidence contracts/common.md#principled-implementation The union admits concrete node representations whose literal kinds support printer dispatch; printing assumes a finite tree, and neither cycles nor semantic validity are checked by the type.
+ * @evidence contracts/common.md#clear-and-simple-design One shared union owns the printable node population, while each variant owns its fields.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Variants identify syntax categories, not consumer fixtures; this type has no mutation or recovery behavior.
+ * @evidence contracts/common.md#meaningful-documentation JSDoc explains discriminant narrowing, semantic limits and finite-tree responsibility, with separate paragraphs following the documentation skill.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  */
 export type Node =

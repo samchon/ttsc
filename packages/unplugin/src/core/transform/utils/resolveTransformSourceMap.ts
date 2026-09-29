@@ -1,6 +1,9 @@
 import path from "node:path";
 import type { ITtscCompilerTransformation } from "ttsc";
 
+import { createHostPathIdentityContext } from "../filesystem/createHostPathIdentityContext";
+import { pathIdentityKey } from "../filesystem/pathIdentityKey";
+
 /**
  * The source map a bundler receives for one transformed module, or `undefined`
  * when the envelope's map cannot be trusted to describe the delivered text
@@ -25,6 +28,20 @@ import type { ITtscCompilerTransformation } from "ttsc";
  * @param source Text the bundler delivered for the module.
  * @param map The envelope's map for the module.
  * @returns The map to hand the bundler, or `undefined` to hand it none.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Relative sources resolve from the emitted module and sourceRoot; filesystem
+ *   identity finds the map's actual module before sourcesContent is compared.
+ *   A missing or different content witness cannot justify composing this map.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One boundary validates provenance and converts path spelling for bundlers;
+ *   filesystem equivalence stays with the shared transaction resolver.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Module matching uses physical file identity instead of an OS-wide lowercase
+ *   assumption; unverifiable maps are omitted without fabricated source entries.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs explain source-content provenance, absolute source spelling
+ *   and absence effects; prose and tags follow documentation guidance.
  */
 export function resolveTransformSourceMap(
   file: string,
@@ -35,11 +52,10 @@ export function resolveTransformSourceMap(
   const sources = map.sources.map((entry) =>
     path.resolve(directory, map.sourceRoot ?? "", entry).replace(/\\/g, "/"),
   );
-  const module = path.resolve(file).replace(/\\/g, "/");
-  const own = sources.findIndex((entry) =>
-    process.platform === "win32"
-      ? entry.toLowerCase() === module.toLowerCase()
-      : entry === module,
+  const identities = createHostPathIdentityContext();
+  const module = pathIdentityKey(file, identities);
+  const own = sources.findIndex(
+    (entry) => pathIdentityKey(entry, identities) === module,
   );
   if (own < 0 || map.sourcesContent?.[own] !== source) {
     return undefined;

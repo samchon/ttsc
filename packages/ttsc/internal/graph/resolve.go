@@ -25,6 +25,14 @@ import (
 // Target is the resolved endpoint of a reference: the declaration symbol the
 // checker binds it to, the source file that declares it, and whether that file
 // sits outside the workspace (a node_modules or `.d.ts` boundary leaf).
+//
+// @evidence contracts/common.md#principled-implementation A bound symbol and its representative declaration location distinguish authored endpoints from external boundary leaves.
+// @evidence contracts/common.md#clear-and-simple-design One resolution record passes checker identity and byte span to edge creation without reparsing the reference.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts External classification follows declaration ownership, not a consumer-name heuristic.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies symbol binding and the node_modules/declaration-file boundary; tags remain separated under the documentation skill.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The record chooses no resolution strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Build's resolver memo owns reuse, not this value container.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The record borrows a compiler symbol; its containing build owns and releases that generation context.
 type Target struct {
   Symbol   *shimast.Symbol
   File     string
@@ -62,6 +70,14 @@ func (g *Graph) resolve(checker *shimchecker.Checker, ref *shimast.Node) *Target
 // lands on the sibling source that declares the symbol, not the re-exporting
 // index file. It returns nil when the checker cannot bind ref to a symbol (a
 // numeric literal, a punctuation token, an unresolved name).
+//
+// @evidence contracts/common.md#principled-implementation The checker binds the reference and unwraps import/export aliases; declaration selection prefers authored implementation facts over declaration-file boundaries.
+// @evidence contracts/common.md#clear-and-simple-design Symbol lookup, alias unwrapping and declaration classification form one endpoint adapter shared by graph relation passes.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Barrel resolution uses the supported checker API rather than guessing export files or rewriting foreign state.
+// @evidence contracts/common.md#meaningful-documentation Native prose states alias behavior, unresolved outcomes and source ownership, with documentation-skill tag spacing.
+// @evidence contracts/performance.md#efficient-algorithms Cost is the checker lookup and alias resolution plus a bounded pass over that symbol's declarations, not a repository scan.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Direct Resolve owns no repeated-request cache; Graph.resolve supplies build-local AST-keyed reuse for graph passes.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned endpoint transfers to its caller and this adapter retains no compiler state.
 func Resolve(checker *shimchecker.Checker, ref *shimast.Node) *Target {
   symbol := checker.GetSymbolAtLocation(ref)
   if symbol == nil {

@@ -22,7 +22,7 @@ import type { TtscRollupDelivery } from "./TtscRollupDelivery";
  * (`TtscRollupDelivery`), which Rollup keeps with the module. A module it would
  * serve from its cache runs again unless it was compiled under the options the
  * build runs with and its digest is the record's bytes now. A build that proves
- * proves the record first, once, as its first cached module names it
+ * records proves each one once, as its first cached module names it
  * (`refreshProjectRecordFile`), which moves it for a project that changed while
  * nothing ran: Rollup reads the cache it was handed as it builds its graph, and
  * says which modules it holds only by asking here, so the records proven are
@@ -44,6 +44,15 @@ import type { TtscRollupDelivery } from "./TtscRollupDelivery";
  *   (`rollupDeliveryOptions`).
  * @param proves Whether the build proves the records its cached modules name,
  *   which a build without a watching session's bridge does.
+ *
+ * @evidence contracts/common.md#principled-implementation Only adapter-owned modules with matching options and current recorded project digest may replay; absent, invalid, volatile, or unreadable evidence requests retransformation.
+ * @evidence contracts/common.md#clear-and-simple-design Per-pass proven and digest tables back the existing begin/deliver/moved interface; shared record refresh owns filesystem-state proof.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The adapter does not patch Rollup's source-only cache or fabricate a record when no proof exists; it uses the host's retransformation hook.
+ * @evidence contracts/common.md#meaningful-documentation Paragraphs explain watching versus one-shot proof and why a record is read once per pass, with explicit callback responsibilities.
+ * @evidence contracts/portability.md#os-neutral-implementation OS-neutral record access uses producer-supplied native paths and the shared native record refresh operation, without universal path case normalization or fixed storage directories.
+ * @evidence contracts/performance.md#efficient-algorithms Module judgment uses option comparison and map lookup; each distinct record incurs at most one proof and one retained byte digest per pass.
+ * @evidence contracts/performance.md#reuse-equivalent-work Modules sharing a project record reuse its pass proof and digest; a live delivery updates that digest from the bytes it actually wrote.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Begin clears both tables at every pass, and this helper opens no persistent filesystem handles or watchers.
  */
 export function createRollupCachedModuleProof(
   name: string,

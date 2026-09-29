@@ -11,8 +11,16 @@ import { make } from "../internal/make";
  * With `expression` of `a` inside an array literal, the printer emits:
  *
  * ```ts
- * [...a];
+ * [...a]
  * ```
+ *
+ * In an array assignment pattern the operand denotes a rest target instead.
+ * Iterability, legal targets and rest placement are not checked by construction.
+ *
+ * @evidence contracts/common.md#principled-implementation The supplied operand remains spread or assignment-rest syntax according to its enclosing list; valid iterability, target and placement conditions are caller premises.
+ * @evidence contracts/common.md#clear-and-simple-design One make call creates the list entry, leaving expansion position and comma policy to its owner and printer.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The source is not enumerated into fixture-specific elements or replaced by a patched iterator result.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains value and rest contexts plus validation limits; the array example and parameter documentation remain separate from tags.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param expression The iterable expression to spread.

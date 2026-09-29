@@ -11,6 +11,11 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
  * ESLint names alongside the regexp-plugin variants.
  *
  * @reference https://github.com/ota-meshi/eslint-plugin-regexp
+ *
+ * @evidence contracts/common.md#principled-implementation Optional regexp keys map to severity-only settings, preserving separate rule identities for regex structure, flags and equivalent spellings.
+ * @evidence contracts/common.md#clear-and-simple-design Regex policies share one family map; aliases of core checks remain explicit keys rather than a second setting construction mechanism.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Legacy and regexp identities are documented supported names, and the map adds no runtime regex patch or fixture-specific configuration.
+ * @evidence contracts/common.md#meaningful-documentation Native comments distinguish diagnostics, automatic fixes and flag suggestions, including semantic boundaries; paragraphs, member spacing and tag separation follow documentation guidance.
  */
 export interface ITtscLintRegexpRules {
   /**

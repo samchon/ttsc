@@ -12,6 +12,11 @@ import type { TtscTransformCache } from "./TtscTransformCache";
  *
  * @param cache The persistent transform cache.
  * @param polling Whether the host polls, typically from `hostDeclaresPolling`.
+ *
+ * @evidence contracts/common.md#principled-implementation Polling declaration is updated per resolved host configuration, so a reused plugin instance cannot retain an earlier server's notification assumption.
+ * @evidence contracts/common.md#clear-and-simple-design One cache-keyed WeakSet records the policy; generation creation and withdrawal own watcher changes.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Polling requires recorded-state validation rather than treating absent native events as freshness proof.
+ * @evidence contracts/common.md#meaningful-documentation The prose describes both newly captured and already retained generations under a changed host watch policy.
  */
 export function declareTtscTransformPolling(
   cache: TtscTransformCache,

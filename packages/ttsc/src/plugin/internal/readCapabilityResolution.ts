@@ -27,11 +27,27 @@ import { recordCacheFileUse } from "./source/recordCacheFileUse";
  * not the environment the binary path stands for. The source files themselves
  * are read again only when their metadata moved since the entry was written
  * (`ITtscCapabilityPluginSource`).
+ *
+ * @evidence contracts/common.md#principled-implementation Shape/version, both host-input snapshots, every plugin source's build state and binary presence must all hold before returning the recorded answer; any unproved premise yields null for real project discovery.
+ * @evidence contracts/common.md#clear-and-simple-design One reader owns entry acceptance while shared format, source-build proof and input-observation helpers own their distinct identities.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts An old executable's existence alone cannot prove current plugin behavior; malformed, raced or incompatible inputs cause normal discovery rather than guessed negative capability answers.
+ * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains fail-closed absence and which work a hit avoids versus still proves; private helpers explain metadata and bidirectional comparison premises, following the documentation skill's paragraph/tag separation.
+ * @evidence contracts/portability.md#os-neutral-implementation Native fs and shared path/realpath observers use actual input and binary identities; metadata acceleration requires matching device-clock witnesses and does not infer path case or precision from the OS name.
+ * @evidence contracts/performance.md#efficient-algorithms Validation walks input/source/plugin populations once per stage; an unchanged separable signature avoids reading all source bytes, while environment and actual host inputs are still proven.
+ * @evidence contracts/performance.md#reuse-equivalent-work One project/version entry answers every capability only while its exact hashes, physical identities and source/build states hold; failed proofs never publish a reusable answer.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Entry data is call-owned; a hit touches its file for the default source-cache pruning owner. Explicit cache roots belong to their caller, and transient clock probes are released by their owning helper.
  */
 export function readCapabilityResolution(options: {
+  /** Invocation directory included in the shared cache-entry identity. */
   cwd: string;
+
+  /** Selected project config identity, as supplied to capability discovery. */
   tsconfig: string;
+
+  /** Ttsc product version, paired with the cache format revision. */
   version: string;
+
+  /** Environment selecting the cache root; ambient process env when omitted. */
   env?: NodeJS.ProcessEnv;
 }): ITtscCapabilityResolutionEntry | null {
   const file = CapabilityResolutionFormat.resolutionFile(options);

@@ -25,6 +25,12 @@ import path from "node:path";
  *    or an API `cwd` option), defaulting to `process.cwd()` when no project was
  *    named. A launcher started from an unrelated directory still resolves the
  *    `ttsc` installed under the target project it was asked to graph.
+ *
+ * @evidence contracts/common.md#principled-implementation Project-anchored module resolution locates the peer ttsc and then its platform binary; an explicit absolute override has precedence.
+ * @evidence contracts/common.md#clear-and-simple-design One resolver owns override and peer-package lookup for all graph launchers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Resolution uses installed package contracts rather than guessing binary paths from repository layouts.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs and the ordered list explain peer placement, override precedence and target-project anchoring.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path checks and module resolution select the platform/architecture package; only Windows's required executable suffix differs explicitly.
  */
 export function resolveGraphBinary(
   env: NodeJS.ProcessEnv = process.env,

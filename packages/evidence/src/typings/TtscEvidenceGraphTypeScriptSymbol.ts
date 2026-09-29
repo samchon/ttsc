@@ -94,6 +94,11 @@
  * `@evidenceExclude` when its file belongs to a claim, even when that claim's
  * selector omits its kind. The selector still controls `@evidence`; an
  * unsupported or unexported declaration carries neither form.
+ *
+ * @evidence contracts/common.md#principled-implementation The three semantic kinds distinguish types, callable contracts and data contracts using the documented syntactic host rules; enums, accessors and hidden members remain outside those rules.
+ * @evidence contracts/common.md#clear-and-simple-design A single literal union is shared by claims, references and documentation selection, avoiding divergent kind vocabularies across rules.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Classification follows declared syntax and public identity rather than guessing callable aliases with an unavailable checker or special-casing a consumer's declarations.
+ * @evidence contracts/common.md#meaningful-documentation The native comment explains callable versus data classification, containment, export aliases, type-only visibility and exact addressing so users can select and cite contracts without inferring the parser.
  */
 export type TtscEvidenceGraphTypeScriptSymbol =
   | "type"

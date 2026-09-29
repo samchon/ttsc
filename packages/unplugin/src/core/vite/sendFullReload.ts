@@ -12,6 +12,19 @@ import type { ViteHotChannelLike } from "./ViteHotChannelLike";
  * `hot` are then aliases of the client environment's channel and are not sent
  * to again. A Vite 5 server has one mixed graph and one client channel, spelled
  * `ws` or `hot` by major; the first of those that accepts the payload wins.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Environment channels are deduplicated by actual object identity; mixed-graph
+ *   servers try ws/hot aliases until one accepts the full-reload protocol payload.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Recipient selection stays in the public operation while send isolates one
+ *   transport attempt and its failure handling.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Alternative channels are supported API spellings, and the '*' path is the
+ *   full-reload message's protocol scope rather than a fixture-specific result.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs explain environment ownership and alias deduplication;
+ *   helper failure prose and tag spacing follow documentation guidance.
  */
 export function sendFullReload(server: ViteDevServerLike): void {
   const environments = Object.values(server.environments ?? {});

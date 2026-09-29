@@ -21,6 +21,7 @@ import type { ForOfStatement } from "./ForOfStatement";
 import type { ForStatement } from "./ForStatement";
 import type { IfStatement } from "./IfStatement";
 import type { LabeledStatement } from "./LabeledStatement";
+import type { NotEmittedStatement } from "./NotEmittedStatement";
 import type { ReturnStatement } from "./ReturnStatement";
 import type { SwitchStatement } from "./SwitchStatement";
 import type { ThrowStatement } from "./ThrowStatement";
@@ -30,7 +31,15 @@ import type { WhileStatement } from "./WhileStatement";
 import type { WithStatement } from "./WithStatement";
 
 /**
- * Any statement node.
+ * The supported statement forms, including explicit non-emitted placeholders.
+ *
+ * This union represents printable syntax data. It does not determine whether
+ * a statement is legal at a particular program or control-flow position.
+ *
+ * @evidence contracts/common.md#principled-implementation The union admits supported control-flow, declaration, module and non-emitted statement forms; membership is distinct from contextual or semantic validity.
+ * @evidence contracts/common.md#clear-and-simple-design One shared statement alias owns variants reused by bodies and source files; each concrete variant owns its fields.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Alternatives are syntax categories; non-emission is an explicit placeholder rather than an ad hoc fixture deletion.
+ * @evidence contracts/common.md#meaningful-documentation JSDoc states placeholder support and contextual-validation limits in separate paragraphs following the documentation skill.
  *
  * @author Jeongho Nam - https://github.com/samchon
  */
@@ -57,6 +66,7 @@ export type Statement =
   | LabeledStatement
   | ModuleDeclaration
   | NamespaceExportDeclaration
+  | NotEmittedStatement
   | ReturnStatement
   | SwitchStatement
   | ThrowStatement

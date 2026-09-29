@@ -10,14 +10,32 @@ import { make } from "../internal/make";
  * syntax) or the legacy `"assert"`. Each element is an {@link ImportAttribute}
  * key/value entry. An empty list still prints the keyword and braces.
  *
- * Note that the printer does not attach this clause to the import or export
- * statements emitted by this package, so it surfaces only when you print the
- * attributes node directly. Given a single `"type": "json"` entry under the
- * `with` keyword, that direct print is:
+ * The printer supports this clause directly and through import types and JSDoc
+ * import tags. Import and export statements in this outline have no attributes
+ * field. A true `multiLine` forces entries onto separate lines; otherwise the
+ * available width selects the layout. Given a single `"type": "json"` entry
+ * under the `with` keyword, direct printing renders:
  *
  * ```ts
  * with { "type": "json" }
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   The with/assert discriminant records the two supported introducing keywords
+ *   and preserves ordered entries, including an empty brace clause. Statement
+ *   attachment is not represented by this package's import/export builders.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Keyword, entries and layout preference stay in one reusable clause. Import
+ *   types and JSDoc import tags own its context-specific attachment syntax.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   with is the documented default; unsupported statement attachment is stated
+ *   rather than emulated with raw source replacement.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc explains keyword selection, empty lists and the attachment limitation
+ *   in separated paragraphs with an example and blank lines before tags.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param elements The attribute entries.

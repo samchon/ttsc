@@ -21,6 +21,7 @@ const FLAG = {
   Default: 2048,
   Const: 4096,
   In: 8192,
+  Out: 16384,
 } as const;
 
 /**
@@ -33,14 +34,32 @@ const FLAG = {
  * matter how the mask was assembled. When no recognized bit is set, the result
  * is `undefined` rather than an empty array.
  *
- * The legacy `out` modifier is omitted because this package's `SyntaxKind` has
- * no `OutKeyword` member.
+ * Variance flags produce `in` then `out`, preserving the legacy factory's
+ * order when both are present. Bits without a represented modifier keyword are
+ * ignored rather than converted to an unrelated token.
  *
  * With `flags` of `Export | Readonly`, the tokens print in order as:
  *
  * ```ts
  * export readonly
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Bit tests read legacy ModifierFlags values and append tokens in declaration
+ *   order, independent of bit ordering. No recognized bits yields undefined.
+ *   In and Out preserve the legacy variance bits and their order.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The local flag table defines numeric compatibility and the fixed append
+ *   sequence defines ordering; createModifier retains shared token construction.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Numeric constants are the legacy flag protocol, not case-specific answers.
+ *   Unrecognized bits are not substituted with a different keyword.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc records ordering, undefined empty results and variance modifiers in
+ *   separate paragraphs with an example, following documentation guidance.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param flags The modifier flags bitmask (legacy `ts.ModifierFlags`).
@@ -75,5 +94,6 @@ export const createModifiersFromModifierFlags = (
     result.push(createModifier(SyntaxKind.AccessorKeyword));
   if (flags & FLAG.Async) result.push(createModifier(SyntaxKind.AsyncKeyword));
   if (flags & FLAG.In) result.push(createModifier(SyntaxKind.InKeyword));
+  if (flags & FLAG.Out) result.push(createModifier(SyntaxKind.OutKeyword));
   return result.length ? result : undefined;
 };

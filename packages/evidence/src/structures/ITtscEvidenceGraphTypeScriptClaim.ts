@@ -15,6 +15,12 @@ import type { ITtscEvidenceGraphClaimBase } from "./ITtscEvidenceGraphClaimBase"
  * a host selected by {@link symbol}. An exclusion may instead sit on any
  * supported public export in the matching {@link files}, without changing the
  * target scope this claim excludes.
+ *
+ * @evidence contracts/common.md#principled-implementation The literal TypeScript discriminator and shared symbol vocabulary describe public Program declarations; root and files narrow that Program rather than promising a disk loader for claims.
+ * @evidence contracts/common.md#clear-and-simple-design This interface specializes the common claim with only TypeScript population and host selection details, retaining reference ownership in the base.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Host and exclusion eligibility follow supported declaration syntax and configured populations rather than special cases for known consumers.
+ * @evidence contracts/common.md#meaningful-documentation The JSDoc explicitly distinguishes Program inclusion from rooted path selection and explains host versus exclusion-carrier eligibility and selector defaults.
+ * @evidence contracts/portability.md#os-neutral-implementation Root and glob spelling describe the native project boundary used to match Program sources; selection must respect host-supplied source identity and linked paths rather than inferring filesystem case policy from an operating-system name.
  */
 export interface ITtscEvidenceGraphTypeScriptClaim extends ITtscEvidenceGraphClaimBase<"typescript"> {
   /**

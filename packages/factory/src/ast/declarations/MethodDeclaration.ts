@@ -11,6 +11,11 @@ import type { TypeParameterDeclaration } from "../types/TypeParameterDeclaration
  *
  * Built by {@link factory.createMethodDeclaration}.
  *
+ * @evidence contracts/common.md#principled-implementation Property name, generator/optional markers, generics, parameters and optional return/body clauses retain method syntax without checking contextual modifier combinations.
+ * @evidence contracts/common.md#clear-and-simple-design Each signature/body part has one named field using existing shared syntax nodes.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Marker presence is caller syntax; no runtime method is monkey patched or replaced by consumer-specific output.
+ * @evidence contracts/common.md#meaningful-documentation JSDoc identifies methods and member comments explain ordered parameters, return annotation and absent implementation; spacing follows the documentation skill.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  */
 export interface MethodDeclaration {
@@ -32,12 +37,12 @@ export interface MethodDeclaration {
   /** The generic type parameters, if any. */
   typeParameters?: readonly TypeParameterDeclaration[];
 
-  /** The parameters. */
+  /** Method parameters in argument order. */
   parameters: readonly ParameterDeclaration[];
 
-  /** The type. */
+  /** Return annotation, if explicitly supplied. */
   type?: TypeNode;
 
-  /** The body. */
+  /** Implementation block; absent for a bodyless method declaration. */
   body?: Block;
 }

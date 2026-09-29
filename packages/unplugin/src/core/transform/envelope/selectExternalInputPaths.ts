@@ -26,6 +26,12 @@ import { envelopeGraphIndexes } from "./envelopeGraphIndexes";
  * members. Persistent validation selects the requested file's subset through
  * `selectWatchInputs`, while graph-free envelopes use this union as their
  * conservative fallback.
+ *
+ * @evidence contracts/common.md#principled-implementation Whole-generation input union retains out-of-walk sources and missing resolver candidates, because project hashes cannot witness them; completeness of one file cannot discard another file's input from this shared snapshot.
+ * @evidence contracts/common.md#clear-and-simple-design Collection precedes one filtering pass over scratch, temporary input, lexical duplicates and project membership, with filesystem and membership semantics delegated to their shared helpers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing candidates remain observable rather than being dropped merely because no current project hash exists; the temporary-config exclusion refers to an actual generated input rather than a consumer-specific escape.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain whole-project scope, project-walk gaps, missing candidates and why completeness cannot narrow the stored union; separated tags follow the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Injected filesystem capabilities drive identity, existence and membership checks; lexical native spellings remain distinct for alias changes while physical identity excludes the temporary config consistently across host filesystems.
  */
 export function selectExternalInputPaths(props: {
   filesystem?: TtscTransformFilesystemOperations;

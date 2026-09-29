@@ -9,40 +9,44 @@ import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransf
 import { inputMetadataEvidence } from "./inputMetadataEvidence";
 
 /**
- * The digest of a plugin source directory's files (`pluginSourceDigest` from
- * `ttsc/plugin-source`), read again only when the metadata of those files moved
- * or cannot vouch for their bytes.
+ * Return the build's plugin-source digest, reusing it only when the complete
+ * file population and metadata signature remain clock-separable and unchanged.
  *
- * A plugin source is re-proven on every delivery its tracker cannot vouch for:
- * a macOS stream outside the project root, which no probe proves delivered
- * (samchon/ttsc#1453), a tracker that failed or heard a gap, a host without
- * one. Reading the files each time costs what a build does, measured at 169 ms
- * for typia's 622-file module root, on every delivery of a dev server. The
- * universal entries skip their content the same way
- * (`captureUniversalHostInputValidation`): while an input's metadata signature
- * matches the one taken around the read that proved it, and the filesystem's
- * clock had provably left each stamp's tick before that read
- * (`stampSeparable`), no write since can have kept the signature. The signature
- * covers exactly the files the digest reads, each by its path relative to the
- * directory (`pluginSourceFilesSignature`), so a file added, removed, or
- * renamed moves it as an edit does. A digest is kept only when the signature
- * taken before its read equals the one taken after and every stamp in it is
- * separable, and reused only while the signature taken now equals it and is
- * separable from the clock reference minted now: after a clock rollback a write
- * can land in the tick of a recorded stamp, which only a fresh reference
- * answers for, as the project walk re-checks its own
- * (`collectProjectInputSnapshot`).
+ * The shared file selector includes relative names, so addition, deletion and
+ * rename invalidate the signature. A fresh digest is kept only when signatures
+ * taken around its byte read agree and all stamps are separable. Reuse checks
+ * separability again against the caller's refreshed device clock references;
+ * a historical reference cannot establish safety after a clock rollback.
+ *
+ * Source enumeration and byte reads use ttsc's native filesystem. Injected
+ * metadata must describe that same source tree; this adapter does not make
+ * arbitrary foreign filesystems interchangeable. The process-wide map has no
+ * historical-directory eviction or owner partition and can grow with distinct
+ * directory spellings.
  *
  * @param directory The source directory.
  * @param filesystem The operations whose clock reference the caller refreshed
  *   (`refreshFilesystemClockReference`), which decides separability.
  * @throws When a listed file cannot be read, as `pluginSourceDigest` does.
+ *
+ * @evidence contracts/common.md#principled-implementation The build's exact file selector signs names and metadata around a fresh byte digest; matching separable signatures permit reuse only under the same native source-tree and refreshed-clock premises.
+ * @evidence contracts/common.md#clear-and-simple-design This coordinator owns the directory digest entry while ttsc owns selection and byte hashing and inputMetadataEvidence owns stamp interpretation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts A quiet tracker or equal timestamps alone cannot certify reuse; changed or unavailable evidence requires the real source digest rather than expected output or a compensating cache exception.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain population invalidation, before/after proof, fresh clock ordering, native-view assumptions and unbounded retained entries, with separated tags following documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation OS-neutral native source paths use Node resolution and ttsc's native selector; injected metadata must observe those paths. A different filesystem view or path dialect is not supported by the native enumeration/read calls here.
+ * @evidence contracts/performance.md#efficient-algorithms Reuse still enumerates and stats F files; a miss performs two metadata walks and one O(B) byte digest. Selection sorts its population, and temporary storage follows the file list and largest file buffer.
+ * @evidence contracts/performance.md#reuse-equivalent-work All calls share DIGESTS by resolved directory spelling; current separable metadata must match the signature recorded around the producer read. The key does not partition filesystem owners, so sharing assumes one native source view.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources DIGESTS is module-owned and retains one digest/signature per encountered key until failed stabilization deletes that key or the process ends; no historical-directory bound or explicit teardown currently exists.
  */
 export function pluginSourceFilesDigest(
   directory: string,
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
 ): string {
   const key = path.resolve(directory);
+  /**
+   * Supply this caller's metadata and clock view to the shared native selector.
+   * The filesystem must observe the same source tree the selector enumerates.
+   */
   const evidence = (file: string) => inputMetadataEvidence(file, filesystem);
   const before = pluginSourceFilesSignature(key, evidence);
   const known = DIGESTS.get(key);

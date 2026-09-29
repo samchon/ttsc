@@ -10,6 +10,11 @@ import type { TtscTransformCache } from "./TtscTransformCache";
  * created with, which may observe a filesystem other than the host's. A
  * delivery without a cache, or through a cache created elsewhere, uses the host
  * filesystem.
+ *
+ * @evidence contracts/common.md#principled-implementation Deliveries use the cache's declared filesystem operations; absent or unregistered caches use the actual host defaults.
+ * @evidence contracts/common.md#clear-and-simple-design One capability lookup selects the view without copying snapshots or adding another filesystem abstraction.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit view selection avoids foreign-method monkeypatching and preserves the distinction between injected and native observations.
+ * @evidence contracts/common.md#meaningful-documentation The native prose states both ownership by cache construction and the exact fallback cases.
  */
 export function transformFilesystem(
   cache: TtscTransformCache | undefined,

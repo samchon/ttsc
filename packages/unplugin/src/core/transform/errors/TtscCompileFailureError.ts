@@ -14,6 +14,11 @@
  *
  * The message is what the compile reported, as it was before the class existed,
  * so what a host reports is unchanged.
+ *
+ * @evidence contracts/common.md#principled-implementation A distinct Error subclass represents the compiler's verdict, allowing delivery code to distinguish state-dependent failure from adapter or snapshot acquisition failure without inspecting text.
+ * @evidence contracts/common.md#clear-and-simple-design The class adds only typed identity; the compiler message and Error behavior stay native.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts No message fragment, fixture name or fabricated successful module determines the failure category.
+ * @evidence contracts/common.md#meaningful-documentation The native paragraphs explain which failures this type represents and why hosts may retain this verdict differently from setup failures.
  */
 export class TtscCompileFailureError extends Error {
   public constructor(message: string) {

@@ -17,6 +17,20 @@ import { make } from "../internal/make";
  * }
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   Condition and body retain while's pre-test order; zero-iteration behavior
+ *   follows emitted grammar rather than an eagerly evaluated condition here.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The node models two subtrees without a separate iteration abstraction.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Caller conditions are not replaced by fixed iteration counts or retries.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs state pre-pass testing and zero-or-more execution, with
+ *   a loop example separate from acknowledgment tags.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param expression The expression.
  * @param statement The statement.

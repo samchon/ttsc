@@ -24,6 +24,27 @@ import { findDeclaredPaths } from "./findDeclaredPaths";
  * Best-effort by design: a missing or unparsable config in the chain yields
  * `{}` here and a real config error from the compiler, which owns config
  * diagnostics.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Effective paths replace the whole inherited option; each string target
+ *   becomes absolute at the declaring directory so wrapper relocation preserves
+ *   its resolution meaning. Invalid target entries are not emitted as paths.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Declaration lookup, target anchoring and output assembly have separate
+ *   helpers; this reader owns the wrapper's complete inherited alias overlay.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Targets resolve with native anchors and become forward-slash config
+ *   patterns; that representation conversion does not define filesystem identity.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The overlay preserves declared aliases rather than synthesizing aliases
+ *   for a known application; config diagnostics remain with the compiler.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Paragraphs explain wholesale replacement and temporary-wrapper anchoring,
+ *   including the reason an absolute mapping is necessary instead of optional.
  */
 export function readEffectiveTsconfigPaths(
   tsconfig: string,

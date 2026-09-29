@@ -1,6 +1,6 @@
 # Internals: Build and Cache
 
-This page is for debugging source plugin builds.
+This page is for maintainers debugging source plugin builds and cache behavior.
 
 ## Cold Build Path
 
@@ -53,7 +53,7 @@ Default (project-local, the `find-cache-dir` convention):
 <workspaceRoot>/node_modules/.cache/ttsc/go-build               (GOCACHE while building)
 ```
 
-`<workspaceRoot>` is the nearest enclosing workspace root: the nearest ancestor holding a `pnpm-workspace.yaml` or a `package.json` with a `workspaces` field, else the nearest ancestor containing a `node_modules`, else the project root. Every package in a monorepo therefore shares ONE cache and a plugin builds once per workspace, not once per package. `rm -rf node_modules` (or deleting the repo) reclaims it. ttsc keeps **no** machine-global cache — a user-wide cache silently grew to hundreds of GB across tsgo/plugin version bumps, so it was removed outright.
+`<workspaceRoot>` is the nearest enclosing workspace root: the nearest ancestor holding a `pnpm-workspace.yaml` or a `package.json` with a `workspaces` field, else the nearest ancestor containing a `node_modules`, else the project root. Packages with the same workspace root and cache inputs share one binary cache. Removing `node_modules` also removes its default cache. ttsc keeps no machine-global plugin binary cache.
 
 Override:
 
@@ -73,7 +73,9 @@ npx ttsc clean
 npx ttsc clean --cache-dir /tmp/ttsc-cache
 ```
 
-An explicit `--cache-dir` is removed wholesale and must name a directory dedicated to ttsc. Before deleting anything, the command validates every resolved target, including `TTSC_GO_CACHE_DIR` and pre-0.17 global-cache locations, and refuses a filesystem root or any directory that equals or contains the project. The check follows physical aliases, so values such as `.`, `..`, a workspace ancestor, or a symlink/junction to one cannot turn cache cleanup into project deletion.
+An explicit `--cache-dir` selects the whole directory for cleanup and must name a directory dedicated to ttsc. Before deleting anything, the command validates every resolved target, including `TTSC_GO_CACHE_DIR` and pre-0.17 global-cache locations, and refuses a filesystem root or any directory that equals or contains the project. The check follows physical aliases, so values such as `.`, `..`, a workspace ancestor, or a symlink/junction to one cannot turn cache cleanup into project deletion.
+
+Caller-owned `GOCACHE` is protected even with an explicit cache directory. Targets that contain it, lie inside it, or have an uncertain physical overlap are preserved.
 
 The cache is content-addressed, so it is not tied to a package-manager layout: npm installs, pnpm virtual-store paths, and workspace packages share a binary whenever the source plugin, contributors, ttsc overlay, Go toolchain content, platform, and build environment produce the same cache key.
 
@@ -85,7 +87,9 @@ The plugin builder reads Go's effective build environment for the cache key. It 
 
 ### Cache-key inputs: `GO_BUILD_ENV_KEYS`
 
-These effective Go build env values fold into the cache key when non-empty, so cross-compile targets, build-tag tweaks, cgo compiler/linker choices, FIPS mode, and toolchain roots never collide with the native build slot. `ttsc` reads them through `go env`, so `go env -w` settings are covered too. `GOROOT` is normalized to a toolchain-content fingerprint instead of the install path, preserving pnpm path sharing for identical bundled toolchains. Within one process, an unchanged GOROOT reuses that fingerprint after a fresh file-metadata manifest check; an added, removed, replaced, or modified toolchain file recomputes the same content fingerprint, so this skips repeated SDK reads without changing key bytes or freshness. Command-valued entries such as `CC`, `CXX`, `AR`, `GCCGO`, and `PKG_CONFIG` include the resolved executable content hash as well as the command string.
+These effective Go build env values fold into the cache key when non-empty. `ttsc` reads them through `go env`, covering `go env -w` settings. `GOROOT` contributes a toolchain-content fingerprint instead of its install path, preserving pnpm path sharing for identical bundled toolchains. Command-valued entries such as `CC`, `CXX`, `AR`, `GCCGO`, and `PKG_CONFIG` include the resolved executable content hash as well as the command string.
+
+Within one process, a fresh file-metadata manifest check can reuse the GOROOT fingerprint. A changed manifest triggers a full content rehash. This reuse requires contributing changes to alter the captured identity or timestamps; an edit reproducing the entire metadata signature falls outside that proof.
 
 ```text
 GOOS GOARCH GOAMD64 GOARM GOARM64 GO386 GOMIPS GOMIPS64 GOPPC64
@@ -153,7 +157,13 @@ Check:
 
 Concurrent `ttsc` processes serialize a cold build per cache key. The persistent `<key>.lock.v2` coordination directory publishes a uniquely generated, non-empty `current` directory with an atomic rename. Waiters reuse the published binary; when an owner dies or times out, one waiter atomically retires that exact generation before acquiring its successor.
 
-Retired generations remain as non-empty tombstones inside the lock directory. Both reclaim and normal release rename `current` to the generation's fixed tombstone path, so a delayed observer or old holder cannot remove a newer generation: its destination already exists and a directory rename cannot replace it. Every waiter reads the holder's record inside `current`, and Windows refuses to rename a directory while a file below it is open, so a retire refused that way renames an empty probe between the same two directories: when the probe renames, a peer's read is what refused it, and the retire waits one poll and tries again, while a refusal the probe shares is thrown. A release that still fails never replaces the outcome of the build the lock protected; it is reported, and the generation it left is reclaimed as abandoned once its owner exits. The adjacent `<key>.lock` path is reserved exclusively for legacy pre-generation holders. It is fenced and retired before v2 acquisition, but is never reused for v2 ownership, so a delayed legacy release or reclaim cannot delete a v2 successor. Scratch directories remain unique and binary publication remains atomic as defense in depth.
+Retired generations remain as non-empty tombstones inside the lock directory. Both reclaim and normal release rename `current` to the generation's fixed tombstone path, so a delayed observer or old holder cannot remove a newer generation: its destination already exists and a directory rename cannot replace it.
+
+Every waiter reads the holder's record inside `current`, and Windows refuses to rename a directory while a file below it is open, so a retire refused that way renames an empty probe between the same two directories: when the probe renames, a peer's read is what refused it, and the retire waits one poll and tries again, while a refusal the probe shares is thrown.
+
+A release that still fails never replaces the outcome of the build the lock protected; it is reported, and the generation it left is reclaimed as abandoned once its owner exits.
+
+The adjacent `<key>.lock` path is reserved exclusively for legacy pre-generation holders. It is fenced and retired before v2 acquisition, but is never reused for v2 ownership, so a delayed legacy release or reclaim cannot delete a v2 successor. Scratch directories remain unique and binary publication remains atomic as defense in depth.
 
 ## See also
 

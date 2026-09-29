@@ -17,9 +17,9 @@ import (
 //
 // What the editor path does pay is Check itself. A hints request runs a fresh
 // project cycle (`linthost/hints.go:74`), so every source the graph reads is
-// read again there — including an HTTP(S) Swagger reference, which is fetched.
-// That cost is inherent to answering from a current index rather than a stale
-// one, and it is bounded the same way a build is: a source that fails to load
+// read again there. Local documents are validated by content; successful
+// HTTP(S) Swagger documents are reused for the process lifetime, while failed
+// fetches are retried. A source that fails to load
 // is reported by Check, which fails the rule, which withdraws the corpus.
 type graphCorpus struct {
   Config   graphConfig

@@ -8,6 +8,7 @@ import { createNativeProjectContextArgs } from "../../../compiler/internal/proje
 import { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
 import { resolveBinary } from "../../../compiler/internal/resolveBinary";
 import { resolveTsgo } from "../../../compiler/internal/resolveTsgo";
+import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { spawnNative } from "../../../compiler/internal/spawnNative";
 import { resolveNodeBinary } from "../../../internal/resolveNodeBinary";
 import { loadProjectPlugins } from "../../../plugin/internal/load/loadProjectPlugins";
@@ -34,9 +35,18 @@ import { needsStdio } from "./needsStdio";
  * - Resolve the project TypeScript-Go binary for the native wrapper,
  * - Resolve the project config and materialize the private LSP plugin manifest,
  * - Inject the Node/ttsx helper paths used by disk-backed LSP sidecars,
- * - Inject `--stdio` when the first arg is not a meta-command,
- * - Delegate to the binary with inherited stdio so OS-level signals reach the
- *   child via the parent's process group.
+ * - Inject `--stdio` for nonempty non-meta invocations,
+ * - Delegate with inherited stdio and convert a reported POSIX signal to an exit
+ *   status. Windows termination has no POSIX signal number.
+ *
+ * @evidence contracts/common.md#principled-implementation Native arguments remain an argv vector; startup accepts only matching repeated plugin selections and current reload fingerprints, then delegates protocol ownership to the Go host and propagates its status or reported signal.
+ * @evidence contracts/common.md#clear-and-simple-design Resolution, selection confirmation, snapshot parsing and manifest transport are private responsibilities beneath one synchronous launcher; native help and version dispatch remain in the binary.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Bounded confirmation addresses real startup filesystem drift and fails explicitly when unstable; native process and environment APIs carry the selected plugins without foreign patching or test-specific branches.
+ * @evidence contracts/common.md#meaningful-documentation The native description names setup responsibilities and platform-specific termination meaning; private context/member documentation records ownership with paragraph and tag separation following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Shared environment merge/removal resolves Windows variable aliases while POSIX names remain exact; native paths and argv avoid shell quoting, and chmod plus signal status are isolated to their supported native platforms.
+ * @evidence contracts/performance.md#efficient-algorithms Startup work scales with selected plugins and fingerprinted filesystem inputs, bounded to three confirmation attempts; transport keys deduplicate identical binary/context project-input queries within each capture.
+ * @evidence contracts/performance.md#reuse-equivalent-work Each capture reuses one project-input snapshot per binary/context mode; plugin loader and binary owners supply validated persistent reuse, while confirmation must observe current selection rather than reuse an unchecked snapshot.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The launcher owns one synchronous child invocation and one manifest disposer in finally; attempt maps are replaced rather than accumulated. Disposal failures remain observable and forced termination cannot guarantee cleanup.
  */
 export function runTtscserver(
   argv: readonly string[] = process.argv.slice(2),
@@ -99,18 +109,24 @@ type LSPExecutionContext = {
   >;
   nativePlugins: readonly ITtscLoadedNativePlugin[];
   projectContext?: ITtscProjectIdentity;
+
   /**
    * What the plugin selection was loaded from, which ends the session when it
    * changes (`captureLSPPluginSelectionInputs`, samchon/ttsc#1507).
    */
   selectionInputs?: ILSPPluginSelectionInputs;
+
   tsgoBinary: string;
 };
 
 type TtscserverEnvironment = {
   /** Flags prepended to the native invocation, ahead of the caller's argv. */
   args: readonly string[];
+
+  /** Release the invocation's temporary manifest transport, if allocated. */
   dispose(): void;
+
+  /** Isolated child environment; meta-commands borrow the unchanged parent. */
   env: NodeJS.ProcessEnv;
 };
 
@@ -136,8 +152,8 @@ function resolveTtscserverEnv(argv: readonly string[]): TtscserverEnvironment {
     pluginConfigOrigin: context.projectContext?.pluginConfigOrigin,
     tsgoBinary: context.tsgoBinary,
   });
-  delete env.TTSC_LSP_PLUGINS_JSON;
-  delete env.TTSC_LSP_PLUGINS_FILE;
+  SidecarEnvironment.write(env, "TTSC_LSP_PLUGINS_JSON", undefined);
+  SidecarEnvironment.write(env, "TTSC_LSP_PLUGINS_FILE", undefined);
   const lspPlugins = context.nativePlugins.filter(
     (plugin) => plugin.capabilities?.lsp === true,
   );
@@ -184,21 +200,19 @@ function lspSidecarEnvironment(options: {
   pluginConfigOrigin: string | undefined;
   tsgoBinary: string;
 }): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
+  const env = SidecarEnvironment.merge(process.env, {
     TTSC_TSGO_BINARY: options.tsgoBinary,
     TTSC_TTSX_BINARY:
-      process.env.TTSC_TTSX_BINARY ??
+      SidecarEnvironment.read(process.env, "TTSC_TTSX_BINARY") ??
       path.join(__dirname, "..", "..", "..", "launcher", "ttsx.js"),
-  };
+  });
   const node = resolveNodeBinary(env, options.cwd);
-  if (node === undefined) delete env.TTSC_NODE_BINARY;
-  else env.TTSC_NODE_BINARY = node;
-  if (options.pluginConfigOrigin === undefined) {
-    delete env.TTSC_PLUGIN_CONFIG_DIR;
-  } else {
-    env.TTSC_PLUGIN_CONFIG_DIR = options.pluginConfigOrigin;
-  }
+  SidecarEnvironment.write(env, "TTSC_NODE_BINARY", node);
+  SidecarEnvironment.write(
+    env,
+    "TTSC_PLUGIN_CONFIG_DIR",
+    options.pluginConfigOrigin,
+  );
   return env;
 }
 
@@ -454,18 +468,25 @@ function parseInitialLSPProjectInputSnapshot(
     value === null ||
     typeof value !== "object" ||
     typeof (value as ITtscProjectInputSnapshot).root !== "string" ||
-    !Array.isArray((value as ITtscProjectInputSnapshot).files) ||
-    !Array.isArray((value as ITtscProjectInputSnapshot).globs) ||
+    !isStringArray((value as ITtscProjectInputSnapshot).files) ||
+    !isStringArray((value as ITtscProjectInputSnapshot).globs) ||
     ((value as ITtscProjectInputSnapshot).reloadFiles !== undefined &&
-      !Array.isArray((value as ITtscProjectInputSnapshot).reloadFiles)) ||
+      !isStringArray((value as ITtscProjectInputSnapshot).reloadFiles)) ||
     ((value as ITtscProjectInputSnapshot).reloadDirectories !== undefined &&
-      !Array.isArray((value as ITtscProjectInputSnapshot).reloadDirectories))
+      !isStringArray((value as ITtscProjectInputSnapshot).reloadDirectories))
   ) {
     throw new Error(
       `ttscserver: ${plugin.name ?? plugin.binary} project-inputs returned a malformed snapshot`,
     );
   }
   return value as ITtscProjectInputSnapshot;
+}
+
+/** Validate contributor path lists before any native-path operation reads them. */
+function isStringArray(value: unknown): value is readonly string[] {
+  return (
+    Array.isArray(value) && value.every((entry) => typeof entry === "string")
+  );
 }
 
 function lspSelectionSignature(

@@ -14,10 +14,11 @@ import (
 //
 // Evidence declarations are read from one place only — the JSDoc blocks a node
 // reports — so an export without a block is not merely undocumented, it is
-// structurally unable to carry a citation. The graph never says so: coverage is
-// counted from the evidence side, so an obligation is discharged by whichever
-// host does have a block while every undocumented export in the same claim
-// contributes nothing and looks exactly like a passing file.
+// structurally unable to carry a citation. Ordinary graph coverage is counted
+// from the evidence side, so another host can discharge the obligation while
+// an undocumented export contributes nothing. A checklist instead keeps every
+// selected host's obligation, including hosts without a block. This rule checks
+// the documentation itself in either mode.
 type documentedRule struct{}
 
 type documentedOptions struct {

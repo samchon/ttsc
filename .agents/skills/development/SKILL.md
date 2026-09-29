@@ -1,13 +1,13 @@
 ---
 name: development
-description: Defines how ttsc changes code, covering forbidden shortcuts, work rules, source structure, consequence analysis, testing, validation, and change integrity. Use before writing or changing source, tests, workflows, package wiring, fixtures, generated baselines, or algorithms.
+description: Defines ttsc's implementation procedures, testing, validation, and change integrity. Use before changing source, tests, fixtures, workflows, or package wiring. Engineering acknowledgment contracts belong to contracts.
 ---
 
 # Development
 
 ## Contents
 
-- [Forbidden](#forbidden)
+- [Repair Discipline](#repair-discipline)
 - [Work Rules](#work-rules)
 - [Source Structure](#source-structure)
 - [Consequence Analysis](#consequence-analysis)
@@ -15,14 +15,13 @@ description: Defines how ttsc changes code, covering forbidden shortcuts, work r
 - [Testing](#testing)
 - [Validation](#validation)
 - [Change Integrity](#change-integrity)
+- [Evidence Adoption](#evidence-adoption)
 
-## Forbidden
+## Repair Discipline
 
-These four are never acceptable; choosing any one means the approach is already wrong.
+Apply the [contracts skill](../contracts/SKILL.md) before changing maintained production source, reading the common checklist and the scoped topics relevant to the affected operations.
 
-- **No monkey-patching or hardcoding.** Don't special-case a consumer, a fixture name, or an expected value to make output match. Fix the general logic.
-- **No test-passing-only logic.** Code exists to be correct, not to turn a check green. A branch whose only purpose is to satisfy one assertion is a bug in disguise.
-- **No forcing a broken design.** When the same failure keeps returning under patch after patch, the design is wrong. Stop, find the root cause, and fix the design instead of looping forever on symptoms.
+- When a failure disproves an implementation assumption, follow the [shortcut prohibitions](../contracts/common.md#prohibited-implementation-shortcuts) before adding another compensating path. Verify the cause, correct the owning behavior, and remove superseded compensations in the same repair. Do not wait for the same failure to recur before reassessing an assumption already shown false.
 - **No whack-a-mole.** Patching the one case that surfaced is whack-a-mole, and so is repairing one symptom at a time as each rerun reveals the next, which [AGENTS.md's **Collect every symptom before correcting** rule](../../../AGENTS.md#attitude) forbids. Map every case the root cause can produce through the [consequence analysis](#consequence-analysis), and seal them all with coverage so the class of failure cannot recur.
 
 ## Work Rules
@@ -41,7 +40,7 @@ These four are never acceptable; choosing any one means the approach is already 
 
 - **One public identity per file, named after it.** A file exports exactly one symbol, and the file name is that symbol's name. An `index.ts` or a documented re-export barrel is the only exception. Declarations merged under one name count once.
 - **The export comes first.** Place it right after the imports. Private helpers, constants, and types it uses follow it.
-- **Every public unit carries a JSDoc block.** This covers the export itself and its public members: interface properties, public class members, and namespace members. Write the context a human or an agent needs to start from: what it answers, why it exists, and which invariant it keeps.
+- Public documentation follows the [meaningful documentation](../contracts/common.md#meaningful-documentation) principle.
 - **Shared internals become one namespace.** When several helpers serve one concern, group them as a single `export namespace` in a file named after it, and export only the members used outside it. Do not add a second export beside the first.
 
 ## Consequence Analysis
@@ -133,3 +132,29 @@ Verification shape depends on the change type:
 Treat tests, fixtures, snapshots, CI workflows, package wiring, dependencies, core algorithms, and generated baselines as part of the specification. Changing them requires an explicit user request or a clear product reason, and the final report must call it out.
 
 For mechanical ports, migrations, or broad rewrites, preserve the existing algorithm and public behavior in reviewable slices. Prefer a concrete exemplar over abstract instructions, and inspect the diff before trusting a green test run.
+
+## Evidence Adoption
+
+Each production package's `evidence.config.json` owns its selection and references the shared [common engineering contracts](../contracts/common.md). Production selectors use `type` and `function` under the [contracts skill](../contracts/SKILL.md); properties retain documentation and are reviewed through their owning type instead of carrying separate checklist tags. Source globs are relative to that package. References use `root: "../../.agents/skills"` and paths such as `contracts/common.md`. Add exclusions only for material the positive globs actually select and whose exclusion has a verified reason.
+
+Run `pnpm evidence` from the repository root to execute the production packages' Evidence scripts recursively with `--no-bail`. This collects every package's result even when an earlier package fails. Packages without an Evidence script are skipped; the explicit `./packages/*` filter keeps tests, benchmarks, and the website outside this command. Use `pnpm --filter <package-name> evidence` for one package.
+
+The JSON configuration avoids evaluating configuration through the compiler this repository is developing. This keeps the checker usable before that compiler has been built.
+
+The dedicated `.github/workflows/evidence.yml` runs the production checks independently. Keep Evidence out of test source, test configurations, `pnpm test`, `test:*` scripts, existing test workflows, and their validation planner while the maintainer has deferred test integration. That boundary lets concurrent test work proceed without a changed test gate or source population.
+
+During draft adoption, report all outstanding obligations and any incomplete analysis. The report must distinguish a functioning checker from completed enforcement of the selected production code.
+
+1. Run the complete check and collect its entire report before correcting findings, following [AGENTS.md's symptom-collection rule](../../../AGENTS.md#attitude). Group missing acknowledgments, code or documentation defects, selection mistakes, generated-source provenance, and incomplete analysis by cause so one correction addresses the verified class of failure.
+2. Inspect the selected declarations and their private helpers against each applicable principle. Fix verified defects within the authorized scope before writing an acknowledgment, because the tag must describe the resulting implementation. Generic compliance tags or weaker selection and severity can hide the defect while making the report pass.
+3. Write `@evidence contracts/common.md#<anchor> <reason>` in native documentation, addressing every fact the referenced section asks to acknowledge. One section may combine several related checks; the checker cannot judge the completeness or truth of its prose. Use `@evidenceExclude` only for a genuinely inapplicable individual item with a reason; whole-document exclusion would bypass every obligation for that host.
+4. From the owning package, use `pnpm exec evidence list` to inspect selected public addresses and `pnpm exec evidence inspect '<target>'` to investigate resolution. The CLI discovers `evidence.config.ts` first and `evidence.config.json` when TS is absent. These commands show what the checker can address. Record private-helper and script-body limitations so whole-surface review covers what the graph cannot select.
+5. Recheck the complete selected population after each coherent correction, because a changed declaration or selector can affect other obligations. Keep the issue open and the pull request draft while obligations or incomplete analysis remain. Record progress through the pull-request skill's formal review ledger so the pending work is visible.
+
+Exclude generated, copied, dependency, build, and test material through explicit selection with verified provenance. Those files have a different author or validation owner; they must not acquire obligations accidentally through a broad glob.
+
+A hand-maintained shim or authored helper remains maintained source even beside generated files. Test and benchmark enrollment requires its own authorized scope.
+
+The [scoped contracts](../contracts/SKILL.md) guide review of their named operations. Before enrolling one, verify its selected public hosts through `list` and `inspect`, keep unrelated declarations outside that added claim, and record which private helpers remain review-only. A claim's source snapshot must include local re-export targets required for resolution. When disjoint claims own different declarations, omit a pure re-export barrel from a claim if its targets span those claims; select every defining declaration in its owning claim and record the omitted aliases. Do not omit a barrel that also defines maintained types or functions.
+
+Verify common and scoped answers together using the package's final configuration. Separate successful checks of disjoint claims do not prove that their combined source and reference resolution work. Select only the documents applicable to those hosts. Until selection and composition are verified and committed, report the topic as review guidance, not automated enforcement.

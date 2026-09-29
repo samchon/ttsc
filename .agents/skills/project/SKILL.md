@@ -45,3 +45,7 @@ The `@ttsc/graph` contract is [graph.md](graph.md). Read it before changing `pac
 ## Evidence Graph
 
 The `@ttsc/evidence` implementation invariants are [evidence/SKILL.md](evidence/SKILL.md). Read them before changing rule semantics, the tag grammar, the configuration surface, or a diagnostic message.
+
+## Engineering Acknowledgments
+
+The [contracts skill](../contracts/SKILL.md) owns common and scoped acknowledgment questions. Read it alongside these product contracts and package documentation; it does not replace their semantics or duplicate package ownership.

@@ -13,6 +13,22 @@ import type { TtscTrackedInputScope } from "./TtscTrackedInputScope";
  * classified from the filesystem: an existing file by its content, and a
  * directory or a missing path by the widest scope, since nothing says which
  * part of it was read.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Recorded compiler predicates outrank inferred file kind. Missing or
+ *   unclassified inputs receive subtree scope so uncertainty cannot prove reuse.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Ordered predicate checks precede one fallback stat; plugin-specific tree
+ *   selection remains with trackedInputScopes.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Failed stat widens observation instead of inventing a safe absence;
+ *   classification uses recorded operations rather than filename exceptions.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs explain observation authority and fallback uncertainty,
+ *   following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   OS-neutral classification uses the supplied filesystem's stat and compiler
+ *   observations; no platform-wide case or separator assumption is introduced.
  */
 export function trackedInputScope(
   file: string,

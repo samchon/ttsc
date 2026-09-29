@@ -1,43 +1,68 @@
 import type { OwningModuleOptions } from "./OwningModuleOptions";
 
 /**
- * Runtime manifest written by `runTtsx` (the parent) and read once here. It
- * describes the already-built entry project so the hooks can serve its emit.
+ * Checked build metadata inherited by a direct ttsx child or registered by a
+ * host that discovers roots after hook installation.
+ *
+ * The directories and actual compiler emit observations describe already-built
+ * output; the hooks use them to establish which preparation owns a source.
+ *
+ * @evidence contracts/common.md#principled-implementation Native source/emit roots, actual output-to-source observations and owning format options bind serving to one checked preparation; optional entry/output-list/policy fields cannot replace the required compiler provenance.
+ * @evidence contracts/common.md#clear-and-simple-design One serializable build manifest groups serving identity and its run-owned caches, keeping loader callbacks and mutable lock state outside the transport.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit entry/output ownership and plugin policy replace basename guesses or independently chosen transform behavior for later roots.
+ * @evidence contracts/common.md#meaningful-documentation The purpose and separated member comments explain native paths, required actual emit provenance, protocol output separators, module/target defaults, orphan lifetime and false-only plugin policy without member tags.
+ * @evidence contracts/portability.md#os-neutral-implementation Native root/entry/cache paths remain distinct from slash-separated relative output records; producers resolve physical source identity and consumers convert output spelling through the filesystem boundary.
  */
 export interface RuntimeManifest {
   /** Project root of the entry's owning tsconfig. */
-  projectRoot: string;
+  readonly projectRoot: string;
+
   /** Source-tree root the emit mirrors (tsgo strips this prefix). */
-  rootDir: string;
+  readonly rootDir: string;
+
   /** Directory holding the entry project's emitted JavaScript. */
-  emitDir: string;
+  readonly emitDir: string;
+
   /** Physical TypeScript root whose checked preparation created this manifest. */
-  entrySource?: string;
+  readonly entrySource?: string;
+
   /** Exact JavaScript emitted for `entrySource`. */
-  entryFile?: string;
+  readonly entryFile?: string;
+
   /**
    * The build's record of the JavaScript it emitted, relative to `emitDir` with
-   * `/` separators. Ownership is decided against it, so every process of the
-   * run agrees on what the build compiled without listing the directory.
+   * `/` separators. This lists available outputs; actual source ownership is
+   * established by emittedSources rather than reconstructing source
+   * membership.
    */
-  outputs?: readonly string[];
+  readonly outputs?: readonly string[];
+
+  /** Actual absolute native output-to-source observations of this checked emit. */
+  readonly emittedSources: Readonly<Record<string, readonly string[]>>;
+
+  /** Observed output-specific proof refusals; diagnostic context is not proof. */
+  readonly emittedSourceProofFailures?: Readonly<Record<string, string>>;
+
   /**
    * The entry tsconfig's `module` and `target`, deciding emit CJS/ESM per file.
    * `target` is not decoration: an absent `module` makes tsgo derive the module
    * kind from it.
    */
-  moduleOptions?: OwningModuleOptions;
+  readonly moduleOptions?: Readonly<OwningModuleOptions>;
+
   /** Root directory for per-dependency build output. */
-  depCacheDir: string;
+  readonly depCacheDir: string;
+
   /**
    * Directory of the lowered orphan sources, under the run's resolved cache
    * root, which outlives the run (samchon/ttsc#1562).
    */
-  orphanCacheDir?: string;
+  readonly orphanCacheDir?: string;
+
   /**
    * `false` when the run disabled transform plugins (`ttsx --no-plugins`). A
    * TypeScript root the program reaches outside every checked build is part of
    * the same run, so it is compiled under the same plugin policy as the entry.
    */
-  plugins?: false;
+  readonly plugins?: false;
 }

@@ -7,14 +7,30 @@ import type { TtscUnpluginOptions } from "../options/TtscUnpluginOptions";
  * Options stay pending, replaced last-call-wins, until the loader enters its
  * first transformable load; that entry locks the pending snapshot for the rest
  * of the process.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Pending and locked snapshots distinguish pre-load replacement from the
+ *   immutable module-loading session; registered separately tracks installation.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One state record coordinates both emitted module conditions and keeps the
+ *   registration and option-lock transitions visible to their owners.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The lock models Bun's first-matching-loader behavior; it does not disguise
+ *   a second registration as reconfiguration of an already-started session.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs explain last-call-wins and the first-load lock. Spaced
+ *   member comments identify snapshot ownership per documentation guidance.
  */
 export interface BunRegistrationState {
   /** Options the next lock takes, detached from the caller's object. */
   activeOptions: TtscUnpluginOptions | undefined;
+
   /** Options the loader resolved with, once `optionsLocked` holds. */
   lockedOptions: TtscUnpluginOptions | undefined;
+
   /** Whether a load has started, which fixes `lockedOptions` for good. */
   optionsLocked: boolean;
+
   /** Whether the runtime already holds this state's one loader. */
   registered: boolean;
 }

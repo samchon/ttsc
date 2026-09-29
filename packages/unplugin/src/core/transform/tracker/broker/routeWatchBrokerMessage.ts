@@ -30,6 +30,21 @@ import type { WatchBroker } from "./WatchBroker";
  *
  * @param broker The drains and registrations of the broker the child serves.
  * @param message The message as the IPC channel delivered it.
+ * @evidence contracts/common.md#principled-implementation
+ *   Message discriminants route exact request and registration ids; each drain
+ *   snapshot determines which sinks may receive its partial-coverage verdict.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One IPC decoder translates canonical spellings and dispatches callbacks;
+ *   sinks own mutation interpretation and request owners own release state.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Malformed or retired registration events are ignored without inventing
+ *   filenames; unknown event names remain null and failure stays explicit.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs, message list and parameter comments explain precedence,
+ *   ordered delivery and owner spelling under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   OS-neutral consumers receive each registration's translated native spelling;
+ *   canonical child paths are not compared by universal lowercase or alias prefix.
  */
 export function routeWatchBrokerMessage(
   broker: Pick<WatchBroker, "drainScopes" | "drains" | "registrations">,
@@ -49,6 +64,14 @@ export function routeWatchBrokerMessage(
   };
   if (typeof record.id !== "number") return;
   if (record.drained === true) {
+    const release = broker.drains.get(record.id);
+    if (release === undefined) return;
+    const scope = broker.drainScopes?.get(record.id);
+    if (scope === undefined) {
+      broker.drains.delete(record.id);
+      release(false);
+      return;
+    }
     // The reply is the whole verdict of this drain: a watch it does not name
     // was proven, so every draining registration hears a verdict, the empty
     // one where nothing of it is named.
@@ -71,15 +94,13 @@ export function routeWatchBrokerMessage(
     // Only a registration the request covered hears it. One registered after
     // the request was sent had no watch probed by it, and must keep waiting for
     // a drain of its own rather than read this one's silence as proof.
-    const scope = broker.drainScopes?.get(record.id);
     for (const [id, registration] of broker.registrations) {
       if (!registration.drains) continue;
-      if (scope !== undefined && !scope.has(id)) continue;
+      if (!scope.has(id)) continue;
       registration.sink.unproven(unproven.get(id));
     }
-    const release = broker.drains.get(record.id);
     broker.drains.delete(record.id);
-    release?.(true);
+    release(true);
     return;
   }
   const registration = broker.registrations.get(record.id);

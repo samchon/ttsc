@@ -16,6 +16,21 @@ import type { Node } from "../../ast";
  * [a, b];
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   The readonly node array is returned unchanged, retaining element order and
+ *   identity. Omission creates an empty array; no compiler NodeArray metadata exists.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The outline uses ordinary arrays, so this compatibility convenience adds no
+ *   wrapper object that builders or the printer must unwrap.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   [] is the omitted-elements value, not a replacement for supplied elements.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs explain shared array identity, missing kind/metadata and
+ *   non-printability separately from the example and acknowledgment tags.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param elements The elements.
  * @returns The given elements as a readonly array.

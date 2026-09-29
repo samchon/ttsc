@@ -32,7 +32,6 @@ import { openIsolatedRecursiveWatch } from "./openIsolatedRecursiveWatch";
 import { openRecursiveWatch } from "./openRecursiveWatch";
 import { openWatchPoller } from "./openWatchPoller";
 import { realpath } from "./realpath";
-import { sameSpelling } from "./sameSpelling";
 import { someSet } from "./someSet";
 
 /**
@@ -76,6 +75,54 @@ import { someSet } from "./someSet";
  *   changed: `reload` for a changed input, and `invalidate` for a membership
  *   change alone.
  * @param operations Native watch seams, replaceable for tests.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Owned registration maps and callbacks separate compiler-input conditions
+ *   from Vite importer or build-record policy.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One observer indexes input conditions and owners, while callback consumers
+ *   decide reload versus record signaling. Shared native scopes and one poller
+ *   cover capability boundaries without duplicating each owner's watcher tree.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The public filesystem identity helper and injected native watch seams
+ *   provide the implementation boundary; the observer does not patch either
+ *   consumer's methods.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native JSDoc explains the two owner kinds, why membership and plugin trees
+ *   need observation, and why links or uncovered scopes need polling. Separate
+ *   paragraphs give purpose and reasons under the documentation skill;
+ *   InputObserver documents the returned lifecycle contract.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Filesystem identity comes from ttsc/path-identity and directory
+ *   capabilities rather than a universal lowercase path. Unknown case policy
+ *   keeps exact identity, routes both case candidates and requires polling;
+ *   only a measured insensitive directory folds identity. Windows and macOS
+ *   native scopes use an isolated broker; other hosts use recursive watches.
+ *   Native failures and uncovered link topology motivate the shared polling
+ *   boundary, whose behavior remains owned by the observer.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Identity maps index entries and their owners; settled events deduplicate
+ *   pending entries before rechecking conditions. Directory admission counts
+ *   contributions from live entries, and one prune per changed scope releases
+ *   unneeded backend subscriptions. Polling remains necessary
+ *   for scopes where native notifications cannot establish unchanged inputs.
+ *
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Owners share subscriptions and input conditions through filesystem
+ *   identity. One project scope and a capped external set observe multiple
+ *   inputs rather than opening a native watcher for each consumer and input.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Last-owner removal and dispose release watch scopes and polling. Conditions
+ *   remove their directory contributions when they leave; root or polling
+ *   policy changes rebuild scopes without retaining old admission history.
+ *   Conditions and owners still require input-proportional memory, and a capped
+ *   scope count does not bound the number of admitted descendant subscriptions.
  */
 export function createInputObserver(
   onChanged: (change: InputObserverChange) => void,
@@ -94,6 +141,7 @@ export function createInputObserver(
   const polled = new Set<InputEntry>();
   const links = new Map<string, LinkedPath>();
   const scopes = new Map<string, WatchScope>();
+  const scopesToPrune = new Set<WatchScope>();
   const componentLinks = new Map<string, string | null>();
   const missingComponents = new Set<string>();
   const changes = new Map<string, number>();
@@ -137,7 +185,7 @@ export function createInputObserver(
       throwOnRealpathError: false,
     });
   let caseIdentities = createCaseIdentities();
-  const directoryCaseSensitivity = new Map<string, boolean>();
+  const directoryCaseSensitivity = new Map<string, boolean | undefined>();
   let pathIdentityMemosDirty = false;
   // Whether a rename has been heard since the memos were last reset. Only a
   // rename can make a remembered path fact wrong, so only a removal that
@@ -157,16 +205,13 @@ export function createInputObserver(
   /** Lexical event key under the nearest existing directory's case policy. */
   const watchPathKey = (file: string): string => {
     const absolute = path.resolve(file);
-    if (platform !== "win32" && platform !== "darwin") {
-      return absolute;
-    }
     let current = path.dirname(absolute);
     const traversed: string[] = [];
     let sensitive: boolean | undefined;
     for (;;) {
-      const cacheKey = platform === "win32" ? current.toLowerCase() : current;
+      const cacheKey = current;
       sensitive = directoryCaseSensitivity.get(cacheKey);
-      if (sensitive !== undefined) break;
+      if (directoryCaseSensitivity.has(cacheKey)) break;
       traversed.push(cacheKey);
       try {
         if (fs.statSync(current).isDirectory()) {
@@ -178,8 +223,7 @@ export function createInputObserver(
       }
       const parent = path.dirname(current);
       if (parent === current) {
-        // The shared identity resolver uses the platform default when even the
-        // volume root cannot answer the read-only case-sensitivity probe.
+        // An unmeasured policy remains unknown, preserving exact spelling.
         sensitive = caseIdentities.caseSensitive(current);
         break;
       }
@@ -188,7 +232,16 @@ export function createInputObserver(
     for (const directory of traversed) {
       directoryCaseSensitivity.set(directory, sensitive);
     }
-    return sensitive ? absolute : absolute.toLowerCase();
+    return sensitive === false ? absolute.toLowerCase() : absolute;
+  };
+
+  /** Unknown case policy broadens event candidates, never identity equality. */
+  const watchEventKeys = (file: string): string[] => {
+    const absolute = path.resolve(file);
+    const key = watchPathKey(absolute);
+    return directoryCaseSensitivity.get(path.dirname(absolute)) === undefined
+      ? [key, `unknown-case\0${absolute.toLowerCase()}`]
+      : [key];
   };
 
   const unbindAlias = (alias: string, entry: InputEntry): void => {
@@ -261,6 +314,21 @@ export function createInputObserver(
       // The generation no longer trusts this scope, so cleanup is best effort.
     }
     scope.watcher = undefined;
+    scopesToPrune.delete(scope);
+  };
+
+  /** Reconcile widened tree admission after a condition loses its last owner. */
+  const refreshConditionCoverage = (entry: InputEntry): void => {
+    let membership = false;
+    let tree = false;
+    for (const condition of entry.conditions.values()) {
+      membership ||= condition.evidence?.state?.codec === "membership";
+      tree ||= condition.evidence?.state?.codec === "tree";
+      if (membership && tree) break;
+    }
+    if (!membership) memberships.delete(entry);
+    if (!tree) trees.delete(entry);
+    for (const scope of entry.scopes) scopesToPrune.add(scope);
   };
 
   const recordChange = (
@@ -282,8 +350,8 @@ export function createInputObserver(
       topologyChanged = true;
     }
     changeSequence += 1;
-    direct.add(watchPathKey(absolute));
-    parents.add(watchPathKey(parent));
+    for (const key of watchEventKeys(absolute)) direct.add(key);
+    for (const key of watchEventKeys(parent)) parents.add(key);
     for (const key of direct) {
       componentLinks.delete(key);
       missingComponents.delete(key);
@@ -312,9 +380,16 @@ export function createInputObserver(
     }
     entry.renameAliases.clear();
     for (const scope of entry.scopes) {
+      for (const key of entry.scopeDirectories.get(scope) ?? []) {
+        const contributors = scope.directories.get(key)! - 1;
+        if (contributors === 0) scope.directories.delete(key);
+        else scope.directories.set(key, contributors);
+      }
       scope.entries.delete(entry);
       if (scope.entries.size === 0 && !scope.pinned) closeScope(scope);
+      else scopesToPrune.add(scope);
     }
+    entry.scopeDirectories.clear();
     entry.scopes.clear();
     for (const file of entry.links) {
       const link = links.get(file);
@@ -343,6 +418,7 @@ export function createInputObserver(
     for (const entry of selected) {
       if (entries.get(entry.file) !== entry) continue;
       let baseline: TtscWatchInputBaseline | undefined;
+      let removedCondition = false;
       for (const [key, condition] of entry.conditions) {
         const state = condition.evidence?.state;
         let changed: boolean;
@@ -358,6 +434,7 @@ export function createInputObserver(
           }
           for (const owner of condition.owners) invalidated.add(owner);
           entry.conditions.delete(key);
+          removedCondition = true;
           continue;
         }
         if (state?.codec === "tree") {
@@ -389,9 +466,12 @@ export function createInputObserver(
         if (!changed) continue;
         for (const owner of condition.owners) reloaded.add(owner);
         entry.conditions.delete(key);
+        removedCondition = true;
       }
       if (entry.conditions.size === 0) {
         remove(entry);
+      } else if (removedCondition) {
+        refreshConditionCoverage(entry);
       }
     }
     if (pathIdentityMemosDirty) resetPathIdentityMemos();
@@ -478,29 +558,31 @@ export function createInputObserver(
   };
 
   const bindAlias = (entry: InputEntry, alias: string): void => {
-    alias = watchPathKey(alias);
-    if (entry.aliases.has(alias)) return;
-    entry.aliases.add(alias);
-    let indexed = aliases.get(alias);
-    if (indexed === undefined) {
-      indexed = new Set();
-      aliases.set(alias, indexed);
+    for (const key of watchEventKeys(alias)) {
+      if (entry.aliases.has(key)) continue;
+      entry.aliases.add(key);
+      let indexed = aliases.get(key);
+      if (indexed === undefined) {
+        indexed = new Set();
+        aliases.set(key, indexed);
+      }
+      indexed.add(entry);
     }
-    indexed.add(entry);
   };
 
   const bindRenameAncestors = (entry: InputEntry, file: string): void => {
     let current = path.dirname(path.resolve(file));
     for (;;) {
-      const key = watchPathKey(current);
-      if (!entry.renameAliases.has(key)) {
-        entry.renameAliases.add(key);
-        let indexed = renameAliases.get(key);
-        if (indexed === undefined) {
-          indexed = new Set();
-          renameAliases.set(key, indexed);
+      for (const key of watchEventKeys(current)) {
+        if (!entry.renameAliases.has(key)) {
+          entry.renameAliases.add(key);
+          let indexed = renameAliases.get(key);
+          if (indexed === undefined) {
+            indexed = new Set();
+            renameAliases.set(key, indexed);
+          }
+          indexed.add(entry);
         }
-        indexed.add(entry);
       }
       const parent = path.dirname(current);
       if (parent === current) return;
@@ -529,7 +611,7 @@ export function createInputObserver(
       // no filesystem event happened in between.
       changeSequence += 1;
       scope = {
-        directories: new Set(),
+        directories: new Map(),
         entries: new Set(),
         failed: false,
         ...(external
@@ -622,6 +704,11 @@ export function createInputObserver(
     if (scope === undefined) return false;
     scope.entries.add(entry);
     entry.scopes.add(scope);
+    let contributed = entry.scopeDirectories.get(scope);
+    if (contributed === undefined) {
+      contributed = new Set();
+      entry.scopeDirectories.set(scope, contributed);
+    }
     // A directory-level backend hears only the directories it watches
     // (samchon/ttsc#1389): those leading to what its scope covers, and the
     // covered path itself, whose own entries decide a listing predicate and
@@ -633,8 +720,9 @@ export function createInputObserver(
       directory = path.dirname(directory)
     ) {
       const directoryKey = watchPathKey(directory);
-      if (scope.directories.has(directoryKey)) break;
-      scope.directories.add(directoryKey);
+      if (contributed.has(directoryKey)) break;
+      contributed.add(directoryKey);
+      scope.directories.set(directoryKey, (scope.directories.get(directoryKey) ?? 0) + 1);
     }
     scope.watcher?.track?.(file);
     return !scope.failed;
@@ -678,11 +766,26 @@ export function createInputObserver(
   };
 
   function updatePoller(): void {
+    // One native retirement pass per affected scope at the atomic boundary,
+    // rather than scanning all subscriptions once per removed input.
+    for (const scope of scopesToPrune) {
+      try {
+        scope.watcher?.prune?.();
+      } catch {
+        failScope(scope);
+      }
+    }
+    scopesToPrune.clear();
     const needed =
       links.size !== 0 || polled.size !== 0 || verifiableScopes().length !== 0;
     if (!needed) {
-      poller?.close();
+      const ownedPoller = poller;
       poller = undefined;
+      try {
+        ownedPoller?.close();
+      } catch {
+        // Relinquish this handle without blocking unrelated registrations.
+      }
       return;
     }
     if (poller !== undefined) return;
@@ -758,6 +861,8 @@ export function createInputObserver(
   const observe = (entry: InputEntry): void => {
     bindAlias(entry, entry.file);
     bindRenameAncestors(entry, entry.file);
+    if (directoryCaseSensitivity.get(path.dirname(entry.file)) === undefined)
+      requirePolling(entry);
     const root = projectRoot;
     const named = namedInProject(entry.file);
     if (root !== undefined && named !== undefined) {
@@ -778,7 +883,7 @@ export function createInputObserver(
     if (target !== undefined) {
       bindAlias(entry, target);
       bindRenameAncestors(entry, target);
-      if (!sameSpelling(entry.file, target)) {
+      if (watchPathKey(entry.file) !== watchPathKey(target)) {
         let link = links.get(entry.file);
         if (link === undefined) {
           link = { target, inputs: new Set() };
@@ -854,14 +959,41 @@ export function createInputObserver(
 
   return {
     open(root, declaredPolling) {
+      const nextRoot = path.resolve(root);
+      const reanchor = opened &&
+        (projectRoot !== nextRoot || polling !== declaredPolling);
+      const retained = reanchor ? [...entries.values()] : [];
+      if (reanchor) {
+        // Conditions and owner registrations survive a host restart, while
+        // their old native scopes and lexical indexes belong to the old root.
+        for (const entry of retained) remove(entry);
+        for (const scope of [...scopes.values()]) closeScope(scope);
+        resetPathIdentityMemos();
+        changeSequence += 1;
+        historyFloor = changeSequence;
+      }
       opened = true;
-      projectRoot = path.resolve(root);
+      projectRoot = nextRoot;
       project = {
         physical: realpath(projectRoot) ?? projectRoot,
         spelling: projectRoot,
       };
       polling = declaredPolling;
       if (!polling) ensureScope(projectRoot, false, true);
+      for (const entry of retained) {
+        entry.fallback = false;
+        entry.physical = undefined;
+        entries.set(entry.file, entry);
+        for (const condition of entry.conditions.values()) {
+          if (condition.evidence?.state?.codec === "membership")
+            memberships.add(entry);
+          if (condition.evidence?.state?.codec === "tree") trees.add(entry);
+        }
+        if (memberships.has(entry) || trees.has(entry))
+          entry.physical = realpath(entry.file) ?? entry.file;
+        observe(entry);
+      }
+      updatePoller();
     },
     begin() {
       return changeSequence;
@@ -881,11 +1013,17 @@ export function createInputObserver(
       changes.clear();
       linkIterator = undefined;
       pollIterator = undefined;
-      poller?.close();
       if (flushTimer !== undefined) clearTimeout(flushTimer);
+      const ownedPoller = poller;
       poller = undefined;
       flushTimer = undefined;
+      try {
+        ownedPoller?.close();
+      } catch {
+        // An injected poll handle cannot prevent independent scope cleanup.
+      }
       for (const scope of [...scopes.values()]) closeScope(scope);
+      scopesToPrune.clear();
       resetPathIdentityMemos();
       // Stays open on the root it opened on: an owner can keep delivering after
       // a disposal, as overlapping Vite restart containers do, and its inputs
@@ -900,7 +1038,10 @@ export function createInputObserver(
         const entry = entries.get(file);
         const condition = entry?.conditions.get(key);
         condition?.owners.delete(owner);
-        if (condition?.owners.size === 0) entry?.conditions.delete(key);
+        if (condition?.owners.size === 0 && entry !== undefined) {
+          entry.conditions.delete(key);
+          refreshConditionCoverage(entry);
+        }
         if (entry?.conditions.size === 0) remove(entry);
       }
       if (pathIdentityMemosDirty) resetPathIdentityMemos();
@@ -954,6 +1095,7 @@ export function createInputObserver(
             links: new Set(),
             renameAliases: new Set(),
             scopes: new Set(),
+            scopeDirectories: new Map(),
           };
           entries.set(file, entry);
           added.add(entry);
@@ -999,7 +1141,10 @@ export function createInputObserver(
         const entry = entries.get(file);
         const condition = entry?.conditions.get(key);
         condition?.owners.delete(owner);
-        if (condition?.owners.size === 0) entry?.conditions.delete(key);
+        if (condition?.owners.size === 0 && entry !== undefined) {
+          entry.conditions.delete(key);
+          refreshConditionCoverage(entry);
+        }
         if (entry?.conditions.size === 0 && !current.has(file)) {
           remove(entry);
         }

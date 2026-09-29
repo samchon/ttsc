@@ -20,6 +20,15 @@ import (
 // Nothing here is a judgement. The rule that materialized these decides what is
 // covered, what is a legitimate exclusion, and what is missing, and it delivers
 // those as compile errors. The graph reports; the linter judges.
+//
+// @evidence contracts/common.md#principled-implementation Opaque canonical addresses and aliases represent plugin-published noncompiler facts without pretending they follow declaration identity syntax.
+// @evidence contracts/common.md#clear-and-simple-design The JSON record defines the separate producer boundary while keeping coverage judgments in the publishing linter.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Published kind discriminants are the wire vocabulary, not special cases for particular documents or expected evidence answers.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish artifact facts, JSON ownership and linter judgments; prose and tags follow the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation File carries a producer-supplied native location for later path mapping, while Address and Aliases remain opaque protocol identities on every OS.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This wire record selects no algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Snapshot owners decide whether published records remain reusable.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The record owns no independent process, cache or acquisition lifecycle.
 type Artifact struct {
   Address  string   `json:"address"`
   Kind     string   `json:"kind"`
@@ -52,6 +61,15 @@ var artifactNodeKinds = map[string]NodeKind{
 // id built from the `path#name:kind` grammar, and a tour seed. A document
 // section is neither the shape of a declaration nor an answer to "what is this
 // project and how does it run".
+//
+// @evidence contracts/common.md#principled-implementation Membership in the published artifact-kind mapping distinguishes opaque document addresses from compiler declaration IDs.
+// @evidence contracts/common.md#clear-and-simple-design One vocabulary table supplies both artifact ingestion and downstream boundary checks.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The closed producer vocabulary excludes unknown kinds rather than fabricating declarations from address spelling.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains why artifacts cannot use declaration identity or tour seeding, with documentation-skill tag spacing.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This pure kind predicate does not access paths, files or processes.
+// @evidence contracts/performance.md#efficient-algorithms The scan is bounded by the fixed published kind vocabulary and needs no allocation.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The predicate coordinates no request or retained computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No resource or state is acquired.
 func IsArtifactKind(kind NodeKind) bool {
   for _, mapped := range artifactNodeKinds {
     if mapped == kind {
@@ -68,6 +86,15 @@ func IsArtifactKind(kind NodeKind) bool {
 // not have produced, and a project that publishes nothing is the common case. A
 // file that exists and does not parse is an error, because that is a producer
 // the caller was told to expect.
+//
+// @evidence contracts/common.md#principled-implementation A supplied file is decoded as the publishing protocol; absence denotes no publication while malformed existing bytes remain an error.
+// @evidence contracts/common.md#clear-and-simple-design Native acquisition delegates decoding to ParseArtifacts so callers needing byte identity can use the same parser.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Only the supported absent-publication case is optional; decoding failures are not hidden to satisfy an expected empty graph.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish omitted path, missing file and malformed publication, following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation os.ReadFile and os.IsNotExist preserve native path and failure semantics without shell interpolation or OS-specific separators.
+// @evidence contracts/performance.md#efficient-algorithms One read and one JSON decode cost O(published bytes); whole-file allocation follows the protocol's array payload.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This independent acquisition does not own snapshot identity or repeated-consumer reuse; callers that hash bytes use ParseArtifacts directly.
+// @evidence contracts/performance.md#bound-retention-and-release-resources os.ReadFile closes its handle; decoded records transfer to the caller and no file watcher or cache is retained.
 func LoadArtifacts(path string) ([]Artifact, error) {
   if strings.TrimSpace(path) == "" {
     return nil, nil
@@ -88,6 +115,15 @@ func LoadArtifacts(path string) ([]Artifact, error) {
 // parses. Reading the file twice — once to state what it holds and once to
 // decode it — lets an overwrite land between the two, leaving a session whose
 // recorded identity describes a set it is not holding.
+//
+// @evidence contracts/common.md#principled-implementation encoding/json decodes precisely the bytes the caller captured, preserving equality between content identity and parsed publication.
+// @evidence contracts/common.md#clear-and-simple-design A byte-only parser isolates protocol decoding from native acquisition.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Decode errors propagate without accepting fixture-specific malformed records or reparsing changed disk bytes.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains the same-byte identity requirement and why parsing is separate, with documentation-skill tag spacing.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Parsing a JSON byte slice owns no native filesystem or process boundary.
+// @evidence contracts/performance.md#efficient-algorithms Decode work and allocated record space scale linearly with the JSON payload.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Reuse of parsed publication is the caller's snapshot decision, not this one-shot parser's responsibility.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Parsed data transfers to the caller with no retained buffer or native handle.
 func ParseArtifacts(data []byte) ([]Artifact, error) {
   var artifacts []Artifact
   if err := json.Unmarshal(data, &artifacts); err != nil {
@@ -109,6 +145,15 @@ func ParseArtifacts(data []byte) ([]Artifact, error) {
 //
 // An address that collides with an existing node loses: a checker-resolved
 // declaration is a fact of this Program, and a published artifact is not.
+//
+// @evidence contracts/common.md#principled-implementation Only accepted canonical records publish aliases and parent facts; compiler identities and canonical addresses win collisions before documentation references resolve.
+// @evidence contracts/common.md#clear-and-simple-design Ordered acceptance, alias registration, containment and citation projection keep each identity decision in a separate pass over the accepted publication.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown producer kinds and colliding records are rejected consistently instead of compensating through aliases or mutating compiler declarations.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs state opaque IDs, collision precedence, containment ownership and edge deduplication, separated under the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Addresses remain opaque; physical File locations pass unchanged to the dump's shared native path boundary.
+// @evidence contracts/performance.md#efficient-algorithms Sorting costs O(A log A); accepted aliases and existing edges/tags each receive linear scans with expected constant-time identity lookup.
+// @evidence contracts/performance.md#reuse-equivalent-work A shared canonical/alias map resolves every citation consistently and an edge-key set reuses existing relationship identity instead of appending equivalent edges.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Sorting, acceptance and lookup scratch are call-local; accepted artifact nodes and new relationships transfer into the caller-owned graph generation.
 func ApplyArtifacts(g *Graph, artifacts []Artifact) {
   if g == nil || len(artifacts) == 0 {
     return
@@ -122,6 +167,7 @@ func ApplyArtifacts(g *Graph, artifacts []Artifact) {
   // Every address an artifact answers to, including its aliases, so a citation
   // written against either spelling resolves to the one node.
   byAddress := map[string]string{}
+  accepted := make([]Artifact, 0, len(sorted))
   for _, artifact := range sorted {
     kind, known := artifactNodeKinds[artifact.Kind]
     if !known || artifact.Address == "" {
@@ -142,6 +188,7 @@ func ApplyArtifacts(g *Graph, artifacts []Artifact) {
     }
     g.Nodes[artifact.Address] = node
     byAddress[artifact.Address] = artifact.Address
+    accepted = append(accepted, artifact)
   }
 
   // Aliases are registered after every address, and only where nothing claims
@@ -150,12 +197,12 @@ func ApplyArtifacts(g *Graph, artifacts []Artifact) {
   // overwrite an earlier artifact's own address, and a citation of that address
   // then resolved to the wrong node — a confident wrong answer, which is worse
   // than the token it replaced.
-  for _, artifact := range sorted {
-    if _, published := g.Nodes[artifact.Address]; !published {
-      continue
-    }
+  for _, artifact := range accepted {
     for _, alias := range artifact.Aliases {
       if alias == "" || alias == artifact.Address {
+        continue
+      }
+      if _, claimed := g.Nodes[alias]; claimed {
         continue
       }
       if _, claimed := byAddress[alias]; claimed {
@@ -171,7 +218,7 @@ func ApplyArtifacts(g *Graph, artifacts []Artifact) {
   // naming nothing published is cleared: the child is still a real artifact and
   // sits at the top of its chain, and fabricating the parent is what must not
   // happen.
-  for _, artifact := range sorted {
+  for _, artifact := range accepted {
     node, exists := g.Nodes[artifact.Address]
     if !exists || artifact.Parent == "" {
       continue

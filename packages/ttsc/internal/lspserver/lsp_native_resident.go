@@ -2,6 +2,7 @@ package lspserver
 
 import (
   "bufio"
+  "context"
   "encoding/json"
   "fmt"
   "io"
@@ -9,6 +10,8 @@ import (
   "os/exec"
   "strings"
   "sync"
+  "sync/atomic"
+  "time"
 )
 
 // The serve verbs below are routed to the resident daemon because they load a
@@ -46,21 +49,29 @@ type serveClientResponse struct {
 // serialized stream of verb requests over stdin/stdout, holding a warm Program
 // across them, instead of the source respawning the sidecar per verb.
 type residentSidecar struct {
-  mu         sync.Mutex
-  cmd        *exec.Cmd
-  stdin      io.WriteCloser
-  stdout     *bufio.Reader
-  everServed bool
+  mu               sync.Mutex
+  pendingMu        sync.Mutex
+  cmd              *exec.Cmd
+  stdin            io.WriteCloser
+  stdout           *bufio.Reader
+  everServed       atomic.Bool
+  output           io.ReadCloser
+  stopClosingPipes func() bool
+
   // invalidate piggybacks a full "drop the warm Program" onto the next request,
   // set for a change the proxy cannot localize.
   invalidate bool
+
   // changed piggybacks the document URIs that changed on disk onto the next
   // request, so the daemon updates the warm Program incrementally rather than
   // rebuilding it.
-  changed []string
+  changed    []string
+  changedSet map[string]struct{}
+
   // external identifies changed entries that are declared ProjectRule inputs,
   // allowing an unknown non-Program path to retain the warm Program.
-  external []string
+  external    []string
+  externalSet map[string]struct{}
 }
 
 // serveRun routes a serve-able verb through the plugin's resident daemon.
@@ -75,6 +86,10 @@ func (s *NativePluginSource) serveRun(plugin NativeLSPPluginEntry, verb string, 
   }
   key := pluginKey(plugin, s.projectContextJSON)
   s.residentMu.Lock()
+  if s.closed {
+    s.residentMu.Unlock()
+    return nil, true, context.Canceled
+  }
   if s.serveUnsupported[key] {
     s.residentMu.Unlock()
     return nil, false, nil
@@ -98,7 +113,7 @@ func (s *NativePluginSource) serveRun(plugin NativeLSPPluginEntry, verb string, 
     // call. Either way this call falls back to a fresh spawn so the verb still
     // works.
     s.residentMu.Lock()
-    if !sc.everServed {
+    if !sc.everServed.Load() {
       if s.serveUnsupported == nil {
         s.serveUnsupported = map[string]bool{}
       }
@@ -115,9 +130,8 @@ func (s *NativePluginSource) serveRun(plugin NativeLSPPluginEntry, verb string, 
 
 // call sends one request to the daemon and reads its reply, serializing access
 // to the single pipe. It spawns the child on first use or after a death. The
-// read is unbounded — the rule is the user's own code — and the mutex is held
-// only as long as the sidecar is alive, because its death closes stdout and
-// ends the read.
+// computation has no deadline, but replies have a byte limit and session
+// cancellation closes the pipes independently of this mutex.
 func (sc *residentSidecar) call(s *NativePluginSource, plugin NativeLSPPluginEntry, req serveClientRequest) ([]byte, int, error) {
   sc.mu.Lock()
   defer sc.mu.Unlock()
@@ -126,6 +140,7 @@ func (sc *residentSidecar) call(s *NativePluginSource, plugin NativeLSPPluginEnt
       return nil, 0, err
     }
   }
+  sc.pendingMu.Lock()
   if sc.invalidate {
     req.Invalidate = true
     sc.invalidate = false
@@ -138,6 +153,9 @@ func (sc *residentSidecar) call(s *NativePluginSource, plugin NativeLSPPluginEnt
     req.External = sc.external
     sc.external = nil
   }
+  sc.changedSet = nil
+  sc.externalSet = nil
+  sc.pendingMu.Unlock()
   line, err := json.Marshal(req)
   if err != nil {
     return nil, 0, err
@@ -148,29 +166,36 @@ func (sc *residentSidecar) call(s *NativePluginSource, plugin NativeLSPPluginEnt
     return nil, 0, err
   }
 
-  type readResult struct {
-    line []byte
-    err  error
-  }
-  done := make(chan readResult, 1)
-  go func() {
-    raw, err := sc.stdout.ReadBytes('\n')
-    done <- readResult{line: raw, err: err}
-  }()
-  // No deadline: a rule that takes a long time is the user's own code running,
-  // and the read still ends the moment the sidecar dies, because closing its
-  // stdout surfaces here as a read error.
-  res := <-done
-  if res.err != nil {
-    sc.kill()
-    return nil, 0, res.err
+  // Include a bounded envelope allowance around the one-shot result limit.
+  // ReadSlice avoids retaining arbitrary output from a malformed daemon.
+  const replyLimit = nativePluginCommandStdoutLimit + 1024
+  var reply []byte
+  for {
+    fragment, readErr := sc.stdout.ReadSlice('\n')
+    if len(reply)+len(fragment) > replyLimit {
+      sc.kill()
+      return nil, 0, fmt.Errorf("resident reply exceeds %d bytes", replyLimit)
+    }
+    reply = append(reply, fragment...)
+    if readErr == bufio.ErrBufferFull {
+      continue
+    }
+    if readErr != nil {
+      sc.kill()
+      return nil, 0, readErr
+    }
+    break
   }
   var resp serveClientResponse
-  if err := json.Unmarshal(res.line, &resp); err != nil {
+  if err := json.Unmarshal(reply, &resp); err != nil {
     sc.kill()
     return nil, 0, err
   }
-  sc.everServed = true
+  if len(resp.Result) > nativePluginCommandStdoutLimit {
+    sc.kill()
+    return nil, 0, fmt.Errorf("resident result exceeds %d bytes", nativePluginCommandStdoutLimit)
+  }
+  sc.everServed.Store(true)
   return resp.Result, resp.Code, nil
 }
 
@@ -186,7 +211,9 @@ func (sc *residentSidecar) spawn(s *NativePluginSource, plugin NativeLSPPluginEn
   if plugin.ProjectContextArgs && strings.TrimSpace(s.projectContextJSON) != "" {
     allArgs = append(allArgs, "--project-context-json="+s.projectContextJSON)
   }
-  cmd := exec.Command(plugin.Binary, allArgs...)
+  ctx := s.commandContext()
+  cmd := exec.CommandContext(ctx, plugin.Binary, allArgs...)
+  cmd.WaitDelay = time.Second
   cmd.Dir = s.cwd
   cmd.Env = os.Environ()
   // Drain the child's stderr to the source log so its pipe cannot fill and block
@@ -203,19 +230,32 @@ func (sc *residentSidecar) spawn(s *NativePluginSource, plugin NativeLSPPluginEn
   }
   if err := cmd.Start(); err != nil {
     _ = stdin.Close()
+    _ = stdout.Close()
     return err
   }
   sc.cmd = cmd
   sc.stdin = stdin
   sc.stdout = bufio.NewReader(stdout)
+  sc.output = stdout
+  sc.stopClosingPipes = context.AfterFunc(ctx, func() {
+    _ = stdin.Close()
+    _ = stdout.Close()
+  })
   return nil
 }
 
 // kill terminates the child and clears its handles so the next call respawns.
 // The caller holds sc.mu.
 func (sc *residentSidecar) kill() {
+  if sc.stopClosingPipes != nil {
+    sc.stopClosingPipes()
+    sc.stopClosingPipes = nil
+  }
   if sc.stdin != nil {
     _ = sc.stdin.Close()
+  }
+  if sc.output != nil {
+    _ = sc.output.Close()
   }
   if sc.cmd != nil && sc.cmd.Process != nil {
     _ = sc.cmd.Process.Kill()
@@ -224,6 +264,7 @@ func (sc *residentSidecar) kill() {
   sc.cmd = nil
   sc.stdin = nil
   sc.stdout = nil
+  sc.output = nil
 }
 
 // InvalidateResidentPrograms tells every live resident daemon that documents
@@ -232,6 +273,15 @@ func (sc *residentSidecar) kill() {
 // given none, it drops the whole Program (a change the proxy could not
 // localize). It mirrors how the proxy already invalidates the symbol provider on
 // the same editor signals.
+//
+// @evidence contracts/common.md#principled-implementation Known disk changes queue incremental URI updates; absent localization queues a complete warm Program invalidation before the next serialized request.
+// @evidence contracts/common.md#clear-and-simple-design A pending-state lock lets notifications queue invalidation independently of the serialized request stream.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts A topology change is not disguised as an incremental update to preserve stale compiler state.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs explain empty versus localized invalidation, following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Protocol URIs pass to the native daemon unchanged; daemon processing owns native file updates and executable argv remains platform-neutral exec input.
+// @evidence contracts/performance.md#efficient-algorithms The resident table is copied once; first-seen URI sets deduplicate queue additions in expected constant time without waiting for rule execution.
+// @evidence contracts/performance.md#reuse-equivalent-work Invalidations piggyback on the next read request so valid unchanged Program work remains reusable.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Pending URI slices and sets are consumed by the next request or cleared by full invalidation. Unique URI population has no separate cap, but repeated events do not add entries. Close cancels children independently of their request lock.
 func (s *NativePluginSource) InvalidateResidentPrograms(changedURIs ...string) {
   if s == nil {
     return
@@ -243,19 +293,32 @@ func (s *NativePluginSource) InvalidateResidentPrograms(changedURIs ...string) {
   }
   s.residentMu.Unlock()
   for _, sc := range residents {
-    sc.mu.Lock()
     if len(changedURIs) > 0 {
-      sc.changed = append(sc.changed, changedURIs...)
+      sc.queueChanges(changedURIs, nil)
     } else {
+      sc.pendingMu.Lock()
       sc.invalidate = true
+      sc.changed = nil
+      sc.external = nil
+      sc.changedSet = nil
+      sc.externalSet = nil
+      sc.pendingMu.Unlock()
     }
-    sc.mu.Unlock()
   }
 }
 
 // InvalidateResidentProgramsForWatchedChanges distinguishes declared external
 // inputs from ordinary watched files so the sidecar can retain its Program for
 // data-only changes while still rebuilding fresh ProjectRule state.
+//
+// @evidence contracts/common.md#principled-implementation Nil ownership for each external URI preserves the legacy all-transport invalidation meaning.
+// @evidence contracts/common.md#clear-and-simple-design The owner-aware operation implements routing for both legacy and scoped entries.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Missing owner information is treated conservatively rather than guessed from a filename.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains external versus Program input meaning, following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation The delegated operation keeps protocol URIs separate from daemon-native path resolution.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Owner-aware invalidation owns processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The delegated operation owns warm Program validity.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Resident queues belong to the delegated operation.
 func (s *NativePluginSource) InvalidateResidentProgramsForWatchedChanges(
   changedURIs []string,
   externalURIs []string,
@@ -275,6 +338,15 @@ func (s *NativePluginSource) InvalidateResidentProgramsForWatchedChanges(
 // changes only to resident binaries that own the matching snapshot. A path that
 // can also belong to the Program reaches every resident, because each daemon
 // must decide whether its own Program contains that source.
+//
+// @evidence contracts/common.md#principled-implementation Data-only external edits reach matching owners; compiler-recognized input extensions reach all residents because each owns a potentially different Program population.
+// @evidence contracts/common.md#clear-and-simple-design External URI and transport sets separate ownership filtering from each resident's serialized update queue.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Conservative Program-input invalidation follows supported compiler extensions rather than known producer output.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains why Program inputs override narrower external ownership, following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation file URI parsing and native extension APIs classify inputs while the daemon resolves filesystem identity; no blind OS-based path folding is used.
+// @evidence contracts/performance.md#efficient-algorithms Sets avoid repeated owner searches; processing scales with descriptors, URI-owner pairs and resident-by-external routing checks.
+// @evidence contracts/performance.md#reuse-equivalent-work Scoped data changes preserve unrelated residents' Programs; selected changed/external lists are piggybacked before the next read.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Pending lists and deduplication sets are consumed with a request or cleared by full invalidation; unique queued URI population has no separate byte cap and resident children terminate on Close.
 func (s *NativePluginSource) InvalidateResidentProgramsForOwnedWatchedChanges(
   changedURIs []string,
   externalURIs []string,
@@ -337,10 +409,41 @@ func (s *NativePluginSource) InvalidateResidentProgramsForOwnedWatchedChanges(
     if len(changed) == 0 {
       continue
     }
-    sc.mu.Lock()
-    sc.changed = append(sc.changed, changed...)
-    sc.external = append(sc.external, selectedExternal...)
-    sc.mu.Unlock()
+    sc.queueChanges(changed, selectedExternal)
+  }
+}
+
+// queueChanges records first-seen URI order without blocking on an executing
+// rule. A full invalidation already observes every disk change on reload.
+func (sc *residentSidecar) queueChanges(changed, external []string) {
+  sc.pendingMu.Lock()
+  defer sc.pendingMu.Unlock()
+  if sc.invalidate {
+    return
+  }
+  if sc.changedSet == nil {
+    sc.changedSet = make(map[string]struct{}, len(sc.changed)+len(changed))
+    for _, uri := range sc.changed {
+      sc.changedSet[uri] = struct{}{}
+    }
+  }
+  if sc.externalSet == nil {
+    sc.externalSet = make(map[string]struct{}, len(sc.external)+len(external))
+    for _, uri := range sc.external {
+      sc.externalSet[uri] = struct{}{}
+    }
+  }
+  for _, uri := range changed {
+    if _, exists := sc.changedSet[uri]; !exists {
+      sc.changedSet[uri] = struct{}{}
+      sc.changed = append(sc.changed, uri)
+    }
+  }
+  for _, uri := range external {
+    if _, exists := sc.externalSet[uri]; !exists {
+      sc.externalSet[uri] = struct{}{}
+      sc.external = append(sc.external, uri)
+    }
   }
 }
 
@@ -352,9 +455,15 @@ func (s *NativePluginSource) shutdownResidents() {
     return
   }
   s.residentMu.Lock()
+  s.closed = true
+  if s.cancelProcesses != nil {
+    s.cancelProcesses()
+  }
   residents := s.residents
   s.residents = map[string]*residentSidecar{}
   s.residentMu.Unlock()
+  s.hintsRefresh.close()
+  s.projectInputsRefresh.close()
   for _, sc := range residents {
     sc.mu.Lock()
     sc.kill()

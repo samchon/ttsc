@@ -20,12 +20,31 @@ import { sameHostInputRealpath } from "../inputs/sameHostInputRealpath";
 import type { TtscHostInputValidation } from "./TtscHostInputValidation";
 import { matchesRecordedInput } from "./matchesRecordedInput";
 
-/** Capture the universal-input manifest while the generation is still fresh. */
+/**
+ * Capture the universal-input manifest while the generation is still fresh.
+ *
+ * Missing or changed publication proof returns failures without adopting a
+ * manifest. Every universal input is examined so an unavailable observation
+ * cannot hide another input's actual change. Success attaches entries, absence
+ * probes and plugin-tree witnesses to this generation for later reuse decisions.
+ *
+ * @evidence contracts/common.md#principled-implementation Evaluation-time content and physical-target witnesses must agree with the generation snapshot before reuse; explicit producer observation unavailability remains distinct from changed, contradictory or unexplained missing proof, and every input is checked before classifying the attempt.
+ * @evidence contracts/common.md#clear-and-simple-design One admission operation builds the manifest; per-entry, absence and tree validators own its subsequent checks.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts A missing publication witness declines narrow reuse instead of certifying an input from a convenient newer read.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains failed admission and successful generation attachment; inline comments justify readable-state, blocker and tree distinctions.
+ * @evidence contracts/performance.md#efficient-algorithms Capture scans universal inputs and plugin trees with map/set insertion; first validation costs their read bytes and tree enumeration rather than repeating per-module capture.
+ * @evidence contracts/performance.md#reuse-equivalent-work This shared generation manifest records exactly qualified lexical spellings, separable signatures and tree environments for later validators; changed proof requires new admission.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The generation retains one manifest proportional to universal inputs and missing-probe groups; releasing it releases those records, with no native handles acquired here.
+ * @evidence contracts/portability.md#os-neutral-implementation Injected filesystem operations and measured generation case policy qualify native metadata and missing-name spelling; an unknown directory case policy cannot admit a listing-only absence proof, while physical targets and aliases remain distinct from content identity.
+ */
 export function captureUniversalHostInputValidation(
   cached: TtscCachedProjectTransform,
   currentFile: string,
 ): {
+  /** Classified reasons why universal input authority could not be admitted. */
   failures: TtscGenerationProofFailures;
+
+  /** Present only after this complete manifest passed admission. */
   validation?: TtscHostInputValidation;
 } {
   const filesystem = resultFilesystem(cached.result);
@@ -37,40 +56,75 @@ export function captureUniversalHostInputValidation(
     missing: new Map(),
     trees: new Map(),
   };
+  const result = cached.result;
+  const generationHashes =
+    result.type === "exception" ? undefined : result.hostInputHashes;
+  const generationRealpaths =
+    result.type === "exception" ? undefined : result.hostInputRealpaths;
+  const proofFailures =
+    result.type === "exception" ? undefined : result.hostInputProofFailures;
+  if (result.type !== "exception" && result.observationsComplete === false) {
+    recordGenerationProofFailure(failures, {
+      domain: "host",
+      kind: "observation-unavailable",
+      detail: "observer-incomplete",
+    });
+  }
+  for (const [input, reason] of Object.entries(proofFailures ?? {})) {
+    recordGenerationProofFailure(failures, {
+      domain: "host",
+      kind:
+        reason === "observation-unavailable"
+          ? "observation-unavailable"
+          : "producer-proof-failed",
+      detail: reason,
+      path: input,
+    });
+  }
   for (const input of selectPersistentHostInputs({
     filesystem,
     projectRoot: cached.projectRoot,
-    result: cached.result,
+    result:
+      result.type === "exception"
+        ? result
+        : {
+            ...result,
+            hostInputs: [
+              ...new Set([
+                ...(result.hostInputs ?? []),
+                ...Object.keys(generationHashes ?? {}),
+                ...Object.keys(generationRealpaths ?? {}),
+                ...Object.keys(proofFailures ?? {}),
+              ]),
+            ],
+          },
     scratchDirectory: cached.scratchDirectory,
     temporaryTsconfig: cached.temporaryTsconfig,
   })) {
-    const generationHashes =
-      cached.result.type === "exception"
-        ? undefined
-        : cached.result.hostInputHashes;
-    const generationRealpaths =
-      cached.result.type === "exception"
-        ? undefined
-        : cached.result.hostInputRealpaths;
-    const expected = generationHashes?.[path.resolve(input)];
-    // Every persistent universal input must carry an evaluation-time
-    // fingerprint. If a plugin/native host cannot provide one, keep the fresh
-    // result but decline narrow long-lived reuse.
+    const absoluteInput = path.resolve(input);
+    const unavailable =
+      proofFailures?.[absoluteInput] === "observation-unavailable";
+    const expected = generationHashes?.[absoluteInput];
+    // Every persistent universal input needs evaluation-time authority. Only
+    // explicit producer observation unavailability can permit a local fresh
+    // delivery without it; unexplained missing proof still rejects admission.
     let readable = false;
     if (expected === undefined) {
-      const current = path.resolve(currentFile);
-      if (path.resolve(input) !== current) {
-        recordGenerationProofFailure(failures, {
-          domain: "host",
-          kind: "content-proof-missing",
-          path: input,
-        });
-        return { failures };
+      if (!unavailable) {
+        const current = path.resolve(currentFile);
+        if (path.resolve(input) !== current) {
+          recordGenerationProofFailure(failures, {
+            domain: "host",
+            kind: "content-proof-missing",
+            path: input,
+          });
+          continue;
+        }
+        // The current module is the one this compile was started for, and its
+        // host carries no hash for it. Its recorded state is the walk's read of
+        // the disk, which `matchesRecordedInput` below compares; no signature
+        // is adopted for it, so every delivery re-reads it.
       }
-      // The current module is the one this compile was started for, and its
-      // host carries no hash for it. Its recorded state is the walk's read of
-      // the disk, which `matchesRecordedInput` below compares; no signature
-      // is adopted for it, so every delivery re-reads it.
     } else {
       const current = hostInputStateHash(input, filesystem);
       if (expected !== current) {
@@ -79,14 +133,13 @@ export function captureUniversalHostInputValidation(
           kind: "content-changed",
           path: input,
         });
-        return { failures };
+        continue;
       }
       // A path both sides agree they could not read carries no bytes for a
       // signature to stand for. It still belongs in the manifest, so the
       // content comparison keeps running for it on every delivery.
       readable = current !== null;
     }
-    const absoluteInput = path.resolve(input);
     if (generationRealpaths !== undefined) {
       if (
         !Object.prototype.hasOwnProperty.call(
@@ -106,12 +159,17 @@ export function captureUniversalHostInputValidation(
             absoluteInput,
           )
             ? "realpath-changed"
-            : "realpath-proof-missing",
+            : unavailable
+              ? "observation-unavailable"
+              : "realpath-proof-missing",
           path: input,
         });
-        return { failures };
+        continue;
       }
     }
+    // Known observations still undergo content and physical-target comparison
+    // above. Their unavailable closure can never become a reusable manifest.
+    if (unavailable) continue;
     validation.covered.add(path.resolve(input));
     const before = inputMetadataEvidence(input, filesystem);
     if (!matchesRecordedInput(cached, input)) {
@@ -120,7 +178,7 @@ export function captureUniversalHostInputValidation(
         kind: "snapshot-mismatch",
         path: input,
       });
-      return { failures };
+      continue;
     }
     const after = inputMetadataSignature(input, filesystem);
     if (before?.signature !== after) {
@@ -129,7 +187,7 @@ export function captureUniversalHostInputValidation(
         kind: "changed-during-validation",
         path: input,
       });
-      return { failures };
+      continue;
     }
     if (before !== undefined) {
       // Do not key this manifest by physical identity. A symlink/junction
@@ -156,7 +214,7 @@ export function captureUniversalHostInputValidation(
           kind: "blocker-metadata-unavailable",
           path: probe.blocker,
         });
-        return { failures };
+        continue;
       }
       // A blocker proves a kind and an identity, not content: it is the
       // non-directory ancestor that makes everything below it unreachable, and
@@ -174,6 +232,15 @@ export function captureUniversalHostInputValidation(
       });
       continue;
     }
+    const caseSensitive = state.identityContext.caseSensitive(probe.directory);
+    if (caseSensitive === undefined) {
+      recordGenerationProofFailure(failures, {
+        domain: "host",
+        kind: "case-policy-unavailable",
+        path: probe.directory,
+      });
+      continue;
+    }
     // The probe below proves this exact spelling absent, so the per-module loop
     // need not re-derive it either.
     let names = validation.missing.get(probe.directory);
@@ -182,10 +249,7 @@ export function captureUniversalHostInputValidation(
       validation.missing.set(probe.directory, names);
     }
     names.add(
-      normalizeHostInputName(
-        probe.name,
-        state.identityContext.caseSensitive(probe.directory),
-      ),
+      normalizeHostInputName(probe.name, caseSensitive),
     );
   }
   // A plugin binary keyed on a source other than the disk's now, whether it
@@ -202,11 +266,14 @@ export function captureUniversalHostInputValidation(
         kind: "content-changed",
         path: directory,
       });
-      return { failures };
+      continue;
     }
     validation.covered.add(directory);
     validation.trees.set(directory, digest);
     (validation.treeEnvironments ??= new Map()).set(directory, environment);
+  }
+  if (failures.entries.length !== 0 || failures.omitted !== 0) {
+    return { failures };
   }
   cached.hostInputValidation = validation;
   return { failures, validation };

@@ -29,6 +29,9 @@ const KEPT_PUBLICATIONS = 4;
  */
 const KEPT_STORE_PUBLICATIONS = 32;
 
+/** Maximum publication bytes retained by the shared store after pruning. */
+const KEPT_STORE_BYTES = 256 * 1024 * 1024;
+
 /**
  * Ask the session store for the compile named `identity` and `state`: another
  * worker's publication, or the lock to compile it here (samchon/ttsc#1390).
@@ -44,8 +47,10 @@ const KEPT_STORE_PUBLICATIONS = 32;
  *
  * The store outlives the processes that use it (samchon/ttsc#1483), so it
  * bounds itself: an adoption marks its publication used, and each publication
- * keeps the most recently used ones of its identity and of the whole store, and
- * removes locks and partial writes whose writer is gone.
+ * keeps the most recently used ones of its identity within the store's count
+ * and byte budgets, and removes locks and partial writes whose writer is gone.
+ * A publication larger than the byte budget stays in the compiling worker; it
+ * cannot be shared without making persistent storage unbounded.
  *
  * Sharing is only an optimization. Any failure to read, lock, or write the
  * store answers `undefined`, and the caller compiles for itself. With `adopt:
@@ -61,6 +66,52 @@ const KEPT_STORE_PUBLICATIONS = 32;
  * @param identity Hex digest of what the compile is.
  * @param state Hex digest of the project state it reads.
  * @param options.adopt Whether an existing publication may be adopted.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Filesystem directory creation coordinates independent workers, and owned
+ *   tokens distinguish a claim from another holder at the same pathname.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One identity/state claim selects adoption or compile ownership. Private
+ *   helpers separate lock coordination, publication, and bounded retention;
+ *   filesystem failure leaves the caller's local compile path available.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The optional store preserves a local compile path when sharing is
+ *   unavailable rather than changing compile semantics; it uses native APIs
+ *   without replacing foreign methods.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc explains why the store is optional, what identity and state name,
+ *   how waiting and abandonment differ, and why retained publications need
+ *   bounds. Purpose and reasons use separate native paragraphs under the
+ *   documentation skill; claim and publication interfaces retain their value
+ *   documentation.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Node native paths and filesystem operations own store publication. The
+ *   implementation has a Windows replacement path because an open destination
+ *   may refuse rename; this does not make its ownership checks atomic. The
+ *   remaining pathname-check and replacement windows are recorded for
+ *   investigation rather than asserted OS-safe.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Waiters yield with capped backoff. Pruning scans the persisted store and
+ *   sorts last-use entries, then totals their sizes once, because independent
+ *   processes share its inventory; a process-local index would not describe it.
+ *
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The identity/state pair shares one generation across workers. The producer
+ *   supplies those digests and the caller validates adoption; a pathname alone
+ *   does not establish input equivalence. Store failure or an oversized
+ *   publication leaves later workers on the actual compile path.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   A publication over 256 MiB is not persisted. Each successful publication
+ *   best-effort prunes to four files per identity, 32 store-wide and 256 MiB of
+ *   publication bytes. Concurrent writes or failed removals can temporarily
+ *   exceed these limits. A holder releases its heartbeat and owned lock; later
+ *   prunes remove abandoned locks and partial writes of departed workers.
  */
 export async function claimSharedCompile(
   store: string,
@@ -242,7 +293,12 @@ function holdLock(
     publish: async (value) => {
       const temporary = `${publication}.${process.pid}.${crypto.randomUUID()}.tmp`;
       try {
-        await fs.promises.writeFile(temporary, JSON.stringify(value), "utf8");
+        const serialized = JSON.stringify(value);
+        if (Buffer.byteLength(serialized, "utf8") > KEPT_STORE_BYTES) {
+          await prunePublications(store, identity);
+          return;
+        }
+        await fs.promises.writeFile(temporary, serialized, "utf8");
         // A holder that lost the lock while it compiled no longer speaks for
         // the store: its successor may already have published a newer answer,
         // which this one must not replace. Checked after the write, right
@@ -269,16 +325,20 @@ function holdLock(
       released = true;
       clearInterval(heartbeat);
       if (owns(lock, token)) {
-        fs.rmSync(lock, { force: true, recursive: true });
+        try {
+          fs.rmSync(lock, { force: true, recursive: true });
+        } catch {
+          // Cleanup is best effort: a failed removal must not prevent the
+          // caller's independent generation resources from being released.
+        }
       }
     },
   };
 }
 
 /**
- * Keep the most recently used publications of `identity` and of the whole
- * store, removing the rest, and remove the locks and partial writes of workers
- * that are gone.
+ * Keep the most recently used publications of `identity` within the store's
+ * count and byte budgets, and remove abandoned locks and partial writes.
  */
 async function prunePublications(
   store: string,
@@ -291,9 +351,10 @@ async function prunePublications(
       .map(async (entry) => {
         const file = path.join(store, entry);
         try {
-          return { entry, file, used: (await fs.promises.stat(file)).mtimeMs };
+          const stat = await fs.promises.stat(file);
+          return { entry, file, size: stat.size, used: stat.mtimeMs };
         } catch {
-          return { entry, file, used: -1 };
+          return { entry, file, size: 0, used: -1 };
         }
       }),
   );
@@ -303,6 +364,12 @@ async function prunePublications(
     ...own.slice(KEPT_PUBLICATIONS).map(({ file }) => file),
     ...dated.slice(KEPT_STORE_PUBLICATIONS).map(({ file }) => file),
   ]);
+  let keptBytes = 0;
+  for (const { file, size } of dated) {
+    if (removed.has(file)) continue;
+    if (size > KEPT_STORE_BYTES - keptBytes) removed.add(file);
+    else keptBytes += size;
+  }
   for (const file of removed) {
     await fs.promises.rm(file, { force: true }).catch(() => undefined);
   }
@@ -353,24 +420,74 @@ async function readPublication(
     return undefined;
   }
   try {
-    const value = JSON.parse(text) as Partial<TtscSharedCompilePublication>;
-    const type = (value.result as { type?: unknown } | undefined)?.type;
+    const value: unknown = JSON.parse(text);
     // A compile that ended in diagnostics is published like one that
     // succeeded (samchon/ttsc#1458); an exception never is.
     if (
-      (type !== "success" && type !== "failure") ||
-      typeof value.externalInputHashes !== "object" ||
-      value.externalInputHashes === null ||
-      typeof value.externalInputRealpaths !== "object" ||
-      value.externalInputRealpaths === null ||
+      !isPublicationRecord(value) ||
+      !isPublicationResult(value.result) ||
+      !isPublicationRecord(value.externalInputHashes) ||
+      !Object.values(value.externalInputHashes).every((hash) => typeof hash === "string") ||
+      !isPublicationRecord(value.externalInputRealpaths) ||
+      !Object.values(value.externalInputRealpaths).every((realpath) =>
+        realpath === null || typeof realpath === "string") ||
       typeof value.scratchDirectory !== "string" ||
       (value.temporaryTsconfig !== undefined &&
         typeof value.temporaryTsconfig !== "string")
     ) {
       return undefined;
     }
-    return value as TtscSharedCompilePublication;
+    return value as unknown as TtscSharedCompilePublication;
   } catch {
     return undefined;
   }
+}
+
+/** Persisted dictionary values must not be arrays or null. */
+function isPublicationRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Check the envelope fields read directly before advisory index validation. */
+function isPublicationResult(value: unknown): boolean {
+  if (!isPublicationRecord(value) ||
+    (value.type !== "success" && value.type !== "failure") ||
+    !isPublicationRecord(value.typescript) ||
+    !Object.values(value.typescript).every((source) => typeof source === "string"))
+    return false;
+  // Neither an explicit incomplete observer nor failed per-input authority can
+  // certify cross-worker reuse. Unsupported marker shapes are not ignored.
+  if (value.observationsComplete !== undefined ||
+    (value.hostInputProofFailures !== undefined &&
+      (!isPublicationRecord(value.hostInputProofFailures) ||
+        Object.keys(value.hostInputProofFailures).length !== 0))) return false;
+  if (value.diagnostics !== undefined) {
+    if (!Array.isArray(value.diagnostics) ||
+      !value.diagnostics.every((diagnostic) =>
+        isPublicationRecord(diagnostic) && typeof diagnostic.messageText === "string" &&
+        (diagnostic.file === undefined || typeof diagnostic.file === "string") &&
+        (diagnostic.line === undefined || typeof diagnostic.line === "number") &&
+        (diagnostic.character === undefined || typeof diagnostic.character === "number")))
+      return false;
+  } else if (value.type === "failure") return false;
+  if (value.graph !== undefined && !isPublicationRecord(value.graph)) return false;
+  if (value.sourceMaps !== undefined &&
+    (!isPublicationRecord(value.sourceMaps) ||
+      !Object.values(value.sourceMaps).every(isPublicationSourceMap))) return false;
+  return true;
+}
+
+/** Source maps must support the native source/provenance projection safely. */
+function isPublicationSourceMap(value: unknown): boolean {
+  if (!isPublicationRecord(value) || value.version !== 3 ||
+    typeof value.mappings !== "string" ||
+    !Array.isArray(value.sources) ||
+    !value.sources.every((source) => typeof source === "string") ||
+    !Array.isArray(value.names) ||
+    !value.names.every((name) => typeof name === "string") ||
+    (value.sourceRoot !== undefined && typeof value.sourceRoot !== "string"))
+    return false;
+  return value.sourcesContent === undefined ||
+    (Array.isArray(value.sourcesContent) &&
+      value.sourcesContent.every((source) => source === null || typeof source === "string"));
 }

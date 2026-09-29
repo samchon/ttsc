@@ -32,6 +32,17 @@ type hostOptions struct {
   tsgoArgs       []string
   stdout         io.Writer
   stderr         io.Writer
+
+  // provenanceJSON is a caller-owned absolute private build-result path.
+  provenanceJSON string
+
+  // checkObservationsJSON is the caller-owned absolute check input result path.
+  checkObservationsJSON string
+
+  // observationsIncomplete points to the resident host's committed generation
+  // state. It is nil for non-resident calls and updated only after success.
+  observationsIncomplete *bool
+
   // fs overrides the filesystem the program loads from. Only the resident serve
   // host sets it (to an OverlayFS), so build/check/transform leave it nil and
   // LoadProgram falls back to the default filesystem.
@@ -52,15 +63,21 @@ type transformResult struct {
   // declared about their own contribution to each file; the host prints the
   // parsed AST syntactically, so it adds nothing of its own to either. See
   // driver.Program.TransformDependenciesFor.
-  Dependencies         map[string][]string        `json:"dependencies,omitempty"`
-  DependenciesComplete []string                   `json:"dependenciesComplete,omitempty"`
-  Diagnostics          []transformDiagnostic      `json:"diagnostics,omitempty"`
-  Graph                *driver.TransformGraph     `json:"graph,omitempty"`
-  HostInputs           []string                   `json:"hostInputs,omitempty"`
-  HostInputHashes      map[string]*string         `json:"hostInputHashes,omitempty"`
-  HostInputRealpaths   map[string]*string         `json:"hostInputRealpaths,omitempty"`
-  SourceMaps           map[string]json.RawMessage `json:"sourceMaps,omitempty"`
-  TypeScript           map[string]string          `json:"typescript"`
+  Dependencies map[string][]string `json:"dependencies,omitempty"`
+
+  DependenciesComplete []string               `json:"dependenciesComplete,omitempty"`
+  Diagnostics          []transformDiagnostic  `json:"diagnostics,omitempty"`
+  Graph                *driver.TransformGraph `json:"graph,omitempty"`
+  HostInputs           []string               `json:"hostInputs,omitempty"`
+  HostInputHashes      map[string]*string     `json:"hostInputHashes,omitempty"`
+  HostInputRealpaths   map[string]*string     `json:"hostInputRealpaths,omitempty"`
+
+  // ObservationsComplete is present only as false when a linked hook explicitly
+  // could not observe its input population. Absence is not completeness proof.
+  ObservationsComplete *bool `json:"observationsComplete,omitempty"`
+
+  SourceMaps map[string]json.RawMessage `json:"sourceMaps,omitempty"`
+  TypeScript map[string]string          `json:"typescript"`
 }
 
 // transformDiagnostic matches the public JavaScript compiler diagnostic shape.
@@ -77,22 +94,64 @@ type transformDiagnostic struct {
 
 // RunCheck validates the project and linked plugin configuration without
 // emitting output.
+//
+// @evidence contracts/common.md#principled-implementation The CLI entry uses the same project and plugin validation as invocation-owned stream callers.
+// @evidence contracts/common.md#clear-and-simple-design One delegation supplies the process standard streams without another check implementation.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The default-stream entry does not bypass validation or change flags for test cases.
+// @evidence contracts/common.md#meaningful-documentation Native prose states validation without output emission following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Process output uses os.Stdout and os.Stderr; native loading belongs to the delegated operation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms RunCheckWithIO owns processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The delegated check owns its program generation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The wrapper borrows process streams and acquires no independent resource.
 func RunCheck(args []string) int {
   return RunCheckWithIO(args, os.Stdout, os.Stderr)
 }
 
 // RunCheckWithIO runs check with invocation-owned output streams.
-func RunCheckWithIO(args []string, stdout, stderr io.Writer) int {
+// It returns 2 when flag parsing, project loading, or a linked hook fails.
+// Requested metadata publication failure adds a diagnostic and changes an
+// otherwise successful check to status 3; an existing check failure is retained.
+//
+// Requested metadata belongs to this exact check generation and is published on
+// both successful and failed checks. A missing generation is explicitly
+// incomplete. Input authority does not erase the command's status or diagnostics.
+//
+// @evidence contracts/common.md#principled-implementation A no-emit generation validates linked configuration and hook failures; requested observation metadata comes from that generation even on diagnostics, and missing generation authority is explicitly incomplete.
+// @evidence contracts/common.md#clear-and-simple-design Parse, load, and apply are ordered phases with one deferred Program close.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts A failed load or hook returns failure instead of manufacturing an empty successful program.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs identify caller-owned streams, failure statuses and the private observation artifact's generation and diagnostic meaning following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Native cwd and config paths flow through driver loading; streams remain invocation-owned without globally swapping standard descriptors.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Compiler loading and plugin application owners select their algorithms; this entry orders those operations.
+// @evidence contracts/performance.md#reuse-equivalent-work The loaded generation's latched hooks are used once instead of loading separate check and plugin programs.
+// @evidence contracts/performance.md#bound-retention-and-release-resources One deferred owner publishes requested observations before closing the acquired Program on successful checks, compiler diagnostics or hook failure; no generation is retained after return.
+func RunCheckWithIO(args []string, stdout, stderr io.Writer) (status int) {
   opts, ok := parseHostOptions("check", args, stdout, stderr)
   if !ok {
     return 2
   }
   opts.noEmit = true
-  prog, _, ok := loadUtilityProgram(opts)
+  var prog *driver.Program
+  defer func() {
+    if opts.checkObservationsJSON != "" {
+      if err := driver.WriteCheckObservationsJSON(opts.checkObservationsJSON, prog); err != nil {
+        fmt.Fprintf(opts.stderr, "ttsc utility: check observations write failed: %v\n", err)
+        if status == 0 {
+          status = 3
+        }
+      }
+    }
+    if prog != nil {
+      _ = prog.Close()
+    }
+  }()
+  prog, _, diags, ok := loadUtilityProgramWithDiagnostics(opts)
   if !ok {
     return 2
   }
-  defer prog.Close()
+  if len(diags) != 0 {
+    driver.WritePrettyDiagnostics(opts.stderr, diags, opts.cwd)
+    return 2
+  }
   if err := prog.ApplyLinkedPlugins(); err != nil {
     fmt.Fprintln(opts.stderr, err)
     return 2
@@ -101,11 +160,37 @@ func RunCheckWithIO(args []string, stdout, stderr io.Writer) int {
 }
 
 // RunBuild hosts linked transform packages inside one compiler emit.
+//
+// @evidence contracts/common.md#principled-implementation Process-stream build delegates to the same linked-program emission owner as embedding callers.
+// @evidence contracts/common.md#clear-and-simple-design One delegation supplies the standard streams without duplicating build policy.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The wrapper adds no package-name or fixture-specific build path.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies one compiler emit following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Standard streams come from os; the delegated build owns native project paths and writes.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The delegated build owns emit orchestration.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The wrapper owns no shared-work coordinator.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The wrapper borrows streams without acquiring a program lease.
 func RunBuild(args []string) int {
   return RunBuildWithIO(args, os.Stdout, os.Stderr)
 }
 
 // RunBuildWithIO runs build with invocation-owned output streams.
+// It returns 2 for project/compiler failure and 3 for driver emission or private
+// metadata publication failure.
+//
+// An absolute private provenance path receives the raw output-to-source map after
+// completed emission, including successful writes from a build with emit
+// diagnostics. Analysis-only success writes an empty map. The original build
+// status remains authoritative; absent or invalid metadata supplies no ownership
+// proof. Callers own the artifact's removal.
+//
+// @evidence contracts/common.md#principled-implementation Completed emission publishes the same generation's successful writer ownership even when another output failed; original emit diagnostics retain status two, failed metadata alone returns three, and successful noEmit publishes an empty map.
+// @evidence contracts/common.md#clear-and-simple-design One loaded program, one raw native emit, and shared diagnostic classification define the build phases.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler error output is not converted into success; banner handling follows the source-preamble contract rather than expected fixture output.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs identify stream ownership, failure statuses, private metadata admission and caller artifact removal following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Driver loading and DefaultWriteFile own native paths and filesystem APIs; output streams are not replaced globally.
+// @evidence contracts/performance.md#efficient-algorithms The existing loaded program is emitted once, with native parallel work and serialized output callback ownership preserved.
+// @evidence contracts/performance.md#reuse-equivalent-work The same loaded compiler generation validates and emits; linked program hooks remain latched rather than independently reexecuted for output files.
+// @evidence contracts/performance.md#bound-retention-and-release-resources A deferred close releases the Program checker lease on noEmit, success, or emit failure; temporary write callbacks are invocation-owned.
 func RunBuildWithIO(args []string, stdout, stderr io.Writer) int {
   opts, ok := parseHostOptions("build", args, stdout, stderr)
   if !ok {
@@ -117,6 +202,12 @@ func RunBuildWithIO(args []string, stdout, stderr io.Writer) int {
   }
   defer prog.Close()
   if opts.noEmit {
+    if opts.provenanceJSON != "" {
+      if err := driver.WriteEmitProvenanceJSON(opts.provenanceJSON, map[string][]string{}); err != nil {
+        fmt.Fprintf(opts.stderr, "ttsc utility: provenance write failed: %v\n", err)
+        return 3
+      }
+    }
     return 0
   }
   if opts.verbose {
@@ -125,15 +216,35 @@ func RunBuildWithIO(args []string, stdout, stderr io.Writer) int {
   if !opts.quiet {
     fmt.Fprintf(opts.stdout, "// ttsc utility: plugins=%d emit=%v\n", len(entries), !opts.noEmit)
   }
-  res, eDiags, err := prog.EmitAllRaw(makeSourcePreambleWriteFile(prog))
+  writeFile := makeSourcePreambleWriteFile(prog)
+  var snapshot func() map[string][]string
+  if opts.provenanceJSON != "" {
+    var err error
+    writeFile, snapshot, err = prog.NewEmitProvenanceRecorder(writeFile)
+    if err != nil {
+      fmt.Fprintf(opts.stderr, "ttsc utility: provenance failed: %v\n", err)
+      return 3
+    }
+  }
+  res, eDiags, err := prog.EmitAllRaw(writeFile)
   if err != nil {
     fmt.Fprintf(opts.stderr, "ttsc utility: emit failed: %v\n", err)
     return 3
   }
+  var provenanceErr error
+  if snapshot != nil {
+    provenanceErr = driver.WriteEmitProvenanceJSON(opts.provenanceJSON, snapshot())
+  }
   driver.WritePrettyDiagnostics(opts.stderr, eDiags, opts.cwd)
+  if provenanceErr != nil {
+    fmt.Fprintf(opts.stderr, "ttsc utility: provenance write failed: %v\n", provenanceErr)
+  }
   if driver.CountErrors(eDiags) > 0 {
     fmt.Fprintln(opts.stderr, "ttsc utility: emit failed; build output is incomplete")
     return 2
+  }
+  if provenanceErr != nil {
+    return 3
   }
   if res != nil && !opts.quiet {
     fmt.Fprintf(opts.stdout, "// ttsc utility: emitted=%d files\n", len(res.EmittedFiles))
@@ -143,11 +254,32 @@ func RunBuildWithIO(args []string, stdout, stderr io.Writer) int {
 
 // RunTransform returns the project TypeScript text after linked source
 // mutations.
+//
+// @evidence contracts/common.md#principled-implementation The default-stream entry preserves the embedding transform's structured envelope and failure policy.
+// @evidence contracts/common.md#clear-and-simple-design One call supplies process streams without implementing a second transform.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The CLI wrapper has no alternate fixture or named-plugin output logic.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies post-plugin TypeScript output following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation The wrapper obtains process streams from os and delegates native project behavior.
+// @evidenceExclude contracts/performance.md#efficient-algorithms RunTransformWithIO owns transformation and envelope construction.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The wrapper coordinates no shared computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Process streams are borrowed; the delegated operation owns Program acquisition and release.
 func RunTransform(args []string) int {
   return RunTransformWithIO(args, os.Stdout, os.Stderr)
 }
 
 // RunTransformWithIO runs transform with invocation-owned output streams.
+// Failed projects retain diagnostics and recovery inputs but publish no partial
+// TypeScript. Encoding or response-write failure returns 3; project failure
+// returns 2.
+//
+// @evidence contracts/common.md#principled-implementation The original compiler graph is observed before AST mutation, failed transforms retain recovery inputs without partial output, and response encoding/write failures cannot report successful delivery.
+// @evidence contracts/common.md#clear-and-simple-design Loading, pre-mutation graph capture, syntactic printing, and envelope encoding are distinct ordered phases.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Maps are omitted when exact correction fails; partial mutations are not published as successful TypeScript and missing dependencies are not guessed.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs explain stream ownership, recovery output, and response failure status following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation All envelope sections share TransformOutputKey, actual compiler case policy, and native observed inputs; invocation streams need no global descriptor mutation.
+// @evidence contracts/performance.md#efficient-algorithms Each resident source is printed once, graph collection keeps direct adjacency, and final JSON is encoded once rather than per-file envelopes.
+// @evidence contracts/performance.md#reuse-equivalent-work One compiler generation supplies original observations, transformed ASTs, host inputs, and latched plugin declarations, preserving their shared producer identity.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Program ownership closes on every exit after loading; graph, source text, and encoding buffers are local to one response.
 func RunTransformWithIO(args []string, stdout, stderr io.Writer) int {
   opts, ok := parseHostOptions("transform", args, stdout, stderr)
   if !ok {
@@ -199,6 +331,10 @@ func RunTransformWithIO(args []string, stdout, stderr io.Writer) int {
     out.HostInputs = prog.PluginHostInputs()
     out.HostInputHashes = prog.PluginHostInputHashes()
     out.HostInputRealpaths = prog.PluginHostInputRealpaths()
+    if prog.PluginObservationsIncomplete() {
+      incomplete := false
+      out.ObservationsComplete = &incomplete
+    }
   }
   for _, diag := range diags {
     var file *string
@@ -216,8 +352,15 @@ func RunTransformWithIO(args []string, stdout, stderr io.Writer) int {
       Character: diag.Column, MessageText: diag.Message,
     })
   }
-  data, _ := json.Marshal(out)
-  fmt.Fprintln(opts.stdout, string(data))
+  data, err := json.Marshal(out)
+  if err != nil {
+    fmt.Fprintf(opts.stderr, "ttsc utility: transform response encoding failed: %v\n", err)
+    return 3
+  }
+  if _, err := fmt.Fprintln(opts.stdout, string(data)); err != nil {
+    fmt.Fprintf(opts.stderr, "ttsc utility: transform response write failed: %v\n", err)
+    return 3
+  }
   if len(diags) != 0 {
     return 2
   }
@@ -248,7 +391,23 @@ func parseHostOptions(command string, args []string, stdout, stderr io.Writer) (
   singleThreaded := fs.Bool("singleThreaded", false, "run TypeScript-Go single-threaded")
   checkers := fs.Int("checkers", 0, "type-checker pool size (0 = TypeScript-Go default)")
   tsgoArgsRaw := fs.String("tsgo-args", "", "JSON array of forwarded tsgo CLI flags")
-  if err := fs.Parse(filterHostArgs(args)); err != nil {
+  provenanceJSON := ""
+  checkObservationsJSON := ""
+  if command == "build" {
+    fs.StringVar(&provenanceJSON, "emit-provenance-json", "", "private absolute emit provenance result path")
+  }
+  if command == "check" {
+    fs.StringVar(&checkObservationsJSON, "check-observations-json", "", "private absolute check input result path")
+  }
+  if err := fs.Parse(filterDeclaredHostArgs(args, fs)); err != nil {
+    return hostOptions{}, false
+  }
+  if provenanceJSON != "" && !filepath.IsAbs(provenanceJSON) {
+    fmt.Fprintln(stderr, "ttsc utility: emit provenance path must be absolute")
+    return hostOptions{}, false
+  }
+  if checkObservationsJSON != "" && !filepath.IsAbs(checkObservationsJSON) {
+    fmt.Fprintln(stderr, "ttsc utility: check observations path must be absolute")
     return hostOptions{}, false
   }
   var tsgoArgs []string
@@ -280,19 +439,21 @@ func parseHostOptions(command string, args []string, stdout, stderr io.Writer) (
     resolvedCwd = abs
   }
   return hostOptions{
-    cwd:            filepath.Clean(resolvedCwd),
-    emit:           *emit,
-    noEmit:         *noEmit,
-    outDir:         *outDir,
-    pluginsJSON:    *pluginsJSON,
-    quiet:          *quiet,
-    tsconfig:       *tsconfig,
-    verbose:        *verbose,
-    singleThreaded: *singleThreaded,
-    checkers:       *checkers,
-    tsgoArgs:       tsgoArgs,
-    stdout:         stdout,
-    stderr:         stderr,
+    cwd:                   filepath.Clean(resolvedCwd),
+    emit:                  *emit,
+    noEmit:                *noEmit,
+    outDir:                *outDir,
+    pluginsJSON:           *pluginsJSON,
+    quiet:                 *quiet,
+    tsconfig:              *tsconfig,
+    verbose:               *verbose,
+    singleThreaded:        *singleThreaded,
+    checkers:              *checkers,
+    tsgoArgs:              tsgoArgs,
+    stdout:                stdout,
+    stderr:                stderr,
+    provenanceJSON:        provenanceJSON,
+    checkObservationsJSON: checkObservationsJSON,
   }, true
 }
 
@@ -306,6 +467,13 @@ func parseHostOptions(command string, args []string, stdout, stderr io.Writer) (
 // (see flags_gen.go); editing it means editing the schema and re-running
 // `pnpm format`, not patching this file.
 func filterHostArgs(args []string) []string {
+  return filterDeclaredHostArgs(args, nil)
+}
+
+// filterDeclaredHostArgs supplements unknown names with actual local flags.
+// Public flags retain the generated schema's established filtering semantics;
+// nil preserves the legacy filter's declaration and invocation contract.
+func filterDeclaredHostArgs(args []string, local *flag.FlagSet) []string {
   filtered := make([]string, 0, len(args))
   for i := 0; i < len(args); i++ {
     current := args[i]
@@ -318,6 +486,13 @@ func filterHostArgs(args []string) []string {
     }
     name, hasInlineValue := flagName(current)
     takesValue, ok := HostFlagAllowList[name]
+    if !ok && local != nil {
+      if declared := local.Lookup(name); declared != nil {
+        boolean, isBoolean := declared.Value.(interface{ IsBoolFlag() bool })
+        takesValue = !isBoolean || !boolean.IsBoolFlag()
+        ok = true
+      }
+    }
     if ok {
       filtered = append(filtered, current)
       if takesValue && !hasInlineValue && i+1 < len(args) {
@@ -439,10 +614,9 @@ func setLinkedPluginManifest(input string) func() {
 // before TypeScript-Go parses), which has two output consequences this callback
 // reconciles:
 //
-//   - The preamble shifts every recorded source coordinate down by its line
-//     count, so emitted source maps (external `.js.map` / `.d.ts.map`, or inline
-//     base64 maps embedded in the JS/d.ts) point past the real source.
-//     AdjustEmittedSourceMap undoes that shift on every emitted file. It must run
+//   - The preamble changes parsed source coordinates and embedded source text,
+//     so external `.js.map` / `.d.ts.map` and inline maps need the Program's
+//     exact authored-region correction. It must run
 //     even when RemoveComments strips the banner text from the JS/d.ts, because
 //     the source is preamble-injected regardless of RemoveComments.
 //   - The banner text itself is ensured in the `.js` / `.d.ts` output, only when
@@ -458,12 +632,14 @@ func makeSourcePreambleWriteFile(prog *driver.Program) shimcompiler.WriteFile {
     return nil
   }
   preamble := prog.SourcePreamble
-  dropLines := strings.Count(preamble, "\n")
+  correctSourceMap := prog.NewSourceMapCorrector()
   injectBanner := !shouldRemoveComments(prog)
   return func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-    if adjusted, ok := driver.AdjustEmittedSourceMap(fileName, text, dropLines); ok {
-      text = adjusted
+    corrected, err := correctSourceMap(fileName, text)
+    if err != nil {
+      return err
     }
+    text = corrected
     if injectBanner && shouldEnsureSourcePreamble(fileName, text, preamble) {
       text = driver.ApplySourcePreamble(text, preamble)
     }

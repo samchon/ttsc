@@ -12,7 +12,8 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "rimraf lib && tsc"
+    "build": "rimraf lib && tsc",
+    "evidence": "evidence"
   },
   "keywords": [
     "ttsc",

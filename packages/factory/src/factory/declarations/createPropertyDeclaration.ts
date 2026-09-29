@@ -28,6 +28,22 @@ import { make } from "../internal/make";
  * public readonly id: string = "x";
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   Property-name normalization keeps computed/literal keys. Optional or
+ *   definite-assignment token, type and initializer remain independent grammar
+ *   slots; callers supply valid marker/type combinations.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The field declaration owns its header/default while child type/expression
+ *   builders own those subtrees; class grouping and decorators are printed elsewhere.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Source field construction does not patch object properties or inject defaults.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native prose explains marker distinctions, decorators, typing and defaults
+ *   in separated paragraphs with an example before acknowledgment tags.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param modifiers The leading modifiers and decorators, if any.
  * @param name The name.

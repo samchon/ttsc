@@ -15,6 +15,12 @@ import { resolveProjectIdentity } from "ttsc/path-identity";
  *
  * @param tsconfig The project's tsconfig as the adapter names it.
  * @param projectRoot The project root the compile declares.
+ *
+ * @evidence contracts/common.md#principled-implementation The compiler's existing project-identity resolver supplies the physical config address; inability to resolve preserves the original input so the compile owns its diagnostic.
+ * @evidence contracts/common.md#clear-and-simple-design The adapter projects the shared identity into config spelling and directory instead of implementing another canonicalization policy.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed identity resolution is not converted into a fabricated config or fixed-path fallback that could select another project.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the compiler anchor and unresolved-input behavior; parameter tags identify both project addresses.
+ * @evidence contracts/portability.md#os-neutral-implementation The existing compiler project-identity API owns physical/native path semantics, while Node dirname preserves the selected volume and separators; unresolved input remains a compiler-owned error.
  */
 export function compilerProjectSpelling(
   tsconfig: string,

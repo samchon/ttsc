@@ -12,8 +12,24 @@ import { make } from "../internal/make";
  * Given the elements `string` and `number`, the printer renders:
  *
  * ```ts
- * [string, number];
+ * [string, number]
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Element order remains part of TupleTypeNode's structure, including explicit
+ *   named, optional and rest wrappers. The caller supplies valid member combinations.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   A single element array represents the tuple without converting it to an
+ *   array union or reproducing delimiter layout in the factory.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   No index-specific types or inferred tuple lengths replace the supplied
+ *   elements; list legality is not disguised by dropping members.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native prose explains ordering, supported wrappers and width-dependent
+ *   commas; the example shows the bare tuple type.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param elements The tuple element types.

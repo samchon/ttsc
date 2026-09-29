@@ -3,7 +3,7 @@
 //
 // A consumer wasm looks like this:
 //
-//  //go:build js
+//  //go:build js && wasm
 //  package main
 //
 //  import (
@@ -12,7 +12,7 @@
 //  )
 //
 //  func main() {
-//    // Expose never returns; it installs the JS API and blocks forever.
+//    // A valid registration installs the JS API until Worker termination.
 //    host.Expose("yourApi", host.Config{
 //      Plugins: []host.Plugin{yourplugin.New()},
 //    })
@@ -27,7 +27,7 @@
 // contract — the same shape the native sidecars implement — so the wasm and
 // the native CLI can share their Run* entry points byte-for-byte.
 //
-// The package is browser-agnostic: every JS-facing helper sits behind
-// //go:build js, so a consumer can `go build ./...` natively without GOOS=js
-// to keep CI happy.
+// JavaScript bindings use //go:build js && wasm. A native build selects a
+// no-op Expose with the same signature and the shared project/plugin helpers;
+// checking the bodies of js/wasm-only files requires a js/wasm build.
 package host

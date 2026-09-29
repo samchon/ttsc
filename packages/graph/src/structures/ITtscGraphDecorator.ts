@@ -4,6 +4,11 @@
  * per framework: `name` is the decorator as written (`Controller`, `Get`,
  * `TypedRoute.Get`, ...), and statically resolvable literal arguments are
  * preserved so a consumer applies its own meaning without re-parsing source.
+ *
+ * @evidence contracts/common.md#principled-implementation The written name and literal arguments represent syntax without inventing framework semantics.
+ * @evidence contracts/common.md#clear-and-simple-design Name and ordered arguments are the complete decorator envelope; argument details have their own record.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts No framework-specific decorator names are encoded as special cases.
+ * @evidence contracts/common.md#meaningful-documentation Native comments distinguish written names, source ordering and statically resolvable arguments in separate paragraphs.
  */
 export interface ITtscGraphDecorator {
   /**
@@ -20,6 +25,11 @@ export namespace ITtscGraphDecorator {
    * One argument of an {@link ITtscGraphDecorator}. `literal` is set only when
    * the argument is a string, number, or boolean literal the producer could
    * resolve statically, so a consumer can use it without evaluating code.
+   *
+   * @evidence contracts/common.md#principled-implementation The primitive union represents resolved literals; absence represents an argument that cannot be resolved statically.
+   * @evidence contracts/common.md#clear-and-simple-design One optional value carries the argument fact without embedding expression bodies.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The representation does not evaluate an argument or substitute a guessed value.
+   * @evidence contracts/common.md#meaningful-documentation The argument comment explains absence and the literal-only boundary, with a blank line before acknowledgment tags.
    */
   export interface IArgument {
     /** The statically-resolved literal value, when the argument is a literal. */

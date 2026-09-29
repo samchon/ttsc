@@ -31,6 +31,69 @@ type plugin struct{}
 // declaration introduced (isModuleLoader). A complete declaration would have to
 // name those, and the second of them is exactly the global-scope set the
 // declaration drops, so silence keeps the sound host-owned bound (samchon/ttsc#1263).
+//
+// The rewriter uses the program's own Checker and filesystem case policy,
+// following TypeScript-Go's module-pattern precedence and emit-path model.
+// Its per-program source index and ordered patterns are reused by all file
+// walks; the AST traversal closure is allocated once per walk. Consumer names
+// do not select transforms, and native paths become slash-separated specifiers
+// only after output mapping.
+//
+// Principled implementation:
+//   Program source membership and the Program's Checker determine eligible
+//   module references. Helpers commit to the compiler's best paths pattern,
+//   preserve its substitution order and map recognized source extensions to
+//   emitted extensions. Only eligible string literals change; global ambient
+//   module names and locally bound require calls retain their meaning. Failed
+//   source or output mapping leaves the specifier unchanged.
+//
+// Clear and simple design:
+//   One rewriter owns the configuration snapshot and source index for this
+//   Program. Syntax eligibility, alias resolution and output mapping are
+//   separate helpers, so compiler path policy has one owner rather than a
+//   different implementation for each supported AST shape.
+//
+// Prohibited implementation shortcuts:
+//   Pattern keys and substitution targets come from compiler options, and
+//   source membership comes from the Program. Extension constants represent
+//   emitted language formats; they do not identify consumers or expected
+//   outputs. Mutating owned AST string literals is the host's transform
+//   protocol, not replacement of foreign methods or runtime globals.
+//
+// Meaningful documentation:
+//   Native comments explain why dependency completeness is withheld and how
+//   Checker facts delimit the rewrite. Helper documentation describes pattern
+//   precedence, source membership, root containment and extension semantics;
+//   member comments identify the stored configuration and source index. Each
+//   topic has its own paragraph, following the documentation skill.
+//
+// OS-neutral implementation:
+//   Native paths use filepath operations, while normalized keys use the
+//   Program filesystem's actual case policy. Root containment compares those
+//   keys and keeps the original suffix spelling. Common-root inference uses
+//   TypeScript-Go path components and rejects disjoint volumes; only the
+//   final relative module specifier uses protocol forward slashes.
+//
+// Efficient algorithms:
+//   Construction indexes S source paths and orders P patterns once. Traversal
+//   visits N AST nodes once, with one recursive closure per file. Each eligible
+//   literal scans at most P patterns, then the selected pattern's T targets;
+//   each target performs a fixed number of hash lookups for recognized source
+//   extensions and index names. Pattern precedence requires finding the best
+//   match; sorted first-match resolution avoids sorting at every literal.
+//   Source indexing avoids scanning S files for each candidate.
+//
+// Reuse equivalent work:
+//   All file walks share the source index, ordered paths and Checker of the
+//   same Program. Their validity is restricted to that invocation's source
+//   membership, options and semantic snapshot. A later Program constructs a
+//   new rewriter; the plugin does not reuse results across changed snapshots.
+//
+// Bound retention and release resources:
+//   This synchronous invocation owns the rewriter. It retains one source
+//   entry per Program file and copied configuration targets, plus the active
+//   traversal stack. No global cache, handle or background task survives the
+//   call; those references become reclaimable when ApplyProgram returns.
 func (plugin) ApplyProgram(prog *driver.Program, _ driver.PluginContext) error {
   rewriter := newRewriter(prog)
   for _, file := range prog.SourceFiles() {
@@ -42,20 +105,38 @@ func (plugin) ApplyProgram(prog *driver.Program, _ driver.PluginContext) error {
 // rewriter holds the resolved tsconfig paths configuration used to rewrite
 // module specifiers across an entire program.
 type rewriter struct {
-  checker           *shimchecker.Checker
-  basePath          string
+  // checker identifies module-loader bindings in the owning Program.
+  checker *shimchecker.Checker
+
+  // basePath anchors substitutions under the compiler's paths base.
+  basePath string
+
+  // canonicalFileName applies the Program filesystem's case policy.
   canonicalFileName func(string) string
-  jsxPreserve       bool
-  outDir            string
-  patterns          []pathPattern
-  rootDir           string
-  sourceFiles       map[string]string // canonical source path → original normalized path
+
+  // jsxPreserve selects .jsx output for JSX-family source files.
+  jsxPreserve bool
+
+  // outDir is the normalized destination directory; empty disables mapping.
+  outDir string
+
+  // patterns preserves substitution order within compiler-ranked patterns.
+  patterns []pathPattern
+
+  // rootDir anchors each source suffix placed beneath outDir.
+  rootDir string
+
+  // sourceFiles maps canonical source identities to original normalized names.
+  sourceFiles map[string]string
 }
 
 // pathPattern is a single tsconfig paths entry with its wildcard pattern and
 // ordered list of substitution targets.
 type pathPattern struct {
+  // pattern is an exact specifier or a pattern with at most one wildcard.
   pattern string
+
+  // targets contains substitution candidates in tsconfig declaration order.
   targets []string
 }
 
@@ -267,26 +348,53 @@ func (r *rewriter) resolveSource(specifier string) (string, bool) {
   return "", false
 }
 
-// lookupSource checks whether candidate (a normalized path, possibly without
-// extension) corresponds to a known source file. It tries the exact path, stem
-// with each known TypeScript/JavaScript source extension, and index files.
+// lookupSource checks whether candidate corresponds to a Program source that
+// can produce an output. Explicit module-format suffixes restrict replacement
+// to their own source family, as in TypeScript-Go's tryAddingExtensions. The
+// candidate itself is the directory name for an index lookup; stripping its
+// suffix there would search a different directory.
 func (r *rewriter) lookupSource(candidate string) (string, bool) {
   normalized := normalizePath(candidate)
   if source, ok := r.sourceFiles[r.sourceKey(normalized)]; ok {
+    if isDeclarationSource(source) {
+      return "", false
+    }
     return source, true
   }
   stem := stripKnownSourceExtension(normalized)
-  for _, ext := range sourceLookupExtensions {
+  extensions := sourceLookupExtensions
+  switch strings.ToLower(filepath.Ext(normalized)) {
+  case ".mjs", ".mts":
+    extensions = []string{".mts", ".mjs"}
+  case ".cjs", ".cts":
+    extensions = []string{".cts", ".cjs"}
+  case ".jsx", ".tsx":
+    extensions = []string{".tsx", ".ts", ".jsx", ".js"}
+  case ".js", ".ts":
+    extensions = []string{".ts", ".tsx", ".js", ".jsx"}
+  case "":
+  default:
+    extensions = nil
+  }
+  for _, ext := range extensions {
     if source, ok := r.sourceFiles[r.sourceKey(stem+ext)]; ok {
       return source, true
     }
   }
   for _, ext := range sourceLookupExtensions {
-    if source, ok := r.sourceFiles[r.sourceKey(filepath.Join(stem, "index"+ext))]; ok {
+    if source, ok := r.sourceFiles[r.sourceKey(filepath.Join(normalized, "index"+ext))]; ok {
       return source, true
     }
   }
   return "", false
+}
+
+// isDeclarationSource reports inputs that type-check but emit no target file.
+func isDeclarationSource(source string) bool {
+  lower := strings.ToLower(source)
+  return strings.HasSuffix(lower, ".d.ts") ||
+    strings.HasSuffix(lower, ".d.mts") ||
+    strings.HasSuffix(lower, ".d.cts")
 }
 
 // sourceKey applies the compiler host's filesystem identity rule to one path.

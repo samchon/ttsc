@@ -447,8 +447,9 @@ type installedPackageLocation struct {
 func (loader *typeScriptLoader) locateInstalledPackage(
   name string,
 ) (string, map[string]json.RawMessage) {
+  current := filepath.Clean(filepath.FromSlash(loader.root))
   prefix := ""
-  for range 32 {
+  for {
     directory := path.Join(prefix, "node_modules", name)
     manifest := readPackageManifest(
       loader.root,
@@ -457,6 +458,11 @@ func (loader *typeScriptLoader) locateInstalledPackage(
     if manifest != nil {
       return directory, manifest
     }
+    parent := filepath.Dir(current)
+    if parent == current {
+      break
+    }
+    current = parent
     prefix = path.Join(prefix, "..")
   }
   return path.Join("node_modules", name), nil

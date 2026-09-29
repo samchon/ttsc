@@ -12,6 +12,8 @@ The `@ttsc/vscode` extension starts one `ttscserver` for the selected project. T
 
 The editor does not start a separate ESLint language server or maintain a second rule config. It resolves the project's own `ttsc`, `typescript`, `tsconfig.json`, plugins, and `lint.config.*`.
 
+Project-config discovery stays inside the physical workspace folder and ignores directories named like config files. Symlinks to regular config files remain eligible. Ancestor preference uses physical root depth, so alternate link spellings do not change which project is selected.
+
 ## Install the editor path
 
 Install the project dependencies, then install the extension:

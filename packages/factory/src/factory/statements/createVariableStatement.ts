@@ -23,6 +23,22 @@ import { createVariableDeclarationList } from "./createVariableDeclarationList";
  * const x = 1;
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   Array.isArray distinguishes plain declarators from a VariableDeclarationList;
+ *   arrays receive the list builder's var default, while supplied lists keep flags.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The statement adds modifiers/termination and delegates keyword/list ownership
+ *   to createVariableDeclarationList rather than repeating flag selection.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The array union is narrowed by its real runtime representation; callers
+ *   choose const/let explicitly instead of name-dependent defaults.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc explains array normalization, var defaults and semicolon ownership,
+ *   with an explicit-list example separated from acknowledgment tags.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param modifiers The leading modifiers and decorators, if any.
  * @param declarationList The declaration list.

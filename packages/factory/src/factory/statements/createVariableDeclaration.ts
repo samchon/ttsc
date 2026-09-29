@@ -23,8 +23,23 @@ import { createIdentifier } from "../names/createIdentifier";
  * `x` and an `initializer` of `1`, it prints as:
  *
  * ```ts
- * x = 1;
+ * x = 1
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Strings normalize to Identifier while supplied BindingName patterns stay
+ *   intact. Definite-assignment marker, type and initializer occupy separate slots.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   This declarator excludes the declaration keyword and termination, owned by
+ *   VariableDeclarationList and VariableStatement rather than duplicated here.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Destructuring is retained as a tree, not rewritten to guessed local names.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc explains binding-pattern support and absent keyword/semicolon, with
+ *   its corrected declarator example separated from acknowledgment tags.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param name The name; a {@link BindingName} allows array / object

@@ -10,6 +10,11 @@ import type { TtscTransformCache } from "./TtscTransformCache";
  * (samchon/ttsc#1395). Otherwise the generation opens no retained watcher and
  * validates each delivery by metadata and content, the path a generation whose
  * watcher failed already takes.
+ *
+ * @evidence contracts/common.md#principled-implementation Notification trust requires a cache and no polling declaration from either the cache's host or process environment.
+ * @evidence contracts/common.md#clear-and-simple-design One predicate combines the two policy owners; tracker capability and actual notification settlement remain separate proof requirements.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts A false predicate selects real metadata/content proof rather than accepting silent watchers under polling.
+ * @evidence contracts/common.md#meaningful-documentation The comment explains the two polling declarations and the recorded-state path used when trust is unavailable.
  */
 export function transformCacheTrustsNotifications(
   cache: TtscTransformCache | undefined,

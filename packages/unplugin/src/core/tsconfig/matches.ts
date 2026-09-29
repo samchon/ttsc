@@ -1,7 +1,29 @@
 import type { IRootPattern } from "./IRootPattern";
 import { isPackageDirectory } from "./isPackageDirectory";
 
-/** Iterative glob-state traversal avoids recursion on deep directory trees. */
+/**
+ * Match path components through the compiled glob's possible states.
+ *
+ * A directory needs a remaining filename component; completing an exact file
+ * pattern does not authorize traversal into a directory with that file's name.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   State expansion allows recursive components to consume zero directories;
+ *   transitions consume one part under literal or wildcard rules. A completed
+ *   filename state differs from a viable directory prefix.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Two state sets express the current and next positions iteratively; compile
+ *   owns grammar and this matcher owns transitions and acceptance.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Package, hidden-name and min.js rules are compiler wildcard semantics rather
+ *   than branches selected for known test filenames.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native prose explains iterative matching and the nonobvious directory/file
+ *   distinction; the min.js transition carries its compiler-semantic reason.
+ */
 export function matches(
   parts: string[],
   pattern: IRootPattern,

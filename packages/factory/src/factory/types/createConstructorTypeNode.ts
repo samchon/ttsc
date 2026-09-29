@@ -21,6 +21,22 @@ import { make } from "../internal/make";
  * new (x: number) => Foo
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   ConstructorTypeNode retains leading modifiers, generics, parameters and the
+ *   required result type, distinguishing new => syntax from a construct member.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The function builds a type outline rather than a constructor declaration;
+ *   printer logic owns new, arrow and contextual grouping.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Modifier and parameter arrays keep caller order; no class-name lookup or
+ *   patched return text substitutes for the supplied result type.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native JSDoc distinguishes constructor types from construct signatures and
+ *   explains each parameter with a concrete new-arrow example.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param modifiers The leading modifiers, if any.
  * @param typeParameters The generic type parameters, if any.

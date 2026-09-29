@@ -36,6 +36,46 @@ const DEFAULT_INCLUDE_SPEC = "**/*";
  * A glob in `exclude` is skipped rather than approximated. Failing to exclude
  * costs a walk; excluding the wrong tree hides real sources, and this function
  * refuses to guess in the direction that loses correctness.
+ *
+ * Each config source is parsed once within this read transaction. Later calls
+ * create a fresh map, so unchanged metadata cannot conceal changed source
+ * text.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Config-derived root specs, allowed extensions and exclusion provenance
+ *   model compiler selection. Inherited path anchors remain with their owner;
+ *   unreadable config roots and unsupported exclusion globs stay conservative.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Shared declaration readers own inheritance; this operation assembles one
+ *   policy and keeps exclusion provenance so overlays can change output defaults.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Node native paths anchor config-derived patterns; regular and native
+ *   realpath retain separate root aliases, including short-name expansion.
+ *   Root matching later uses the compiler's case rule rather than the source OS.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   A per-call parsed-source map reads and parses each lexical config once
+ *   across option queries. Each query traverses the required inheritance paths;
+ *   input bytes, graph edges and spec count drive the remaining work.
+ *
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Option queries share parsed source within this read transaction. Later
+ *   calls use a fresh map because unchanged metadata does not prove source
+ *   equivalence; the selection-entry owner validates cross-call memoization.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Parsed-source maps and source sets are local; the returned policy transfers
+ *   to its caller and this reader retains no handle or cross-call state.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Directory admission comes from configuration rather than a consumer-name
+ *   table; unsupported globs cost extra observation instead of hiding sources.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs explain defaults, output exclusion provenance and the
+ *   conservative boundary, plus the parsed-source map's per-call lifetime.
  */
 export function readProjectMembershipPolicy(
   tsconfig: string,
@@ -45,8 +85,9 @@ export function readProjectMembershipPolicy(
   // when it has gone stale. `findDeclaredValue` walks `extends` for each option
   // independently, and each walk records what it read.
   const sources = new Set<string>();
-  const files = findDeclaredFileSpecs(resolved, "files", sources);
-  const include = findDeclaredFileSpecs(resolved, "include", sources);
+  const configs = new Map<string, unknown>();
+  const files = findDeclaredFileSpecs(resolved, "files", sources, configs);
+  const include = findDeclaredFileSpecs(resolved, "include", sources, configs);
   const configDir = path.dirname(resolved);
   const absolutize = (
     declared: { baseDir: string; specs: string[] } | undefined,
@@ -84,6 +125,7 @@ export function readProjectMembershipPolicy(
       },
       new Set(),
       sources,
+      configs,
     )?.value === true;
 
   const inputExtensions = [...TYPESCRIPT_TRANSFORM_EXTENSIONS];
@@ -108,7 +150,9 @@ export function readProjectMembershipPolicy(
           parsed as { compilerOptions?: Record<string, unknown> }
         ).compilerOptions;
         if (
-          options === undefined ||
+          typeof options !== "object" ||
+          options === null ||
+          Array.isArray(options) ||
           !Object.prototype.hasOwnProperty.call(options, key)
         ) {
           return undefined;
@@ -120,6 +164,7 @@ export function readProjectMembershipPolicy(
       },
       new Set(),
       sources,
+      configs,
     );
     if (declared !== null && declared.value.value !== null) {
       directoryExclusionOrigins[key] = resolveConfigDirTemplatePath(
@@ -139,11 +184,20 @@ export function readProjectMembershipPolicy(
     },
     new Set(),
     sources,
+    configs,
+  );
+  const excludeList = findDeclaredFileSpecs(
+    resolved,
+    "exclude",
+    sources,
+    configs,
   );
   directoryExclusionOrigins.useImplicitOutputExclusions =
-    excluded === null || excluded.value.value === null;
-  if (excluded !== null && Array.isArray(excluded.value.value)) {
-    for (const entry of excluded.value.value) {
+    excludeList === undefined || excludeList === null
+      ? excluded === null || excluded.value.value === null
+      : false;
+  if (excludeList !== null && excludeList !== undefined) {
+    for (const entry of excludeList.specs) {
       if (typeof entry !== "string" || entry.length === 0) {
         continue;
       }
@@ -158,7 +212,7 @@ export function readProjectMembershipPolicy(
       }
       directoryExclusionOrigins.exclude.push(
         resolveConfigDirTemplatePath(
-          excluded.baseDir,
+          excludeList.baseDir,
           plain,
           path.dirname(resolved),
         ),

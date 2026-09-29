@@ -4,7 +4,20 @@ import { resolveFilesystemPath } from "ttsc/path-identity";
 
 import { graphInputObservationCompatible } from "./graphInputObservationCompatible";
 
-/** Normalize one untrusted predicate proof without filling missing predicates. */
+/**
+ * Normalize one untrusted predicate proof without filling missing predicates.
+ *
+ * Malformed, empty or contradictory records return undefined. Present directory
+ * lists are copied, successful read hashes must be lowercase SHA-256 text, and
+ * successful realpaths must be absolute in the producer's platform semantics.
+ * Unknown fields are ignored; absent supported predicates remain unknown.
+ *
+ * @evidence contracts/common.md#principled-implementation Own-property checks distinguish an omitted predicate from an explicit result, schema checks establish supported value shapes, and compatibility rejects contradictory normalized states without adding new observations.
+ * @evidence contracts/common.md#clear-and-simple-design Parsing produces one detached observation and delegates cross-predicate meaning to graphInputObservationCompatible, keeping host filesystem replay outside this boundary.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Protocol hash syntax and absolute-realpath checks validate genuine producer data; neither missing predicates nor malformed evidence receive fabricated values.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain undefined outcomes, copied lists, hash form, platform interpretation and unknown versus absent fields with documentation-skill paragraph and tag separation.
+ * @evidence contracts/portability.md#os-neutral-implementation The declared producer platform chooses realpath parsing and resolution, while the host platform is only the default; native case behavior is not inferred or rewritten by this structural parser.
+ */
 export function normalizeGraphInputObservation(
   value: unknown,
   platform: NodeJS.Platform = process.platform,

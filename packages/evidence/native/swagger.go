@@ -65,7 +65,8 @@ type swaggerNormalizationResult struct {
 // document's bytes — an entry that answers a later cycle with the wrong
 // document, forever.
 //
-// It is empty for a remote source, which never participates in reuse.
+// It is empty for a remote source, whose successful result is reused by URL
+// rather than by content for the process lifetime.
 type swaggerDocumentInventory struct {
   Source     string             `json:"source"`
   Operations []swaggerOperation `json:"operations"`

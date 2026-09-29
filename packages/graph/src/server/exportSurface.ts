@@ -21,6 +21,14 @@ import { TtscGraphMemory } from "../model/TtscGraphMemory";
  *
  * The count is a fact the compiler resolved. It reads no package.json, guesses
  * from no filename, and holds for a project that has neither.
+ *
+ * @evidence contracts/common.md#principled-implementation Counting incoming exports edges reports modules whose checker-resolved export tables publish this exact node.
+ * @evidence contracts/common.md#clear-and-simple-design One predicate supplies the graph-derived public-surface signal to handle and tour ranking.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts No package.json, file-name front-door guess or named project's expected score substitutes for export relationships.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain barrel/re-export propagation and distinguish edge count from declaring-file exported status.
+ * @evidence contracts/performance.md#efficient-algorithms The incoming index restricts counting to this node's degree instead of scanning every graph edge.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This count is a primitive over an already shared generation index; caller-owned rank computation decides any broader reuse.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Counting borrows indexed edges and retains only a scalar local accumulator.
  */
 export function exportFanIn(graph: TtscGraphMemory, id: string): number {
   let count = 0;
@@ -28,7 +36,19 @@ export function exportFanIn(graph: TtscGraphMemory, id: string): number {
   return count;
 }
 
-/** True when the dump carries an export surface at all. */
+/**
+ * True when the graph carries an exports edge at all.
+ *
+ * The answer is cached by immutable graph generation, including false.
+ *
+ * @evidence contracts/common.md#principled-implementation Existence of an exports edge establishes collection of at least one module surface without guessing from local declaration flags.
+ * @evidence contracts/common.md#clear-and-simple-design A WeakMap holds the generation-wide predicate result for all rankers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts A false cached answer is retained as a real result rather than mistaken for a cache miss.
+ * @evidence contracts/common.md#meaningful-documentation Native prose states the edge criterion and generation-scoped caching.
+ * @evidence contracts/performance.md#efficient-algorithms The first check scans edges until a match; later lookups are map accesses.
+ * @evidence contracts/performance.md#reuse-equivalent-work The model's owned frozen facts make graph identity a stable generation key; a new generation is a different key and does not inherit the result.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources WeakMap entries follow graph reachability and do not retain historical graph generations.
+ */
 export function hasExportSurface(graph: TtscGraphMemory): boolean {
   const known = cache.get(graph);
   if (known !== undefined) return known;

@@ -25,6 +25,20 @@ const BUN_REGISTRATION_STATES = Symbol.for(
  * The map lives on `globalThis` under a registry symbol, so the CommonJS and
  * ESM builds of `bun-register`, which are separate module instances, still
  * share one state and install one loader between them.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   A registry symbol gives separately emitted modules the same owned slot,
+ *   and a WeakMap keys state by the actual runtime object rather than a name.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   This helper owns shared-state initialization; installation and option
+ *   transitions stay with their dedicated operations.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The namespaced symbol creates package-owned registration state without
+ *   replacing a foreign global or Bun method. A conflicting non-WeakMap slot
+ *   is not repaired; nonconfigurable collision propagates as a registration error.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc explains concrete-runtime identity and dual-module sharing, with
+ *   separate descriptive paragraphs and tags per documentation guidance.
  */
 export function registrationState(
   runtime: BunRuntimeGlobal,

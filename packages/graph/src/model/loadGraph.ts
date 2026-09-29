@@ -36,13 +36,24 @@ export const DUMP_SCHEMA_VERSION = 8;
  * Throws when the binary cannot be resolved, the dump command fails, or its
  * output is not a readable graph — the server surfaces the failure rather than
  * answering from an empty graph.
+ *
+ * @evidence contracts/common.md#principled-implementation The selected native producer builds the target project and its JSON is schema-version checked and structurally validated before model construction.
+ * @evidence contracts/common.md#clear-and-simple-design One-shot process execution, capture ownership and parse validation have separate helpers; the resident MCP path remains a different lifetime owner.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed resolution or native execution throws rather than returning an invented empty graph.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs state direct/viewer usage, project/binary defaults and every externally visible failure boundary.
+ * @evidence contracts/portability.md#os-neutral-implementation Native argv carries cwd, tsconfig and artifact paths without a shell; project-anchored binary resolution and permission repair account for host execution differences.
+ * @evidence contracts/performance.md#efficient-algorithms One native dump is followed by linear JSON parsing/validation and model indexing; output is file-backed rather than constrained by a guessed pipe budget.
+ * @evidence contracts/performance.md#reuse-equivalent-work Direct loads intentionally build the requested current project anew; callers needing repeated equivalent snapshots use TtscGraphSession's resident producer and model.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The operation owns two capture descriptors until the finally block disposes them; returned graph ownership transfers to the caller, while artifact storage remains process/project scoped.
  */
 export function loadGraph(
   options: {
     /** Project root the graph is built for (default: `process.cwd()`). */
     cwd?: string;
+
     /** Project tsconfig, relative to `cwd` (default: `tsconfig.json`). */
     tsconfig?: string;
+
     /**
      * Absolute path to the `ttscgraph` binary. Defaults to the per-platform
      * binary resolved from the project's installed `ttsc`; pass it explicitly
@@ -124,6 +135,15 @@ export function loadGraph(
  * outlives the process that wrote it — this is the one-shot path, and the JSON
  * on disk may be from any build — so the version is the first question to ask
  * of it.
+ *
+ * @evidence contracts/common.md#principled-implementation Parsing to unknown, reading schema version first and then asserting the full wire type reject mismatched producers before interpreting their shape.
+ * @evidence contracts/common.md#clear-and-simple-design This boundary owns dump decoding and validation for direct loads; model construction remains separate.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Malformed JSON and incompatible schemas do not become empty or partially trusted graph facts.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain version-before-shape ordering and why persisted dumps require independent validation.
+ * @evidence contracts/performance.md#efficient-algorithms JSON parsing and shape validation process the dump once before model indexing; cost grows with serialized bytes and graph facts.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This parser validates a supplied exchange string; loadGraph/session own producer sharing and generation identity.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Parsed data transfers to TtscGraphMemory; this operation acquires no native handle or historical cache.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Parsing serialized graph facts performs no native filesystem or process operation.
  */
 export function parseDump(json: string): ITtscGraphDump {
   let value: unknown;

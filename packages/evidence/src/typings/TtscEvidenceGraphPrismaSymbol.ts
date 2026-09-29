@@ -34,5 +34,10 @@
  * claim may separately accept `@evidenceExclude` in an unattached top-level
  * triple-slash run in a matching file; that carrier has no Prisma symbol and
  * never hosts `@evidence`.
+ *
+ * @evidence contracts/common.md#principled-implementation Models, stored fields and relation fields match Prisma's parsed datamodel distinctions; views share model shape while enums and other schema settings intentionally have no graph unit.
+ * @evidence contracts/common.md#clear-and-simple-design The three-value union is reused on both sides of the graph and leaves parsing, namespacing and address construction to their owning operations.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Relation classification comes from the parser rather than an attribute-presence heuristic that would miss inverse relation fields.
+ * @evidence contracts/common.md#meaningful-documentation Distinct paragraphs explain semantic classification, containment, prisma-prefixed targets, cross-file identity and unsupported schema constructs.
  */
 export type TtscEvidenceGraphPrismaSymbol = "model" | "column" | "relation";

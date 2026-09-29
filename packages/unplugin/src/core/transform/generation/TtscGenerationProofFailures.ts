@@ -1,11 +1,22 @@
 import type { TtscGenerationProofFailure } from "./TtscGenerationProofFailure";
 
-/** Bounded proof witnesses for one transform attempt. */
+/**
+ * Bounded proof witnesses for one transform attempt, populated through
+ * recordGenerationProofFailure. The seen set covers retained entries only;
+ * omitted is a saturated count of additional occurrences, not a unique count.
+ *
+ * @evidence contracts/common.md#principled-implementation Entries preserve printable witnesses, seen identifies retained duplicates and omitted records loss without retaining an unbounded identity set.
+ * @evidence contracts/common.md#clear-and-simple-design The carrier separates retained evidence from dropped occurrence accounting; the shared recorder enforces its bound and consistency.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Lost evidence remains visible through omitted rather than being silently discarded or claimed deduplicated without a retained identity.
+ * @evidence contracts/common.md#meaningful-documentation Native prose states recorder ownership and duplicate-count limitations, while separated member comments explain each representation.
+ */
 export interface TtscGenerationProofFailures {
   /** Unique witnesses kept, at most `MAX_GENERATION_PROOF_FAILURES`. */
   entries: TtscGenerationProofFailure[];
-  /** How many further witnesses were dropped after the bound. */
+
+  /** Saturated count of further witness occurrences dropped after the bound. */
   omitted: number;
+
   /**
    * Keys of the kept witnesses, bounded with them so duplicates are not
    * recorded twice.

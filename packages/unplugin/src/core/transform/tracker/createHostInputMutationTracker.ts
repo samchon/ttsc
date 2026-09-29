@@ -35,6 +35,45 @@ const MAX_HOST_INPUT_WATCH_SCOPES = 16;
  * scope admits. A directory the resolver merely probed for existence, such as
  * `node_modules`, therefore no longer collects every write beneath it, and a
  * replaced ancestor directory, which reports only itself, is no longer missed.
+ *
+ * Linked components, symlink or hard-linked files and uncertain identities keep
+ * metadata validation. Too many unrelated watch roots disable notification
+ * authority rather than dropping inputs from validation.
+ *
+ * Path parsing follows the supplied filesystem's platform. An unmeasured case
+ * policy keeps input metadata validation; a foreign view supplies its own watch
+ * capability rather than opening a host-native handle for foreign paths.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Compiler observation scopes govern admitted events; physical identity and
+ *   link checks govern whether notification silence may replace metadata reads.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One constructor builds coverage, scoped classification and owned locations;
+ *   both local listeners and broker sinks use the same classifier and lifecycle.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The sixteen-root limit withdraws authority rather than ignoring dependencies;
+ *   links and unknown attribution fall back to actual validation, not patched paths.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs distinguish event scope from coverage authority and explain
+ *   fallback boundaries; local comments give identity reasons under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   OS-neutral coverage uses one filesystem identity context, native realpaths,
+ *   explicit view path grammar, measured case policy and watched-directory
+ *   identities; lexical aliases and junctions
+ *   cannot certify quiet old physical targets as current inputs.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Sets and directory maps index inputs, scopes and ancestors; shared ancestry
+ *   walks avoid rescanning common components. Event classification follows its
+ *   ancestor chain plus relevant scoped roots instead of reopening the graph.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   One construction shares physical identities, link-component checks and
+ *   grouped locations; native subscriptions and scope-aware drains share only
+ *   valid current owners, while every delivery rechecks watched identities.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   A generation owns input indexes and admitted native locations, with at most
+ *   sixteen unrelated roots and an eight-path mutation sample. Close withdraws
+ *   authority and retires owned handles; failed construction remains untrusted
+ *   and its caller must retire any handles already acquired.
  */
 export async function createHostInputMutationTracker(
   inputs: readonly string[],
@@ -49,6 +88,10 @@ export async function createHostInputMutationTracker(
    */
   scopes?: ReadonlyMap<string, TtscTrackedInputScope>,
 ): Promise<TtscProjectMutationTracker> {
+  const paths =
+    (filesystem.platform ?? process.platform) === "win32"
+      ? path.win32
+      : path.posix;
   const identities = createHostPathIdentityContext(filesystem);
   // The project root in both of its spellings: an input the compiler reported
   // physically is the project's as much as one spelled as the project was
@@ -57,15 +100,20 @@ export async function createHostInputMutationTracker(
     preferredRoot === undefined
       ? undefined
       : {
-          physical: identities.resolve(path.resolve(preferredRoot)).path,
-          spelling: path.resolve(preferredRoot),
+          physical: identities.resolve(paths.resolve(preferredRoot)).path,
+          spelling: paths.resolve(preferredRoot),
         };
   const internalRoot = internal?.spelling;
   const linkedAncestors = new Map<string, boolean>();
   const authoritative = new Set(
     [...covered]
-      .map((input) => path.resolve(input))
+      .map((input) => paths.resolve(input))
       .filter((input) => {
+        // An unmeasured directory policy cannot certify equivalence between
+        // reported event spellings and inputs. Preserve metadata validation.
+        if (identities.caseSensitive(paths.dirname(input)) === undefined) {
+          return false;
+        }
         // A link between the input and the directory watched for it, whose
         // observer follows it: the project root for an input inside the
         // project, the input's own nearest existing directory outside it. The
@@ -75,10 +123,10 @@ export async function createHostInputMutationTracker(
         // macOS temporary directory and any linked workspace lies below one.
         const watched =
           internal !== undefined &&
-          relativeToProject(input, internal) !== undefined
+          relativeToProject(input, internal, filesystem.platform) !== undefined
             ? internalRoot
             : filesystem.exists(input)
-              ? path.dirname(input)
+              ? paths.dirname(input)
               : missingPathProbe(input, filesystem).directory;
         if (
           pathTraversesSymbolicLink(input, filesystem, linkedAncestors, watched)
@@ -120,9 +168,9 @@ export async function createHostInputMutationTracker(
     current.add(scope);
     tracked.set(key, current);
     for (
-      let child = path.resolve(file), parent = path.dirname(child);
+      let child = paths.resolve(file), parent = paths.dirname(child);
       parent !== child && !walkedAncestors.has(parent);
-      child = parent, parent = path.dirname(child)
+      child = parent, parent = paths.dirname(child)
     ) {
       // Every ancestor above one already walked is already recorded.
       walkedAncestors.add(parent);
@@ -133,6 +181,7 @@ export async function createHostInputMutationTracker(
     string,
     {
       directory: string;
+
       /** Entry names the watch reports, or every entry when absent. */
       names?: Set<string>;
       recursive?: boolean;
@@ -153,10 +202,11 @@ export async function createHostInputMutationTracker(
     scope: TtscTrackedInputScope,
   ): void => {
     for (
-      let directory = path.dirname(probed);
+      let directory = paths.dirname(probed);
       internal !== undefined &&
-      (relativeToProject(directory, internal) ?? "") !== "";
-      directory = path.dirname(directory)
+      (relativeToProject(directory, internal, filesystem.platform) ?? "") !==
+        "";
+      directory = paths.dirname(directory)
     ) {
       const key = pathIdentityKey(directory, identities);
       // Every directory above one already admitted is admitted as well.
@@ -186,6 +236,7 @@ export async function createHostInputMutationTracker(
       };
       locationsByDirectory.set(directoryIdentity.key, location);
     }
+    if (recursive) location.recursive = true;
     if (name === undefined) {
       // Some input needs every entry of this directory reported.
       delete location.names;
@@ -193,18 +244,18 @@ export async function createHostInputMutationTracker(
       location.names?.add(
         normalizeHostInputName(
           name,
-          identities.caseSensitive(directoryIdentity.path),
+          identities.caseSensitive(directoryIdentity.path) !== false,
         ),
       );
     }
   };
   for (const input of inputs) {
-    const absolute = path.resolve(input);
+    const absolute = paths.resolve(input);
     const exists = filesystem.exists(absolute);
     const probe = exists
-      ? { directory: path.dirname(absolute), name: path.basename(absolute) }
+      ? { directory: paths.dirname(absolute), name: paths.basename(absolute) }
       : missingPathProbe(absolute, filesystem);
-    const probed = path.resolve(probe.directory, probe.name);
+    const probed = paths.resolve(probe.directory, probe.name);
     const scope = exists
       ? (scopes?.get(absolute) ??
         trackedInputScope(absolute, undefined, filesystem))
@@ -213,7 +264,7 @@ export async function createHostInputMutationTracker(
     if (
       internal !== undefined &&
       internalRoot !== undefined &&
-      relativeToProject(absolute, internal) !== undefined
+      relativeToProject(absolute, internal, filesystem.platform) !== undefined
     ) {
       watchDirectory(internalRoot, undefined, true);
       admitInternal(probed, scope);
@@ -304,7 +355,7 @@ export async function createHostInputMutationTracker(
     if (filename === null) return "mutation";
     const rename = eventType === "rename";
     if (events === "rename" && !rename) return undefined;
-    const changed = path.resolve(directory, filename);
+    const changed = paths.resolve(directory, filename);
     const key = pathIdentityKey(changed, identities);
     const verdict = rename ? "mutation" : "change";
     const own = tracked.get(key);
@@ -323,14 +374,17 @@ export async function createHostInputMutationTracker(
     // Moving or replacing an ancestor moves the input without an event on it.
     if (rename && ancestors.has(key)) return "mutation";
     for (
-      let child = changed, parent = path.dirname(child);
+      let child = changed, parent = paths.dirname(child);
       parent !== child;
-      child = parent, parent = path.dirname(child)
+      child = parent, parent = paths.dirname(child)
     ) {
       const scopes = tracked.get(pathIdentityKey(parent, identities));
       if (scopes === undefined) continue;
       if (scopes.has("subtree")) return verdict;
-      if (scopes.has("tree") && pluginSourceCovers(parent, changed, "entry")) {
+      if (
+        scopes.has("tree") &&
+        pluginSourceCovers(parent, changed, "entry", filesystem.platform)
+      ) {
         return verdict;
       }
       if (scopes.has("children") && child === changed && rename) {
@@ -375,7 +429,7 @@ export async function createHostInputMutationTracker(
             const changed =
               filename === null
                 ? location.directory
-                : path.join(location.directory, filename);
+                : paths.join(location.directory, filename);
             if (verdict === "mutation") recordProjectMutation(tracker, changed);
             else if (verdict === "change")
               recordProjectChange(tracker, changed);
@@ -392,7 +446,12 @@ export async function createHostInputMutationTracker(
             trees.some(
               (tree) =>
                 identities.isWithin(tree, directory) &&
-                pluginSourceCovers(tree, directory, "directory"),
+                pluginSourceCovers(
+                  tree,
+                  directory,
+                  "directory",
+                  filesystem.platform,
+                ),
             ),
         ),
       );

@@ -21,13 +21,27 @@ import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscPa
  * well. ttsx forwards the flags before the entry to its type-check, and the
  * check is unchanged by them, but the runtime build is that check's emit, and
  * without JavaScript there is nothing to run.
+ *
+ * A caller coordinating one build may supply its effective-options reader for
+ * this exact project and forwarded arguments. Null preserves the compiler's
+ * argument-rejection path; omission creates the reader here.
+ *
+ * @evidence contracts/common.md#principled-implementation Effective compiler options determine runtime-only target/JSX overrides; preserving implied module and library choices keeps the original check's meaning while producing executable syntax.
+ * @evidence contracts/common.md#clear-and-simple-design One ordered argument adapter separates runtime emit policy from project configuration and leaves invalid-argument diagnostics to the compiler.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts ES2025 and JSX discriminants reflect supported compiler transforms; no source-text patch or consumer-specific override substitutes for emission.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain decorator, JSX, library and no-emit decisions and their runtime-only scope without changing the user's project.
+ * @evidence contracts/portability.md#os-neutral-implementation Effective-option resolution delegates response-file parsing to the compiler owner and returns argument tokens rather than shell text or platform-specific paths.
  */
 export function runtimeCompilerArgs(
   project: ITtscParsedProjectConfig,
   passthrough: readonly string[] = [],
   binary?: string,
+  effectiveOptions?: ReturnType<typeof readEffectiveCompilerOptions>,
 ): string[] {
-  const option = readEffectiveCompilerOptions(project, passthrough, binary);
+  const option =
+    effectiveOptions === undefined
+      ? readEffectiveCompilerOptions(project, passthrough, binary)
+      : effectiveOptions;
   // Preserve the original compiler's diagnostic when its arguments are invalid.
   if (option === null) return [...passthrough];
   const args = [...passthrough];

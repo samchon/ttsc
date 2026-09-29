@@ -29,6 +29,10 @@ type serveRequest struct {
 type serveResponse struct {
   TypeScript string `json:"typescript"`
   Found      bool   `json:"found"`
+
+  // ObservationsComplete is false when the committed generation declared a
+  // public observation boundary unavailable. Absence supplies no complete proof.
+  ObservationsComplete *bool `json:"observationsComplete,omitempty"`
 }
 
 // serveUpdateResponse is the reply to an update request: whether re-transforming
@@ -37,6 +41,10 @@ type serveResponse struct {
 // diagnostics are written to stderr.
 type serveUpdateResponse struct {
   Updated bool `json:"updated"`
+
+  // ObservationsComplete describes the committed generation, including the
+  // retained generation when an update fails. Only explicit false is emitted.
+  ObservationsComplete *bool `json:"observationsComplete,omitempty"`
 }
 
 // RunServe is the resident transform host. It transforms the whole project once
@@ -55,6 +63,19 @@ type serveUpdateResponse struct {
 //
 // in and out are explicit so the request loop is testable; the utility-host
 // command wires them to os.Stdin and os.Stdout.
+// Read or response-write failure terminates the request stream with status 2.
+// Replies preserve any explicit incomplete-observation declaration from the
+// committed generation. This limitation does not erase actual input conflicts
+// or turn an absent declaration into complete reuse proof.
+//
+// @evidence contracts/common.md#principled-implementation Requests share committed transformed text and its explicit observation limitation; each accepted edit rebuilds fresh mutable plugin ASTs, while a failed edit restores the previous overlay, output and limitation state.
+// @evidence contracts/common.md#clear-and-simple-design One overlay, one current transformed-text cache, and one request loop own the resident protocol.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Mutated ASTs are not incrementally reused as clean compiler input, failed responses do not return success, and failed edits do not leave poisoned overlay state.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs explain request forms, committed caching, updates, stream termination and the observation limitation's meaning following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Overlay keys use the compiler's native cwd resolution and actual filesystem case policy; input and output are explicit stream boundaries.
+// @evidence contracts/performance.md#efficient-algorithms File requests index the current text map directly; updates require a fresh whole-program transform because plugin hooks can mutate arbitrary resident ASTs.
+// @evidence contracts/performance.md#reuse-equivalent-work Repeated file requests share the committed cache until an update replaces it; equivalent mutable AST work is not presumed safe across edits.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Each rebuild closes its Program and replaces the prior text cache; overlay state persists for updated file paths until the stream ends, so retained bytes scale with all distinct edited files rather than only current compiler members.
 func RunServe(in io.Reader, out io.Writer, args []string) int {
   opts, ok := parseHostOptions("serve", args, out, os.Stderr)
   if !ok {
@@ -62,6 +83,8 @@ func RunServe(in io.Reader, out io.Writer, args []string) int {
   }
   overlay := driver.NewOverlayFS(driver.DefaultFS())
   opts.fs = overlay
+  observationsIncomplete := false
+  opts.observationsIncomplete = &observationsIncomplete
   cache, ok := buildServeCache(opts)
   if !ok {
     return 2
@@ -75,7 +98,12 @@ func RunServe(in io.Reader, out io.Writer, args []string) int {
   for {
     raw, err := reader.ReadString('\n')
     if line := strings.TrimSpace(raw); line != "" {
-      cache = handleServeLine(line, opts, overlay, cache, encoder)
+      var writeErr error
+      cache, writeErr = handleServeLine(line, opts, overlay, cache, encoder)
+      if writeErr != nil {
+        fmt.Fprintf(os.Stderr, "ttsc utility serve: write error: %v\n", writeErr)
+        return 2
+      }
     }
     if err != nil {
       if err != io.EOF {
@@ -89,26 +117,26 @@ func RunServe(in io.Reader, out io.Writer, args []string) int {
 
 // handleServeLine answers one request line and returns the cache to use for the
 // next request: the rebuilt cache after a successful update, the unchanged cache
-// otherwise.
+// otherwise. Response encoding errors terminate the outer request loop.
 func handleServeLine(
   line string,
   opts hostOptions,
   overlay *driver.OverlayFS,
   cache map[string]string,
   encoder *json.Encoder,
-) map[string]string {
+) (map[string]string, error) {
   var req serveRequest
   if err := json.Unmarshal([]byte(line), &req); err != nil {
-    _ = encoder.Encode(serveResponse{})
-    return cache
+    return cache, encoder.Encode(serveResponse{})
   }
   if req.Update != "" {
     abs := resolveServePath(opts.cwd, req.Update)
     prev, had := overlay.Get(abs)
     overlay.Set(abs, req.Content)
     if rebuilt, ok := buildServeCache(opts); ok {
-      _ = encoder.Encode(serveUpdateResponse{Updated: true})
-      return rebuilt
+      return rebuilt, encoder.Encode(serveUpdateResponse{
+        Updated: true, ObservationsComplete: serveObservationCompleteness(opts),
+      })
     }
     // Roll the failed edit back so a file that does not compile does not poison
     // every later rebuild; the previous transform stays in effect.
@@ -117,13 +145,25 @@ func handleServeLine(
     } else {
       overlay.Unset(abs)
     }
-    _ = encoder.Encode(serveUpdateResponse{Updated: false})
-    return cache
+    return cache, encoder.Encode(serveUpdateResponse{
+      Updated: false, ObservationsComplete: serveObservationCompleteness(opts),
+    })
   }
   key := apiOutputKey(opts.cwd, resolveServePath(opts.cwd, req.File))
   text, found := cache[key]
-  _ = encoder.Encode(serveResponse{TypeScript: text, Found: found})
-  return cache
+  return cache, encoder.Encode(serveResponse{
+    TypeScript: text, Found: found, ObservationsComplete: serveObservationCompleteness(opts),
+  })
+}
+
+// serveObservationCompleteness exposes only an explicit limitation. A nil result
+// does not establish that every input was observed.
+func serveObservationCompleteness(opts hostOptions) *bool {
+  if opts.observationsIncomplete == nil || !*opts.observationsIncomplete {
+    return nil
+  }
+  complete := false
+  return &complete
 }
 
 // buildServeCache runs the whole-project transform once over the current overlay
@@ -143,6 +183,9 @@ func buildServeCache(opts hostOptions) (map[string]string, bool) {
   cache := map[string]string{}
   for _, file := range prog.SourceFiles() {
     cache[apiOutputKey(opts.cwd, file.FileName())] = shimprinter.EmitSourceFile(printer, file)
+  }
+  if opts.observationsIncomplete != nil {
+    *opts.observationsIncomplete = prog.PluginObservationsIncomplete()
   }
   return cache, true
 }

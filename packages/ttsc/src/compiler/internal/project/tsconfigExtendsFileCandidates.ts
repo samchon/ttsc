@@ -18,6 +18,12 @@ import path from "node:path";
  *
  * @param tsconfig The declaring config, as the reader named it.
  * @param specifier The `extends` value as written.
+ *
+ * @evidence contracts/common.md#principled-implementation Backslash normalization followed by rooted/dot-relative classification reproduces the compiler's file-candidate order; bare dot spellings explicitly retain the existing reader extension.
+ * @evidence contracts/common.md#clear-and-simple-design This helper constructs candidates without reading them or resolving packages, so both readers share the spelling rule while retaining their own observation and selection responsibilities.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The dot-relative prefixes and json suffix express config grammar rather than named consumers or fixtures; no directory-to-tsconfig guess is inserted.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain candidate order, lexical anchoring, module classification and the deliberate bare-dot extension; params state whose spelling is retained.
+ * @evidence contracts/portability.md#os-neutral-implementation Compiler-style slash normalization precedes host-native isAbsolute/dirname/resolve operations; no realpath or case folding discards the lexical anchor needed for relative extends.
  */
 export function tsconfigExtendsFileCandidates(
   tsconfig: string,

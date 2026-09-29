@@ -45,9 +45,20 @@ class InvalidPackageTargetLoadError extends Error {}
 class InvalidPackageConfigError extends Error {}
 
 /**
- * Build a sandboxed `require` function over a runtime pack. Resolves typia /
- * `@typia/*` / randexp specifiers from the pack; throws on anything else so the
- * caller sees the unsupported dependency.
+ * Build a CommonJS resolver and evaluator over a caller-owned runtime pack.
+ * Missing modules throw; package exports use require/default conditions and
+ * legacy packages retain file-and-directory resolution.
+ *
+ * The pack must remain unchanged while this resolver is used. Evaluation uses
+ * new Function in the current realm; this is not a security isolation boundary.
+ *
+ * @evidence contracts/common.md#principled-implementation Target selection precedes loading, conditional exports preserve manifest order, validated targets stay under the package mount, and provisional module caching exposes partial exports for cycles. Evaluation assumes CommonJS source in an unchanged pack.
+ * @evidence contracts/common.md#clear-and-simple-design Manifest interpretation, specifier resolution and evaluation have local boundaries; the caller owns code isolation and transport.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported exports and legacy resolution decide module access uniformly; missing targets cannot trigger a second exports candidate, and failed evaluation evicts its provisional module instead of fabricating exports.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs define resolver scope, pack immutability and absent isolation; helper comments explain exports priority and cycle semantics under the documentation skill.
+ * @evidence contracts/performance.md#efficient-algorithms Pack lookups use own-key membership and module cache lookup; exports exact matches avoid pattern search, otherwise one O(p) scan retains the highest-ranked match among p manifest patterns without sorting. Evaluation compiles each reached module once per successful resolver instance.
+ * @evidence contracts/performance.md#reuse-equivalent-work The unchanged pack and resolved module key define evaluation identity; provisional entries support cycles and successful exports are shared across requires. Failed evaluation evicts its own provisional entry so later requests can retry without reusing invalid exports.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The returned require closure owns the pack and reachable module cache; retention is bounded by modules in that pack and ends when callers release the resolver. It owns no process isolation and cannot cancel tasks started by evaluated user code; the site executor owns those resources.
  */
 export function createSandboxRequire(
   pack: Record<string, string>,
@@ -337,18 +348,19 @@ function resolvePackageExports(
       ) {
         target = entries[request];
       } else {
-        const patterns = Object.entries(entries)
-          .map(([pattern, candidate]) => ({
-            pattern,
-            replacement: exportPatternReplacement(pattern, request),
-            target: candidate,
-          }))
-          .filter(
-            (entry): entry is typeof entry & { replacement: string } =>
-              entry.replacement !== undefined,
-          )
-          .sort((a, b) => compareExportPatternKeys(a.pattern, b.pattern));
-        const selected = patterns[0];
+        let selected:
+          | { pattern: string; replacement: string; target: unknown }
+          | undefined;
+        for (const [pattern, candidate] of Object.entries(entries)) {
+          const replacement = exportPatternReplacement(pattern, request);
+          if (replacement === undefined) continue;
+          if (
+            selected === undefined ||
+            compareExportPatternKeys(pattern, selected.pattern) < 0
+          ) {
+            selected = { pattern, replacement, target: candidate };
+          }
+        }
         if (selected === undefined) return { type: "unresolved" };
         return resolvePackageTarget(
           mount,

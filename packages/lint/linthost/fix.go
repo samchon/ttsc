@@ -12,6 +12,7 @@ import (
   "os"
   "path/filepath"
   "sort"
+  "strings"
 
   shimdw "github.com/microsoft/typescript-go/shim/diagnosticwriter"
 )
@@ -23,6 +24,11 @@ const maxFixPasses = 10
 
 // RunFix implements `@ttsc/lint fix` — apply autofixes, then report any
 // remaining type or lint diagnostics without emitting JavaScript.
+//
+// @evidence contracts/common.md#principled-implementation The command rejects emit and delegates to the bounded all-rule fix cascade, which preserves per-finding edit atomicity and finishes with compiler and lint diagnostics.
+// @evidence contracts/common.md#clear-and-simple-design Shared flag parsing and edit selection serve fix and format while this entry point selects all-rule diagnostics policy.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The pass cap detects a nonconverging fixer and reports failure instead of hiding repeated edits with retries or expected-source substitutions.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes applying fixes, remaining diagnostics and no JavaScript emission; cascade comments explain ownership and the convergence cap.
 func RunFix(args []string) int {
   opts, err := parseSubcommandFlags("fix", args)
   if err != nil {
@@ -231,7 +237,7 @@ func applyFindingFixes(cwd string, findings []*Finding) (int, error) {
 
 // applyTextEditsToFile selects a non-overlapping, per-finding-atomic set of
 // edits from `groups` (one group per finding), applies them to `source` in
-// reverse order (right-to-left) to preserve earlier offsets, and writes the
+// source order without shifting snapshot offsets, and writes the
 // result to `path`. Returns the number of edits applied, or 0 when no edits
 // survive selection.
 func applyTextEditsToFile(path, source string, groups [][]TextEdit) (int, error) {
@@ -239,11 +245,7 @@ func applyTextEditsToFile(path, source string, groups [][]TextEdit) (int, error)
   if len(selected) == 0 {
     return 0, nil
   }
-  next := source
-  for i := len(selected) - 1; i >= 0; i-- {
-    edit := selected[i]
-    next = next[:edit.Pos] + edit.Text + next[edit.End:]
-  }
+  next := applySelectedTextEdits(source, selected)
   if next == source {
     return 0, nil
   }
@@ -251,6 +253,25 @@ func applyTextEditsToFile(path, source string, groups [][]TextEdit) (int, error)
     return 0, fmt.Errorf("@ttsc/lint fix: write %s: %w", path, err)
   }
   return len(selected), nil
+}
+
+// applySelectedTextEdits renders validated, source-ordered disjoint edits.
+// Every range still addresses the original snapshot, so each unchanged span
+// and replacement is copied once rather than copying the whole file per edit.
+// Selection owns range validation, duplicate removal and overlap decisions.
+func applySelectedTextEdits(source string, selected []TextEdit) string {
+  if len(selected) == 0 {
+    return source
+  }
+  var out strings.Builder
+  cursor := 0
+  for _, edit := range selected {
+    out.WriteString(source[cursor:edit.Pos])
+    out.WriteString(edit.Text)
+    cursor = edit.End
+  }
+  out.WriteString(source[cursor:])
+  return out.String()
 }
 
 // selectTextEdits filters and sorts `edits` into a non-overlapping
@@ -289,10 +310,9 @@ func selectTextEdits(sourceLen int, edits []TextEdit) []TextEdit {
   // lastInsertAt marks the offset of the previously-selected edit when that
   // edit was a zero-width insert (Pos==End), else -1. A new zero-width
   // insert at that same offset must be dropped: two coincident inserts both
-  // pass the `edit.Pos < lastEnd` gate, then apply in reverse sort order and
-  // concatenate at one point — silently corrupting the source (e.g. a `;`
-  // insert and a `\n` insert at EOF yielding `\n;`). This edit-level selector
-  // keeps one winner and drops the rest; selectTextEditGroups turns that drop
+  // pass the `edit.Pos < lastEnd` gate and concatenate at one point, making
+  // competing replacement intentions into a single unintended result. This
+  // edit-level selector keeps one winner and drops the rest; selectTextEditGroups turns that drop
   // into a whole-finding skip, which is the contract rule.TextEdit states. A
   // zero-width insert sitting at the end of a prior NON-empty edit is left
   // alone: it applies cleanly after the replacement and is a legitimate

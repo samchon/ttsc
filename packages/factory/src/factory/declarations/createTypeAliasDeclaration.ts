@@ -24,6 +24,21 @@ import { make } from "../internal/make";
  * export type ID = string;
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   The normalized identifier and generic parameters name the alias, while the
+ *   supplied TypeNode is retained as its definition rather than resolved to values.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Alias declaration syntax stays separate from type construction and printing;
+ *   no symbol table or type checker is introduced for source generation.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The definition is caller data, not a fallback type selected to pass a check.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native prose explains modifiers, generic parameters and the definition slot,
+ *   with a concrete alias example and separate acknowledgment paragraphs.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param modifiers The leading modifiers and decorators, if any.
  * @param name The name.

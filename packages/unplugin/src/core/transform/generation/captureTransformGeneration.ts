@@ -66,16 +66,47 @@ const TTSC_SEMANTIC_CONFIG_PATH = "TTSC_SEMANTIC_CONFIG_PATH";
  * Its place in the adapter's invalidation model, and the units beside it, are
  * mapped in the maintainer page
  * `website/src/content/docs/development/reference/unplugin-invalidation.mdx`.
+ *
+ * Project walks bracket the compiler and the compile-time tracker supplies an
+ * independent mutation witness. Reported graph/external/host proofs must agree
+ * before a successful generation can be published. Retained observers and the
+ * clock probe transfer only with a completed capture; all other resources are
+ * released through the finally boundary, including a shared compile lock.
+ *
+ * @evidence contracts/common.md#principled-implementation Before/after walk agreement, compiler graph read proofs, external dependency witnesses and host validation jointly establish the captured generation's supported reuse premises; adopted publications are validated against their recorded external state on this worker's disk.
+ * @evidence contracts/common.md#clear-and-simple-design One capture owns the compile window and final resource handoff, delegating config overlays, shared compile claiming, input selection, proof composition and tracker operations to their owning helpers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Scratch config preserves compiler physical anchoring instead of compensating path guesses, dependencies require pre-compile witnesses, and unverifiable graph or host input cannot be upgraded to success by a quiet post-compile watcher.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe capture proofs and ownership transfer, inline comments explain temporal boundaries and publication policy, and separated props identify inherited facts and host capabilities.
+ * @evidence contracts/portability.md#os-neutral-implementation compilerProjectSpelling anchors physical config meaning, the supplied filesystem owns native observations and tracker capabilities, reported case policy governs membership and transformScratchEnvironment isolates worker environment without mutating host globals.
+ * @evidence contracts/performance.md#efficient-algorithms Necessary project scans bracket one compile or adopted result; Set unions deduplicate universal inputs, absence candidates are derived only when retained watchers can use them and bounded witness collections report all evaluated proof families.
+ * @evidence contracts/performance.md#reuse-equivalent-work Complete project state and compile identity coordinate session publication, immutable envelope derivation shares selectors, and a reusable generation transfers captured baselines/observers so later module deliveries avoid equivalent whole-project compilation.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The finally chain attempts all untransferred tracker closures, scratch removal and probe disposal; cleanup failure closes pending transferred trackers, and only a returned capture acquires retained observers/probe association while shared claims are always released.
  */
 export async function captureTransformGeneration(props: {
+  /** Adapter alias paths translated into the transform config overlay. */
   aliasPaths: Record<string, string[]>;
+
+  /** Compiler options overlaid on the project without editing its source config. */
   compilerOptions: Record<string, unknown>;
+
+  /** Native source path whose host delivery initiated the attempt. */
   currentFile: string;
+
+  /** Host-delivered text compared with the compiler's on-disk source baseline. */
   currentSource: string;
+
+  /** Optional delivery epoch to which this captured observation belongs. */
   deliveryEpoch?: number;
+
+  /** Host operations used by walks, identity probes and observer construction. */
   filesystem: TtscTransformFilesystemOperations;
+
+  /** Native compiler plugins selected for this attempt. */
   plugins?: ResolvedTtscUnpluginOptions["plugins"];
+
+  /** Whether complete proof may transfer membership observers to the generation. */
   retainProjectMembership: boolean;
+
   /**
    * Whether the generation may keep watchers whose silence stands in for
    * re-reading its inputs. False once the host or the environment declares
@@ -83,6 +114,7 @@ export async function captureTransformGeneration(props: {
    * against its recorded state.
    */
   retainNotifications: boolean;
+
   /**
    * The pooled host session's shared compile store, when the cache shares its
    * compiles (samchon/ttsc#1390). The attempt then takes another worker's
@@ -90,6 +122,7 @@ export async function captureTransformGeneration(props: {
    * publishes its compile once proven.
    */
   session?: string;
+
   /**
    * The project state of a publication an earlier attempt adopted and found
    * refuted here (`TtscAdoptionVerdict`). A claim for that same state compiles
@@ -97,14 +130,20 @@ export async function captureTransformGeneration(props: {
    * usual, since nothing has found its publication wanting.
    */
   rejected?: string;
+
+  /** Whether a project observer should witness mutation during compilation. */
   trackProjectMembership: boolean;
+
+  /** Native project config named before any generated overlay is materialized. */
   tsconfig: string;
+
   /**
    * Dependency-only paths an earlier compile of this project reported, read
    * before this compile so the state read after it can be certified
    * (samchon/ttsc#1541).
    */
   witnessedDependencies?: readonly string[];
+
   /**
    * The case policy an earlier compile of this project reported
    * (samchon/ttsc#1545), which primes this attempt's walk before its own
@@ -549,10 +588,9 @@ export async function captureTransformGeneration(props: {
     if (!externalInputSnapshot.dependenciesProven) {
       cached.projectHeldStill = false;
     }
-    // Evaluate every half, rather than short-circuiting, so a generation that
-    // cannot be reused can say which evidence it lacked. The extra work runs
-    // only on the failing path, where the alternative is recompiling the whole
-    // project for every remaining module.
+    // Evaluate every proof family rather than short-circuiting after the first
+    // failed one, so a rejected generation reports every missing premise. The
+    // same checks establish a successful generation's reuse authority.
     const failures = createGenerationProofFailures();
     if (!configStable) {
       recordGenerationProofFailure(failures, {
@@ -641,11 +679,12 @@ export async function captureTransformGeneration(props: {
     // waiter compile.
     if (sharedClaim !== undefined) {
       if (
-        result.type === "success"
+        result.type !== "exception" &&
+        result.observationsComplete !== false &&
+        Object.keys(result.hostInputProofFailures ?? {}).length === 0 &&
+        (result.type === "success"
           ? stableProjectSnapshot
-          : result.type === "failure" &&
-            walkStable &&
-            externalInputSnapshot.dependenciesProven
+          : walkStable && externalInputSnapshot.dependenciesProven)
       ) {
         await sharedClaim.publish({
           externalInputHashes: externalInputSnapshot.hashes,

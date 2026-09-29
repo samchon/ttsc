@@ -6,6 +6,14 @@ import type { Token } from "../names/Token";
  *
  * Built by {@link factory.createJsxExpression}.
  *
+ * An absent expression yields an empty container. The broad optional spread
+ * marker does not enforce which JSX positions permit spread children.
+ *
+ * @evidence contracts/common.md#principled-implementation Optional expression and spread presence preserve JSX brace-container parts, including empty containers; positional spread legality remains unchecked.
+ * @evidence contracts/common.md#clear-and-simple-design Expression payload and optional spread marker are independent fields without component runtime state.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Container contents are supplied syntax rather than hidden evaluation or consumer-specific component behavior.
+ * @evidence contracts/common.md#meaningful-documentation JSDoc explains empty-container and spread-position limits separately; member spacing follows the documentation skill.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  */
 export interface JsxExpression {

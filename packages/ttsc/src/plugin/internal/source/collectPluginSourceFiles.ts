@@ -25,11 +25,24 @@ import { GoSourceInputs } from "./GoSourceInputs";
  *
  * @param root The source directory: a plugin's Go module root, an overlay
  *   module, a contributor's source, or a `replace` target outside the module.
+ *
  * @throws When the directory holds a link the build would read.
+ * @throws When enumeration fails for a reason other than a vanished entry.
+ *
+ * @evidence contracts/common.md#principled-implementation The recursive Dirent walk selects regular files under the same prune/omit policy as copying and refuses contributing links, so bytes read outside the keyed tree cannot enter a build unnoticed.
+ * @evidence contracts/common.md#clear-and-simple-design One private traversal owns enumeration and one final sort establishes deterministic file order for every downstream digest.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Shared source rules exclude build residue by declared kind/name policy instead of adapting the key to observed fixtures.
+ * @evidence contracts/common.md#meaningful-documentation The native paragraphs identify counted files, omitted residue, link rejection and the common reader used by keys and proofs.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path joining and Dirent kinds distinguish ordinary files, directories and links, including junctions; neither case folding nor slash-only identity is assumed.
+ * @evidence contracts/performance.md#efficient-algorithms Enumeration visits each unpruned directory entry once and sorts F selected files in O(F log F); it retains file paths and recursion depth rather than loading content during listing.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This supplies a fresh source population to its callers; cached digests and validation reuse are owned by those callers.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The synchronous walk retains only the returned path list and transient recursion state, with no persistent handle or task.
  */
 export function collectPluginSourceFiles(root: string): string[] {
   const out: string[] = [];
-  walk(root, root, out);
+  const directory = path.resolve(root);
+  walk(directory, directory, out);
   out.sort();
   return out;
 }
@@ -38,8 +51,10 @@ function walk(root: string, dir: string, out: string[]): void {
   let entries: fs.Dirent[];
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT" || code === "ENOTDIR") return;
+    throw error;
   }
   for (const entry of entries) {
     const full = path.join(dir, entry.name);

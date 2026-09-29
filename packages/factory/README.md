@@ -54,6 +54,10 @@ Once a project migrates its tool-chain to the **TypeScript-Go** (tsgo, `>= 7.x`)
 
 `createXxx` methods mirror the legacy `ts.factory` names and parameter order, and return concrete, fully typed _outline_ AST nodes (each with a `kind` discriminant).
 
+`createImportTypeNode` takes `(argument, attributes, qualifier, typeArguments, isTypeOf)`. Update calls that put `isTypeOf` first; the factory now follows the TypeScript signature.
+
+Nodes must form an acyclic tree with valid token spellings and grammar combinations. Builders describe the supported outline shapes; they do not parse names or type-check generated programs. Validate generated source with the compiler when its validity matters.
+
 ```typescript
 import factory, { SyntaxKind } from "@ttsc/factory";
 
@@ -63,6 +67,8 @@ factory.createKeywordTypeNode(SyntaxKind.StringKeyword); // string
 ### `TsPrinter`
 
 A **width-aware** printer implemented directly (not a wrapper over `ts.Printer`). Like Prettier, it keeps lists on one line when they fit within `printWidth` and breaks them — with trailing commas — when they don't.
+
+Width counts JavaScript string units rather than terminal display columns. Newline and indentation are explicit source layout choices.
 
 ```typescript
 const props: TsPrinter.IProps = {

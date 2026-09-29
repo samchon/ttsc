@@ -15,6 +15,15 @@ import { make } from "../internal/make";
  * <Foo>x
  * ```
  *
+ * This is assertion syntax, not a runtime conversion. Callers choose an
+ * enclosing grammar context that permits angle-bracket assertions rather
+ * than JSX; construction does not perform type checking.
+ *
+ * @evidence contracts/common.md#principled-implementation Type and operand retain the angle-bracket assertion form separately from as syntax; caller-owned grammar context and assertion validity are not established by construction.
+ * @evidence contracts/common.md#clear-and-simple-design One make call records the two constituents, leaving assertion delimiters and operand precedence to the printer.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The type assertion does not become a runtime cast, patched value or fabricated assignability result.
+ * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes assertion from conversion and states the JSX-context limit; expression example, parameters and tags remain separate.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param type The asserted type.
  * @param expression The expression to cast.

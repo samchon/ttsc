@@ -3,7 +3,14 @@ import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransf
 import { TRANSFORM_CACHE_FILESYSTEM } from "./TRANSFORM_CACHE_FILESYSTEM";
 import type { TtscTransformCache } from "./TtscTransformCache";
 
-/** Create an empty persistent transform cache with isolated filesystem reads. */
+/**
+ * Create an empty persistent transform cache with isolated filesystem reads.
+ *
+ * @evidence contracts/common.md#principled-implementation Each cache receives its own filesystem operation table, so supplied capabilities govern that cache without changing defaults for other adapters.
+ * @evidence contracts/common.md#clear-and-simple-design A Map stores compile promises and a WeakMap stores its operation table; omitted operations independently use the native defaults.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit dependency injection supplies filesystem capabilities without replacing foreign methods or adding test-specific behavior.
+ * @evidence contracts/common.md#meaningful-documentation The comment describes the empty cache and isolated reads; the parameter type distinguishes required native defaults from optional watch and case-policy capabilities.
+ */
 export function createTtscTransformCache(
   operations: Partial<TtscTransformFilesystemOperations> = {},
 ): TtscTransformCache {

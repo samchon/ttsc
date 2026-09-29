@@ -26,6 +26,11 @@ import type {
  * / imperative-shell discipline.
  *
  * @reference https://github.com/eslint-functional/eslint-plugin-functional
+ *
+ * @evidence contracts/common.md#principled-implementation Each optional functional rule retains its own options type, including the shared empty-options schema for rules that accept no configurable fields.
+ * @evidence contracts/common.md#clear-and-simple-design The map groups functional policies without coupling their enablement; option schemas remain separate from severity tuple construction.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The family enumerates supported rule names and typed policies rather than using an untyped index to admit arbitrary options.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains selective adoption and member comments identify each control-flow or immutability policy; paragraphs, property spacing and tag separation follow documentation guidance.
  */
 export interface ITtscLintFunctionalRules {
   /**
@@ -38,8 +43,9 @@ export interface ITtscLintFunctionalRules {
 
   /**
    * Reject property assignment (`obj.x = ...`), element assignment (`arr[0] =
-   * ...`), and `Map`/`Set` mutation methods. Configurable to allow mutation
-   * inside constructors or initialization expressions.
+   * ...`), and collection mutation methods. Configurable ignore patterns and
+   * `ignoreMapsAndSets` allow selected code or Map/Set methods; constructor
+   * initialization has no dedicated allowance.
    *
    * @reference https://github.com/eslint-functional/eslint-plugin-functional/blob/main/docs/rules/immutable-data.md
    */
@@ -62,7 +68,8 @@ export interface ITtscLintFunctionalRules {
 
   /**
    * Reject `if` and `switch` _statements_. The conditional-expression forms
-   * (ternary, `&&`, `||`) remain allowed.
+   * (ternary, `&&`, `||`) remain allowed. The compatibility field
+   * `allowReturningBranches` does not change the native rejection.
    *
    * @reference https://github.com/eslint-functional/eslint-plugin-functional/blob/main/docs/rules/no-conditional-statements.md
    */
@@ -144,8 +151,9 @@ export interface ITtscLintFunctionalRules {
   "functional/no-try-statements"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalNoTryStatementsRuleOptions>;
 
   /**
-   * Require declared variable, parameter, and property types to be `readonly`
-   * or otherwise structurally immutable.
+   * Apply the native readonly-required syntax check to declared variable,
+   * parameter and property types. The compatibility `enforcement` field does
+   * not implement separate shallow, deep or immutable levels.
    *
    * @reference https://github.com/eslint-functional/eslint-plugin-functional/blob/main/docs/rules/prefer-immutable-types.md
    */
@@ -187,9 +195,9 @@ export interface ITtscLintFunctionalRules {
   "functional/readonly-type"?: TtscLintRuleOptionsSetting<ITtscLintFunctionalReadonlyTypeRuleOptions>;
 
   /**
-   * Enforce readonly/immutable type declarations by _declaration name_ policy —
-   * for projects that want only types matching certain naming conventions to be
-   * locked down.
+   * Apply readonly-required syntax checks by _declaration name_ policy.
+   * Configured level and comparator values are retained for compatibility; the
+   * native subset computes no immutability level to compare.
    *
    * @reference https://github.com/eslint-functional/eslint-plugin-functional/blob/main/docs/rules/type-declaration-immutability.md
    */

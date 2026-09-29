@@ -7,9 +7,15 @@ import { installTypiaSourcePack } from "./installTypiaSourcePack";
  * Build a `mount` callback for the `typiaPlugin` config of
  * {@link createWorkerCompiler}.
  *
- * The returned function fetches the pack once (cached per URL by
- * {@link loadTypiaSourcePack}) and writes every entry to the MemFS the first
- * time it is invoked on a given host.
+ * The returned function shares loading by URL and fetch function identity through
+ * {@link loadTypiaSourcePack}, then writes every entry to the MemFS on each
+ * invocation. Network records are cached, but mounting repeats so a
+ * caller can restore files removed from the virtual host.
+ *
+ * @evidence contracts/common.md#principled-implementation Explicit mountRoot overrides the actual worker workDir; absent both, installation uses its documented virtual root.
+ * @evidence contracts/common.md#clear-and-simple-design One adapter derives the root and delegates transport and writes to their owning operations.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The optional workDir preserves the supported single-argument callback while supplied project roots are honored instead of patched with fixed paths.
+ * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes cached loading from repeated mounting and explains callback compatibility, following documentation-skill paragraph separation.
  */
 export function createTypiaSourcePackMount(
   options: IInstallTypiaSourcePackOptions,

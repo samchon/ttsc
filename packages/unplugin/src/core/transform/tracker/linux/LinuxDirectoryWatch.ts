@@ -1,18 +1,58 @@
 import type { LinuxWatchHelper } from "./LinuxWatchHelper";
 
-/** One shared non-recursive directory watch and the observers subscribed to it. */
+/**
+ * One shared non-recursive directory watch and its subscribed observers.
+ *
+ * Readiness belongs to the helper subscription; each observer owns its own
+ * event and termination callback until it detaches.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Separate observer Sets and one readiness promise distinguish shared native
+ *   ownership from each subscriber's callbacks.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The entry contains exactly the shared subscription and its observer lists;
+ *   recursive discovery remains with openLinuxDirectoryObserver.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Native readiness is explicit; construction alone cannot certify a watch
+ *   live or a directory's contents unchanged.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native type and separated member comments explain readiness, observers and
+ *   release ownership under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   OS-neutral consumers receive backend-independent events; this type confines
+ *   Linux helper subscription state to the native boundary.
+ */
 export interface LinuxDirectoryWatch {
-  /** Release the helper's subscription once no subscriber is left. */
+  /**
+   * Release the helper's subscription once no subscriber is left.
+   *
+   * @evidence contracts/common.md#principled-implementation
+   *   This operation retires the shared native subscription, not one observer.
+   * @evidence contracts/common.md#clear-and-simple-design
+   *   A parameterless closer hides helper identifiers from subscribers.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts
+   *   Shared ownership ends only after subscribers detach; no consumer-specific
+   *   handle is closed while another owner still relies on it.
+   * @evidence contracts/common.md#meaningful-documentation
+   *   Native JSDoc states the last-subscriber condition under the documentation skill.
+   * @evidence contracts/portability.md#os-neutral-implementation
+   *   OS-neutral callers release through the closer without platform signals or
+   *   assumptions about native descriptor layout.
+   */
   close(): void;
+
   /** The helper serving the watch, which a joining subscriber syncs with. */
   helper: LinuxWatchHelper;
+
   /** Subscribers, each told every event with the entry name it named. */
   listeners: Set<(eventType: string, filename: string | null) => void>;
+
   /**
    * Subscribers told when the watch ends: its directory went away, it could not
    * be opened, or the helper serving it exited. It ends for all of them.
    */
   errors: Set<() => void>;
+
   /**
    * Whether the watch is live, once the helper has answered
    * (samchon/ttsc#1426). Nothing is heard before it resolves `true`.

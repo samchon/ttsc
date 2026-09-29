@@ -1,5 +1,7 @@
 package lspserver
 
+import "strings"
+
 // lexicalScope names the kind of token a byte offset sits in.
 //
 // It is what a scanner can decide without a parse: comments, string and
@@ -56,7 +58,7 @@ type regexContext struct {
   last byte
 
   lastAdjacent       bool
-  word               string
+  word               strings.Builder
   previousWord       string
   beforePreviousWord string
   wordMember         bool
@@ -115,11 +117,11 @@ func (context *regexContext) separator() {
 
 func (context *regexContext) writeCode(symbol byte) {
   if isIdentifierByte(symbol) {
-    if context.word == "" {
+    if context.word.Len() == 0 {
       context.wordExpression = context.expressionPosition()
       context.wordMember = context.last == '.'
     }
-    context.word += string(symbol)
+    context.word.WriteByte(symbol)
     context.kind = regexPredecessorWord
     context.last = symbol
     context.lastAdjacent = true
@@ -256,26 +258,27 @@ func (context *regexContext) expressionPosition() bool {
 }
 
 func (context *regexContext) finishWord() {
-  if context.word == "" {
+  if context.word.Len() == 0 {
     return
   }
-  if context.word == "function" && !context.wordMember {
+  word := context.word.String()
+  if word == "function" && !context.wordMember {
     context.pendingFunction = true
     context.functionExpression = context.wordExpression
-  } else if context.word == "class" && !context.wordMember {
+  } else if word == "class" && !context.wordMember {
     context.classExpressions = append(context.classExpressions, context.wordExpression)
   }
   context.beforePreviousWord = context.previousWord
-  context.previousWord = context.word
+  context.previousWord = word
   context.previousMember = context.wordMember
   context.previousExpression = context.wordExpression
-  context.word = ""
+  context.word.Reset()
   context.wordMember = false
 }
 
 func (context *regexContext) lastWord() (string, bool) {
-  if context.word != "" {
-    return context.word, context.wordMember
+  if context.word.Len() != 0 {
+    return context.word.String(), context.wordMember
   }
   return context.previousWord, context.previousMember
 }

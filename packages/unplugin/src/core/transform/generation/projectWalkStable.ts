@@ -10,6 +10,11 @@ import { trackerChangedDeclaredProjectInput } from "./trackerChangedDeclaredProj
  * verdict that only evidence spanning the compile can decide
  * (samchon/ttsc#1383).
  *
+ * This predicate compares available walks and reported events rather than
+ * freezing the filesystem. With no tracker, it supplies no independent A-B-A
+ * event authority; complete generation admission also requires the compiler
+ * graph and external/host proofs in captureTransformGeneration.
+ *
  * The walks before and after the compile prove bytes and metadata, and the
  * tracker opened before the compile is the independent A-B-A witness: a
  * producer can restore both bytes and timestamps before the second walk, but it
@@ -36,13 +41,33 @@ import { trackerChangedDeclaredProjectInput } from "./trackerChangedDeclaredProj
  * @param props.snapshot The project walk taken after the compile.
  * @param props.tracker The project tracker opened before the compile, if one
  *   could be opened.
+ *
+ * @evidence contracts/common.md#principled-implementation Both complete walks must agree on declared content, metadata and relevant directory membership, while an available compile-time tracker supplies independent A-B-A event evidence; the predicate is one part of generation admission, not an atomic filesystem freeze.
+ * @evidence contracts/common.md#clear-and-simple-design The verdict composes existing walk, hash, directory and event predicates without duplicating their evidence collection or tracker ownership.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown declared scope compares the full walk, omitted tracker events remain conservative, and no bundler cache filename exception replaces the actual compile-window distinction.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the temporal witness boundary and narrower role of later trackers; props identify before/after observations and undefined declared scope.
+ * @evidence contracts/portability.md#os-neutral-implementation Native identity/event overlap policy stays with trackerChangedDeclaredProjectInput and the supplied filesystem observations; this predicate introduces no OS-name or separator-based case rule.
+ * @evidence contracts/performance.md#efficient-algorithms Ordered conjunction short-circuits failed proof, scans declared hashes and relevant directories through shared predicates, and inspects only the bounded tracker evidence needed for overlap.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This pure predicate consumes an already captured pair; generation capture owns observation sharing and no cross-request cache is coordinated here.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The verdict owns no tracker, retained generation or resource lifecycle; its caller owns the compared observations.
  */
 export function projectWalkStable(props: {
+  /** Pre-compile walk under the primed compiler membership policy. */
   before: ProjectWalk;
+
+  /** Whether the wrapper-dependent config view held through the compile. */
   configStable: boolean;
+
+  /** Relevant project keys; undefined requires agreement over the whole walk. */
   declared: ReadonlySet<string> | undefined;
+
+  /** Native project directory anchoring declared keys for event overlap. */
   projectRoot: string;
+
+  /** Post-compile walk under the compiler-reported membership policy. */
   snapshot: ProjectWalk;
+
+  /** Observer opened before compile; absence supplies no positive event proof. */
   tracker: TtscProjectMutationTracker | undefined;
 }): boolean {
   return (

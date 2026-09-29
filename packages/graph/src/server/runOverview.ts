@@ -1,8 +1,11 @@
 import { TtscGraphMemory } from "../model/TtscGraphMemory";
-import { ITtscGraphNode } from "../structures/ITtscGraphNode";
+import { TtscGraphReadonly } from "../model/TtscGraphReadonly";
+import { ITtscGraphNode as NodeShape } from "../structures/ITtscGraphNode";
 import { ITtscGraphOverview } from "../structures/ITtscGraphOverview";
 import { isPublicApiNoisePath, isSupportPath } from "./pathPolicy";
 import { IRunnerOutput, resultNext } from "./resultNext";
+
+type ITtscGraphNode = TtscGraphReadonly<NodeShape>;
 
 /** Edges that express nesting/packaging, not code dependency. */
 const STRUCTURAL_KINDS = new Set<string>(["contains", "exports"]);
@@ -13,6 +16,14 @@ const STRUCTURAL_KINDS = new Set<string>(["contains", "exports"]);
  * fan-in/out, excluding structural edges so nesting does not masquerade as
  * dependency), and the export surface by file. Output is bounded so a model
  * reads structure cheaply.
+ *
+ * @evidence contracts/common.md#principled-implementation Counts derive from resident nodes/edges; facet helpers distinguish folder population from non-structural dependency connectivity and exported declarations.
+ * @evidence contracts/common.md#clear-and-simple-design The aspect selector assembles only requested facets, sharing coordinate and path policies across their helpers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Ranking uses graph connectivity and documented conventional path heuristics rather than named benchmark projects or expected answers.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains source-free facets and structural-edge exclusion; DTO comments describe population and ordering.
+ * @evidence contracts/performance.md#efficient-algorithms Counts scan nodes once; selected facets scan their node/edge populations and sort candidate summaries, with dominant O(V log V + E) work for all facets.
+ * @evidence contracts/performance.md#reuse-equivalent-work All facets borrow generation indexes; completed facet memoization is not implemented, so repeated requests recompute caller-owned mutable summaries.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Folder maps, candidate summaries and sets are local to one request; output facets are capped and no history or handles are retained.
  */
 export function runOverview(
   graph: TtscGraphMemory,

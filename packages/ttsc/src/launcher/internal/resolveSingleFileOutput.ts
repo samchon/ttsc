@@ -12,6 +12,12 @@ import { resolvePhysicalPath } from "../../internal/pathIdentity/resolvePhysical
  * then copies one transformed JavaScript file to this path, so project-mode
  * declaration, map, build-info, outFile, and broad outDir products are not
  * positional outputs.
+ *
+ * @evidence contracts/common.md#principled-implementation CLI output wins over project output, supported source extensions choose the emitted suffix, and physical root/file relation preserves project layout through links when the file is contained.
+ * @evidence contracts/common.md#clear-and-simple-design Output placement delegates project settings and isolates containment, extension and forwarded-option readers; it does not materialize compiler side products.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Basename placement for files outside the project root is a supported positional-output rule; no fixture path or transformed-content special case decides the destination.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish the one copied JavaScript artifact from private build products; the physical-path comment explains why lexical aliases are insufficient.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path operations and shared physical resolution handle volumes, separators and links; containment checks reject absolute cross-volume relatives without unconditional case folding.
  */
 export function resolveSingleFileOutput(options: {
   cliOutDir?: string;

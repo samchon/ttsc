@@ -21,6 +21,19 @@ import { PROJECT_RECORD_DIRECTORY } from "./PROJECT_RECORD_DIRECTORY";
  *
  * @param toolDirectory The host's tool directory (`hostToolDirectory`).
  * @param tsconfig The project's tsconfig, as the adapter names it.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   A resolved-tsconfig digest identifies the project within one host tool root;
+ *   the deterministic filename persists across processes that restore host caches.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Naming is centralized independently of record writing and state validation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The product-owned directory and extension define the record format; hashing
+ *   selects project names without a consumer-specific filename table.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs explain project-granularity dependency ownership and stable
+ *   filename purpose, with parameter/tag separation per documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation Native resolution and joining preserve the process's actual tsconfig volume and host directory spelling; case policy is not guessed, so distinct lexical spellings can name separate records rather than falsely merging projects.
  */
 export function projectRecordFile(
   toolDirectory: string,

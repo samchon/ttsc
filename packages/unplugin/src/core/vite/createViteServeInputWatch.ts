@@ -26,6 +26,36 @@ import { reloadImporters } from "./reloadImporters";
  * (samchon/ttsc#1395).
  *
  * @param operations Native watch seams, replaceable for tests.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Compiler-only inputs belong to the shared observer, while verdicts route to
+ *   Vite's actual importer nodes. Content changes request HMR propagation and
+ *   membership-only changes invalidate without inventing runtime imports.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The wrapper owns server association and verdict routing; input observation,
+ *   graph lookup and reload transport remain dedicated operations.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Real host polling capabilities select observation; compiler assets are not
+ *   attached to Vite's runtime graph merely to compensate for watcher omissions.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs explain graph ownership, membership behavior and polling;
+ *   returned interface docs and separated tags follow documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Configured root or native cwd enters the shared observer. Injected filesystem
+ *   and watcher seams judge actual capability; the wrapper assumes no universal
+ *   path case policy or cross-platform native notification guarantee.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Verdict sets deduplicate changed importers before graph work; subscription
+ *   indexing and bounded watch handles remain owned by createInputObserver.
+ *   Fallback graph lookup can scan G files for each unmatched importer.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   One observer shares compiler-input subscriptions across served modules using
+ *   their generation evidence; replace supplies the capture token so stale
+ *   registration does not acknowledge a change since compilation began.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   This wrapper owns the observer; forget releases an importer's registrations
+ *   and dispose releases scopes, timers and entries. The server association is
+ *   retained across overlapping containers; retained bytes grow with inputs.
  */
 export function createViteServeInputWatch(
   operations: Partial<InputObserverOperations> = {},

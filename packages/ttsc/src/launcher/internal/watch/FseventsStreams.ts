@@ -13,6 +13,16 @@ import type { DirectoryWatcher } from "./DirectoryWatcher";
  * their descendants are indexed, so registration, close, and named event
  * delivery depend on path depth and affected watches rather than every stream
  * in the process.
+ *
+ * @evidence contracts/common.md#principled-implementation Ancestor streams cover descendant subscriptions; promotion starts replacement observation before retiring old streams and then reports the handoff gap.
+ * @evidence contracts/common.md#clear-and-simple-design Stream ownership and descendant indexes are distinct from each watch's listener and close state.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The registry uses the binding's supported watch/stop boundary and explicit gaps instead of patching libuv or assuming queued callbacks survive stop.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain ancestor reuse, transfer ordering, gaps and index-driven delivery following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation This macOS binding boundary interprets FSEvents flags explicitly and exposes the same DirectoryWatcher contract as Node's other native backends.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms The class representation groups indexes; open and event helpers own processing strategies.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Registration operations establish stream sharing rather than the state representation itself.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Stream acquisition and retirement belong to open/close operations; the representation acquires no independent handle.
  */
 export class FseventsStreams {
   private readonly descendants = new Map<string, Set<Stream>>();
@@ -21,7 +31,20 @@ export class FseventsStreams {
   /** Use the binding supplied by the host for every stream in this registry. */
   public constructor(private readonly binding: FseventsBinding) {}
 
-  /** Load the optional binding, or warn once and return `null` without it. */
+  /**
+   * Load the optional binding, or warn and return `null` without it. The
+   * selecting watchDirectory owner calls this once for the process.
+   *
+   * @evidence contracts/common.md#principled-implementation A binding must expose the required watch function before the registry can use it; unavailable optional support is surfaced by a warning.
+   * @evidence contracts/common.md#clear-and-simple-design One shape check constructs the registry or returns explicit unavailability.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The real Node watcher fallback serves missing optional production support, not a fake successful binding or fixture branch.
+   * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes per-call warning from the selecting owner's once-per-process scheduling following the documentation skill.
+   * @evidence contracts/portability.md#os-neutral-implementation The optional macOS binding is loaded at its explicit native boundary and its absence retains supported Node observation with a stated limitation.
+   *
+   * @evidenceExclude contracts/performance.md#efficient-algorithms Module loading owns the binding load; this method validates its interface shape.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work The selecting owner caches availability; calling this constructor directly does not coordinate caller reuse.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned registry owns no stream until open acquires one; module loading has no independently released watcher here.
+   */
   public static load(): FseventsStreams | null {
     try {
       const loaded: unknown = require("fsevents");
@@ -50,7 +73,17 @@ export class FseventsStreams {
    * @param recursive Whether to receive events below immediate children.
    * @param listener Receives the event and its relative name, or `null` with a
    *   gap flag when every affected input needs a content recheck.
+   *
    * @returns A watcher whose close is idempotent.
+   *
+   * @evidence contracts/common.md#principled-implementation A watch joins a covering ancestor stream; promotion transfers existing subscriptions before retiring displaced streams and schedules one gap recheck.
+   * @evidence contracts/common.md#clear-and-simple-design Stream selection is separate from subscription state; returned close/on callbacks operate on one captured watch.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Transfer gaps are reported explicitly rather than hidden by repeated registration or assumptions about stopped native callbacks.
+   * @evidence contracts/common.md#meaningful-documentation Native parameters explain physical roots, recursion, absent names and idempotent returned ownership following the documentation skill.
+   * @evidence contracts/portability.md#os-neutral-implementation Physical path.resolve/dirname ancestry qualifies the macOS native stream; callers retain the backend-independent DirectoryWatcher interface.
+   * @evidence contracts/performance.md#efficient-algorithms D path ancestors locate a covering stream; indexed descendants visit only displaced streams and their W subscriptions. Named event dispatch similarly visits path ancestors and eligible watches, not every process stream.
+   * @evidence contracts/performance.md#reuse-equivalent-work Recursive native observation is shared by watches under one live ancestor; promotion preserves each listener/recursion contract while replacing the underlying stream identity.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The registry owns active stream handles and O(SD+W) index/subscription references for S roots and W watches; final subscription closure unregisters and stops the stream. Stop failures are suppressed by the existing binding boundary and cannot prove native reclamation.
    */
   public open(
     location: string,

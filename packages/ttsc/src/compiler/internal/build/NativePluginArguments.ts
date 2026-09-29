@@ -8,6 +8,7 @@ import { selectSharedHostPlugin } from "../sharedHost/selectSharedHostPlugin";
 import type { BuildExecution } from "./BuildExecution";
 import { PassthroughFlags } from "./PassthroughFlags";
 import type { RunBuildOptions } from "./RunBuildOptions";
+import { isAbsoluteLocalProjectInputPath } from "./isAbsoluteLocalProjectInputPath";
 
 /**
  * The argv ttsc hands to a native plugin host.
@@ -18,13 +19,41 @@ import type { RunBuildOptions } from "./RunBuildOptions";
  * capabilities a host declares (threading, diagnostics timing) decide which of
  * ttsc's arguments it can accept, so an older host is never handed a flag it
  * would reject.
+ *
+ * @evidence contracts/common.md#principled-implementation The namespace separates the host subcommand protocol from compiler forwarding and uses declared capabilities for optional host fields.
+ * @evidence contracts/common.md#clear-and-simple-design Build, check and input-query composers share descriptor serialization while preserving each command's own supported modifiers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Optional protocol extensions require capabilities instead of mutating foreign flag sets or dispatching on a particular plugin name.
+ * @evidence contracts/common.md#meaningful-documentation Namespace prose states protocol separation and capability purpose; composer comments explain project context, command effects and payload fields.
+ *
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation The grouping itself defines no native path representation; its selected argv composers address the paths they carry.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms The namespace contains no processing strategy apart from its separately selected composers and serializer.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This API grouping retains no completed or in-flight host query or payload.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No native host, buffer history or handle is owned by the namespace.
  */
 export namespace NativePluginArguments {
-  /** Build the argument list for a native plugin `build`/`check` invocation. */
+  /**
+   * Compose a shared transform host's build or no-emit check command.
+   * Project-context arguments require the selected host's capability; quiet
+   * modifiers remain absent on the compatibility check lane.
+   *
+   * A supplied provenancePath is a private absolute artifact destination and
+   * requires explicit emitProvenance support from the selected host.
+   *
+   * @evidence contracts/common.md#principled-implementation Emit selection chooses build versus check; the selected host's independent capabilities gate explicit project context and a supplied absolute emit-proof artifact destination.
+   * @evidence contracts/common.md#clear-and-simple-design Core protocol argv precedes optional project/output/verbosity fields; compiler passthrough travels separately through the environment.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Capability checks and omission of build-only modifiers protect actual strict-host protocol differences without recognizing plugin names or altering foreign flag parsers.
+   * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain shared-host selection, no-emit compatibility modifiers and the optional private provenance path's capability/absolute-path premise.
+   * @evidence contracts/portability.md#os-neutral-implementation Native output paths resolve against execution cwd and remain individual argv elements; JSON serialization preserves plugin payload without shell escaping.
+   * @evidence contracts/performance.md#efficient-algorithms Plugin payload serialization is linear in selected configuration bytes; argument composition appends each field once.
+   *
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This pure argv composition coordinates no shared producer or retained cross-request result.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Arguments are returned to the process owner and no process or persistent buffer is acquired here.
+   */
   export function createNativeBuildArgs(
     execution: ReturnType<typeof BuildExecution.resolveExecutionContext>,
     options: RunBuildOptions,
     plugins: readonly ITtscLoadedNativePlugin[],
+    provenancePath?: string,
   ): string[] {
     const args = [
       options.emit === false ? "check" : "build",
@@ -32,6 +61,17 @@ export namespace NativePluginArguments {
       "--plugins-json=" + serializeNativePlugins(plugins),
       "--cwd=" + execution.projectRoot,
     ];
+    if (provenancePath !== undefined) {
+      if (selectSharedHostPlugin(plugins).capabilities?.emitProvenance !== true)
+        throw new Error(
+          "ttsc: native compiler host does not support emit provenance",
+        );
+      if (!isAbsoluteLocalProjectInputPath(provenancePath))
+        throw new Error(
+          "ttsc: emit provenance destination must be an absolute native path",
+        );
+      args.push("--emit-provenance-json=" + provenancePath);
+    }
     if (
       selectSharedHostPlugin(plugins).capabilities?.projectContextArgs === true
     ) {
@@ -61,7 +101,21 @@ export namespace NativePluginArguments {
     return args;
   }
 
-  /** Build the argument list for a native plugin check/fix/format invocation. */
+  /**
+   * Compose one check-stage host's check, fix or format command. The full
+   * plugin configuration accompanies the command; optional threading, timing
+   * and project-context fields require that host's declared support.
+   *
+   * @evidence contracts/common.md#principled-implementation Subcommand selection follows format/fix options while capability-gated fields preserve the selected host's accepted protocol.
+   * @evidence contracts/common.md#clear-and-simple-design Shared core fields are assembled before small helpers add threading and timing, separating host capability policy from compiler argv.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Optional flags use descriptor capabilities rather than special plugin names or monkey-patched foreign flag sets.
+   * @evidence contracts/common.md#meaningful-documentation Native prose explains command effects, full configuration delivery and capability-dependent fields.
+   * @evidence contracts/portability.md#os-neutral-implementation cwd and output locations retain native path semantics; each protocol flag is a separate argv element and plugin configuration is JSON, not shell text.
+   * @evidence contracts/performance.md#efficient-algorithms Composition traverses configuration for serialization and forwarded flags for effective timing selection, with output storage proportional to argv bytes.
+   *
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Building one command does not coordinate completed or in-flight execution across consumers.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No sidecar or persistent argument cache is owned by this composer.
+   */
   export function createNativeCheckArgs(
     execution: ReturnType<typeof BuildExecution.resolveExecutionContext>,
     options: TtscBuildOptions,
@@ -98,6 +152,18 @@ export namespace NativePluginArguments {
    * Build the argv of a native host's `project-inputs` query, which reports the
    * non-TypeScript files (documents, schemas, configs) the host's rules read,
    * so watch and cache invalidation can observe them.
+   *
+   * The caller must check projectInputs capability before launching this query.
+   *
+   * @evidence contracts/common.md#principled-implementation Project selection and complete plugin configuration let the host report its actual rule inputs; optional project context is sent only when supported.
+   * @evidence contracts/common.md#clear-and-simple-design This composer owns query argv while the discovery operation owns capability selection, execution and snapshot validation.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The explicit project-inputs protocol queries declared dependencies instead of guessing files from plugin names or dropping unsupported inputs.
+   * @evidence contracts/common.md#meaningful-documentation Native prose explains non-TypeScript dependencies, invalidation purpose and the caller's capability premise.
+   * @evidence contracts/portability.md#os-neutral-implementation Selected tsconfig/cwd spellings travel as separate native argv fields; no slash rewriting or shell construction is applied to paths.
+   * @evidence contracts/performance.md#efficient-algorithms Configuration is serialized once for this command and a fixed set of protocol fields is appended.
+   *
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Query composition establishes no cross-request reuse of host dependency discovery.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returned argv has caller ownership; this function acquires no native resource or retained snapshot.
    */
   export function createNativeProjectInputsArgs(
     execution: ReturnType<typeof BuildExecution.resolveExecutionContext>,
@@ -120,27 +186,11 @@ export namespace NativePluginArguments {
     return args;
   }
 
-  // `--singleThreaded` / `--checkers` are forwarded to native check-stage hosts
-  // only when the host is one ttsc itself owns (currently `@ttsc/lint`). #113
-  // forwarded both flags as bare CLI tokens to every native sidecar, then
-  // commit ad3443a reverted that across the board because a third-party host
-  // built before #113 has no `singleThreaded` / `checkers` flag in its
-  // `flag.FlagSet` and would exit 2 on the unknown flag — so
-  // `ttsc --singleThreaded` failed deterministically on every typia/nestia
-  // transform-plugin project.
-  //
-  // The performance ceiling that caused, though, is real: format/check passes
-  // through the lint sidecar are dominated by parallel parse + parallel rule
-  // walk, and with the threading knob silently dropped, MT and ST runs of
-  // `ttsc format` produced identical wall-clock numbers — the benchmark cell
-  // became a non-measurement. The lint sidecar is built and shipped from this
-  // repo, accepts both flags via `parseSubcommandFlags`, and threads them down
-  // to `loadProgram` (parse phase) and `engine.SetSerial` (rule walk). The host
-  // opts in through `capabilities.threadingArgs`, so a third-party check-stage
-  // plugin keeps the strict-host behavior from ad3443a unless it declares the
-  // same contract. Transform-stage hosts are never reached by this path (they go
-  // through `createNativeBuildArgs`), so the typia/nestia regression remains
-  // pinned by `test_plugin_corpus_single_threaded_flag_does_not_break_a_native_plugin_build`.
+  /**
+   * Send threading options only to check hosts declaring support. An unknown
+   * strict host may reject optional flags before it can analyze the project;
+   * transform hosts use the separate build/compiler-options channel.
+   */
   function createNativeCheckThreadingArgs(
     options: TtscCommonOptions,
     plugin: ITtscLoadedNativePlugin,
@@ -160,18 +210,8 @@ export namespace NativePluginArguments {
    * Return true when the loaded native check-stage host has declared
    * `capabilities.threadingArgs` in its plugin descriptor.
    *
-   * The lint sidecar (`packages/lint/src/index.ts::createTtscPlugin`) opts in
-   * because its `parseSubcommandFlags` handler accepts `--singleThreaded` and
-   * `--checkers` directly and threads them into `loadProgram` (parse phase) and
-   * `engine.SetSerial` (rule walk). Any other check-stage host that has not
-   * declared the capability is treated as a third-party binary whose flag set
-   * is unknown, matching the conservative default from commit ad3443a.
-   *
-   * The capability flag replaces the prior `plugin.name === "@ttsc/lint"`
-   * string check: routing on a descriptor field instead of the plugin name lets
-   * the next first-party check-stage plugin opt in without ttsc needing to
-   * learn its name. See `ITtscPluginCapabilities` and issue #125 for the
-   * broader CLI-parser cleanup this is the quick-win step of.
+   * An absent declaration means unsupported, regardless of package ownership or
+   * plugin name, because the host's native flag set is otherwise unknown.
    */
   function nativeHostAcceptsThreadingArgs(
     plugin: ITtscLoadedNativePlugin,
@@ -197,6 +237,18 @@ export namespace NativePluginArguments {
   /**
    * The `--diagnostics` timing label of one transform-host run, naming every
    * plugin that shared the host so a slow run can be attributed.
+   *
+   * @evidence contracts/common.md#principled-implementation Names of all selected participants form one label for the shared execution, rather than attributing its duration to only one plugin.
+   * @evidence contracts/common.md#clear-and-simple-design A single name projection and join supplies timing attribution without coupling labels to process selection.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Participant names come from the actual loaded selection, not a fixed benchmark label or special plugin list.
+   * @evidence contracts/common.md#meaningful-documentation Native prose identifies the shared-host timing purpose and attribution scope.
+   *
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation Formatting participant names touches no native path, filesystem or process boundary.
+   *
+   * @evidence contracts/performance.md#efficient-algorithms One projection and join cost O(total participant-name bytes), with no repeated string-prefix rebuilding.
+   *
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work A label formatter coordinates no shared computation beyond the supplied participant list.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The formatter returns text without retaining selection history or handles.
    */
   export function transformHostTimingLabel(
     plugins: readonly ITtscLoadedNativePlugin[],
@@ -222,6 +274,18 @@ export namespace NativePluginArguments {
   /**
    * Serialize the plugin list to a compact JSON string for `--plugins-json=`.
    * Only the fields the native binary protocol requires are included.
+   *
+   * @evidence contracts/common.md#principled-implementation Projection retains config, name and stage, the protocol's declared plugin descriptor fields, without serializing host-loader implementation details.
+   * @evidence contracts/common.md#clear-and-simple-design One explicit projection defines the JSON wire representation separately from in-memory plugin metadata.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Standard JSON encoding preserves configuration structure without handcrafted quoting or mutation of foreign descriptors.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states the compact protocol purpose and deliberate field restriction.
+   *
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation JSON descriptor serialization accesses no native filesystem or process and applies no path normalization.
+   *
+   * @evidence contracts/performance.md#efficient-algorithms One projection and serialization cost O(configuration bytes); only required descriptor fields are copied.
+   *
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Mutable plugin configuration is serialized for the current invocation without establishing cross-request equivalence.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Local projections become returned text; no persistent descriptor cache or handle is retained.
    */
   export function serializeNativePlugins(
     plugins: readonly ITtscLoadedNativePlugin[],

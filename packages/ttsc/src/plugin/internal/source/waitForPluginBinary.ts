@@ -8,7 +8,20 @@ import { inspectPluginBuildLock } from "./inspectPluginBuildLock";
 /**
  * Poll for the locked builder to publish its binary, up to `timeoutMs`.
  *
- * Exported for unit tests.
+ * Normal release requests reacquisition and an abandoned owner carries the
+ * exact observed generation. Expiring the monotonic wait budget throws; it
+ * never retires a live or inconclusive owner while its payload task may still
+ * run.
+ *
+ * @evidence contracts/common.md#principled-implementation Polling checks publication first and rechecks after observed release; actual abandoned-owner observations retain their exact generation, while budget expiry fails without revoking a possibly active payload task.
+ * @evidence contracts/common.md#clear-and-simple-design The loop separates publication, release, retirement and periodic status reporting; generation interpretation belongs to inspectPluginBuildLock.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Budget expiry throws instead of retiring a live-looking generation and compensating for concurrent callbacks; status output never substitutes for ownership evidence.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe monotonic wait units, distinct results and timeout failure without retirement; owner-aware diagnostics identify the actual contended key.
+ * @evidence contracts/portability.md#os-neutral-implementation Node filesystem existence and the shared lock inspector implement native observations; waiting uses the platform-neutral lock sleep primitive.
+ * @evidence contracts/performance.md#efficient-algorithms Each iteration performs a bounded set of publication/lock observations and sleeps between them, with diagnostic output throttled independently of polling.
+ * @evidence contracts/performance.md#reuse-equivalent-work The waiter adopts an already-published binary instead of compiling the same key again; only an observed released generation triggers ordinary reacquisition.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This function owns no builder process or persistent lease; publication, release, abandonment or timeout failure end its local wait without cancelling another owner's task.
  */
 export function waitForPluginBinary(opts: {
   binaryPath: string;
@@ -20,14 +33,14 @@ export function waitForPluginBinary(opts: {
   };
   timeoutMs: number;
 }): PluginBinaryWaitResult {
-  const startedAt = Date.now();
+  const startedAt = performance.now();
   let nextStatusAt = startedAt + PLUGIN_BUILD_LOCK_STATUS_MS;
   for (;;) {
     if (fs.existsSync(opts.binaryPath)) {
       return { outcome: "published" };
     }
-    const now = Date.now();
-    const lock = inspectPluginBuildLock(opts.lockDir, now);
+    const clock = performance.now();
+    const lock = inspectPluginBuildLock(opts.lockDir);
     if (lock.state === "released") {
       // The holder retired its generation between the binary check above and
       // this observation. That is a normal release, not abandonment: prefer the
@@ -44,25 +57,28 @@ export function waitForPluginBinary(opts: {
         fence: lock.fence,
       };
     }
-    if (now - startedAt > opts.timeoutMs) {
-      return {
-        outcome: "abandoned",
-        reason: `timed out after ${formatDuration(now - startedAt)}`,
-        fence: lock.fence,
-      };
+    if (clock - startedAt >= opts.timeoutMs) {
+      throw new Error(
+        `ttsc: timed out after ${formatDuration(clock - startedAt)} waiting for ` +
+          `${opts.lockInfo.label} "${opts.lockInfo.pluginName}" at ${opts.lockDir}; ` +
+          `${lock.owner} may still be running`,
+      );
     }
-    if (!opts.lockInfo.quiet && now >= nextStatusAt) {
+    if (!opts.lockInfo.quiet && clock >= nextStatusAt) {
       reportPluginLockWait({
         binaryPath: opts.binaryPath,
-        elapsedMs: now - startedAt,
+        elapsedMs: clock - startedAt,
         lockDir: opts.lockDir,
         lockInfo: opts.lockInfo,
         owner: lock.owner,
       });
-      nextStatusAt = now + PLUGIN_BUILD_LOCK_STATUS_MS;
+      nextStatusAt = clock + PLUGIN_BUILD_LOCK_STATUS_MS;
     }
     PluginBuildLockProtocol.sleepSync(
-      PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_POLL_MS,
+      Math.min(
+        PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_POLL_MS,
+        Math.max(0, opts.timeoutMs - (performance.now() - startedAt)),
+      ),
     );
   }
 }

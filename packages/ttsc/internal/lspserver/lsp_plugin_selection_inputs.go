@@ -21,6 +21,12 @@ import (
 // once rather than of every file. A source directory's listing is an input as
 // well, counted by the build's own rule, which the launcher hands over as data
 // rather than the host keeping a copy of it.
+//
+// @evidence contracts/common.md#principled-implementation Directory-grouped filename/digest maps distinguish recorded descriptor candidates from source populations whose listing also affects selection.
+// @evidence contracts/common.md#clear-and-simple-design Build-owned omission and pruning rules travel as data rather than duplicated host build policy.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The baseline records actual launcher reads and source rules, not a fixed package-specific reload list.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs explain directory grouping, missing candidates and listing ownership, with separated member prose under the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Directories are resolved natively and names remain single entries; validation rejects separators, NUL and dot-parent spellings instead of treating native paths as protocol URLs.
 type NativePluginSelectionInputs struct {
   // DescriptorFiles maps every directory holding a file the plugin load read
   // or probed to the name of each such file, with its digest: the project's
@@ -28,14 +34,18 @@ type NativePluginSelectionInputs struct {
   // what they resolved. Only those files count; the rest of the directory is
   // not an input.
   DescriptorFiles map[string]map[string]string `json:"descriptorFiles,omitempty"`
+
   // SourceFiles maps every plugin source directory to the name of every file
   // directly inside it that the build keys on, with its digest. A directory
   // with no such file is present with an empty map.
   SourceFiles map[string]map[string]string `json:"sourceFiles,omitempty"`
+
   // OmittedNames are the names of files the build never keys on.
   OmittedNames []string `json:"omittedNames,omitempty"`
+
   // OmittedSuffixes are the suffixes of files the build never keys on.
   OmittedSuffixes []string `json:"omittedSuffixes,omitempty"`
+
   // PrunedDirectoryNames are the names of directories the build passes over.
   PrunedDirectoryNames []string `json:"prunedDirectoryNames,omitempty"`
 }
@@ -51,8 +61,10 @@ type pluginSelectionInputs struct {
 
 type pluginSelectionDirectory struct {
   path string
+
   // files are the recorded digests by name.
   files map[string]string
+
   // listing marks a plugin source directory, whose entries are an input by
   // the build's rule, beside the recorded files.
   listing bool
@@ -90,7 +102,7 @@ func newPluginSelectionInputs(
       }
       entry.listing = entry.listing || listing
       for name, digest := range files {
-        if name == "" || strings.ContainsAny(name, `/\`) {
+        if name == "" || name == "." || name == ".." || strings.ContainsAny(name, "/\\\x00") {
           return fmt.Errorf(
             "plugin selection file %q in %q is not a file name",
             name,

@@ -17,6 +17,28 @@ import { normalizeTypeScriptPathSeparators } from "./normalizeTypeScriptPathSepa
  * watcher registered on it sees it appear. An unreadable config or a malformed
  * entry contributes nothing, since the compiler owns the diagnostic for a
  * broken solution.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Only the config's own references are read. String paths preserve declaration
+ *   order; json suffix versus directory spelling follows compiler naming rules,
+ *   so missing targets retain stable candidate addresses for watchers.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   This reader owns reference extraction and address mapping; project routing
+ *   and cycle detection remain with the operations that consume the list.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Config separators normalize before Node native resolution. The json suffix
+ *   follows compiler syntax; absent references retain native absolute paths
+ *   without shell text or inferred filesystem case policy.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Unreadable configuration supplies no invented references, and existence
+ *   probes cannot erase a target whose later appearance changes selection.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs explain non-inheritance, suffix naming and missing-target
+ *   watchability, separating path spelling from actual filesystem membership.
  */
 export function readTsconfigReferences(tsconfig: string): string[] {
   let parsed: unknown;

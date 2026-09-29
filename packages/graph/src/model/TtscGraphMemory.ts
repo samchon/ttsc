@@ -6,7 +6,11 @@ import { ITtscGraphSpan } from "../structures/ITtscGraphSpan";
 import { isArtifactNodeKind } from "../structures/TtscGraphArtifactNodeKind";
 import { TtscGraphEdgeKind } from "../structures/TtscGraphEdgeKind";
 import { ttscGraphNodeIdPath } from "./TtscGraphNodeId";
+import { type TtscGraphReadonly, copyGraphSnapshot } from "./TtscGraphReadonly";
 import { TtscGraphSourceReader } from "./TtscGraphSourceReader";
+
+type SnapshotNode = TtscGraphReadonly<ITtscGraphNode>;
+type SnapshotEdge = TtscGraphReadonly<ITtscGraphEdge>;
 
 /**
  * The in-memory resident graph the MCP tools answer from.
@@ -18,28 +22,43 @@ import { TtscGraphSourceReader } from "./TtscGraphSourceReader";
  * implementation relationships are checker facts already present in the dump.
  * Every tool call is then a lookup or traversal over the indexes built here;
  * nothing recompiles.
+ *
+ * Snapshot records are owned copies and recursively frozen. Borrowed node
+ * records and edge buckets have recursively readonly types, so caller changes
+ * cannot invalidate generation-keyed indexes and caches.
+ *
+ * @evidence contracts/common.md#principled-implementation Native facts are preserved while module/file folding, exact owner suffixes and artifact parents synthesize only this layer's structural relationships.
+ * @evidence contracts/common.md#clear-and-simple-design One snapshot owns node, name, relation and citation indexes; individual accessors expose that shared model.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Export surfaces remain checker relationships rather than guessed from local export flags or fixture paths.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish compiler facts from synthesized structure, and accessors explain lookup and absence semantics.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms from owns index construction and its private synthesis/constructor helpers; this class declaration describes the resulting representation.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work from establishes one shared generation; the declaration does not independently coordinate requests.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources from transfers generation storage to its caller; session/caller release owns its duration rather than this declaration.
  */
 export class TtscGraphMemory {
-  private readonly byId: Map<string, ITtscGraphNode>;
-  private readonly outEdges: Map<string, ITtscGraphEdge[]>;
-  private readonly inEdges: Map<string, ITtscGraphEdge[]>;
-  private readonly byNameIndex: Map<string, ITtscGraphNode[]>;
-  private readonly bySymbolIndex: Map<string, ITtscGraphNode[]>;
-  private readonly byDocTagTarget: Map<string, ITtscGraphNode[]>;
+  private readonly byId: Map<string, SnapshotNode>;
+  private readonly outEdges: Map<string, SnapshotEdge[]>;
+  private readonly inEdges: Map<string, SnapshotEdge[]>;
+  private readonly byNameIndex: Map<string, SnapshotNode[]>;
+  private readonly bySymbolIndex: Map<string, SnapshotNode[]>;
+  private readonly byDocTagTarget: Map<string, SnapshotNode[]>;
 
   /** The absolute project root the dump was built for. */
   readonly project: string;
+
   /** Every post-fold node, including refined properties and file containers. */
-  readonly nodes: readonly ITtscGraphNode[];
+  readonly nodes: readonly SnapshotNode[];
+
   /** Every edge, raw plus synthesized containment. */
-  readonly edges: readonly ITtscGraphEdge[];
+  readonly edges: readonly SnapshotEdge[];
+
   /** Provenance-gated source display facts cached for this exact snapshot. */
   readonly source: TtscGraphSourceReader;
 
   private constructor(
     project: string,
-    nodes: ITtscGraphNode[],
-    edges: ITtscGraphEdge[],
+    nodes: readonly SnapshotNode[],
+    edges: readonly SnapshotEdge[],
     provenance: ITtscGraphDump.IProvenance,
   ) {
     this.project = project;
@@ -57,19 +76,17 @@ export class TtscGraphMemory {
       else this.byNameIndex.set(node.name, [node]);
       if (node.kind !== "file") {
         push(this.bySymbolIndex, node.name, node);
-        if (node.qualifiedName !== undefined) {
+        if (
+          node.qualifiedName !== undefined &&
+          node.qualifiedName !== node.name
+        ) {
           push(this.bySymbolIndex, node.qualifiedName, node);
         }
       }
       for (const target of docTagTargetsOf(node)) {
         const carriers = this.byDocTagTarget.get(target);
-        // The membership check is redundant today — `docTagTargetsOf`
-        // deduplicates within a node and this loop visits each node once — and
-        // it is kept because the cost is a scan of a list that holds the
-        // carriers of one address, while the failure it prevents is a
-        // declaration reported twice as implementing one specification.
         if (carriers === undefined) this.byDocTagTarget.set(target, [node]);
-        else if (!carriers.includes(node)) carriers.push(node);
+        else carriers.push(node);
       }
     }
     this.outEdges = new Map();
@@ -78,41 +95,129 @@ export class TtscGraphMemory {
       push(this.outEdges, edge.from, edge);
       push(this.inEdges, edge.to, edge);
     }
+    for (const buckets of [
+      this.byNameIndex,
+      this.bySymbolIndex,
+      this.byDocTagTarget,
+    ])
+      for (const bucket of buckets.values()) Object.freeze(bucket);
+    for (const buckets of [this.outEdges, this.inEdges])
+      for (const bucket of buckets.values()) Object.freeze(bucket);
+    Object.freeze(this);
   }
 
-  /** Build a model from a parsed dump, synthesizing structural relationships. */
+  /**
+   * Build a model from a parsed dump, synthesizing structural relationships.
+   *
+   * The parsed dump must describe one valid generation. Node records are copied
+   * before member-kind refinement so the caller's dump is unchanged.
+   *
+   * @evidence contracts/common.md#principled-implementation Synthesis reanchors native module exports and derives containment from owner facts before constructing the indexes for that generation.
+   * @evidence contracts/common.md#clear-and-simple-design Synthesis owns representation changes; the private constructor owns index construction.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts No export edges are guessed from flags, and artifact ownership follows its producer rather than TypeScript id heuristics.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states the valid-generation precondition and caller-dump preservation.
+   * @evidence contracts/performance.md#efficient-algorithms Synthesis, owned snapshot copying and index construction scan nodes, edges and facets; per-node target sets make citation deduplication linear in tag population without repeatedly scanning carrier buckets.
+   * @evidence contracts/performance.md#reuse-equivalent-work One model builds all indexes once over owned frozen facts and buckets, so external mutation cannot invalidate shared generation identity.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The model retains node/edge arrays, lookup indexes and source cache proportional to its generation; the session or direct caller releases the whole model when no longer needed.
+   */
   static from(dump: ITtscGraphDump): TtscGraphMemory {
-    const { nodes, edges } = synthesize(dump);
+    const { nodes, edges } = copyGraphSnapshot(synthesize(dump));
     return new TtscGraphMemory(dump.project, nodes, edges, dump.provenance);
   }
 
-  /** The node with this id, or undefined. */
-  node(id: string): ITtscGraphNode | undefined {
+  /**
+   * The node with this exact stable id, or undefined when absent.
+   *
+   * @evidence contracts/common.md#principled-implementation The id index returns the snapshot's exact node without conflating same-named declarations.
+   * @evidence contracts/common.md#clear-and-simple-design This accessor delegates identity lookup to the single model index.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing identities are not replaced by name-matched candidates.
+   * @evidence contracts/common.md#meaningful-documentation The native headline states exact-id and missing-result semantics.
+   * @evidence contracts/performance.md#efficient-algorithms Exact identity requires one construction-time map lookup and no node scan.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work The accessor borrows a completed id index; from owns shared construction.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returning an existing node acquires no handle or independent retained entry.
+   */
+  node(id: string): SnapshotNode | undefined {
     return this.byId.get(id);
   }
 
-  /** Edges leaving a node (the node is the `from`). */
-  outgoing(id: string): readonly ITtscGraphEdge[] {
+  /**
+   * Edges leaving a node (the node is the from endpoint), empty when absent.
+   *
+   * @evidence contracts/common.md#principled-implementation The outgoing index preserves native and synthesized edge direction for the exact node id.
+   * @evidence contracts/common.md#clear-and-simple-design The accessor exposes one readonly bucket without rescanning the edge population.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Absence returns no edges rather than inferred calls from matching names.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states endpoint direction, missing behavior and the readonly return contract.
+   * @evidence contracts/performance.md#efficient-algorithms A map lookup returns the outgoing bucket without traversing unrelated edges.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work from owns the reused adjacency computation; the accessor only borrows its result.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Existing buckets remain generation-owned; the accessor acquires no separate resource.
+   */
+  outgoing(id: string): readonly SnapshotEdge[] {
     return this.outEdges.get(id) ?? [];
   }
 
-  /** Edges entering a node (the node is the `to`). */
-  incoming(id: string): readonly ITtscGraphEdge[] {
+  /**
+   * Edges entering a node (the node is the to endpoint), empty when absent.
+   *
+   * @evidence contracts/common.md#principled-implementation The incoming index selects edges by their original target identity.
+   * @evidence contracts/common.md#clear-and-simple-design The accessor shares construction-time adjacency instead of implementing another traversal.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts No callers are guessed from text or substituted when the bucket is absent.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states incoming direction and empty absence before the tags.
+   * @evidence contracts/performance.md#efficient-algorithms A map lookup returns the incoming bucket without scanning graph edges.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This accessor borrows the index already shared by from rather than coordinating another producer.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It retains no state beyond the generation's existing edge bucket.
+   */
+  incoming(id: string): readonly SnapshotEdge[] {
     return this.inEdges.get(id) ?? [];
   }
 
-  /** Every node whose simple name equals `name`. */
-  named(name: string): readonly ITtscGraphNode[] {
+  /**
+   * Every node whose simple name equals name, empty when absent.
+   *
+   * @evidence contracts/common.md#principled-implementation The exact simple-name index returns all matching identities, preserving ambiguity.
+   * @evidence contracts/common.md#clear-and-simple-design A readonly bucket supplies name lookup independently of ranked search.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Multiple declarations remain candidates rather than selecting the expected fixture's declaration.
+   * @evidence contracts/common.md#meaningful-documentation Native prose describes exact matching and empty absence.
+   * @evidence contracts/performance.md#efficient-algorithms Exact-name lookup performs one map access instead of filtering all nodes.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Name-index construction and validity belong to from, not this borrowed bucket lookup.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned bucket remains generation-owned with no separately retained cache or handle.
+   */
+  named(name: string): readonly SnapshotNode[] {
     return this.byNameIndex.get(name) ?? [];
   }
 
-  /** Every non-file node whose simple or owner-qualified symbol handle matches. */
-  symbols(handle: string): readonly ITtscGraphNode[] {
+  /**
+   * Every non-file node whose simple or owner-qualified symbol handle matches.
+   *
+   * Matches borrow a frozen generation-owned bucket; no match returns an empty
+   * readonly list, and several matches remain distinct.
+   *
+   * @evidence contracts/common.md#principled-implementation The symbol index includes simple and qualified handles but excludes file containers from symbol resolution.
+   * @evidence contracts/common.md#clear-and-simple-design One shared index serves all exact-handle consumers without duplicate resolution policy.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The accessor preserves ambiguity rather than fabricating a unique resolution.
+   * @evidence contracts/common.md#meaningful-documentation Native prose explains non-file selection, qualified handles and multiple/missing matches.
+   * @evidence contracts/performance.md#efficient-algorithms Both simple and qualified handles use the construction-time symbol index, so this accessor performs one map lookup without scanning candidates.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This borrows one already-built symbol bucket; model construction owns shared work.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Existing candidates remain frozen generation-owned records in a borrowed bucket; the accessor acquires no separate resource or retained entry.
+   */
+  symbols(handle: string): readonly SnapshotNode[] {
     return this.bySymbolIndex.get(handle) ?? [];
   }
 
-  /** Every workspace node on its module's export surface. */
-  exported(): ITtscGraphNode[] {
+  /**
+   * Every workspace node marked exported by the native declaration facts.
+   *
+   * External declarations are omitted. Module-specific re-export membership is
+   * available separately through exports edges.
+   *
+   * @evidence contracts/common.md#principled-implementation Filtering exported flags and excluding external nodes yields local exported declarations, not a guessed package front door.
+   * @evidence contracts/common.md#clear-and-simple-design The accessor performs one explicit population filter; per-module surface remains in relation indexes.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The API does not equate declaring-file export flags with all barrel export relationships.
+   * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes exported declarations from module-specific re-exports and states external omission.
+   * @evidence contracts/performance.md#efficient-algorithms One O(V) filter over generation nodes selects exported nonexternal declarations; no separate export-flag index is built.
+   * @evidence contracts/performance.md#reuse-equivalent-work Completed exported-list memoization is not implemented; every call returns a new mutable array over the shared generation nodes.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The projected array belongs to its caller; this method retains no separate state.
+   */
+  exported(): SnapshotNode[] {
     return this.nodes.filter((n) => n.exported && !n.external);
   }
 
@@ -131,8 +236,16 @@ export class TtscGraphMemory {
    * part of a tag's text names a thing belongs to whatever convention wrote the
    * tag, so this is a selection rule of the consuming layer rather than a fact
    * the producer claims.
+   *
+   * @evidence contracts/common.md#principled-implementation Exact target lookup returns indexed declaration carriers under documentationTarget's explicit consumer-side selection rule.
+   * @evidence contracts/common.md#clear-and-simple-design The reverse citation index is built once alongside node indexes instead of rescanning tags per query.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A match identifies a written citation, not a coverage or truth verdict about its target.
+   * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain reverse lookup, exact spelling and the consumer heuristic's authority boundary.
+   * @evidence contracts/performance.md#efficient-algorithms Reverse citation lookup uses the constructed target index instead of scanning all tags per request.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work The accessor borrows the shared citation index; from owns synthesis and its validity key.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It returns an existing readonly carrier list and acquires no resource or historical cache.
    */
-  citing(target: string): readonly ITtscGraphNode[] {
+  citing(target: string): readonly SnapshotNode[] {
     return this.byDocTagTarget.get(target) ?? [];
   }
 }
@@ -145,14 +258,14 @@ export class TtscGraphMemory {
  * for it will spell it. Splitting on whitespace alone would key it under
  * `{@link`, which is every link in the project.
  */
-function docTagTargetsOf(node: ITtscGraphNode): string[] {
+function docTagTargetsOf(node: SnapshotNode): string[] {
   if (node.docTags === undefined) return [];
-  const targets: string[] = [];
+  const targets = new Set<string>();
   for (const tag of node.docTags) {
     const token = documentationTarget(tag.text);
-    if (token !== undefined && !targets.includes(token)) targets.push(token);
+    if (token !== undefined) targets.add(token);
   }
-  return targets;
+  return [...targets];
 }
 
 /**
@@ -178,6 +291,14 @@ function docTagTargetsOf(node: ITtscGraphNode): string[] {
  * layer whose audit already declares its selection heuristic. A convention
  * whose addresses look like prose is simply not indexed; nothing is lost from
  * the tag itself, which `details` still returns in full.
+ *
+ * @evidence contracts/common.md#principled-implementation Leading-token extraction plus interior separators selects address-like tokens while rejecting ordinary prose; this is explicitly a lookup heuristic.
+ * @evidence contracts/common.md#clear-and-simple-design One selector owns citation indexing and query normalization, leaving raw tags unchanged in declaration facts.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Address punctuation is a general convention boundary rather than an allowlist of expected specifications.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs state false-prose matches, accepted address forms and the limitation for prose-like conventions.
+ * @evidence contracts/performance.md#efficient-algorithms Leading-token extraction and address classification scan only the tag text, with no graph-wide lookup.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This pure token classifier has no completed-work coordinator; from builds the reusable citation index.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The optional returned string owns no native resource or retained history.
  */
 export function documentationTarget(
   text: string | undefined,
@@ -199,6 +320,14 @@ export function documentationTarget(
  * An unclosed brace group is not a token: `{@link ISale` with the brace
  * forgotten would otherwise fall through to the whitespace split and index the
  * address `{@link`, which every link in the project shares.
+ *
+ * @evidence contracts/common.md#principled-implementation Trim and first whitespace preserve the opening token; a leading brace group is returned whole only when closed.
+ * @evidence contracts/common.md#clear-and-simple-design This lexical helper is shared by citation selection rather than parsing tag semantics itself.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Malformed brace groups return absence instead of being coerced into a ubiquitous partial link.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains brace grouping and the malformed-token reason before acknowledgment tags.
+ * @evidence contracts/performance.md#efficient-algorithms A single bounded text scan finds the token boundary without constructing a parser or scanning unrelated tags.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This pure per-string extraction does not coordinate reusable producer work.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only the returned token survives the call; no retained map or handle is acquired.
  */
 export function leadingToken(text: string | undefined): string | undefined {
   const trimmed = text?.trim();

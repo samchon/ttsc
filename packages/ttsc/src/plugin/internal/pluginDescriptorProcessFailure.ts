@@ -12,6 +12,11 @@
  * descriptor had run too long or said too much. Neither is this process's
  * memory to spend either, because the child's streams are no longer collected
  * into it.
+ *
+ * @evidence contracts/common.md#principled-implementation Launch error, signal and nonzero status are classified in causal order from the child-process result; only a zero-status run without either earlier failure has no process error.
+ * @evidence contracts/common.md#clear-and-simple-design The classifier returns an error without owning spawning, streamed diagnostics or descriptor decoding, keeping those responsibilities with the loader.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts No descriptor-name exception, fixed runtime deadline or output threshold replaces the actual process result.
+ * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains the already-streamed child output and remaining process-level information; separate paragraphs and a blank line before tags follow the documentation skill.
  */
 export function pluginDescriptorProcessFailure(
   result: DescriptorProcessResult,

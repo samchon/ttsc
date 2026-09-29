@@ -38,6 +38,15 @@ import { selectionInputs } from "./selectionInputs";
  *   spelling every input is handed under (`hostSpelling`).
  * @param selection The configs that routed the file to its project, handed
  *   beside the failed generation's inputs.
+ *
+ * @evidence contracts/common.md#principled-implementation Failed deliveries retain walked and external inputs plus named diagnostic paths and current routing configs, deliberately omitting module evidence that a replayed failure did not revalidate.
+ * @evidence contracts/common.md#clear-and-simple-design One append boundary owns scratch exclusion and lexical deduplication; module recovery and project-record delivery share the same routing observations.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Diagnostic extraction accepts only supported TypeScript forms, and recovery absence is explicit rather than fabricated successful state or fixture-specific paths.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain recovery, external-path coverage and failed evidence ownership; parameter prose and separated tags follow documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path resolution and host spelling preserve absolute external paths, including drive-letter diagnostic forms; project-record locations remain host-selected capabilities.
+ * @evidence contracts/performance.md#efficient-algorithms Recovery traverses O(P+D) retained paths and diagnostic text with Set deduplication; routing hashes are read once for both notification models in this delivery.
+ * @evidence contracts/performance.md#reuse-equivalent-work Project-record generation facts are derived lazily once per cached generation; later module routing inputs are supplied separately so sharing does not discard new dependencies.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This delivery owns only local arrays and sets; the project-record and host watcher owners retain or release the transferred dependencies.
  */
 export function notifyFailedGenerationInputs(
   hooks: TtscTransformHooks | undefined,
@@ -45,7 +54,14 @@ export function notifyFailedGenerationInputs(
   file: string,
   selection: TtscWatchSelection,
 ): void {
-  if (hooks === undefined) return;
+  if (
+    hooks === undefined ||
+    (hooks.project === undefined &&
+      hooks.addWatchFile === undefined &&
+      hooks.addWatchFiles === undefined)
+  ) {
+    return;
+  }
   const state = envelopeDerivation(cached);
   const spell = hostSpelling(state.project, file);
   const inputs: TtscWatchInput[] = [];
@@ -92,8 +108,13 @@ export function notifyFailedGenerationInputs(
       append(path.resolve(cached.projectRoot, diagnostic));
     }
   }
+  const routedInputs = selectionInputs(
+    selection.consulted,
+    selection.filesystem,
+    (input) => input,
+  );
   inputs.push(
-    ...selectionInputs(selection.consulted, selection.filesystem, spell),
+    ...routedInputs.map((input) => ({ ...input, file: spell(input.file) })),
   );
   // A build host takes the record, written to what the failed compile
   // consulted, so the repair moves it wherever it lands; a module handed over
@@ -101,16 +122,16 @@ export function notifyFailedGenerationInputs(
   // keep it.
   if (
     hooks.project !== undefined &&
-    !notifyProjectRecord(hooks.project, cached, true, () => [
-      ...recorded.map((input) =>
-        evidencedWatchInput(cached, state, input, (spelling) => spelling),
-      ),
-      ...selectionInputs(
-        selection.consulted,
-        selection.filesystem,
-        (spelling) => spelling,
-      ),
-    ])
+    !notifyProjectRecord(
+      hooks.project,
+      cached,
+      true,
+      () =>
+        recorded.map((input) =>
+          evidencedWatchInput(cached, state, input, (spelling) => spelling),
+        ),
+      routedInputs,
+    )
   ) {
     hooks.markVolatile?.();
   }

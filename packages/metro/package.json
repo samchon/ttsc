@@ -22,7 +22,8 @@
     "access": "public"
   },
   "scripts": {
-    "build": "rimraf lib && tsc --emitDeclarationOnly && rollup -c"
+    "build": "rimraf lib && tsc --emitDeclarationOnly && rollup -c",
+    "evidence": "evidence"
   },
   "keywords": [
     "ttsc",
@@ -39,6 +40,9 @@
   ],
   "dependencies": {
     "@ttsc/unplugin": "workspace:^"
+  },
+  "peerDependencies": {
+    "ttsc": "workspace:^"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^29.0.2",

@@ -33,8 +33,23 @@ import { make } from "../internal/make";
  * }
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   Binding, iterable and body preserve value-iteration syntax. Optional await
+ *   distinguishes asynchronous iteration; callers supply a valid await token/context.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One explicit modifier represents the async form instead of a second loop
+ *   builder or implicit promise-processing layer.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Iteration is not lowered to indexed access or fabricated await results.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native prose explains iterable values and the await distinction, with plain
+ *   and async examples in separate paragraphs before acknowledgment tags.
+ *
  * @author Jeongho Nam - https://github.com/samchon
- * @param awaitModifier The awaitModifier.
+ * @param awaitModifier The await marker for asynchronous iteration, if any.
  * @param initializer The initializer.
  * @param expression The expression.
  * @param statement The statement.

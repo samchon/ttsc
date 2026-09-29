@@ -9,6 +9,15 @@ import path from "node:path";
  * package binaries without executable bits. The ttsc launcher already repairs
  * its native helper before spawning; @ttsc/graph has its own ttscgraph spawn
  * paths, so it must apply the same first-run repair here.
+ *
+ * @evidence contracts/common.md#principled-implementation POSIX executable access is checked before preserving existing permission bits and adding the required execution permissions.
+ * @evidence contracts/common.md#clear-and-simple-design This helper owns the native permission boundary for all graph spawn lanes.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Permission repair addresses supported package installation differences; failures still reach the original spawn path.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the package-manager condition and why graph must apply its own spawn-boundary repair.
+ * @evidence contracts/performance.md#efficient-algorithms Permission repair uses constant-count access/stat/chmod operations without reading binary contents or scanning directories.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Permission is an effectful spawn precondition, not a completed producer result shared across requests.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This precondition retains no handle, task or historical entry after synchronous filesystem calls.
+ * @evidence contracts/portability.md#os-neutral-implementation Windows has no POSIX executable-bit requirement; other hosts use filesystem access and mode APIs rather than path spelling assumptions.
  */
 export function ensureExecutable(binary: string): void {
   if (process.platform === "win32") return;
@@ -25,12 +34,54 @@ export function ensureExecutable(binary: string): void {
   }
 }
 
+/**
+ * Owned temporary storage for one synchronous child stdout/stderr capture.
+ *
+ * @evidence contracts/common.md#principled-implementation Numeric descriptors can be passed directly to spawnSync while the stream union selects the matching captured text.
+ * @evidence contracts/common.md#clear-and-simple-design One handle groups two descriptors with read and disposal operations owned by the same capture.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts File capture avoids a guessed pipe ceiling without modifying spawnSync internals.
+ * @evidence contracts/common.md#meaningful-documentation Native member comments state stream selection, caller ownership and the cleanup boundary.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms The handle shape chooses no capture or read algorithm; its factory and methods own processing.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The handle declares stream access, while its caller decides whether completed child output may be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Acquisition belongs to captureProcessOutput and release to dispose; the shape declares that transfer without independently controlling it.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation The handle descriptor carries native descriptors but performs no filesystem operation itself.
+ */
 export interface CapturedProcessOutput {
-  /** Close the descriptors and remove the backing files. */
+  /**
+   * Close the descriptors and remove the backing files once. Invoke after the
+   * child finishes, including failure paths; removal remains best effort.
+   *
+   * @evidence contracts/common.md#principled-implementation Disposal releases both capture descriptors before removing their containing directory.
+   * @evidence contracts/common.md#clear-and-simple-design Cleanup is one owned operation rather than independent caller-managed paths.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Cleanup preserves the child outcome instead of replacing it with a secondary removal error.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states invocation timing, failure coverage and best-effort removal.
+   * @evidence contracts/performance.md#efficient-algorithms Disposal closes two descriptors and removes one owned temporary directory without traversing project data.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Disposal retires ownership rather than producing reusable work; repeated disposal has no additional effects.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The capture implementation guards repeated disposal before descriptor closure, preventing stale descriptor reuse from closing foreign resources.
+   * @evidence contracts/portability.md#os-neutral-implementation Node close/remove APIs own native descriptor and directory semantics; removal tolerates foreign open handles.
+   */
   dispose(): void;
-  /** Read one stream's text. */
+
+  /**
+   * Read one stream's UTF-8 text after the child finishes. A failed spawn
+   * leaves its pre-created capture file empty; a filesystem read failure
+   * propagates.
+   *
+   * @evidence contracts/common.md#principled-implementation The stream discriminant selects its backing file and UTF-8 decoding returns the captured textual channel.
+   * @evidence contracts/common.md#clear-and-simple-design One reader shares the same storage paths as the capture owner.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts An unreadable capture is not replaced with empty text that could disguise lost output.
+   * @evidence contracts/common.md#meaningful-documentation Native prose explains encoding, timing and read-failure propagation.
+   * @evidence contracts/performance.md#efficient-algorithms Reading one captured stream costs its output bytes and materializes one UTF-8 string; file capture avoids an arbitrary pipe ceiling.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work The reader observes an effectful capture file; the caller chooses when the completed child output may be shared.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Synchronous read closes its internal descriptor; dispose owns the two persistent capture descriptors and directory.
+   * @evidence contracts/portability.md#os-neutral-implementation Node filesystem reads native paths with explicit UTF-8 encoding and propagates actual I/O failures.
+   */
   read(stream: "stdout" | "stderr"): string;
+
+  /** Owned writable descriptor passed as the child's stderr destination. */
   stderrFd: number;
+
+  /** Owned writable descriptor passed as the child's stdout destination. */
   stdoutFd: number;
 }
 
@@ -46,12 +97,27 @@ export interface CapturedProcessOutput {
  * the same answer everywhere. Reading the result back still materializes a
  * string, so V8's own maximum string length remains the outer bound — a
  * property of the runtime rather than a budget chosen here.
+ *
+ * @evidence contracts/common.md#principled-implementation Passing file descriptors avoids spawnSync's pipe-buffer limit while later UTF-8 reads preserve each output channel.
+ * @evidence contracts/common.md#clear-and-simple-design One factory transfers descriptor and directory ownership through a read/dispose handle; private helpers isolate cleanup.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The capture uses supported spawn descriptors rather than patching child_process or imposing repository-sized output limits.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain file capture, heap materialization and the runtime string-length boundary; the handle documents caller disposal.
+ * @evidence contracts/portability.md#os-neutral-implementation Native fs descriptors and path.join operate on every host; storage is created beneath the resolved physical system-temp directory.
+ * @evidence contracts/performance.md#efficient-algorithms Capturing writes directly to files; reading costs linear output bytes and materializes one stream string, with no pipe-buffer copy in this heap.
+ * @evidence contracts/performance.md#reuse-equivalent-work Stdout and stderr are distinct effectful streams from one child invocation; reruns require new storage and cannot reuse a prior result.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The returned owner disposes two descriptors and one directory; acquisition failure unwinds acquired storage and removal is best effort when foreign handles remain open.
  */
 export function captureProcessOutput(): CapturedProcessOutput {
   const directory = createCanonicalTempDirectory("ttscgraph-spawn-");
   const stdoutPath = path.join(directory, "stdout");
   const stderrPath = path.join(directory, "stderr");
-  const stdoutFd = fs.openSync(stdoutPath, "w+");
+  let stdoutFd: number;
+  try {
+    stdoutFd = fs.openSync(stdoutPath, "w+");
+  } catch (error) {
+    removeQuietly(directory);
+    throw error;
+  }
   let stderrFd: number;
   try {
     stderrFd = fs.openSync(stderrPath, "w+");
@@ -62,20 +128,18 @@ export function captureProcessOutput(): CapturedProcessOutput {
     removeQuietly(directory);
     throw error;
   }
+  let disposed = false;
   return {
     dispose(): void {
+      if (disposed) return;
+      disposed = true;
       closeQuietly(stdoutFd);
       closeQuietly(stderrFd);
       removeQuietly(directory);
     },
     read(stream): string {
       const location = stream === "stdout" ? stdoutPath : stderrPath;
-      try {
-        return fs.readFileSync(location, "utf8");
-      } catch {
-        // A spawn that never launched leaves nothing behind.
-        return "";
-      }
+      return fs.readFileSync(location, "utf8");
     },
     stderrFd,
     stdoutFd,
@@ -85,24 +149,76 @@ export function captureProcessOutput(): CapturedProcessOutput {
 /** Create capture storage beneath the frozen physical system-temp parent. */
 function createCanonicalTempDirectory(prefix: string): string {
   const physicalParent = fs.realpathSync.native(os.tmpdir());
-  if (!fs.lstatSync(physicalParent).isDirectory()) {
+  const parentIdentity = fs.lstatSync(physicalParent);
+  if (!parentIdentity.isDirectory()) {
     throw new Error(
       `@ttsc/graph: temporary directory parent is not a directory: ${physicalParent}`,
     );
   }
   const directory = fs.mkdtempSync(path.join(physicalParent, prefix));
-  if (!fs.lstatSync(directory).isDirectory()) {
-    throw new Error(
-      `@ttsc/graph: temporary directory postflight is not a directory: ${directory}`,
+  let childIdentity: fs.Stats | undefined;
+  try {
+    childIdentity = fs.lstatSync(directory);
+    if (!childIdentity.isDirectory() || childIdentity.isSymbolicLink()) {
+      throw new Error(
+        `@ttsc/graph: temporary directory postflight is not a directory: ${directory}`,
+      );
+    }
+    const physicalDirectory = fs.realpathSync.native(directory);
+    if (path.dirname(physicalDirectory) !== physicalParent) {
+      throw new Error(
+        `@ttsc/graph: temporary directory escaped its physical parent: ${physicalDirectory}`,
+      );
+    }
+    return physicalDirectory;
+  } catch (error) {
+    removeUnchangedTempDirectory(
+      directory,
+      physicalParent,
+      prefix,
+      parentIdentity,
+      childIdentity,
     );
+    throw error;
   }
-  const physicalDirectory = fs.realpathSync.native(directory);
-  if (path.dirname(physicalDirectory) !== physicalParent) {
-    throw new Error(
-      `@ttsc/graph: temporary directory escaped its physical parent: ${physicalDirectory}`,
-    );
+}
+
+/** Roll back only an unchanged direct child whose native ownership was seen. */
+function removeUnchangedTempDirectory(
+  directory: string,
+  parent: string,
+  prefix: string,
+  parentIdentity: fs.Stats,
+  childIdentity: fs.Stats | undefined,
+): void {
+  if (
+    childIdentity === undefined ||
+    !childIdentity.isDirectory() ||
+    childIdentity.isSymbolicLink() ||
+    path.dirname(directory) !== parent ||
+    !path.basename(directory).startsWith(prefix)
+  )
+    return;
+  try {
+    const currentParent = fs.lstatSync(parent);
+    const currentChild = fs.lstatSync(directory);
+    if (
+      fs.realpathSync.native(parent) !== parent ||
+      !currentParent.isDirectory() ||
+      currentParent.isSymbolicLink() ||
+      currentParent.dev !== parentIdentity.dev ||
+      currentParent.ino !== parentIdentity.ino ||
+      !currentChild.isDirectory() ||
+      currentChild.isSymbolicLink() ||
+      currentChild.dev !== childIdentity.dev ||
+      currentChild.ino !== childIdentity.ino
+    )
+      return;
+    removeQuietly(directory);
+  } catch {
+    // Failed ownership checks leave storage untouched rather than delete a
+    // replacement or an unrelated canonical target.
   }
-  return physicalDirectory;
 }
 
 /** Close a descriptor, ignoring one that is already closed. */

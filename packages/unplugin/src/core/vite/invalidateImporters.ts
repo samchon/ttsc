@@ -9,6 +9,19 @@ import { selectModulesByFile } from "./selectModulesByFile";
  * {@link selectModulesByFile} because module-graph file keys are
  * slash-normalized and, on case-insensitive filesystems, may not match the
  * compiler's spelling byte for byte.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Every selected graph receives the importer nodes resolved through its own
+ *   lookup boundary; Vite owns invalidation and opaque node state.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Nested graph/importer/node iteration expresses the complete recipient set
+ *   while graph and filesystem selection remain shared helpers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Per-node errors do not patch a graph; a reload caller can still request a
+ *   full refetch. A host lacking invalidation cannot be certified as invalidated.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native prose explains original spelling and lookup ownership; the nearby
+ *   error comment states the fallback limit with documentation-guided separation.
  */
 export function invalidateImporters(
   server: ViteDevServerLike,

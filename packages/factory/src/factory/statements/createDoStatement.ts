@@ -17,6 +17,20 @@ import { make } from "../internal/make";
  * } while (cond);
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   The body and condition occupy do-while's distinct slots, preserving the
+ *   after-body condition position rather than lowering it to a while loop.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Two supplied subtrees model the loop; execution/iteration state is not owned here.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   No first-iteration exception compensates for choosing another loop form.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc explains body-first argument order and at-least-once execution, with
+ *   a do-while example separated from the acknowledgment block.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param statement The statement.
  * @param expression The expression.

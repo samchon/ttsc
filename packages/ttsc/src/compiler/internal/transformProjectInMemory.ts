@@ -19,6 +19,8 @@ import { packageRootDir } from "./packageRootDir";
 import { createNativeProjectContextArgs } from "./project/createNativeProjectContextArgs";
 import { resolveBinary } from "./resolveBinary";
 import { resolveTsgo } from "./resolveTsgo";
+import { runNativeCheckWithObservations } from "./runNativeCheckWithObservations";
+import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
 import { assertSharedHostCompatibility } from "./sharedHost/assertSharedHostCompatibility";
 import { clearInheritedSemanticConfigPath } from "./sharedHost/clearInheritedSemanticConfigPath";
 import { clearInheritedTsgoArgs } from "./sharedHost/clearInheritedTsgoArgs";
@@ -41,27 +43,76 @@ import { spawnNative } from "./spawnNative";
  * 3. If transform plugins exist they are dispatched through the shared-host binary
  *    with linked plugins passed via `TTSC_LINKED_PLUGINS_JSON`.
  *
+ * Explicit unavailable-observation reports survive every lane so consumers can
+ * use a fresh successful result while withholding reuse. They cannot excuse a
+ * content or physical witness that changed or conflicted across stages.
+ * Opted-in checks supply their same-generation observations through a private
+ * sidecar on failure as well as success. A later transform cannot restore a
+ * check's rejected proof or replace it with an unavailable-input exemption.
+ * Other check hosts retain their existing descriptor and declared-input
+ * observation contract rather than inheriting the driver's protocol.
+ *
  * @returns A `{ result, typescript }` pair where `typescript` maps output paths
  *   to their transformed TypeScript source text, and `pluginSources` the state
  *   of every Go source directory the plugins supplied to their binaries.
+ *
+ * @evidence contracts/common.md#principled-implementation Discovery and check/transform stages use their owning native binaries; evaluation-time witnesses are revalidated, explicit observation limits survive every lane, and changed or conflicting proven inputs lose their unavailable exemption rather than gaining admission.
+ * @evidence contracts/common.md#clear-and-simple-design One router composes built-in and plugin-backed transforms; envelope parsers, environment construction, proof merging and negative-only observation limits have separate shared helpers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing input proof cannot be repaired by a postcompile baseline; conventional deferred config reads accept only the actual native consumer's proof, while malformed required TypeScript output is a protocol error.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe transform lanes and stage ordering; separated result members distinguish output, advisory graph/dependency data, evaluation witnesses and unstable source markers under documentation guidance.
+ * @evidence contracts/performance.md#efficient-algorithms Set-based host-input merging and single envelope parsing scale with declared inputs and output bytes; each evaluation stage is revalidated for its actual witnesses, with native compilation and source processing dominating work.
+ * @evidence contracts/performance.md#reuse-equivalent-work Source-plugin artifacts are shared by their owning loader; this transform intentionally produces a current generation and gives downstream consumers the graph, source states and host witnesses required to qualify reuse.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Native execution owners dispose their captures and child tasks; returned envelope records transfer to the caller, while source-plugin cache lifetime remains with its owning builder.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation Native paths remain filesystem coordinates, child argv are arrays, and environment helpers preserve Windows key equivalence and explicit Node/tsgo/config anchors without shell parsing or native method patching.
  */
 export function transformProjectInMemory(options: ITtscCompilerContext): {
+  /** Optional plugin-reported per-file dependencies used as advisory inputs. */
   dependencies?: Record<string, string[]>;
+
+  /** Files for which the producer declares dependency reporting complete. */
   dependenciesComplete?: string[];
+
+  /** Compiler reference graph with its independently recorded input proof. */
   graph?: ITtscCompilerTransformation.IReferenceGraph;
+
+  /** Evaluation-time raw-content or unavailable-state host witnesses. */
   hostInputHashes?: Record<string, string | null>;
+
+  /** Evaluation-time native targets under exact host-input spellings. */
   hostInputRealpaths?: Record<string, string | null>;
+
+  /** Explicitly unavailable observations; changed proven inputs are not excused. */
+  hostInputProofFailures?: Record<string, "observation-unavailable">;
+
+  /** Universal host paths whose proof downstream reuse must validate. */
   hostInputs?: string[];
+
+  /** Source states of Go plugins that produced this generation. */
   pluginSources?: Record<string, string>;
+
+  /** False withdraws complete observation authority; absence asserts nothing. */
+  observationsComplete?: false;
+
+  /** Compiler diagnostics and native process outcome. */
   result: TtscBuildResult;
+
+  /** Optional per-output maps that refer only to returned TypeScript texts. */
   sourceMaps?: Record<string, ITtscCompilerTransformation.ISourceMap>;
+
+  /** Required transformed TypeScript text under compiler output keys. */
   typescript: Record<string, string>;
+
+  /** Sources the producer identifies as unsuitable for stable reuse. */
   volatile?: string[];
 } {
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const loaded = loadProjectPlugins({
     binary: resolveBinary(options) ?? "",
-    cacheDir: options.cacheDir ?? options.env?.TTSC_CACHE_DIR,
+    cacheDir:
+      options.cacheDir ??
+      SidecarEnvironment.read(options.env, "TTSC_CACHE_DIR"),
     cwd,
     entries: options.plugins,
     env: inheritedSidecarEnv(options.env, options.binary),
@@ -95,6 +146,8 @@ function transformProjectWithNativeHost(
     hostInputHashes: Readonly<Record<string, string | null>>;
     hostInputRealpaths: Readonly<Record<string, string | null>>;
     hostInputs: readonly string[];
+    observationsComplete?: false;
+    hostInputProofFailures?: Record<string, "observation-unavailable">;
   },
 ): {
   dependencies?: Record<string, string[]>;
@@ -102,7 +155,9 @@ function transformProjectWithNativeHost(
   graph?: ITtscCompilerTransformation.IReferenceGraph;
   hostInputHashes?: Record<string, string | null>;
   hostInputRealpaths?: Record<string, string | null>;
+  hostInputProofFailures?: Record<string, "observation-unavailable">;
   hostInputs?: string[];
+  observationsComplete?: false;
   result: TtscBuildResult;
   sourceMaps?: Record<string, ITtscCompilerTransformation.ISourceMap>;
   typescript: Record<string, string>;
@@ -135,7 +190,9 @@ function transformProjectWithNativeHost(
   );
   const binary = buildNativeCompiler({
     cacheBaseDir: project.root,
-    cacheDir: options.cacheDir ?? options.env?.TTSC_CACHE_DIR,
+    cacheDir:
+      options.cacheDir ??
+      SidecarEnvironment.read(options.env, "TTSC_CACHE_DIR"),
     packageRoot: packageRootDir(),
   });
   const res = spawnNative(
@@ -172,20 +229,34 @@ function transformProjectWithNativeHost(
     output.hostInputRealpaths ?? {},
     output.hostInputs ?? [],
   );
+  const hostInputHashes = mergeCompatibleHostInputHashes(
+    finalObservedHostInputHashes,
+    finalOutputHostInputHashes,
+    observedHostInputs,
+    output.hostInputs,
+  );
+  const hostInputRealpaths = mergeCompatibleHostInputHashes(
+    finalObservedHostInputRealpaths,
+    finalOutputHostInputRealpaths,
+    observedHostInputs,
+    output.hostInputs,
+  );
   return {
     ...envelopeSideChannels(output),
-    hostInputHashes: mergeCompatibleHostInputHashes(
-      finalObservedHostInputHashes,
-      finalOutputHostInputHashes,
-      observedHostInputs,
-      output.hostInputs,
+    ...observationLimitations(
+      [
+        baseline,
+        {
+          hostInputHashes: projectHostInputHashes,
+          hostInputRealpaths: projectHostInputRealpaths,
+        },
+        output,
+      ],
+      hostInputHashes,
+      hostInputRealpaths,
     ),
-    hostInputRealpaths: mergeCompatibleHostInputHashes(
-      finalObservedHostInputRealpaths,
-      finalOutputHostInputRealpaths,
-      observedHostInputs,
-      output.hostInputs,
-    ),
+    hostInputHashes,
+    hostInputRealpaths,
     hostInputs: mergeHostInputs(observedHostInputs, output.hostInputs),
     result: {
       diagnostics: output.diagnostics,
@@ -206,7 +277,9 @@ function transformProjectWithPlugins(
   graph?: ITtscCompilerTransformation.IReferenceGraph;
   hostInputHashes?: Record<string, string | null>;
   hostInputRealpaths?: Record<string, string | null>;
+  hostInputProofFailures?: Record<string, "observation-unavailable">;
   hostInputs?: string[];
+  observationsComplete?: false;
   result: TtscBuildResult;
   sourceMaps?: Record<string, ITtscCompilerTransformation.ISourceMap>;
   typescript: Record<string, string>;
@@ -230,17 +303,54 @@ function transformProjectWithPlugins(
     loaded.nativePlugins,
     checks,
   );
+  const checkedHostInputs = mergeHostInputs(
+    loaded.hostInputs,
+    checked.hostInputs,
+  );
+  const checkedHostInputHashes = mergeCompatibleHostInputHashes(
+    revalidateHostInputHashes(loaded.hostInputHashes, loaded.hostInputs),
+    revalidateHostInputHashes(
+      checked.hostInputHashes ?? {},
+      checked.hostInputs ?? [],
+    ),
+    loaded.hostInputs,
+    checked.hostInputs,
+    loaded.deferredHostInputs,
+  );
+  const checkedHostInputRealpaths = mergeCompatibleHostInputHashes(
+    revalidateHostInputRealpaths(loaded.hostInputRealpaths, loaded.hostInputs),
+    revalidateHostInputRealpaths(
+      checked.hostInputRealpaths ?? {},
+      checked.hostInputs ?? [],
+    ),
+    loaded.hostInputs,
+    checked.hostInputs,
+    loaded.deferredHostInputs,
+  );
+  // A forwarded config may await its first consuming native stage, but a
+  // check's missing or conflicting proof cannot be replaced by a later stage.
+  const checkDeclaredInputs = new Set(
+    (checked.hostInputs ?? []).map((input) => path.resolve(input)),
+  );
+  const deferredTransformInputs = loaded.deferredHostInputs.filter(
+    (input) => !checkDeclaredInputs.has(path.resolve(input)),
+  );
+  const unprovenCheckInputs = [...checkDeclaredInputs].filter(
+    (input) =>
+      !Object.hasOwn(checkedHostInputHashes, input) ||
+      !Object.hasOwn(checkedHostInputRealpaths, input),
+  );
   if (checked.status !== 0) {
     return {
-      hostInputHashes: revalidateHostInputHashes(
-        loaded.hostInputHashes,
-        loaded.hostInputs,
+      ...observationLimitations(
+        [loaded, checked],
+        checkedHostInputHashes,
+        checkedHostInputRealpaths,
+        unprovenCheckInputs,
       ),
-      hostInputRealpaths: revalidateHostInputRealpaths(
-        loaded.hostInputRealpaths,
-        loaded.hostInputs,
-      ),
-      hostInputs: loaded.hostInputs,
+      hostInputHashes: checkedHostInputHashes,
+      hostInputRealpaths: checkedHostInputRealpaths,
+      hostInputs: checkedHostInputs,
       result: checked,
       typescript: {},
     };
@@ -248,28 +358,36 @@ function transformProjectWithPlugins(
   if (transformers.length === 0) {
     const transformed = transformProjectWithNativeHost(options, project);
     const finalLoadedHostInputHashes = revalidateHostInputHashes(
-      loaded.hostInputHashes,
-      loaded.hostInputs,
+      checkedHostInputHashes,
+      checkedHostInputs,
     );
     const finalLoadedHostInputRealpaths = revalidateHostInputRealpaths(
-      loaded.hostInputRealpaths,
-      loaded.hostInputs,
+      checkedHostInputRealpaths,
+      checkedHostInputs,
+    );
+    const hostInputHashes = mergeCompatibleHostInputHashes(
+      finalLoadedHostInputHashes,
+      transformed.hostInputHashes,
+      checkedHostInputs,
+      transformed.hostInputs,
+    );
+    const hostInputRealpaths = mergeCompatibleHostInputHashes(
+      finalLoadedHostInputRealpaths,
+      transformed.hostInputRealpaths,
+      checkedHostInputs,
+      transformed.hostInputs,
     );
     return {
       ...envelopeSideChannels(transformed),
-      hostInputHashes: mergeCompatibleHostInputHashes(
-        finalLoadedHostInputHashes,
-        transformed.hostInputHashes,
-        loaded.hostInputs,
-        transformed.hostInputs,
+      ...observationLimitations(
+        [loaded, checked, transformed],
+        hostInputHashes,
+        hostInputRealpaths,
+        unprovenCheckInputs,
       ),
-      hostInputRealpaths: mergeCompatibleHostInputHashes(
-        finalLoadedHostInputRealpaths,
-        transformed.hostInputRealpaths,
-        loaded.hostInputs,
-        transformed.hostInputs,
-      ),
-      hostInputs: mergeHostInputs(loaded.hostInputs, transformed.hostInputs),
+      hostInputHashes,
+      hostInputRealpaths,
+      hostInputs: mergeHostInputs(checkedHostInputs, transformed.hostInputs),
       result: appendBuildOutput(checked, transformed.result),
       typescript: transformed.typescript,
     };
@@ -311,38 +429,46 @@ function transformProjectWithPlugins(
     stderr: outputText(res.stderr),
   };
   const finalLoadedHostInputHashes = revalidateHostInputHashes(
-    loaded.hostInputHashes,
-    loaded.hostInputs,
+    checkedHostInputHashes,
+    checkedHostInputs,
   );
   const finalOutputHostInputHashes = revalidateHostInputHashes(
     output.hostInputHashes ?? {},
     output.hostInputs ?? [],
   );
   const finalLoadedHostInputRealpaths = revalidateHostInputRealpaths(
-    loaded.hostInputRealpaths,
-    loaded.hostInputs,
+    checkedHostInputRealpaths,
+    checkedHostInputs,
   );
   const finalOutputHostInputRealpaths = revalidateHostInputRealpaths(
     output.hostInputRealpaths ?? {},
     output.hostInputs ?? [],
   );
+  const hostInputHashes = mergeCompatibleHostInputHashes(
+    finalLoadedHostInputHashes,
+    finalOutputHostInputHashes,
+    checkedHostInputs,
+    output.hostInputs,
+    deferredTransformInputs,
+  );
+  const hostInputRealpaths = mergeCompatibleHostInputHashes(
+    finalLoadedHostInputRealpaths,
+    finalOutputHostInputRealpaths,
+    checkedHostInputs,
+    output.hostInputs,
+    deferredTransformInputs,
+  );
   return {
     ...envelopeSideChannels(output),
-    hostInputHashes: mergeCompatibleHostInputHashes(
-      finalLoadedHostInputHashes,
-      finalOutputHostInputHashes,
-      loaded.hostInputs,
-      output.hostInputs,
-      loaded.deferredHostInputs,
+    ...observationLimitations(
+      [loaded, checked, output],
+      hostInputHashes,
+      hostInputRealpaths,
+      unprovenCheckInputs,
     ),
-    hostInputRealpaths: mergeCompatibleHostInputHashes(
-      finalLoadedHostInputRealpaths,
-      finalOutputHostInputRealpaths,
-      loaded.hostInputs,
-      output.hostInputs,
-      loaded.deferredHostInputs,
-    ),
-    hostInputs: mergeHostInputs(loaded.hostInputs, output.hostInputs),
+    hostInputHashes,
+    hostInputRealpaths,
+    hostInputs: mergeHostInputs(checkedHostInputs, output.hostInputs),
     result: appendBuildOutput(checked, result),
     typescript: output.typescript,
   };
@@ -380,6 +506,62 @@ function revalidateHostInputRealpaths(
         : [];
     }),
   );
+}
+
+/**
+ * Retain explicit observation limits without excusing a changed proven input. A
+ * known content or physical witness that was dropped by revalidation or
+ * incompatible-stage merging withdraws that path's unavailable exemption. The
+ * independent global false marker still forbids complete reuse. Earlier check
+ * declarations whose proof was lost also withhold a later stage's exemption.
+ */
+function observationLimitations(
+  groups: readonly (
+    | {
+        observationsComplete?: false;
+        hostInputProofFailures?: Readonly<
+          Record<string, "observation-unavailable">
+        >;
+        hostInputHashes?: Readonly<Record<string, string | null>>;
+        hostInputRealpaths?: Readonly<Record<string, string | null>>;
+      }
+    | undefined
+  )[],
+  retainedHashes: Readonly<Record<string, string | null>>,
+  retainedRealpaths: Readonly<Record<string, string | null>>,
+  rejectedInputs: readonly string[] = [],
+): {
+  observationsComplete?: false;
+  hostInputProofFailures?: Record<string, "observation-unavailable">;
+} {
+  const failures: Record<string, "observation-unavailable"> =
+    Object.create(null);
+  for (const group of groups) {
+    Object.assign(failures, group?.hostInputProofFailures);
+  }
+  for (const file of Object.keys(failures)) {
+    if (
+      groups.some(
+        (group) =>
+          (Object.hasOwn(group?.hostInputHashes ?? {}, file) &&
+            group!.hostInputHashes![file] !== retainedHashes[file]) ||
+          (Object.hasOwn(group?.hostInputRealpaths ?? {}, file) &&
+            group!.hostInputRealpaths![file] !== retainedRealpaths[file]),
+      )
+    )
+      delete failures[file];
+  }
+  // Earlier checks retain declarations after any witness conflict or loss.
+  // A later stage cannot relabel that rejected proof as API unavailability.
+  for (const input of rejectedInputs) delete failures[input];
+  return {
+    ...(groups.some((group) => group?.observationsComplete === false)
+      ? { observationsComplete: false as const }
+      : {}),
+    ...(Object.keys(failures).length === 0
+      ? {}
+      : { hostInputProofFailures: failures }),
+  };
 }
 
 /**
@@ -509,41 +691,45 @@ function runNativeChecks(
     stderr: "",
   };
   for (const plugin of checks) {
-    const res = spawnNative(
-      plugin.binary,
-      createNativeCheckArgs(
-        project,
-        nativePlugins,
-        plugin,
-        resolvePluginConfigDir(options),
-      ),
-      {
-        cwd: project.root,
-        env: nativePluginEnv(
-          options,
-          project.root,
-          tsgoBinary,
-          nativePlugins,
-          plugin,
-        ),
-      },
-    );
-    if (res.error) {
-      throw new Error(
-        `ttsc.transform.check: failed to spawn ${plugin.binary}: ${res.error.message}`,
+    const checked = runNativeCheckWithObservations(plugin, (extraArgs) => {
+      const res = spawnNative(
+        plugin.binary,
+        [
+          ...createNativeCheckArgs(
+            project,
+            nativePlugins,
+            plugin,
+            resolvePluginConfigDir(options),
+          ),
+          ...extraArgs,
+        ],
+        {
+          cwd: project.root,
+          env: nativePluginEnv(
+            options,
+            project.root,
+            tsgoBinary,
+            nativePlugins,
+            plugin,
+          ),
+        },
       );
-    }
-    result = appendBuildOutput(
-      result,
-      normalizeBuildOutput(
+      if (res.error) {
+        throw new Error(
+          `ttsc.transform.check: failed to spawn ${plugin.binary}: ${res.error.message}`,
+        );
+      }
+      return normalizeBuildOutput(
         {
           status: res.status ?? 1,
+          processCompletedNormally: res.status !== null && res.signal === null,
           stdout: outputText(res.stdout),
           stderr: outputText(res.stderr),
         },
         project.root,
-      ),
-    );
+      );
+    });
+    result = appendBuildOutput(result, checked);
     if (result.status !== 0) {
       return result;
     }
@@ -623,32 +809,31 @@ function nativePluginEnv(
   plugin?: ITtscLoadedNativePlugin,
 ): NodeJS.ProcessEnv {
   const pluginConfigDir = resolvePluginConfigDir(options);
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
-    ...(pluginConfigDir === undefined
-      ? {}
-      : { TTSC_PLUGIN_CONFIG_DIR: pluginConfigDir }),
-    TTSC_TTSX_BINARY:
-      process.env.TTSC_TTSX_BINARY ??
-      path.join(__dirname, "..", "..", "launcher", "ttsx.js"),
-    ...options.env,
-    // The compiler this invocation resolved wins over inherited and caller
-    // values, so every sidecar compiles with the parent's compiler.
-    TTSC_TSGO_BINARY: tsgoBinary,
-  };
+  const env = SidecarEnvironment.merge(
+    process.env,
+    {
+      ...(pluginConfigDir === undefined
+        ? {}
+        : { TTSC_PLUGIN_CONFIG_DIR: pluginConfigDir }),
+      TTSC_TTSX_BINARY:
+        process.env.TTSC_TTSX_BINARY ??
+        path.join(__dirname, "..", "..", "launcher", "ttsx.js"),
+    },
+    options.env,
+    { TTSC_TSGO_BINARY: tsgoBinary },
+  );
   const node = resolveNodeBinary(env, projectRoot);
-  if (node === undefined) delete env.TTSC_NODE_BINARY;
-  else env.TTSC_NODE_BINARY = node;
+  SidecarEnvironment.write(env, "TTSC_NODE_BINARY", node);
   // The anchor is per-invocation state owned by this host: when this run
   // declared none (and the caller's env does not name one), drop any value
   // inherited from an ancestor ttsc process so a nested build never
   // mis-anchors its plugins at the outer project.
-  if (
-    pluginConfigDir === undefined &&
-    options.env?.TTSC_PLUGIN_CONFIG_DIR === undefined
-  ) {
-    delete env.TTSC_PLUGIN_CONFIG_DIR;
-  }
+  SidecarEnvironment.write(
+    env,
+    "TTSC_PLUGIN_CONFIG_DIR",
+    SidecarEnvironment.read(options.env, "TTSC_PLUGIN_CONFIG_DIR") ??
+      pluginConfigDir,
+  );
   // This lane forwards no tsgo argv of its own, so anything inherited belongs
   // to an outer ttsc run and must not reach these sidecars.
   clearInheritedTsgoArgs(env, options.env);
@@ -679,6 +864,11 @@ function nativePluginEnv(
  * Dropping a malformed `dependenciesComplete` member is the safe direction on
  * purpose: an unlisted file keeps the sound host-owned bound, so a garbled
  * declaration costs over-invalidation, never a stale output.
+ *
+ * Observation limits have a stricter protocol: completeness is only explicit
+ * false, and per-input reasons require absolute native paths and the supported
+ * unavailable reason. Invalid limit metadata fails instead of becoming an
+ * exemption; omission asserts no completeness.
  */
 function parseNativeTransformOutput(
   stdout: string,
@@ -690,7 +880,9 @@ function parseNativeTransformOutput(
   graph?: ITtscCompilerTransformation.IReferenceGraph;
   hostInputHashes?: Record<string, string | null>;
   hostInputRealpaths?: Record<string, string | null>;
+  hostInputProofFailures?: Record<string, "observation-unavailable">;
   hostInputs?: string[];
+  observationsComplete?: false;
   sourceMaps?: Record<string, ITtscCompilerTransformation.ISourceMap>;
   typescript: Record<string, string>;
   volatile?: string[];
@@ -703,16 +895,32 @@ function parseNativeTransformOutput(
       graph?: ITtscCompilerTransformation.IReferenceGraph;
       hostInputHashes?: Record<string, string | null>;
       hostInputRealpaths?: Record<string, string | null>;
+      hostInputProofFailures?: unknown;
       hostInputs?: string[];
+      observationsComplete?: unknown;
       sourceMaps?: unknown;
       typescript?: Record<string, string>;
       volatile?: string[];
     };
-    if (!isTextRecord(parsed.typescript)) {
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      Array.isArray(parsed) ||
+      !isTextRecord(parsed.typescript)
+    ) {
       throw new Error(
         "ttsc: native transform host did not return a TypeScript source map",
       );
     }
+    if (
+      parsed.observationsComplete !== undefined &&
+      parsed.observationsComplete !== false
+    ) {
+      throw new Error("ttsc: invalid native observation-completeness marker");
+    }
+    const hostInputProofFailures = parseObservationUnavailable(
+      parsed.hostInputProofFailures,
+    );
     const dependencies = parseDependencyLists(parsed.dependencies);
     const dependenciesComplete = parseFileList(parsed.dependenciesComplete);
     const graph = parseReferenceGraph(parsed.graph);
@@ -729,6 +937,12 @@ function parseNativeTransformOutput(
       ...(graph === undefined ? {} : { graph }),
       ...(hostInputHashes === undefined ? {} : { hostInputHashes }),
       ...(hostInputRealpaths === undefined ? {} : { hostInputRealpaths }),
+      ...(hostInputProofFailures === undefined
+        ? {}
+        : { hostInputProofFailures }),
+      ...(parsed.observationsComplete === false
+        ? { observationsComplete: false as const }
+        : {}),
       ...(hostInputs === undefined ? {} : { hostInputs }),
       ...(sourceMaps === undefined ? {} : { sourceMaps }),
       ...(volatile === undefined ? {} : { volatile }),
@@ -744,6 +958,28 @@ function parseNativeTransformOutput(
         "ttsc: native transform host returned no output",
     );
   }
+}
+
+/**
+ * Decode only explicit producer reports of unavailable host observation.
+ * Absolute native input keys and the one supported reason are required;
+ * malformed reports fail rather than weakening mutation admission.
+ */
+function parseObservationUnavailable(
+  value: unknown,
+): Record<string, "observation-unavailable"> | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error("ttsc: invalid native host-observation failure record");
+  }
+  const output: Record<string, "observation-unavailable"> = Object.create(null);
+  for (const [file, reason] of Object.entries(value)) {
+    if (!path.isAbsolute(file) || reason !== "observation-unavailable") {
+      throw new Error("ttsc: invalid native host-observation failure entry");
+    }
+    output[path.resolve(file)] = reason;
+  }
+  return Object.keys(output).length === 0 ? undefined : output;
 }
 
 /**

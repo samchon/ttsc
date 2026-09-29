@@ -214,7 +214,6 @@ func dedupeModuleExports(exports []moduleExport) []moduleExport {
   return unique
 }
 
-// reachedSymbol is one public address an entry traversal arrived at.
 // traversedPopulation is what selecting modules and walking their exports
 // yields: the obligations, the scopes above them, and the addresses that reach
 // them.
@@ -243,6 +242,7 @@ type publishedAddress struct {
   Unit     *evidenceUnit
 }
 
+// reachedSymbol is one public address an entry traversal arrived at.
 type reachedSymbol struct {
   // Address is the accessor path from the entry, segment by segment.
   Address []string

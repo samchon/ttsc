@@ -9,6 +9,11 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
  * titles, conditional logic, valid `expect` shape.
  *
  * @reference https://github.com/vitest-dev/eslint-plugin-vitest
+ *
+ * @evidence contracts/common.md#principled-implementation Optional vitest keys represent independent runner policies through severity-only settings, retaining a distinct namespace despite shared Jest-style source syntax.
+ * @evidence contracts/common.md#clear-and-simple-design One map groups Vitest test-source concerns and reuses the common severity union without coupling it to the Jest family type.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The declared Vitest policy names are public configuration entries rather than production branches introduced solely for this repository's tests.
+ * @evidence contracts/common.md#meaningful-documentation Native family prose identifies Vitest and member comments explain collection, assertion and callback concerns; paragraph and member separation follow documentation guidance.
  */
 export interface ITtscLintVitestRules {
   /**

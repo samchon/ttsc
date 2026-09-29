@@ -47,6 +47,39 @@ const TURBOPACK_RULE_GLOBS = TYPESCRIPT_TURBOPACK_RULE_GLOBS;
  * @param nextConfig - The caller's existing Next.js config (spread into the
  *   returned object unchanged, except for `webpack` and `turbopack`).
  * @param options - Ttsc plugin options forwarded to both bundlers.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   The wrapper preserves caller settings and webpack-hook results while adding
+ *   both supported bundler integrations. Turbopack rule helpers preserve loader
+ *   ordering and conditions; only unconditional project-wide ownership suppresses
+ *   an additional ttsc rule, with resolved paths checked against package manifests.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The entry owns configuration/session orchestration; separate helpers own rule
+ *   shapes, coverage and loader identity instead of duplicating bundler policy.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Exact protocol glob/loader conventions implement host semantics. Resolved-loader
+ *   verification uses physical file ownership rather than basename guesses;
+ *   configuration hooks are preserved and no foreign runtime method is patched.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs explain additive integration and shared sessions. Helpers
+ *   document conditional rules, coverage limits and first-loader ordering, with
+ *   prose/tag separation following documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Native joins, realpath and stat validate absolute loader ownership; file URLs
+ *   are decoded through Node's URL API. Host-local or accepted user fallback
+ *   directories carry records rather than a universal temporary-directory path.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Four exact source globs inspect R caller rules and their L loader entries;
+ *   project-wide coverage uses an indexed measured set. A per-invocation map
+ *   avoids repeated manifest/realpath checks of the same loader string.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Loader ownership verdicts share one configuration snapshot and expire after
+ *   this call so later atomic installs or link retargets are observed. The process
+ *   session lets forked workers share generation identity with validation on adoption.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Rule copies and ownership memos live only for this invocation. The opened
+ *   process session is inherited by workers and ends with its process; downstream
+ *   cache owners, not this configuration record, acquire watchers and subprocesses.
  */
 export function next(
   nextConfig: NextLikeConfig = {},

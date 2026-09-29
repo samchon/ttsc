@@ -12,8 +12,16 @@ import { createNumericLiteral } from "../literals/createNumericLiteral";
  * Given object `obj` and index `0`, the printer emits:
  *
  * ```ts
- * obj[0];
+ * obj[0]
  * ```
+ *
+ * A numeric index must have a valid literal spelling. String keys are supplied
+ * as StringLiteral nodes, not bare JavaScript strings.
+ *
+ * @evidence contracts/common.md#principled-implementation Numeric indices normalize to lexical NumericLiteral nodes while expression keys remain supplied syntax; the ordinary access kind preserves its boundary from optional chaining.
+ * @evidence contracts/common.md#clear-and-simple-design The numeric adapter is reused, and one make call records receiver and key without a separate lookup layer.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Keys are explicit accepted inputs rather than guessed property names or hardcoded access results.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains numeric normalization and the StringLiteral requirement, with example and parameter documentation separated from tags.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param expression The object expression.

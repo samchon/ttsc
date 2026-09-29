@@ -12,8 +12,24 @@ import { make } from "../internal/make";
  * Given the namespace `ns` and the name `name`, the printer emits:
  *
  * ```tsx
- * ns: name;
+ * ns:name
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Namespace and local name remain distinct identifiers, producing JSX's
+ *   colon-name form rather than a JavaScript property-access expression.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Two children describe the name without parsing a compound string or
+ *   attaching resource-type behavior to a particular namespace.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   SVG-like names are examples, not privileged branches; no namespace rewrites
+ *   or consumer-specific mappings alter the supplied identifiers.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc explains tag/attribute use and the corrected example renders the
+ *   colon with no invented space or statement terminator.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param namespace The namespace.

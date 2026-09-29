@@ -9,11 +9,10 @@ import { make } from "../internal/make";
 /**
  * Create an {@link ImportTypeNode}: an `import("module").Qualifier<Args>` type.
  *
- * The parameter order is upstream's: `isTypeOf` first, then the module
- * specifier, then the `with { … }` attributes, then the qualifier and type
- * arguments. This factory used to put `isTypeOf` last and omit `attributes`
- * entirely, so a caller ported from `ts.factory` bound every argument to the
- * wrong slot.
+ * The parameter order follows the legacy factory: the module specifier,
+ * attributes, qualifier and type arguments, then `isTypeOf`. Attributes belong
+ * inside the import call as its second argument, rather than after a
+ * statement's module specifier.
  *
  * The `argument` is the module specifier inside `import(...)`. A `qualifier`
  * adds a `.Member` access, and type arguments add `<...>`. When `isTypeOf` is
@@ -23,22 +22,40 @@ import { make } from "../internal/make";
  * argument, the printer renders:
  *
  * ```ts
- * import("foo").Bar<string>;
+ * import("foo").Bar<string>
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   The constructor preserves the module type, attributes, qualifier and type
+ *   arguments in their import-type slots; only true enables typeof. The printer
+ *   uses the attributes' import-call form rather than a statement clause.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Optional qualification and metadata are fields of one import type, avoiding
+ *   separate variants for every combination and leaving punctuation to the printer.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Boolean normalization applies to every input; no module-name exceptions or
+ *   raw text substitutions stand in for the argument and attribute nodes.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc records the parameter order and attribute context, separates the
+ *   example from acknowledgments, and documents every argument in signature order.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param argument The module specifier inside `import(...)`.
+ * @param attributes The import-call attributes, if any.
  * @param qualifier The `.Member` access on the import, if any.
  * @param typeArguments The generic type arguments, if any.
- * @param isTypeOf Whether to prefix the type with `typeof`.
+ * @param isTypeOf Whether to prefix the type with `typeof`; defaults to false.
  * @returns The created {@link ImportTypeNode}.
  */
 export const createImportTypeNode = (
-  isTypeOf: boolean | undefined,
   argument: TypeNode,
   attributes?: ImportAttributes,
   qualifier?: EntityName,
   typeArguments?: readonly TypeNode[],
+  isTypeOf?: boolean,
 ): ImportTypeNode =>
   make("ImportTypeNode", {
     argument,

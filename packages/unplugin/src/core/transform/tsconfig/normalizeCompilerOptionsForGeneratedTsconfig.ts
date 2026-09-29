@@ -24,6 +24,12 @@ import { readPaths } from "../alias/readPaths";
  * @param spell The spelling every absolute path takes in the generated file:
  *   the compiler's, which spells the project physically, where the adapter's
  *   own reading spelled it as named (samchon/ttsc#1456). Identity by default.
+ *
+ * @evidence contracts/common.md#principled-implementation Known compiler path options, paths targets and plugin descriptor/config-file addresses are anchored to the original config directory before the compiler reads a scratch wrapper; unrecognized payload fields are preserved.
+ * @evidence contracts/common.md#clear-and-simple-design A shallow overlay copy separates scalar, list, alias and plugin path boundaries, with existing template and path-specifier helpers owning their grammars.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts No unsupported baseUrl or arbitrary plugin-field rewriting compensates for a moved wrapper; only documented path-typed keys are reanchored.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain scratch-relative drift and TypeScript-Go paths constraints, while the private helper documents the plugin keys whose addresses legitimately require normalization.
+ * @evidence contracts/portability.md#os-neutral-implementation Shared config-directory and relative-plugin helpers interpret native path forms; compiler-supplied spelling translates physical anchors, and forward slashes are used only for TypeScript path-target protocol encoding.
  */
 export function normalizeCompilerOptionsForGeneratedTsconfig(
   compilerOptions: Record<string, unknown>,

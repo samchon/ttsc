@@ -16,6 +16,11 @@ const (
 
 // Legacy returns the historical FNV-1a code for name. Allocate uses this as
 // the preferred code so rules without a collision retain their original code.
+//
+// @evidence contracts/common.md#principled-implementation Unsigned FNV-1a wraparound followed by range reduction preserves the historical preferred code for each byte name.
+// @evidence contracts/common.md#clear-and-simple-design One hashing helper owns the legacy preference independently from collision allocation.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Hash constants and the reserved code interval define the algorithm and protocol, not fixture answers.
+// @evidence contracts/common.md#meaningful-documentation The native comment distinguishes preference from unique assignment; the tag boundary follows documentation guidance.
 func Legacy(name string) int32 {
   const prime = 16777619
   var hash uint32 = 2166136261
@@ -32,6 +37,11 @@ func Legacy(name string) int32 {
 // Missing names are sorted before allocation, making the result independent of
 // registration order. Their legacy codes are reserved as a group before any
 // collision is probed so a collision loser cannot displace an unrelated rule.
+//
+// @evidence contracts/common.md#principled-implementation Validating frozen codes, sorting unique missing names and reserving their unoccupied preferences before probing gives stable collision-free allocation or an explicit exhaustion error.
+// @evidence contracts/common.md#clear-and-simple-design Separate frozen validation, preference reservation and collision probing keep the allocation policy visible.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The same allocation procedure applies to all names; frozen assignments are supported compatibility data rather than guessed expected results.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains removed-rule reservations and order independence; paragraphs and tag separation follow documentation guidance.
 func Allocate(frozen map[string]int32, names []string) (map[string]int32, error) {
   assigned := make(map[string]int32, len(frozen)+len(names))
   used := make(map[int32]string, len(frozen)+len(names))

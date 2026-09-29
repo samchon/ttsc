@@ -7,6 +7,12 @@ description: Defines ttsc's review law and its two uses, Overall Self-Review (th
 
 ## Review Law
 
+Read the [contracts skill](../contracts/SKILL.md) when reviewing maintained production code, including its common checklist and the scoped topics relevant to affected operations.
+
+Judge each acknowledgment against the declaration, its documentation, and its consequence surface. Verify every fact requested by the referenced section, including applicable documentation-skill guidance. Evidence checks the presence of acknowledgments; review establishes whether their contents are complete and true.
+
+For a repair, verify the [shortcut acknowledgment](../contracts/common.md#prohibited-implementation-shortcuts) against the before-and-after behavior and the paths retained or removed. A new wrapper, renamed exception, or passing fixture does not prove that the cause was corrected. Revalidate existing acknowledgments affected by the change; a tag's continued presence does not establish that its explanation still holds.
+
 Each review starts from scratch over its entire declared surface and runs in the current checkout, without a clone or worktree. Apply [AGENTS.md's **Choose the principled course** rule](../../../AGENTS.md#attitude): review duration, difficulty, and consequence surface never lower the completion standard. The [issue-campaign skill's discovery rounds](../issue-campaign/SKILL.md#discovery-rounds) follow the same law.
 
 A complete round satisfies all four rules:

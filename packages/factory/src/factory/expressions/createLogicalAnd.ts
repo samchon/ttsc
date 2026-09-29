@@ -7,14 +7,19 @@ import { createBinaryExpression } from "./createBinaryExpression";
  * short-circuit evaluation.
  *
  * Shorthand for {@link createBinaryExpression} with the
- * `AmpersandAmpersandToken` operator. The printer surrounds the operator with a
- * single space on each side.
+ * `AmpersandAmpersandToken` operator. Flat output uses spaces around it;
+ * width can break after it.
  *
  * Given operands `a` and `b`, the printer emits:
  *
  * ```ts
- * a && b;
+ * a && b
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation AmpersandAmpersandToken retains short-circuit AND syntax with ordered operands; neither expression is evaluated during construction.
+ * @evidence contracts/common.md#clear-and-simple-design One delegation selects the logical operator while the binary constructor and printer own node structure and grouping.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The right operand remains syntax rather than being dropped from a guessed left truthiness value.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains short-circuit meaning and operand order; the expression example and tags are separated following documentation guidance.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param left The left-hand operand.

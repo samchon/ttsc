@@ -15,7 +15,8 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "rimraf lib && node node_modules/ttsc/lib/launcher/ttsc.js && node build/bundle-viewer.mjs"
+    "build": "rimraf lib && node node_modules/ttsc/lib/launcher/ttsc.js && node build/bundle-viewer.mjs",
+    "evidence": "evidence"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",

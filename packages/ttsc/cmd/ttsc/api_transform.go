@@ -16,29 +16,46 @@ import (
   cwdutil "github.com/samchon/ttsc/packages/ttsc/internal/cwd"
 )
 
+// apiTransformResult separates source output, compiler dependencies and
+// native-plugin evaluation observations so each keeps its own reuse meaning.
 type apiTransformResult struct {
-  // TypeScript contains every non-library source file visible through the
-  // Program facade, keyed the same way api-compile keys emitted files.
+  // Diagnostics may accompany partial source results.
   Diagnostics []apiCompileDiagnostic `json:"diagnostics,omitempty"`
-  TypeScript  map[string]string      `json:"typescript"`
+
+  // TypeScript contains every non-declaration source exposed by the Program
+  // facade after its linked program hooks, keyed like api-compile output.
+  TypeScript map[string]string `json:"typescript"`
+
   // Graph is the host-owned reference graph of the loaded program (direct
   // resolved reference edges, global-scope files, tsconfig extends chain),
   // keyed like TypeScript. Consumers use it to register every file whose
   // content can influence a transformed module, so bundler caches invalidate
   // soundly without per-plugin reporting.
   Graph *driver.TransformGraph `json:"graph,omitempty"`
-  // Dependencies and DependenciesComplete are the envelope's dependency side
-  // channel. This lane runs no plugin transform at all — each output is the
-  // file's own parsed text — so every file is complete with an empty list
-  // unless a linked plugin is active and declares otherwise; see
-  // driver.Program.TransformDependenciesFor.
-  Dependencies         map[string][]string `json:"dependencies,omitempty"`
-  DependenciesComplete []string            `json:"dependenciesComplete,omitempty"`
+
+  // Dependencies records inputs declared by the linked source contributors.
+  // This lane does not run emit transformers or type-driven emit lowering.
+  Dependencies map[string][]string `json:"dependencies,omitempty"`
+
+  // DependenciesComplete lists only files whose every source contributor
+  // declared completeness. With no contributors, every file is complete.
+  DependenciesComplete []string `json:"dependenciesComplete,omitempty"`
+
   // HostInputs are absolute native plugin config files evaluated while this
-  // generation loaded. JavaScript hosts merge them with descriptor inputs.
-  HostInputs         []string           `json:"hostInputs,omitempty"`
-  HostInputHashes    map[string]*string `json:"hostInputHashes,omitempty"`
+  // generation loaded or transformed. JavaScript hosts merge descriptor inputs.
+  HostInputs []string `json:"hostInputs,omitempty"`
+
+  // HostInputHashes contains consistent evaluation-time SHA-256 observations.
+  // Null means observed absence; omitted keys mean no reusable content proof.
+  HostInputHashes map[string]*string `json:"hostInputHashes,omitempty"`
+
+  // HostInputRealpaths carries physical identities observed at evaluation.
+  // Null means absence; omitted keys leave symlink or junction identity unknown.
   HostInputRealpaths map[string]*string `json:"hostInputRealpaths,omitempty"`
+
+  // ObservationsComplete is false only for an explicit unsupported observation
+  // boundary reported by a linked hook. Absence does not prove completeness.
+  ObservationsComplete *bool `json:"observationsComplete,omitempty"`
 }
 
 // runAPITransform implements the `api-transform` sub-command. It loads the
@@ -88,6 +105,7 @@ func runAPITransform(args []string) int {
   var hostInputs []string
   var hostInputHashes map[string]*string
   var hostInputRealpaths map[string]*string
+  var observationsComplete *bool
   if prog != nil {
     defer prog.Close()
     // Compute the reference graph before SourceFiles() runs linked plugin
@@ -103,6 +121,10 @@ func runAPITransform(args []string) int {
     hostInputs = prog.PluginHostInputs()
     hostInputHashes = prog.PluginHostInputHashes()
     hostInputRealpaths = prog.PluginHostInputRealpaths()
+    if prog.PluginObservationsIncomplete() {
+      incomplete := false
+      observationsComplete = &incomplete
+    }
   }
 
   result := apiTransformResult{
@@ -113,14 +135,17 @@ func runAPITransform(args []string) int {
     HostInputs:           hostInputs,
     HostInputHashes:      hostInputHashes,
     HostInputRealpaths:   hostInputRealpaths,
+    ObservationsComplete: observationsComplete,
     TypeScript:           typescript,
   }
   for _, diag := range diags {
     result.Diagnostics = append(result.Diagnostics, toAPICompileDiagnostic(diag))
   }
 
-  data, _ := json.Marshal(result)
-  fmt.Fprintln(stdout, string(data))
+  if err := json.NewEncoder(stdout).Encode(result); err != nil {
+    fmt.Fprintf(stderr, "ttsc api-transform: write result: %v\n", err)
+    return 3
+  }
   if driver.CountErrors(diags) > 0 {
     return 2
   }

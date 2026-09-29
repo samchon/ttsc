@@ -8,6 +8,12 @@ import type { TtscProjectMutationTracker } from "../tracker/TtscProjectMutationT
  * tracker is live, its silence is proven, the input is one it watches by name,
  * the watch below which the input lives was proven to deliver, and no event
  * touched the input.
+ *
+ * @evidence contracts/common.md#principled-implementation Verified healthy content authority, exact covered spelling and no overlapping unproven scope or event establish this input's notification witness.
+ * @evidence contracts/common.md#clear-and-simple-design One shared predicate supplies universal and derived-input validators with the same notification authority rule.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Quiet but failed, incomplete or undeliverable scopes are rejected rather than promoted to proof.
+ * @evidence contracts/common.md#meaningful-documentation Native prose enumerates health, coverage and overlap premises rather than treating silence as universal authority.
+ * @evidence contracts/portability.md#os-neutral-implementation Native lexical resolution and supplied overlap semantics qualify paths; fallback containment is component-aware rather than substring matching.
  */
 export function trackerProvesInputUnchanged(
   tracker: TtscProjectMutationTracker | undefined,

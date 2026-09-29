@@ -11,7 +11,14 @@
  * a permission failure (samchon/ttsc#1582). The error alone decides.
  *
  * @param error What the rename threw.
+ *
  * @returns Whether the caller lost the destination to another process.
+ *
+ * @evidence contracts/common.md#principled-implementation Collision errno includes Windows access refusals under the explicit just-created candidate/writable-parent premise; looking up the destination afterward cannot prove a transient race that has already disappeared.
+ * @evidence contracts/common.md#clear-and-simple-design One classifier serves the two lock protocols while each caller owns candidate creation, polling and its retry deadline.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The access-error allowance is tied to the real lock-publication premise, not a blanket suppression of unrelated permissions or expected fixture outcomes.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the candidate ownership premise and disappearing-destination race, making this narrow classifier's permitted use visible.
+ * @evidence contracts/portability.md#os-neutral-implementation Native collision errno differs on Windows; callers' writable-parent construction gives that difference a supported protocol basis rather than deriving arbitrary filesystem permission from an OS name.
  */
 export function isContendedCandidateRename(error: unknown): boolean {
   const code = (error as NodeJS.ErrnoException).code;

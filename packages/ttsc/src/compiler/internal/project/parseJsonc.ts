@@ -22,8 +22,19 @@
  * text, counting lines the way the compiler does.
  *
  * @param input The file's text as read.
+ *
  * @returns The parsed value.
+ *
  * @throws A `SyntaxError` naming the position of text that is not a config.
+ *
+ * @evidence contracts/common.md#principled-implementation Recursive descent follows the compiler config's literal, trivia and comma grammar; explicit property definition preserves __proto__ as data, and JavaScript Number represents numeric values rather than preserving arbitrary-precision source spelling. Error positions count the original UTF-16 text and ECMAScript line terminators.
+ * @evidence contracts/common.md#clear-and-simple-design One cursor owns token consumption and positioned failures, while bounded lexical helpers handle strings, numbers and trivia. Public parsing returns a fresh value; filesystem attribution and object-root validation remain reader responsibilities.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The parser implements the supported compiler grammar directly instead of stripping comments into a narrower JSON grammar or accepting particular config filenames and fixture values.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain accepted grammar, rejected forms, shared consumers and original-text positions, followed by native parameter/result/failure tags and separated acknowledgments following the documentation skill.
+ * @evidence contracts/performance.md#efficient-algorithms The cursor advances through N text units; sticky token patterns avoid materializing the remaining suffix for every literal, and string spans are joined once rather than appended character by character. Parsing retains O(N) value storage and O(D) recursive frames for depth D; an error-position scan adds at most O(N). Native stack limits still bound supported nesting depth.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call returns a fresh mutable object/array tree; sharing a previous parse would expose one caller's mutations to another. This pure parser owns no immutable-result cache or coordinated config lifecycle.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The reader and lexical span arrays are invocation-local, and the parsed value transfers to its caller; no historical config tree, descriptor or task is retained in the module.
  */
 export function parseJsonc(input: string): unknown {
   const reader = new JsoncReader(input);
@@ -80,7 +91,7 @@ class JsoncReader {
     }
     if (current !== undefined && isNumberStart(this.text, this.pos))
       return this.readNumber();
-    const word = /^[A-Za-z_$][\w$]*/.exec(this.text.slice(this.pos))?.[0];
+    const word = this.matchToken(IDENTIFIER_LITERAL)?.[0];
     if (word === "true" || word === "false" || word === "null") {
       this.pos += word.length;
       return word === "true" ? true : word === "false" ? false : null;
@@ -156,22 +167,24 @@ class JsoncReader {
   }
 
   private readString(): string {
-    let out = "";
     this.pos += 1;
+    let start = this.pos;
+    const spans: string[] = [];
     for (;;) {
       if (this.done() || isLineBreak(this.text.charCodeAt(this.pos)))
         this.fail("Unterminated string literal");
       const current = this.text[this.pos]!;
       if (current === '"') {
+        spans.push(this.text.slice(start, this.pos));
         this.pos += 1;
-        return out;
+        return spans.join("");
       }
       if (current !== "\\") {
-        out += current;
         this.pos += 1;
         continue;
       }
-      out += this.readEscape();
+      spans.push(this.text.slice(start, this.pos), this.readEscape());
+      start = this.pos;
     }
   }
 
@@ -200,7 +213,7 @@ class JsoncReader {
     if (current === "x") return this.readHexEscape(2);
     if (current === "u") {
       if (this.text[this.pos] !== "{") return this.readHexEscape(4);
-      const hex = /^\{([0-9A-Fa-f]+)\}/.exec(this.text.slice(this.pos));
+      const hex = this.matchToken(UNICODE_CODE_POINT_ESCAPE);
       if (hex === null || parseInt(hex[1]!, 16) > 0x10ffff) return "\\u";
       this.pos += hex[0].length;
       return String.fromCodePoint(parseInt(hex[1]!, 16));
@@ -231,8 +244,7 @@ class JsoncReader {
   }
 
   private readNumber(): number {
-    const rest = this.text.slice(this.pos);
-    const token = NUMERIC_LITERAL.exec(rest)?.[0];
+    const token = this.matchToken(NUMERIC_LITERAL)?.[0];
     if (token === undefined) return this.fail("Numeric literal expected");
     if (/^0[0-9]/.test(token)) this.fail("Octal literals are not allowed");
     this.pos += token.length;
@@ -242,7 +254,16 @@ class JsoncReader {
       this.fail("Invalid character after a numeric literal");
     return Number(token.replaceAll("_", ""));
   }
+
+  /** Reset a sticky pattern to this cursor before every match. */
+  private matchToken(pattern: RegExp): RegExpExecArray | null {
+    pattern.lastIndex = this.pos;
+    return pattern.exec(this.text);
+  }
 }
+
+const IDENTIFIER_LITERAL = /[A-Za-z_$][\w$]*/y;
+const UNICODE_CODE_POINT_ESCAPE = /\{([0-9A-Fa-f]+)\}/y;
 
 /**
  * An ECMAScript numeric literal without a sign: hexadecimal, octal, binary, or
@@ -251,11 +272,12 @@ class JsoncReader {
  */
 const NUMERIC_LITERAL = new RegExp(
   [
-    "^0[xX][0-9A-Fa-f]+(?:_[0-9A-Fa-f]+)*",
-    "^0[oO][0-7]+(?:_[0-7]+)*",
-    "^0[bB][01]+(?:_[01]+)*",
-    "^(?:[0-9]+(?:_[0-9]+)*(?:\\.(?:[0-9]+(?:_[0-9]+)*)?)?|\\.[0-9]+(?:_[0-9]+)*)(?:[eE][+-]?[0-9]+(?:_[0-9]+)*)?",
+    "0[xX][0-9A-Fa-f]+(?:_[0-9A-Fa-f]+)*",
+    "0[oO][0-7]+(?:_[0-7]+)*",
+    "0[bB][01]+(?:_[01]+)*",
+    "(?:[0-9]+(?:_[0-9]+)*(?:\\.(?:[0-9]+(?:_[0-9]+)*)?)?|\\.[0-9]+(?:_[0-9]+)*)(?:[eE][+-]?[0-9]+(?:_[0-9]+)*)?",
   ].join("|"),
+  "y",
 );
 
 const SIMPLE_ESCAPES: Record<string, string> = {

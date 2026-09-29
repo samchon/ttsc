@@ -4,6 +4,11 @@
  * grounding only, never identity (a node's id is position-invariant, see
  * {@link ITtscGraphNode}). Lines and columns are 1-based; MCP keeps evidence as
  * coordinates, so read the file yourself when you truly need source text.
+ *
+ * @evidence contracts/common.md#principled-implementation File plus one-based coordinates identify a source location while optional end coordinates express incomplete ranges.
+ * @evidence contracts/common.md#clear-and-simple-design The record carries coordinates only; node identity and source content remain outside this responsibility.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Positions are display evidence, never a substitute for stable symbol identity.
+ * @evidence contracts/common.md#meaningful-documentation Native comments explicitly state coordinate units, optional endpoints and the distinction between grounding and identity.
  */
 export interface ITtscGraphEvidence {
   /** Project-relative path of the file the span lives in. */

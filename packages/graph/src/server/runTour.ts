@@ -1,10 +1,11 @@
 import { TtscGraphMemory } from "../model/TtscGraphMemory";
+import { TtscGraphReadonly } from "../model/TtscGraphReadonly";
 import { ITtscGraphDetails } from "../structures/ITtscGraphDetails";
 import { ITtscGraphEdge } from "../structures/ITtscGraphEdge";
 import { ITtscGraphEntrypoints } from "../structures/ITtscGraphEntrypoints";
 import { ITtscGraphEvidence } from "../structures/ITtscGraphEvidence";
 import { ITtscGraphNext } from "../structures/ITtscGraphNext";
-import { ITtscGraphNode } from "../structures/ITtscGraphNode";
+import { ITtscGraphNode as NodeShape } from "../structures/ITtscGraphNode";
 import { ITtscGraphTour } from "../structures/ITtscGraphTour";
 import { ITtscGraphTrace } from "../structures/ITtscGraphTrace";
 import { exportFanIn, hasExportSurface } from "./exportSurface";
@@ -14,6 +15,8 @@ import { IRunnerOutput, resultNext } from "./resultNext";
 import { decoratorsOf, docOf, runDetails, signatureOf } from "./runDetails";
 import { runEntrypoints } from "./runEntrypoints";
 import { hasDeclarationBody, runTrace } from "./runTrace";
+
+type ITtscGraphNode = TtscGraphReadonly<NodeShape>;
 
 const DEFAULT_LIMIT = 5;
 const MAX_LIMIT = 5;
@@ -69,6 +72,14 @@ const TOUR_SEED_KINDS = new Set<ITtscGraphNode["kind"]>([
  * Compose a repository-orientation/code-tour answer surface from existing graph
  * operations. It returns selected symbols, flows, nearby edges, test anchors,
  * and answer anchors without reading or embedding source bodies.
+ *
+ * @evidence contracts/common.md#principled-implementation The tour combines bounded execution traces and graph-derived ranking; named seeds and graph-selected seeds retain separate shares rather than treating identifier matches as question coverage.
+ * @evidence contracts/common.md#clear-and-simple-design Existing entrypoint, trace and detail operations own their projections; this composer owns seed selection, flow overlap and orientation anchors.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Ranking is an explicit heuristic over graph facts, not a fabricated completeness claim or a lexical patch for the user's question.
+ * @evidence contracts/common.md#meaningful-documentation Native prose names the composition and body-free output; centrality documentation states the implemented heuristic rather than claiming PageRank.
+ * @evidence contracts/performance.md#efficient-algorithms Centrality scans graph candidates once, with per-candidate reach capped at depth four and 400 nodes; sorting costs O(V log V), while returned flows have fixed seed and trace budgets.
+ * @evidence contracts/performance.md#reuse-equivalent-work Centrality is shared through a WeakMap keyed by the owned frozen graph generation; a new graph computes its own ranks, while request-specific query alignment remains separate.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Cached rank maps remain reachable only while their graph key is reachable; request-local candidate sets and bounded flows are returned or released at completion.
  */
 export function runTour(
   graph: TtscGraphMemory,
@@ -481,7 +492,7 @@ function flowAnchorsOf(
 }
 
 /**
- * The words of the question that could name code: the ranking's own terms.
+ * Identifier terms from the caller's symbol guesses used to align ranking.
  *
  * A question about TypeORM says "TypeORM", which splits into `type` and `orm`,
  * and both are inside the project's own name — they say nothing about which
@@ -526,23 +537,11 @@ function rankedTourSeeds(
 }
 
 /**
- * How central a symbol is to running this codebase, as one standard algorithm
- * instead of a ledger of hand-tuned bonuses.
+ * Rank a seed by normalized publication, bounded execution reach and fan-in,
+ * then apply the caller's identifier alignment and broad-tour damping.
  *
- * This score used to be a sum: so many points for the symbol's kind, so many
- * per log of each degree, a capped term for its reach, another for what its
- * package exports, another for what the tests call — nine signals, each with a
- * multiplier and a cap that someone picked while watching a benchmark. Word
- * lists in numeric form. All of it was approximating one question the graph can
- * answer exactly: _if you use what this package publishes, what runs?_
- *
- * Personalized PageRank answers it. The walker starts on the export surface —
- * the symbols the package puts on the wire, members included — and follows the
- * execution edges, crossing from an abstract declaration to its implementations
- * the way `runTrace` does. Public entries hold mass because the walk starts on
- * them; the spine holds mass because every path runs through it. One damping
- * constant, 0.85, from the literature — the same algorithm aider's repo map
- * ranks symbols with.
+ * This is a graph-structure heuristic, not PageRank or proof that a seed
+ * answers the question. `computeCentrality` owns the underlying score.
  */
 function tourSeedScore(
   graph: TtscGraphMemory,

@@ -12,6 +12,17 @@ import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
  * maintenance yields without touching the cache; the next invocation retries.
  * Only Go's two-hex object directories are scanned, so coordination metadata
  * and Go's own trim marker remain outside the size policy.
+ *
+ * @evidence contracts/common.md#principled-implementation A published maintenance intent precedes the live-lease check, so builders and deletion coordinate over the same owned physical root before object eviction.
+ * @evidence contracts/common.md#clear-and-simple-design Admission, lease exclusion, eviction and marker publication occur in order, with unconditional intent completion in finally.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Go bucket spelling follows its object-cache layout; missing heartbeat startup yields instead of assuming exclusion.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain lease exclusion and which populations are outside the byte policy; inline prose explains delayed over-budget retry.
+ * @evidence contracts/portability.md#os-neutral-implementation Physical ordinary-root validation, native Dirents and per-file removals avoid shell operations and OS-default identity assumptions.
+ * @evidence contracts/performance.md#efficient-algorithms One object scan and sorting cost O(objects log objects) time and O(objects) temporary metadata; byte totals avoid reading object contents.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Go establishes object equivalence; maintenance chooses eviction rather than reusable computation identity.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The 8 GiB trigger targets 6 GiB with a bounded recent cohort; live leases and failed deletions defer it, and maintenance intent is always finished.
  */
 export function pruneGoBuildCacheRoot(
   root: string,
@@ -82,7 +93,7 @@ export function pruneGoBuildCacheRoot(
 }
 
 // Go's own object-cache trim is age-based and has no size ceiling. The default
-// ttsc-owned cache therefore keeps up to 8 GiB and trims oldest objects toward
+// ttsc-owned cache therefore triggers collection above 8 GiB and trims toward
 // 6 GiB. The newest target-sized set used within an hour remains protected so
 // crossing the ceiling cannot immediately force another cold build.
 const GO_BUILD_CACHE_GC_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -100,13 +111,19 @@ const GO_BUILD_CACHE_GC_MARKER_FILE = ".ttsc-gc";
 // one additional hour old.
 const GO_BUILD_CACHE_ACCESS_MTIME_GRANULARITY_MS = 60 * 60 * 1000;
 
+/** Snapshot metadata for one ordinary Go object selected by this pass. */
 interface GoBuildCacheObject {
+  /** Physical object path beneath the selected cache root. */
   file: string;
+
+  /** Native last-use modification timestamp, in milliseconds. */
   lastUsedAt: number;
+
+  /** Snapshot byte size used for eviction accounting. */
   size: number;
 }
 
-/** Prune oldest Go cache objects to the requested deterministic size target. */
+/** Prune oldest objects toward the byte target while reserving a recent cohort. */
 function pruneGoBuildCacheEntries(
   root: string,
   options: {
@@ -161,6 +178,7 @@ function pruneGoBuildCacheEntries(
   return total;
 }
 
+/** Snapshot ordinary files in Go's two-hex object buckets. */
 function collectGoBuildCacheObjects(root: string): GoBuildCacheObject[] {
   const output: GoBuildCacheObject[] = [];
   let buckets: fs.Dirent[];

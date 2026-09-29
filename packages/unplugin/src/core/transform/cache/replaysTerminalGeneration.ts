@@ -18,6 +18,11 @@ import { failedGenerationEnvironmentChanged } from "../generation/failedGenerati
  * recorded environment. An unstable generation was, so it keeps its own rule:
  * one fresh attempt per pass, and otherwise replayed until that recorded
  * environment provably moves.
+ *
+ * @evidence contracts/common.md#principled-implementation A pass verdict replays only in its own epoch; an unstable-generation verdict requires its recorded environment to remain unchanged and permits a new attempt in a new pass.
+ * @evidence contracts/common.md#clear-and-simple-design Explicit error-kind branches preserve their different evidence instead of applying one blanket retry policy to every terminal error.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown error kinds are not authorized for replay, and epoch equality cannot replace an unstable generation's environment proof.
+ * @evidence contracts/common.md#meaningful-documentation The paragraphs and branch comments explain why pass failures and recorded instability have different replay boundaries.
  */
 export function replaysTerminalGeneration(
   terminal: TtscTerminalGenerationError,

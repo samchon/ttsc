@@ -6,6 +6,11 @@ import type { ModifierLike } from "../names/ModifierLike";
  *
  * Built by {@link factory.createExportAssignment}.
  *
+ * @evidence contracts/common.md#principled-implementation Expression and optional equals flag distinguish export-default from export-equals spelling; omitted flag selects default syntax without checking module-mode legality.
+ * @evidence contracts/common.md#clear-and-simple-design One expression and syntax-choice flag avoid duplicating export assignment payloads.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The flag is the documented export syntax distinction, not consumer-specific export behavior.
+ * @evidence contracts/common.md#meaningful-documentation JSDoc identifies both assignments and documents the omitted flag's meaning; separated member prose follows the documentation skill.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  */
 export interface ExportAssignment {

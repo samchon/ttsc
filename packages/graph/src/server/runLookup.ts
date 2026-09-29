@@ -1,11 +1,14 @@
 import { TtscGraphMemory, documentationTarget } from "../model/TtscGraphMemory";
+import { TtscGraphReadonly } from "../model/TtscGraphReadonly";
 import { ITtscGraphLookup } from "../structures/ITtscGraphLookup";
-import { ITtscGraphNode } from "../structures/ITtscGraphNode";
+import { ITtscGraphNode as NodeShape } from "../structures/ITtscGraphNode";
 import { isArtifactNodeKind } from "../structures/TtscGraphArtifactNodeKind";
 import { exportFanIn } from "./exportSurface";
 import { isExternalNode, isSupportPath } from "./pathPolicy";
 import { IRunnerOutput, resultNext } from "./resultNext";
 import { decoratorsOf, docTagsOf, signatureOf } from "./runDetails";
+
+type ITtscGraphNode = TtscGraphReadonly<NodeShape>;
 
 // One file should not crowd out the rest of the ranking, so cap hits per file.
 const PER_FILE = 3;
@@ -24,6 +27,14 @@ const MAX_LIMIT = 6;
  * bonus, and dependency centrality, then dampens external, generated, and test
  * nodes and caps per file so the result is a diverse, relevant shortlist rather
  * than one file's roster.
+ *
+ * @evidence contracts/common.md#principled-implementation Exact citation matches precede heuristic name scoring; token, kind, path and graph-centrality signals rank real nodes without certifying question coverage.
+ * @evidence contracts/common.md#clear-and-simple-design Citation selection, tokenization and scoring have helper owners; final diversity and signature projection assemble one shortlist.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Scores use general identifiers and graph structure rather than known repository answers; truncation reports selection losses and citations bypass per-file name diversity.
+ * @evidence contracts/common.md#meaningful-documentation Native prose names ranking signals and helpers explain exact-address precedence and the distinction between a citation and a fuzzy match.
+ * @evidence contracts/performance.md#efficient-algorithms Scoring scans candidate nodes and their indexed incident edges, then sorts positive matches in O(M log M); signatures are attached only to the bounded shortlist.
+ * @evidence contracts/performance.md#reuse-equivalent-work Name, citation and adjacency indexes are shared across lookups through the graph generation. Identical query result memoization is not implemented; each call produces a caller-owned mutable DTO.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Scored candidates and diversity maps are request-local; the returned shortlist is bounded by the request cap and no historical queries are retained.
  */
 export function runLookup(
   graph: TtscGraphMemory,

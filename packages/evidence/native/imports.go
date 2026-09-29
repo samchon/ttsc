@@ -120,8 +120,6 @@ var typeScriptModuleExtensions = []string{
   ".d.cts",
 }
 
-// splitPackageSpecifier separates a package name from a deep-import subpath,
-// keeping the leading segment of a scoped name attached to its scope.
 // moduleCandidates lists the files a specifier may denote, most specific first.
 //
 // The `.js` rewrite is not a convenience: under `nodenext` a TypeScript source
@@ -154,6 +152,8 @@ func moduleCandidates(base string) []string {
   return candidates
 }
 
+// splitPackageSpecifier separates a package name from a deep-import subpath,
+// keeping the leading segment of a scoped name attached to its scope.
 func splitPackageSpecifier(specifier string) (string, string) {
   segments := strings.Split(specifier, "/")
   if len(segments) == 0 || segments[0] == "" {

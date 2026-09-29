@@ -21,6 +21,22 @@ import { make } from "../internal/make";
  * <Foo bar="x" />
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   The tag, ordered type arguments and attributes remain structured inside a
+ *   self-closing node, whose syntax has no child list or paired closing node.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One self-closing representation avoids synthesizing an empty paired
+ *   element and reuses the same tag and attribute structures as an opening.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Tag names do not select injected props or closure shortcuts; all syntax
+ *   derives from the supplied name, generic arguments and attribute collection.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native prose explains tag-name forms, generics and empty attributes, with
+ *   a concrete self-closing example and all inputs documented.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param tagName The tag name.
  * @param typeArguments The generic type arguments, if any.

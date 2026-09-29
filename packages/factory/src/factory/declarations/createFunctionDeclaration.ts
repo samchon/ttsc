@@ -21,8 +21,9 @@ import { make } from "../internal/make";
  * `export default`, and `typeParameters` add the generic `<...>` list.
  *
  * The `parameters` print inside the parentheses, the optional return `type`
- * follows after a colon, and the `body` block holds the statements, indented
- * one per line.
+ * follows after a colon, and the optional `body` block holds the statements.
+ * Block's `multiLine` flag controls forced versus width-dependent layout;
+ * omitting the body creates a signature ending with a semicolon.
  *
  * Given an `export` modifier, the name `add`, two `number` parameters `a` and
  * `b`, a `number` return type, and a body returning `a + b`, the printed
@@ -33,6 +34,21 @@ import { make } from "../internal/make";
  *   return a + b;
  * }
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Optional name/body preserve anonymous or bodyless forms; generator token,
+ *   generics, ordered parameters and return type retain independent grammar slots.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The declaration groups function-level syntax; child parameter/type/block
+ *   builders own contents and asName owns string normalization.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   No implementation body is fabricated for a signature-only declaration.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc distinguishes generator and anonymous forms and signature/body pieces
+ *   in separate paragraphs with a concrete function example before tags.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param modifiers The leading modifiers and decorators, if any.

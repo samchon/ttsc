@@ -120,6 +120,20 @@ func residentCheckPath(location string) (string, bool) {
 // RunCheckServe runs the check-stage watch daemon. It accepts the same base
 // arguments as `check`, reads one JSON request per line, and emits one response
 // per request until stdin closes.
+//
+// One invocation owns one warm Program and releases it on exit or incompatible
+// changes. Requests are served serially; callers supply nonnil streams. Exit
+// status 2 reports startup, input or response-write failure, while request
+// failures appear in each response.
+//
+// @evidence contracts/common.md#principled-implementation The line protocol separates fixed compiler options from filesystem transitions, resets rule state per cycle and rebuilds when an unknown non-external path changes program topology.
+// @evidence contracts/common.md#clear-and-simple-design The loop owns protocol lifetime while one state object owns the warm Program; request-scoped engines and buffers hold no previous cycle's diagnostics.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Supported incremental compiler updates implement compatible edits and a real program reload handles topology changes instead of layered retries over stale source.
+// @evidence contracts/common.md#meaningful-documentation Native prose states serial stream ownership, Program release and exit-versus-response failures; tags are separated.
+// @evidence contracts/portability.md#os-neutral-implementation Filesystem inputs use native filepath and shared file-URI conversion, with physical canonical identities for external dependencies; no shell command or guessed platform separator implements watch transitions.
+// @evidence contracts/performance.md#efficient-algorithms Each request scans its changed paths once before applying supported incremental changes; diagnostics still require the selected program and rule walks, and response space grows with that cycle's findings.
+// @evidence contracts/performance.md#reuse-equivalent-work One warm Program serves compatible fixed-option requests, topology changes force reload, and the rule resolver validates recorded config dependencies before reuse while new engines and project cycles avoid sharing request-specific results.
+// @evidence contracts/performance.md#bound-retention-and-release-resources One state retains at most one Program; replacement, panic and daemon exit close it, while engines and output buffers live for one cycle. Input line and response bytes scale with the current request rather than a history of requests.
 func RunCheckServe(in io.Reader, out io.Writer, args []string) int {
   var startup bytes.Buffer
   base, err := parseSubcommandFlagsWithIO(
@@ -141,7 +155,10 @@ func RunCheckServe(in io.Reader, out io.Writer, args []string) int {
   for {
     raw, readErr := reader.ReadString('\n')
     if line := strings.TrimSpace(raw); line != "" {
-      handleServeCheckLine(line, base, state, encoder)
+      if err := handleServeCheckLine(line, base, state, encoder); err != nil {
+        fmt.Fprintf(os.Stderr, "@ttsc/lint check-serve: write error: %v\n", err)
+        return 2
+      }
     }
     if readErr != nil {
       if readErr != io.EOF {
@@ -158,7 +175,7 @@ func handleServeCheckLine(
   base *subcommandOpts,
   state *residentCheckState,
   encoder *json.Encoder,
-) {
+) (writeErr error) {
   response := serveCheckResponse{Status: 2}
   defer func() {
     if recovered := recover(); recovered != nil {
@@ -174,7 +191,7 @@ func handleServeCheckLine(
       ProgramUpdates: state.programUpdates,
       Reused:         response.Telemetry.Reused,
     }
-    _ = encoder.Encode(response)
+    writeErr = encoder.Encode(response)
   }()
 
   var req serveCheckRequest
@@ -186,6 +203,7 @@ func handleServeCheckLine(
     return
   }
   response = state.run(base, state.apply(req))
+  return
 }
 
 func (s *residentCheckState) run(

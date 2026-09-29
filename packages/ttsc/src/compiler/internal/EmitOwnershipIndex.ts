@@ -1,97 +1,162 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import type { FilesystemPathIdentityContext } from "../../internal/pathIdentity/FilesystemPathIdentityContext";
-import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
 import { isOutsideRelativePath } from "./isOutsideRelativePath";
 
 /**
- * Answers which JavaScript one finished build emitted from a given source file,
- * and answers only with proof.
+ * Match a source to actual compiler-written JavaScript using producer
+ * provenance.
  *
- * A build compiles its sources with a pinned `rootDir` into an `outDir`, so the
- * compiler writes the output of `<rootDir>/<rel>.ts` to `<outDir>/<rel>.js`.
- * That placement is the only evidence of ownership there is, and this index
- * reads it in both directions:
+ * Keys are absolute writer paths. Source arrays contain physical coordinates
+ * established by the producer owner, not lexical names resolved again after
+ * compilation. Native hosts use their input ledger; external compiler adapters
+ * own their observed-program, output-rule and stability premises. Empty source
+ * arrays and multiple owners are unknown ownership. A missing record is
+ * legacy/unavailable; an authoritative empty record means no outputs. Neither
+ * filename layout nor source maps supply missing proof.
  *
- * 1. **Forward.** Mirror the source's physical path below the physical root into
- *    the emit directory. An output there was compiled from that very file.
- * 2. **Inverse.** When the forward path misses, map the outputs that could be the
- *    source's back through the root, and compare filesystem identities. The
- *    forward mirror misses whenever the compiler saw the file through another
- *    spelling of it: a Windows 8.3 directory in a `files` entry, a symlinked
- *    file inside the root, or a different case on a case-insensitive volume.
- *    Identity is the filesystem's own answer, so those spellings meet again,
- *    and two different files never do.
+ * Source-content freshness belongs to the generation owner. An owned output
+ * that disappears remains owned, so its reader reports that failure by name.
  *
- * A file the build did not compile gets `null`, never the output of some other
- * file that shares its name. Callers treat `null` as "this build does not own
- * the file" and route it to the lane that does, which is the whole point: a
- * trailing-name match once served `src/index.js` for any `index.ts` the build
- * had never seen (samchon/ttsc#1382).
+ * @evidence contracts/common.md#principled-implementation The producer owner associates its eligible sources with actual writes under its documented observation premises; captured physical coordinates establish ownership independently of filename precedence or source-map settings.
+ * @evidence contracts/common.md#clear-and-simple-design One source index replaces forward layout, inverse filename buckets and map parsing with the actual producing build's associations.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing, incomplete or ambiguous provenance cannot be converted to ownership by extension order, matching names or newer source-map content.
+ * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs define writer/source coordinates, empty and missing states, and freshness ownership; properties carry only native documentation.
  *
- * What the build emitted is its record, taken once when the build finished
- * ({@link EmitOwnershipIndex.listOutputs}) and handed to every process that
- * serves from it. Ownership is decided against that record, not against the
- * disk at lookup time, so an output that later disappears is still known to be
- * owned and its reader can fail by name instead of routing the source to a lane
- * that runs something else. Without a record the index takes one itself on
- * first use; every consumer owns a private, freshly written emit directory, so
- * that listing stays valid, and every answer is memoized.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms find and listOutputs own processing while this declaration describes the representation.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work find and its build owner establish continued reuse, not this class shape independently.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller owns index lifetime; find describes its bounded retained population.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation Captured physical coordinates stay distinct from later lexical aliases; native realpath supplies canonical spelling and only Windows volume-root spelling is normalized.
  */
 export class EmitOwnershipIndex {
-  /** Directory the build wrote its JavaScript into. */
+  /** Absolute native directory containing this build's isolated outputs. */
   public readonly emitDir: string;
 
-  /**
-   * The source root the build was pinned to, in any spelling of it. Only its
-   * identity is used, so a short, long, or symlinked spelling all work.
-   */
+  /** Source root retained as build context, without inferring output ownership. */
   public readonly rootDir: string;
 
-  private readonly identities: FilesystemPathIdentityContext;
-  private readonly answers = new Map<string, string | null>();
-  private readonly answersBySpelling = new Map<string, string | null>();
-  private readonly sourceKeys = new Map<string, readonly SourceCandidate[]>();
-  private readonly mapped = new Map<string, string | undefined>();
-  private recorded: ReadonlySet<string> | undefined;
-  private buckets: Map<string, string[]> | undefined;
-  private linked: string[] | undefined;
-  private physicalRoot: string | undefined;
-  private physicalEmitDir: string | undefined;
+  private readonly bySource = new Map<string, Set<string>>();
+  /** Concrete proof gaps retained for actionable lookup failures. */
+  private readonly unavailableReasons: string[];
 
   /**
-   * Index one finished build. Nothing is read until the first lookup.
-   *
-   * @param props.emitDir - The build's output directory.
-   * @param props.rootDir - The source root the build was pinned to.
-   * @param props.outputs - The build's record, as {@link listOutputs} returned
-   *   it when the build finished. Omit it to have the index list the directory
-   *   itself on first use.
+   * Index one completed build's source associations, detached from input
+   * arrays. Sources are already physical coordinates: resolving them again
+   * could adopt a retargeted alias as if it produced the earlier output. The
+   * optional output record checks complete coverage before runtime user files
+   * enter the tree.
    */
   public constructor(props: {
+    /** Native isolated output directory owned by the build. */
     emitDir: string;
+
+    /** Native source-root context of the completed invocation. */
     rootDir: string;
+
+    /** Complete relative JavaScript output record, captured before layout links. */
     outputs?: readonly string[];
+
+    /** Absolute written output to captured physical source paths; [] is unknown. */
+    emittedSources?: Readonly<Record<string, readonly string[]>>;
+
+    /** Observed producer refusal reasons; these never establish ownership. */
+    emittedSourceProofFailures?: Readonly<Record<string, string>>;
   }) {
     this.emitDir = path.resolve(props.emitDir);
     this.rootDir = path.resolve(props.rootDir);
-    this.recorded =
-      props.outputs === undefined ? undefined : new Set(props.outputs);
-    this.identities = createFilesystemPathIdentityContext({
-      throwOnRealpathError: false,
-    });
+    if (
+      props.emittedSources !== undefined &&
+      (typeof props.emittedSources !== "object" ||
+        props.emittedSources === null ||
+        Array.isArray(props.emittedSources))
+    ) {
+      throw new Error("ttsc: invalid emitted-source provenance record");
+    }
+    const unavailableReasons =
+      props.emittedSources === undefined
+        ? ["the emitting producer supplied no provenance record"]
+        : [];
+    const recorded =
+      props.outputs === undefined
+        ? undefined
+        : new Set(
+            props.outputs.map((file) => path.resolve(this.emitDir, file)),
+          );
+    const accounted = new Set<string>();
+    for (const [output, sources] of Object.entries(
+      props.emittedSources ?? {},
+    )) {
+      if (!path.isAbsolute(output) || !Array.isArray(sources)) {
+        throw new Error("ttsc: invalid emitted-source provenance record");
+      }
+      const location = path.resolve(output);
+      if (!isJavaScriptOutput(location)) continue;
+      const relative = path.relative(this.emitDir, location);
+      if (relative === "" || isOutsideRelativePath(relative)) {
+        throw new Error(
+          "ttsc: emitted-source provenance escapes its output directory",
+        );
+      }
+      if (recorded !== undefined && !recorded.has(location)) {
+        throw new Error(
+          "ttsc: emitted-source provenance names an unrecorded output",
+        );
+      }
+      accounted.add(location);
+      const keys = new Set<string>();
+      for (const source of sources) {
+        if (typeof source !== "string" || !path.isAbsolute(source)) {
+          throw new Error(
+            "ttsc: invalid physical source in emitted-source provenance",
+          );
+        }
+        keys.add(physicalSourceKey(source));
+      }
+      if (keys.size !== 1) {
+        const reason = props.emittedSourceProofFailures?.[output];
+        unavailableReasons.push(
+          keys.size === 0
+            ? `no source owner was established for ${JSON.stringify(location)}${typeof reason === "string" ? `: ${reason}` : ""}`
+            : `multiple source owners were established for ${JSON.stringify(location)}: ${JSON.stringify([...keys])}`,
+        );
+        continue;
+      }
+      const key = keys.values().next().value!;
+      let outputs = this.bySource.get(key);
+      if (outputs === undefined) {
+        outputs = new Set();
+        this.bySource.set(key, outputs);
+      }
+      outputs.add(location);
+    }
+    if (recorded !== undefined) {
+      for (const output of recorded) {
+        if (isJavaScriptOutput(output) && !accounted.has(output))
+          unavailableReasons.push(
+            `written output has no provenance entry: ${JSON.stringify(output)}`,
+          );
+      }
+    }
+    this.unavailableReasons = unavailableReasons;
   }
 
   /**
-   * Every JavaScript output under `emitDir`, relative to it with `/`
-   * separators: the record a build takes of itself once it finishes.
+   * List ordinary JavaScript outputs before virtual-layout user files are
+   * added. Paths are relative to emitDir with slash-separated protocol
+   * spelling. Links are not followed and enumeration failure propagates; this
+   * list checks coverage but cannot independently establish source ownership.
    *
-   * Take it as soon as the build finishes, before anything else is placed in
-   * the directory. ttsx's virtual project layout later links or copies the
-   * user's own files in beside the outputs, and a hard link or a copy cannot be
-   * told apart from an output afterwards. Symbolic links and junctions are
-   * never followed, as they reach the user's tree, not this build's output.
+   * @evidence contracts/common.md#principled-implementation Nonfollowing enumeration records ordinary JavaScript outputs and propagates failure rather than certifying an incomplete record as absence.
+   * @evidence contracts/common.md#clear-and-simple-design An explicit stack supplies one sorted path list without content parsing or source inference.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Unreadable subtrees are not silently omitted and later linked user files cannot become compiler output through a late snapshot.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states capture timing, returned spelling, link handling and the coverage-versus-ownership distinction before tags.
+   * @evidence contracts/performance.md#efficient-algorithms One traversal visits E entries and sorts J output paths once in O(J log J), without reading output bytes.
+   * @evidence contracts/performance.md#reuse-equivalent-work One completed-build record serves its consumers before runtime layout changes; a new build records its own outputs.
+   *
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The path list transfers to the build owner; no retained handle or cache is acquired.
+   *
+   * @evidence contracts/portability.md#os-neutral-implementation Node directory kinds and relative-path grammar own native behavior; only returned protocol paths normalize separators.
    */
   public static listOutputs(emitDir: string): string[] {
     const root = path.resolve(emitDir);
@@ -99,17 +164,10 @@ export class EmitOwnershipIndex {
     const stack = [root];
     while (stack.length !== 0) {
       const directory = stack.pop()!;
-      let entries: fs.Dirent[];
-      try {
-        entries = fs.readdirSync(directory, { withFileTypes: true });
-      } catch {
-        continue;
-      }
-      for (const entry of entries) {
+      for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
         const location = path.join(directory, entry.name);
-        if (entry.isDirectory()) {
-          stack.push(location);
-        } else if (entry.isFile() && sourceExtensions(location).length !== 0) {
+        if (entry.isDirectory()) stack.push(location);
+        else if (entry.isFile() && isJavaScriptOutput(location)) {
           outputs.push(path.relative(root, location).split(path.sep).join("/"));
         }
       }
@@ -118,311 +176,55 @@ export class EmitOwnershipIndex {
   }
 
   /**
-   * The JavaScript this build emitted from `source`, or `null` when it emitted
-   * none.
+   * Return the unique output actually written for this current physical source.
+   * Complete provenance excluding it returns null. Missing, incomplete or
+   * ambiguous ownership throws an error naming the source, output directory and
+   * concrete proof gaps. Query aliases are resolved afresh so a retargeted
+   * spelling cannot reuse an earlier ownership answer. Failure to observe the
+   * current physical target propagates.
    *
-   * @param source - A TypeScript (or JavaScript, under `allowJs`) source file,
-   *   in any spelling that names it.
+   * @evidence contracts/common.md#principled-implementation Fresh query identity is compared with captured physical source coordinates; only one written output answers and complete exclusion alone permits null.
+   * @evidence contracts/common.md#clear-and-simple-design One source lookup replaces filename inference; unavailable proof is explicit rather than a hidden fallback policy.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Legacy and unknown records cannot gain a unique owner through extension order or a lexical source alias resolved after compilation.
+   * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes exact, absent and error outcomes, plus fresh alias observation from source-content freshness; errors distinguish missing producer metadata, ownerless or ambiguous rows and uncovered written outputs with their native coordinates.
+   * @evidence contracts/performance.md#efficient-algorithms Construction indexes P associations and records proof gaps once; a successful query resolves native identity and performs one map lookup without scanning outputs or source maps. Unavailable errors format retained reason text rather than rereading the output tree.
+   * @evidence contracts/performance.md#reuse-equivalent-work A completed build's captured associations serve all queries while aliases stay fresh; another build requires a new index.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Index storage grows with captured associations and proof-gap path bytes, with no query history or retained native handle; each successful query finishes its native realpath observation synchronously.
+   * @evidence contracts/portability.md#os-neutral-implementation Native realpath resolves current aliases to physical spelling; exact captured names remain distinct when directory case policy changes, without OS-wide lowercase assumptions.
    */
   public find(source: string): string | null {
-    const spelled = path.resolve(source);
-    const known = this.answersBySpelling.get(spelled);
-    if (known !== undefined) return known;
-    // A spelling not seen before is resolved with a fresh context: a program
-    // may write a source after an earlier lookup cached its directory as
-    // missing.
-    const identity = createFilesystemPathIdentityContext({
-      throwOnRealpathError: false,
-    }).resolve(spelled);
-    let answer = this.answers.get(identity.key);
-    if (answer === undefined) {
-      answer =
-        this.findForward(identity.path, identity.key) ??
-        this.findInverse(identity.path, identity.key);
-      this.answers.set(identity.key, answer);
+    if (this.unavailableReasons.length !== 0) {
+      throw new Error(
+        `ttsc: exact emitted-source ownership is unavailable for ${JSON.stringify(path.resolve(source))} in ${JSON.stringify(this.emitDir)}; ${this.unavailableReasons.join("; ")}. Rebuild with supported emit provenance`,
+      );
     }
-    this.answersBySpelling.set(spelled, answer);
-    return answer;
-  }
-
-  private findForward(physical: string, key: string): string | null {
-    const relative = path.relative(this.resolvedRoot(), physical);
-    if (relative === "" || isOutsideRelativePath(relative)) return null;
-    const stem = relative.slice(
-      0,
-      relative.length - path.extname(relative).length,
-    );
-    for (const extension of emittedExtensions(physical)) {
-      const output = stem + extension;
-      if (!this.recordedOutputs().has(output.split(path.sep).join("/"))) {
-        continue;
-      }
-      // Under JSX `preserve`, `a.tsx` writes `a.jsx` while a sibling `a.ts`
-      // owns `a.js`, so an output that is not this source's leaves the next
-      // extension to try.
-      const location = path.join(this.resolvedEmitDir(), output);
-      if (this.owns(location, key)) return location;
+    const physical = fs.realpathSync.native(path.resolve(source));
+    const outputs = this.bySource.get(physicalSourceKey(physical));
+    if (outputs === undefined) return null;
+    if (outputs.size !== 1) {
+      throw new Error(
+        `ttsc: emitted-source ownership is ambiguous for ${JSON.stringify(physical)}: ${JSON.stringify([...outputs])}`,
+      );
     }
-    return null;
-  }
-
-  /**
-   * Compare the identity of each output's source with the one asked for. Three
-   * candidate sets, cheapest first, and together they cover every way one file
-   * can carry two spellings: an aliased directory keeps the file's name, an 8.3
-   * alias of the file itself carries a `~`, and a symbolic link to the file can
-   * carry any name at all.
-   */
-  private findInverse(physical: string, key: string): string | null {
-    const buckets = this.outputBuckets();
-    return (
-      this.matchOutput(buckets.get(bucketKey(physical)) ?? [], key) ??
-      this.matchOutput(buckets.get(SHORT_NAME_BUCKET) ?? [], key) ??
-      this.matchOutput(this.linkedOutputs(), key)
-    );
-  }
-
-  private matchOutput(outputs: readonly string[], key: string): string | null {
-    for (const output of outputs) {
-      if (this.owns(output, key)) return output;
-    }
-    return null;
-  }
-
-  /**
-   * Whether `output` was compiled from the source whose identity is `key`.
-   *
-   * The output's name admits a few sources: `a.js` comes from `a.ts` or `a.tsx`
-   * (or, under `allowJs`, `a.js` or `a.jsx`). The asked source must be one of
-   * those that exists. When it is the only one that exists, that settles it.
-   *
-   * When several exist, only one of them can be in the output, and a sibling of
-   * another language counts: a project whose `files` lists only `a.js` compiles
-   * it into `a.js` beside an uncompiled `a.ts`. The build's source map names
-   * the source: its `sources` entry is the file the compiler read. Without a
-   * map, the compiler's own precedence decides, the one it applies when it
-   * expands `include` and when it resolves `./a`: `.ts` before `.tsx`, and
-   * TypeScript before JavaScript, which is the order {@link sourceExtensions}
-   * lists them in.
-   */
-  private owns(output: string, key: string): boolean {
-    const sources = this.existingSources(output);
-    if (!sources.some((source) => source.key === key)) return false;
-    if (sources.every((source) => source.key === key)) return true;
-    const mapped = this.mappedSource(output);
-    if (mapped !== undefined) return mapped === key;
-    return sources[0]!.key === key;
-  }
-
-  /**
-   * The identity of the source `output`'s source map names, or `undefined` when
-   * the output has no readable map naming a file on disk. Read only for an
-   * output two sources could have produced.
-   */
-  private mappedSource(output: string): string | undefined {
-    if (this.mapped.has(output)) return this.mapped.get(output);
-    let answer: string | undefined;
-    try {
-      const external = `${output}.map`;
-      let text: string | undefined;
-      let base = path.dirname(output);
-      if (isFile(external)) {
-        text = fs.readFileSync(external, "utf8");
-        base = path.dirname(external);
-      } else {
-        const inline = fs
-          .readFileSync(output, "utf8")
-          .match(
-            /\/\/# sourceMappingURL=data:application\/json[^,]*;base64,([A-Za-z0-9+/=]+)\s*$/,
-          );
-        if (inline) text = Buffer.from(inline[1]!, "base64").toString("utf8");
-      }
-      if (text !== undefined) {
-        const map = JSON.parse(text) as {
-          sourceRoot?: unknown;
-          sources?: unknown;
-        };
-        const first = Array.isArray(map.sources) ? map.sources[0] : undefined;
-        const named =
-          typeof first === "string"
-            ? path.resolve(
-                base,
-                typeof map.sourceRoot === "string" ? map.sourceRoot : "",
-                first,
-              )
-            : undefined;
-        // A `sourceRoot` the project points at a URL names no file on disk.
-        // Such a map proves nothing, so it counts as no map at all.
-        answer =
-          named !== undefined && isFile(named)
-            ? this.identities.resolve(named).key
-            : undefined;
-      }
-    } catch {
-      answer = undefined;
-    }
-    this.mapped.set(output, answer);
-    return answer;
-  }
-
-  /** The sources that exist for `output`, resolved once per output. */
-  private existingSources(output: string): readonly SourceCandidate[] {
-    let sources = this.sourceKeys.get(output);
-    if (sources === undefined) {
-      sources = this.sourceCandidates(output)
-        .filter(isFile)
-        .map((source) => ({
-          key: this.identities.resolve(source).key,
-        }));
-      this.sourceKeys.set(output, sources);
-    }
-    return sources;
-  }
-
-  /** Where the source of `output` sits below the root, per source extension. */
-  private sourceCandidates(output: string): string[] {
-    const relative = path.relative(this.resolvedEmitDir(), output);
-    const stem = relative.slice(
-      0,
-      relative.length - path.extname(relative).length,
-    );
-    return sourceExtensions(output).map((extension) =>
-      path.join(this.resolvedRoot(), stem + extension),
-    );
-  }
-
-  /**
-   * Outputs whose source is itself a symbolic link, collected once. Only a
-   * lookup every cheaper set missed pays for it.
-   */
-  private linkedOutputs(): readonly string[] {
-    if (this.linked !== undefined) return this.linked;
-    const linked: string[] = [];
-    for (const outputs of this.outputBuckets().values()) {
-      for (const output of outputs) {
-        if (this.sourceCandidates(output).some(isSymbolicLink)) {
-          linked.push(output);
-        }
-      }
-    }
-    this.linked = linked;
-    return linked;
-  }
-
-  private resolvedRoot(): string {
-    this.physicalRoot ??= this.identities.resolve(this.rootDir).path;
-    return this.physicalRoot;
-  }
-
-  private resolvedEmitDir(): string {
-    this.physicalEmitDir ??= this.identities.resolve(this.emitDir).path;
-    return this.physicalEmitDir;
-  }
-
-  /** The build's record, taken now when the constructor was given none. */
-  private recordedOutputs(): ReadonlySet<string> {
-    this.recorded ??= new Set(
-      EmitOwnershipIndex.listOutputs(this.resolvedEmitDir()),
-    );
-    return this.recorded;
-  }
-
-  /**
-   * Every recorded output as an absolute path, grouped by lower-cased file stem
-   * so the inverse lookup only resolves outputs that could be the one asked
-   * for.
-   */
-  private outputBuckets(): Map<string, string[]> {
-    if (this.buckets !== undefined) return this.buckets;
-    const buckets = new Map<string, string[]>();
-    const add = (key: string, file: string): void => {
-      const bucket = buckets.get(key);
-      if (bucket === undefined) buckets.set(key, [file]);
-      else bucket.push(file);
-    };
-    for (const output of this.recordedOutputs()) {
-      const location = path.join(this.resolvedEmitDir(), output);
-      add(bucketKey(location), location);
-      if (process.platform === "win32" && path.basename(output).includes("~")) {
-        add(SHORT_NAME_BUCKET, location);
-      }
-    }
-    this.buckets = buckets;
-    return buckets;
+    return outputs.values().next().value!;
   }
 }
 
-/** One existing source an output could have been compiled from. */
-interface SourceCandidate {
-  /** Its filesystem identity. */
-  key: string;
-}
-
-/** Bucket of outputs whose own name may be a Windows 8.3 short name. */
-const SHORT_NAME_BUCKET = "\0short-name";
-
-/**
- * JavaScript extensions the compiler can write for a source file. JSX
- * `preserve` writes a `.tsx` or `.jsx` input as `.jsx`; every other JSX mode
- * writes `.js`.
- */
-function emittedExtensions(source: string): readonly string[] {
-  switch (path.extname(source).toLowerCase()) {
-    case ".ts":
-    case ".js":
-      return [".js"];
-    case ".tsx":
-    case ".jsx":
-      return [".js", ".jsx"];
-    case ".mts":
-    case ".mjs":
-      return [".mjs"];
-    case ".cts":
-    case ".cjs":
-      return [".cjs"];
-    default:
-      return [];
-  }
-}
-
-/** Source extensions the compiler writes a given JavaScript output from. */
-function sourceExtensions(output: string): readonly string[] {
-  switch (path.extname(output).toLowerCase()) {
-    case ".js":
-      return [".ts", ".tsx", ".js", ".jsx"];
-    case ".jsx":
-      return [".tsx", ".jsx"];
-    case ".mjs":
-      return [".mts", ".mjs"];
-    case ".cjs":
-      return [".cts", ".cjs"];
-    default:
-      return [];
-  }
+/** JavaScript-bearing outputs, excluding maps and declaration artifacts. */
+function isJavaScriptOutput(file: string): boolean {
+  return [".js", ".jsx", ".mjs", ".cjs"].includes(
+    path.extname(file).toLowerCase(),
+  );
 }
 
 /**
- * Lower-cased file stem, the one part a source and its output always share
- * short of an 8.3 alias. `x.d.ts` keeps its `.d`, so a declaration file never
- * meets the output of `x.ts`.
+ * Key an already physical coordinate without revisiting its alias or folding
+ * directory-sensitive names. Only Windows volume-root spelling is normalized,
+ * matching the native identity resolver's root convention.
  */
-function bucketKey(file: string): string {
-  const base = path.basename(file);
-  return base.slice(0, base.length - path.extname(base).length).toLowerCase();
-}
-
-function isSymbolicLink(location: string): boolean {
-  try {
-    return fs.lstatSync(location).isSymbolicLink();
-  } catch {
-    return false;
-  }
-}
-
-function isFile(location: string): boolean {
-  try {
-    return fs.statSync(location).isFile();
-  } catch {
-    return false;
-  }
+function physicalSourceKey(file: string): string {
+  const location = path.normalize(file);
+  if (process.platform !== "win32") return location;
+  const root = path.parse(location).root;
+  return root.toLowerCase() + location.slice(root.length);
 }

@@ -11,6 +11,11 @@
  * The colour originates in the host's rendering rather than in anything this
  * adapter configures, so this is the adapter-side repair, applied to every
  * message it surfaces rather than to one call site.
+ *
+ * @evidence contracts/common.md#principled-implementation The regular expression removes ANSI CSI control sequences from the presentation string, retaining ordinary diagnostic text; other terminal protocols are outside its current grammar.
+ * @evidence contracts/common.md#clear-and-simple-design One replacement owns the supported escape grammar, so every caller uses the same presentation boundary.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The grammar follows control-sequence syntax without matching fixture-specific colours, exception messages or expected output.
+ * @evidence contracts/common.md#meaningful-documentation The native paragraphs explain the nonterminal destination and inline comments explain the deliberately visible expression construction.
  */
 export function stripTerminalEscapes(text: string): string {
   // Built from a char code so no control byte lives in this source file, and

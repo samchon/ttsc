@@ -14,6 +14,11 @@ import { fallbackToolDirectory } from "../bridge/fallbackToolDirectory";
  * and Farm's records live below the root alone otherwise.
  *
  * @param root Farm's configured root.
+ *
+ * @evidence contracts/common.md#principled-implementation A fallback is usable only when native relative-path semantics relate it to the Farm root and none of its path components is node_modules, matching the host's watch-file restrictions.
+ * @evidence contracts/common.md#clear-and-simple-design The adapter filters the shared temporary-directory provider with two host restrictions instead of creating another record location policy.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts No drive letter or user directory is hardcoded; rejection follows the host's actual path and watcher capabilities.
+ * @evidence contracts/common.md#meaningful-documentation The native comment names both host restrictions and explains why the root's own directory remains the alternative.
  */
 export function farmRecordFallback(root: string): string | undefined {
   const fallback = fallbackToolDirectory(root);

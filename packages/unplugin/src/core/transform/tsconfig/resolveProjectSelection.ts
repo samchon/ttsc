@@ -21,6 +21,12 @@ import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransf
  * consulted too, as missing: a `tsconfig.json` appearing beside the file
  * re-routes it to another project, and nothing else it read would change
  * (samchon/ttsc#1543).
+ *
+ * @evidence contracts/common.md#principled-implementation Explicit project selection bypasses discovery; implicit selection follows the nearest file candidate and referenced root-file admission, retaining missing nearer candidates whose appearance would change the decision.
+ * @evidence contracts/common.md#clear-and-simple-design Three direct branches separate explicit selection, discovered reference selection and no-config fallback; existing helpers own discovery and reference traversal.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing configuration remains a compiler error rather than selecting a fixture-specific project, and passed-over candidates are not dropped from future invalidation evidence.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain relative explicit anchoring, reference selection, the missing-config fallback and why absent nearer candidates are consulted inputs.
+ * @evidence contracts/portability.md#os-neutral-implementation Node isAbsolute, dirname and resolution establish native roots and drives; the supplied filesystem governs nearest-candidate checks, and shared compiler root matching owns referenced-project admission.
  */
 export function resolveProjectSelection(
   file: string,

@@ -10,6 +10,12 @@ import path from "node:path";
  * `C:\` or `/`) is used as is, so every path on that volume is inside it.
  *
  * @param platform Separator semantics; defaults to the host platform.
+ *
+ * @evidence contracts/common.md#principled-implementation Equality includes the root itself and a separator-delimited prefix includes only descendants; inputs must already carry canonical identity keys so sibling names and case policy are not guessed here.
+ * @evidence contracts/common.md#clear-and-simple-design One equality check and one boundary prefix check keep this lexical predicate separate from the resolver that proves keys.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The volume-root separator rule is path syntax required by containment, not an expected-result exception or a casing workaround.
+ * @evidence contracts/common.md#meaningful-documentation Native prose documents the canonical-key premise, no filesystem access and volume-root behavior, which callers need to avoid treating raw paths as identities.
+ * @evidence contracts/portability.md#os-neutral-implementation Explicit platform separators preserve drive, UNC and POSIX root boundaries; existing keys supply native case policy rather than whole-path lowercasing here.
  */
 export function isFilesystemPathIdentityWithin(
   root: string,

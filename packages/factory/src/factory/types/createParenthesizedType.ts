@@ -11,8 +11,24 @@ import { make } from "../internal/make";
  * Given an `A | B` inner type, the printer renders:
  *
  * ```ts
- * A | B;
+ * (A | B)
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   ParenthesizedTypeNode retains an explicit grouping boundary around its
+ *   child, even where the surrounding precedence would not demand parentheses.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One wrapper records grouping directly, without attaching mutable printer
+ *   flags to the child or serializing its syntax in advance.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Parentheses are represented by the node kind rather than patched around
+ *   selected child names or expected printed fragments.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   The corrected example includes the promised parentheses and the prose
+ *   explains explicit grouping separately from automatic printer grouping.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param type The inner type to parenthesize.

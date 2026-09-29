@@ -25,6 +25,15 @@ import { walkSnapshotComplete } from "./walkSnapshotComplete";
  * The delivered module is compared from disk like every other input: the
  * compile read it from disk, so a delivered text that differs is not the file's
  * state (samchon/ttsc#1394).
+ *
+ * @evidence contracts/common.md#principled-implementation Universal authority, declared project membership, content hashes and external physical targets must all match before signatures and directory observations are adopted.
+ * @evidence contracts/common.md#clear-and-simple-design One complete-proof boundary composes domain validators and commits refreshed witnesses only after their combined success.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed notifications neither prove unchanged state nor force recompilation when direct recorded-state validation can establish the same generation.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain lost-notification fallback, membership authority, disk-source comparison and the reason signatures are re-earned.
+ * @evidence contracts/performance.md#efficient-algorithms Full membership enumeration is necessary when notifications cannot prove it; declared input keys avoid hashing irrelevant project bytes and stable separable signatures reuse previously proved content.
+ * @evidence contracts/performance.md#reuse-equivalent-work Successful complete validation refreshes generation-owned signatures and restores trackers' verified state, allowing subsequent consumers to share the established proof.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Witness updates replace current signatures and directory observations on the existing generation; no historical snapshots or native handles are retained by this proof.
+ * @evidence contracts/portability.md#os-neutral-implementation The recorded compiler membership policy and identity context qualify the native walk and lexical alias targets rather than assumed OS case rules.
  */
 export function matchesCompleteInputSnapshot(
   cached: TtscCachedProjectTransform,

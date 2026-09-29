@@ -20,6 +20,11 @@ import (
 // An empty corpus is a successful answer. A project with no hint-publishing rule
 // is the common case, and a caller must be able to tell it apart from a failure;
 // a nonzero exit here would read as "the project is broken".
+//
+// @evidence contracts/common.md#principled-implementation Resolved project settings gate Program construction and passed-state corpus projection; the command serializes empty corpora as successful arrays while propagating configuration or acquisition failures.
+// @evidence contracts/common.md#clear-and-simple-design Parsing, shared corpus computation and JSON output remain separate so resident sessions reuse the same computation.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Empty nonpublishing projects are real supported outcomes; contributor metadata panics lose only that corpus through the existing protected publication boundary.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains Program scope, demand-driven work, caller caching and successful emptiness; paragraphs and tags follow documentation guidance.
 func RunLSPHints(args []string) int {
   opts, ok := parseLSPCommandOptions("lsp-hints", args)
   if !ok {

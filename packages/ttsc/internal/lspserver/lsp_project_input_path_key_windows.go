@@ -22,20 +22,18 @@ type windowsProjectInputPath struct {
 func projectInputPathKey(location string) string {
   normalized := filepath.Clean(projectInputFilesystemPath(location))
   if !filepath.IsAbs(normalized) {
-    return strings.ToLower(filepath.ToSlash(normalized))
+    return filepath.ToSlash(normalized)
   }
   volume := filepath.VolumeName(normalized)
   segments := splitWindowsProjectInputSegments(
     strings.TrimPrefix(normalized, volume),
   )
   current := windowsProjectInputVolumeRoot(volume)
-  sensitive := false
   for index, segment := range segments {
-    if currentSensitivity, ok :=
-      tryQueryProjectInputDirectoryCaseSensitivity(current); ok {
-      sensitive = currentSensitivity
-    }
-    if !sensitive {
+    sensitive, known := tryQueryProjectInputDirectoryCaseSensitivity(current)
+    // A failed native query establishes no permission to merge spellings.
+    // Preserve this segment instead of inheriting another directory's flag.
+    if known && !sensitive {
       segments[index] = strings.ToLower(segments[index])
     }
     current = filepath.Join(current, segment)
@@ -142,16 +140,15 @@ func windowsProjectInputSegments(
   sensitivities := make([]bool, 0, len(segments))
   current := windowsProjectInputVolumeRoot(volume)
   for _, segment := range existing {
-    sensitivities = append(
-      sensitivities,
-      queryProjectInputDirectoryCaseSensitivity(current),
-    )
+    sensitive, known := tryQueryProjectInputDirectoryCaseSensitivity(current)
+    // Membership is invalidation routing, not permission to merge identities.
+    // Unknown capability admits both case spellings so an event cannot be lost.
+    sensitivities = append(sensitivities, known && sensitive)
     current = filepath.Join(current, segment)
   }
   if len(resolved.missing) != 0 {
-    missingSensitivity := queryProjectInputDirectoryCaseSensitivity(
-      resolved.physical,
-    )
+    sensitive, known := tryQueryProjectInputDirectoryCaseSensitivity(resolved.physical)
+    missingSensitivity := known && sensitive
     for range resolved.missing {
       sensitivities = append(sensitivities, missingSensitivity)
     }
@@ -190,8 +187,11 @@ func reverseWindowsProjectInputSegments(segments []string) []string {
 }
 
 func queryProjectInputDirectoryCaseSensitivity(directory string) bool {
-  sensitive, _ := tryQueryProjectInputDirectoryCaseSensitivity(directory)
-  return sensitive
+  sensitive, known := tryQueryProjectInputDirectoryCaseSensitivity(directory)
+  // Unknown capability preserves distinctions in missing-suffix identity keys;
+  // success is required to fold case. Invalidation glob routing uses a separate
+  // conservative match policy in windowsProjectInputSegments.
+  return !known || sensitive
 }
 
 func tryQueryProjectInputDirectoryCaseSensitivity(

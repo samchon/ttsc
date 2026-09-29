@@ -50,7 +50,10 @@ func loadStripConfigMapWithReporter(pluginConfig map[string]any, cwd, tsconfigPa
   return loadStripConfigMapWithReporters(pluginConfig, cwd, tsconfigPath, reporter, nil, nil)
 }
 
-func loadStripConfigMapWithReporters(pluginConfig map[string]any, cwd, tsconfigPath string, reporter func(string), hashReporter, realpathReporter func(string, *string)) (map[string]any, error) {
+// loadStripConfigMapWithReporters reports the exact known configuration inputs.
+// Optional incomplete reporters disclose unavailable public resolution observation
+// separately from a moved input's missing proof; the evaluated value remains usable.
+func loadStripConfigMapWithReporters(pluginConfig map[string]any, cwd, tsconfigPath string, reporter func(string), hashReporter, realpathReporter func(string, *string), incompleteReporters ...func()) (map[string]any, error) {
   // Reject any key that @ttsc/strip does not recognise. This surfaces
   // stale inline keys (calls, statements) with a clear error so users
   // migrate to a config file instead of silently using defaults.
@@ -101,6 +104,13 @@ func loadStripConfigMapWithReporters(pluginConfig map[string]any, cwd, tsconfigP
     return nil, err
   }
   reportStripConfigInputs(loaded.inputs, loaded.hashes, loaded.realpaths, reporter, hashReporter, realpathReporter)
+  if !loaded.complete {
+    for _, report := range incompleteReporters {
+      if report != nil {
+        report()
+      }
+    }
+  }
   cfg, ok := loaded.value.(map[string]any)
   if !ok {
     return nil, fmt.Errorf("@ttsc/strip: config file %s must export an object", configFilePath)
@@ -152,7 +162,8 @@ func stripDiscoveryBaseDir(cwd, tsconfigPath string) string {
 
 // resolveStripConfigFilePath resolves a user-supplied config path to an
 // absolute path. Absolute paths are returned unchanged; relative paths are
-// joined to the tsconfig directory (or cwd when no tsconfig is set).
+// joined to the explicit host discovery anchor, otherwise the tsconfig
+// directory (or cwd when no tsconfig is set).
 func resolveStripConfigFilePath(configPath, cwd, tsconfigPath string) string {
   if filepath.IsAbs(configPath) {
     return configPath
@@ -174,6 +185,9 @@ func loadStripConfigFile(location, resolutionRoot string) (any, error) {
 }
 
 type stripLoadedConfig struct {
+  // complete concerns resolution capability, independently of per-input stability.
+  complete bool
+
   hashes    map[string]*string
   inputs    []string
   realpaths map[string]*string
@@ -190,7 +204,7 @@ func loadStripConfigFileWithInputs(location, resolutionRoot string) (stripLoaded
     }
     value, err := parseStripJSONConfigFile(location, body)
     digest := fmt.Sprintf("%x", sha256.Sum256(body))
-    return stripLoadedConfig{hashes: map[string]*string{location: &digest}, inputs: []string{location}, realpaths: map[string]*string{location: stripPhysicalHostInput(location)}, value: value}, err
+    return stripLoadedConfig{complete: true, hashes: map[string]*string{location: &digest}, inputs: []string{location}, realpaths: map[string]*string{location: stripPhysicalHostInput(location)}, value: value}, err
   case ".js", ".cjs", ".mjs":
     return loadStripScriptConfigFileWithInputs(location)
   case ".ts", ".cts", ".mts":
@@ -335,7 +349,7 @@ observeResolutions(recorder);
   }
   const serializedValue = JSON.stringify(value);
   const recorded = recorder.finish();
-  process.stdout.write(JSON.stringify({ value: JSON.parse(serializedValue), hashes: recorded.hashes, inputs: recorded.inputs, realpaths: recorded.realpaths }));
+  process.stdout.write(JSON.stringify({ value: JSON.parse(serializedValue), complete: recorded.complete, hashes: recorded.hashes, inputs: recorded.inputs, realpaths: recorded.realpaths }));
 })().catch((error) => {
   process.stderr.write(error && error.stack ? error.stack : String(error));
   process.exitCode = 1;
@@ -391,8 +405,14 @@ func loadStripScriptConfigFileWithInputs(location string) (stripLoadedConfig, er
   return loaded, nil
 }
 
+// decodeStripConfigLoaderOutput requires the value and recorder snapshot from
+// the executed loader. Accepting a bare value would report complete dependency
+// observations even though no observations were returned. Missing probe values
+// remain legitimate nullable entries inside the snapshot maps.
 func decodeStripConfigLoaderOutput(output []byte) (stripLoadedConfig, error) {
   var envelope struct {
+    Complete *bool `json:"complete"`
+
     Error     string             `json:"__ttscLoaderError"`
     Hashes    map[string]*string `json:"hashes"`
     Inputs    []string           `json:"inputs"`
@@ -405,21 +425,14 @@ func decodeStripConfigLoaderOutput(output []byte) (stripLoadedConfig, error) {
   if envelope.Error != "" {
     return stripLoadedConfig{}, fmt.Errorf("%s", envelope.Error)
   }
-  if len(envelope.Value) == 0 {
-    // Test/fallback launchers written against the historical payload return
-    // the config value directly. Preserve that accepted contract while real
-    // loaders use the envelope to carry runtime inputs.
-    var value any
-    if err := json.Unmarshal(output, &value); err != nil {
-      return stripLoadedConfig{}, err
-    }
-    return stripLoadedConfig{value: value}, nil
+  if len(envelope.Value) == 0 || envelope.Complete == nil || envelope.Inputs == nil || envelope.Hashes == nil || envelope.Realpaths == nil {
+    return stripLoadedConfig{}, fmt.Errorf("config loader must return a value with dependency observations")
   }
   var value any
   if err := json.Unmarshal(envelope.Value, &value); err != nil {
     return stripLoadedConfig{}, err
   }
-  return stripLoadedConfig{hashes: envelope.Hashes, inputs: envelope.Inputs, realpaths: envelope.Realpaths, value: value}, nil
+  return stripLoadedConfig{complete: *envelope.Complete, hashes: envelope.Hashes, inputs: envelope.Inputs, realpaths: envelope.Realpaths, value: value}, nil
 }
 
 // stripTypeScriptLoaderSource returns the TypeScript source of the ephemeral
@@ -473,7 +486,7 @@ declare const process: {
     }
     const serializedValue = JSON.stringify(current);
     const recorded = recorder.finish();
-    process.stdout.write(JSON.stringify({ value: JSON.parse(serializedValue), hashes: recorded.hashes, inputs: recorded.inputs, realpaths: recorded.realpaths }));
+    process.stdout.write(JSON.stringify({ value: JSON.parse(serializedValue), complete: recorded.complete, hashes: recorded.hashes, inputs: recorded.inputs, realpaths: recorded.realpaths }));
   } catch (error) {
     process.stderr.write(error instanceof Error && error.stack ? error.stack : String(error));
     // The stack above is for the reader. This is for the caller: the parent
@@ -1104,8 +1117,8 @@ func stripSetEnv(env []string, key, value string) []string {
 // payload channel when it stops on an error it can name.
 //
 // The loader's stack goes to this process's stderr as it runs, which is where a
-// reader wants it. But the *reason* — "config file must export an object with a
-// non-empty text string" — is a fact about the user's config, and a caller
+// reader wants it. But the reason, such as a non-object config export, is a
+// fact about the user's config, and a caller
 // deserves it in the error rather than having to go find it in the log. So it
 // travels as data through the same stdout the payload uses, and only a
 // well-formed envelope is honoured: anything else leaves the process status to

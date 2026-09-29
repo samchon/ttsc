@@ -23,6 +23,15 @@ import type { TtscWatchInputState } from "./TtscWatchInputState";
  *
  * @param spell The spelling the host is handed; every lookup is by the
  *   compiler's physical one.
+ *
+ * @evidence contracts/common.md#principled-implementation Generation observations select predicate, tree, graph or host state in provenance order, keeping physical target and availability distinct from the host's registration spelling.
+ * @evidence contracts/common.md#clear-and-simple-design One derivation maps retained generation facts into the documented watch carrier while the caller supplies its spelling policy.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown codec state stays absent; the missing marker is a supported observation value rather than a guessed content hash.
+ * @evidence contracts/common.md#meaningful-documentation Native prose describes generation evidence and spelling ownership, followed by separated acknowledgment tags under documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path.resolve and the generation's identity context preserve actual filesystem identity separately from caller-selected lexical spelling.
+ * @evidence contracts/performance.md#efficient-algorithms Map and property lookups derive one carrier without rereading file contents; path work depends on spelling length and identity lookup delegates to the shared context.
+ * @evidence contracts/performance.md#reuse-equivalent-work Hashes, predicate observations and identity derivation are shared from the cached generation, whose recorded input facts are immutable for delivery.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This mapping stores no new persistent cache or handle; retained generation facts belong to the generation owner.
  */
 export function evidencedWatchInput(
   cached: TtscCachedProjectTransform,

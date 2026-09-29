@@ -7,6 +7,15 @@ interface DependencyProgressModalProps {
   packages: readonly string[];
 }
 
+/**
+ * Present current installation phase and package-count progress; null hides
+ * the modal and the package chips show at most eight names.
+ *
+ * @evidence contracts/common.md#principled-implementation Completed/total package counts produce a clamped display ratio and optional version joins only present package identity.
+ * @evidence contracts/common.md#clear-and-simple-design The component is a pure progress view; installation and cancellation stay with its owner.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The minimum visible bar and chip limit are UI presentation policy rather than fabricated install outcomes.
+ * @evidence contracts/common.md#meaningful-documentation Native prose defines visibility, count units and chip truncation with tag separation under the documentation skill.
+ */
 export function DependencyProgressModal({
   progress,
   packages,

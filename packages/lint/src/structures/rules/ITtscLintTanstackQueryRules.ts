@@ -7,6 +7,11 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
  * `useMutation`, query-options factories) inside React TypeScript sources.
  *
  * @reference https://github.com/TanStack/query/tree/main/packages/eslint-plugin-query
+ *
+ * @evidence contracts/common.md#principled-implementation Explicit optional tanstack-query identifiers accept the shared severity forms, representing independent source policies without admitting undeclared option objects.
+ * @evidence contracts/common.md#clear-and-simple-design The family groups query-key, callback-order and client-lifetime policies while rule execution stays with the native implementation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported query-policy keys form the public vocabulary; the type adds no cache patch, consumer exemption or measurement-only setting.
+ * @evidence contracts/common.md#meaningful-documentation Native comments explain dependency tracking, inference order and stable client identity; separate family prose and spaced members follow documentation guidance.
  */
 export interface ITtscLintTanstackQueryRules {
   /**

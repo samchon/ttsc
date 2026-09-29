@@ -22,6 +22,17 @@ import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
  * Nothing is created: a part that does not exist, or that is not an ordinary
  * directory, is left alone. Failures are swallowed, since a collection must
  * never fail the launch that triggered it.
+ *
+ * @evidence contracts/common.md#principled-implementation Ordinary physical-root pinning confines the pass; age and oldest-first size eviction operate on atomically published answer files, whose deletion means a cache miss rather than a partial answer.
+ * @evidence contracts/common.md#clear-and-simple-design Admission, age eviction, fresh accounting and size eviction are separate phases, followed by one retry marker publication.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Layout-independent file metadata drives reclamation; failures are tolerated because cache availability is optional, not hidden to fabricate a computed answer.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain payloads, hit-touch metadata, atomic publication and failure behavior under the documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation lstat rejects aliased root leaves and physical pinning fixes ancestor aliases; native per-file removal handles sharing restrictions without shell assumptions.
+ * @evidence contracts/performance.md#efficient-algorithms Two metadata scans and optional sorting cost O(entries log entries), with O(entries) temporary metadata and no cached-answer byte reads.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Answer equivalence is established by owning readers and producer keys, not eviction.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Thirty-day age and 2 GiB-triggered LRU target historical state; all entries used within the protection window and failed deletions can exceed the budget until later retry.
  */
 export function pruneCacheFileRoot(
   root: string,
@@ -30,6 +41,7 @@ export function pruneCacheFileRoot(
   try {
     const stats = fs.lstatSync(root);
     if (!stats.isDirectory() || stats.isSymbolicLink()) return;
+    root = SourceBuildCacheLayout.canonicalPluginCacheRoot(root);
     const marker = path.join(root, CachePrunePolicy.GC_MARKER_FILE);
     const now = options.now ?? Date.now();
     const lastRun = SourceBuildCacheLayout.readTimestamp(marker);
@@ -71,12 +83,19 @@ export function pruneCacheFileRoot(
   }
 }
 
+/** One ordinary cache file's eviction metadata from this pass. */
 interface ICacheFileEntry {
+  /** Ordinary file path under the physical answer-cache root. */
   file: string;
+
+  /** Last-use modification timestamp in milliseconds. */
   lastUsedAt: number;
+
+  /** Snapshot byte size. */
   size: number;
 }
 
+/** Snapshot ordinary files, excluding the collector's own interval marker. */
 function collectEntries(root: string): ICacheFileEntry[] {
   const entries: ICacheFileEntry[] = [];
   let dirents: fs.Dirent[];
@@ -100,6 +119,7 @@ function collectEntries(root: string): ICacheFileEntry[] {
   return entries;
 }
 
+/** Attempt one payload deletion and report whether the path remains absent. */
 function removeEntry(file: string): boolean {
   try {
     fs.rmSync(file, { force: true });

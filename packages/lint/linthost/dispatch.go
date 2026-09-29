@@ -26,6 +26,11 @@ var Version = "dev"
 // Recognized verbs: `version` / `-v` / `--version`, `check`, `fix`, `format`,
 // `build`, `transform`, and the `lsp-*` protocol commands consumed by
 // ttscserver. Anything else is a usage error (exit code 2).
+//
+// @evidence contracts/common.md#principled-implementation The argv tail selects the canonical command route and its returned exit code, with unknown verbs producing the documented usage failure.
+// @evidence contracts/common.md#clear-and-simple-design The public entry delegates to one command dispatcher shared by native consumers.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Command names are the supported CLI discriminants, and contributor registration uses its normal bootstrap rather than patched dispatch.
+// @evidence contracts/common.md#meaningful-documentation Native prose states argument ownership, supported verbs and exit-code propagation; paragraphs and tags follow documentation guidance.
 func Main(args []string) int {
   return run(args)
 }
@@ -33,6 +38,11 @@ func Main(args []string) int {
 // MainWithIO dispatches the browser-owned project commands without consulting
 // process-global stdout or stderr. Native-only mutation and LSP commands retain
 // Main as their CLI entrypoint.
+//
+// @evidence contracts/common.md#principled-implementation Explicit output streams and browser-supported check/build/transform routes preserve invocation isolation; nil writers intentionally discard output and unavailable verbs fail.
+// @evidence contracts/common.md#clear-and-simple-design One browser dispatcher passes stream ownership directly to the existing project commands.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The narrower command surface is a documented host boundary rather than process-global stdout replacement.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes browser-owned streams from native mutation and LSP commands; separated tags follow documentation guidance.
 func MainWithIO(args []string, stdout, stderr io.Writer) int {
   if stdout == nil {
     stdout = io.Discard

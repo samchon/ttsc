@@ -90,6 +90,11 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  *   `truncated` say whether coverage is settled; when it is not, one more
  *   request is the right move — not a file read to re-verify facts already
  *   given.
+ *
+ * @evidence contracts/common.md#principled-implementation The single async tool maps the discriminated request union to graph outputs, with audit and next separated from returned facts.
+ * @evidence contracts/common.md#clear-and-simple-design One tool owns graph dispatch; request branches keep their own shapes instead of independent nearly identical tools.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The instruction retains explicit escape and permits legitimate coverage follow-ups without forced graph calls.
+ * @evidence contracts/common.md#meaningful-documentation Markdown-structured native documentation explains request choice, trust boundaries and ranked coverage before the tags.
  */
 export interface ITtscGraphApplication {
   /**
@@ -116,6 +121,11 @@ export interface ITtscGraphApplication {
    *
    * @param props Reasoning plus one graph request
    * @returns Matching `result` union member
+   *
+   * @evidence contracts/common.md#principled-implementation The callable consumes the typed reasoning/request envelope and returns the typed audit, next action and result envelope asynchronously.
+   * @evidence contracts/common.md#clear-and-simple-design One method delegates branch semantics to the request union instead of duplicating parameter lists.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The supported method includes escape and does not require graph use for source bodies.
+   * @evidence contracts/common.md#meaningful-documentation Native prose lists request responsibilities, distinguishes ranking coverage and explains the body-text boundary with param/return tags.
    */
   inspect_typescript_graph(
     props: ITtscGraphApplication.IProps,
@@ -123,7 +133,14 @@ export interface ITtscGraphApplication {
 }
 
 export namespace ITtscGraphApplication {
-  /** Draft, review, then submit exactly one graph request or escape. */
+  /**
+   * Draft, review, then submit exactly one graph request or escape.
+   *
+   * @evidence contracts/common.md#principled-implementation Required question, draft, review and discriminated final request represent the public selection protocol without treating rationale as graph evidence.
+   * @evidence contracts/common.md#clear-and-simple-design The final request union owns branch-specific fields; shared selection context is stored once.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Escape remains in the union and question wording is not replaced by a hidden repository-specific prompt.
+   * @evidence contracts/common.md#meaningful-documentation Native member comments explain question preservation, draft correction and one final branch.
+   */
   export interface IProps {
     /**
      * The code question, in the user's own words.
@@ -154,7 +171,14 @@ export namespace ITtscGraphApplication {
       | ITtscGraphEscape.IRequest;
   }
 
-  /** First-pass plan; `reason` precedes `type` so it is written first. */
+  /**
+   * First-pass plan; `reason` precedes `type` so it is written first.
+   *
+   * @evidence contracts/common.md#principled-implementation Reason explains selection while the request-indexed type union restricts the proposed operation to a supported branch.
+   * @evidence contracts/common.md#clear-and-simple-design Two fields represent the draft without copying branch inputs before review.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The proposed operation remains caller-authored rather than a forced first call.
+   * @evidence contracts/common.md#meaningful-documentation Native comments explain the selection reason and proposed request type in separate member blocks.
+   */
   export interface IDraft {
     /** Why this is the smallest useful next step. */
     reason: string;
@@ -163,7 +187,14 @@ export namespace ITtscGraphApplication {
     type: IProps["request"]["type"];
   }
 
-  /** The selected request's output. `result.type` mirrors `request.type`. */
+  /**
+   * The selected request's output. `result.type` mirrors `request.type`.
+   *
+   * @evidence contracts/common.md#principled-implementation Audit, next decision and discriminated result preserve different roles: provenance report, supported follow-up and graph facts.
+   * @evidence contracts/common.md#clear-and-simple-design Shared audit/control fields wrap the existing result branches without duplicating their contents.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Ranked selection is explicitly heuristic and cannot be certified complete merely by valid node facts.
+   * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain operation-aware audit and ranked coverage; member comments define next and matching result branch.
+   */
   export interface IOutput {
     /**
      * What the server audited this result against before returning it, in its
@@ -173,12 +204,13 @@ export namespace ITtscGraphApplication {
      *
      * The audit is operation-aware. For the walks from a named handle (`trace`,
      * `overview`) it reports the result as the structure the graph holds,
-     * bounded where `truncated` says. For `details` it reports the two halves of
-     * a resolved symbol: its own shape returned whole, its fan-out returned as a
-     * slice with `trace` for the rest. For the ranked operations (`lookup`,
-     * `entrypoints`, `tour`) it adds that the selection is heuristic — matched,
-     * scored, ranked, and limited against the question — so the facts are
-     * verified but the shortlist's coverage is the caller's to judge.
+     * bounded where `truncated` says. For `details` it reports the two halves
+     * of a resolved symbol: its own shape returned whole, its fan-out returned
+     * as a slice with `trace` for the rest. For the ranked operations
+     * (`lookup`, `entrypoints`, `tour`) it adds that the selection is heuristic
+     * — matched, scored, ranked, and limited against the question — so the
+     * facts are verified but the shortlist's coverage is the caller's to
+     * judge.
      */
     audit: string;
 

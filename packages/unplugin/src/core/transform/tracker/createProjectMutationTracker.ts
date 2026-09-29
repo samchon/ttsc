@@ -20,16 +20,59 @@ import { recordProjectMutation } from "./recordProjectMutation";
 import { settleOpenedDirectoryWatches } from "./settleOpenedDirectoryWatches";
 import { watchLocationIdentity } from "./watchLocationIdentity";
 
-/** Watch every walked directory for membership changes after generation. */
+/**
+ * Watch the admitted project directory tree for changes after generation.
+ *
+ * Membership policy distinguishes root-set changes from content writes. The
+ * watched root's physical identity is verified on delivery, because an old
+ * watcher can remain attached after its lexical directory is replaced.
+ *
+ * Directory ancestry uses the observing view's path grammar. Disjoint volumes
+ * or unknown root case policy withdraw notification authority and leave the
+ * recorded-state validator responsible for proof.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   The project walk and membership policy own structural relevance; content
+ *   witnesses remain separate, and missing watched-root identity withdraws coverage.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One root, directory index and filter set define the tracker; broker and local
+ *   paths share those decisions rather than duplicating backend-specific policies.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Unknown events conservatively invalidate membership; excluded trees follow
+ *   the supplied project policy, not a test-shaped path blacklist or watcher patch.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs separate scope, membership and replacement authority;
+ *   local identity comments explain the reason under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   OS-neutral relevance uses the view's path grammar, identity context and native
+ *   directory identity rather than platform-wide case folding or alias prefixes.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Known directory keys provide expected-constant admission checks; common-root
+ *   discovery follows ancestor depth and the observer visits admitted directories
+ *   instead of opening one watch per program file or excluded dependency entry.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   One identity context and known-directory index serve all event filters;
+ *   process-wide native producers share watches where their backend permits it,
+ *   while root identity is refreshed for each delivery's verification memo.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Generation-owned directory indexes and watched coverage grow with the walk;
+ *   diagnostic paths stay bounded at eight. Close marks failed before retiring
+ *   all acquired local handles or the broker registration.
+ */
 export async function createProjectMutationTracker(
   directories: readonly TtscProjectDirectorySnapshot[],
   covered: ReadonlySet<string>,
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
   policy: ITtscProjectMembershipPolicy = PERMISSIVE_PROJECT_MEMBERSHIP_POLICY,
 ): Promise<TtscProjectMutationTracker> {
+  const paths =
+    (filesystem.platform ?? process.platform) === "win32"
+      ? path.win32
+      : path.posix;
   const identities = createHostPathIdentityContext(filesystem);
   const root = commonDirectoryRoot(
     directories.map((directory) => directory.path),
+    filesystem.platform,
   );
   const tracker: TtscProjectMutationTracker = {
     changes: new Set(),
@@ -48,7 +91,10 @@ export async function createProjectMutationTracker(
       identities.isWithin(changed, input),
     contentAuthoritative: filesystem.watch === undefined,
   };
-  if (root === undefined) return tracker;
+  if (root === undefined || identities.caseSensitive(root) === undefined) {
+    tracker.failed = true;
+    return tracker;
+  }
   const rootIdentity = watchLocationIdentity(root, filesystem);
   if (rootIdentity === undefined) {
     tracker.failed = true;
@@ -65,16 +111,16 @@ export async function createProjectMutationTracker(
   const knownDirectories = new Set(
     directories
       .filter((directory) => directory.relevant)
-      .map((directory) => path.resolve(directory.path)),
+      .map((directory) => paths.resolve(directory.path)),
   );
   const reportsMembership = (location: string, filename: string): boolean => {
-    const changed = path.join(location, filename);
+    const changed = paths.join(location, filename);
     return (
-      knownDirectories.has(path.resolve(changed)) ||
+      knownDirectories.has(paths.resolve(changed)) ||
       reportsProgramMembership(
         root,
         changed,
-        path.basename(filename),
+        paths.basename(filename),
         policy,
         filesystem,
       )
@@ -84,7 +130,7 @@ export async function createProjectMutationTracker(
     location: string,
     filename: string,
   ): boolean => {
-    const changed = path.resolve(location, filename);
+    const changed = paths.resolve(location, filename);
     return (
       !knownDirectories.has(changed) && tracker.covered?.has(changed) !== true
     );
@@ -99,7 +145,7 @@ export async function createProjectMutationTracker(
         filters: {
           changeAddsMembership: reportsNewMembership,
           content: (_location, filename) =>
-            isPossibleProgramFileName(path.basename(filename), policy),
+            isPossibleProgramFileName(paths.basename(filename), policy),
           membership: reportsMembership,
         },
         probeRoot: root,
@@ -124,7 +170,7 @@ export async function createProjectMutationTracker(
             recordProjectMutation(tracker, root);
             return;
           }
-          const changed = path.join(root, filename);
+          const changed = paths.join(root, filename);
           const membership = reportsMembership(root, filename);
           if (
             membership &&
@@ -132,7 +178,7 @@ export async function createProjectMutationTracker(
           ) {
             recordProjectMutation(tracker, changed);
           } else if (
-            isPossibleProgramFileName(path.basename(filename), policy)
+            isPossibleProgramFileName(paths.basename(filename), policy)
           ) {
             recordProjectChange(tracker, changed);
           }
@@ -143,7 +189,8 @@ export async function createProjectMutationTracker(
         true,
         // Only the directories the walk enters, so a Linux capture never
         // walks or watches `node_modules`.
-        (directory) => isProjectWalkDirectory(directory, policy),
+        (directory) =>
+          isProjectWalkDirectory(directory, policy, filesystem.platform),
       ),
     );
   } catch {
@@ -156,14 +203,16 @@ export async function createProjectMutationTracker(
 /** Common ancestor owned by every project directory snapshot. */
 function commonDirectoryRoot(
   directories: readonly string[],
+  platform: NodeJS.Platform = process.platform,
 ): string | undefined {
+  const paths = platform === "win32" ? path.win32 : path.posix;
   if (directories.length === 0) return undefined;
-  let root = path.resolve(directories[0]!);
+  let root = paths.resolve(directories[0]!);
   for (const directory of directories.slice(1)) {
-    const absolute = path.resolve(directory);
-    while (!pathIsWithin(absolute, root)) {
-      const parent = path.dirname(root);
-      if (parent === root) return root;
+    const absolute = paths.resolve(directory);
+    while (!pathIsWithin(absolute, root, platform)) {
+      const parent = paths.dirname(root);
+      if (parent === root) return undefined;
       root = parent;
     }
   }

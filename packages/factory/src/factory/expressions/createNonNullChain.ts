@@ -12,8 +12,15 @@ import { make } from "../internal/make";
  * With `expression` of `a`, the printer emits:
  *
  * ```ts
- * a!;
+ * a!
  * ```
+ *
+ * No runtime null check is introduced by this syntax construction.
+ *
+ * @evidence contracts/common.md#principled-implementation NonNullChain retains the operand's chain context while recording assertion syntax, without establishing a runtime non-null guarantee.
+ * @evidence contracts/common.md#clear-and-simple-design The chain-specific kind and one operand suffice; preceding links remain in the operand and printer grouping stays centralized.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The explicit assertion does not inject a default value or patch null handling for known consumers.
+ * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes the chain-aware form and absence of runtime checking, with expression example and tags separated under documentation guidance.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param expression The expression to assert as non-null.

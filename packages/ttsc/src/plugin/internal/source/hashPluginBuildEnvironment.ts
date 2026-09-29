@@ -21,7 +21,7 @@ import { spawnGoTool } from "./spawnGoTool";
  * for the build and for every consumer that proves the build's output
  * (samchon/ttsc#1493).
  *
- * @param hash What the environment's lines are written into: the key's hash, or
+ * @param hash What the environment's framed values enter: the key's hash, or
  *   one that digests the environment alone, or both at once.
  * @param goBinary The Go tool the build runs, resolved for `directory`
  *   (`GoToolResolution.resolveGoToolForBuild`), or `undefined` to key on the
@@ -33,6 +33,15 @@ import { spawnGoTool } from "./spawnGoTool";
  *   variable carries: the Go tool, the Go environment file `go env -w` writes,
  *   the executables the C toolchain commands name, and GOROOT. A consumer that
  *   keeps the reading compares their metadata before reusing it.
+ *
+ * @evidence contracts/common.md#principled-implementation Compiler bytes/version, selected Go build values, command executables and contributing SDK files enter a deterministic digest; source-state reporting uses this same serialization rather than a second definition of toolchain identity.
+ * @evidence contracts/common.md#clear-and-simple-design Private helpers separate compiler identity, Go-reported settings, external variables and SDK content while sharing one hash sink and optional pre-read witness.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Cache signatures include real identity/change metadata and effective invocation context; failed SDK witnessing refuses reuse rather than accepting a VERSION-only proxy.
+ * @evidence contracts/common.md#meaningful-documentation Native documentation names the input classes and witness purpose; private comments explain context-sensitive compiler memoization and SDK exclusions without treating a passing check as proof.
+ * @evidence contracts/portability.md#os-neutral-implementation Node path/stat/process APIs resolve native tool identities; platform-specific executable suffixes and environment lookup are isolated in GoToolResolution, and Go supplies its own effective build settings.
+ * @evidence contracts/performance.md#efficient-algorithms For F relevant SDK files and B total bytes, sorted metadata traversal costs O(F log F); a changed manifest rehashes all B bytes, while an unchanged manifest reuses the aggregate identity without rereading those bytes.
+ * @evidence contracts/performance.md#reuse-equivalent-work Compiler identity shares only matching realpath, file signature and invocation cwd/environment; the SDK aggregate identity reuses only an identical ordered metadata manifest. Every SDK dependency still enters the caller's witness.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources This module retains compiler, Go-environment-path and SDK identity maps for process lifetime. Existing entries can be replaced but historical distinct tool/context/root keys have no eviction bound; no subprocess handle remains after synchronous probing.
  */
 export function hashPluginBuildEnvironment(
   hash: { update(data: string): unknown },
@@ -44,7 +53,10 @@ export function hashPluginBuildEnvironment(
 ): void {
   if (goBinary !== undefined) {
     hash.update(
-      `go=${resolveGoCompilerIdentity(goBinary, env, directory, witness)}\n`,
+      JSON.stringify([
+        "go",
+        resolveGoCompilerIdentity(goBinary, env, directory, witness),
+      ]),
     );
   }
   hashGoBuildEnvironment(hash, goBinary, directory, env, filesystem, witness);
@@ -138,7 +150,7 @@ const EXTERNAL_GO_BUILD_ENV_KEYS: readonly string[] = [
 // or atomically replaces the binary between calls, so the memo
 // re-derives the identity exactly as the un-memoized code would and the
 // cache-key bytes stay byte-for-byte identical to today. The selected compiler
-// path is shared by every build subprocess on Windows, while `go version` uses
+// path is shared by every build subprocess, while `go version` uses
 // the same effective cwd and environment as the cache-key `go env` query. The
 // memo key includes that context so an environment-sensitive wrapper cannot
 // lend its version result to another compiler invocation.
@@ -313,7 +325,7 @@ function hashGoBuildEnvironment(
   for (const key of GO_BUILD_ENV_KEYS) {
     const value = values.get(key);
     if (value !== undefined && value !== "") {
-      hash.update(`${key}=${value}\n`);
+      hash.update(JSON.stringify([key, value]));
     }
   }
 }
@@ -441,11 +453,12 @@ function normalizeGoBuildEnvValue(
   witness?: PluginBuildEnvironmentWitness.Record,
 ): string {
   if (key === "GOROOT") {
-    // The root and its version file move with a toolchain replaced in place;
-    // its full content identity is read afresh through its own manifest.
+    // Root/version observations also cover a missing SDK. The complete SDK
+    // manifest below witnesses contributing files and directories, including
+    // nested content changes that do not move the root or VERSION metadata.
     PluginBuildEnvironmentWitness.add(witness, value);
     PluginBuildEnvironmentWitness.add(witness, path.join(value, "VERSION"));
-    return resolveGoRootCacheIdentity(value, filesystem);
+    return resolveGoRootCacheIdentity(value, filesystem, witness);
   }
   if (GO_BUILD_COMMAND_ENV_KEYS.has(key)) {
     return `${value}\0${resolveCommandCacheIdentity(value, env, witness)}`;
@@ -542,7 +555,7 @@ function hashExternalGoBuildEnvironment(
   for (const key of EXTERNAL_GO_BUILD_ENV_KEYS) {
     const value = env[key];
     if (value !== undefined && value !== "") {
-      hash.update(`${key}=${value}\n`);
+      hash.update(JSON.stringify([key, value]));
     }
   }
 }
@@ -567,12 +580,15 @@ const goRootIdentityCache = new Map<string, GoRootIdentityCacheEntry>();
 function resolveGoRootCacheIdentity(
   goRoot: string,
   filesystem: SourceBuildFilesystemOperations,
+  witness?: PluginBuildEnvironmentWitness.Record,
 ): string {
   const resolved = resolveRealPath(goRoot);
   if (!fs.existsSync(resolved)) {
     return `missing:${goRoot}`;
   }
-  const snapshot = collectGoRootIdentitySnapshot(resolved);
+  const snapshot = collectGoRootIdentitySnapshot(resolved, witness);
+  if (!snapshot.complete)
+    PluginBuildEnvironmentWitness.refuse(witness, resolved);
   if (snapshot.complete) {
     const cached = goRootIdentityCache.get(resolved);
     if (cached?.signature === snapshot.signature) {
@@ -581,10 +597,10 @@ function resolveGoRootCacheIdentity(
   }
   const hash = crypto.createHash("sha256");
   for (const file of snapshot.files) {
-    const relative = path.relative(resolved, file).replace(/\\/g, "/");
-    hash.update(`f=${relative}\n`);
-    hash.update(filesystem.readFile(file));
-    hash.update("\n");
+    const relative = path.relative(resolved, file).split(path.sep).join("/");
+    const contents = filesystem.readFile(file);
+    hash.update(JSON.stringify([relative, contents.length]));
+    hash.update(contents);
   }
   const identity = `sha256:${hash.digest("hex")}`;
   if (snapshot.complete) {
@@ -596,16 +612,20 @@ function resolveGoRootCacheIdentity(
   return identity;
 }
 
-function collectGoRootIdentitySnapshot(root: string): GoRootIdentitySnapshot {
+function collectGoRootIdentitySnapshot(
+  root: string,
+  witness?: PluginBuildEnvironmentWitness.Record,
+): GoRootIdentitySnapshot {
   const out: string[] = [];
   const state = { complete: true };
-  walkGoRootIdentity(root, root, out, state);
+  walkGoRootIdentity(root, root, out, state, witness);
   out.sort();
   const signature = crypto.createHash("sha256");
   for (const file of out) {
-    const relative = path.relative(root, file).replace(/\\/g, "/");
+    const relative = path.relative(root, file).split(path.sep).join("/");
     try {
       const stats = fs.statSync(file, { bigint: true });
+      PluginBuildEnvironmentWitness.add(witness, file, stats);
       if (!stats.isFile()) {
         state.complete = false;
         continue;
@@ -638,7 +658,11 @@ function walkGoRootIdentity(
   dir: string,
   out: string[],
   state: { complete: boolean },
+  witness?: PluginBuildEnvironmentWitness.Record,
 ): void {
+  // Directory metadata witnesses changes to the file population, while each
+  // file below witnesses in-place changes that leave its parent unchanged.
+  PluginBuildEnvironmentWitness.add(witness, dir);
   let entries: fs.Dirent[];
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -648,10 +672,10 @@ function walkGoRootIdentity(
   }
   for (const entry of entries) {
     const file = path.join(dir, entry.name);
-    const rel = path.relative(root, file).replace(/\\/g, "/");
+    const rel = path.relative(root, file).split(path.sep).join("/");
     if (entry.isDirectory()) {
       if (shouldHashGoRootPath(rel, true)) {
-        walkGoRootIdentity(root, file, out, state);
+        walkGoRootIdentity(root, file, out, state, witness);
       }
     } else if (entry.isFile() && shouldHashGoRootPath(rel, false)) {
       out.push(file);

@@ -19,9 +19,24 @@ import { make } from "../internal/make";
  * }tail`
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   TemplateTail carries the final span after a substitution. Its cooked text
+ *   and optional raw spelling preserve the printer's representation choice.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The builder constructs only the terminal span; template composition and
+ *   the final backtick remain the owning expression/printer's responsibilities.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Tail placement follows the supplied AST rather than a patched literal.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native documentation states the last-substitution boundary and raw/cooked
+ *   behavior with separated explanatory paragraphs, example and tags.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param text The text.
- * @param rawText The rawText.
+ * @param rawText The source spelling before escape processing, if supplied.
  * @returns The created node.
  */
 export const createTemplateTail = (

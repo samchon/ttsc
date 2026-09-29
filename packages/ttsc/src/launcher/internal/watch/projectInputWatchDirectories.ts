@@ -13,6 +13,12 @@ import { ProjectInputWatchRules } from "./ProjectInputWatchRules";
  * one handle over a shared system directory to carry everything. An external
  * declaration that can only be owned that way falls back to its own tree, and
  * is left unwatched when even that would contain the project.
+ *
+ * @evidence contracts/common.md#principled-implementation The shared root selector preserves internal project coverage and the external ancestor ceiling; unavailable ownership remains an empty result.
+ * @evidence contracts/common.md#clear-and-simple-design One delegation converts the optional owner into the caller's zero-or-one root list.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts No second fallback broadens an absent safe owner into a system-wide watch.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain stable ownership, missing trees and unsafe external ancestors following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation The delegated selector owns native ancestry and actual physical containment instead of caller-side separator or OS-case assumptions.
  */
 export function projectInputWatchDirectories(
   target: string,

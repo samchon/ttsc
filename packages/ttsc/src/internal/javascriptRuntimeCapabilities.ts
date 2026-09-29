@@ -3,17 +3,34 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { captureProcessOutput } from "../compiler/internal/captureProcessOutput";
+import { SidecarEnvironment } from "../compiler/internal/sharedHost/SidecarEnvironment";
 import type { IJavaScriptRuntimeCapabilities } from "./IJavaScriptRuntimeCapabilities";
 import { isSpawnSyncFdExhaustion } from "./isSpawnSyncFdExhaustion";
+import { runtimeExecutableIdentity } from "./runtimeExecutableIdentity";
 import { spawnSyncWithLowDescriptors } from "./spawnSyncWithLowDescriptors";
 
-/** Probe an interpreter instead of inferring its identity from the host. */
+/**
+ * Probe an interpreter instead of inferring its identity from the host.
+ *
+ * Successful absolute candidates can be reused only while their actual bytes,
+ * lexical link and physical target agree. Preloaded, relative and wrapper
+ * candidates are probed anew because those inputs can select mutable behavior.
+ *
+ * @evidence contracts/common.md#principled-implementation A child reports its own feature availability and executable; byte-aware before/after identity and same-executable proof authorize reuse only for a stable absolute runtime without NODE_OPTIONS preload authority.
+ * @evidence contracts/common.md#clear-and-simple-design One probe owner coordinates identity, spawning and parsing; the shared fingerprint helper owns file-content proof and the low-descriptor helper owns the POSIX launch distinction.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Feature availability comes from the actual interpreter rather than its name; descriptor fallback handles a supported kernel constraint and failures produce unsupported capabilities, not fabricated success.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain measured capabilities, reuse restrictions and freshness, with comments separating platform launch and cache permission from tags.
+ * @evidence contracts/portability.md#os-neutral-implementation Shared environment merge and lookup apply native name identity to caller precedence and NODE_OPTIONS preload authority, including Windows aliases; Node spawn receives an executable and argv without shell syntax, and only POSIX descriptor exhaustion uses the isolated broker.
+ * @evidence contracts/performance.md#efficient-algorithms Cache validation streams executable bytes in O(B) time and fixed-size buffers; an uncached probe launches one child and parses its small feature result, with one constrained descriptor retry.
+ * @evidence contracts/performance.md#reuse-equivalent-work Stable absolute candidates that report their own executable share measured capability results, including false feature flags; changed executable bytes, link/target identity, preload options or wrapper identity require another probe, while failed probes without executable identity are not reused.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources A synchronous probe owns its child and any fallback capture files, released by spawn completion and finally; the historical map has one entry per absolute spelling ever successfully probed and currently has no eviction bound.
+ */
 export function javascriptRuntimeCapabilities(
   runtime: string,
   env: NodeJS.ProcessEnv,
   cwd: string,
 ): IJavaScriptRuntimeCapabilities {
-  const effectiveEnv = { ...process.env, ...env };
+  const effectiveEnv = SidecarEnvironment.merge(process.env, env);
   const cacheKey = runtimeCapabilityCacheKey(runtime, effectiveEnv);
   const beforeIdentity = runtimeExecutableIdentity(runtime);
   if (cacheKey !== undefined && beforeIdentity !== undefined) {
@@ -75,10 +92,12 @@ export function javascriptRuntimeCapabilities(
   }
   // Cache successful absolute candidates only when the child reports that same
   // executable and both its lexical link and physical target retain the same
-  // filesystem identity. Relative/bare commands and wrappers can resolve
-  // differently by cwd/PATH/environment, negative probes can become valid later,
-  // and NODE_OPTIONS can load mutable user code, so none of those states are
-  // memoized. This removes a process spawn from the common path without
+  // filesystem and actual content identity. Relative/bare commands and wrappers can resolve
+  // differently by cwd/PATH/environment, failed probes without an executable
+  // identity can become valid later, and NODE_OPTIONS can load mutable user
+  // code, so none of those states are memoized. A successful probe can report
+  // false for either feature and still be reused under the executable proof.
+  // This removes a process spawn from the common path without
   // authorizing a replaced or redirected runtime in a long-lived host.
   const afterIdentity = runtimeExecutableIdentity(runtime);
   if (
@@ -124,33 +143,10 @@ function runtimeCapabilityCacheKey(
   runtime: string,
   env: NodeJS.ProcessEnv,
 ): string | undefined {
-  if (!path.isAbsolute(runtime) || env.NODE_OPTIONS?.trim()) return undefined;
-  return path.resolve(runtime);
-}
-
-/** Identity of an executable spelling and the physical file it selects. */
-function runtimeExecutableIdentity(runtime: string): string | undefined {
-  if (!path.isAbsolute(runtime)) return undefined;
-  try {
-    const lexical = fs.lstatSync(runtime, { bigint: true });
-    const physicalPath = fs.realpathSync.native(runtime);
-    const physical = fs.statSync(physicalPath, { bigint: true });
-    return [
-      physicalPath,
-      lexical.dev,
-      lexical.ino,
-      lexical.mode,
-      lexical.size,
-      lexical.mtimeNs,
-      lexical.ctimeNs,
-      physical.dev,
-      physical.ino,
-      physical.mode,
-      physical.size,
-      physical.mtimeNs,
-      physical.ctimeNs,
-    ].join("\0");
-  } catch {
+  if (
+    !path.isAbsolute(runtime) ||
+    SidecarEnvironment.read(env, "NODE_OPTIONS")?.trim()
+  )
     return undefined;
-  }
+  return path.resolve(runtime);
 }

@@ -27,6 +27,28 @@ import { readProjectSelectionEntry } from "./readProjectSelectionEntry";
  *   re-route the file, whether an earlier project's `include` starts admitting
  *   it or a missing reference appears, so the caller registers them as watch
  *   inputs. When no project admits the file, that is every config searched.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Nearest-project root admission wins, then depth-first declaration-order
+ *   references. A visited set cuts cycles; rejected and missing configs remain
+ *   consulted inputs because their changes can alter the winning project.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Search owns reference priority while containsRootFile owns include/exclude
+ *   interaction and readProjectSelectionEntry owns validated config memoization.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Native config addresses are resolved through Node paths; root admission
+ *   delegates to compiler-policy matching, while stat proves nested regular
+ *   configs. Neither a shell command nor an OS case guess selects the project.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Solution routing follows actual references instead of naming familiar Vite
+ *   configs. No match retains the nearest config rather than inventing membership.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs explain solution configs and consulted negative choices;
+ *   return prose tells callers why those rejected inputs still need watching.
  */
 export function selectReferencedProject(
   file: string,

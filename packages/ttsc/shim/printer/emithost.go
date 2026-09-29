@@ -9,16 +9,39 @@ import innerprinter "github.com/microsoft/typescript-go/internal/printer"
 
 // EmitHost is the per-emit host interface tsgo's transformers query (Options,
 // SourceFiles, GetEmitResolver, GetEmitModuleFormatOfFile, WriteFile, ...).
+//
+// @evidence contracts/common.md#principled-implementation The exact upstream interface alias preserves the option, resolver and output callbacks its transformer chain requires; driver hosts satisfy that same contract without conversion.
+// @evidence contracts/common.md#clear-and-simple-design One interface alias exposes the owning compiler boundary instead of a second host abstraction with independently maintained methods.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Implementing this interface is supported dependency injection; the alias neither patches a host instance nor changes upstream dispatch.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies the per-emit role and representative queries, while the package introduction explains the driver-to-transformer use.
 type EmitHost = innerprinter.EmitHost
 
 // EmitResolver resolves emit-time facts about nodes (referenced imports,
 // declaration flags, ...) under the checker mutex.
+// The caller owns synchronization of the checker used by its resolver.
+//
+// @evidence contracts/common.md#principled-implementation An exact resolver interface alias retains the compiler's emit-time semantic queries and lets the host supply facts from the same checked program.
+// @evidence contracts/common.md#clear-and-simple-design The alias exposes the existing semantic boundary without duplicating checker state or inventing another resolver protocol.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The host supplies a resolver through upstream's interface; no foreign method or checker global is replaced.
+// @evidence contracts/common.md#meaningful-documentation Native prose names emit-time facts and caller-owned synchronization rather than implying the alias itself acquires a mutex.
 type EmitResolver = innerprinter.EmitResolver
 
 // EmitTextWriter is the sink the printer emits into; String() yields the text.
+//
+// @evidence contracts/common.md#principled-implementation The upstream writer interface alias preserves printing operations and text extraction as one compatible sink contract.
+// @evidence contracts/common.md#clear-and-simple-design The printer and host share the existing sink interface, avoiding a separate buffering adapter.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The declaration introduces no replacement methods, fixture dispatch or compensating behavior.
+// @evidence contracts/common.md#meaningful-documentation Native prose states the sink's output role and how callers obtain its accumulated text.
 type EmitTextWriter = innerprinter.EmitTextWriter
 
 // NewTextWriter creates a fresh writer for one emit (newLine e.g. "\n").
+// indentSize controls spaces per indentation level; nonpositive values select
+// the pinned writer's default of four spaces.
+//
+// @evidence contracts/common.md#principled-implementation Delegating newline and indentation width preserves upstream position accounting and its four-space fallback for nonpositive widths.
+// @evidence contracts/common.md#clear-and-simple-design The constructor returns one fresh upstream sink without shared buffers or additional output policy.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Formatting parameters are explicit inputs; no consumer-specific formatting or foreign method replacement is introduced.
+// @evidence contracts/common.md#meaningful-documentation Native prose states writer lifetime, newline example, indentation units and nonpositive-width default with tags separated from descriptive text.
 func NewTextWriter(newLine string, indentSize int) EmitTextWriter {
   return innerprinter.NewTextWriter(newLine, indentSize)
 }

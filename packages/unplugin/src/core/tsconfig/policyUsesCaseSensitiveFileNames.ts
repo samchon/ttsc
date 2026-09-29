@@ -15,6 +15,25 @@ import type { ITtscProjectMembershipPolicy } from "./ITtscProjectMembershipPolic
  * retried under the reported policy (`captureTransformGeneration`).
  *
  * @param policy The membership policy.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   A compiler-reported policy wins; before a report the host derives the same
+ *   rule from the selected compiler executable rather than the source OS name.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One resolver owns reported-versus-predicted precedence for root matching.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   The compiler envelope supplies its comparison capability; before compilation
+ *   the shared host queries the executable's filesystem rule, not the OS name.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   No OS-wide case guess substitutes for the compiler's actual rule; a later
+ *   differing envelope is handled by the generation owner rather than hidden.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs identify whose case rule matters and why a compiler
+ *   replacement can require retry, with the policy argument documented.
  */
 export function policyUsesCaseSensitiveFileNames(
   policy: ITtscProjectMembershipPolicy,

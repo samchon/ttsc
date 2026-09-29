@@ -7,10 +7,23 @@ import type { ITtscCompilerContext } from "../../structures/ITtscCompilerContext
  * would have run it at the moment of the call, under the environment the
  * compiler defines. So the request carries both the compiler context and that
  * environment as it was then.
+ *
+ * @evidence contracts/common.md#principled-implementation The context determines project behavior, while a separate complete environment snapshot establishes invocation-time authority for the worker's in-process work and children.
+ * @evidence contracts/common.md#clear-and-simple-design Compiler selectors, plugin JSON payloads and thread-local ambient state remain distinct: a separate JSON channel preserves custom serialization when structured cloning drops the local adapter method.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Structured-clone data carries real caller authority without replacing the calling thread's global environment or adding measurement-only configuration.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the snapshot timing and why scratch-directory authority must cover in-process work, with separated member comments following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation The snapshot is merged by native environment-name identity before crossing the worker boundary; native project paths remain context values rather than shell command text.
  */
 export interface TransformProjectWorkerRequest {
   /** The compiler context of the {@link TtscCompiler} that asked. */
   context: ITtscCompilerContext;
+
+  /**
+   * Constructor-captured JSON for each explicit plugin, paired by array index.
+   * The worker restores local adapters without reevaluating custom toJSON.
+   * Undefined preserves configuration-discovered or disabled plugin selection.
+   */
+  serializedPlugins?: readonly (string | undefined)[];
 
   /**
    * The calling thread's `process.env` at the call with the compiler's own

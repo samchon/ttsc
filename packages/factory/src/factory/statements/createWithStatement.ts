@@ -17,6 +17,20 @@ import { make } from "../internal/make";
  * }
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation
+ *   Object expression and body retain with-statement syntax for source generation;
+ *   valid use requires non-strict script context, as the factory cannot supply it.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The outline models syntax without creating a scope proxy or runtime wrapper.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Supporting this explicit source kind does not use with inside library logic.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native prose states strict-mode/ES-module restrictions and round-tripping use,
+ *   with the source example separated from acknowledgment paragraphs.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  * @param expression The expression.
  * @param statement The statement.

@@ -25,9 +25,14 @@ import { normalizeAliases } from "./normalizeAliases";
  * - A relative replacement is resolved against each importing module, and a bare
  *   one as a package. `paths` can express neither, so each is reported once and
  *   not forwarded, leaving the tsconfig's own mapping in force.
+ *
+ * @evidence contracts/common.md#principled-implementation Ordered exact and subtree mappings preserve translatable string-alias precedence and target order; a Map represents every valid key, including __proto__, as data before conversion to ordinary own properties.
+ * @evidence contracts/common.md#clear-and-simple-design One alias pass classifies root-relative, absolute and untranslatable replacements, with normalization and reporting delegated to their existing helpers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Unrepresentable regular expressions and module-relative replacements are not approximated into misleading compiler paths, and native alias keys do not mutate an object prototype.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain target anchoring and the unsupported translations; private reporting comments explain the intentionally different handling of host-injected regular expressions.
  */
 export function createAliasPaths(aliases: unknown): Record<string, string[]> {
-  const paths: Record<string, string[]> = {};
+  const paths = new Map<string, string[]>();
   for (const alias of normalizeAliases(aliases)) {
     if (typeof alias.find !== "string") {
       // Vite's array form accepts a `RegExp` find, and `{ find: /^~/ }` is a
@@ -98,10 +103,10 @@ export function createAliasPaths(aliases: unknown): Record<string, string[]> {
       continue;
     }
     const normalized = targets.map((target) => normalizePath(target));
-    paths[key] = normalized;
-    paths[`${key}/*`] = normalized.map((target) => `${target}/*`);
+    paths.set(key, normalized);
+    paths.set(`${key}/*`, normalized.map((target) => `${target}/*`));
   }
-  return paths;
+  return Object.fromEntries(paths);
 }
 
 /**

@@ -3,10 +3,10 @@
  *
  * Structural `exports` edges come from the native declaration pass, while the
  * TypeScript memory layer synthesizes `contains` ownership. Value and type
- * edges (`calls`, `accesses`, `instantiates`, `type_ref`,
- * `extends`, `implements`, `overrides`, `renders`) are resolved by the checker
- * — `renders` is a JSX component use. Decorators are facts on their target node,
- * not edges.
+ * edges (`calls`, `accesses`, `instantiates`, `type_ref`, `extends`,
+ * `implements`, `overrides`, `renders`) are resolved by the checker — `renders`
+ * is a JSX component use. Decorators are facts on their target node, not
+ * edges.
  *
  * `doc_ref` is a declaration's own documentation naming a symbol through an
  * inline link. The checker resolves that name and counts it as a use, so it is
@@ -21,6 +21,11 @@
  * implementation. It carries the implementation's declaration span, and a
  * traversal that follows what executes emits it in place of the dead end. It is
  * trace-only and never appears in a native dump.
+ *
+ * @evidence contracts/common.md#principled-implementation The union distinguishes compiler relationships, memory containment and trace-only dispatch, each with a separate semantic role.
+ * @evidence contracts/common.md#clear-and-simple-design One shared relation vocabulary keeps producers and projections aligned without a second generic relation taxonomy.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Documentation links remain compiler uses; dispatch follows actual implementation relations rather than guessing runtime calls.
+ * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain structural, documentation and dispatch relationships and their producer boundaries.
  */
 export type TtscGraphEdgeKind =
   | "contains"

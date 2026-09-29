@@ -12,6 +12,12 @@ import { WatchPaths } from "./WatchPaths";
  * never escalates to a directory that contains `projectRoot`, returning
  * `undefined` instead: losing the failed watcher is better than watching the
  * project from above.
+ *
+ * @evidence contracts/common.md#principled-implementation Rejected roots climb existing ancestors within the same project-containment ceiling as initial selection, preserving the distinction between unavailable coverage and unsafe broadening.
+ * @evidence contracts/common.md#clear-and-simple-design One ancestor loop combines rejection membership, existing-directory discovery and a shared identity policy.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Recovery does not reopen a root known to contain the entire project merely to return a successful watcher candidate.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain rejection, escalation and the undefined result following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Native ancestry uses path.dirname and the transaction resolver compares actual physical identities rather than an OS-derived case rule.
  */
 export function projectInputAvailableWatchDirectory(
   location: string,

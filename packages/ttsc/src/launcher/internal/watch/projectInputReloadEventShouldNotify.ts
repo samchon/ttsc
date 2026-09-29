@@ -11,6 +11,16 @@ import { literalGlobRoot } from "./literalGlobRoot";
  * event can still select the cold lane. A named exact event selects the cold
  * lane only after the surrounding change detector admits the event; unchanged
  * bytes remain quiet before this classifier is observed.
+ *
+ * @evidence contracts/common.md#principled-implementation Exact selection files and immediate resolution-directory entries choose execution reload; a strictly nested declared glob can explain its own ancestor's membership delta without exempting unrelated selection changes.
+ * @evidence contracts/common.md#clear-and-simple-design Exact-file membership, immediate-entry membership and causal explanations have distinct helpers under one classification operation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts A data exemption must explain the same directory's observed delta, not cancel every reload because some unrelated data event occurred.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain caller admission, immediate-directory scope and strict glob exemptions with their reasons, following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation One filesystem identity transaction resolves both declared aliases and changed native paths, using actual case and link identity.
+ * @evidence contracts/performance.md#efficient-algorithms Exact files use a Set; D directory and G glob predicates may require O(CDG) containment comparisons for C deltas, without scanning or hashing file contents in classification.
+ * @evidence contracts/performance.md#reuse-equivalent-work One transaction caches equivalent native identity/case resolutions for every helper in the same decision; a later event starts a fresh transaction so link retargets are observed.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Identity caches and predicate collections are local to one decision, without a resident historical cache or native handle.
  */
 export function projectInputReloadEventShouldNotify(input: {
   causedBy?: readonly string[];

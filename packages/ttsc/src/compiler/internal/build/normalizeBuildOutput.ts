@@ -8,6 +8,17 @@ import { CompilerDiagnostics } from "./CompilerDiagnostics";
  * When `diagnostics` is absent they are parsed from the text output. When the
  * process exited non-zero but stderr is empty and stdout is non-empty, stdout
  * is moved to stderr so the error is visible to callers who only check stderr.
+ * All other result metadata, including emit provenance, is preserved.
+ *
+ * @evidence contracts/common.md#principled-implementation Explicit diagnostics take precedence over text parsing; failure-output relocation preserves status and emit-provenance metadata while making captured error text visible.
+ * @evidence contracts/common.md#clear-and-simple-design Output normalization and optional parsing share one entry point; a private parser owns summary skipping and indented message continuation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Parsed compiler formats and actual process status determine results; unmatched text is not fabricated into a successful diagnostic record.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains absent diagnostics and the failure-output relocation; the private parser explains continuation and summary handling.
+ * @evidence contracts/portability.md#os-neutral-implementation Diagnostic filenames use the native path normalizer with optional compiler cwd; CRLF and LF output are both recognized without case-policy guesses.
+ * @evidence contracts/performance.md#efficient-algorithms Text is scanned once when diagnostics are absent; supplied arrays bypass parsing and continuation storage grows with captured message text.
+ * @evidence contracts/performance.md#reuse-equivalent-work Preparsed diagnostics are reused directly instead of reconstructing the same records from stdout and stderr.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This adapter returns data without owning a process, persistent cache or retained history.
  */
 export function normalizeBuildOutput(
   result: PartialBuildResult,
@@ -22,9 +33,8 @@ export function normalizeBuildOutput(
     return { ...result, diagnostics };
   }
   return {
+    ...result,
     diagnostics,
-    emittedFiles: result.emittedFiles,
-    status: result.status,
     stdout: "",
     stderr: result.stdout,
   };

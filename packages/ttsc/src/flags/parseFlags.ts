@@ -1,4 +1,5 @@
 import { COMPILER_OPTION_KINDS } from "./COMPILER_OPTION_KINDS";
+import type { AnySubcommand } from "./AnySubcommand";
 import type { FlagSpec } from "./FlagSpec";
 import type { ParseOptions } from "./ParseOptions";
 import type { ParseResult } from "./ParseResult";
@@ -8,28 +9,20 @@ import { resolveFlagSpec } from "./resolveFlagSpec";
 
 /**
  * Parse `argv` according to FLAG_SCHEMA filtered by `subcommand`. Returns a
- * `ParseResult`. Throws `Error` (with the configured prefix) on invalid input —
- * unknown subcommand-only flag, missing required value, value that fails its
- * validator.
+ * `ParseResult`. Throws `Error` with the configured prefix for a missing
+ * launcher-owned value or a value that fails its validator. Compiler-owned and
+ * unknown options retain their argv spelling for the compiler to diagnose.
+ *
+ * @evidence contracts/common.md#principled-implementation The cursor consumes each argv token at its grammar-owned boundary: launcher schema rows validate local values, compiler arity owns known forwarded values, and entry/separator state preserves program arguments. Canonical flag identities and ordered repetition records retain the command's permitted distinctions.
+ * @evidence contracts/common.md#clear-and-simple-design One parsing loop owns the argv partition while small helpers own value reading, boolean grammar and forwarding arity; all spelling policy comes from normalizeFlagToken instead of parallel case-specific parsers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown options remain native compiler inputs rather than being guessed from particular files. The positional predicate is explicit caller policy, and response-file forwarding follows the compiler's argv contract.
+ * @evidence contracts/common.md#meaningful-documentation The native comment distinguishes local errors from native diagnostics; ParseOptions and ParseResult document separator interaction and argument ownership in separate member paragraphs following the documentation skill.
+ * @evidence contracts/performance.md#efficient-algorithms A monotonically advancing cursor processes N tokens without repeated array shifts; scanning and result storage are O(N) plus token text and the caller's positional predicate cost. The schema index costs O(F plus aliases) once per command, not on every parse.
+ * @evidence contracts/performance.md#reuse-equivalent-work Launcher acceptance indexes are shared by command identity because module-owned schema rows and normalization policy remain fixed for the loaded module; invocation argv, prefix and classifier stay local and never enter the cached computation.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The module retains at most one acceptance index per finite command identity, containing references to fixed schema rows. Each cursor and result collection is invocation-owned and grows with argv size; returning transfers only the result, not the cursor or input copy.
  */
 export function parseFlags(opts: ParseOptions): ParseResult {
-  const accepted = new Map<string, FlagSpec>();
-  for (const flag of flagsForSubcommand(opts.subcommand)) {
-    // A flag enters the launcher's `accepted` set only when its
-    // `consumedBy` includes `"launcher"`. Flags consumed solely by tsgo
-    // or by native sidecars (e.g. `--showConfig`, `--listFilesOnly`)
-    // must fall through to `forwardKnownButUnaccepted` so the launcher
-    // forwards them verbatim instead of storing them in `values` where
-    // no consumer reads them back out. The previous shape — filter on
-    // `subcommands` only — silently dropped every tsgo-only terminal
-    // flag at the launcher boundary (the RC-1 / RC-2 class the schema
-    // is meant to make impossible).
-    if (!flag.consumedBy.includes("launcher")) continue;
-    accepted.set(normalizeFlagToken(flag.name), flag);
-    for (const alias of flag.aliases ?? []) {
-      accepted.set(normalizeFlagToken(alias), flag);
-    }
-  }
+  const accepted = launcherFlagsForSubcommand(opts.subcommand);
 
   const values = new Map<string, string | boolean | number>();
   const repeated = new Map<string, (string | boolean | number)[]>();
@@ -46,29 +39,27 @@ export function parseFlags(opts: ParseOptions): ParseResult {
   const separatorInOrder =
     opts.honorDoubleDashSeparator === true &&
     opts.forwardAfterFirstPositional === true;
-  let remainder: string[] | null = null;
-  if (opts.honorDoubleDashSeparator === true && !separatorInOrder) {
-    const separator = opts.argv.indexOf("--");
-    if (separator !== -1) {
-      remainder = [...opts.argv.slice(separator + 1)];
-    }
-  }
-  const head: string[] = [
-    ...(remainder === null
-      ? opts.argv
-      : opts.argv.slice(0, indexOfSeparator(opts.argv))),
-  ];
+  const separator =
+    opts.honorDoubleDashSeparator === true && !separatorInOrder
+      ? opts.argv.indexOf("--")
+      : -1;
+  let remainder: string[] | null =
+    separator === -1 ? null : [...opts.argv.slice(separator + 1)];
+  const head: ArgvCursor = {
+    tokens: [...(separator === -1 ? opts.argv : opts.argv.slice(0, separator))],
+    index: 0,
+  };
 
   let forwardingTail = false;
   let entryJustRead = false;
-  while (head.length !== 0) {
-    const current = head.shift()!;
+  while (head.index < head.tokens.length) {
+    const current = head.tokens[head.index++]!;
     const directlyAfterEntry = entryJustRead;
     entryJustRead = false;
     if (separatorInOrder && current === "--") {
       if (!forwardingTail) {
         // Before the entry, `--` ends the launcher's options as it always has.
-        remainder = head.splice(0);
+        remainder = head.tokens.slice(head.index);
         break;
       }
       if (directlyAfterEntry) continue;
@@ -87,20 +78,11 @@ export function parseFlags(opts: ParseOptions): ParseResult {
     // `--target all` masquerade as `--all` now that the lookup is dash- and
     // case-insensitive.
     if (current.startsWith("-")) {
-      // Split `--foo=value` / `-p=value` before resolving launcher-owned
-      // options. A tsgo-only option is still forwarded byte-for-byte; pinned
-      // tsgo does not split `=`, so it will reject that spelling itself.
       const equalsIndex = current.indexOf("=");
       const token =
         equalsIndex === -1 ? current : current.slice(0, equalsIndex);
       const inlineValue =
         equalsIndex === -1 ? undefined : current.slice(equalsIndex + 1);
-
-      // Resolution is by flag identity, not by exact spelling: `--NOEMIT` and
-      // `-noEmit` are the same option to the compiler ttsc forwards to, so they
-      // must be the same option here. Otherwise a case variant of a ttsc-owned
-      // flag falls through to the escape hatch below and tsgo honours it while
-      // every ttsc-side consumer stays silent.
       const flag = accepted.get(normalizeFlagToken(token));
       if (flag !== undefined) {
         consumeFlag(
@@ -115,9 +97,6 @@ export function parseFlags(opts: ParseOptions): ParseResult {
         continue;
       }
 
-      // Token IS a known flag but is not accepted by THIS subcommand. The
-      // engine forwards it to tsgo just like an unknown flag — the same
-      // policy the bare-lane parser applied (RC-1 prevention).
       const globalFlag = resolveFlagSpec(token);
       if (globalFlag !== undefined) {
         forwardKnownButUnaccepted(
@@ -131,39 +110,26 @@ export function parseFlags(opts: ParseOptions): ParseResult {
         continue;
       }
 
-      // A compiler option ttsc does not own: forward it to tsgo verbatim. This
-      // is what makes `ttsc --strict file.ts` work — ttsc does not need to
-      // re-implement every tsgo flag. The compiler's own option table says
-      // whether the bare token after it is its value (samchon/ttsc#1569), so a
-      // positional that follows a boolean option is never taken for a value.
+      // The compiler's table owns arity for options the launcher does not own.
       passthrough.push(current);
       const kind = COMPILER_OPTION_KINDS.get(normalizeFlagToken(token));
       if (
         kind !== undefined &&
         inlineValue === undefined &&
-        head.length !== 0 &&
-        !head[0]!.startsWith("-") &&
-        (kind === "value" || parseBooleanLiteral(head[0]!) !== undefined)
+        head.index < head.tokens.length &&
+        !head.tokens[head.index]!.startsWith("-") &&
+        (kind === "value" ||
+          parseBooleanLiteral(head.tokens[head.index]!) !== undefined)
       ) {
-        passthrough.push(head.shift()!);
+        passthrough.push(head.tokens[head.index++]!);
       }
       continue;
     }
 
-    // Bare token: either a genuine positional argument (file / entry / project
-    // path) or the space-separated value of a preceding forwarded flag. When a
-    // caller forwards unknown flags it supplies `isPositional` to tell the two
-    // apart; a forwarded value is appended to `passthrough` in place so the
-    // `--flag value` pair reaches tsgo in its original order and adjacency,
-    // instead of being split into a separate bucket the caller later
-    // concatenates out of order.
     if (opts.isPositional !== undefined && !opts.isPositional(current)) {
       passthrough.push(current);
       continue;
     }
-    // A caller that forwards arguments to the compiler hands it an `@file`
-    // token in place: the compiler reads a response file's arguments where the
-    // token stands, so it is never the ttsx entry or a positional input.
     if (
       current.startsWith("@") &&
       (opts.forwardAfterFirstPositional === true ||
@@ -180,13 +146,50 @@ export function parseFlags(opts: ParseOptions): ParseResult {
   }
 
   if (remainder !== null) {
-    // `--` separator: everything after goes to the user program when we are
-    // in tail mode (ttsx after the entry), otherwise to tsgo as passthrough.
     const sink = forwardingTail ? tail : passthrough;
     for (const token of remainder) sink.push(token);
   }
 
   return { values, repeated, passthrough, positional, tail };
+}
+
+/** A private token snapshot and the next token to consume. */
+interface ArgvCursor {
+  readonly tokens: readonly string[];
+  index: number;
+}
+
+const launcherFlagsBySubcommand = new Map<
+  AnySubcommand,
+  ReadonlyMap<string, FlagSpec>
+>();
+
+/** Reuse the immutable schema's launcher acceptance index for one command. */
+function launcherFlagsForSubcommand(
+  subcommand: AnySubcommand,
+): ReadonlyMap<string, FlagSpec> {
+  const cached = launcherFlagsBySubcommand.get(subcommand);
+  if (cached !== undefined) return cached;
+  const accepted = new Map<string, FlagSpec>();
+  for (const flag of flagsForSubcommand(subcommand)) {
+    // A flag enters the launcher's `accepted` set only when its
+    // `consumedBy` includes `"launcher"`. Flags consumed solely by tsgo
+    // or by native sidecars (e.g. `--showConfig`, `--listFilesOnly`)
+    // must fall through to `forwardKnownButUnaccepted` so the launcher
+    // forwards them verbatim instead of storing them in `values` where
+    // no consumer reads them back out. The previous shape — filter on
+    // `subcommands` only — silently dropped every tsgo-only terminal
+    // flag at the launcher boundary (the RC-1 / RC-2 class the schema
+    // is meant to make impossible).
+    if (!flag.consumedBy.includes("launcher")) continue;
+    accepted.set(normalizeFlagToken(flag.name), flag);
+    for (const alias of flag.aliases ?? []) {
+      accepted.set(normalizeFlagToken(alias), flag);
+    }
+  }
+
+  launcherFlagsBySubcommand.set(subcommand, accepted);
+  return accepted;
 }
 
 /**
@@ -200,7 +203,7 @@ function consumeFlag(
   flag: FlagSpec,
   token: string,
   inlineValue: string | undefined,
-  rest: string[],
+  rest: ArgvCursor,
   errorPrefix: string,
 ): void {
   const record = (value: string | boolean | number): void => {
@@ -232,10 +235,10 @@ function consumeFlag(
     // this shape natively; the launcher must mirror it so `ttsc --noEmit
     // false` does not corrupt argv (positional sink getting `false`,
     // tsgo seeing it as a stray input file).
-    if (rest.length > 0) {
-      const peek = parseBooleanLiteral(rest[0]!);
+    if (rest.index < rest.tokens.length) {
+      const peek = parseBooleanLiteral(rest.tokens[rest.index]!);
       if (peek !== undefined) {
-        rest.shift();
+        rest.index++;
         record(peek);
         return;
       }
@@ -266,22 +269,21 @@ function consumeFlag(
  */
 function takeValueToken(
   flag: string,
-  rest: string[],
+  rest: ArgvCursor,
   errorPrefix: string,
 ): string {
-  const value = rest.shift();
+  const value = rest.tokens[rest.index];
   if (value === undefined) {
     throw new Error(`${errorPrefix} ${flag} requires a value`);
   }
   if (value.startsWith("-")) {
-    // Put it back so the next loop iteration parses it as its own flag.
-    rest.unshift(value);
     throw new Error(
       `${errorPrefix} ${flag} requires a value (next token ${JSON.stringify(
         value,
       )} starts with "-")`,
     );
   }
+  rest.index++;
   return value;
 }
 
@@ -336,7 +338,7 @@ function forwardKnownButUnaccepted(
   flag: FlagSpec,
   original: string,
   inlineValue: string | undefined,
-  rest: string[],
+  rest: ArgvCursor,
   isPositional: ((token: string) => boolean) | undefined,
 ): void {
   passthrough.push(original);
@@ -344,25 +346,16 @@ function forwardKnownButUnaccepted(
   if (flag.kind === "boolean" || inlineValue !== undefined) {
     return;
   }
-  if (rest.length === 0) return;
-  if (rest[0]!.startsWith("-")) return;
+  if (rest.index === rest.tokens.length) return;
+  if (rest.tokens[rest.index]!.startsWith("-")) return;
   const tsgoOwnsArity =
     flag.consumedBy.includes("tsgo") || flag.forwardTo === "tsgo";
   if (
     tsgoOwnsArity === false &&
     isPositional !== undefined &&
-    isPositional(rest[0]!)
+    isPositional(rest.tokens[rest.index]!)
   ) {
     return;
   }
-  passthrough.push(rest.shift()!);
-}
-
-/**
- * Return the index of the `--` separator in `argv`, or `argv.length` when
- * absent. The parser slices on this index when honorDoubleDashSeparator.
- */
-function indexOfSeparator(argv: readonly string[]): number {
-  const index = argv.indexOf("--");
-  return index === -1 ? argv.length : index;
+  passthrough.push(rest.tokens[rest.index++]!);
 }

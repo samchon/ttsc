@@ -146,7 +146,7 @@ func printNodeAroundChildren(ctx *PrintContext, node *shimast.Node, children []*
       return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
     }
     gap := ctx.Source[cursor:childStart]
-    covered = covered && !strings.Contains(gap, "\n")
+    covered = covered && !strings.ContainsAny(gap, "\r\n\u2028\u2029")
     parts = append(parts, Text(gap))
     childDoc, childCovered := PrintNode(ctx, child)
     covered = covered && childCovered
@@ -154,7 +154,7 @@ func printNodeAroundChildren(ctx *PrintContext, node *shimast.Node, children []*
     cursor = childEnd
   }
   suffix := ctx.Source[cursor:end]
-  covered = covered && !strings.Contains(suffix, "\n")
+  covered = covered && !strings.ContainsAny(suffix, "\r\n\u2028\u2029")
   parts = append(parts, Text(suffix))
   return Concat(parts...), covered
 }
@@ -217,7 +217,7 @@ func printSwitchClause(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   statements := clause.Statements.Nodes
   if len(statements) == 0 {
     source := strings.TrimRight(ctx.Source[start:end], " \t\r\n")
-    return Text(source), !strings.Contains(source, "\n")
+    return Text(source), !strings.ContainsAny(source, "\r\n\u2028\u2029")
   }
   if statements[0] == nil {
     return verbatim(ctx, node), false
@@ -227,7 +227,7 @@ func printSwitchClause(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
     return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
   header := strings.TrimRight(ctx.Source[start:firstStart], " \t\r\n")
-  covered := !strings.Contains(header, "\n")
+  covered := !strings.ContainsAny(header, "\r\n\u2028\u2029")
   docs := make([]Doc, 0, len(statements))
   for _, statement := range statements {
     if statement == nil {

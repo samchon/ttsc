@@ -89,6 +89,7 @@ type serveGraphStore struct {
   implementationSources map[string]map[string]bool
   nodeOwners            map[string]string
   incomingEdges         map[string]map[string]int
+
   // extractedFiles records the exact authored closure read for this generation.
   // It supports phase/closure evidence without retaining an older generation.
   extractedFiles []string
@@ -99,6 +100,10 @@ type serveGraphIdentity struct {
   target   string
   universe string
   producer graph.Producer
+
+  // caseSensitive belongs to the producing Program and governs every path in
+  // this committed shard generation, including provenance and external IDs.
+  caseSensitive bool
 }
 
 func (s *graphSession) SnapshotShards() (*serveGraphSnapshot, string, bool, error) {
@@ -142,7 +147,7 @@ func (s *graphSession) buildFullShardSnapshot() (*serveGraphSnapshot, *serveGrap
   graph.ApplyArtifacts(built, s.artifacts)
   texts := graph.SourceTexts(program)
   provenance := s.provenance(texts)
-  identity, wireProvenance, wireSources, err := newServeGraphIdentity(s.cwd, s.tsconfig, provenance)
+  identity, wireProvenance, wireSources, err := newServeGraphIdentity(s.cwd, s.tsconfig, provenance, program.TSProgram.UseCaseSensitiveFileNames())
   if err != nil {
     return nil, nil, err
   }
@@ -180,7 +185,7 @@ func (s *graphSession) buildFullShardSnapshot() (*serveGraphSnapshot, *serveGrap
   if err := installExternalShard(shards, identity, externalNodes, externalReferences); err != nil {
     return nil, nil, err
   }
-  externalNodeWireIDs, err := serveGraphExternalNodeWireIDs(s.cwd, built.Nodes)
+  externalNodeWireIDs, err := serveGraphExternalNodeWireIDs(s.cwd, built.Nodes, identity.caseSensitive)
   if err != nil {
     return nil, nil, err
   }
@@ -224,6 +229,9 @@ func (s *graphSession) buildFullShardSnapshot() (*serveGraphSnapshot, *serveGrap
 func (s *graphSession) buildIncrementalShardSnapshot(change *graphChange) (*serveGraphSnapshot, *serveGraphStore, error) {
   prior := s.graphStore
   program := s.compiler.Program()
+  if prior.identity.caseSensitive != program.TSProgram.UseCaseSensitiveFileNames() {
+    return s.buildCompleteShardFallback(change)
+  }
   selected := invalidatedGraphFiles(program, prior.reverseDependencies, change.files, change.publicFiles)
   if len(selected) == 0 {
     // A changed declaration or virtual input outside the authored graph can
@@ -406,7 +414,7 @@ func (s *graphSession) buildIncrementalShardSnapshot(change *graphChange) (*serv
     nextNodes[id] = node
   }
   nextExternalNodeWireIDs := maps.Clone(prior.externalNodeWireIDs)
-  changedExternalNodeWireIDs, err := serveGraphExternalNodeWireIDs(s.cwd, partial.Nodes)
+  changedExternalNodeWireIDs, err := serveGraphExternalNodeWireIDs(s.cwd, partial.Nodes, identity.caseSensitive)
   if err != nil {
     return nil, nil, err
   }
@@ -771,7 +779,7 @@ func cloneServeGraphStringSets(input map[string]map[string]bool) map[string]map[
   return cloned
 }
 
-func serveGraphExternalNodeWireIDs(project string, nodes map[string]*graph.Node) (map[string]string, error) {
+func serveGraphExternalNodeWireIDs(project string, nodes map[string]*graph.Node, caseSensitive ...bool) (map[string]string, error) {
   ids := []string{}
   for id, node := range nodes {
     if node.External {
@@ -779,7 +787,7 @@ func serveGraphExternalNodeWireIDs(project string, nodes map[string]*graph.Node)
     }
   }
   sort.Strings(ids)
-  return graph.WireNodeIDs(project, ids)
+  return graph.WireNodeIDs(project, ids, caseSensitive...)
 }
 
 func addServeGraphIncomingEdge(incoming map[string]map[string]int, target, owner string) {
@@ -829,7 +837,7 @@ func partitionServeGraphFacts(
     if selected != nil && !selected[source.File] {
       continue
     }
-    relative, err := serveGraphFile(identity.project, source.File)
+    relative, err := serveGraphFile(identity.project, source.File, identity.caseSensitive)
     if err != nil {
       return nil, nil, nil, nil, nil, err
     }
@@ -842,7 +850,7 @@ func partitionServeGraphFacts(
   }
   if selected == nil {
     for _, config := range provenance.Universe.Configs {
-      relative, err := serveGraphFile(identity.project, config.File)
+      relative, err := serveGraphFile(identity.project, config.File, identity.caseSensitive)
       if err != nil {
         return nil, nil, nil, nil, nil, err
       }
@@ -931,7 +939,7 @@ func partitionServeGraphFacts(
       return nil, nil, nil, nil, nil, fmt.Errorf("ttscgraph: diagnostic source is absent from shard manifest: %s", diagnostic.File)
     }
     normalized := diagnostic
-    relative, err := serveGraphFile(identity.project, diagnostic.File)
+    relative, err := serveGraphFile(identity.project, diagnostic.File, identity.caseSensitive)
     if err != nil {
       return nil, nil, nil, nil, nil, err
     }
@@ -1020,11 +1028,11 @@ func digestJSON(value any) (string, error) {
   return hex.EncodeToString(sum[:]), nil
 }
 
-func newServeGraphIdentity(project, tsconfig string, provenance graph.Provenance) (serveGraphIdentity, graph.Provenance, map[string]string, error) {
+func newServeGraphIdentity(project, tsconfig string, provenance graph.Provenance, caseSensitive ...bool) (serveGraphIdentity, graph.Provenance, map[string]string, error) {
   if !filepath.IsAbs(project) {
     return serveGraphIdentity{}, graph.Provenance{}, nil, fmt.Errorf("ttscgraph: project root must be absolute: %s", project)
   }
-  wireProject, err := graph.WireProject(project)
+  wireProject, err := graph.WireProject(project, caseSensitive...)
   if err != nil {
     return serveGraphIdentity{}, graph.Provenance{}, nil, err
   }
@@ -1032,11 +1040,11 @@ func newServeGraphIdentity(project, tsconfig string, provenance graph.Provenance
   if !filepath.IsAbs(target) {
     target = filepath.Join(project, target)
   }
-  target, err = serveGraphFile(project, filepath.Clean(target))
+  target, err = serveGraphFile(project, filepath.Clean(target), caseSensitive...)
   if err != nil {
     return serveGraphIdentity{}, graph.Provenance{}, nil, err
   }
-  normalized, wireSources, err := normalizeServeGraphProvenance(project, provenance)
+  normalized, wireSources, err := normalizeServeGraphProvenance(project, provenance, caseSensitive...)
   if err != nil {
     return serveGraphIdentity{}, graph.Provenance{}, nil, err
   }
@@ -1044,22 +1052,27 @@ func newServeGraphIdentity(project, tsconfig string, provenance graph.Provenance
   if err != nil {
     return serveGraphIdentity{}, graph.Provenance{}, nil, err
   }
+  sensitive := true
+  if len(caseSensitive) != 0 {
+    sensitive = caseSensitive[0]
+  }
   return serveGraphIdentity{
-    project:  wireProject,
-    target:   target,
-    universe: universe,
-    producer: provenance.Producer,
+    project:       wireProject,
+    target:        target,
+    universe:      universe,
+    producer:      provenance.Producer,
+    caseSensitive: sensitive,
   }, normalized, wireSources, nil
 }
 
-func normalizeServeGraphProvenance(project string, provenance graph.Provenance) (graph.Provenance, map[string]string, error) {
+func normalizeServeGraphProvenance(project string, provenance graph.Provenance, caseSensitive ...bool) (graph.Provenance, map[string]string, error) {
   normalized := provenance
   normalized.Capabilities = append([]string{}, provenance.Capabilities...)
   normalized.Sources = make([]graph.SourceDigest, 0, len(provenance.Sources))
   wireSources := make(map[string]string, len(provenance.Sources))
   sourceOwners := map[string]string{}
   for _, source := range provenance.Sources {
-    file, err := serveGraphFile(project, source.File)
+    file, err := serveGraphFile(project, source.File, caseSensitive...)
     if err != nil {
       return graph.Provenance{}, nil, err
     }
@@ -1077,7 +1090,7 @@ func normalizeServeGraphProvenance(project string, provenance graph.Provenance) 
   normalized.Universe.Configs = make([]graph.FileDigest, 0, len(provenance.Universe.Configs))
   configOwners := map[string]string{}
   for _, config := range provenance.Universe.Configs {
-    file, err := serveGraphFile(project, config.File)
+    file, err := serveGraphFile(project, config.File, caseSensitive...)
     if err != nil {
       return graph.Provenance{}, nil, err
     }
@@ -1089,11 +1102,11 @@ func normalizeServeGraphProvenance(project string, provenance graph.Provenance) 
   }
   normalized.Universe.Roots = make([]graph.RootFile, 0, len(provenance.Universe.Roots))
   for _, root := range provenance.Universe.Roots {
-    config, err := serveGraphFile(project, root.Config)
+    config, err := serveGraphFile(project, root.Config, caseSensitive...)
     if err != nil {
       return graph.Provenance{}, nil, err
     }
-    file, err := serveGraphFile(project, root.File)
+    file, err := serveGraphFile(project, root.File, caseSensitive...)
     if err != nil {
       return graph.Provenance{}, nil, err
     }
@@ -1199,6 +1212,7 @@ func serveGraphShardKey(identity serveGraphIdentity, values ...string) string {
     identity.producer.Typescript,
     identity.target,
     identity.universe,
+    identity.caseSensitive,
   }
   for _, value := range values {
     coordinates = append(coordinates, value)
@@ -1207,8 +1221,8 @@ func serveGraphShardKey(identity serveGraphIdentity, values ...string) string {
   return string(encoded)
 }
 
-func serveGraphFile(project, file string) (string, error) {
-  relative, err := graph.WirePath(project, file)
+func serveGraphFile(project, file string, caseSensitive ...bool) (string, error) {
+  relative, err := graph.WirePath(project, file, caseSensitive...)
   if err != nil {
     return "", fmt.Errorf("ttscgraph: relativize shard source %s: %w", file, err)
   }
@@ -1242,6 +1256,13 @@ func invalidatedGraphFiles(
     selected[file] = true
   }
   pending := append([]string{}, publicChanged...)
+  // A privately edited file is already selected but may still lie between a
+  // public change and its consumers. Queue membership owns traversal separately
+  // so selection cannot cut off the reverse semantic closure.
+  queued := make(map[string]bool, len(pending))
+  for _, file := range pending {
+    queued[file] = true
+  }
   for len(pending) > 0 {
     file := pending[0]
     pending = pending[1:]
@@ -1254,7 +1275,8 @@ func invalidatedGraphFiles(
     }
     selected[file] = true
     for _, dependent := range reverse[file] {
-      if !selected[dependent] {
+      if !queued[dependent] {
+        queued[dependent] = true
         selected[dependent] = true
         pending = append(pending, dependent)
       }
@@ -1328,7 +1350,7 @@ func serveGraphResolutionDigests(program *driver.Program, project string) (map[s
       if target == nil {
         continue
       }
-      file, err := serveGraphFile(project, target.FileName())
+      file, err := serveGraphFile(project, target.FileName(), program.TSProgram.UseCaseSensitiveFileNames())
       if err != nil {
         return nil, err
       }
@@ -1341,11 +1363,13 @@ func serveGraphResolutionDigests(program *driver.Program, project string) (map[s
   return digests, nil
 }
 
+// graphSourceFile borrows the compiler's resident index instead of enumerating
+// the entire program for every file in an invalidated closure. The exact source
+// spelling and authored-source boundary remain the shard ownership coordinates.
 func graphSourceFile(program *driver.Program, file string) *shimast.SourceFile {
-  for _, source := range program.SourceFiles() {
-    if graph.IsWorkspaceSourceFile(source) && source.FileName() == file {
-      return source
-    }
+  source := program.SourceFile(file)
+  if graph.IsWorkspaceSourceFile(source) && source.FileName() == file {
+    return source
   }
   return nil
 }

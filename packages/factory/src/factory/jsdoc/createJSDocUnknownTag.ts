@@ -14,6 +14,10 @@ import { make } from "../internal/make";
  * @custom hello
  * ```
  *
+ * @evidence contracts/common.md#principled-implementation Directly retaining the required identifier and optional description represents uninterpreted tag syntax without validating that the name is unknown or interpreting its semantics.
+ * @evidence contracts/common.md#clear-and-simple-design One public constructor handles arbitrary tag names without a registry or options for unimplemented custom semantics.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Custom tags use explicit name data rather than consumer-specific printer branches or replacement of foreign tag tables.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains the required name and custom-tag role with an output example; paragraph and parameter-tag separation follows the documentation guidance.
  * @author Jeongho Nam - https://github.com/samchon
  * @param tagName The tag name.
  * @param comment The trailing comment, if any.

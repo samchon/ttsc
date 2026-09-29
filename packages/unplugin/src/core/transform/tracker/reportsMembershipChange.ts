@@ -10,6 +10,19 @@ import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTrans
  * validation decides whether that path is relevant. Promoting one of them to a
  * project-wide verdict would discard a generation when an unreachable external
  * input changes, defeating per-file completeness and doing needless compiles.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Only the project walk owns the program-root membership verdict; host and
+ *   candidate witnesses retain their narrower per-module relevance.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One optional boolean read implements this authority boundary; event
+ *   classification and input validation remain in their owning operations.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The result is based on recorded structural evidence, not an unrelated
+ *   tracker's noise or a filename-specific invalidation exception.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Separate native paragraphs explain the verdict and why other trackers
+ *   cannot supply it, following the documentation skill.
  */
 export function reportsMembershipChange(
   cached: TtscCachedProjectTransform,

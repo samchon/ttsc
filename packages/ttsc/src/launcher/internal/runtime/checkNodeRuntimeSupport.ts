@@ -2,10 +2,11 @@ import { TTSX_MINIMUM_NODE_VERSION } from "./TTSX_MINIMUM_NODE_VERSION";
 
 /**
  * Report why the running (or a candidate) Node.js version cannot execute the
- * ttsx source runtime, or `null` when it can. Returning an actionable message —
- * rather than letting the child die with an internal `TypeError` on the missing
- * `registerHooks`, or Node 18 rejecting `--disable-warning` with exit 9 — is
- * what turns an opaque internal failure into a clear version diagnostic.
+ * ttsx source runtime, or `null` when it passes this minimum-version check.
+ * Returning an actionable message — rather than letting the child die with an
+ * internal `TypeError` on the missing `registerHooks`, or Node 18 rejecting
+ * `--disable-warning` with exit 9 — is what turns an opaque internal failure
+ * into a clear version diagnostic.
  *
  * A runtime that only imitates Node is refused as well. Bun and Deno report a
  * Node version in `process.versions.node` for compatibility, which passed this
@@ -14,13 +15,18 @@ import { TTSX_MINIMUM_NODE_VERSION } from "./TTSX_MINIMUM_NODE_VERSION";
  * executed the entry through that runtime's own TypeScript support instead of
  * the checked emit, silently dropping the project's transform plugins.
  *
- * Exported for direct exercise by the ttsx e2e suite: the built launcher can
- * only be spawned under the Node version running the tests, so the boundary
- * around the floor cannot otherwise be pinned on CI.
+ * A null answer passes only this runtime-identity and minimum-API version
+ * check. Hook installation separately requires the actual public loader
+ * capabilities; a release above the floor can still be unsupported there.
  *
  * @param version - The Node version the runtime reports.
  * @param versions - The runtime's `process.versions`, which names Bun or Deno
  *   when one of them imitates Node.
+ *
+ * @evidence contracts/common.md#principled-implementation Known non-Node runtime markers are rejected before major/minor/patch comparison with the minimum API floor; unknown version syntax alone does not prove incompatibility. Null does not certify the separate public-hook capability gate.
+ * @evidence contracts/common.md#clear-and-simple-design Version parsing and tuple comparison are private helpers under one diagnostic decision; loader behavior probes remain a separate capability owner.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The minimum release and Bun/Deno markers describe actual supported runtime boundaries, not fixture versions, and no runtime method is replaced to emulate missing hooks.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain checked emit/plugin consequences and the separate capability gate, while parameter docs distinguish reported version from runtime identity markers.
  */
 export function checkNodeRuntimeSupport(
   version: string,

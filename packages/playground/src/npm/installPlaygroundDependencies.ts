@@ -34,6 +34,14 @@ const DEFAULT_MAX_UNPACKED_BYTES = 64 * 1024 * 1024;
  * and reuses compatible packages without downloading their tarballs again. The
  * walk is bounded by `maxPackages` to keep a single keystroke from exhausting
  * the tab's network/memory budget.
+ *
+ * @evidence contracts/common.md#principled-implementation The queue unifies required ranges per exposed name and registry identity, pins reused exact versions and rejects incompatible required edges. Optional edges refine only compatible solves; verified tar bytes are confined before files enter consumer namespaces.
+ * @evidence contracts/common.md#clear-and-simple-design Graph coordination stays here while registry transport, version selection, archive validation and file mapping have explicit helper boundaries.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Optional omissions are declared npm semantics; required failures, alias conflicts and integrity failures remain failures instead of fabricated mounted state. Name-only legacy skip state is documented as unable to validate versions.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain prior graph reuse and package budgets; queue comments explain late constraints and optional-to-required transitions under the documentation skill.
+ * @evidence contracts/performance.md#efficient-algorithms Indexed queue and completed maps avoid duplicate graph processing; version solving scales with published versions times active constraints, and file extraction/mapping scales with archive bytes and entries. Sequential transport avoids an additional concurrent archive population.
+ * @evidence contracts/performance.md#reuse-equivalent-work Queued names share metadata within a solve; exact mounted version and registry identity must satisfy all active required constraints before prior tarball work is reused. Changed direct roots are handled by the caller's full solve and replacement, not hidden in this additive operation.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Per-call maps and decoded archives belong to the install promise and result; package count and independent compressed/expanded byte budgets bound new archive work. Abort propagates to fetch and stream readers, while returned maps transfer to the consumer; supplied mounted state has no aggregate byte budget here.
  */
 export async function installPlaygroundDependencies(
   packageNames: Iterable<string>,

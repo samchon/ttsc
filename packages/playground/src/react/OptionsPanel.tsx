@@ -10,12 +10,23 @@ interface OptionsPanelProps {
   options: ITransformOptions;
   onChange: (next: ITransformOptions) => void;
   onClose: () => void;
+
   /** Defaults to the typia + lint pair from `DEFAULT_OPTION_TOGGLES`. */
   toggles?: readonly IOptionToggle[];
+
   /** Dialog heading. Defaults to "Transform Options". */
   title?: string;
 }
 
+/**
+ * Render site-defined boolean toggles in a dialog, merging a changed flag into
+ * the controlled option record. Escape closes and Tab wraps within the dialog.
+ *
+ * @evidence contracts/common.md#principled-implementation Computed-key copying preserves unrelated options; focus traversal and Escape use DOM events with cleanup on callback replacement or unmount.
+ * @evidence contracts/common.md#clear-and-simple-design Parent callbacks own values and visibility while this component owns dialog focus behavior and toggle presentation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Metadata keys drive all toggles through the same supported callback rather than plugin-specific mutation paths.
+ * @evidence contracts/common.md#meaningful-documentation Native prose states merge and keyboard behavior; prop comments state UI defaults with documentation-skill tag and member separation.
+ */
 export function OptionsPanel({
   options,
   onChange,

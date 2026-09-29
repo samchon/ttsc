@@ -10,6 +10,20 @@ import { bun } from "./bun";
  * entry after an explicit `register(options)` keeps those options rather than
  * resetting them to the defaults. A runtime that rejects the plugin leaves the
  * state unregistered, so a later call can try again.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Marking registration before calling Bun prevents reentrant installation;
+ *   synchronous rejection restores that flag. The provider locks the pending
+ *   snapshot exactly when the first transformable load requests options.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   This operation owns installation, while lockOptions owns its first-load
+ *   transition; register remains responsible for snapshot validation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Retrying only rejected registration reflects the host's real failure state;
+ *   an accepted loader is never shadowed to fake reconfiguration.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs explain option preservation and rejection effects rather
+ *   than restating branches; prose/tag separation follows documentation guidance.
  */
 export function ensureRegistered(
   runtime: BunRuntimeGlobal,

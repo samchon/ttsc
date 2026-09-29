@@ -19,6 +19,30 @@ import { sendLinuxWatchHelper } from "./sendLinuxWatchHelper";
  *   callbacks only after every line the same chunk of output carried, so a
  *   caller that must act between the answer and the next event, as a subscriber
  *   joining a shared watch does (`subscribeLinuxDirectoryWatch`), acts here.
+ * @evidence contracts/common.md#principled-implementation
+ *   An id-bound acknowledgment certifies queue ordering; timeout or submission
+ *   failure resolves false and cannot authorize reuse from silence.
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One idempotent release handles replies, failure and timeout; the synchronous
+ *   callback preserves line order for joining observers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The deadline bounds waiting, not proof. No guessed sleep is treated as a
+ *   native acknowledgment and no observer is enabled by promise timing alone.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs and parameter comments distinguish queue proof, deadline
+ *   and synchronous callback order under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   OS-neutral callers rely on the helper's protocol acknowledgment rather than
+ *   assuming platform-name or clock delay proves native events delivered.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   One request and one expected-constant map entry use constant bookkeeping;
+ *   helper queue cost belongs to the native sync owner.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Tracker settle shares equivalent in-flight barriers above this primitive;
+ *   independent calls need their own queue position and synchronous callback.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   A request owns one timer, map entry and helper reference until acknowledgment,
+ *   failed submission, helper termination or the one-second deadline releases it.
  */
 export function syncLinuxWatchHelper(
   helper: LinuxWatchHelper,

@@ -5,18 +5,23 @@ import type { Identifier } from "../names/Identifier";
  *
  * Built by {@link factory.createExportSpecifier}.
  *
+ * @evidence contracts/common.md#principled-implementation Original name, exported name and type-only flag retain renaming direction; Identifier-only fields exclude string-literal export names from this model.
+ * @evidence contracts/common.md#clear-and-simple-design Optional propertyName separates the aliased source from the always-present exported name.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Both names are caller data, with no special consumer exports encoded.
+ * @evidence contracts/common.md#meaningful-documentation JSDoc identifies aliasing and comments label original/exported names and type-only presence; member separation follows the documentation skill.
+ *
  * @author Jeongho Nam - https://github.com/samchon
  */
 export interface ExportSpecifier {
   /** Discriminant tag; always `"ExportSpecifier"`. */
   kind: "ExportSpecifier";
 
-  /** Whether this is a type-only import/export. */
+  /** Whether type precedes this exported binding. */
   isTypeOnly: boolean;
 
   /** The original (source) name, when aliased. */
   propertyName?: Identifier;
 
-  /** The name. */
+  /** Exported identifier; also the source name when propertyName is absent. */
   name: Identifier;
 }

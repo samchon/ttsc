@@ -1,4 +1,11 @@
-/** What to do with a compiler-derived graph result. */
+/**
+ * What to do with a compiler-derived graph result.
+ *
+ * @evidence contracts/common.md#principled-implementation The action union represents the supported next decisions, with request identifying the operation for inspect.
+ * @evidence contracts/common.md#clear-and-simple-design Action, optional request and reason separate control choice from its explanation in one small record.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts This vocabulary carries a result decision without encoding agent-specific control hacks.
+ * @evidence contracts/common.md#meaningful-documentation The action comment describes each decision and the inspect request's conditional meaning using native member documentation.
+ */
 export interface ITtscGraphNext {
   /**
    * What to do with this result:

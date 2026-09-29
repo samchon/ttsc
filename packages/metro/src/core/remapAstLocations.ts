@@ -1,3 +1,5 @@
+import { createFilesystemPathIdentityContext } from "ttsc/path-identity";
+
 /**
  * Move every source location in an upstream transformer's AST from the ttsc
  * transformed text back to the text the module's author wrote
@@ -13,22 +15,74 @@
  * such as generated code, loses its `loc`, which Babel treats as a synthesized
  * node, so it takes the mapping of the code around it.
  *
+ * Babel locations have one-based lines and zero-based UTF-16 columns; source
+ * map segments have zero-based lines and columns. The map points from generated
+ * text to the authored file. Missing or reversed mapped ends clamp to the
+ * mapped start. Traversal tracks visited objects and mutates only AST locations.
+ * Absolute sources are compared by filesystem identity within this call, so
+ * links and actual directory case capabilities determine the owning source.
+ *
  * @param ast The upstream transformer's AST, rewritten in place.
  * @param map The adapter's map from the transformed text to `file`, with
  *   absolute `sources`.
  * @param file Absolute path of the module.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   The adapter consumes its own source-map VLQ segments using
+ *   greatest-lower-bound lookup, then updates the upstream-owned AST through
+ *   Metro's returned-AST extension boundary. Iterative traversal tracks
+ *   visited objects to handle shared/cyclic AST references. Unmapped starts
+ *   lose loc and invalid ends clamp to the mapped start rather than
+ *   manufacturing authored positions.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Mapping decoding, position lookup and object traversal remain distinct
+ *   steps; the traversal owns AST mutation and the local lookup owns coordinate
+ *   conversion without adding a second Babel parser.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Mapping decoding is linear in encoded bytes. A visited Set walks each
+ *   AST object once; each endpoint uses binary search on its generated line's
+ *   segments. Temporary storage follows decoded segments and reachable AST
+ *   objects, and the iterative stack avoids call-depth dependence on the AST.
+ *   Source identity resolution is shared within this call; missing sources can
+ *   additionally require ancestor and directory-capability observations.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   This call mutates one returned AST using that delivery's map; it owns no
+ *   shared cache and repeated calls would remap already moved coordinates.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The caller owns the AST. Local decoded lines and traversal state end with
+ *   the call; no handle or cross-delivery state is retained.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   No Babel methods or compiler internals are patched.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   The shared filesystem-identity context compares absolute map sources with
+ *   the delivered file using physical spelling and actual directory case
+ *   capabilities. Source coordinates remain line/column values independent
+ *   of native newline spelling; OS names do not fold distinct filenames.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   The native JSDoc explains map direction, in-place mutation, coordinate
+ *   indexing and generated/unmapped locations. Checked against the
+ *   documentation skill: separate paragraphs state the contract and why its
+ *   nonobvious boundary matters; field comments retain their own useful
+ *   facts.
  */
 export function remapAstLocations(
   ast: unknown,
   map: { mappings: string; sources: readonly string[] },
   file: string,
 ): void {
-  const normalize = (location: string) => {
-    const slashed = location.replace(/\\/g, "/");
-    return process.platform === "win32" ? slashed.toLowerCase() : slashed;
-  };
+  const identities = createFilesystemPathIdentityContext({
+    throwOnRealpathError: false,
+  });
+  const fileKey = identities.resolve(file).key;
   const own = map.sources.findIndex(
-    (source) => normalize(source) === normalize(file),
+    (source) => identities.resolve(source).key === fileKey,
   );
   if (own < 0) {
     return;
@@ -105,10 +159,13 @@ export function remapAstLocations(
 interface Segment {
   /** Zero-based generated column. */
   generatedColumn: number;
+
   /** Index into the map's `sources`, or `-1` for an unmapped segment. */
   source: number;
+
   /** Zero-based source line. */
   line: number;
+
   /** Zero-based source column. */
   column: number;
 }

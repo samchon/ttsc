@@ -1,4 +1,11 @@
-/** Case-style keys accepted by `unicorn/filename-case`. */
+/**
+ * Case-style keys accepted by `unicorn/filename-case`.
+ *
+ * @evidence contracts/common.md#principled-implementation The five literals are the style names recognized by the native filename decoder.
+ * @evidence contracts/common.md#clear-and-simple-design One union identifies styles in both single-style and allowed-style configurations.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts These literals express supported styles rather than filenames exempted for known consumers.
+ * @evidence contracts/common.md#meaningful-documentation The owning comment identifies the consuming rule and the literals name its available styles.
+ */
 export type TtscLintUnicornFilenameCaseName =
   | "camelCase"
   | "camelCaseWithAcronyms"
@@ -14,14 +21,12 @@ export type TtscLintUnicornFilenameCaseName =
  * every `cases` entry disabled — the rule enforces kebab-case.
  *
  * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/filename-case.md
+ * @evidence contracts/common.md#principled-implementation The exclusive union prevents simultaneous case and cases settings, which the native decoder rejects; shared members describe path selection and extension handling.
+ * @evidence contracts/common.md#clear-and-simple-design Shared scanning options are declared once and intersected with the two style-selection alternatives.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Ignore patterns are caller-declared path policies; kebab-case is the rule default rather than a consumer-specific exception.
+ * @evidence contracts/common.md#meaningful-documentation The prose explains exclusive style selection and fallback behavior; members document path matching and extension semantics with separated defaults.
  */
-export interface ITtscLintUnicornFilenameCaseRuleOptions {
-  /** The single filename and directory name case style. @default "kebabCase" */
-  case?: TtscLintUnicornFilenameCaseName;
-
-  /** The allowed filename and directory name case styles. */
-  cases?: Partial<Readonly<Record<TtscLintUnicornFilenameCaseName, boolean>>>;
-
+export type ITtscLintUnicornFilenameCaseRuleOptions = {
   /**
    * Regular-expression strings; a file is exempt when any pattern matches any
    * segment of its project-relative path.
@@ -36,14 +41,39 @@ export interface ITtscLintUnicornFilenameCaseRuleOptions {
    */
   multipleFileExtensions?: boolean;
 
-  /** Check directory names. @default true */
+  /**
+   * Check directory names.
+   *
+   * @default true
+   */
   checkDirectories?: boolean;
-}
+} & (
+  | {
+      /** The single filename and directory name case style. */
+      case?: TtscLintUnicornFilenameCaseName;
+
+      /** A style map cannot accompany a single style. */
+      cases?: never;
+    }
+  | {
+      /** A single style cannot accompany a style map. */
+      case?: never;
+
+      /** The allowed filename and directory name case styles. */
+      cases?: Partial<
+        Readonly<Record<TtscLintUnicornFilenameCaseName, boolean>>
+      >;
+    }
+);
 
 /**
  * Options for `unicorn/better-regex`.
  *
  * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/better-regex.md
+ * @evidence contracts/common.md#principled-implementation The optional boolean controls range reordering independently of length-reducing regex shorthand transformations.
+ * @evidence contracts/common.md#clear-and-simple-design One switch exposes the only configurable transformation policy.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The switch selects a general regex policy without naming particular expressions or fixtures.
+ * @evidence contracts/common.md#meaningful-documentation The member explains the default, preserved source order and an example of adjacent-range merging.
  */
 export interface ITtscLintUnicornBetterRegexRuleOptions {
   /**
@@ -62,6 +92,10 @@ export interface ITtscLintUnicornBetterRegexRuleOptions {
  * added after the opening template's source-line margin.
  *
  * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/template-indent.md
+ * @evidence contracts/common.md#principled-implementation Selection lists identify template contexts and indentation represents a positive space count or exact whitespace unit; runtime validation rejects invalid units.
+ * @evidence contracts/common.md#clear-and-simple-design The four selection lists and indentation unit stay in the owning template rule's option object.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Caller selectors replace documented defaults instead of matching specific consumer templates in production code.
+ * @evidence contracts/common.md#meaningful-documentation The prose distinguishes replacement from merging and defines indentation relative to the opening source margin.
  */
 export interface ITtscLintUnicornTemplateIndentRuleOptions {
   /** Block-comment contents that select the immediately following template. */
@@ -89,6 +123,11 @@ export interface ITtscLintUnicornTemplateIndentRuleOptions {
  * module whose four canonical styles are all explicitly `false` is reported as
  * misconfigured on every reference — use `no-restricted-imports` to ban a
  * module outright.
+ *
+ * @evidence contracts/common.md#principled-implementation False disables a module policy and a boolean map patches style permissions; arbitrary keys remain accepted by the native ordered-boolean decoder.
+ * @evidence contracts/common.md#clear-and-simple-design A disable alternative and one map capture per-module policy separately from the enclosing merge settings.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Restrictions are explicit module policy data; disabling all canonical styles is documented as misconfiguration.
+ * @evidence contracts/common.md#meaningful-documentation The prose identifies canonical styles, default merging and the distinct rule needed to ban modules.
  */
 export type TtscLintUnicornImportStyleModuleStyles =
   | false
@@ -98,21 +137,45 @@ export type TtscLintUnicornImportStyleModuleStyles =
  * Options for `unicorn/import-style`.
  *
  * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/import-style.md
+ * @evidence contracts/common.md#principled-implementation Independent syntax-kind flags select module references and a per-module style map determines their permitted import forms.
+ * @evidence contracts/common.md#clear-and-simple-design Syntax selection, table merging and module entries are separate members of the owning import policy.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Module entries are caller configuration and node-prefixed inheritance follows module policy rather than patches to consumers.
+ * @evidence contracts/common.md#meaningful-documentation Members distinguish static, dynamic, re-export and require checks and explain merging and node-prefix inheritance.
  */
 export interface ITtscLintUnicornImportStyleRuleOptions {
-  /** Check static `import` declarations. @default true */
+  /**
+   * Check static `import` declarations.
+   *
+   * @default true
+   */
   checkImport?: boolean;
 
-  /** Check dynamic `import()` expressions. @default true */
+  /**
+   * Check dynamic `import()` expressions.
+   *
+   * @default true
+   */
   checkDynamicImport?: boolean;
 
-  /** Check `export … from` declarations. @default false */
+  /**
+   * Check `export ... from` declarations.
+   *
+   * @default false
+   */
   checkExportFrom?: boolean;
 
-  /** Check `require(…)` calls. @default true */
+  /**
+   * Check `require(...)` calls.
+   *
+   * @default true
+   */
   checkRequire?: boolean;
 
-  /** Merge `styles` into the built-in per-module table. @default true */
+  /**
+   * Merge `styles` into the built-in per-module table.
+   *
+   * @default true
+   */
   extendDefaultStyles?: boolean;
 
   /**
@@ -128,6 +191,11 @@ export interface ITtscLintUnicornImportStyleRuleOptions {
  * `true` / `"writable"` / `"writeable"` permit writes, `false` / `"readonly"`
  * permit reads only, and `"off"` forbids the global entirely inside isolated
  * scopes.
+ *
+ * @evidence contracts/common.md#principled-implementation Boolean and named aliases represent writable, readonly or unavailable globals as categorized by the native override decoder.
+ * @evidence contracts/common.md#clear-and-simple-design One value union serves each global name without embedding name lookup or scope traversal in options.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Writable and writeable are supported spelling aliases, not mutations of external global bindings.
+ * @evidence contracts/common.md#meaningful-documentation The prose maps every spelling and boolean to read, write or prohibition semantics.
  */
 export type TtscLintUnicornIsolatedFunctionsGlobalPolicy =
   | boolean
@@ -146,6 +214,10 @@ export type TtscLintUnicornIsolatedFunctionsGlobalPolicy =
  * written inside isolated scopes.
  *
  * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/isolated-functions.md
+ * @evidence contracts/common.md#principled-implementation Calls, AST selectors and preceding markers select isolated scopes; per-name policies configure permitted globals within them.
+ * @evidence contracts/common.md#clear-and-simple-design Scope selection and global permissions remain separate members in one isolation configuration.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Exceptions are declared global policies rather than mutations of JavaScript globals or hardcoded callers.
+ * @evidence contracts/common.md#meaningful-documentation The prose explains how selection channels combine and replace defaults; members distinguish markers, callees, selectors and permissions.
  */
 export interface ITtscLintUnicornIsolatedFunctionsRuleOptions {
   /**
@@ -178,7 +250,14 @@ export interface ITtscLintUnicornIsolatedFunctionsRuleOptions {
   >;
 }
 
-/** Import categories accepted by `unicorn/prevent-abbreviations`. */
+/**
+ * Import categories accepted by `unicorn/prevent-abbreviations`.
+ *
+ * @evidence contracts/common.md#principled-implementation True and false select all or no imports while internal selects internal modules, matching the native import-mode categories.
+ * @evidence contracts/common.md#clear-and-simple-design One scalar union serves both default/namespace and shorthand import switches.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Internal expresses a module category rather than a list of privileged consumers.
+ * @evidence contracts/common.md#meaningful-documentation The owning rule is identified here and consuming member comments describe the three categories.
+ */
 export type TtscLintUnicornPreventAbbreviationsImportMode =
   | boolean
   | "internal";
@@ -188,23 +267,54 @@ export type TtscLintUnicornPreventAbbreviationsImportMode =
  *
  * `false` disables every replacement for the name. An object enables or
  * disables individual replacement spellings.
+ *
+ * @evidence contracts/common.md#principled-implementation False removes a discouraged-name entry and a boolean map toggles its candidate expansions.
+ * @evidence contracts/common.md#clear-and-simple-design The value type separates one name's replacement policy from the outer name-to-policy table.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Replacement spellings are configurable data rather than built-in exceptions for known source identifiers.
+ * @evidence contracts/common.md#meaningful-documentation The prose distinguishes disabling an entire entry from toggling individual expansions.
  */
 export type TtscLintUnicornPreventAbbreviationsReplacement =
   | false
   | Readonly<Record<string, boolean>>;
 
-/** Options for `unicorn/consistent-function-scoping`. */
+/**
+ * Options for `unicorn/consistent-function-scoping`.
+ *
+ * @evidence contracts/common.md#principled-implementation The boolean chooses whether arrow functions participate in movable-definition analysis.
+ * @evidence contracts/common.md#clear-and-simple-design One optional switch exposes the configurable function category.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The switch applies to a syntax category rather than exempting specific declarations.
+ * @evidence contracts/common.md#meaningful-documentation The member states the analysis purpose and default with separated prose and tags.
+ */
 export interface ITtscLintUnicornConsistentFunctionScopingRuleOptions {
-  /** Also check arrow functions for movable definitions. @default true */
+  /**
+   * Also check arrow functions for movable definitions.
+   *
+   * @default true
+   */
   checkArrowFunctions?: boolean;
 }
 
-/** Options for `unicorn/prevent-abbreviations`. */
+/**
+ * Options for `unicorn/prevent-abbreviations`.
+ *
+ * @evidence contracts/common.md#principled-implementation Source-category switches select names while replacement and allow-list maps configure accepted vocabulary.
+ * @evidence contracts/common.md#clear-and-simple-design Selection, vocabulary patches and default merging are direct members rather than separate wrapper configurations.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Ignore patterns and naming tables are declared policies without special handling for fixtures or consumers.
+ * @evidence contracts/common.md#meaningful-documentation Members distinguish naming contexts, internal-only import defaults and merging behavior.
+ */
 export interface ITtscLintUnicornPreventAbbreviationsRuleOptions {
-  /** Also check property definitions and writes. @default false */
+  /**
+   * Also check property definitions and writes.
+   *
+   * @default false
+   */
   checkProperties?: boolean;
 
-  /** Check lexical bindings. @default true */
+  /**
+   * Check lexical bindings.
+   *
+   * @default true
+   */
   checkVariables?: boolean;
 
   /**
@@ -223,13 +333,25 @@ export interface ITtscLintUnicornPreventAbbreviationsRuleOptions {
    */
   checkShorthandImports?: TtscLintUnicornPreventAbbreviationsImportMode;
 
-  /** Check bindings introduced by shorthand object destructuring. @default false */
+  /**
+   * Check bindings introduced by shorthand object destructuring.
+   *
+   * @default false
+   */
   checkShorthandProperties?: boolean;
 
-  /** Check the physical source filename. @default true */
+  /**
+   * Check the physical source filename.
+   *
+   * @default true
+   */
   checkFilenames?: boolean;
 
-  /** Merge `replacements` into the canonical default table. @default true */
+  /**
+   * Merge `replacements` into the canonical default table.
+   *
+   * @default true
+   */
   extendDefaultReplacements?: boolean;
 
   /** Add, remove, or replace discouraged-name mappings. */
@@ -237,7 +359,11 @@ export interface ITtscLintUnicornPreventAbbreviationsRuleOptions {
     Record<string, TtscLintUnicornPreventAbbreviationsReplacement>
   >;
 
-  /** Merge `allowList` into the canonical default allow list. @default true */
+  /**
+   * Merge `allowList` into the canonical default allow list.
+   *
+   * @default true
+   */
   extendDefaultAllowList?: boolean;
 
   /** Case-sensitive full names to allow or remove from the allow list. */
@@ -252,6 +378,11 @@ export interface ITtscLintUnicornPreventAbbreviationsRuleOptions {
  *
  * The object form of a `patterns` value. A plain string value is shorthand for
  * `{ suggest: value }`.
+ *
+ * @evidence contracts/common.md#principled-implementation Required replacement text and independent fix, case and message fields represent the native entry's replacement policy.
+ * @evidence contracts/common.md#clear-and-simple-design One entry contains per-pattern settings while the regex source belongs to the outer table key.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Replacement and message templates are caller data rather than corrections hardcoded for known examples.
+ * @evidence contracts/common.md#meaningful-documentation Members distinguish editor suggestions from automatic fixes, case sensitivity and message placeholders.
  */
 export interface ITtscLintUnicornStringContentPatternOptions {
   /** Replacement text applied to every match of the pattern. */
@@ -288,6 +419,10 @@ export interface ITtscLintUnicornStringContentPatternOptions {
  * per node wins and every occurrence is replaced.
  *
  * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/string-content.md
+ * @evidence contracts/common.md#principled-implementation Ordered regex keys and replacement entries determine content substitutions; selector overrides choose the inspected AST nodes.
+ * @evidence contracts/common.md#clear-and-simple-design Node selection and the pattern table are separate members and detailed replacement entries have their own type.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts No default patterns invent source-specific replacements; configured entries supply every replacement policy.
+ * @evidence contracts/common.md#meaningful-documentation The prose explains empty behavior, literal versus quasi text and first-match ordering for overlapping patterns.
  */
 export interface ITtscLintUnicornStringContentRuleOptions {
   /** Regular-expression sources mapped to replacement text or an entry object. */
@@ -307,6 +442,11 @@ export interface ITtscLintUnicornStringContentRuleOptions {
  * `browsers` / `esmodules` keys). Resolved with the `production` environment
  * against the linted file's directory, exactly as upstream passes the value to
  * core-js-compat.
+ *
+ * @evidence contracts/common.md#principled-implementation The union preserves Browserslist queries and core-js-compatible target objects as distinct resolver input representations.
+ * @evidence contracts/common.md#clear-and-simple-design One value type captures query strings, query lists and target maps without adding resolver machinery.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Targets describe supported runtimes through resolver configuration rather than special-casing consumer polyfill imports.
+ * @evidence contracts/common.md#meaningful-documentation The prose identifies queries, engine versions, special keys and production-environment resolution relative to the linted file.
  */
 export type TtscLintUnicornNoUnnecessaryPolyfillsTargets =
   | string
@@ -322,29 +462,70 @@ export type TtscLintUnicornNoUnnecessaryPolyfillsTargets =
  * `targets` schema property.
  *
  * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-unnecessary-polyfills.md
+ * @evidence contracts/common.md#principled-implementation An explicit options object requires targets while omission of the entire options value leaves discovery to the runtime resolver.
+ * @evidence contracts/common.md#clear-and-simple-design The object owns one baseline and delegates accepted representations to the target union.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit targets or normal config discovery establish runtime support without a consumer-specific browser assumption.
+ * @evidence contracts/common.md#meaningful-documentation The prose distinguishes missing options from explicit targets and identifies discovery and engines fallback behavior.
  */
 export interface ITtscLintUnicornNoUnnecessaryPolyfillsRuleOptions {
   /** Browserslist query, array of queries, or a core-js-compat targets object. */
   targets: TtscLintUnicornNoUnnecessaryPolyfillsTargets;
 }
 
-/** Options for `unicorn/no-typeof-undefined`. */
+/**
+ * Options for `unicorn/no-typeof-undefined`.
+ *
+ * @evidence contracts/common.md#principled-implementation The boolean determines whether undeclared globals join the typeof-undefined comparison check.
+ * @evidence contracts/common.md#clear-and-simple-design One optional flag exposes the configurable global-name boundary.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The boundary is declaration status rather than a hardcoded list of identifier names.
+ * @evidence contracts/common.md#meaningful-documentation The member identifies undeclared globals and records the disabled default separately.
+ */
 export interface ITtscLintUnicornNoTypeofUndefinedRuleOptions {
-  /** Also report undeclared global identifiers. @default false */
+  /**
+   * Also report undeclared global identifiers.
+   *
+   * @default false
+   */
   checkGlobalVariables?: boolean;
 }
 
-/** Options for `unicorn/prefer-number-properties`. */
+/**
+ * Options for `unicorn/prefer-number-properties`.
+ *
+ * @evidence contracts/common.md#principled-implementation Separate booleans extend number-property suggestions to global Infinity and NaN bindings.
+ * @evidence contracts/common.md#clear-and-simple-design Each configurable global replacement has its own directly named switch.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Infinity and NaN are language-defined bindings covered by options rather than consumer-specific substitutions.
+ * @evidence contracts/common.md#meaningful-documentation Each member identifies its binding and default in a separate documented block.
+ */
 export interface ITtscLintUnicornPreferNumberPropertiesRuleOptions {
-  /** Also replace the global `Infinity` binding. @default false */
+  /**
+   * Also replace the global `Infinity` binding.
+   *
+   * @default false
+   */
   checkInfinity?: boolean;
 
-  /** Also replace the global `NaN` binding. @default false */
+  /**
+   * Also replace the global `NaN` binding.
+   *
+   * @default false
+   */
   checkNaN?: boolean;
 }
 
-/** Options for `unicorn/text-encoding-identifier-case`. */
+/**
+ * Options for `unicorn/text-encoding-identifier-case`.
+ *
+ * @evidence contracts/common.md#principled-implementation The switch selects dashed encoding names outside contexts whose API already requires a dash.
+ * @evidence contracts/common.md#clear-and-simple-design One optional preference represents the configurable encoding-spelling choice.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts API-required dash exceptions follow supported encoding contexts rather than particular consumers.
+ * @evidence contracts/common.md#meaningful-documentation The member distinguishes optional preference from dash-required APIs and states the default separately.
+ */
 export interface ITtscLintUnicornTextEncodingIdentifierCaseRuleOptions {
-  /** Prefer `utf-8` instead of `utf8` outside dash-required APIs. @default false */
+  /**
+   * Prefer `utf-8` instead of `utf8` outside dash-required APIs.
+   *
+   * @default false
+   */
   withDash?: boolean;
 }

@@ -2,8 +2,8 @@
 
 // Command ttsc-wasm is the non-wasm sanity entrypoint for `@ttsc/wasm`.
 //
-// The same binary, compiled with GOOS=js GOARCH=wasm, becomes the browser
-// wasm consumed by `bootTtsc`. For native targets we expose a minimal CLI so
+// The package has a separate GOOS=js GOARCH=wasm browser entry consumed by
+// `bootTtsc`. For native targets we expose a minimal CLI so
 // `go run ./cmd/ttsc-wasm` exercises the same host helpers without needing
 // the browser MemFS bridge.
 package main
@@ -55,39 +55,51 @@ func run(args []string) int {
   }
 }
 
-// runBuild invokes host.Build and writes the JSON result to stdout.
+// runBuild invokes host.Build and writes the JSON result to stdout. A write
+// failure returns code 3 even when compilation itself succeeded.
 func runBuild(args []string) int {
   cwd, tsconfig := parseProject(args)
   data, code, err := host.Build(cwd, tsconfig)
   if err != nil {
     fmt.Fprintf(os.Stderr, "ttsc-wasm build: %v\n", err)
-    return 2
+    return code
   }
-  _, _ = os.Stdout.Write(append(data, '\n'))
+  if _, err := os.Stdout.Write(append(data, '\n')); err != nil {
+    fmt.Fprintf(os.Stderr, "ttsc-wasm build: write result: %v\n", err)
+    return 3
+  }
   return code
 }
 
-// runCheck invokes host.Check and writes the JSON result to stdout.
+// runCheck invokes host.Check and writes the JSON result to stdout. Code 3
+// reports an output failure independently of the compiler diagnostic status.
 func runCheck(args []string) int {
   cwd, tsconfig := parseProject(args)
   data, code, err := host.Check(cwd, tsconfig)
   if err != nil {
     fmt.Fprintf(os.Stderr, "ttsc-wasm check: %v\n", err)
-    return 2
+    return code
   }
-  _, _ = os.Stdout.Write(append(data, '\n'))
+  if _, err := os.Stdout.Write(append(data, '\n')); err != nil {
+    fmt.Fprintf(os.Stderr, "ttsc-wasm check: write result: %v\n", err)
+    return 3
+  }
   return code
 }
 
 // runTransform invokes host.Transform and writes the JSON result to stdout.
+// Code 3 reports that the source envelope could not be written.
 func runTransform(args []string) int {
   cwd, tsconfig := parseProject(args)
   data, code, err := host.Transform(cwd, tsconfig)
   if err != nil {
     fmt.Fprintf(os.Stderr, "ttsc-wasm transform: %v\n", err)
-    return 2
+    return code
   }
-  _, _ = os.Stdout.Write(append(data, '\n'))
+  if _, err := os.Stdout.Write(append(data, '\n')); err != nil {
+    fmt.Fprintf(os.Stderr, "ttsc-wasm transform: write result: %v\n", err)
+    return 3
+  }
   return code
 }
 

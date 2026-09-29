@@ -14,8 +14,9 @@
  * obligations; an unselected ancestor remains addressable as their aggregate
  * scope.
  *
- * A file evidence target is its project-relative path with `/` separators. A
- * declaration may spell those separators as `/` or `\`. A heading target
+ * A file evidence target is its path relative to the reference's root, or the
+ * project root when none is declared, with `/` separators. A declaration may
+ * spell those separators as `/` or `\`. A heading target
  * appends its anchor, such as `docs/orders.md#create-order`. An explicit
  * `{#anchor}` suffix wins. Its anchor must start with an ASCII letter or digit
  * and may then contain ASCII letters, digits, `.`, `_`, `:`, and `-`.
@@ -28,6 +29,11 @@
  * Targets are one whitespace-delimited declaration token. A Markdown source
  * path therefore cannot contain whitespace; the rule reports such a file with a
  * rename diagnostic instead of creating an impossible obligation.
+ *
+ * @evidence contracts/common.md#principled-implementation The literal union represents exactly the supported file and ATX H1-H4 outline nodes; explicit anchors and generated slugs address those nodes under the documented target grammar.
+ * @evidence contracts/common.md#clear-and-simple-design One shared outline vocabulary serves both declaration hosts and reference units without introducing a separate enum or parser-node facade.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Unsupported heading forms and whitespace-containing source addresses are stated limitations rather than silently fabricated targets.
+ * @evidence contracts/common.md#meaningful-documentation The comment gives supported headings, containment, anchor precedence, slug construction and address limitations in distinct paragraphs before the tags.
  */
 export type TtscEvidenceGraphMarkdownSymbol =
   | "file"

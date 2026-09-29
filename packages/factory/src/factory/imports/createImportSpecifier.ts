@@ -14,8 +14,23 @@ import { make } from "../internal/make";
  * Given source name `x` aliased to `y`, this prints:
  *
  * ```ts
- * x as y;
+ * x as y
  * ```
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   propertyName retains the imported name when aliased and asName converts the
+ *   local string name to Identifier. isTypeOnly marks this individual binding.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Source and local names stay in one specifier; named-group braces and module
+ *   lookup are outside its responsibility.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Alias and type-only choices are explicit fields, not rewritten module exports.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   JSDoc distinguishes original/local names and per-specifier type-only syntax,
+ *   with an alias example separated from acknowledgment tags.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param isTypeOnly Whether this is a type-only import/export.

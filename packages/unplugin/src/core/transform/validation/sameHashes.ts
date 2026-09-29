@@ -12,6 +12,14 @@
  * thing a content comparison cannot see. An envelope that declares no input set
  * (a graph-free legacy host) passes `undefined` and keeps the whole-walk
  * comparison.
+ *
+ * @evidence contracts/common.md#principled-implementation Declared keys select relevant recorded content; legacy absence of that population requires exact key count and value equality for the full snapshot.
+ * @evidence contracts/common.md#clear-and-simple-design One comparison exposes narrowed and legacy-wide semantics without owning project enumeration or membership discovery.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Irrelevant build artifacts cannot taint a declared generation, and narrowing never substitutes for the separate membership proof.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain declared-input scope, unrelated artifacts and the separate membership obligation.
+ * @evidence contracts/performance.md#efficient-algorithms Declared comparison scans only its key set; legacy comparison materializes both key arrays then checks each left value, linear in compared population.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The generation validator decides whether this snapshot comparison may be shared; this helper computes one requested equality verdict.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Key arrays are local to the comparison and no retained cache or native resource is acquired.
  */
 export function sameHashes(
   left: Record<string, string>,

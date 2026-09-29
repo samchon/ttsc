@@ -92,7 +92,7 @@ func printArrowWithBreakableExpressionBody(ctx *PrintContext, node, body *shimas
     return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
   prefix := strings.TrimRight(ctx.Source[nodeStart:bodyStart], " \t\r\n")
-  if strings.Contains(prefix, "\n") || !strings.HasSuffix(prefix, "=>") {
+  if strings.ContainsAny(prefix, "\r\n\u2028\u2029") || !strings.HasSuffix(prefix, "=>") {
     return printFunctionLike(ctx, node, body)
   }
   bodyDoc, covered := PrintNode(ctx, body)
@@ -137,7 +137,7 @@ func printFunctionLike(ctx *PrintContext, node, body *shimast.Node) (Doc, bool) 
   prefix := verbatimRange(ctx.Source, nodeStart, bodyStart)
   // A signature that itself spans multiple lines is a verbatim slice
   // with frozen interior columns — taint coverage so the rule abstains.
-  prefixCovered := !strings.Contains(ctx.Source[nodeStart:bodyStart], "\n")
+  prefixCovered := !strings.ContainsAny(ctx.Source[nodeStart:bodyStart], "\r\n\u2028\u2029")
   bodyDoc, bodyCovered := PrintNode(ctx, body)
   return Concat(prefix, bodyDoc), prefixCovered && bodyCovered
 }
@@ -278,7 +278,7 @@ func printBlock(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
       }
       rawInner := ctx.Source[start+1 : end-1]
       inner := strings.TrimSpace(rawInner)
-      if inner == "" || strings.ContainsAny(rawInner, "\r\n") {
+      if inner == "" || strings.ContainsAny(rawInner, "\r\n\u2028\u2029") {
         return verbatim(ctx, node), false
       }
       return Concat(
@@ -344,12 +344,7 @@ func rangeHasNewline(src string, start, end int) bool {
   if start < 0 || end > len(src) || end <= start {
     return false
   }
-  for i := start; i < end; i++ {
-    if src[i] == '\n' {
-      return true
-    }
-  }
-  return false
+  return strings.ContainsAny(src[start:end], "\r\n\u2028\u2029")
 }
 
 // blankLineBetweenStatements reports whether the source gap between the
@@ -364,12 +359,15 @@ func blankLineBetweenStatements(src string, prevEnd, nextPos int) bool {
     return false
   }
   newlines := 0
-  for i := prevEnd; i < nextStart; i++ {
-    if src[i] == '\n' {
+  for i := prevEnd; i < nextStart; {
+    if size := sourceLineBreakSize(src, i); size > 0 {
       newlines++
       if newlines >= 2 {
         return true
       }
+      i += size
+    } else {
+      i++
     }
   }
   return false

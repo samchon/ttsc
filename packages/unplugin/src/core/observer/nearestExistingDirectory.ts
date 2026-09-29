@@ -8,6 +8,12 @@ import path from "node:path";
  * A missing input is observed through the directory that will announce its
  * creation. A volume root is never watched recursively, since that would
  * observe an unbounded, unrelated tree.
+ *
+ * @evidence contracts/common.md#principled-implementation Missing inputs are anchored at the closest readable existing directory, while rejecting a volume root avoids recursively observing unrelated machine state.
+ * @evidence contracts/common.md#clear-and-simple-design The ancestor walk advances by native dirname until a usable directory or root is reached; no secondary watch policy is introduced.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed stat calls never authorize a watch on a presumed directory, and the root exclusion follows the stated ownership boundary rather than a test-specific path.
+ * @evidence contracts/common.md#meaningful-documentation The comment explains how creation is observed and why reaching a volume root returns undefined.
+ * @evidence contracts/portability.md#os-neutral-implementation OS-neutral ancestor selection uses native resolve/dirname and actual directory stat results, so volume-root and inaccessible-path behavior follow the observed host.
  */
 export function nearestExistingDirectory(file: string): string | undefined {
   let current = path.resolve(file);
