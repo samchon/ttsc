@@ -106,7 +106,7 @@ export type PlaygroundBundleExecutor = (
     /** Console methods supplied by the shell for this execution attempt. */
     console: Record<string, (...args: unknown[]) => void>;
 
-    /** Accumulated package-rooted runtime module contents for this session. */
+    /** Package-rooted runtime modules in the current dependency graph. */
     runtimeFiles: Record<string, string>;
 
     /** Cancellation for setup and asynchronous work, not synchronous user code. */

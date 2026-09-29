@@ -119,11 +119,10 @@ export function PlaygroundShell({
   // Direct source roots selecting the mounted graph. Removing one requires a
   // full solve and worker replacement so obsolete package files cannot survive.
   const dependencyRoots = useRef<Set<string>>(new Set());
-  // Accumulated runtime-file map produced by every successful
-  // installPlaygroundDependencies call. Threaded through to executeBundle so
-  // the in-page Execute sandbox's require can resolve any npm package the
-  // user installed (without it, `import {v4} from "uuid"` compiles fine but
-  // Execute throws because the worker mounts uuid into the wasm MemFS only).
+  // Runtime-file map for the current dependency graph. Additive installs merge
+  // files; removing a source root replaces the map after a full solve. Pass it
+  // to executeBundle so its require can resolve current npm dependencies.
+  // The compiler's MemFS mount alone does not make them available to Execute.
   const runtimeDependencyFiles = useRef<Record<string, string>>({});
   const sourceVersion = useRef(0);
   const latestSource = useRef(source);
