@@ -43,10 +43,11 @@ declare module "@ttsc/lint" {
      * Requires a review beside every acknowledgement.
      *
      * Every `@evidence` and `@evidenceExclude` on a public identity must be
-     * answered by an `@evidenceReview` naming the same target. The citation
-     * states why this declaration answers for that target; the review states
-     * what was verified. Those are different questions, and only the first one
-     * is written unless something asks for the second.
+     * answered by `@evidenceReview` or `@evidenceExcludeReview`, respectively,
+     * naming the same target. The citation states why this declaration answers
+     * for that target; the review states what was verified. Those are different
+     * questions, and only the first one is written unless something asks for
+     * the second.
      *
      * A review is an annotation of a citation, never an acknowledgement of a
      * unit. It discharges no coverage, contributes no host to `uniqueEvidence`,
