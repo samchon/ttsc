@@ -6,15 +6,21 @@
  * value contract; the tsconfig plugin entry selects the file instead.
  *
  * @evidence contracts/common.md#principled-implementation
- *   This ordinary exported TypeScript interface is the native loader's object
- *   contract, following the package's dedicated typed-config convention rather
- *   than adding inline banner options. Its required text field is
- *   consumer-authored content validated as nonblank and safely formatted by
- *   the Go driver.
+ *   A required string member expresses the loader's object payload. TypeScript
+ *   cannot express nonblank contents through this string type, so the native
+ *   loader validates that condition before formatting. The formatter preserves
+ *   content lines while normalizing CRLF and escaping closing delimiters; it
+ *   changes comment representation without treating text as executable source.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   Banner content has one field in a dedicated config value. Registration and
+ *   config discovery stay in ITtscBannerPluginConfig because they select the
+ *   content's source rather than change its representation.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
- *   The representation follows the documented consumer contract; its fields do
- *   not introduce fixture-selected variants.
+ *   The text is consumer content, not a fixture-selected banner or a hardcoded
+ *   expected output. Required separators and the annotation are formatting
+ *   constants in the driver rather than hidden options in this value.
  *
  * @evidenceExclude contracts/portability.md#os-neutral-implementation
  *   This object defines emitted comment text. Newline formatting belongs to

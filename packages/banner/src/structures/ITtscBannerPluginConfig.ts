@@ -6,10 +6,17 @@
  * have one supported home instead of an additional inline option surface.
  *
  * @evidence contracts/common.md#principled-implementation
- *   This optional-field TypeScript interface follows compilerOptions.plugins
- *   registration and the package's dedicated config-file convention. enabled
- *   and transform belong to the host; configFile selects banner-owned
- *   configuration.
+ *   Optional enabled distinguishes omission from an explicit false host switch;
+ *   transform carries the module specifier and configFile carries a separate
+ *   filesystem path. Those values belong to different resolution contracts, so
+ *   a binary path or inline text is not represented as banner configuration.
+ *   String typing does not establish path existence or nonblankness; the loader
+ *   validates an explicitly supplied configFile before evaluation.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   The type separates two host registration fields from one banner-owned file
+ *   selector. Text belongs to the loaded ITtscBannerConfig object, leaving one
+ *   evaluation path instead of parallel inline and file configuration policies.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Host switches and configFile represent the supported registration

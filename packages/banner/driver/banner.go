@@ -61,16 +61,28 @@ func validateBannerConfig(config map[string]any) error {
 }
 
 // SourcePreamble resolves the banner text from the plugin config and returns it
-// formatted as a JSDoc block comment suitable for prepending to each emitted file.
+// formatted as JSDoc source for the host to prepend before parsing.
 //
-// Config loading follows driver discovery, JSON parsing and Node/ttsx evaluation.
-// The banner's observed config inputs remain universal because every emitted
-// file receives the same text. The shared resolution recorder still uses a
-// private resolver fallback on runtimes whose public hooks miss require.resolve;
-// this limitation belongs to that recorder and remains unresolved here.
+// Failure returns no preamble and does not report dependency completeness.
+// Successful evaluation reports universal config inputs because the same banner
+// text applies to every file. The host invokes this operation once per Program,
+// then its filesystem wrapper injects the returned text and applies emit policy.
 //
-// Native paths and processes use filepath and exec argument vectors. Formatting
-// normalizes CRLF and escapes a closing JSDoc delimiter in consumer-authored text.
+// CRLF normalization, trailing blank-line removal and closing-delimiter escaping
+// make consumer text a closed comment. The host owns placement, authored-position
+// remapping and removeComments. Discovery probes seven names per ancestor, then
+// parsing and formatting process the config/banner bytes linearly.
+//
+// JSON loads need no child. Executable config uses a child process and TypeScript
+// also owns a temporary directory, removed by defer. stderr streams to the
+// parent; stdout has no byte cap and evaluation has no deadline. Cleanup errors
+// are not reported. Successful loader output must carry dependency observations;
+// the shared recorder's private Node resolver fallback remains a limitation.
+//
+// Native paths use filepath; slash conversion is reserved for import/tsconfig
+// spelling. Child arguments are separate from executable paths. A loader's temp
+// directory stays on the config volume, with Windows junctions used when native
+// symlink creation is unavailable.
 func (plugin) SourcePreamble(ctx driver.PluginContext) (string, error) {
   preamble, err := parseBannerWithReporters(ctx.Entry.Config, ctx.Cwd, ctx.Tsconfig, ctx.ReportHostInput, ctx.ReportHostInputHash, ctx.ReportHostInputRealpath)
   if err != nil {
@@ -224,7 +236,8 @@ func bannerTextFromConfigValue(raw any, label string) (string, bool, error) {
   return text, true, nil
 }
 
-// bannerConfigFilenames is the discovery name list, in precedence order.
+// bannerConfigFilenames lists supported discovery names. Multiple files in one
+// directory are ambiguous; this order does not select a preferred format.
 var bannerConfigFilenames = []string{
   "banner.config.json",
   "banner.config.js",
@@ -539,6 +552,10 @@ function toSerializableBanner(value) {
   return loaded, nil
 }
 
+// decodeBannerConfigLoaderOutput requires the value and recorder snapshot from
+// the executed loader. Accepting a bare value would report complete dependency
+// observations even though no observations were returned. Missing probe values
+// remain legitimate nullable entries inside the snapshot maps.
 func decodeBannerConfigLoaderOutput(output []byte) (bannerLoadedConfig, error) {
   var envelope struct {
     Error     string             `json:"__ttscLoaderError"`
@@ -553,15 +570,8 @@ func decodeBannerConfigLoaderOutput(output []byte) (bannerLoadedConfig, error) {
   if envelope.Error != "" {
     return bannerLoadedConfig{}, fmt.Errorf("%s", envelope.Error)
   }
-  if len(envelope.Value) == 0 {
-    // Test/fallback launchers written against the historical payload return
-    // the config value directly. Preserve that accepted contract while real
-    // loaders use the envelope to carry runtime inputs.
-    var value any
-    if err := json.Unmarshal(output, &value); err != nil {
-      return bannerLoadedConfig{}, err
-    }
-    return bannerLoadedConfig{value: value}, nil
+  if len(envelope.Value) == 0 || envelope.Inputs == nil || envelope.Hashes == nil || envelope.Realpaths == nil {
+    return bannerLoadedConfig{}, fmt.Errorf("config loader must return a value with dependency observations")
   }
   var value any
   if err := json.Unmarshal(envelope.Value, &value); err != nil {
