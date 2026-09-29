@@ -13,6 +13,15 @@ import { RuntimeFilesystem } from "./RuntimeFilesystem";
  * with the emit whenever a file's syntax and its configuration differ, so the
  * answer comes from the extension, the owning project's options, and the
  * package `type`, in tsgo's own order.
+ *
+ * @evidence contracts/common.md#principled-implementation Extension, source-shipping dependency package declaration and effective compiler module/target determine format in the upstream emit order; only an unowned raw source falls back entirely to Node's package rule.
+ * @evidence contracts/common.md#clear-and-simple-design One classifier owns format policy with private option normalization and package-scope lookup helpers, keeping hooks from independently guessing authored syntax.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Documented compiler precedence replaces source-text sniffing; node_modules is the upstream package-metadata boundary rather than a hardcoded consumer exception.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain emit-versus-source format, package override scope and defaults; private comments identify upstream premises and cache behavior following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path.dirname/fs select package scopes; node_modules matching is upstream's exact protocol segment rather than a guessed filesystem case policy.
+ * @evidence contracts/performance.md#efficient-algorithms One package-scope walk costs ancestor depth and manifest bytes and fills every traversed directory; both Node-default and explicit-declaration requests then use the same constant-time scope lookup.
+ * @evidence contracts/performance.md#reuse-equivalent-work One cached scope observation shares package lookup and JSON validation across both format decisions under the process's Node module snapshot; changing package metadata after module loading begins is not a supported live reconfiguration boundary.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources packageTypeCache retains one answer per visited directory until process exit, growing with encountered package scopes without an eviction quota while loaded modules retain their format decisions.
  */
 export namespace RuntimeModuleFormat {
   /**
@@ -27,13 +36,23 @@ export namespace RuntimeModuleFormat {
    * `options` is the whole compiler-option pair tsgo consults, not just
    * `module`: an absent `module` is NOT "ask Node", it is "derive the kind from
    * `target`" (tsgo's `getEmitModuleKind`), and TypeScript 7 defaults `target`
-   * to the latest standard, which means ES modules. Only the `node*` family
-   * defers to the nearest `package.json` `type`, because only that family makes
-   * tsgo consult it.
+   * to the latest standard, which means ES modules. A source-shipping
+   * dependency under `node_modules` can override this with an explicit package
+   * `type` for every module kind. Otherwise only the `node*` family defers to
+   * the nearest package `type`.
    *
    * `options` is `null` for a file no tsconfig owns at all — a raw `.ts`
    * shipped under `node_modules`. Nothing emitted it, so Node's own rule is the
    * only rule there is, and the package `type` decides.
+   *
+   * @evidence contracts/common.md#principled-implementation Authoritative extension wins, then a node_modules package's explicit declaration, then the owning compiler's effective kind and node-family scope rule; this preserves the format of checked emit instead of treating absent module as an unowned file.
+   * @evidence contracts/common.md#clear-and-simple-design The ordered classifier delegates package lookup and option defaulting to focused private helpers while keeping precedence visible in one function.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts No source sniffing or project-specific exception supplies a format; package overrides are constrained by the actual upstream source metadata boundary.
+   * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain extension precedence, compiler defaults, dependency overrides and null ownership rather than conflating those cases.
+   * @evidence contracts/portability.md#os-neutral-implementation Native ancestor traversal locates manifests; exact extension and node_modules protocol spelling are distinguished from filesystem case sensitivity.
+   * @evidence contracts/performance.md#efficient-algorithms Fixed option classification follows at most one ancestor package walk; every traversed directory shares its scope answer, including parsed explicit declarations, so repeat classifications avoid manifest reads.
+   * @evidence contracts/performance.md#reuse-equivalent-work Both explicit-declaration and Node-default consumers share one nearest-scope observation under the running Node module snapshot; unrelated project options still classify independently from that shared package fact.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Native reads are synchronous and leave no handle; package-scope answers remain in the namespace map for the process lifetime and grow with visited directories.
    */
   export function moduleFormat(
     filename: string,
@@ -160,10 +179,25 @@ export namespace RuntimeModuleFormat {
     return match === null ? null : Number(match[1]);
   }
 
-  /** Package-type cache keyed by directory, mirroring Node's own lookup walk. */
-  const packageTypeCache = new Map<string, "module" | "commonjs">();
+  /**
+   * One nearest package-scope observation for both format decisions. Values
+   * remain stable for the process's Node module snapshot.
+   */
+  interface PackageScope {
+    /** Node's format when this scope owns an otherwise unclassified file. */
+    nodeType: "module" | "commonjs";
+
+    /** Explicit supported type declaration, or absence/invalidity. */
+    declaredType: "module" | "commonjs" | null;
+  }
+
+  const packageTypeCache = new Map<string, PackageScope>();
 
   function nearestPackageType(filename: string): "module" | "commonjs" {
+    return packageScope(filename).nodeType;
+  }
+
+  function packageScope(filename: string): PackageScope {
     let directory = path.dirname(filename);
     const chain: string[] = [];
     while (true) {
@@ -172,13 +206,16 @@ export namespace RuntimeModuleFormat {
         return rememberPackageType(chain, cached);
       }
       chain.push(directory);
-      const type = readPackageType(directory);
-      if (type !== null) {
-        return rememberPackageType(chain, type);
+      const scope = readPackageType(directory);
+      if (scope !== null) {
+        return rememberPackageType(chain, scope);
       }
       const parent = path.dirname(directory);
       if (parent === directory) {
-        return rememberPackageType(chain, "commonjs");
+        return rememberPackageType(chain, {
+          nodeType: "commonjs",
+          declaredType: null,
+        });
       }
       directory = parent;
     }
@@ -186,16 +223,16 @@ export namespace RuntimeModuleFormat {
 
   function rememberPackageType(
     directories: readonly string[],
-    type: "module" | "commonjs",
-  ): "module" | "commonjs" {
+    scope: PackageScope,
+  ): PackageScope {
     for (const directory of directories) {
-      packageTypeCache.set(directory, type);
+      packageTypeCache.set(directory, scope);
     }
-    return type;
+    return scope;
   }
 
-  /** Read a directory's `package.json` `type`, or `null` when absent/invalid. */
-  function readPackageType(directory: string): "module" | "commonjs" | null {
+  /** Read a present package scope; null means no regular manifest was found. */
+  function readPackageType(directory: string): PackageScope | null {
     const manifestPath = path.join(directory, "package.json");
     if (!RuntimeFilesystem.isFile(manifestPath)) {
       return null;
@@ -204,9 +241,16 @@ export namespace RuntimeModuleFormat {
       const parsed = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as {
         type?: unknown;
       };
-      return parsed.type === "module" ? "module" : "commonjs";
+      const declaredType =
+        parsed.type === "module" || parsed.type === "commonjs"
+          ? parsed.type
+          : null;
+      return {
+        nodeType: declaredType ?? "commonjs",
+        declaredType,
+      };
     } catch {
-      return "commonjs";
+      return { nodeType: "commonjs", declaredType: null };
     }
   }
 
@@ -221,28 +265,6 @@ export namespace RuntimeModuleFormat {
    * `module` option.
    */
   function declaredPackageType(filename: string): "module" | "commonjs" | null {
-    let directory = path.dirname(filename);
-    while (true) {
-      const manifestPath = path.join(directory, "package.json");
-      if (RuntimeFilesystem.isFile(manifestPath)) {
-        try {
-          const parsed = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as {
-            type?: unknown;
-          };
-          // The walk stops at the first manifest either way, exactly as Node's
-          // package-scope lookup does; only the answer differs.
-          return parsed.type === "module" || parsed.type === "commonjs"
-            ? parsed.type
-            : null;
-        } catch {
-          return null;
-        }
-      }
-      const parent = path.dirname(directory);
-      if (parent === directory) {
-        return null;
-      }
-      directory = parent;
-    }
+    return packageScope(filename).declaredType;
   }
 }

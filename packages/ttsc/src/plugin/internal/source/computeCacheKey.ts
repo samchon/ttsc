@@ -13,13 +13,12 @@ import { pluginSourceDigest } from "./pluginSourceDigest";
 /**
  * Compute a deterministic SHA-256 cache key for a plugin build.
  *
- * The key covers every input that can produce a different binary: ttsc/tsgo
- * versions, platform, entry package, Go compiler identity, Go build environment
- * variables, overlay module sources, plugin source files, the local directories
- * outside the module that its `go.mod` replaces modules with
- * (`pluginModuleReplaceDirectories`), and contributor source files.
- * Contributors are sorted by name so declaration order does not affect the
- * key.
+ * The key covers ttsc/tsgo versions, platform, entry package, Go compiler
+ * identity, Go build environment variables, overlay module sources, plugin
+ * source files, the local directories outside the module that its `go.mod`
+ * replaces modules with (`pluginModuleReplaceDirectories`), and contributor
+ * source files. Contributors are sorted by name so declaration order does not
+ * affect the key.
  *
  * Each source directory enters the key as its digest (`pluginSourceDigest`),
  * which the transform envelope reports, with the environment below, as the
@@ -32,7 +31,17 @@ import { pluginSourceDigest } from "./pluginSourceDigest";
  * the digest of each build directory's, so the load reports it without a second
  * `go env` run (samchon/ttsc#1493).
  *
- * Exposed for testing and for the `ttsc cache` CLI command.
+ * The `ttsc cache` CLI and plugin build pipeline share this key computation.
+ *
+ * @evidence contracts/common.md#principled-implementation The key frames versions, platform, entry, environment and labeled source digests; sorted overlays/contributors remove irrelevant order while local replacements remain actual compiler inputs.
+ * @evidence contracts/common.md#clear-and-simple-design Source identity and toolchain serialization are delegated to their shared owners; optional maps carry one load's readings instead of adding an independent cache policy.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts All contributors and local module replacements participate; filesystem injection is an explicit byte-reading boundary rather than foreign monkey patching.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain input coverage and the provenance of reported digests; documented optional output maps have blank separation between members.
+ * @evidence contracts/portability.md#os-neutral-implementation Native roots are resolved with Node path APIs and executable resolution; platform/architecture intentionally distinguish incompatible binary artifacts.
+ * @evidence contracts/performance.md#efficient-algorithms Source files are streamed into per-directory hashes once; ordering costs O(C log C + O log O) for contributors/overlays while toolchain metadata and changed bytes dominate environment work.
+ * @evidence contracts/performance.md#reuse-equivalent-work Caller-owned sourceDigests share one absolute-directory reading across contributor, overlay and plugin roles; environmentDigests lets consumers report the exact fresh reading without a second probe.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Output maps belong to the enclosing load; this operation retains no handles or process-wide records itself.
  */
 export function computeCacheKey(inputs: {
   contributors?: readonly ITtscBuildContributor[];
@@ -53,6 +62,7 @@ export function computeCacheKey(inputs: {
    * ran is still the one this key read.
    */
   environmentWitness?: PluginBuildEnvironmentWitness.Record;
+
   filesystem?: Partial<SourceBuildFilesystemOperations>;
   goBinary?: string;
   overlayDirs?: readonly string[];
@@ -62,6 +72,7 @@ export function computeCacheKey(inputs: {
    * Read through, and filled with every directory this key covers.
    */
   sourceDigests?: Map<string, string>;
+
   ttscVersion: string;
   tsgoVersion: string;
 }): string {
@@ -79,12 +90,12 @@ export function computeCacheKey(inputs: {
           inputs.dir,
         );
   const hash = crypto.createHash("sha256");
-  hash.update(`ttsc=${inputs.ttscVersion}\n`);
-  hash.update(`tsgo=${inputs.tsgoVersion}\n`);
-  hash.update(`platform=${process.platform}/${process.arch}\n`);
-  hash.update(`entry=${inputs.entry}\n`);
-  // The same lines go into the key and into a digest of the environment alone,
-  // which is what `pluginBuildEnvironment` reads for this directory.
+  hash.update(JSON.stringify(["ttsc", inputs.ttscVersion]));
+  hash.update(JSON.stringify(["tsgo", inputs.tsgoVersion]));
+  hash.update(JSON.stringify(["platform", process.platform, process.arch]));
+  hash.update(JSON.stringify(["entry", inputs.entry]));
+  // The same framed values enter the key and the environment-only digest,
+  // which pluginBuildEnvironment reads for this directory.
   const environment = crypto.createHash("sha256");
   hashPluginBuildEnvironment(
     {
@@ -158,7 +169,5 @@ function hashSourceDirectory(
     digest = pluginSourceDigest(directory);
     digests?.set(directory, digest);
   }
-  hash.update(`dir=${label}
-${digest}
-`);
+  hash.update(JSON.stringify(["dir", label, digest]));
 }

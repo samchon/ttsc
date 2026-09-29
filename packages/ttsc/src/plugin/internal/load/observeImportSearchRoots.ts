@@ -16,8 +16,15 @@ import { RESOLUTION_INPUT_RECORDER_PATH } from "./RESOLUTION_INPUT_RECORDER_PATH
  * (`RESOLUTION_INPUT_RECORDER_PATH`).
  *
  * @param parent The importer, a path or a file URL.
+ *
  * @returns The metadata identity of every search root, by its path, or
  *   `undefined` when the importer is not a file.
+ *
+ * @evidence contracts/common.md#principled-implementation Taking search-root metadata before imports resolution can expose a nearer package that appears before the selected target is known; the later candidate visitor consumes this witness.
+ * @evidence contracts/common.md#clear-and-simple-design The adapter returns the shared recorder's pre-resolution witness without duplicating Node's imports mapping or candidate expansion.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts This adapter invokes the recorder's exported metadata query without replacing foreign methods or reproducing imports resolution.
+ * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains why witnesses precede selection and how the visitor uses them, plus the non-file result; paragraph/tag separation follows the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation The recorder accepts native paths or file URLs and observes actual search-root metadata, supporting OS-neutral identity without POSIX-only URL/path conversion in this adapter.
  */
 export function observeImportSearchRoots(
   parent: string | undefined,

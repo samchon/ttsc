@@ -25,6 +25,12 @@ import { RESOLUTION_INPUT_RECORDER_PATH } from "./RESOLUTION_INPUT_RECORDER_PATH
  *   or `undefined` when the caller observes nothing itself.
  * @param visit Receives each candidate, and whether its search root moved since
  *   `witnesses`, which leaves the candidate without proof.
+ *
+ * @evidence contracts/common.md#principled-implementation The selected target identifies the bare package a hash-import reached; nearer roots' candidates remain inputs and changed pre-resolution root witnesses prevent claiming stable proof.
+ * @evidence contracts/common.md#clear-and-simple-design A shared visitor emits candidates through the caller callback instead of duplicating imports resolution or retaining a second candidate population.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Actual selected targets and supplied probe extensions drive the recorder's exported visitor; this adapter neither modifies Node nor guesses one known package's missing paths.
+ * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains selected-root bounds, linked packages, witness timing and the moved flag in separated prose and parameter entries under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path/file-URL vocabulary and linked physical selection are handled by the shared recorder; this adapter forwards them without slash-only parsing or blanket case conversion.
  */
 export function visitImportMappedCandidates(
   parent: string | undefined,

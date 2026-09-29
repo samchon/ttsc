@@ -5,6 +5,17 @@
  * itself rather than inferring from the host process: a `node` found on `PATH`,
  * a version-manager shim, and Bun can all stand in for the runtime a plugin
  * descriptor is evaluated with, and each supports a different loader.
+ *
+ * False flags also describe unsuccessful or malformed probes; the shape does
+ * not distinguish inability to observe a feature from observed unavailability.
+ * The optional executable is absent unless the probe returned an absolute
+ * path.
+ *
+ * @evidence contracts/common.md#principled-implementation Independent Bun and synchronous-hook flags represent measured runtime capabilities rather than assuming the host's runtime; an optional executable preserves unknown interpreter identity and false conservatively includes unsuccessful observation.
+ * @evidence contracts/common.md#clear-and-simple-design One small result separates loader family, hook capability and executable identity without embedding probe process state or feature-detection policy.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The producer asks the interpreter for real features and rejects malformed results; runtime names or host version numbers do not manufacture support flags in this representation.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain measured origin, wrapper identity, failure/false ambiguity and executable absence; member comments describe loader consequences with documentation-skill member and tag separation.
+ * @evidence contracts/portability.md#os-neutral-implementation Actual interpreter capabilities and its native absolute executable path cross the process boundary explicitly; the type does not infer feature availability from operating-system names or path extensions.
  */
 export type IJavaScriptRuntimeCapabilities = {
   /**

@@ -16,6 +16,12 @@
  * Every other property is preserved as plugin config. After ttsc loads and
  * builds the plugin, the original entry is serialized into the native plugin
  * manifest so Go code can read exactly the same plugin-specific options.
+ *
+ * @evidence contracts/common.md#principled-implementation Known transform/enabled fields describe host selection while an unknown-valued index signature preserves plugin-owned configuration without claiming the host validates it.
+ * @evidence contracts/common.md#clear-and-simple-design Host-owned selectors and plugin-owned payload share the original entry, avoiding a second configuration projection that could discard plugin options.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The open payload is a documented extension boundary; plugin-specific validation belongs to the factory or native implementation rather than host special cases.
+ * @evidence contracts/common.md#meaningful-documentation Native JSDoc states relative-resolution ownership, opt-out semantics and the validation responsibility for unknown fields; separate paragraphs, member spacing and a blank line before tags follow the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Transform accepts package specifiers and native relative/absolute paths; their resolution bases are explicit, and the host loader owns Node/native path resolution rather than requiring one separator spelling in this config type.
  */
 export interface ITtscProjectPluginConfig {
   /**

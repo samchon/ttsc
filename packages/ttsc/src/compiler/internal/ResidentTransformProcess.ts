@@ -18,11 +18,24 @@ import type { ResidentTransformRequestOptions } from "./ResidentTransformRequest
  * One resident process answers every request from one service instead of
  * spawning a fresh `transform` subprocess per call, so a single process pays
  * the project compile once (samchon/ttsc#255).
+ *
+ * The caller owns disposal. Live requests have no deadline; queue population
+ * and reply-line size depend on the caller and host, without a fixed cap.
+ *
+ * @evidence contracts/common.md#principled-implementation FIFO ownership follows the host's ordered request loop; malformed framing retires all slots, while a valid object with an invalid operation shape consumes and rejects only its own slot.
+ * @evidence contracts/common.md#clear-and-simple-design The client owns one child, line reader, queue and terminal state; reply validation and settlement are private transport responsibilities distinct from the service's project policy.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing files and rejected edits remain legitimate negative replies; corrupt lines reject instead of becoming synthetic empty results or being rescued through foreign method replacement.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish operations, startup reuse, caller ownership and uncapped live requests, following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Node receives the executable, separate argv, native cwd and environment directly; supported pipe APIs carry protocol text without platform-specific shell quoting.
+ * @evidence contracts/performance.md#efficient-algorithms A cursor advances through the FIFO with amortized constant settlement; consumed prefixes compact only when at least half the array has been consumed, and retirement drains outstanding calls once.
+ * @evidence contracts/performance.md#reuse-equivalent-work One fixed-project host supplies its committed transformed-text cache across file requests; ordered updates replace that producer state, so the client does not memoize replies across edits.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Consumed slots release callbacks, settlement removes abort listeners, and retirement clears outstanding state and closes pipes. Stderr has a fixed tail cap, but pending calls and line bytes are uncapped and OS signaling may fail to terminate the child.
  */
 export class ResidentTransformProcess {
   private readonly child: ChildProcess;
   private readonly reader: Interface;
-  private readonly pending: PendingRequest[] = [];
+  private readonly pending: (PendingRequest | undefined)[] = [];
+  private pendingHead = 0;
   private stderr = "";
   private failure: Error | undefined;
 
@@ -72,6 +85,19 @@ export class ResidentTransformProcess {
    * before it resolves. Rejects when the reply is not a valid `kind` reply,
    * when the host has already failed or exited, or if writing the request
    * fails.
+   *
+   * An abort before enqueueing affects only this call. Once enqueued, aborting
+   * retires the whole FIFO because the reply stream has no request identifiers.
+   * Serialization failure leaves the healthy host available for another call.
+   *
+   * @evidence contracts/common.md#principled-implementation Each queued request carries its expected operation and resolves only from its own validated FIFO reply; cancellation after enqueueing retires the stream to prevent shifted reply ownership.
+   * @evidence contracts/common.md#clear-and-simple-design Local serialization and pre-abort checks precede shared queue ownership; one settlement helper handles replies, cancellation and write failure with listener cleanup.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Cancellation does not remove a positional reply and continue under a false framing assumption; invalid replies cannot masquerade as missing files or rejected edits.
+   * @evidence contracts/common.md#meaningful-documentation The separate lifecycle paragraph explains which failures affect one caller and which retire the shared host, applying the documentation skill.
+   * @evidence contracts/portability.md#os-neutral-implementation Requests are JSON data written through the existing native pipe; filenames remain producer-owned values rather than command strings or assumed POSIX paths.
+   * @evidence contracts/performance.md#efficient-algorithms Serialization is linear in encoded payload size, FIFO insertion is constant time and ordered settlement is amortized constant queue work; reply validation adds a fixed field check after JSON parsing.
+   * @evidence contracts/performance.md#reuse-equivalent-work File requests share the existing producer's committed transformation; effectful updates keep distinct ordered slots, and the client caches no response across producer state transitions.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Each pending call owns resolver callbacks and at most one abort listener; settlement removes the listener and queue reference, while cancellation retires every outstanding call. Live uncancelled work has no implicit timeout or queue cap.
    */
   public request(
     payload: Record<string, unknown>,
@@ -86,9 +112,9 @@ export class ResidentTransformProcess {
     }
     const stdin = this.child.stdin;
     if (stdin === null || stdin.destroyed) {
-      return Promise.reject(
-        new Error("ttsc: resident transform host stdin is closed"),
-      );
+      const error = new Error("ttsc: resident transform host stdin is closed");
+      this.fail(error);
+      return Promise.reject(error);
     }
     let line: string;
     try {
@@ -142,6 +168,17 @@ export class ResidentTransformProcess {
   /**
    * Terminate the resident process and reject any in-flight requests. Safe to
    * call more than once.
+   *
+   * @evidence contracts/common.md#principled-implementation Failure becomes terminal before all queued callers are rejected, so buffered lines cannot settle new callers after disposal.
+   * @evidence contracts/common.md#clear-and-simple-design Disposal reuses the transport retirement path and preserves the child's real exit error when it has already died.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Owned resources are closed rather than abandoned beneath a successful-looking return; cleanup uses supported child and stream APIs.
+   * @evidence contracts/common.md#meaningful-documentation The native comment states caller-visible rejection and idempotence, following the documentation skill.
+   * @evidence contracts/portability.md#os-neutral-implementation Node destroys its own pipes and performs child signaling with its supported platform behavior; no process-tree shell command or signal assumption is imposed on callers.
+   * @evidence contracts/performance.md#efficient-algorithms The queue is detached once and each outstanding request is settled once, making shutdown linear in pending population.
+   *
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Disposal ends the shared producer rather than computing or validating a reusable result.
+   *
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Retirement removes all abort listeners, queue references and pipes; a single unreferenced grace timer attempts forced termination and is cleared on exit. OS failure to signal can still leave a running child.
    */
   public dispose(): void {
     if (this.failure !== undefined) return;
@@ -160,7 +197,7 @@ export class ResidentTransformProcess {
     if (trimmed.length === 0) {
       return;
     }
-    const request = this.pending[0];
+    const request = this.pending[this.pendingHead];
     if (request === undefined) {
       // The host must emit exactly one reply per request, so an unmatched line
       // is a protocol violation that would desync every later reply into the
@@ -176,8 +213,8 @@ export class ResidentTransformProcess {
     const reply = parseReplyObject(trimmed);
     if (reply === undefined) {
       // Framing violation: the line is not a JSON object, so it cannot
-      // represent any reply. This request already left the FIFO, so reject it,
-      // then fail the whole process: a bad line may be corruption that shifted
+      // represent any reply. Reject this request and retire the whole process:
+      // a bad line may be corruption that shifted
       // the stream, and the host's real reply that follows must not be paired
       // with a later request. `fail` marks the failure so that trailing line is
       // treated as benign instead of unsolicited.
@@ -221,8 +258,10 @@ export class ResidentTransformProcess {
   }
 
   private rejectAll(error: Error): void {
-    while (this.pending.length !== 0) {
-      this.settlePending(this.pending[0]!, error);
+    const pending = this.pending.splice(0);
+    this.pendingHead = 0;
+    for (const request of pending) {
+      if (request !== undefined) this.settlePending(request, error);
     }
   }
 
@@ -232,8 +271,13 @@ export class ResidentTransformProcess {
   ): void {
     if (pending.settled) return;
     pending.settled = true;
-    const index = this.pending.indexOf(pending);
-    if (index !== -1) this.pending.splice(index, 1);
+    if (this.pending[this.pendingHead] === pending) {
+      this.pending[this.pendingHead++] = undefined;
+      if (this.pendingHead * 2 >= this.pending.length) {
+        this.pending.splice(0, this.pendingHead);
+        this.pendingHead = 0;
+      }
+    }
     if (pending.signal !== undefined && pending.abort !== undefined) {
       pending.signal.removeEventListener("abort", pending.abort);
     }
@@ -254,14 +298,16 @@ export class ResidentTransformProcess {
   }
 
   private terminate(): void {
+    this.reader.close();
+    this.child.stdout?.destroy();
+    this.child.stderr?.destroy();
     const stdin = this.child.stdin;
     if (stdin !== null && !stdin.destroyed) stdin.destroy();
     if (this.child.exitCode !== null || this.child.signalCode !== null) return;
     try {
       this.child.kill();
     } catch {
-      // The host exited between the liveness check and termination.
-      return;
+      // A failed cooperative signal does not cancel the forced attempt.
     }
     const force = setTimeout(() => {
       if (this.child.exitCode !== null || this.child.signalCode !== null) {

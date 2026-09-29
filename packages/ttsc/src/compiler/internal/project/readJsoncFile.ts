@@ -11,6 +11,12 @@ import { parseJsonc } from "./parseJsonc";
  * `null`, an array, or a primitive is valid JSONC but not a configuration, and
  * is reported here with the compiler's wording instead of surfacing later as a
  * property read on a non-object.
+ *
+ * @evidence contracts/common.md#principled-implementation The shared JSONC parser establishes literal syntax, and an explicit object/non-null/non-array guard establishes the compiler config's object root before returning a record to project readers.
+ * @evidence contracts/common.md#clear-and-simple-design This boundary owns file reading, filename attribution and config-root validation; lexical parsing remains in parseJsonc so consumers share one grammar.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Invalid syntax and root shapes remain named errors rather than being replaced by empty configs that could hide user configuration mistakes.
+ * @evidence contracts/common.md#meaningful-documentation Separate paragraphs explain file attribution and the distinction between valid JSONC values and permitted config roots, following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Node reads the supplied native path as UTF-8; parsing counts text line terminators independently of OS newline conventions, and no path spelling is converted into a case assumption.
  */
 export function readJsoncFile(file: string): Record<string, unknown> {
   const text = fs.readFileSync(file, "utf8");

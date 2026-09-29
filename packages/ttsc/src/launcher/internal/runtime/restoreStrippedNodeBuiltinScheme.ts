@@ -10,6 +10,11 @@ import type { ResolveResult } from "./ResolveResult";
  * intentionally remaps a `node:` specifier to another URL retains ownership of
  * that mapping, while ordinary and ESM builtin results already carrying the
  * scheme avoid an unnecessary copy.
+ *
+ * @evidence contracts/common.md#principled-implementation Restoration requires a real builtin, an explicit node: request and the exact stripped result; any other mapping remains owned by the resolver that produced it.
+ * @evidence contracts/common.md#clear-and-simple-design One result adapter isolates the documented synchronous CommonJS scheme difference without rerunning resolution or duplicating builtin tables.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The compatibility path addresses an actual supported Node result shape through isBuiltin; it neither overrides intentional user remaps nor patches a foreign resolver.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain exact restoration scope, user-hook ownership and unchanged ESM/builtin results.
  */
 export function restoreStrippedNodeBuiltinScheme(
   specifier: string,

@@ -1,4 +1,7 @@
-import { RESOLUTION_INPUT_RECORDER_PATH } from "./RESOLUTION_INPUT_RECORDER_PATH";
+import {
+  PLUGIN_INPUT_OBSERVATION_PATH,
+  RESOLUTION_INPUT_RECORDER_PATH,
+} from "./RESOLUTION_INPUT_RECORDER_PATH";
 
 /**
  * CommonJS evaluator emitted into a clean Node process for every load.
@@ -16,8 +19,9 @@ export const COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE = [
   `const Module = require("node:module");`,
   `const path = require("node:path");`,
   `const vm = require("node:vm");`,
+  `const { PluginDescriptorInputObservation } = require(${JSON.stringify(PLUGIN_INPUT_OBSERVATION_PATH)});`,
   `const { fileURLToPath } = require("node:url");`,
-  `const { createResolutionInputRecorder } = (() => {`,
+  `const { createResolutionInputRecorder, requireResolveConsultsHooks } = (() => {`,
   `  const file = ${JSON.stringify(RESOLUTION_INPUT_RECORDER_PATH)};`,
   `  const recorder = { exports: {} };`,
   `  vm.runInThisContext("(function (exports, require, module, __filename, __dirname) {\\n" + fs.readFileSync(file, "utf8") + "\\n})", { filename: file })(recorder.exports, require, recorder, file, path.dirname(file));`,
@@ -38,6 +42,7 @@ export const COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE = [
   `  const request = process.env.TTSC_PLUGIN_ENTRY;`,
   `  const context = JSON.parse(process.env.TTSC_PLUGIN_CONTEXT);`,
   `  const recorder = createResolutionInputRecorder({ extensions: typeof globalThis.Bun === "object" ? [".tsx", ".jsx", ".ts", ".mjs", ".js", ".cjs", ".json"] : [".ts", ".tsx", ".mts", ".cts", ".js", ".mjs", ".cjs", ".json", ".node"] });`,
+  `  if (typeof Module.registerHooks !== "function" || !requireResolveConsultsHooks()) recorder.invalidateObservation();`,
   `  function asFile(resolved) {`,
   `    if (typeof resolved !== "string") return undefined;`,
   `    if (!resolved.startsWith("file:")) return path.isAbsolute(resolved) ? path.resolve(resolved) : undefined;`,
@@ -154,7 +159,9 @@ export const COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE = [
   // that influence.
   `  const serializedDescriptor = JSON.stringify(descriptor);`,
   `  const recorded = recorder.finish();`,
-  `  const payload = { inputHashes: recorded.hashes, inputRealpaths: recorded.realpaths, inputs: recorded.inputs };`,
+  `  const observation = PluginDescriptorInputObservation.snapshot();`,
+  `  observation.complete = observation.complete && recorded.complete === true;`,
+  `  const payload = { inputHashes: recorded.hashes, inputRealpaths: recorded.realpaths, inputs: recorded.inputs, observation };`,
   `  if (serializedDescriptor !== undefined) payload.descriptor = JSON.parse(serializedDescriptor);`,
   `  fs.writeFileSync(out, JSON.stringify(payload));`,
   `} catch (error) {`,

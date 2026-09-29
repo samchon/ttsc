@@ -6,14 +6,21 @@ import type { TtscBuildOptions } from "../../../structures/internal/TtscBuildOpt
  * Options of one {@link runBuild} call: the public build options plus the knobs
  * only ttsc's own lanes set (ttsx's private runtime builds, single-file emit,
  * watch).
+ *
+ * @evidence contracts/common.md#principled-implementation Public build selection is intersected with internal lane controls, preserving optional defaults while distinguishing diagnostic gating, sandbox outputs and watch callbacks.
+ * @evidence contracts/common.md#clear-and-simple-design Lane-specific decisions are explicit options on the shared build boundary rather than hidden global switches or duplicated compiler APIs.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Internal controls express supported runtime/watch requirements; source-map and inferred-root exceptions are documented lane policies, not test-specific escape flags.
+ * @evidence contracts/common.md#meaningful-documentation Native member paragraphs explain ownership, optional-state effects and the rootDir premise, with blank lines separating documented properties.
+ * @evidence contracts/portability.md#os-neutral-implementation The type carries native sandbox/project selection and filesystem input callbacks without embedding slash, drive or case assumptions; process/path adapters interpret those values.
  */
 export type RunBuildOptions = TtscBuildOptions & {
   /**
-   * Emit even when the project has type errors: no separate type-check pass
-   * runs and `--noEmitOnError` is not added. The caller judges success by what
-   * was written, not by the status. The ttsx dependency lane sets it, because
-   * the entry project's check is the type gate and a source-shipping
-   * dependency's own config must not fail the run.
+   * Skip the independent direct-compiler type-check gate and the added
+   * `--noEmitOnError` guard. Configured plugin checks and native hosts still
+   * apply their own diagnostic policy. The caller judges success by what was
+   * written, not by the status. The ttsx dependency lane sets it, because the
+   * entry project's check is the type gate and a source-shipping dependency's
+   * own config must not fail the run.
    */
   skipDiagnosticsCheck?: boolean;
 
@@ -23,6 +30,18 @@ export type RunBuildOptions = TtscBuildOptions & {
    * (ttsx, single-file emit) set it.
    */
   forceListEmittedFiles?: boolean;
+
+  /**
+   * Request the selected emitting producer's output-to-source provenance.
+   * Native hosts must declare support; the external compiler adapter admits
+   * only its documented layout and stable-observation subset. Missing, unknown
+   * or ambiguous ownership stays explicit for a routing consumer to reject.
+   *
+   * This request must not change compiler selection, semantic options,
+   * diagnostic policy or which files are emitted. It applies to the emitting
+   * phase, not earlier checks or terminal/format operations without emission.
+   */
+  forceEmitProvenance?: boolean;
 
   /** Keep every compiler-owned side product inside this private directory. */
   isolateOutputsTo?: string;

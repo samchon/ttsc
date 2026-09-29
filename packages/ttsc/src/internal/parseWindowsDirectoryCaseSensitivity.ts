@@ -6,6 +6,16 @@
  * volume-root query supplies the raw localized suffix for the ordinary disabled
  * state. A target with that suffix is insensitive; a different successful
  * message is the enabled state.
+ *
+ * Inputs must be successful fsutil query responses. The opaque comparison
+ * assumes the volume-root response represents the ordinary disabled state;
+ * unrecognized or truncated framing returns no answer.
+ *
+ * @evidence contracts/common.md#principled-implementation Recognized English state words are direct evidence; other locales compare the successful response suffix with a known disabled volume-root response, under the query framing and root-state premises.
+ * @evidence contracts/common.md#clear-and-simple-design Text recognition precedes one raw-byte fallback, avoiding a separate locale dictionary or unreliable console-code-page conversion.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts No locale-specific expected text is fabricated; absent baseline framing remains undefined, while the successful-query premise is explicit rather than applied to arbitrary output.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe locale handling, successful-query inputs and the disabled-root assumption, with the acknowledgment block separated.
+ * @evidence contracts/portability.md#os-neutral-implementation Windows-specific query interpretation remains isolated; comparing native output bytes avoids assuming UTF-8 decoding preserves localized fsutil suffixes, while volume-root framing remains a stated boundary assumption.
  */
 export function parseWindowsDirectoryCaseSensitivity(
   directoryOutput: Buffer,

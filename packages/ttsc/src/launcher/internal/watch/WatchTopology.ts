@@ -44,6 +44,16 @@ import { watchDirectory } from "./watchDirectory";
  * declaration inputs. Configuration files, project-reference roots, and the
  * source trees of selected native plugins supplement that list, while compiler
  * outputs are filtered before any watcher is installed.
+ *
+ * @evidence contracts/common.md#principled-implementation Compiler-provided membership, published rule inputs and actual content fingerprints qualify notifications; post-registration reconciliation closes observation handoff gaps without treating matching territory as changed content.
+ * @evidence contracts/common.md#clear-and-simple-design Compiler, plugin and project-input watch populations keep their own baselines and callbacks under one topology owner; small classifiers separate membership, selection and handle replacement.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported native backends and explicit gap/replacement ownership replace foreign watcher patching; failed observation is reported rather than represented as complete coverage.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain membership authority, plugin fingerprinting, publication races, physical registration and public lifecycle operations following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Native paths use Node APIs and registration uses realpath; compiler/plugin maps preserve lexical aliases and fold only measured insensitive ASCII components. Project inputs use physical identities, while unknown/native Unicode relations remain conservative event candidates rather than identity proof.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms The class representation groups state; public reconciliation operations and their helpers own traversal and hashing strategies.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Sharing decisions belong to reconciliation and event-processing operations rather than the state representation.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Acquiring and retiring watchers belongs to reconciliation and close; the type declaration acquires no independent resource.
  */
 export class WatchTopology {
   private analysisOnly = false;
@@ -74,6 +84,9 @@ export class WatchTopology {
   private watchedExtraInputs = new Set<string>();
   private compilerFileSnapshots = new Map<string, CompilerFileSnapshot>();
   private files = new Map<string, string>();
+  private lexicalIdentities = createProjectInputPathIdentityContext({
+    throwOnRealpathError: false,
+  });
   private fileWatchers = new Map<string, fs.FSWatcher>();
   private observedDirectories = new Map<string, string>();
   private outputFiles = new Map<string, string>();
@@ -121,7 +134,20 @@ export class WatchTopology {
     private readonly openDirectoryWatch: typeof watchDirectory = watchDirectory,
   ) {}
 
-  /** Re-resolve compiler inputs and notify only when their membership changed. */
+  /**
+   * Re-resolve compiler inputs and notify only when their membership changed.
+   * Errors propagate to the caller; native watcher registration failures are
+   * reported through onError while previous coverage remains live.
+   *
+   * @evidence contracts/common.md#principled-implementation The real compiler list defines input membership; new coverage is registered before stale coverage retires, and registration reconciliation compares against pre-registration baselines.
+   * @evidence contracts/common.md#clear-and-simple-design One refresh delegates compiler population resolution, watcher synchronization and notification classification to separate private owners.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Predicted outputs never subtract from compiler-reported inputs; failed registration cannot claim complete replacement coverage.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states notification gating, thrown errors and registration error ownership following the documentation skill.
+   * @evidence contracts/portability.md#os-neutral-implementation Compiler processes use explicit argv/env; native APIs own path grammar and backend differences. Lexical membership uses measured component case policy, keeping unknown names and symlink aliases distinct instead of folding all Windows paths.
+   * @evidence contracts/performance.md#efficient-algorithms Resolving compiler membership requires the native compiler list; F current inputs update indexed snapshots in linear passes. Broad reconciliation stats F files and hashes only metadata/owner movement, while named/gap events request strong reads. Windows root pruning still uses pairwise D directory containment checks.
+   * @evidence contracts/performance.md#reuse-equivalent-work Existing live watchers and unchanged fingerprints are reused by key; one fresh synchronous transaction shares parent case probes across membership, output and directory keys. Registration microtasks coalesce gap work while actual compiler membership is refreshed rather than inferred from quiet notifications.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Current file snapshots prune removed members and replaced watcher populations retire handles; observed directories persist only while still relevant. Owner close retires all handle maps, and partial registration retains old coverage until reconciliation succeeds or shutdown.
+   */
   public refresh(notify: boolean): void {
     this.refreshCompilerInputs(notify, false);
   }
@@ -130,7 +156,12 @@ export class WatchTopology {
     notify: boolean,
     skipUnobservedProjectInputWatchRoots: boolean,
   ): void {
-    const next = resolveWatchTopology(this.options, this.extraInputs);
+    this.beginLexicalTransaction();
+    const next = resolveWatchTopology(
+      this.options,
+      this.extraInputs,
+      this.lexicalIdentities,
+    );
     const compilerProgramMembershipChange =
       next.analysisOnly &&
       WatchPaths.mapsEqual(this.reloadFiles, next.reloadFiles) &&
@@ -259,9 +290,23 @@ export class WatchTopology {
     return reload;
   }
 
-  /** Add Go plugin source trees discovered by the real build lane. */
+  /**
+   * Add Go plugin source trees discovered by the real build lane. Existing
+   * input fingerprints retain their baseline; new inputs are captured before
+   * the caller builds them, so subsequent changes cannot disappear.
+   *
+   * @evidence contracts/common.md#principled-implementation Published plugin inputs define the source corpus, and retaining existing pre-build baselines keeps unreported edits visible.
+   * @evidence contracts/common.md#clear-and-simple-design Deduplication, baseline retention and compiler/watch reconciliation remain ordered phases.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The actual plugin source digest excludes only build-owned pruned trees; named plugins or fixture output do not replace consumed-input evidence.
+   * @evidence contracts/common.md#meaningful-documentation Native prose explains baseline timing and why existing inputs are not restamped following the documentation skill.
+   * @evidence contracts/portability.md#os-neutral-implementation Native path resolution and canonical backend registration govern source trees; lexical keys preserve declarations and unknown names, folding ASCII only under measured insensitive parents rather than an OS-derived rule.
+   * @evidence contracts/performance.md#efficient-algorithms I input keys are deduplicated once; only newly admitted inputs compute initial source digests. Source-directory enumeration follows the plugin build's actual pruned corpus, with indexed watcher reuse during reconciliation.
+   * @evidence contracts/performance.md#reuse-equivalent-work Unchanged ordered input sets return immediately; existing inputs reuse their recorded digest until actual notification processing establishes changed consumed state.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Each publication replaces input/digest populations and case-observation caches; obsolete native source watchers close during synchronization and owner shutdown releases remaining handles and the last transaction's observations.
+   */
   public setExtraInputs(inputs: readonly string[]): void {
-    const next = uniqueExistingPaths(inputs);
+    this.beginLexicalTransaction();
+    const next = uniqueExistingPaths(inputs, this.lexicalIdentities);
     if (arraysEqual(this.extraInputs, next)) return;
     this.extraInputs = next;
     // The load reports its inputs before any build reads them, so the state
@@ -270,7 +315,7 @@ export class WatchTopology {
     // a change nobody reported.
     const states = new Map<string, string>();
     for (const input of next) {
-      const key = WatchPaths.pathKey(input);
+      const key = this.pathKey(input);
       states.set(
         key,
         this.pluginInputStates.get(key) ?? pluginInputState(input),
@@ -283,6 +328,15 @@ export class WatchTopology {
   /**
    * Reconcile project-rule dependencies, retaining absent files and empty glob
    * populations as live topology.
+   *
+   * @evidence contracts/common.md#principled-implementation Both lexical declarations and current physical identities remain observable, including missing members and empty globs; republication can update aliased watcher ownership without requiring population movement.
+   * @evidence contracts/common.md#clear-and-simple-design Publication normalization, baseline population capture and root synchronization are separate stages, with one retained declaration-owner map.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing inputs are not dropped from observation, and an unavailable safe root is reported rather than widened over a system ancestor.
+   * @evidence contracts/common.md#meaningful-documentation Native prose and helper paragraphs explain absent populations, aliases, handoff reconciliation and root ceilings following the documentation skill.
+   * @evidence contracts/portability.md#os-neutral-implementation Transaction-owned native case observations and physical identities distinguish resolved aliases; unknown case routes both glob interpretations without merging keys, while canonical registration and separate link-entry observation preserve retargets.
+   * @evidence contracts/performance.md#efficient-algorithms D declarations normalize once per publication; physical glob roots deduplicate and covered descendants join one ancestor traversal, so each admitted tree is enumerated once. Matching F visited files against G applicable patterns remains O(FG) predicate work, while fingerprints read selected byte/member state once per final identity.
+   * @evidence contracts/performance.md#reuse-equivalent-work Equal normalized publications reuse content baselines but still reconcile lexical aliases; registration microtasks coalesce equivalent handoff work, and transaction indexes reuse identity and output-overlap decisions within one scan.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Publication prunes retired declaration-owner choices and replaces match/fingerprint populations; watcher retirement and close release native handles. Transaction output-overlap caches use weak identity-context keys, so old transactions are not retained.
    */
   public setProjectInputs(inputs: ITtscProjectInputSnapshot): void {
     const next = normalizeProjectInputSnapshot(inputs);
@@ -312,7 +366,22 @@ export class WatchTopology {
     this.syncProjectInputWatchers();
   }
 
-  /** Close every watcher so SIGINT/SIGTERM can drain the event loop. */
+  /**
+   * Close every watcher so SIGINT/SIGTERM can drain the event loop. Scheduled
+   * reconciliation callbacks observe the closed state and retire without
+   * creating replacement subscriptions.
+   *
+   * @evidence contracts/common.md#principled-implementation Marking the owner closed before retiring subscriptions prevents queued reconciliations from reopening native handles.
+   * @evidence contracts/common.md#clear-and-simple-design One shutdown operation closes and clears each distinct watcher population through a shared helper.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Shutdown retires actual owned subscriptions rather than only suppressing future output callbacks.
+   * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain event-loop release and queued-work behavior following the documentation skill.
+   * @evidence contracts/portability.md#os-neutral-implementation Shared close methods retire both Node handles and macOS registry subscriptions without exposing native handle types.
+   * @evidence contracts/performance.md#efficient-algorithms Every owned watcher is closed once per live-map traversal, O(W) for W subscriptions, and cleared maps make repeated closure empty.
+   *
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Shutdown decides no equivalence of compilation or fingerprint work.
+   *
+   * @evidence contracts/performance.md#bound-retention-and-release-resources All five native watcher maps are cleared and the last lexical transaction is replaced with an empty one; queued tasks stop through the closed guard. Snapshot/declaration byte state remains until the caller releases the facade, rather than claiming close frees every retained byte.
+   */
   public close(): void {
     this.closed = true;
     closeWatchers(this.fileWatchers);
@@ -320,6 +389,19 @@ export class WatchTopology {
     closeWatchers(this.extraWatchers);
     closeWatchers(this.projectInputWatchers);
     closeWatchers(this.projectInputLinkWatchers);
+    this.beginLexicalTransaction();
+  }
+
+  /** Start fresh native case observations for one synchronous watch decision. */
+  private beginLexicalTransaction(): void {
+    this.lexicalIdentities = createProjectInputPathIdentityContext({
+      throwOnRealpathError: false,
+    });
+  }
+
+  /** Keep lexical alias ownership while sharing this decision's case probes. */
+  private pathKey(location: string): string {
+    return WatchPaths.pathKey(location, this.lexicalIdentities);
   }
 
   private syncFileWatchers(skipMissing = false): boolean {
@@ -340,6 +422,7 @@ export class WatchTopology {
           watcherRegistrationPath(location),
           { persistent: true },
           () => {
+            this.beginLexicalTransaction();
             // A per-file watcher fires on any filesystem attention its target
             // receives, and it carries no filename to distinguish an edit from
             // a touch. It answers the same question the unnamed directory event
@@ -369,7 +452,7 @@ export class WatchTopology {
     location: string,
     strong = false,
   ): CompilerFileMovement {
-    const key = WatchPaths.pathKey(location);
+    const key = this.pathKey(location);
     const previous = this.compilerFileSnapshots.get(key);
     const metadata = compilerFileSnapshot(location, "");
     const read =
@@ -421,7 +504,11 @@ export class WatchTopology {
           [...desired].some(
             ([candidateKey, candidate]) =>
               candidateKey !== key &&
-              WatchPaths.isPathWithin(candidate, location),
+              WatchPaths.isPathWithin(
+                candidate,
+                location,
+                this.lexicalIdentities,
+              ),
           )
         ) {
           desired.delete(key);
@@ -436,6 +523,7 @@ export class WatchTopology {
           watcherRegistrationPath(location),
           process.platform === "win32",
           (event, filename, gap) => {
+            this.beginLexicalTransaction();
             const changed =
               filename === null ? undefined : path.resolve(location, filename);
             const pluginInput = changed ?? location;
@@ -448,6 +536,7 @@ export class WatchTopology {
               event,
               exists: fs.existsSync,
               location,
+              identities: this.lexicalIdentities,
               platform: process.platform,
               trackedFiles: this.files,
             });
@@ -495,6 +584,7 @@ export class WatchTopology {
     queueMicrotask(() => {
       this.compilerPostRegistrationReconciliationScheduled = false;
       if (this.closed) return;
+      this.beginLexicalTransaction();
       const refreshCompilerMembership =
         this.compilerPostRegistrationMembershipRefresh;
       const skipUnobservedProjectInputWatchRoots =
@@ -524,13 +614,14 @@ export class WatchTopology {
         // startup event cannot strand a newly included source.
         this.refreshCompilerInputs(true, skipUnobservedProjectInputWatchRoots);
       } catch (error) {
-        const reported = new Set(changed.map(WatchPaths.pathKey));
+        const reported = new Set(changed.map((file) => this.pathKey(file)));
         const reconciledChange = changed.length === 1 ? changed[0]! : undefined;
         for (const reload of reloadInputsForFailedTopologyRefresh(
           this.reloadFiles.values(),
           reconciledChange,
+          this.lexicalIdentities,
         )) {
-          if (reported.has(WatchPaths.pathKey(reload))) continue;
+          if (reported.has(this.pathKey(reload))) continue;
           this.callbacks.onInputChange({ kind: "config", path: reload });
         }
         this.callbacks.onError(
@@ -586,7 +677,7 @@ export class WatchTopology {
         }
       } else {
         this.refreshFromDirectory(path.dirname(location), location);
-        if (!this.files.has(WatchPaths.pathKey(location))) return;
+        if (!this.files.has(this.pathKey(location))) return;
       }
     }
     this.callbacks.onInputChange({
@@ -600,7 +691,7 @@ export class WatchTopology {
     skipMissing = false,
   ): void {
     for (const file of files) {
-      const key = WatchPaths.pathKey(file);
+      const key = this.pathKey(file);
       const watcher = this.fileWatchers.get(key);
       if (watcher === undefined) continue;
       watcher.close();
@@ -632,11 +723,9 @@ export class WatchTopology {
     const directories = new Map<string, string>();
     const appeared: string[] = [];
     for (const input of this.extraInputs) {
-      const watchedBefore = this.watchedExtraInputs.has(
-        WatchPaths.pathKey(input),
-      );
+      const watchedBefore = this.watchedExtraInputs.has(this.pathKey(input));
       for (const directory of collectInputDirectories(input)) {
-        const key = WatchPaths.pathKey(directory);
+        const key = this.pathKey(directory);
         directories.set(key, directory);
         if (watchedBefore && !this.extraWatchers.has(key)) {
           appeared.push(directory);
@@ -651,6 +740,7 @@ export class WatchTopology {
           watcherRegistrationPath(location),
           false,
           (_event, filename) => {
+            this.beginLexicalTransaction();
             const changed =
               filename === null ? undefined : path.resolve(location, filename);
             // The one decision every watcher that hears a plugin path shares;
@@ -663,12 +753,12 @@ export class WatchTopology {
       () => this.closed === false,
     );
     this.watchedExtraInputs = new Set(
-      this.extraInputs.map((input) => WatchPaths.pathKey(input)),
+      this.extraInputs.map((input) => this.pathKey(input)),
     );
     for (const directory of appeared) {
       // Only a directory now watched: one whose registration failed was
       // reported through `onError`, and one gone meanwhile holds nothing.
-      if (!this.extraWatchers.has(WatchPaths.pathKey(directory))) continue;
+      if (!this.extraWatchers.has(this.pathKey(directory))) continue;
       let entries: string[];
       try {
         entries = fs.readdirSync(directory);
@@ -1122,6 +1212,7 @@ export class WatchTopology {
     changed?: string,
     skipUnobservedProjectInputWatchRoots = false,
   ): boolean {
+    this.beginLexicalTransaction();
     try {
       const previous = this.projectInputMatches;
       const identities = createProjectInputPathIdentityContext();
@@ -1278,6 +1369,7 @@ export class WatchTopology {
         matches.set(identity.key, identity.path);
       }
     }
+    const globRoots = new Map<string, { root: string; patterns: string[] }>();
     for (const glob of this.projectInputDeclarations("glob")) {
       const root = literalGlobRoot(glob);
       if (
@@ -1286,6 +1378,23 @@ export class WatchTopology {
       ) {
         continue;
       }
+      const identity = identities.resolve(root);
+      const group = globRoots.get(identity.key) ?? {
+        root: identity.path,
+        patterns: [],
+      };
+      group.patterns.push(glob);
+      globRoots.set(identity.key, group);
+    }
+    // One native walk serves all patterns below a physical ancestor. Per-file
+    // matching still uses every declaration's own root and wildcard semantics.
+    for (const root of projectInputActiveWatchDirectories(
+      [...globRoots.values()].map((group) => group.root),
+      identities,
+    )) {
+      const patterns = [...globRoots.values()]
+        .filter((group) => identities.isWithin(root, group.root))
+        .flatMap((group) => group.patterns);
       const stack = [root];
       while (stack.length !== 0) {
         const current = stack.pop()!;
@@ -1305,7 +1414,9 @@ export class WatchTopology {
             stack.push(location);
           } else if (
             entry.isFile() &&
-            matchesProjectInputGlob(glob, location, identities)
+            patterns.some((glob) =>
+              matchesProjectInputGlob(glob, location, identities),
+            )
           ) {
             const identity = identities.resolve(location);
             matches.set(identity.key, identity.path);
@@ -1323,7 +1434,7 @@ export class WatchTopology {
       this.isCompilerOutputDirectory(changed) === false &&
       this.isProjectInputDirectory(changed) === false
     ) {
-      this.observedDirectories.set(WatchPaths.pathKey(changed), changed);
+      this.observedDirectories.set(this.pathKey(changed), changed);
     }
     try {
       this.refresh(true);
@@ -1331,6 +1442,7 @@ export class WatchTopology {
       for (const reload of reloadInputsForFailedTopologyRefresh(
         this.reloadFiles.values(),
         changed,
+        this.lexicalIdentities,
       )) {
         this.callbacks.onInputChange({ kind: "config", path: reload });
       }
@@ -1340,13 +1452,13 @@ export class WatchTopology {
 
   private isCompilerOutputDirectory(location: string): boolean {
     return [...this.outputs.values()].some((output) =>
-      WatchPaths.isPathWithin(output, location),
+      WatchPaths.isPathWithin(output, location, this.lexicalIdentities),
     );
   }
 
   private isCompilerOutput(location: string): boolean {
     return (
-      this.outputFiles.has(WatchPaths.pathKey(location)) ||
+      this.outputFiles.has(this.pathKey(location)) ||
       this.isCompilerOutputDirectory(location)
     );
   }
@@ -1428,9 +1540,7 @@ export class WatchTopology {
     location: string,
   ): "compiler" | "config" | "plugin" {
     if (this.isPluginInput(location)) return "plugin";
-    return this.reloadFiles.has(WatchPaths.pathKey(location))
-      ? "config"
-      : "compiler";
+    return this.reloadFiles.has(this.pathKey(location)) ? "config" : "compiler";
   }
 
   /**
@@ -1453,7 +1563,7 @@ export class WatchTopology {
       pluginSourceCovers(input, resolved, "entry"),
     );
     for (const input of covering.length === 0 ? this.extraInputs : covering) {
-      const key = WatchPaths.pathKey(input);
+      const key = this.pathKey(input);
       const locations = this.pendingPluginNotifications.get(key) ?? new Set();
       locations.add(location);
       this.pendingPluginNotifications.set(key, locations);
@@ -1484,6 +1594,7 @@ export class WatchTopology {
       this.pluginNotificationsScheduled = false;
       return;
     }
+    this.beginLexicalTransaction();
     // Still scheduled while syncing, so what the sync notes joins this decision
     // instead of scheduling another.
     this.syncExtraWatchers();
@@ -1492,7 +1603,7 @@ export class WatchTopology {
     this.pendingPluginNotifications = new Map();
     const reported = new Set<string>();
     for (const input of this.extraInputs) {
-      const key = WatchPaths.pathKey(input);
+      const key = this.pathKey(input);
       const locations = pending.get(key);
       if (locations === undefined) continue;
       const state = pluginInputState(input);
@@ -1576,6 +1687,7 @@ type CompilerFileMovement = {
 function resolveWatchTopology(
   options: WatchTopologyOptions,
   extraInputs: readonly string[],
+  identities: ProjectInputPathIdentityContext,
 ): ResolvedWatchTopology {
   let analysisOnly = options.emit === false;
   const files = new Map<string, string>();
@@ -1591,8 +1703,8 @@ function resolveWatchTopology(
     });
     analysisOnly = watchTopologyAnalysisOnly(options, project);
     roots.push(project.root);
-    addPaths(files, project.configPaths);
-    addPaths(reloadFiles, project.configPaths);
+    addPaths(files, project.configPaths, identities);
+    addPaths(reloadFiles, project.configPaths, identities);
     const positionalInputs = options.files.map((file) =>
       path.resolve(options.cwd, file),
     );
@@ -1600,41 +1712,51 @@ function resolveWatchTopology(
       positionalInputs.length === 1 &&
       (options.emit ?? project.compilerOptions.noEmit !== true)
     ) {
-      addPaths(outputFiles, [
-        resolveSingleFileOutput({
-          cliOutDir: options.outDir,
-          cwd: options.cwd,
-          file: positionalInputs[0]!,
-          passthrough: options.passthrough,
-          tsconfig: options.tsconfig,
-        }),
-      ]);
+      addPaths(
+        outputFiles,
+        [
+          resolveSingleFileOutput({
+            cliOutDir: options.outDir,
+            cwd: options.cwd,
+            file: positionalInputs[0]!,
+            passthrough: options.passthrough,
+            tsconfig: options.tsconfig,
+          }),
+        ],
+        identities,
+      );
     }
-    addPaths(files, positionalInputs);
+    addPaths(files, positionalInputs, identities);
   } else {
-    const projects = readReferencedProjects(options);
+    const projects = readReferencedProjects(options, identities);
     if (projects[0] !== undefined) {
       analysisOnly = watchTopologyAnalysisOnly(options, projects[0]);
     }
     for (const project of projects) {
       roots.push(project.root);
-      addPaths(files, project.configPaths);
-      addPaths(reloadFiles, project.configPaths);
+      addPaths(files, project.configPaths, identities);
+      addPaths(reloadFiles, project.configPaths, identities);
       const compilerInputs = listCompilerInputs(project, options);
       const compilerOutputs = resolveCompilerOutputs(project, options);
-      addPaths(outputFiles, compilerOutputs.files);
+      addPaths(outputFiles, compilerOutputs.files, identities);
       addPaths(
         outputFiles,
-        inferPerSourceCompilerOutputs(project, options, compilerInputs),
+        inferPerSourceCompilerOutputs(
+          project,
+          options,
+          compilerInputs,
+          identities,
+        ),
+        identities,
       );
-      addPaths(outputs, compilerOutputs.directories);
-      addPaths(files, compilerInputs);
+      addPaths(outputs, compilerOutputs.directories, identities);
+      addPaths(files, compilerInputs, identities);
     }
   }
-  addPaths(files, extraInputs);
+  addPaths(files, extraInputs, identities);
   return {
     analysisOnly,
-    directories: collectTopologyDirectories(files.values(), roots),
+    directories: collectTopologyDirectories(files.values(), roots, identities),
     files,
     outputFiles,
     outputs,
@@ -1655,6 +1777,7 @@ function watchTopologyAnalysisOnly(
 
 function readReferencedProjects(
   options: WatchTopologyOptions,
+  identities: ProjectInputPathIdentityContext,
 ): ITtscParsedProjectConfig[] {
   const root = readProjectConfig({
     cwd: options.cwd,
@@ -1664,10 +1787,11 @@ function readReferencedProjects(
   const projects: ITtscParsedProjectConfig[] = [];
   const queue = [root];
   const seen = new Set<string>();
-  while (queue.length !== 0) {
-    const project = queue.shift()!;
-    if (seen.has(WatchPaths.pathKey(project.path))) continue;
-    seen.add(WatchPaths.pathKey(project.path));
+  for (let cursor = 0; cursor < queue.length; cursor++) {
+    const project = queue[cursor]!;
+    const key = WatchPaths.pathKey(project.path, identities);
+    if (seen.has(key)) continue;
+    seen.add(key);
     projects.push(project);
     for (const reference of readProjectReferences(project.path)) {
       queue.push(
@@ -1781,6 +1905,7 @@ function inferPerSourceCompilerOutputs(
   project: ITtscParsedProjectConfig,
   options: WatchTopologyOptions,
   inputs: readonly string[],
+  identities: ProjectInputPathIdentityContext,
 ): string[] {
   const emit = effectiveCompilerEmit(project, options);
   const outputs = new Set<string>();
@@ -1798,7 +1923,7 @@ function inferPerSourceCompilerOutputs(
       adjacentWhenOutside: boolean,
     ): string | undefined => {
       if (directory === undefined) return stem;
-      if (!WatchPaths.isPathWithin(sourceRoot, input)) {
+      if (!WatchPaths.isPathWithin(sourceRoot, input, identities)) {
         return adjacentWhenOutside ? stem : undefined;
       }
       return path.resolve(directory, path.relative(sourceRoot, stem));
@@ -2054,24 +2179,29 @@ function passthroughOptionMatches(token: string, name: string): boolean {
 function collectTopologyDirectories(
   files: Iterable<string>,
   roots: readonly string[],
+  identities: ProjectInputPathIdentityContext,
 ): Map<string, string> {
   const directories = new Map<string, string>();
   for (const root of roots) {
-    directories.set(WatchPaths.pathKey(root), root);
+    directories.set(WatchPaths.pathKey(root, identities), root);
   }
   for (const file of files) {
     const directory = path.dirname(file);
     const root = roots.find((candidate) =>
-      WatchPaths.isPathWithin(candidate, directory),
+      WatchPaths.isPathWithin(candidate, directory, identities),
     );
     if (root === undefined) {
-      directories.set(WatchPaths.pathKey(directory), directory);
+      directories.set(WatchPaths.pathKey(directory, identities), directory);
       continue;
     }
     let current = directory;
     while (true) {
-      directories.set(WatchPaths.pathKey(current), current);
-      if (WatchPaths.pathKey(current) === WatchPaths.pathKey(root)) break;
+      directories.set(WatchPaths.pathKey(current, identities), current);
+      if (
+        WatchPaths.pathKey(current, identities) ===
+        WatchPaths.pathKey(root, identities)
+      )
+        break;
       const parent = path.dirname(current);
       if (parent === current) break;
       current = parent;
@@ -2105,19 +2235,26 @@ function closeWatchers(watchers: Map<string, DirectoryWatcher>): void {
   watchers.clear();
 }
 
-function addPaths(target: Map<string, string>, paths: Iterable<string>): void {
+function addPaths(
+  target: Map<string, string>,
+  paths: Iterable<string>,
+  identities: ProjectInputPathIdentityContext,
+): void {
   for (const location of paths) {
     const resolved = path.resolve(location);
-    target.set(WatchPaths.pathKey(resolved), resolved);
+    target.set(WatchPaths.pathKey(resolved, identities), resolved);
   }
 }
 
-function uniqueExistingPaths(paths: readonly string[]): string[] {
+function uniqueExistingPaths(
+  paths: readonly string[],
+  identities: ProjectInputPathIdentityContext,
+): string[] {
   const unique = new Map<string, string>();
   for (const location of paths) {
     if (location.length === 0) continue;
     const resolved = path.resolve(location);
-    unique.set(WatchPaths.pathKey(resolved), resolved);
+    unique.set(WatchPaths.pathKey(resolved, identities), resolved);
   }
   return [...unique.values()];
 }
@@ -2275,9 +2412,10 @@ function projectInputCompilerMembershipChange(
   snapshot: ITtscProjectInputSnapshot,
   changed: readonly string[],
 ): string[] {
+  const identities = createProjectInputPathIdentityContext();
   return changed.filter(
     (location) =>
-      matchesProjectInput(snapshot, location) &&
+      matchesProjectInput(snapshot, location, identities) &&
       ProjectInputWatchRules.projectInputPathMayAffectProgram(location),
   );
 }
@@ -2300,9 +2438,15 @@ function projectInputCompilerMembershipProjectChanges(
   const changes = new Map<string, string>();
   for (const location of locations) {
     const candidate = identities.resolve(location);
-    const root = roots
-      .filter((entry) => identities.isWithin(entry.path, candidate.path))
-      .sort((left, right) => right.path.length - left.path.length)[0];
+    let root: (typeof roots)[number] | undefined;
+    for (const entry of roots) {
+      if (
+        identities.isWithin(entry.path, candidate.path) &&
+        (root === undefined || entry.path.length > root.path.length)
+      ) {
+        root = entry;
+      }
+    }
     const change = root ?? candidate;
     changes.set(change.key, change.path);
   }
@@ -2379,13 +2523,17 @@ function matchesProjectInputGlob(
   const candidateParts = path
     .relative(root.path, candidate.path)
     .split(path.sep);
-  return matchProjectInputGlobParts(
-    sensitive
-      ? patternParts
-      : patternParts.map((segment) => segment.toLowerCase()),
-    sensitive
-      ? candidateParts
-      : candidateParts.map((segment) => segment.toLowerCase()),
+  // Unknown capability is an observation-routing question, not an identity
+  // proof: admit either interpretation so an unproven case policy cannot hide
+  // a possible declared input. The resolver retains distinct physical keys.
+  return (
+    (sensitive !== false &&
+      matchProjectInputGlobParts(patternParts, candidateParts)) ||
+    (sensitive !== true &&
+      matchProjectInputGlobParts(
+        patternParts.map((segment) => segment.toLowerCase()),
+        candidateParts.map((segment) => segment.toLowerCase()),
+      ))
   );
 }
 

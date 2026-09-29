@@ -31,6 +31,12 @@ import { RESOLUTION_INPUT_RECORDER_PATH } from "./RESOLUTION_INPUT_RECORDER_PATH
  * @param resolvedFile The file the resolution selected, a path or a file URL,
  *   or `undefined` when it failed.
  * @param extensions The extensions the evaluator's resolution probes.
+ *
+ * @evidence contracts/common.md#principled-implementation The shared recorder compares the actual selected physical target against a candidate's supported file/directory spellings, stopping candidate observation at the root resolution actually consulted.
+ * @evidence contracts/common.md#clear-and-simple-design This typed adapter delegates one selection rule to the shared recorder instead of maintaining separate resolver guesses in each evaluator.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The adapter invokes the recorder's exported query without replacing foreign methods or reconstructing a package resolver from guessed target paths.
+ * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains stopping semantics, physical identity, unreadable refusal and parameter vocabularies in distinct paragraphs under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation The shared rule handles native paths and file URLs with physical identity; callers pass their real extension policy rather than guessing from OS names or splitting only POSIX paths.
  */
 export function moduleResolutionBaseSelects(
   base: string,

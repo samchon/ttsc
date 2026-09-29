@@ -6,7 +6,14 @@
  * emitted byte-for-byte as before; only tokens that would otherwise be split or
  * interpreted as comments are quoted.
  *
- * Exported for unit tests.
+ * @evidence contracts/common.md#principled-implementation The helpers reproduce modfile.MustQuote and strconv.Quote using printable Unicode categories and Go escape spellings; the ASCII-delimiter branch tests whether that delimiter is the sole code unit.
+ * @evidence contracts/common.md#clear-and-simple-design Quote selection, quoted emission and rune escaping remain separate private helpers under one token formatter.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Go grammar punctuation and control escapes are contract constants rather than consumer-specific path exceptions.
+ * @evidence contracts/common.md#meaningful-documentation Owning prose explains clean-token preservation and comment/whitespace quoting; helper comments state the authoritative Go operations they mirror.
+ * @evidence contracts/performance.md#efficient-algorithms Selection and quoted emission each traverse at most the token's code points, using constant-time delimiter length checks rather than an additional full byte-length scan.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This formats one caller-provided token and does not coordinate a retained computation across requests.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The formatter retains no state or external resource after returning its string.
  */
 export function autoQuoteGoModToken(token: string): string {
   return mustQuoteGoModToken(token) ? goQuoteString(token) : token;
@@ -28,9 +35,10 @@ function mustQuoteGoModToken(s: string): boolean {
       ch === "}" ||
       ch === ","
     ) {
-      // Go tests `len(s) > 1` (byte length): a lone bracket/comma is a legal
-      // bare token, but one embedded in a longer token forces quoting.
-      if (Buffer.byteLength(s, "utf8") > 1) {
+      // This branch has already found an ASCII bracket/comma. It is the whole
+      // UTF-8 token exactly when it is the sole UTF-16 code unit, so no full
+      // byte-length scan is needed to mirror Go's len(s) > 1 decision.
+      if (s.length > 1) {
         return true;
       }
       continue;

@@ -11,6 +11,16 @@ import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
  * cache passed as `GOCACHE` while ttsc builds those binaries. The default Go
  * cache lives under `root`; an explicit `TTSC_GO_CACHE_DIR` or `GOCACHE` keeps
  * its independently resolved location and ownership policy.
+ *
+ * @evidence contracts/common.md#principled-implementation Plugin and Go paths derive from one root while provenance preserves dedicated ttsc ownership versus external GOCACHE.
+ * @evidence contracts/common.md#clear-and-simple-design Root selection and Go override selection are separate helpers; the result carries paths with their ownership discriminant.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Workspace markers and environment overrides are supported configuration inputs rather than project-name exceptions.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain each payload and independent Go ownership, separated from tags under the documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path APIs anchor ttsc overrides; external GOCACHE preserves Go's supplied spelling and validation semantics.
+ * @evidence contracts/performance.md#efficient-algorithms Dominant work is ancestor discovery and small boundary snapshots, never recursive cache-payload traversal.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Shared workspace placement permits producer caches to be shared, but this path query coordinates neither completed nor in-flight computations and establishes no answer equivalence.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returning paths and provenance acquires no retained cache entry or handle.
  */
 export function resolveSourceBuildCachePaths(
   projectRoot: string,
@@ -43,7 +53,7 @@ const WORKSPACE_ROOT_MARKER_FILES: readonly string[] = ["pnpm-workspace.yaml"];
  * Priority:
  *
  * 1. Explicit `cacheDir` option (resolved relative to `projectRoot`);
- * 2. `TTSC_CACHE_DIR` environment variable (resolved absolute);
+ * 2. `TTSC_CACHE_DIR` environment variable (relative to `projectRoot`);
  * 3. `<workspaceRoot>/node_modules/.cache/ttsc` — project-local by default.
  *
  * There is deliberately NO global (`~/.cache`) fallback: the cache is scoped to
@@ -91,7 +101,7 @@ function resolveSourceBuildCacheRoot(
  *
  * Nearest (not highest) so an unrelated ancestor that happens to declare
  * `workspaces` — for example a `package.json` in the user's home directory —
- * cannot pull the cache above the project's real monorepo root.
+ * cannot override a nearer declared workspace root.
  */
 function resolveWorkspaceRoot(projectRoot: string): string {
   let dir = path.resolve(projectRoot);
@@ -127,11 +137,12 @@ function resolveWorkspaceRoot(projectRoot: string): string {
  *
  * An empty directory remains installation evidence for package managers and
  * callers that materialize the root before populating it. The distinguished
- * `ttsc-cache` shape is an ordinary `.cache/ttsc` tree with no sibling: every
- * byte below it is owned by this product, so counting it as an installation
- * would let ttsc's output change its own workspace-root query. Links and
- * unreadable directories remain installations because they cannot be proved
- * ttsc-owned.
+ * `ttsc-cache` shape is an ordinary `.cache/ttsc` layout with no sibling.
+ * Counting an unmarked legacy layout as an installation would let ttsc's output
+ * change its own workspace-root query. This is placement evidence, not proof of
+ * every descendant's ownership: selected cache owners validate their actual
+ * roots and entries before writes or deletion. Aliases and unreadable
+ * directories at the inspected layout levels remain installation evidence.
  */
 function classifyNodeModulesBoundary(
   dir: string,
@@ -173,6 +184,7 @@ function classifyNodeModulesBoundary(
   }
 }
 
+/** Probe for the package boundary used by fallback discovery. */
 function hasPackageManifest(dir: string): boolean {
   try {
     return fs.statSync(path.join(dir, "package.json")).isFile();
@@ -181,6 +193,7 @@ function hasPackageManifest(dir: string): boolean {
   }
 }
 
+/** Match one named ordinary directory in a collected snapshot. */
 function isOrdinaryDirectory(
   entry: fs.Dirent | undefined,
   name: string,
@@ -188,6 +201,7 @@ function isOrdinaryDirectory(
   return entry?.name === name && entry.isDirectory() && !entry.isSymbolicLink();
 }
 
+/** Recognize a supported workspace declaration at one ancestor. */
 function isWorkspaceRootDir(dir: string): boolean {
   for (const marker of WORKSPACE_ROOT_MARKER_FILES) {
     if (fs.existsSync(path.join(dir, marker))) {
@@ -197,6 +211,7 @@ function isWorkspaceRootDir(dir: string): boolean {
   return packageJsonDeclaresWorkspaces(path.join(dir, "package.json"));
 }
 
+/** Recognize nonempty array and packages-array workspace declarations. */
 function packageJsonDeclaresWorkspaces(packageJsonPath: string): boolean {
   let text: string;
   try {
@@ -224,6 +239,7 @@ function packageJsonDeclaresWorkspaces(packageJsonPath: string): boolean {
   }
 }
 
+/** Select a Go object path together with cleanup-ownership provenance. */
 function resolveGoBuildCacheRoot(
   root: string,
   projectRoot: string,

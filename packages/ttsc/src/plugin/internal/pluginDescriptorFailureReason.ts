@@ -12,6 +12,11 @@ import fs from "node:fs";
  * key, and every other shape — an absent file, a shim that died before writing,
  * a half-written result, a descriptor written before a later non-zero exit —
  * leaves the process status to speak for itself.
+ *
+ * @evidence contracts/common.md#principled-implementation Parsing the named error-envelope field yields trimmed human context only for a string; unreadable or invalid output contributes no invented reason to the already-known process failure.
+ * @evidence contracts/common.md#clear-and-simple-design One file adapter supplies failure context while the process classifier independently owns launch/signal/status interpretation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The reserved envelope key is a shim protocol field, not a known-error-text special case or retry that masks descriptor failure.
+ * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains accepted envelope and rejected partial/missing shapes, with separate purpose and failure paragraphs under the documentation skill.
  */
 export function pluginDescriptorFailureReason(outputPath: string): string {
   try {

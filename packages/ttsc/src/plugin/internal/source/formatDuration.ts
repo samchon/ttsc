@@ -6,7 +6,14 @@
  * as defense in depth a non-finite input renders as `an unknown time` so no
  * public diagnostic can ever print `Infinitym NaNs` again (issue #421).
  *
- * Exported for unit tests.
+ * @evidence contracts/common.md#principled-implementation Finite durations are decomposed into milliseconds or whole seconds/minutes; negative short values clamp to zero and nonfinite values use an explicit unknown-duration message.
+ * @evidence contracts/common.md#clear-and-simple-design One numeric formatter owns all diagnostic duration spellings without a second lock-state representation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The nonfinite branch addresses an unsupported numeric duration directly rather than preserving an infinite-age encoding beneath another lock wrapper.
+ * @evidence contracts/common.md#meaningful-documentation Native prose gives millisecond/second/minute examples and explains the unknown-time result.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms This performs a fixed number of scalar arithmetic and formatting operations, with no workload-dependent algorithm choice.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The function formats one diagnostic value and stores no shared computation.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only the returned string survives the call; no retained resource is acquired.
  */
 export function formatDuration(ms: number): string {
   if (!Number.isFinite(ms)) {

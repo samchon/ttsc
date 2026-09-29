@@ -130,6 +130,34 @@ function selectedFile(value) {
   }
 }
 
+/**
+ * Reject case-folded lexical containment unless actual filesystem identity
+ * agrees.
+ */
+function physicallyRelative(base, selected) {
+  const relative = path.relative(base, selected);
+  if (
+    relative === ".." ||
+    relative.startsWith(".." + path.sep) ||
+    path.isAbsolute(relative)
+  )
+    return undefined;
+  if (path.resolve(base, relative) === selected) return relative;
+  let ancestor = selected;
+  for (const segment of relative.split(path.sep)) {
+    if (segment !== "") ancestor = path.dirname(ancestor);
+  }
+  try {
+    const left = fs.statSync(base, { bigint: true });
+    const right = fs.statSync(ancestor, { bigint: true });
+    return left.ino !== 0n && left.dev === right.dev && left.ino === right.ino
+      ? relative
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Every file a resolution probes for one base, in probe order. */
 function moduleCandidates(base, extensions) {
   const extension = path.extname(base).toLowerCase();
@@ -154,6 +182,15 @@ function moduleCandidates(base, extensions) {
  * @param {string | undefined} resolvedFile The selected file, a path or a file
  *   URL, or `undefined` for a resolution that failed.
  * @param {readonly string[]} extensions The extensions the resolution probes.
+ *
+ * @evidence contracts/common.md#principled-implementation Selection uses candidate realpaths and actual root identity when native relative paths fold spelling; case-sensitive siblings cannot count as the selected root.
+ * @evidence contracts/common.md#clear-and-simple-design The predicate owns candidate membership and delegates only file normalization and physical containment.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Native filesystem identity supplies the case exception; no platform-name assumption or expected package answer is substituted.
+ * @evidence contracts/common.md#meaningful-documentation JSDoc distinguishes physical selection from specifier spelling and explains failed resolutions; prose and tags are separated per documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation Node native path and realpath APIs handle separators; ambiguous folded containment requires nonzero device/inode identity rather than assuming Windows is insensitive.
+ * @evidence contracts/performance.md#efficient-algorithms Probe order is scanned until selection; cost scales with extension candidates and filesystem metadata, with identity stat only for nonexact spelling.
+ * @evidence contracts/performance.md#reuse-equivalent-work Each candidate canonicalization is reused for equality and containment within the call; mutable filesystem selection is not cached across evaluations.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Candidate arrays and synchronous stat values are call-local and no descriptor remains retained.
  */
 function moduleResolutionBaseSelects(base, resolvedFile, extensions) {
   const selected = selectedFile(resolvedFile);
@@ -161,13 +198,14 @@ function moduleResolutionBaseSelects(base, resolvedFile, extensions) {
   for (const candidate of moduleCandidates(path.resolve(base), extensions)) {
     try {
       const canonical = fs.realpathSync.native(candidate);
-      const relative = path.relative(canonical, selected);
+      const relative = physicallyRelative(canonical, selected);
       if (
-        relative === "" ||
-        (fs.statSync(canonical).isDirectory() &&
-          relative !== ".." &&
-          !relative.startsWith(".." + path.sep) &&
-          !path.isAbsolute(relative))
+        relative !== undefined &&
+        (relative === "" ||
+          (fs.statSync(canonical).isDirectory() &&
+            relative !== ".." &&
+            !relative.startsWith(".." + path.sep) &&
+            !path.isAbsolute(relative)))
       ) {
         return true;
       }
@@ -308,6 +346,15 @@ function visitModuleCandidates(base, extensions, visit, bases) {
  * @param {(file: string, root: string | undefined) => void} visit
  * @param {Set<string>} bases The bases already visited, shared by the calls
  *   whose candidates one caller has recorded.
+ *
+ * @evidence contracts/common.md#principled-implementation Candidate observations follow the importer's native search roots and stop only at the physically selected root; failed resolutions retain every consulted root.
+ * @evidence contracts/common.md#clear-and-simple-design Local and package specifiers share candidate expansion while the visitor owns observation storage.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Public createRequire search paths supply package roots; no private resolver mutation or fixture-specific selection is used.
+ * @evidence contracts/common.md#meaningful-documentation Parameters explain optional roots, failed selection, and shared deduplication ownership with a blank line before acknowledgments.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path operations and file-URL conversion preserve importer representation without inferring case policy from the OS.
+ * @evidence contracts/performance.md#efficient-algorithms Work scales with searched roots, manifest targets and extension candidates; visiting ends once later roots cannot affect selection.
+ * @evidence contracts/performance.md#reuse-equivalent-work The caller-owned bases set shares candidate expansion across resolutions in one evaluation; a new evaluation receives fresh mutable-file observations.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The visitor receives observations synchronously and the caller owns the evaluation-scoped deduplication set; the function holds no open file handles.
  */
 function visitResolutionCandidates(
   specifier,
@@ -387,7 +434,17 @@ function searchRoots(parentFile) {
  * shows a nearer package that appeared in between (samchon/ttsc#1498).
  *
  * @param {string | undefined} parent The importer, a path or a file URL.
+ *
  * @returns {Map<string, string | undefined> | undefined}
+ *
+ * @evidence contracts/common.md#principled-implementation Taking native root metadata before mapped resolution witnesses changes that a later candidate read alone cannot establish.
+ * @evidence contracts/common.md#clear-and-simple-design The function returns only root witnesses; selected-package discovery and committing candidates belong to the later phase.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Actual importer search paths and metadata provide evidence; missing or inaccessible metadata remains undefined rather than manufactured stable state.
+ * @evidence contracts/common.md#meaningful-documentation Native documentation explains the pre-resolution timing and why the selected package is not yet known; paragraph and tag spacing follow documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation File URLs become native absolute paths and public createRequire obtains platform search paths; bigint stat witnesses retain actual native identity.
+ * @evidence contracts/performance.md#efficient-algorithms One metadata observation is taken per search root; temporary storage is linear in the native root list.
+ * @evidence contracts/performance.md#reuse-equivalent-work The returned map is reused by the corresponding completion phase only; another resolution observes a new window.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The returned map transfers to the resolution token and dies with that evaluation; synchronous stat calls leave no retained descriptors.
  */
 function observeImportSearchRoots(parent) {
   const parentFile = asFile(parent);
@@ -423,8 +480,9 @@ function withinImporterPackage(parentFile, selected) {
       } catch {
         owner = directory;
       }
-      const relative = path.relative(owner, selected);
+      const relative = physicallyRelative(owner, selected);
       return (
+        relative !== undefined &&
         relative !== ".." &&
         !relative.startsWith(".." + path.sep) &&
         !path.isAbsolute(relative) &&
@@ -503,8 +561,9 @@ function linkSelects(root, name, selected, extensions) {
   } catch {
     return false;
   }
-  const relative = path.relative(target, selected);
+  const relative = physicallyRelative(target, selected);
   return (
+    relative !== undefined &&
     relative !== "" &&
     relative !== ".." &&
     !relative.startsWith(".." + path.sep) &&
@@ -570,6 +629,15 @@ function importMappedPackageDirectories(parent, resolved, extensions) {
  *   `observeImportSearchRoots` took before the resolution.
  * @param {(file: string, moved: boolean) => void} visit Receives each
  *   candidate, and whether its search root moved since `witnesses`.
+ *
+ * @evidence contracts/common.md#principled-implementation Resolved physical package ownership identifies bare mapped targets; pre-resolution root witnesses prevent later observations from certifying a changed search root.
+ * @evidence contracts/common.md#clear-and-simple-design Root discovery is separate from visiting candidates and the caller decides how an observed movement affects proof storage.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The actual selected module supplies package identity; this operation neither substitutes an imports resolver nor repairs missing witnesses with current state.
+ * @evidence contracts/common.md#meaningful-documentation JSDoc states phase ordering, failed-result behavior and the moved flag; acknowledgment tags are separate from parameter prose.
+ * @evidence contracts/portability.md#os-neutral-implementation Native links, realpaths and actual root identity distinguish workspace aliases from case-sensitive sibling paths without an OS case assumption.
+ * @evidence contracts/performance.md#efficient-algorithms Expansion visits selected-or-nearer search roots and deduplicates bases; workspace link discovery scans only when selected spelling supplies no package name.
+ * @evidence contracts/performance.md#reuse-equivalent-work One local bases set shares duplicate expansions and supplied witnesses reuse the earlier root observation rather than substituting a later read.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Root maps are borrowed, deduplication is local and synchronous directory reads leave no retained watcher or descriptor.
  */
 function visitImportMappedCandidates(
   parent,
@@ -691,8 +759,24 @@ function visitImportTargetCandidates(specifier, parent, extensions, visit) {
  *
  * @param {{ extensions: readonly string[] }} options The extensions the host's
  *   resolution probes.
+ *
+ *   The caller must observe every resolution through supported hooks, and call
+ *   `invalidateObservation` when its observation capability is incomplete.
+ *   Completeness is separate from per-input stability: a moved input remains in
+ *   the input set without a hash, even when resolution observation is
+ *   complete.
+ *
+ * @evidence contracts/common.md#principled-implementation Before/after metadata plus repeated content and physical observations withdraw contradictory per-input proofs; the separate complete flag reports known observation capability gaps.
+ * @evidence contracts/common.md#clear-and-simple-design One evaluation owns its input ledger, resolution tokens and final envelope; callers explicitly invalidate capability rather than manipulating proof maps.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown observations retain missing proofs and incomplete capability remains false; no expected digest or resolver monkeypatch makes reuse appear valid.
+ * @evidence contracts/common.md#meaningful-documentation JSDoc describes hook ownership, entry recording, final reread and capability versus stability; returned operations have native descriptions and tags are separated.
+ * @evidence contracts/portability.md#os-neutral-implementation Native stat/realpath and URL conversion represent paths and identities; symlink ancestors are observed without equating an OS name to filesystem case policy.
+ * @evidence contracts/performance.md#efficient-algorithms Sets and maps index distinct observed paths; hashing cost follows bytes read and final validation visits each known input once rather than comparing all pairs.
+ * @evidence contracts/performance.md#reuse-equivalent-work Distinct candidates share the evaluation ledger and expanded bases; the first witness stays authoritative and contradictory later reads revoke its proof instead of refreshing it.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Maps grow with this isolated evaluation's distinct inputs, and tokens belong to their resolution calls; the subprocess lifetime releases the ledger and hooks.
  */
 function createResolutionInputRecorder(options) {
+  let complete = true;
   const extensions = options.extensions;
   const inputs = new Set();
   const hashes = new Map();
@@ -792,6 +876,7 @@ function createResolutionInputRecorder(options) {
     beginResolution(specifier, parent) {
       const pending = [];
       const roots = [];
+      const seenRoots = new Set();
       const seen = new Set();
       visitResolutionCandidates(
         specifier,
@@ -802,7 +887,10 @@ function createResolutionInputRecorder(options) {
           // A root is in the search order even when every candidate of it is
           // already an input, or the root that selects a repeated resolution
           // would be missing from it and every root past it committed.
-          if (root !== undefined && !roots.includes(root)) roots.push(root);
+          if (root !== undefined && !seenRoots.has(root)) {
+            seenRoots.add(root);
+            roots.push(root);
+          }
           file = path.resolve(file);
           if (seen.has(file) || inputs.has(file)) return;
           seen.add(file);
@@ -886,10 +974,20 @@ function createResolutionInputRecorder(options) {
       recordFile(resolved);
     },
     recordFile,
-    /** Read every input once more and return the record. */
+
+    /** Withdraw completeness when the evaluator cannot observe an input source. */
+    invalidateObservation() {
+      complete = false;
+    },
+
+    /**
+     * Revalidate known inputs; completeness describes resolution capability
+     * separately.
+     */
     finish() {
       for (const input of [...inputs]) record(input);
       return {
+        complete,
         hashes: Object.fromEntries(hashes),
         inputs: [...inputs].sort(),
         realpaths: Object.fromEntries(realpaths),
@@ -899,98 +997,92 @@ function createResolutionInputRecorder(options) {
 }
 
 /**
- * Record every module resolution the evaluation makes into `recorder`.
+ * Install supported resolution observation for one isolated evaluation.
  *
  * A resolve hook registered through `module.registerHooks`, the supported
- * customization API, sees every `import` and `require()` (samchon/ttsc#1523).
- * The one resolution it does not see on every release is `require.resolve`,
- * which on some releases answers from Node's resolver alone. Whether it does is
- * asked of the runtime once, by a hook registered only for the probe, and only
- * where it does not is the single entry point `require.resolve` reaches,
- * `Module._resolveFilename`, wrapped to record the same two observations. A
- * resolution the hook also saw is then recorded twice with the same state,
- * which changes nothing.
+ * customization API, sees every `import` and `require()` (samchon/ttsc#1523). A
+ * runtime that does not expose hooks, or whose `require.resolve` bypasses them,
+ * leaves the observation incomplete. Evaluation still proceeds; its consumer
+ * must withdraw reuse rather than assume an unobserved resolution consulted no
+ * inputs. No private resolver entry point is replaced.
  *
  * @param {ReturnType<typeof createResolutionInputRecorder>} recorder
+ *
+ * @evidence contracts/common.md#principled-implementation Public synchronous resolve hooks bracket actual resolution; an unsuccessful capability probe or registration withdraws completeness while preserving ordinary evaluation.
+ * @evidence contracts/common.md#clear-and-simple-design This adapter installs one resolution callback and leaves storage and capability state with the supplied recorder.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Only documented module.registerHooks is used; unsupported require.resolve observation is explicit and no foreign resolver or internal method is replaced.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains isolated ownership, unsupported-runtime effects and incomplete reuse; tags follow a blank comment line.
+ * @evidence contracts/portability.md#os-neutral-implementation Runtime capability is probed directly, independent of OS or guessed Node version; resolved file URLs are interpreted by the recorder's native boundary.
+ * @evidence contracts/performance.md#efficient-algorithms Each resolution adds one before/after recording pair around Node's own resolver rather than running a second resolver implementation.
+ * @evidence contracts/performance.md#reuse-equivalent-work All callbacks share the supplied evaluation ledger; probe observations are a capability question, not cached module-resolution answers.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Installed hooks retain the recorder for the isolated evaluator process lifetime; the temporary probe hook is deregistered and registration failure leaves no replacement global.
  */
 function observeResolutions(recorder) {
-  const hooked = requireResolveConsultsHooks();
-  Module.registerHooks({
-    resolve(specifier, context, nextResolve) {
-      const resolution = recorder.beginResolution(specifier, context.parentURL);
-      let resolved;
-      try {
-        resolved = nextResolve(specifier, context);
-      } catch (error) {
-        recorder.endResolution(resolution, undefined);
-        throw error;
-      }
-      recorder.endResolution(
-        resolution,
-        typeof resolved === "string" ? resolved : resolved && resolved.url,
-      );
-      return resolved;
-    },
-  });
-  if (hooked) return;
-  const next = Module._resolveFilename;
-  Module._resolveFilename = function resolveFilename(
-    request,
-    parent,
-    isMain,
-    options,
-  ) {
-    // An internal entry point anything may call: a non-string request keeps
-    // Node's own argument error rather than a TypeError from here.
-    if (typeof request !== "string") {
-      return next.call(this, request, parent, isMain, options);
-    }
-    const resolution = recorder.beginResolution(
-      request,
-      parent && typeof parent.filename === "string"
-        ? parent.filename
-        : undefined,
-    );
-    let resolved;
-    try {
-      resolved = next.call(this, request, parent, isMain, options);
-    } catch (error) {
-      recorder.endResolution(resolution, undefined);
-      throw error;
-    }
-    recorder.endResolution(
-      resolution,
-      path.isAbsolute(resolved) ? resolved : undefined,
-    );
-    return resolved;
-  };
+  if (!requireResolveConsultsHooks()) recorder.invalidateObservation();
+  if (typeof Module.registerHooks !== "function") return;
+  try {
+    Module.registerHooks({
+      resolve(specifier, context, nextResolve) {
+        const resolution = recorder.beginResolution(
+          specifier,
+          context.parentURL,
+        );
+        let resolved;
+        try {
+          resolved = nextResolve(specifier, context);
+        } catch (error) {
+          recorder.endResolution(resolution, undefined);
+          throw error;
+        }
+        recorder.endResolution(
+          resolution,
+          typeof resolved === "string" ? resolved : resolved && resolved.url,
+        );
+        return resolved;
+      },
+    });
+  } catch {
+    recorder.invalidateObservation();
+  }
 }
 
 /**
  * Whether `require.resolve` consults resolve hooks registered with
  * `module.registerHooks`, asked of the runtime rather than read from its
  * version: a sentinel only a probe hook answers is resolved, and the hook is
- * removed after.
+ * removed after. Absence or refusal of the public API means incomplete
+ * observation, not a configuration evaluation error.
+ *
+ * @evidence contracts/common.md#principled-implementation A sentinel short-circuited exclusively by a temporary public hook tests whether createRequire.resolve actually invokes that hook on this runtime.
+ * @evidence contracts/common.md#clear-and-simple-design A boolean capability result separates installation policy from the probe's registration and cleanup.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts No Node version list or private resolver replacement substitutes for observing the supported hook; inability to register returns false.
+ * @evidence contracts/common.md#meaningful-documentation Native documentation identifies the probed API, temporary lifetime and conservative failure meaning with separated acknowledgment tags.
+ * @evidence contracts/portability.md#os-neutral-implementation The sentinel uses createRequire anchored by a native absolute path and executable file URL; actual runtime behavior supplies capability across platforms.
+ * @evidence contracts/performance.md#efficient-algorithms One sentinel resolution asks the capability question without filesystem fixture creation or scanning module trees.
+ * @evidence contracts/performance.md#reuse-equivalent-work The result is used for the evaluator's hook installation decision; it is not retained across changes to the current public hook environment.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The local registration is removed in finally after success or refusal; only its boolean result escapes and no temporary file is created.
  */
 function requireResolveConsultsHooks() {
+  if (typeof Module.registerHooks !== "function") return false;
   const sentinel = `./.ttsc-require-resolve-probe-${process.pid}`;
   let consulted = false;
-  const probe = Module.registerHooks({
-    resolve(specifier, context, nextResolve) {
-      if (specifier !== sentinel) return nextResolve(specifier, context);
-      consulted = true;
-      return {
-        shortCircuit: true,
-        url: pathToFileURL(process.execPath).href,
-      };
-    },
-  });
+  let probe;
   try {
+    probe = Module.registerHooks({
+      resolve(specifier, context, nextResolve) {
+        if (specifier !== sentinel) return nextResolve(specifier, context);
+        consulted = true;
+        return {
+          shortCircuit: true,
+          url: pathToFileURL(process.execPath).href,
+        };
+      },
+    });
     Module.createRequire(path.join(process.cwd(), "noop.js")).resolve(sentinel);
   } catch {
     // A runtime that never consulted the hook refuses the sentinel.
   } finally {
-    probe.deregister();
+    probe?.deregister();
   }
   return consulted;
 }
@@ -998,6 +1090,7 @@ function requireResolveConsultsHooks() {
 module.exports = {
   createResolutionInputRecorder,
   observeResolutions,
+  requireResolveConsultsHooks,
   moduleResolutionBaseSelects,
   observeImportSearchRoots,
   visitImportMappedCandidates,

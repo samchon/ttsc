@@ -11,6 +11,16 @@ import path from "node:path";
  * project instead of the wrapper's temp-dir ancestry. Callers that point at a
  * user-authored tsconfig (even a wrapper outside the project) leave it unset,
  * keeping discovery anchored at the tsconfig's own directory.
+ *
+ * @evidence contracts/common.md#principled-implementation Only an explicit nonempty config anchor overrides discovery ancestry; path.resolve interprets a relative anchor from the declared cwd or current process directory.
+ * @evidence contracts/common.md#clear-and-simple-design One resolver serves generated-wrapper consumers while preserving undefined as the ordinary tsconfig-owned discovery policy.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The anchor comes from caller authority, not a hardcoded consumer name or a guessed project directory beside a temporary wrapper.
+ * @evidence contracts/common.md#meaningful-documentation Purpose and wrapper rationale explain both explicit and absent-anchor behavior in separate paragraphs following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation path.resolve performs native path anchoring; no slash replacement or OS-based case policy is used to turn the caller's spelling into identity.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms This adapter delegates one native path-resolution operation and chooses no independent growing-workload algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Caller options and process cwd remain invocation inputs; this accessor coordinates no reusable computation across requests.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only an optional path string is returned; no filesystem handle, retained state or task is acquired.
  */
 export function resolvePluginConfigDir(options: {
   cwd?: string;

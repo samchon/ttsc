@@ -7,6 +7,7 @@ import type { ITtscProjectLocatorOptions } from "../../../structures/internal/IT
 import { readJsoncFile } from "./readJsoncFile";
 import { resolveProjectIdentity } from "./resolveProjectIdentity";
 import { resolveTsconfigExtends } from "./resolveTsconfigExtends";
+import { tsconfigExtendsFileCandidates } from "./tsconfigExtendsFileCandidates";
 
 /**
  * Read and resolve the project config subset used by ttsc.
@@ -18,19 +19,41 @@ import { resolveTsconfigExtends } from "./resolveTsconfigExtends";
  * against the final consuming config after the extends chain is merged. The
  * `outDir` is resolved to an absolute path. Plugins are inherited from the
  * nearest ancestor that declares them.
+ *
+ * Config observations include selected lexical paths and missing candidates
+ * that could change selection. Package/import-map `extends` uses Node's
+ * resolver, whose complete search authority is not exposed here; such a chain
+ * marks `configInputsComplete` false and cannot authorize persistent reuse.
+ *
+ * @evidence contracts/common.md#principled-implementation Recursive left-to-right option merging retains each declaring directory and final configDir substitution; selected and missing config candidates are recorded, while module inheritance explicitly lacks complete freshness proof.
+ * @evidence contracts/common.md#clear-and-simple-design Identity selection, extends resolution and JSONC parsing stay with their shared owners; one recursive merge returns options, plugin origins and config observations together.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing candidates are real selection premises, and incomplete Node module topology is marked unproved instead of imitated by a guessed package resolver or cache bypass.
+ * @evidence contracts/common.md#meaningful-documentation Native JSDoc separates option inheritance, path anchors and observation limitations; native member comments and separated tags follow the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Native resolution and realpath preserve distinct lexical and physical config identities; option separators and configDir substitution use the shared host-neutral config rule rather than POSIX concatenation.
+ * @evidence contracts/performance.md#efficient-algorithms Each visited inheritance occurrence reads and merges its declared options, with an active-chain Set detecting cycles; a shared observation Set deduplicates candidate paths before one final sort.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This reader performs a current filesystem lookup and owns no cross-call cache; safe reuse belongs to the loader proof consuming its observations and completeness flag.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Sets and merged records are invocation-owned data with no retained history or live handle; the active chain is removed in finally.
  */
 export function readProjectConfig(
   opts: ITtscProjectLocatorOptions = {},
 ): ITtscParsedProjectConfig {
-  const identity = resolveProjectIdentity(opts);
+  const configInputs = new Set<string>();
+  const onInput = (file: string): void => {
+    configInputs.add(path.resolve(file));
+  };
+  const identity = resolveProjectIdentity(opts, onInput);
   const tsconfig = identity.physicalConfigPath;
   const root = identity.physicalProjectRoot;
   const compilerOptions = readResolvedCompilerOptions(
     tsconfig,
     new Set(),
     path.dirname(tsconfig),
+    onInput,
   );
   return {
+    configInputs: [...configInputs].sort(),
+    configInputsComplete: compilerOptions.configInputsComplete,
     configPaths: compilerOptions.configPaths,
     compilerOptions: {
       ...compilerOptions.options,
@@ -71,6 +94,9 @@ const CONFIG_DIR_TEMPLATE = "${configDir}";
  * projected into `ITtscParsedProjectConfig`.
  */
 type ResolvedCompilerOptions = {
+  /** Whether every supported config-resolution authority was observed. */
+  configInputsComplete: boolean;
+
   configPaths: string[];
   options: Record<string, unknown>;
 
@@ -129,7 +155,9 @@ function readResolvedCompilerOptions(
   tsconfig: string,
   seen: Set<string> = new Set(),
   configDir = path.dirname(tsconfig),
+  onInput?: (file: string) => void,
 ): ResolvedCompilerOptions {
+  onInput?.(tsconfig);
   const canonical = resolveRealPath(tsconfig);
   if (seen.has(canonical)) {
     throw new Error(`ttsc: circular tsconfig extends detected: ${canonical}`);
@@ -148,6 +176,7 @@ function readResolvedCompilerOptions(
       parsed.extends,
       seen,
       configDir,
+      onInput,
     );
     const ownBaseDir = path.dirname(canonical);
     const ownOptionBaseDirs =
@@ -174,6 +203,7 @@ function readResolvedCompilerOptions(
       ? ownPlugins.filter(isProjectPluginConfig)
       : base.plugins;
     return {
+      configInputsComplete: base.configInputsComplete,
       configPaths: uniquePaths([...base.configPaths, canonical]),
       optionBaseDirs,
       options,
@@ -195,24 +225,34 @@ function readResolvedCompilerOptions(
  * - Array: multiple base configs merged left-to-right (later entries win).
  * - Absent / non-string non-array: returns empty options.
  *
- * Plugin inheritance: when the current config in an array chain explicitly
- * declares `plugins`, subsequent configs in the array do not override them.
+ * Plugin inheritance follows the last array entry that explicitly declares
+ * `plugins`; a later entry that merely inherits no declaration does not erase
+ * an earlier declaration.
  */
 function resolveBaseCompilerOptions(
   tsconfig: string,
   extended: unknown,
   seen: Set<string>,
   configDir: string,
+  onInput?: (file: string) => void,
 ): ResolvedCompilerOptions {
   if (typeof extended === "string") {
-    return readResolvedCompilerOptions(
-      resolveTsconfigExtends(tsconfig, extended),
+    const inherited = readResolvedCompilerOptions(
+      resolveTsconfigExtends(tsconfig, extended, onInput),
       seen,
       configDir,
+      onInput,
     );
+    return {
+      ...inherited,
+      configInputsComplete:
+        inherited.configInputsComplete &&
+        tsconfigExtendsFileCandidates(tsconfig, extended) !== undefined,
+    };
   }
   if (!Array.isArray(extended)) {
     return {
+      configInputsComplete: true,
       configPaths: [],
       optionBaseDirs: {},
       options: {},
@@ -222,6 +262,7 @@ function resolveBaseCompilerOptions(
     };
   }
   let merged: ResolvedCompilerOptions = {
+    configInputsComplete: true,
     configPaths: [],
     optionBaseDirs: {},
     options: {},
@@ -234,11 +275,16 @@ function resolveBaseCompilerOptions(
       continue;
     }
     const current = readResolvedCompilerOptions(
-      resolveTsconfigExtends(tsconfig, specifier),
+      resolveTsconfigExtends(tsconfig, specifier, onInput),
       seen,
       configDir,
+      onInput,
     );
     merged = {
+      configInputsComplete:
+        merged.configInputsComplete &&
+        current.configInputsComplete &&
+        tsconfigExtendsFileCandidates(tsconfig, specifier) !== undefined,
       configPaths: uniquePaths([...merged.configPaths, ...current.configPaths]),
       optionBaseDirs: {
         ...merged.optionBaseDirs,

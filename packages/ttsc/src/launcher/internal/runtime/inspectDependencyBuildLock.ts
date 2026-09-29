@@ -9,8 +9,21 @@ import { RuntimeFilesystem } from "./RuntimeFilesystem";
 import { isLocalProcessGone } from "./isLocalProcessGone";
 
 /**
- * Classify the current state of a dependency build lock directory. Exported for
- * the deterministic multi-process cache regressions.
+ * Classify the current state of a dependency build lock directory.
+ *
+ * Unreadable generation identity is active uncertainty. A readable owner is
+ * abandoned only when the local pid is provably gone; an ownerless generation
+ * becomes recoverable after the protocol's stale interval.
+ *
+ * @evidence contracts/common.md#principled-implementation Generation identity fences every holder observation; a valid owner requires conservative local liveness evidence, while missing owner data uses the explicit stale-generation policy without stealing an unreadable identity.
+ * @evidence contracts/common.md#clear-and-simple-design Separate generation, owner, age and label helpers supply one state classifier; the discriminated result makes recovery authority explicit to callers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts No fixture age or broad pid-probe failure marks a valid owner dead; ownerless recovery is the protocol's supported corruption policy rather than a fabricated lease.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe uncertainty and recovery grounds, and the acquisition-order comment explains why an unreadable generation cannot be stolen safely.
+ * @evidence contracts/portability.md#os-neutral-implementation Node fs, native path joins and isLocalProcessGone supply directory age and host-scoped pid identity; absence errno differs from denied access without OS-name assumptions.
+ * @evidence contracts/performance.md#efficient-algorithms Classification reads two fixed-size records and at most one stat, independent of retired-generation count; no directory-wide scan occurs per poll.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Lock state changes between observations, so an earlier classification cannot replace a fresh recovery decision.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Synchronous record reads retain no handle or history; the returned fence transfers an observation to its caller without owning the lock.
  */
 export function inspectDependencyBuildLock(
   lockDir: string,

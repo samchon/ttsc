@@ -5,27 +5,39 @@ import { createCanonicalTempDirectory } from "../../internal/createCanonicalTemp
 import type { CapturedProcessOutput } from "./CapturedProcessOutput";
 
 /**
- * A pair of temporary files standing in for a child process's pipes.
+ * Acquire two private files and descriptors for a child's output.
  *
- * `spawnSync` holds a _piped_ stream in this process's memory and refuses to
- * keep more than `maxBuffer` bytes, so any piped capture has to name a ceiling
- * — and a ceiling is a number nobody chose for this machine, deciding on the
- * user's behalf that a large but legitimate build said too much. Handing the
- * child a file descriptor instead means the bytes never pass through this heap
- * on their way out of the child: how much a process may write is the
- * filesystem's business, and that is the same answer on every machine. Reading
- * the result back still materializes a string, so V8's own maximum string
- * length remains the outer bound — but that is a property of the runtime rather
- * than a budget chosen here, and it is identical everywhere this runs.
+ * File descriptors avoid spawnSync's piped maxBuffer ceiling. Reading after
+ * exit still allocates complete output and is subject to filesystem, Buffer and
+ * string limits; file capture does not make output unbounded.
  *
  * The directory is per-call, so two concurrent spawns cannot read each other's
- * bytes.
+ * bytes. Acquisition failures release resources already obtained. The caller
+ * owns the returned capture and must dispose it after reading; read failures
+ * propagate, while disposal is idempotent and cleanup is best effort.
+ *
+ * @evidence contracts/common.md#principled-implementation Precreated files receive exact child stream bytes through inherited descriptors; decoding happens on read, and I/O errors cannot masquerade as empty successful output.
+ * @evidence contracts/common.md#clear-and-simple-design One capture owns two descriptors and their private directory. Acquisition rollback and disposal share cleanup helpers, leaving consumers responsible for a finally boundary.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported Node filesystem and descriptor APIs capture diagnostics without foreign mutation, expected-output substitution or an arbitrary output ceiling.
+ * @evidence contracts/common.md#meaningful-documentation Separate purpose, limits and ownership paragraphs follow the documentation skill and explain actual failure effects rather than claiming unlimited output.
+ * @evidence contracts/portability.md#os-neutral-implementation Canonical temporary-directory ownership and path.join represent native paths; Node manages native descriptors. Removal remains best effort because inherited Windows handles may keep files live.
+ * @evidence contracts/performance.md#efficient-algorithms Acquisition performs constant filesystem work for two streams; reading B bytes costs O(B) time and storage without repeatedly copying a growing piped buffer in this process.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each child requires independent effectful output destinations; sharing prior captures would mix bytes and ownership rather than reuse equivalent work.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources One directory and two descriptors belong to the capture until disposal. Acquisition rolls back earlier resources, and disposal closes once. File bytes grow with child output without a product ceiling; failed removal may leave temporary files.
  */
 export function captureProcessOutput(): CapturedProcessOutput {
   const directory = createCanonicalTempDirectory("ttsc-spawn-");
   const stdoutPath = path.join(directory, "stdout");
   const stderrPath = path.join(directory, "stderr");
-  const stdoutFd = fs.openSync(stdoutPath, "w+");
+  let stdoutFd: number;
+  try {
+    stdoutFd = fs.openSync(stdoutPath, "w+");
+  } catch (error) {
+    removeQuietly(directory);
+    throw error;
+  }
   let stderrFd: number;
   try {
     stderrFd = fs.openSync(stderrPath, "w+");
@@ -37,22 +49,18 @@ export function captureProcessOutput(): CapturedProcessOutput {
     removeQuietly(directory);
     throw error;
   }
+  let disposed = false;
   return {
     dispose(): void {
+      if (disposed) return;
+      disposed = true;
       closeQuietly(stdoutFd);
       closeQuietly(stderrFd);
       removeQuietly(directory);
     },
     read(stream, encoding): string | Buffer {
       const location = stream === "stdout" ? stdoutPath : stderrPath;
-      let raw: Buffer;
-      try {
-        raw = fs.readFileSync(location);
-      } catch {
-        // A spawn that never launched leaves nothing behind. Report the same
-        // empty output a failed piped capture would have.
-        raw = Buffer.alloc(0);
-      }
+      const raw = fs.readFileSync(location);
       return encoding === "buffer" ? raw : raw.toString(encoding ?? "utf8");
     },
     stderrFd,
@@ -62,12 +70,12 @@ export function captureProcessOutput(): CapturedProcessOutput {
   };
 }
 
-/** Close a descriptor, ignoring one that is already closed. */
+/** Attempt closure without replacing the acquisition or process outcome. */
 function closeQuietly(fd: number): void {
   try {
     fs.closeSync(fd);
   } catch {
-    // Already closed; removing the directory is what reclaims the space.
+    // Cleanup remains best effort, including descriptors closed by the host.
   }
 }
 

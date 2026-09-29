@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -42,6 +43,21 @@ import { withGoBuildCacheLease } from "./withGoBuildCacheLease";
  * (`TTSC_GO_CACHE_DIR`), and Go build variables (`GOFLAGS`, `CGO_*`, …) without
  * mutating the shared `process.env`. CLI callers omit it and inherit
  * `process.env`, so ambient behavior is unchanged.
+ *
+ * The cache key includes source and toolchain readings. Before publication the
+ * scratch inputs must match those readings and the external toolchain witness
+ * must still hold. Different materialized inputs fail the build instead of
+ * publishing an executable under a stale key. Default caches are managed
+ * locally, while explicit roots retain caller-managed pruning policy.
+ *
+ * @evidence contracts/common.md#principled-implementation Compilation uses the keyed module/contributor/overlay readings, verifies materialized and external sources plus pre-read toolchain witnesses, and publishes only after the build and those identity checks succeed.
+ * @evidence contracts/common.md#clear-and-simple-design One owner sequences target resolution, key creation, cache selection and fenced build coordination; private helpers own scratch materialization, Go workspace semantics and publication cleanup.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Changed inputs are rejected at their snapshot boundary rather than compensated with an assumed valid key; injected reads are an explicit supported boundary and caller environments never patch process globals.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain effective environment, exact-input verification and managed versus explicit roots; option-map comments state their reading provenance with blank member separation.
+ * @evidence contracts/portability.md#os-neutral-implementation Node path/physical-cache/temp APIs preserve native identities; executable resolution and Windows command handling are isolated owners, and the binary filename explicitly follows its executable platform.
+ * @evidence contracts/performance.md#efficient-algorithms Key construction streams source hashes and shared toolchain identities; a cold build materializes only contributing inputs, parses each module manifest through a per-build memo and invokes one compiler for the plugin.
+ * @evidence contracts/performance.md#reuse-equivalent-work Existing binaries and concurrent builders share the exact version/platform/source/environment key; load-owned digest maps share readings across plugins while source/toolchain proofs reject a result whose inputs changed during production.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The build owns scratch directories, unpublished binaries and build leases with finally cleanup; managed disk caches use age/LRU maintenance with live/recent entries protected, while explicit cache retention remains caller-owned.
  */
 export function buildSourcePlugin(opts: {
   source: string;
@@ -58,6 +74,7 @@ export function buildSourcePlugin(opts: {
    * (samchon/ttsc#1493).
    */
   environmentDigests?: Map<string, string>;
+
   filesystem?: Partial<SourceBuildFilesystemOperations>;
   label?: string;
   overlayDirs?: readonly string[];
@@ -70,6 +87,7 @@ export function buildSourcePlugin(opts: {
    * built from (samchon/ttsc#1487).
    */
   sourceDigests?: Map<string, string>;
+
   ttscVersion: string;
   tsgoVersion: string;
 }): string {
@@ -141,9 +159,19 @@ export function buildSourcePlugin(opts: {
   const built = buildUnderPluginLock(
     cacheDir,
     binaryPath,
-    { label, pluginName: opts.pluginName, quiet },
-    () =>
-      compileSourcePlugin({
+    {
+      label,
+      managedCache: managePluginCache,
+      pluginName: opts.pluginName,
+      quiet,
+    },
+    () => {
+      // GC owns the same key lease before deleting a binary entry. It may have
+      // removed this directory before acquisition, so recreate and validate it
+      // only after this build has entered its protected publication interval.
+      if (managePluginCache) canonicalPluginCacheEntry(pluginRoot, key);
+      else fs.mkdirSync(cacheDir, { recursive: true });
+      return compileSourcePlugin({
         binaryPath,
         cacheDir,
         contributors,
@@ -162,7 +190,8 @@ export function buildSourcePlugin(opts: {
         pluginName: opts.pluginName,
         quiet,
         source,
-      }),
+      });
+    },
   );
   if (managePluginCache) {
     // The pre-build daily pass cannot account for the binary this cold build
@@ -195,6 +224,7 @@ function compileSourcePlugin(opts: {
 
   /** The toolchain paths the key read, with their metadata at that read. */
   environmentWitness: PluginBuildEnvironmentWitness.Record;
+
   goBinary: string;
   goBuildCacheRoot: string;
   manageGoBuildCache: boolean;
@@ -203,6 +233,7 @@ function compileSourcePlugin(opts: {
 
   /** The digest of every directory the key covers, as the key read it. */
   keyedDigests: ReadonlyMap<string, string>;
+
   label: string;
   overlayDirs: readonly string[];
   pluginName: string;
@@ -317,8 +348,9 @@ function compileSourcePlugin(opts: {
     // The toolchain was read for the key before the lock wait and the build,
     // and Go ran it by path. Every path the key's environment read must still
     // hold the metadata it was read with, or the binary may be another
-    // toolchain's; a tool that changed and changed back still moved its change
-    // time (samchon/ttsc#1534).
+    // toolchain's. Change time also detects reverted writes when native
+    // metadata distinguishes those edits (samchon/ttsc#1534); the witness
+    // documents that premise rather than certifying a second byte comparison.
     if (!PluginBuildEnvironmentWitness.holds(opts.environmentWitness)) {
       throw new Error(
         `ttsc: the Go toolchain of plugin "${opts.pluginName}" changed while it ` +
@@ -340,51 +372,68 @@ function compileSourcePlugin(opts: {
  * cache key, so concurrent fan-out (parallel suites, a benchmark, a worker
  * pool) runs the `go build` once instead of once per process.
  *
- * `<cacheDir>.lock.v2` is a persistent coordination directory. The adjacent
- * `<cacheDir>.lock` path remains reserved for legacy holders and is never
- * reused for a v2 generation: an old holder or stale legacy reclaimer can
- * therefore remove only the legacy path, never a v2 successor. A contender
- * writes a non-empty candidate and atomically renames it to `current`; only one
- * rename wins. The winner builds and publishes while every loser polls and
- * reuses the resulting binary. A loser distinguishes two ways a generation
- * stops blocking:
+ * `<cacheDir>.lock.v3` is a persistent coordination directory. The adjacent
+ * legacy `.lock` and older `.lock.v2` paths are separate namespaces: an old
+ * holder or reclaimer cannot remove a v3 successor. A contender writes a
+ * non-empty candidate and atomically renames it to `current`; only one rename
+ * wins. The winner builds and publishes while every loser polls and reuses the
+ * resulting binary. A loser distinguishes two ways a generation stops
+ * blocking:
  *
  * - `released`: the holder retired `current` itself — it published, or its build
  *   threw and its `finally` freed the key. The loser simply retries the
  *   ordinary acquisition; nothing is stale and nothing is reported.
- * - `abandoned`: `current` still exists but its owner is provably dead, it is an
- *   old metadata-less legacy lock, or the wait budget
- *   (`PLUGIN_BUILD_LOCK_STEAL_MS`) expired. Only then does the loser report and
- *   retire precisely that generation before retrying.
+ * - `abandoned`: `current` still exists but its qualified same-host owner is
+ *   provably absent. Unknown metadata is inconclusive regardless of its age.
+ *   Only an actual abandonment observation permits retirement of that
+ *   generation. One monotonic admission budget covers every retry; expiration
+ *   throws without retiring a live or inconclusive owner.
  *
- * Retired generations remain as non-empty tombstones. Release and reclaim both
- * rename `current` to the observed generation's deterministic tombstone path.
- * Once generation A is retired, a stale observer or old finalizer for A cannot
- * rename successor B there because replacing the non-empty tombstone fails
- * atomically. `publishBuiltBinary`'s atomic rename remains defense in depth.
+ * Retired generations remain as non-empty tombstones while their holder or
+ * registered observers may still use the corresponding lease/fence. Release and
+ * reclaim both rename `current` to the observed generation's deterministic
+ * tombstone path. Once generation A is retired, a stale observer or old
+ * finalizer for A cannot rename successor B there because replacing the
+ * non-empty tombstone fails atomically. Pruning must prove the holder and every
+ * recorded observer gone before removing that history. The persistent root
+ * itself is retained, and `publishBuiltBinary`'s atomic rename remains defense
+ * in depth.
  */
 function buildUnderPluginLock(
   cacheDir: string,
   binaryPath: string,
   lockInfo: {
     label: string;
+    managedCache: boolean;
     pluginName: string;
     quiet: boolean;
   },
   build: () => string,
 ): string {
   const lockDir = `${cacheDir}.lock`;
+  const startedAt = performance.now();
   for (;;) {
     if (fs.existsSync(binaryPath)) {
       touchCacheEntry(cacheDir);
       return binaryPath;
     }
+    const remaining =
+      PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_WAIT_MS -
+      (performance.now() - startedAt);
+    if (remaining <= 0) {
+      throw new Error(
+        `ttsc: timed out waiting for ${lockInfo.label} "${lockInfo.pluginName}" ` +
+          `at ${lockDir}; no active generation was retired`,
+      );
+    }
     let lease: PluginBuildLockLease | null;
     try {
       lease = acquirePluginBuildLock(lockDir);
-    } catch {
-      // An unusable coordination directory must not silently skip the build.
-      // Atomic publication still preserves binary integrity.
+    } catch (error) {
+      // Managed payload eviction uses this lease too: an uncoordinated build
+      // would lose its directory while publishing. Explicit unmanaged roots
+      // have no ttsc collector and retain their atomic-publication fallback.
+      if (lockInfo.managedCache) throw error;
       return build();
     }
     if (lease === null) {
@@ -392,7 +441,11 @@ function buildUnderPluginLock(
         binaryPath,
         lockDir,
         lockInfo,
-        timeoutMs: PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_STEAL_MS,
+        timeoutMs: Math.max(
+          0,
+          PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_WAIT_MS -
+            (performance.now() - startedAt),
+        ),
       });
       if (waited.outcome === "published") {
         touchCacheEntry(cacheDir);
@@ -438,9 +491,9 @@ function reportPluginLockRelease(
   error: unknown,
 ): void {
   process.stderr.write(
-    `ttsc: could not release the ${lockInfo.label} "${lockInfo.pluginName}" ` +
+    `ttsc: could not finish cleanup for the ${lockInfo.label} "${lockInfo.pluginName}" ` +
       `cache lock at ${lockDir} (${error instanceof Error ? error.message : String(error)}); ` +
-      `other builds reclaim it once this process exits\n`,
+      `unconfirmed ownership or completion may defer later cache work\n`,
   );
 }
 
@@ -589,23 +642,29 @@ function publishBuiltBinary(builtBinary: string, binaryPath: string): void {
   const pending = `${binaryPath}.${process.pid}.${Date.now()}-${Math.random()
     .toString(16)
     .slice(2)}.tmp`;
-  fs.copyFileSync(builtBinary, pending);
-  if (process.platform !== "win32") {
-    fs.chmodSync(pending, 0o755);
-  }
   try {
-    fs.renameSync(pending, binaryPath);
-  } catch (error) {
-    fs.rmSync(pending, { force: true });
-    const code = (error as NodeJS.ErrnoException).code;
-    if (
-      (code === "EEXIST" || code === "EPERM" || code === "EACCES") &&
-      fs.existsSync(binaryPath)
-    ) {
-      return;
+    fs.copyFileSync(builtBinary, pending);
+    if (process.platform !== "win32") {
+      fs.chmodSync(pending, 0o755);
     }
-    throw error;
+    try {
+      fs.renameSync(pending, binaryPath);
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (
+        (code === "EEXIST" || code === "EPERM" || code === "EACCES") &&
+        fs.existsSync(binaryPath)
+      ) {
+        return;
+      }
+      throw error;
+    }
   } finally {
+    // Copy and permission failures can leave the same pending entry as a
+    // failed rename. Cleanup is best-effort so it preserves the build error.
+    try {
+      fs.rmSync(pending, { force: true });
+    } catch {}
     // Best-effort sweep of any leftover `.tmp` siblings from a prior
     // crash between copyFileSync and renameSync. Same-directory pending
     // names guarantee the rename stays a same-filesystem atomic op, so
@@ -691,9 +750,10 @@ function snapshotExternalSources(
     const parsed = path.parse(directory);
     const copy = path.join(
       root,
-      // A volume's letters alone: a drive, a UNC share, or a `\\?\` prefix
-      // leaves nothing that cannot name a directory.
-      parsed.root.replace(/[^A-Za-z0-9]+/g, "") || "root",
+      // Preserve distinct drive/UNC spellings without stripping punctuation.
+      // SHA-256 supplies the same collision-resistance premise as the cache
+      // key while keeping a long UNC root below native component limits.
+      crypto.createHash("sha256").update(parsed.root, "utf16le").digest("hex"),
       path.relative(parsed.root, directory),
     );
     materializeScratchDir(directory, copy);
@@ -756,6 +816,7 @@ function anchorReplaceDirectories(
  *
  * @param caches The plugin cache root and the Go build cache root.
  * @param sources Every source directory the key covers.
+ *
  * @throws When a cache lies inside a source, naming both.
  */
 function requireCachesOutsideSources(
@@ -777,16 +838,16 @@ function requireCachesOutsideSources(
  * Require the sources a build compiled to be the ones its key digested.
  *
  * The key reads each source directory before the build, which copies the module
- * and its contributors after any wait for the build lock and reads an overlay
- * or an outside replace target in place for the whole build. A source edited in
- * between is built into the binary, which would then be published, permanently,
- * under the key of the state before the edit, and served once the source
- * returned to it (samchon/ttsc#1505). The copy, or the directory read in place
- * once the build ended, is digested by the rule the key used
+ * and its contributors after any wait for the build lock and snapshots overlays
+ * and outside replace targets before Go starts. A source edited in between is
+ * built into the binary, which would then be published, permanently, under the
+ * key of the state before the edit, and served once the source returned to it
+ * (samchon/ttsc#1505). The copy is digested by the rule the key used
  * (`pluginSourceDigest`), and a difference publishes nothing.
  *
  * @param source The directory the key covers.
  * @param compiled What the build compiled from it: its copy, or itself.
+ *
  * @throws When the two differ, naming the directory.
  */
 function requireKeyedSource(

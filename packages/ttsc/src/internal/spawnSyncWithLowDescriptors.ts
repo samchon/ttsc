@@ -3,7 +3,25 @@ import fs from "node:fs";
 
 import type { SpawnSyncOutputFiles } from "./SpawnSyncOutputFiles";
 
-/** Launch through a shell-free child broker that owns only low descriptors. */
+/**
+ * Launch through a shell-free child broker that owns only low descriptors.
+ *
+ * The caller owns stdout/stderr capture files and reconstructs their contents;
+ * this operation returns command status and errors through a private report.
+ * Its supported broker mode ignores stdin and uses no shell. It does not
+ * reproduce arbitrary spawn input or stdio modes.
+ *
+ * @evidence contracts/common.md#principled-implementation A fresh Node child inherits only descriptors zero through two, opens owned capture files itself and launches the actual argv; its private status report preserves target exit and native error information rather than broker status alone.
+ * @evidence contracts/common.md#clear-and-simple-design One broker boundary separates descriptor acquisition from the already loaded parent; caller-owned capture remains external and the private result file carries only status/error metadata.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The isolated broker addresses actual POSIX source-descriptor limits without patching spawn or inventing compiler output; malformed/missing reports become protocol errors, and no shell quoting workaround is introduced.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish command results from file-backed output and state no-input/no-shell support, with separate acknowledgment tags.
+ * @evidence contracts/portability.md#os-neutral-implementation Supported POSIX fallback passes executable and argv without shell syntax; Node file APIs acquire low descriptors in the child, and timeout/signal/user options cross the native boundary explicitly.
+ * @evidence contracts/performance.md#efficient-algorithms One broker and one target are spawned; option/argument serialization costs their input size, while captured output stays in caller-owned files instead of duplicating unbounded pipe buffers here.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Command spawning and file output have external effects; this owner cannot share them solely because command and argv match.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The child closes its opened capture descriptors in finally, parent report removal is attempted in finally, and the capture owner removes any remaining report directory; configured target timeout adds a five-second broker allowance, while an omitted timeout remains unbounded.
+ */
 export function spawnSyncWithLowDescriptors(
   command: string,
   args: readonly string[],

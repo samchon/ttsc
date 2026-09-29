@@ -8,5 +8,10 @@
  *   declaration output is generated. Check plugins may also implement `fix` and
  *   `format` commands, which `ttsc fix` / `ttsc format` invoke with emit
  *   disabled.
+ *
+ * @evidence contracts/common.md#principled-implementation The two literal stages preserve the host distinction between source transformation and pre-emit diagnostics; they do not imply access to emitted artifacts.
+ * @evidence contracts/common.md#clear-and-simple-design A literal union names the two supported pipeline positions without adding independent mode flags.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Both discriminants are protocol values, not plugin-name exceptions or fixture-specific stages.
+ * @evidence contracts/common.md#meaningful-documentation Native JSDoc describes timing, available text and fix/format behavior in separate prose and list entries; a blank comment line separates these facts from acknowledgments, following the documentation skill.
  */
 export type TtscPluginStage = "transform" | "check";

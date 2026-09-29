@@ -18,7 +18,15 @@ import { autoQuoteGoModToken } from "./autoQuoteGoModToken";
  * `use`/`replace` line into a comment: `go` exits 0, reports nothing, and the
  * overlay module simply disappears from the workspace.
  *
- * Exported for unit tests.
+ * @evidence contracts/common.md#principled-implementation Separator normalization precedes Go's token formatter so UNC and extended-length spellings containing a comment opener are quoted rather than dropped from the workspace.
+ * @evidence contracts/common.md#clear-and-simple-design Path protocol spelling and token quoting are two explicit steps, sharing the same AutoQuote implementation as other modfile values.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Quoting responds to Go's actual lexer, including comment openers, rather than a growing list of known project path exceptions.
+ * @evidence contracts/common.md#meaningful-documentation The native paragraphs explain space, UNC and extended-length paths and why a bare slash pair loses a workspace entry.
+ * @evidence contracts/portability.md#os-neutral-implementation The helper converts Windows separators to Go workspace slash spelling, including UNC paths; literal POSIX backslashes remain a representation limitation of this cross-spelling formatter.
+ * @evidence contracts/performance.md#efficient-algorithms One separator pass and the token formatter's linear quote passes make time and temporary string space proportional to path length.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This converts one supplied path token and owns no shared resolution or build computation.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only its returned token survives; no filesystem handle or process is acquired.
  */
 export function formatGoWorkPath(p: string): string {
   return autoQuoteGoModToken(p.replace(/\\/g, "/"));

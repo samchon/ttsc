@@ -20,10 +20,24 @@ import { ProcessOwnedDirectory } from "./ProcessOwnedDirectory";
  * run cannot appear between inspection and removal.
  *
  * @param cacheRoot The resolved cache root.
+ *
  * @returns The directories to remove, and the run directories kept.
+ *
+ * @evidence contracts/common.md#principled-implementation Under the root lock, only provably abandoned owner sets become removal targets; live, unknown and unowned runs are preserved, and the physical run index pins external targets before unlinking an empty runtime tree.
+ * @evidence contracts/common.md#clear-and-simple-design The function plans targets and kept runs without performing deletion, separating ownership classification from the clean command's removal effects.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts No unreadable-owner or legacy unowned run is treated as abandoned merely to make clean remove more directories; physical target selection corrects alias identity rather than compensating with lexical retries.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain kept ownership, the required lock and whole-tree removal, with parameters and return fields documented following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Native realpath pins a linked run index; path joins retain host spelling and ProcessOwnedDirectory uses conservative local process evidence instead of OS-name case or signal assumptions.
+ * @evidence contracts/performance.md#efficient-algorithms A single directory listing and one ownership scan per run cost O(E + R) entries and owner records, with O(E) target/kept storage; no repeated full-root scan is needed.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Ownership can change between clean invocations; the caller's held lock validates only this plan, not a reusable historical plan.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The call returns a removal plan and closes synchronous reads; the clean command owns deletion, and live processes retain their own run resources.
  */
 export function resolveRuntimeCleanTargets(cacheRoot: string): {
+  /** Run directories protected by live, unknown or absent ownership evidence. */
   kept: string[];
+
+  /** Pinned abandoned targets, followed by the runtime tree when none is kept. */
   targets: string[];
 } {
   const runtime = path.join(

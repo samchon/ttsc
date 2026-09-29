@@ -9,6 +9,11 @@ import type { ITtscCapabilityResolutionPlugin } from "./ITtscCapabilityResolutio
  * a manifest string — which is why it is cached here and not one layer down.
  * `loadProjectPlugins` returns live plugin descriptors the compiler drives, and
  * writing those to disk would be caching a different, much larger thing.
+ *
+ * @evidence contracts/common.md#principled-implementation A serializable answer is paired with evaluation-time input hashes/realpaths, plugin build states and format/version identity so reuse can be refused when any premise changes.
+ * @evidence contracts/common.md#clear-and-simple-design The cache entry contains the narrow capability answer and its proof data, leaving live descriptor execution state out of persistence.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Stored source states prove the binary's real build inputs instead of trusting an existing old executable or a plugin-name guess.
+ * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains why this answer is persisted, source/environment invalidation and verbatim manifest payloads; paragraphs, member and tag spacing follow the documentation skill.
  */
 export interface ITtscCapabilityResolutionEntry {
   /** Cache format plus the ttsc build that wrote it. */

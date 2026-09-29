@@ -22,6 +22,17 @@ import { windowsGoCommandArgs } from "./windowsGoCommandArgs";
  * wrapper is run through a generated shim with exact argument quoting; a
  * descriptor-exhaustion failure on POSIX is retried through the low-descriptor
  * broker.
+ *
+ * @evidence contracts/common.md#principled-implementation Child streams are routed to owned files and then reconstructed as the normal SpawnSyncReturns shape; Windows wrappers receive one-pass environment expansion and native argv quoting rather than unsafe shell concatenation.
+ * @evidence contracts/common.md#clear-and-simple-design Output capture lifetime is separate from process selection and wrapper quoting; finally covers spawn failures and output-read failures alike.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts POSIX broker retry handles actual descriptor exhaustion and Windows cmd handles supported batch wrappers; neither changes a failed build into an assumed success.
+ * @evidence contracts/common.md#meaningful-documentation Native comments explain file capture, missing-wrapper ENOENT and the platform errno/quoting semantics; prose and tags remain distinct.
+ * @evidence contracts/portability.md#os-neutral-implementation Windows cmd wrappers are isolated with verbatim arguments and case-insensitive environment lookup; native binaries and POSIX go use Node spawning and the descriptor broker.
+ * @evidence contracts/performance.md#efficient-algorithms Output capture avoids the spawn buffer ceiling, then reads O(B) captured bytes once; wrapper argument encoding is linear in total argument length.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Go commands can write build/module state and cannot share a result merely because executable and arguments match.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources This synchronous call owns capture files/descriptors and releases them in finally; returned stdout/stderr occupy O(B) bytes owned by the caller, with no output-size bound imposed here.
  */
 export function spawnGoTool(
   goBinary: string,

@@ -3,6 +3,12 @@ import type { ITtscProjectPluginConfig } from "../ITtscProjectPluginConfig";
 /**
  * Internal options shared by the CLI build, single-file emit, and runtime
  * paths.
+ *
+ * @evidence contracts/common.md#principled-implementation Optional overrides preserve default resolution and distinguish disabled plugins from an explicit replacement list; passthrough tokens retain the native compiler's own option parser authority.
+ * @evidence contracts/common.md#clear-and-simple-design The shared record contains cross-path project/process policy once; build and single-file options extend it with their own operation-specific controls.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Native binary/env injection is a supported embedding boundary; compiler options remain tokens rather than hardcoded approximations of the entire native schema.
+ * @evidence contracts/common.md#meaningful-documentation Native comments explain option ownership, config discovery origins, threading and plugin override states; paragraphs, member and tag spacing follow the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path inputs and Node environment data stay separate from passthrough argv tokens, enabling OS-neutral spawn/path handling without shell quoting assumptions or platform-specific executable names in this representation.
  */
 export interface TtscCommonOptions {
   /**

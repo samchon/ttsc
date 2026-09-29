@@ -4,19 +4,26 @@
  *
  * `path` is the spelling to hand back to the filesystem or to a user: the
  * physical spelling of every existing segment (reparse points and Windows 8.3
- * names expanded) followed by the missing suffix as the caller wrote it. `key`
- * is the spelling to compare: equal keys mean one file or directory, whichever
- * alias reached it. Two paths are never compared by `path`, because a drive
- * letter's case and a case-insensitive suffix both vary between spellings of
- * one location.
+ * names expanded) followed by a missing suffix canonicalized according to its
+ * nearest existing ancestor's measured ASCII case policy. `key` is the spelling
+ * to compare under those observations; missing names are locations, not proof
+ * that an entry exists. Unknown case policy and unproved Unicode equivalence
+ * retain distinct keys, so key inequality cannot prove physical distinction.
  *
  * Produced by {@link FilesystemPathIdentityContext.resolve}.
+ *
+ * @evidence contracts/common.md#principled-implementation The pair separates comparison spelling from the path usable by native consumers; existing segments are physically resolved and missing ASCII suffixes fold only under observed insensitivity. Unknown and Unicode variants may retain different keys without proof of distinct physical entries.
+ * @evidence contracts/common.md#clear-and-simple-design Two named fields expose the distinction without storing a second independently computed identity policy.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The representation records native resolution outcomes instead of fixture spellings or global case-folding assertions.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain comparison versus returned spelling, missing-suffix canonicalization and member use; documented properties are separated and carry no acknowledgment tags.
+ * @evidence contracts/portability.md#os-neutral-implementation Existing native aliases and Windows volume-root spelling are represented separately from missing-suffix case policy; unknown directory policy preserves exact spellings and cannot authorize treating case variants as equivalent.
  */
 export type FilesystemPathIdentity = {
   /**
-   * Comparison key. Equal keys denote the same filesystem entry. On Windows the
-   * volume root is lower-cased, and a missing suffix under a case-insensitive
-   * directory is folded to lower case so it matches every future spelling.
+   * Comparison key under this transaction's filesystem observations. Windows
+   * volume roots use native root grammar. Missing ASCII letters fold only under
+   * measured insensitivity; unknown and non-ASCII variants can retain distinct
+   * keys even when a later native observation would establish an alias.
    */
   key: string;
 

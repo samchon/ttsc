@@ -8,6 +8,11 @@ import type { ValueValidator } from "./ValueValidator";
  * which subcommands accept the flag, where it is consumed, where it is
  * forwarded, whether it is terminal (prints and exits) — so the next layer
  * never silently drops the flag.
+ *
+ * @evidence contracts/common.md#principled-implementation The record separates token arity, command acceptance, consumer ownership, forwarding and terminal behavior because each controls a distinct parser or pipeline decision. Native capability discriminants prevent sending unsupported bare arguments to older hosts.
+ * @evidence contracts/common.md#clear-and-simple-design One schema row owns a flag's identities and routing policy, allowing parser, launcher classifications and generated native allow-lists to derive their views from the same declaration.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Terminal and projectFree distinctions express real tool semantics, and internalShadow records user-visible ownership rather than matching fixture spellings or mutating the native parser.
+ * @evidence contracts/common.md#meaningful-documentation Members explain absence defaults, repeated-value ordering, terminal/project-free distinctions and capability ownership. Separate member paragraphs and blank lines follow the documentation skill's association and rationale guidance without property-level checklist tags.
  */
 export interface FlagSpec {
   /**

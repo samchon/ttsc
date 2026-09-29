@@ -16,9 +16,31 @@ import type { ITtscProjectInputSnapshot } from "../../../structures/internal/ITt
  * them to notice a change that landed in between. The two sides must therefore
  * hash identically, byte for byte and on every platform; the Windows parity
  * test in `internal/lspserver` pins that.
+ *
+ * @evidence contracts/common.md#principled-implementation Domain-framed content, link and topology records encode the same selection distinctions as the Go validator; physical directory identity is distinct from leaf-link identity and ordinary child content.
+ * @evidence contracts/common.md#clear-and-simple-design One namespace owns digest framing and physical spelling so capture and validation cannot maintain independent versions of the startup protocol.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing, unreadable and non-file states are explicit protocol records rather than fabricated bytes; native readers remain supported APIs without foreign replacement.
+ * @evidence contracts/common.md#meaningful-documentation Namespace and helper comments explain cross-host framing, raw-byte preservation and leaf identity, with separated public tags and member paragraphs following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Windows native paths use the shared identity resolver; POSIX reads preserve raw path and link-target bytes, and neither branch infers filesystem case from an OS label.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms This namespace groups digest operations but chooses no computation itself; its functions acknowledge their own traversal and allocation costs.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The namespace retains no digest or validity state; each function supplies the current observation its caller needs.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The namespace owns no stored baseline, handle or running task; capture and session owners control returned observations.
  */
 export namespace LSPProjectInputDigest {
-  /** A project-input snapshot plus the fingerprints taken when it was read. */
+  /**
+   * A project-input snapshot plus the fingerprints taken when it was read.
+   *
+   * @evidence contracts/common.md#principled-implementation The intersection retains dependency declarations and attaches separate read-time file/content and directory/topology observations keyed by those declarations.
+   * @evidence contracts/common.md#clear-and-simple-design Two readonly maps add baseline evidence without copying the base dependency schema or merging distinct reload semantics.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The representation stores actual captured digests rather than a precomputed compliance boolean that could conceal changed inputs.
+   * @evidence contracts/common.md#meaningful-documentation Native type and member comments identify read-time provenance and topology versus content, using blank member lines and prose/tag separation following the documentation skill.
+   * @evidence contracts/portability.md#os-neutral-implementation Map keys preserve declared native spellings while the digest producer separately handles physical identity and link state across supported platforms.
+   *
+   * @evidenceExclude contracts/performance.md#efficient-algorithms This baseline type represents observations without choosing a traversal or hashing algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work The representation does not coordinate equivalent requests; capture and validation functions own whether a selection remains reusable.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Session callers own the baseline lifetime; declaring its maps does not allocate or retain historical snapshots independently.
+   */
   export type InitialLSPProjectInputSnapshot = ITtscProjectInputSnapshot & {
     /** Topology digest of each reload directory, keyed by its declared path. */
     reloadDirectoryDigests: Readonly<Record<string, string>>;
@@ -31,6 +53,16 @@ export namespace LSPProjectInputDigest {
    * Digest of a directory's immediate topology: each child's name, kind, and
    * link target, resolved through the directory's physical identity. Content of
    * the children is not part of it.
+   *
+   * @evidence contracts/common.md#principled-implementation The framed digest combines physical directory identity with sorted immediate name/kind/link-target records, so topology and directory retargeting invalidate selection without treating ordinary child content as topology.
+   * @evidence contracts/common.md#clear-and-simple-design Physical identity and immediate topology have separate private readers and combine at one documented protocol boundary.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The missing topology marker is shared protocol state, not an expected output; unreadable link targets remain explicit and no foreign filesystem function is replaced.
+   * @evidence contracts/common.md#meaningful-documentation The native paragraph states exactly which entry facts count and excludes child contents, with separated tags following the documentation skill.
+   * @evidence contracts/portability.md#os-neutral-implementation Windows uses native resolved spelling; POSIX passes raw physical bytes through topology enumeration, preserving backslashes and non-UTF-8 names rather than converting them into protocol separators.
+   * @evidence contracts/performance.md#efficient-algorithms For E immediate entries and B serialized bytes, sorting costs O(E log E) comparisons and framing/hashing O(B); traversal remains immediate and does not recursively scan child trees.
+   *
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each reading is a freshness observation; sharing prior topology would need an independent change witness which this digest boundary does not own.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Native synchronous reads close their handles; identity context and entry buffers are local to one call with storage proportional to immediate topology.
    */
   export function lspProjectInputReloadDirectoryDigest(
     location: string,
@@ -70,17 +102,16 @@ export namespace LSPProjectInputDigest {
     while (true) {
       try {
         const realpath = fs.realpathSync.native ?? fs.realpathSync;
-        let physical = realpath(Buffer.from(existing), {
+        const physical = realpath(Buffer.from(existing), {
           encoding: "buffer",
         });
-        for (const segment of missing) {
-          physical = Buffer.concat([
-            physical,
-            physical.at(-1) === 0x2f ? Buffer.alloc(0) : Buffer.from("/"),
-            segment,
-          ]);
+        const segments: Buffer[] = [physical];
+        for (let index = missing.length - 1; index >= 0; index--) {
+          if (index !== missing.length - 1 || physical.at(-1) !== 0x2f)
+            segments.push(Buffer.from("/"));
+          segments.push(missing[index]!);
         }
-        return physical;
+        return Buffer.concat(segments);
       } catch (error) {
         if (
           error instanceof Error &&
@@ -92,7 +123,7 @@ export namespace LSPProjectInputDigest {
         }
         const parent = path.dirname(existing);
         if (parent === existing) return Buffer.from(existing);
-        missing.unshift(Buffer.from(path.basename(existing)));
+        missing.push(Buffer.from(path.basename(existing)));
         existing = parent;
       }
     }
@@ -190,6 +221,16 @@ export namespace LSPProjectInputDigest {
    * editing its target are both changes; a regular file hashes its bytes; a
    * missing path hashes a stable `missing` marker, so creating it later is a
    * change; anything else hashes as `other`.
+   *
+   * @evidence contracts/common.md#principled-implementation Distinct file, symlink, missing and other frames preserve entry meaning; a symlink includes both its raw target and reached bytes so either retargeting or content drift changes the fingerprint.
+   * @evidence contracts/common.md#clear-and-simple-design One lstat-driven dispatch owns entry-kind framing and keeps dangling or unreadable symlink content distinct from a missing link itself.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Fixed markers encode the native wire contract's unavailable states; the function reads actual entries rather than replacing content with expected diagnostics or test values.
+   * @evidence contracts/common.md#meaningful-documentation Native prose documents each entry kind and the two symlink inputs, with tags separated according to the documentation skill.
+   * @evidence contracts/portability.md#os-neutral-implementation Native lstat, readlink and readFile preserve host link semantics; Buffer target reads retain POSIX raw bytes while Windows supplies the native target representation consumed by the Go peer.
+   * @evidence contracts/performance.md#efficient-algorithms One entry classification and at most one target/content read produce the digest; time and temporary bytes scale with the target string and reached file contents rather than unrelated files.
+   *
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This produces a current observation, not a cached selection; a prior digest cannot be reused without separately proving the file and link remained unchanged.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Synchronous native calls retain no handle after return and content buffers are local; no historical file population accumulates.
    */
   export function lspProjectInputFileDigest(location: string): string {
     try {
@@ -251,11 +292,8 @@ export namespace LSPProjectInputDigest {
     const suffix: string[] = [];
     for (;;) {
       try {
-        let resolved = resolveProjectInputPath(fs.realpathSync.native(probe));
-        for (let index = suffix.length - 1; index >= 0; index--) {
-          resolved = path.join(resolved, suffix[index]!);
-        }
-        return path.normalize(resolved);
+        const resolved = resolveProjectInputPath(fs.realpathSync.native(probe));
+        return path.join(resolved, ...suffix.reverse());
       } catch {
         const parent = path.dirname(probe);
         if (parent === probe) return path.normalize(absolute);
@@ -269,6 +307,16 @@ export namespace LSPProjectInputDigest {
    * The physical spelling of an entry's parent directory joined with the
    * entry's own name, so a symlinked file keeps its link identity while an
    * aliased directory above it is resolved.
+   *
+   * @evidence contracts/common.md#principled-implementation Resolving only the parent and reattaching the basename preserves the leaf link as an entry while removing ancestor aliases, which is the identity exact reload-file fingerprints require.
+   * @evidence contracts/common.md#clear-and-simple-design Parent canonicalization stays with one private resolver; this public adapter expresses the leaf-preserving operation in one native join.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing suffixes are retained beneath a resolved ancestor rather than replaced with an unrelated existing path or an assumed target.
+   * @evidence contracts/common.md#meaningful-documentation The native paragraph explains why the leaf differs from its ancestors, and separated tags follow the documentation skill.
+   * @evidence contracts/portability.md#os-neutral-implementation Shared native spelling normalization handles extended Windows paths while native dirname/basename/join preserve POSIX names; no unconditional case folding is used.
+   * @evidence contracts/performance.md#efficient-algorithms The ancestor walk makes at most one realpath probe per missing path component and rejoins retained components once, using space proportional to that suffix.
+   *
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Ancestor aliases may retarget between captures, so this current resolver owns no reusable validity proof or persistent canonicalization cache.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only local path components are retained through the synchronous walk; no handle or cross-call path history survives.
    */
   export function realLSPProjectInputEntryPath(location: string): string {
     const absolute = resolveProjectInputPath(location);

@@ -3,6 +3,11 @@
  * (e.g. `"--singleThreaded"`); boolean flags resolve to `true`/`false`, value
  * flags to the parsed value type. Callers narrow with the helpers below
  * (`getBoolean`, `getString`, `getNumber`).
+ *
+ * @evidence contracts/common.md#principled-implementation Canonical-name maps retain typed launcher values separately from ordered passthrough, positional and program-tail tokens; the repeated map preserves all occurrences when last-value selection is insufficient.
+ * @evidence contracts/common.md#clear-and-simple-design Each result member names one destination or occurrence policy, so consumers need no second parsing pass to reconstruct compiler versus program arguments.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The separate tail prevents program arguments from becoming compiler flags, and canonical keys derive from FlagSpec instead of consumer-specific spelling checks.
+ * @evidence contracts/common.md#meaningful-documentation Native member comments explain canonical keys, repetition ordering and the distinction between compiler passthrough and program tail; their separated presentation follows the documentation skill without member checklist tags.
  */
 export interface ParseResult {
   /** Canonical flag name → resolved value. */

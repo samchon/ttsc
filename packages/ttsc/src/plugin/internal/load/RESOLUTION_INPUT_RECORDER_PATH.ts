@@ -20,3 +20,15 @@ export const RESOLUTION_INPUT_RECORDER_PATH: string = path.resolve(
   "resolutioninputs",
   "recorder.cjs",
 );
+
+/** The owning runtime's observation status module, shared with isolated writers. */
+export const PLUGIN_INPUT_OBSERVATION_PATH: string = path.resolve(
+  __dirname,
+  "..",
+  "..",
+  "..",
+  "launcher",
+  "internal",
+  "runtime",
+  "PluginDescriptorInputObservation.js",
+);

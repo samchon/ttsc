@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 import { isContendedCandidateRename } from "../../../internal/isContendedCandidateRename";
@@ -7,31 +8,47 @@ import type { PluginBuildLockFence } from "./PluginBuildLockFence";
 import type { PluginBuildLockObservation } from "./PluginBuildLockObservation";
 import { PluginBuildLockOwner } from "./PluginBuildLockOwner";
 import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
-import { formatDuration } from "./formatDuration";
 
 /**
  * Classify the current state of a plugin build lock directory.
  *
- * Exported for unit tests.
+ * Occupied v3 observations register this process as a fence holder and confirm
+ * the generation before returning. These records move into its tombstone and
+ * remain until the observer is provably gone. No heartbeat or timeout
+ * establishes that a live observer cannot act.
+ *
+ * An owner record whose generation is missing or mismatched remains active and
+ * inconclusive: another generation's absent PID cannot authorize this one.
+ * Unusable owner metadata also remains inconclusive regardless of age. Ordinary
+ * v3 publication includes the complete owner record; old legacy builders could
+ * continue after best-effort owner publication failed.
+ *
+ * @evidence contracts/common.md#principled-implementation An observer is registered under a captured generation before owner classification; generation rechecks prevent a replacement from inheriting the captured fence, whose reserved retirement destination survives the builder's death.
+ * @evidence contracts/common.md#clear-and-simple-design Protocol selection, generation observation and legacy fence capture have separate helpers; the public result distinguishes absence from active and abandoned ownership.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts A replaced generation causes re-observation or a released handoff; ambiguous process errors are not interpreted as death, and observer age cannot replace liveness proof.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe observer registration, token retention and inconclusive owner metadata before the tags; private comments explain generation races and legacy record compatibility.
+ * @evidence contracts/portability.md#os-neutral-implementation Node filesystem and path APIs carry native access, while ESRCH-only local probing distinguishes absent processes from permission failure or remote identity.
+ * @evidence contracts/performance.md#efficient-algorithms Each stable observation uses a bounded set of metadata reads and direct token paths; only a changing legacy path causes retry, with no generation-directory scan.
+ * @evidence contracts/performance.md#reuse-equivalent-work A module's nonce shares one observer registration across polls of the same generation; liveness and current identity remain freshly observed because they can change between requests.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Candidate observer records are cleaned in finally; published records protect outstanding fences until process death, so retained generations grow with distinct observations by still-live or unprobeable observers rather than polling count.
  */
 export function inspectPluginBuildLock(
   lockDir: string,
-  now: number,
 ): PluginBuildLockObservation {
   const protocolDir =
     PluginBuildLockProtocol.pluginBuildLockProtocolDir(lockDir);
   for (;;) {
-    if (PluginBuildLockProtocol.isPluginBuildLockProtocolV2(protocolDir)) {
-      const v2 = inspectV2PluginBuildLock(protocolDir, now);
-      if (v2.state !== "released") {
-        return v2;
+    if (PluginBuildLockProtocol.isPluginBuildLockProtocolV3(protocolDir)) {
+      const current = inspectV3PluginBuildLock(protocolDir);
+      if (current.state !== "released") {
+        return current;
       }
     }
     const legacy = captureLegacyPluginBuildLockFence(lockDir);
     if (legacy !== null) {
-      return inspectLegacyPluginBuildLock(lockDir, now, legacy);
+      return inspectLegacyPluginBuildLock(lockDir, legacy);
     }
-    if (pluginBuildLockAgeMs(lockDir, now) === null) {
+    if (pluginBuildLockPathMissing(lockDir)) {
       return { state: "released" };
     }
     // The path changed while its legacy fence was being captured. Re-observe
@@ -39,29 +56,43 @@ export function inspectPluginBuildLock(
   }
 }
 
-const PLUGIN_BUILD_LOCK_LEGACY_STALE_MS = 30_000;
+// Each loaded module records one observer per generation. A random process
+// incarnation token keeps a reused PID or another worker's module separate.
+const PLUGIN_BUILD_LOCK_OBSERVER = crypto.randomBytes(16).toString("hex");
 
-function inspectV2PluginBuildLock(
-  lockDir: string,
-  now: number,
-): PluginBuildLockObservation {
+function inspectV3PluginBuildLock(lockDir: string): PluginBuildLockObservation {
   const generationDir = path.join(
     lockDir,
     PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_CURRENT_DIR,
   );
   const generation = readPluginBuildLockGeneration(generationDir);
   if (generation === null) {
-    if (pluginBuildLockAgeMs(generationDir, now) === null) {
+    if (pluginBuildLockPathMissing(generationDir)) {
       return { state: "released" };
     }
     throw new Error(
       `ttsc plugin build lock has no valid ${PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_GENERATION_FILE}: ${generationDir}`,
     );
   }
-  const fence: PluginBuildLockFence = { protocol: "v2", generation };
+  if (!registerPluginBuildLockObserver(lockDir, generationDir, generation)) {
+    return { state: "released" };
+  }
+  const fence: PluginBuildLockFence = { protocol: "v3", generation };
   const owner = PluginBuildLockOwner.read(generationDir);
+  // Owner and generation are read through a mutable current pathname. A
+  // replacement must not inherit an earlier generation's liveness decision.
+  if (readPluginBuildLockGeneration(generationDir) !== generation) {
+    return { state: "released" };
+  }
   if (owner !== null) {
     const label = PluginBuildLockOwner.describe(owner);
+    if (owner.generation !== generation) {
+      return {
+        state: "active",
+        owner: `${label} with unconfirmed generation metadata`,
+        fence,
+      };
+    }
     if (PluginBuildLockOwner.gone(owner)) {
       return {
         state: "abandoned",
@@ -76,29 +107,71 @@ function inspectV2PluginBuildLock(
     };
   }
 
-  const ageMs = pluginBuildLockAgeMs(generationDir, now);
-  if (ageMs === null) {
-    return { state: "released" };
-  }
-  if (ageMs > PLUGIN_BUILD_LOCK_LEGACY_STALE_MS) {
-    return {
-      state: "abandoned",
-      reason:
-        `lock generation has no ${PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_OWNER_FILE} and is ` +
-        `${formatDuration(ageMs)} old`,
-      fence,
-    };
-  }
+  // Normal v3 publication includes a complete owner record. Its absence or
+  // unreadability is inconclusive, not a creator window that age can expire.
   return {
     state: "active",
-    owner: `lock generation with no ${PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_OWNER_FILE}`,
+    owner: `lock generation with unconfirmed ${PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_OWNER_FILE}`,
     fence,
   };
 }
 
+/**
+ * Publish this process's fence ownership before returning an observation. A
+ * claim moves with current into its tombstone. Retirement prevents further
+ * claims from entering that old generation, so collection sees a closed set.
+ */
+function registerPluginBuildLockObserver(
+  protocolDir: string,
+  generationDir: string,
+  generation: string,
+): boolean {
+  const observers = path.join(
+    generationDir,
+    PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_OBSERVERS_DIR,
+  );
+  const observer = path.join(observers, PLUGIN_BUILD_LOCK_OBSERVER);
+  try {
+    fs.mkdirSync(observers);
+  } catch (error) {
+    if (PluginBuildLockProtocol.isMissingPathError(error)) return false;
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+  }
+  if (!fs.existsSync(observer)) {
+    const candidate = path.join(
+      protocolDir,
+      `observer-candidate-${PLUGIN_BUILD_LOCK_OBSERVER}-${generation}`,
+    );
+    fs.mkdirSync(candidate);
+    try {
+      fs.writeFileSync(
+        path.join(
+          candidate,
+          PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_OWNER_FILE,
+        ),
+        `${JSON.stringify({ hostname: os.hostname(), pid: process.pid })}\n`,
+        { encoding: "utf8", flag: "wx" },
+      );
+      try {
+        fs.renameSync(candidate, observer);
+      } catch (error) {
+        if (PluginBuildLockProtocol.isMissingPathError(error)) return false;
+        if (
+          !PluginBuildLockProtocol.isRenameDestinationOccupied(error, observer)
+        )
+          throw error;
+      }
+    } finally {
+      fs.rmSync(candidate, { force: true, recursive: true });
+    }
+  }
+  // A claim accidentally published into a successor cannot authorize the old
+  // fence. Its harmless extra record is collected when this process exits.
+  return readPluginBuildLockGeneration(generationDir) === generation;
+}
+
 function inspectLegacyPluginBuildLock(
   lockDir: string,
-  now: number,
   legacy: PluginBuildLockProtocol.LegacyPluginBuildLockFence,
 ): PluginBuildLockObservation {
   const owner = PluginBuildLockOwner.read(lockDir);
@@ -118,19 +191,11 @@ function inspectLegacyPluginBuildLock(
     };
   }
 
-  const ageMs = Math.max(0, now - legacy.legacyMtimeMs);
-  if (ageMs > PLUGIN_BUILD_LOCK_LEGACY_STALE_MS) {
-    return {
-      state: "abandoned",
-      reason:
-        `legacy lock has no ${PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_OWNER_FILE} and is ` +
-        `${formatDuration(ageMs)} old`,
-      fence: legacy.fence,
-    };
-  }
+  // Old builders treated owner publication as best effort and could continue
+  // working without that file. Directory age cannot prove their task ended.
   return {
     state: "active",
-    owner: `legacy lock with no ${PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_OWNER_FILE}`,
+    owner: `legacy lock with unconfirmed ${PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_OWNER_FILE}`,
     fence: legacy.fence,
   };
 }
@@ -138,7 +203,7 @@ function inspectLegacyPluginBuildLock(
 function captureLegacyPluginBuildLockFence(
   lockDir: string,
 ): PluginBuildLockProtocol.LegacyPluginBuildLockFence | null {
-  if (PluginBuildLockProtocol.isPluginBuildLockProtocolV2(lockDir)) {
+  if (PluginBuildLockProtocol.isPluginBuildLockProtocolV3(lockDir)) {
     return null;
   }
 
@@ -207,11 +272,11 @@ function captureLegacyPluginBuildLockFence(
 
   // A stale observer can resume after the legacy holder released or another
   // process retired the path. Confirm both the legacy layout and token after
-  // publication; v2 ownership is kept in the orthogonal sibling directory.
+  // publication; v3 ownership is kept in the orthogonal sibling directory.
   const confirmed =
     PluginBuildLockProtocol.readLegacyPluginBuildLockFence(fenceDir);
   if (
-    PluginBuildLockProtocol.isPluginBuildLockProtocolV2(lockDir) ||
+    PluginBuildLockProtocol.isPluginBuildLockProtocolV3(lockDir) ||
     confirmed === null ||
     confirmed.fence.generation !== captured.fence.generation
   ) {
@@ -240,21 +305,14 @@ function readPluginBuildLockGeneration(generationDir: string): string | null {
 }
 
 /**
- * Age of an observed lock directory, or `null` when it no longer exists. The
- * holder may have retired it between the caller's checks. "Missing" is a
- * observation, never encoded as a numeric age: the previous
- * `Number.POSITIVE_INFINITY` encoding made a just-released lock look like an
- * infinitely old abandoned legacy lock (issue #421).
- *
- * A stat failure that does not prove absence (e.g. `EPERM`) clamps to age 0:
- * the lock is treated as fresh so a waiter never steals on ambiguous evidence,
- * while the caller's wait budget still bounds the stall.
+ * Whether a path lookup proves absence. Permission and sharing failures are
+ * inconclusive, never evidence of a released or old abandoned generation.
  */
-function pluginBuildLockAgeMs(lockDir: string, now: number): number | null {
+function pluginBuildLockPathMissing(lockDir: string): boolean {
   try {
-    return Math.max(0, now - fs.statSync(lockDir).mtimeMs);
+    fs.statSync(lockDir);
+    return false;
   } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    return code === "ENOENT" || code === "ENOTDIR" ? null : 0;
+    return PluginBuildLockProtocol.isMissingPathError(error);
   }
 }

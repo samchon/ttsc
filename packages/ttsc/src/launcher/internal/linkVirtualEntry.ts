@@ -12,6 +12,12 @@ import fs from "node:fs";
  * Exported for direct exercise by the ttsx e2e suite: the Windows fallback
  * branches cannot be reached through a spawned run on CI, because creating a
  * file-symlink fixture needs the very privilege the fallback avoids.
+ *
+ * @evidence contracts/common.md#principled-implementation The entry kind selects a directory link, file hard-link/copy or symlink route; a missing target cannot be materialized by the file-copy fallback.
+ * @evidence contracts/common.md#clear-and-simple-design One mirror operation owns link creation and its native fallback; the private target-kind helper only resolves directory symlinks.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Copying after an unavailable hard link and junctions after Windows symlink restrictions address supported filesystem differences; no test identity changes production behavior.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain alias/copy behavior, dangling targets and Windows privilege constraints, with acknowledgment tags separated from that explanation.
+ * @evidence contracts/portability.md#os-neutral-implementation Node filesystem APIs represent actual link/copy capabilities; Windows junction selection is explicit, while failed hard-link/symlink operations determine the fallback rather than guessed volume policy.
  */
 export function linkVirtualEntry(
   realEntry: string,

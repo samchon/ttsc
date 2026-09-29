@@ -7,16 +7,18 @@ import { runBuild } from "../../compiler/internal/build/runBuild";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { resolveProjectConfig } from "../../compiler/internal/project/resolveProjectConfig";
 import { runSingleFileEmit } from "../../compiler/internal/runSingleFileEmit";
+import { SidecarEnvironment } from "../../compiler/internal/sharedHost/SidecarEnvironment";
 import { getBoolean } from "../../flags/getBoolean";
 import { getNumber } from "../../flags/getNumber";
 import { getString } from "../../flags/getString";
 import { parseFlags } from "../../flags/parseFlags";
 import { resolveFlagSpec } from "../../flags/resolveFlagSpec";
 import { cacheEntryExists } from "../../internal/cacheEntryExists";
+import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
+import { isFilesystemPathIdentityWithin } from "../../internal/pathIdentity/isFilesystemPathIdentityWithin";
 import { resolvePhysicalPath } from "../../internal/pathIdentity/resolvePhysicalPath";
 import { resolveSafeCacheCleanupTargets } from "../../internal/resolveSafeCacheCleanupTargets";
 import { SourceBuildCacheLayout } from "../../plugin/internal/source/SourceBuildCacheLayout";
-import { isPathWithin } from "../../plugin/internal/source/isPathWithin";
 import { legacyGlobalCacheTargets } from "../../plugin/internal/source/legacyGlobalCacheTargets";
 import { resolveCleanTargets } from "../../plugin/internal/source/resolveCleanTargets";
 import { resolveSourceBuildCachePaths } from "../../plugin/internal/source/resolveSourceBuildCachePaths";
@@ -38,9 +40,24 @@ import { WatchTopology } from "./watch/WatchTopology";
  * an exit code. Errors thrown by any lane are caught here and written to stderr
  * so the process can exit cleanly.
  *
+ * Watch setup returns before its asynchronous first build finishes. Signal
+ * shutdown uses the latest completed build status; topology failure closes the
+ * owned watchers and resident host. Cache cleanup validates its full target set
+ * and preserves the caller's Go cache, including overlapping explicit targets.
+ *
  * @param argv - Command-line arguments (defaults to `process.argv.slice(2)`).
- * @returns The exit code: `0` on success, `1` on binary-not-found, `2` on user
- *   error or build failure.
+ *
+ * @returns The selected lane's status, or `2` for an error caught by this
+ *   entry.
+ *
+ * @evidence contracts/common.md#principled-implementation Command and schema identities select the declared build, check, edit and cache lanes; emit tri-state and ordered passthrough values preserve compiler authority, while the whole physical cleanup transaction protects project and caller-owned Go cache state.
+ * @evidence contracts/common.md#clear-and-simple-design One public entry owns dispatch and reporting; private argument, cleanup, single-file and watch operations isolate their distinct lifecycles while sharing the package's flag and build owners.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Command names and debounce timing are declared CLI policy, not consumer-specific answers; failures keep their real statuses, and source changes cannot be hidden by caching an earlier plugin binary.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish synchronous dispatch from watch lifetime and explain cleanup authority; parameter and result descriptions are separated from acknowledgments following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Native cwd resolution and physical identities anchor reporting, cache containment and deletion; environment lookup preserves native name identity, and process/watch behavior is delegated to supported package boundaries rather than shell commands.
+ * @evidence contracts/performance.md#efficient-algorithms Argument cursors visit each token once without repeated head shifts; cleanup shares one identity context and deduplicates deletion paths. Watch work includes compiler discovery and input fingerprinting owned by its topology rather than an extra launcher transform.
+ * @evidence contracts/performance.md#reuse-equivalent-work A watch lifetime retains one resident check coordinator and forwards ordered change deltas; topology changes reset that selection, while ordinary effectful builds remain separate and source-built binaries reuse only their validated input identity.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Watch setup, failure and signal shutdown share idempotent cleanup of timer, signal listeners, topology and resident hosts; pending changes belong to the current cycle. Input-dependent topology state persists until shutdown, while cache cleanup retains no historical target population.
  */
 export function runTtsc(
   argv: readonly string[] = process.argv.slice(2),
@@ -256,7 +273,24 @@ function runCleanWithContext(
   // environment-selected TTSC_GO_CACHE_DIR and a legacy-global cache can be as
   // destructive as an explicit --cache-dir when either equals or contains the
   // project through its lexical spelling or a filesystem alias.
-  const safeTargets = resolveSafeCacheCleanupTargets(projectRoot, targets);
+  const providedGoCache = SidecarEnvironment.read(
+    process.env,
+    "GOCACHE",
+  )?.trim();
+  const protectedDirectories =
+    providedGoCache === undefined ||
+    providedGoCache.length === 0 ||
+    providedGoCache === "off"
+      ? []
+      : [path.resolve(projectRoot, providedGoCache)];
+  // Every lane, including explicit and legacy/runtime candidates, preserves
+  // the caller's Go cache even when a ttsc-owned spelling overlaps it.
+  const safeTargets = resolveSafeCacheCleanupTargets(
+    projectRoot,
+    targets,
+    {},
+    protectedDirectories,
+  );
   const removed: string[] = [];
   const visited = new Set<string>();
   for (const target of safeTargets) {
@@ -284,7 +318,9 @@ function runCleanWithContext(
 
 function runCache(argv: readonly string[]): number {
   const [command, ...rest] = argv as [string | undefined, ...string[]];
-  switch (command) {
+  const leadingFlag =
+    command === undefined ? undefined : resolveFlagSpec(command)?.name;
+  switch (leadingFlag ?? command) {
     case "paths":
       return runCachePaths(rest);
     case "-h":
@@ -310,12 +346,17 @@ function runCachePaths(argv: readonly string[]): number {
   const cacheDir = resolveCacheDir(cwd, options.cacheDir);
   const projectRoot = resolveCleanProjectRoot(cwd, options.tsconfig);
   const paths = resolveSourceBuildCachePaths(projectRoot, cacheDir);
+  const identities = createFilesystemPathIdentityContext();
+  const rootIdentity = identities.resolve(paths.root);
+  const goIdentity = identities.resolve(paths.goBuildRoot);
   // Legacy combined roots retained for JSON compatibility. `requiredRoots`
   // identifies the compiled binaries that skip cold builds;
   // `acceleratorRoots` separately identifies the optional Go object cache.
   const cacheableRoots = [
     paths.root,
-    ...(isPathWithin(paths.goBuildRoot, paths.root) ? [] : [paths.goBuildRoot]),
+    ...(isFilesystemPathIdentityWithin(rootIdentity.key, goIdentity.key)
+      ? []
+      : [paths.goBuildRoot]),
   ];
   const requiredRoots = [paths.pluginRoot];
   const acceleratorRoots = [paths.goBuildRoot];
@@ -368,9 +409,22 @@ function parseCachePathsArgs(argv: readonly string[]): {
     json: boolean;
     tsconfig?: string;
   } = { json: false };
-  const rest = [...argv];
-  while (rest.length !== 0) {
-    const token = rest.shift()!;
+  let index = 0;
+  const readValue = (flag: string, inlineValue: string | undefined): string => {
+    if (inlineValue !== undefined) return inlineValue;
+    const value = argv[index++];
+    if (value === undefined) {
+      throw new Error(`ttsc: ${flag} requires a value`);
+    }
+    if (value.startsWith("-")) {
+      throw new Error(
+        `ttsc: ${flag} requires a value (next token ${JSON.stringify(value)} starts with "-")`,
+      );
+    }
+    return value;
+  };
+  while (index < argv.length) {
+    const token = argv[index++]!;
     const [rawFlag, inlineValue] = splitInlineFlag(token);
     const flag = resolveFlagSpec(rawFlag);
     if (flag?.subcommands.includes("cache") !== true) {
@@ -386,13 +440,13 @@ function parseCachePathsArgs(argv: readonly string[]): {
         out.json = true;
         break;
       case "--cache-dir":
-        out.cacheDir = readCachePathsValue(flag.name, inlineValue, rest);
+        out.cacheDir = readValue(flag.name, inlineValue);
         break;
       case "--cwd":
-        out.cwd = readCachePathsValue(flag.name, inlineValue, rest);
+        out.cwd = readValue(flag.name, inlineValue);
         break;
       case "--tsconfig":
-        out.tsconfig = readCachePathsValue(flag.name, inlineValue, rest);
+        out.tsconfig = readValue(flag.name, inlineValue);
         break;
       default:
         throw new Error(
@@ -411,27 +465,6 @@ function splitInlineFlag(token: string): [string, string | undefined] {
   return equals === -1
     ? [token, undefined]
     : [token.slice(0, equals), token.slice(equals + 1)];
-}
-
-function readCachePathsValue(
-  flag: string,
-  inlineValue: string | undefined,
-  rest: string[],
-): string {
-  if (inlineValue !== undefined) {
-    return inlineValue;
-  }
-  const value = rest.shift();
-  if (value === undefined) {
-    throw new Error(`ttsc: ${flag} requires a value`);
-  }
-  if (value.startsWith("-")) {
-    rest.unshift(value);
-    throw new Error(
-      `ttsc: ${flag} requires a value (next token ${JSON.stringify(value)} starts with "-")`,
-    );
-  }
-  return value;
 }
 
 function resolveCleanProjectRoot(cwd: string, tsconfig?: string): string {
@@ -732,6 +765,7 @@ function runWatch(
     }),
   );
   let running = false;
+  let closed = false;
   let rerun = false;
   let timer: NodeJS.Timeout | null = null;
   const resident =
@@ -742,6 +776,7 @@ function runWatch(
   let lastStatus = 0;
 
   const runOnce = async () => {
+    if (closed) return;
     running = true;
     const change = pendingChanges.take();
     let completed = false;
@@ -794,7 +829,7 @@ function runWatch(
       process.stdout.write(`[ttsc] watch build failed\n`);
     } finally {
       running = false;
-      if (completed) {
+      if (completed && !closed) {
         try {
           // A filesystem event can arrive after the build reports completion
           // but before this synchronous cleanup reaches its re-resolution.
@@ -814,13 +849,43 @@ function runWatch(
     }
   };
   const trigger = (change?: WatchInputChange, reload = false) => {
+    if (closed) return;
     pendingChanges.push(change, reload);
     if (running) {
       rerun = true;
       return;
     }
     if (timer) clearTimeout(timer);
-    timer = setTimeout(() => void runOnce(), 60);
+    timer = setTimeout(startRun, 60);
+  };
+
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    if (timer) clearTimeout(timer);
+    timer = null;
+    process.off("SIGINT", onInterrupt);
+    process.off("SIGTERM", onTerminate);
+    try {
+      topology?.close();
+    } finally {
+      resident?.dispose();
+    }
+  };
+  const onInterrupt = () => {
+    close();
+    process.exit(toExitCode(lastStatus));
+  };
+  const onTerminate = () => {
+    close();
+    process.exit(toExitCode(lastStatus));
+  };
+  const startRun = () => {
+    void runOnce().catch((error: unknown) => {
+      close();
+      process.stderr.write(`${formatError(error)}\n`);
+      process.exitCode = toExitCode(lastStatus === 0 ? 2 : lastStatus);
+    });
   };
 
   topology = new WatchTopology(invocation, {
@@ -853,30 +918,15 @@ function runWatch(
     },
     onTopologyChange: () => trigger(undefined, true),
   });
-  topology.refresh(false);
-
-  const close = () => {
-    if (timer) clearTimeout(timer);
-    topology?.close();
-    resident?.dispose();
-  };
-  process.on("SIGINT", () => {
-    close();
-    process.exit(toExitCode(lastStatus));
-  });
-  process.on("SIGTERM", () => {
-    close();
-    process.exit(toExitCode(lastStatus));
-  });
-
-  process.stdout.write(`[ttsc] watching ${watchMessagePath(cwd, root)}\n`);
   try {
-    void runOnce();
+    topology.refresh(false);
+    process.on("SIGINT", onInterrupt);
+    process.on("SIGTERM", onTerminate);
+    process.stdout.write(`[ttsc] watching ${watchMessagePath(cwd, root)}\n`);
+    startRun();
   } catch (error) {
-    // runOnce already swallows build throws, but guard against any unforeseen
-    // throw escaping the first pass: tear down the persistent watchers so the
-    // event loop drains and the process exits cleanly with a non-zero code
-    // instead of hanging on live fs.watch handles.
+    // Refresh may fail after acquiring only part of the watch set. Release that
+    // partial ownership as well as setup's signal listeners before returning.
     close();
     process.stderr.write(`${formatError(error)}\n`);
     return toExitCode(lastStatus === 0 ? 2 : lastStatus);

@@ -68,32 +68,88 @@ import { visitImportMappedCandidates } from "./visitImportMappedCandidates";
  *   config-file discovery (see `ITtscPluginFactoryContext.pluginConfigDir`).
  * @param options.projectRoot - Override the project root directory.
  * @param options.tsconfig - Alias for `file`.
+ *
+ * @evidence contracts/common.md#principled-implementation The loader brackets project discovery observations, evaluates descriptors in isolated processes, validates declared inputs/stages/composition and builds native sources; contradictory content or physical observations are omitted from proof rather than retroactively blessed.
+ * @evidence contracts/common.md#clear-and-simple-design The operation owns one ordered load generation; private helpers separate discovery, evaluation, validation, composition and proof merging, while package resolution and source building remain their own modules.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Descriptor module caches are isolated rather than deleting application singletons. ttsx retry occurs only for explicit supported TypeScript loader incompatibility, with plugins disabled to avoid recursive self-hosting; arbitrary descriptor failures are not retried into false success.
+ * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains result provenance, environment and path options; helper comments explain input races, conservative proof omission, fallback authority and cleanup. Member/tag spacing and separated concepts follow the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path/file-URL conversion, createRequire and hidden spawn with explicit argv/environment implement OS-neutral selection and process execution. Physical identities are preserved separately from lexical candidates; Bun-specific differences are capability decisions, not OS guesses.
+ * @evidence contracts/performance.md#efficient-algorithms Input merging and conflicts use Sets/maps, descriptor hits avoid process startup, and source/environment digests are shared per load. Composition currently scans aggregates against plugins and aliases; this finite configured-plugin policy can be quadratic and is not claimed linear.
+ * @evidence contracts/performance.md#reuse-equivalent-work Proven descriptor evaluations share only complete context/environment/runtime/version identities whose actual inputs still hold; within a generation source/environment digests are shared by directory and one selected transform host serves linked contributors.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Evaluator directories and diagnostic descriptors are released in finally, child lifetimes end with synchronous evaluation, injected env locators are restored, and generation maps are local. Temp removal remains best effort; descriptor/capability disk answers have default cache pruning and caller-selected roots retain caller ownership.
  */
 export function loadProjectPlugins(options: {
+  /** Absolute native ttsc helper used in descriptor factory contexts. */
   binary: string;
+
+  /** Caller-owned cache-root override; omitted for workspace-local policy. */
   cacheDir?: string;
+
+  /** Invocation working directory for project discovery and relative inputs. */
   cwd?: string;
+
+  /** Replacement plugin list, false to disable, or omitted for discovery. */
   entries?: readonly ITtscProjectPluginConfig[] | false;
+
+  /** Effective build/evaluator environment, already merged by API callers. */
   env?: NodeJS.ProcessEnv;
+
+  /** Explicit project config, resolved from cwd. */
   file?: string;
+
+  /** Observe plugin build roots before building, including failed builds. */
   onWatchInputs?: (inputs: readonly string[]) => void;
+
+  /** Caller-selected anchor for plugin-owned configuration discovery. */
   pluginConfigDir?: string;
+
+  /** Project root override for generated config wrappers. */
   projectRoot?: string;
+
+  /** Alias for the selected file option. */
   tsconfig?: string;
 }): {
+  /**
+   * Whether config selection has complete observations. Module-based extends is
+   * unproved; descriptor/module proof is carried separately by host inputs.
+   */
+  discoveryInputsComplete: boolean;
+
+  /** Inputs only the native plugin reads, whose proof must come from it. */
   deferredHostInputs: string[];
 
   /**
    * Whether every descriptor declared the files it read outside its module
    * graph (`declaresHostInputReads`). When one did not, the host inputs cannot
-   * prove the load's answer to a later launch (samchon/ttsc#1561).
+   * prove the load's answer to a later launch (samchon/ttsc#1561). The runtime
+   * must also explicitly complete its module observations; retained partial
+   * records do not establish that declaration's input graph.
    */
   descriptorReadsDeclared: boolean;
+
+  /** Content observations captured when host inputs influenced the load. */
   hostInputHashes: Record<string, string | null>;
+
+  /** Physical observations captured alongside the host-input reads. */
   hostInputRealpaths: Record<string, string | null>;
+
+  /** All universal loader inputs, including unresolved discovery candidates. */
   hostInputs: string[];
+
+  /**
+   * Negative-only descriptor observation status. It records an incomplete
+   * producer channel independently of external-read declarations or dropped
+   * mutation witnesses; omission makes no positive completeness claim.
+   */
+  observationsComplete?: false;
+
+  /** Check-stage entries followed by transform-stage entries in stable order. */
   nativePlugins: ITtscLoadedNativePlugin[];
+
+  /** Plugin-provided Go directory states that the actual builds were keyed on. */
   pluginSources: Record<string, string>;
+
+  /** Resolved project values and logical/physical configuration identity. */
   project: ITtscParsedProjectConfig;
 } {
   // Snapshot the caller environment before `withPluginLoaderEnv` injects
@@ -134,6 +190,7 @@ export function loadProjectPlugins(options: {
         ),
       ),
       descriptorReadsDeclared: true,
+      discoveryInputsComplete: project.configInputsComplete === true,
       nativePlugins: [],
       pluginSources: {},
       project,
@@ -390,7 +447,15 @@ export function loadProjectPlugins(options: {
     }
     return {
       binary,
-      capabilities: record.capabilities,
+      // This fallback is compiled from our utility-host, whose actual writer
+      // publishes provenance. A separately selected executable host must opt
+      // in itself; a linked library cannot certify that foreign host.
+      capabilities:
+        record.stage === "transform" &&
+        record.kind === "linked" &&
+        fallbackDriverHost !== undefined
+          ? { ...record.capabilities, emitProvenance: true }
+          : record.capabilities,
       config: record.config,
       contributors: record.contributors,
       kind: record.kind,
@@ -412,10 +477,15 @@ export function loadProjectPlugins(options: {
         projectHostInputs,
       ),
     ),
-    descriptorReadsDeclared: loadedEntries.every((entry) =>
-      declaresHostInputReads(entry.plugin),
+    descriptorReadsDeclared: loadedEntries.every(
+      (entry) =>
+        entry.observationsComplete && declaresHostInputReads(entry.plugin),
     ),
+    discoveryInputsComplete: project.configInputsComplete === true,
     nativePlugins: orderNativePlugins(nativePlugins),
+    ...(loadedEntries.some((entry) => !entry.observationsComplete)
+      ? { observationsComplete: false as const }
+      : {}),
     // The directories the watch inputs named before the builds, as the builds
     // read them.
     pluginSources: Object.fromEntries(
@@ -1032,6 +1102,7 @@ function loadPluginEntry(
   hostInputHashes: Record<string, string | null>;
   hostInputRealpaths: Record<string, string | null>;
   hostInputs: string[];
+  observationsComplete: boolean;
   plugin: ITtscPlugin;
 } {
   const specifier = entry.transform;
@@ -1061,6 +1132,7 @@ function loadPluginEntry(
       hostInputHashes: loaded.hostInputHashes,
       hostInputRealpaths: loaded.hostInputRealpaths,
       hostInputs: loaded.inputs,
+      observationsComplete: loaded.observationsComplete,
       plugin: loaded.descriptor,
     };
   }
@@ -1127,6 +1199,7 @@ interface IsolatedPluginDescriptor {
   hostInputHashes: Record<string, string | null>;
   hostInputRealpaths: Record<string, string | null>;
   inputs: string[];
+  observationsComplete: boolean;
 }
 
 class CommonJsDescriptorLoadError extends Error {
@@ -1163,19 +1236,6 @@ function loadCommonJsDescriptor(
 ): IsolatedPluginDescriptor {
   const runtime = pluginDescriptorRuntimeBinary(effectiveEnv);
   const ttsx = effectiveEnv.TTSC_TTSX_BINARY ?? process.env.TTSC_TTSX_BINARY;
-  const cacheFile = PluginDescriptorEvaluationCache.locate({
-    cacheDir: descriptorCache.cacheDir,
-    context,
-    // Everything the child receives besides the per-evaluation output paths.
-    env: { ...effectiveEnv, TTSC_TTSX_BINARY: ttsx },
-    projectRoot: context.projectRoot,
-    request,
-    runtime,
-    version: descriptorCache.version,
-  });
-  const cached =
-    cacheFile === null ? null : PluginDescriptorEvaluationCache.read(cacheFile);
-  if (cached !== null) return cached;
   const runtimeCapabilities = javascriptRuntimeCapabilities(
     runtime,
     effectiveEnv,
@@ -1187,6 +1247,43 @@ function loadCommonJsDescriptor(
     runtimeCapabilities.executable !== undefined
       ? runtimeCapabilities.executable
       : resolveNodeBinary(effectiveEnv, context.projectRoot);
+  const cacheAuthority = {
+    additionalRuntime: node,
+    cacheDir: descriptorCache.cacheDir,
+    context,
+    // Everything the child receives besides the per-evaluation output paths.
+    env: {
+      ...effectiveEnv,
+      ...(node === undefined ? {} : { TTSC_NODE_BINARY: node }),
+      TTSC_TTSX_BINARY: ttsx,
+    },
+    projectRoot: context.projectRoot,
+    request,
+    runtime,
+    version: descriptorCache.version,
+  };
+  let cacheFile: string | null = null;
+  try {
+    // A wrapper can consult inputs before the descriptor recorder starts.
+    // Only a probe that actually ran the selected executable proves the
+    // runtime authority this key can represent.
+    if (
+      path.isAbsolute(runtime) &&
+      runtimeCapabilities.executable !== undefined &&
+      fs.realpathSync.native(runtime) ===
+        fs.realpathSync.native(runtimeCapabilities.executable)
+    )
+      cacheFile = PluginDescriptorEvaluationCache.locate(cacheAuthority);
+  } catch {
+    // Unproved runtime identity still permits an uncached actual evaluation.
+  }
+  const cached =
+    cacheFile === null ? null : PluginDescriptorEvaluationCache.read(cacheFile);
+  if (
+    cached !== null &&
+    PluginDescriptorEvaluationCache.locate(cacheAuthority) === cacheFile
+  )
+    return cached;
   const dir = createEvaluationTempDir();
   const out = path.join(dir, "descriptor.json");
   const inputsOut = path.join(dir, "descriptor-inputs.ndjson");
@@ -1327,9 +1424,14 @@ function loadCommonJsDescriptor(
         delete parsedHashes[absolute];
       }
     }
-    const runtimeInputs = readTtsxDescriptorInputs(inputsOut, request);
+    const runtimeInputs = readTtsxDescriptorInputs(
+      inputsOut,
+      request,
+      parsed.observation,
+    );
     const evaluation: IsolatedPluginDescriptor = {
       descriptor: parsed.descriptor,
+      observationsComplete: runtimeInputs.complete,
       hostInputHashes: omitUnstableHostInputHashes(
         mergeObservedHostInputHashes(
           parsedHashes,
@@ -1350,7 +1452,11 @@ function loadCommonJsDescriptor(
     };
     // A hit replays nothing, so only an evaluation that printed nothing is
     // kept.
-    if (cacheFile !== null && fs.statSync(diagnostics).size === 0) {
+    if (
+      cacheFile !== null &&
+      fs.statSync(diagnostics).size === 0 &&
+      PluginDescriptorEvaluationCache.locate(cacheAuthority) === cacheFile
+    ) {
       PluginDescriptorEvaluationCache.write(cacheFile, evaluation);
     }
     return evaluation;
@@ -1682,9 +1788,18 @@ ${reason}`);
     }
     const text = fs.readFileSync(out, "utf8");
     try {
-      const inputSnapshot = readTtsxDescriptorInputs(inputsOut, request);
+      const parsed: unknown = JSON.parse(text);
+      if (!PluginPackageResolution.isRecord(parsed)) {
+        throw new Error("isolated output must contain a descriptor envelope");
+      }
+      const inputSnapshot = readTtsxDescriptorInputs(
+        inputsOut,
+        request,
+        parsed.observation,
+      );
       return {
-        descriptor: JSON.parse(text),
+        descriptor: parsed.descriptor,
+        observationsComplete: inputSnapshot.complete,
         hostInputHashes: omitUnstableHostInputHashes(
           inputSnapshot.hostInputHashes,
           inputSnapshot.unstableInputs,
@@ -1715,11 +1830,18 @@ interface TtsxDescriptorResolutionRecord {
 /**
  * Expand the ttsx runtime's selected module edges into the same exact and
  * missing resolution inputs used by the direct isolated evaluator.
+ *
+ * The final owned snapshot transfers status independently of the optional
+ * NDJSON channel. Records on disk can supplement it, but cannot turn an absent
+ * or failed completion proof into a reusable evaluation. Malformed channel data
+ * likewise refuses completeness without losing the descriptor.
  */
 function readTtsxDescriptorInputs(
   file: string,
   request: string,
+  observation: unknown,
 ): {
+  complete: boolean;
   hostInputHashes: Record<string, string | null>;
   hostInputRealpaths: Record<string, string | null>;
   inputs: string[];
@@ -1730,23 +1852,35 @@ function readTtsxDescriptorInputs(
   const realpaths = new Map<string, string | null>();
   const signatures = new Map<string, string>();
   const unstableInputs = new Set<string>();
-  let text: string;
+  let complete = false;
+  let text = "";
+  if (
+    PluginPackageResolution.isRecord(observation) &&
+    Array.isArray(observation.lines) &&
+    observation.lines.every((line: unknown) => typeof line === "string")
+  ) {
+    complete = observation.complete === true;
+    text = observation.lines.join("");
+  }
   try {
-    text = fs.readFileSync(file, "utf8");
+    text += fs.readFileSync(file, "utf8");
   } catch {
-    return {
-      hostInputHashes: {},
-      hostInputRealpaths: {},
-      inputs: [...inputs],
-      unstableInputs: [],
-    };
+    // The directly serialized observation copy remains authoritative when
+    // no side-channel file was produced. A missing completion copy is never
+    // repaired by whichever partial lines happen to remain on disk.
   }
   for (const line of text.split(/\r?\n/)) {
     if (line.trim() === "") continue;
     let record: TtsxDescriptorResolutionRecord;
     try {
-      record = JSON.parse(line) as TtsxDescriptorResolutionRecord;
+      const parsed: unknown = JSON.parse(line);
+      if (!PluginPackageResolution.isRecord(parsed) || Array.isArray(parsed)) {
+        complete = false;
+        continue;
+      }
+      record = parsed;
     } catch {
+      complete = false;
       continue;
     }
     if (typeof record.resolved === "string") {
@@ -1829,6 +1963,7 @@ function readTtsxDescriptorInputs(
     unstableInputs.add(resolved);
   }
   return {
+    complete,
     hostInputHashes: Object.fromEntries(hashes),
     hostInputRealpaths: Object.fromEntries(realpaths),
     inputs: [...inputs].sort(),
@@ -2181,14 +2316,17 @@ function hasBuildableGoSource(dir: string): boolean {
   // an empty package and surface as an opaque scratch-tempdir error;
   // require at least one production `.go` file so the validator can
   // name the contributor entry instead.
-  let entries: string[];
+  let entries: fs.Dirent[];
   try {
-    entries = fs.readdirSync(dir);
+    entries = fs.readdirSync(dir, { withFileTypes: true });
   } catch {
     return false;
   }
   return entries.some(
-    (name) => name.endsWith(".go") && !name.endsWith("_test.go"),
+    (entry) =>
+      entry.isFile() &&
+      entry.name.endsWith(".go") &&
+      !entry.name.endsWith("_test.go"),
   );
 }
 

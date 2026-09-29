@@ -11,6 +11,12 @@ import { createFilesystemPathIdentityContext } from "./createFilesystemPathIdent
  *
  * @param operations Replaceable filesystem primitives; omitted members use the
  *   host's own.
+ *
+ * @evidence contracts/common.md#principled-implementation Returning the filesystem context gives project consumers identical realpath, missing-suffix and case-policy decisions instead of a second identity relation.
+ * @evidence contracts/common.md#clear-and-simple-design This domain entry point delegates its entire policy and retains only a project-oriented name for watch, build and LSP callers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Operations use the supported injection boundary; neither native methods nor foreign globals are patched to change identity.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the domain name, shared implementation and omitted-operation defaults, with tags visibly separate.
+ * @evidence contracts/portability.md#os-neutral-implementation The owning resolver uses actual native case evidence and path syntax; unavailable policy remains unknown and preserves identity spellings instead of assuming an OS-default filesystem capability.
  */
 export function createProjectInputPathIdentityContext(
   operations: Partial<ProjectInputPathIdentityOperations> = {},

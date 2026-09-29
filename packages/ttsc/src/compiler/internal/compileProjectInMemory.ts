@@ -14,6 +14,7 @@ import { outputText } from "./outputText";
 import { packageRootDir } from "./packageRootDir";
 import { readProjectConfig } from "./project/readProjectConfig";
 import { inheritedSidecarEnv } from "./sharedHost/inheritedSidecarEnv";
+import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
 import { spawnNative } from "./spawnNative";
 
 /**
@@ -26,11 +27,31 @@ import { spawnNative } from "./spawnNative";
  * slow path goes through `runBuild` into a temp directory and reads the files
  * back from disk.
  *
+ * A native response must contain a string-valued output record. Plugin output
+ * storage is removed before returning. If removal also fails after a thrown
+ * operation failure, both are retained in an AggregateError with the original
+ * cause. An unsuccessful returned build retains its diagnostics and partial
+ * output in that aggregate; removal failure after success propagates directly.
+ *
  * @returns A map of output path → file content plus a `TtscBuildResult` with
  *   diagnostics and the exit status.
+ *
+ * @evidence contracts/common.md#principled-implementation The plugin-free API host supplies a required text-output record and structured diagnostics; plugin projects use the existing build owner and read its isolated emitted files with the project's output-key convention.
+ * @evidence contracts/common.md#clear-and-simple-design One router separates structured native capture from plugin-backed disk emission while project discovery, native execution and build semantics remain with their owning helpers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Plugin discovery failure routes through the build's real diagnostic path, and an absent or malformed native output record cannot become an empty successful compile.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe both compile lanes and output-key ownership; separated return members explain diagnostics/status versus emitted content under documentation guidance.
+ * @evidence contracts/performance.md#efficient-algorithms The native lane captures output once; the plugin lane visits E directory entries, sorts F file paths once in O(F log F) and reads each emitted file once, with compiler work and emitted bytes dominating processing.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each compile observes potentially changed source and plugin effects; this API owns no proven equivalent-generation cache. The native binary builder independently reuses its valid artifact.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Native capture is disposed by spawnNative; plugin emission owns one temporary tree through finally removal. Cleanup failure propagates after success and aggregates with a thrown failure or a build outcome carrying nonzero status or error diagnostics, preserving its diagnostics and partial output rather than masking it.
+ * @evidence contracts/portability.md#os-neutral-implementation Native paths use Node resolution and argument arrays; inheritedSidecarEnv owns child environment spelling and pathToKey normalizes returned protocol keys without changing filesystem identity.
  */
 export function compileProjectInMemory(options: ITtscCompilerContext): {
+  /** Emitted content under the project's native API output-key convention. */
   output: Record<string, string>;
+
+  /** Compiler diagnostics, exit status and textual failure context. */
   result: TtscBuildResult;
 } {
   const cwd = path.resolve(options.cwd ?? process.cwd());
@@ -45,7 +66,9 @@ export function compileProjectInMemory(options: ITtscCompilerContext): {
   const tsconfig = project.path;
   const binary = buildNativeCompiler({
     cacheBaseDir: project.root,
-    cacheDir: options.cacheDir ?? options.env?.TTSC_CACHE_DIR,
+    cacheDir:
+      options.cacheDir ??
+      SidecarEnvironment.read(options.env, "TTSC_CACHE_DIR"),
     packageRoot: packageRootDir(),
   });
   const res = spawnNative(
@@ -70,6 +93,7 @@ export function compileProjectInMemory(options: ITtscCompilerContext): {
     output: output.output,
     result: {
       diagnostics: output.diagnostics,
+      emittedSources: output.emittedSources,
       status: res.status ?? 1,
       stdout: "",
       stderr: outputText(res.stderr),
@@ -110,11 +134,17 @@ function compileProjectWithPlugins(
   cwd: string,
   project: ITtscParsedProjectConfig,
 ): {
+  /** Emitted content under the same project-relative keys as the native API. */
   output: Record<string, string>;
+
+  /** Compiler diagnostics, process status and textual failure context. */
   result: TtscBuildResult;
 } {
   const tempRoot = createCanonicalTempDirectory("ttsc-api-output-");
   const tempOutDir = path.join(tempRoot, "out");
+  let outcome: ReturnType<typeof compileProjectInMemory> | undefined;
+  let failed = false;
+  let failure: unknown;
   try {
     const result = runBuild({
       ...options,
@@ -134,12 +164,41 @@ function compileProjectWithPlugins(
       structuredDiagnostics: true,
       tsconfig: project.path,
     });
-    return {
+    outcome = {
       output: readOutputDirectory(tempOutDir, outputKeyMapper(project)),
       result,
     };
+    return outcome;
+  } catch (error) {
+    failed = true;
+    failure = error;
+    throw error;
   } finally {
-    fs.rmSync(tempRoot, { force: true, recursive: true });
+    try {
+      fs.rmSync(tempRoot, { force: true, recursive: true });
+    } catch (cleanupError) {
+      if (failed) {
+        throw new AggregateError(
+          [failure, cleanupError],
+          "ttsc: project compilation and temporary output cleanup failed",
+          { cause: failure },
+        );
+      }
+      if (
+        outcome !== undefined &&
+        (outcome.result.status !== 0 ||
+          outcome.result.diagnostics.some(
+            (diagnostic) => diagnostic.category === "error",
+          ))
+      ) {
+        throw new AggregateError(
+          [outcome, cleanupError],
+          "ttsc: unsuccessful project compilation and temporary output cleanup failed",
+          { cause: outcome },
+        );
+      }
+      throw cleanupError;
+    }
   }
 }
 
@@ -188,12 +247,16 @@ function readOutputDirectory(
 /** Recursively list all files under `directory`, sorted for stable output. */
 function listFiles(directory: string): string[] {
   const out: string[] = [];
-  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-    const location = path.join(directory, entry.name);
-    if (entry.isDirectory()) {
-      out.push(...listFiles(location));
-    } else if (entry.isFile()) {
-      out.push(location);
+  const pending = [directory];
+  while (pending.length !== 0) {
+    const current = pending.pop()!;
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const location = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        pending.push(location);
+      } else if (entry.isFile()) {
+        out.push(location);
+      }
     }
   }
   return out.sort();
@@ -207,9 +270,11 @@ function pathToKey(file: string): string {
 /**
  * Parse the JSON envelope written by the native compiler host to stdout.
  *
- * On success returns `{ diagnostics, output }`. On JSON parse failure throws a
- * descriptive error using stderr (preferred) or stdout as context, so callers
- * see the original compiler error rather than a generic JSON parse message.
+ * On success returns diagnostics, output and optional emitted-source
+ * provenance. Missing legacy provenance remains unknown. Malformed provenance
+ * is rejected. On JSON parse failure throws a descriptive error using stderr
+ * (preferred) or stdout as context, so callers see the original compiler error
+ * rather than a generic JSON parse message.
  */
 function parseNativeCompileOutput(
   stdout: string,
@@ -217,17 +282,54 @@ function parseNativeCompileOutput(
 ): {
   diagnostics: ITtscCompilerDiagnostic[];
   output: Record<string, string>;
+  emittedSources?: Record<string, readonly string[]>;
 } {
   try {
     const parsed = JSON.parse(stdout) as {
       diagnostics?: ITtscCompilerDiagnostic[];
       output?: Record<string, string>;
+      emittedSources?: Record<string, readonly string[]>;
     };
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      Array.isArray(parsed) ||
+      typeof parsed.output !== "object" ||
+      parsed.output === null ||
+      Array.isArray(parsed.output) ||
+      !Object.values(parsed.output).every((value) => typeof value === "string")
+    ) {
+      throw new Error(
+        "ttsc: native compiler host returned an invalid output map",
+      );
+    }
+    if (
+      parsed.emittedSources !== undefined &&
+      (typeof parsed.emittedSources !== "object" ||
+        parsed.emittedSources === null ||
+        Array.isArray(parsed.emittedSources) ||
+        !Object.entries(parsed.emittedSources).every(
+          ([output, sources]) =>
+            path.isAbsolute(output) &&
+            Array.isArray(sources) &&
+            sources.every(
+              (source) => typeof source === "string" && path.isAbsolute(source),
+            ),
+        ))
+    ) {
+      throw new Error(
+        "ttsc: native compiler host returned invalid emit provenance",
+      );
+    }
     return {
-      diagnostics: parsed.diagnostics ?? [],
-      output: parsed.output ?? {},
+      diagnostics: Array.isArray(parsed.diagnostics) ? parsed.diagnostics : [],
+      output: parsed.output,
+      emittedSources: parsed.emittedSources,
     };
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && !(error instanceof SyntaxError)) {
+      throw error;
+    }
     throw new Error(
       (stderr || stdout).trim() ||
         "ttsc: native compiler host returned no output",

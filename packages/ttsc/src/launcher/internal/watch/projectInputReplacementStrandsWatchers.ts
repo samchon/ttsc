@@ -24,6 +24,12 @@ import { WatchPaths } from "./WatchPaths";
  * reload directory anchors the directory that contains it rather than itself,
  * since its fingerprint is a digest of its own immediate entries and nothing
  * below it can reach the declared corpus.
+ *
+ * @evidence contracts/common.md#principled-implementation Only Node's path-indexed recursive backend needs replacement rearming; an existing directory must anchor a declaration before retiring coverage.
+ * @evidence contracts/common.md#clear-and-simple-design A backend capability branch precedes directory and declaration checks, separating rescan admission from handle reinstallation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Rearming is justified by the backend's inode retention, not a retry chain hiding an unchanged watcher assumption.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain native versus per-directory backends and why indiscriminate reinstalling is costly, following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Platform selection expresses Node's recursive watcher implementation boundary; filesystem identity and containment still come from the actual transaction resolver.
  */
 export function projectInputReplacementStrandsWatchers(
   snapshot: ITtscProjectInputSnapshot,

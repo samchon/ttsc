@@ -4,6 +4,12 @@
  * Everything that fixes the check (compiler options, project, plugins,
  * threading) travels in `args` once, at spawn time. Only filesystem changes
  * travel later, as {@link ResidentCheckRequest} lines.
+ *
+ * @evidence contracts/common.md#principled-implementation Executable, argv, cwd and complete environment represent the fixed native invocation independently from per-cycle change requests.
+ * @evidence contracts/common.md#clear-and-simple-design Required fields establish one complete check-sidecar startup context without implicit environment merge policy inside the client.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Configuration uses explicit invocation data rather than recognizing a plugin name or supplying fixture-specific compiler arguments.
+ * @evidence contracts/common.md#meaningful-documentation The type explains fixed startup state, and separated member comments document native executable, argument and environment authority following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation The executable and cwd are native paths, argv remains separate strings, and environment names retain the supplying boundary's native identity policy.
  */
 export interface ResidentCheckProcessOptions {
   /** Full argv of the sidecar, including its `check-serve` subcommand. */

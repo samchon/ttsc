@@ -33,10 +33,24 @@ import { resolveSourceBuildCachePaths } from "../../../plugin/internal/source/re
  * @param props.projectRoot The project the compile runs for.
  * @param props.cacheDir The cache directory the compile is given, if any.
  * @param props.env The compile's environment.
+ *
+ * @evidence contracts/common.md#principled-implementation The Windows return matches the pinned compiler's explicit policy; other hosts probe the physical plugin-cache root's swapped spelling as a proxy for the executable placed beneath it, with the documented Darwin lexical-path limitation.
+ * @evidence contracts/common.md#clear-and-simple-design Cache-root selection stays with SourceBuildCacheLayout while this boundary owns the compiler case-policy approximation and swapCase owns Unicode spelling conversion.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The platform branch expresses actual upstream compiler behavior rather than a generic filesystem assumption; unreadable probes conservatively admit more spellings instead of inventing a known project answer.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the upstream probe, physical-root premise, Darwin limitation and error fallback; params describe compile context and tags are visibly separated.
+ * @evidence contracts/portability.md#os-neutral-implementation Code uses native mkdir/realpath/stat and probes the selected cache volume rather than guessing its policy from OS names; the Windows special case intentionally mirrors the compiler, and the Darwin symlink spelling limitation is explicit.
+ * @evidence contracts/performance.md#efficient-algorithms A cache-root lookup performs bounded path setup and one swapped-path stat; Unicode transformation is linear in the root spelling length with no directory traversal.
+ * @evidence contracts/performance.md#reuse-equivalent-work Answers share the physical plugin-root key under the compiler's fixed case-policy premise; native case-policy changes during the process are not revalidated and remain a documented limitation.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The process owns one boolean per distinct physical plugin-cache root; there is no eviction bound, so historical root cardinality grows until process exit, while the probe retains no descriptor.
  */
 export function compilerUsesCaseSensitiveFileNames(props: {
+  /** Explicit cache root; absence uses environment or workspace-local selection. */
   cacheDir?: string;
+
+  /** Compile environment; absence uses the current process environment. */
   env?: NodeJS.ProcessEnv;
+
+  /** Project directory used for workspace-local cache placement. */
   projectRoot: string;
 }): boolean {
   if (process.platform === "win32") return false;
@@ -88,6 +102,11 @@ const ANSWERS = new Map<string, boolean>();
  * Go's is: the answer can differ only by being insensitive where the compiler
  * says sensitive, and a host then matches more spellings than the compiler
  * does, never fewer.
+ *
+ * This private helper owns only spelling conversion. The caller owns native
+ * filesystem interpretation and caches established root answers. One code-point
+ * pass uses space proportional to the spelling and retains no historical
+ * paths.
  */
 function swapCase(text: string): string {
   let output = "";

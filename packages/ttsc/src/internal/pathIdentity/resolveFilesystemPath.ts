@@ -10,6 +10,12 @@ import path from "node:path";
  * only resolved.
  *
  * @param platform Path semantics; defaults to the host platform.
+ *
+ * @evidence contracts/common.md#principled-implementation Native path resolution removes only recognized drive and UNC extended-length aliases; it normalizes lexical spelling without pretending to establish filesystem identity.
+ * @evidence contracts/common.md#clear-and-simple-design One Windows normalization branch precedes the selected path API, keeping lexical syntax separate from physical realpath and case-policy decisions.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Recognized Windows path prefixes are native syntax, not consumer exceptions; no filesystem method or global state is replaced.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains lexical scope, supported extended prefixes and the platform argument, separately from the acknowledgments.
+ * @evidence contracts/portability.md#os-neutral-implementation Explicit win32 or posix path semantics handle native separators and Windows extended drive/UNC representations without assuming casing establishes physical identity.
  */
 export function resolveFilesystemPath(
   location: string,

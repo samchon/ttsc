@@ -10,6 +10,15 @@ import { GoSourceInputs } from "./GoSourceInputs";
  * repository's object store (samchon/ttsc#1487).
  *
  * @param name The directory's own name, not its path.
+ *
+ * @evidence contracts/common.md#principled-implementation Delegating to GoSourceInputs makes observers exclude exactly the directory names excluded by source copying and cache keying.
+ * @evidence contracts/common.md#clear-and-simple-design The public predicate exposes shared source membership without exporting its Set representation to consumers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Pruned names are the declared source contract, not directories chosen after observing a particular consumer's build output.
+ * @evidence contracts/common.md#meaningful-documentation The prose identifies the owning source state and explains why subtree observers omit nested package and repository trees.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms The accessor delegates a fixed-name membership query; the owning namespace selects its Set.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work There is no computed result shared across requests beyond the immutable policy definition.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The accessor owns no retained state or handle.
  */
 export function prunesPluginSourceDirectory(name: string): boolean {
   return GoSourceInputs.shouldPruneDirectory(name);

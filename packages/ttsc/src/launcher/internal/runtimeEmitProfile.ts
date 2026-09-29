@@ -22,11 +22,20 @@ import { projectModuleOptions } from "./runtime/projectModuleOptions";
  * @param project - The project the runtime build compiles.
  * @param passthrough - The flags forwarded to that build, in order.
  * @param binary - An explicit TypeScript-Go binary, for a response file.
+ * @param effectiveOptions - A reader already resolved for this exact build's
+ *   project and forwarded arguments, or null after compiler rejection.
+ *
+ * @evidence contracts/common.md#principled-implementation Reading effective options in compiler order classifies the actual emit, and the two map booleans prevent asking for conflicting external and inline maps.
+ * @evidence contracts/common.md#clear-and-simple-design The profile carries only module classification and whether a map must be requested; the local boolean reader normalizes supported true spellings.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Invalid forwarded arguments retain the compiler's own rejection path; config fallback is provisional classification rather than silently dropping those arguments.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs and parameter comments explain emit-derived decisions and the two failure modes this boundary avoids; result members retain separate native comments.
+ * @evidence contracts/portability.md#os-neutral-implementation Native response-file interpretation stays with effective-option resolution; this adapter passes binary identity and argument tokens without shell quoting or guessed filesystem case rules.
  */
 export function runtimeEmitProfile(
   project: ITtscParsedProjectConfig,
   passthrough: readonly string[] = [],
   binary?: string,
+  effectiveOptions?: ReturnType<typeof readEffectiveCompilerOptions>,
 ): {
   /** The emit-deciding options the runtime classifies served files with. */
   moduleOptions: OwningModuleOptions;
@@ -34,7 +43,10 @@ export function runtimeEmitProfile(
   /** Whether the build must be asked for a source map. */
   forceRuntimeSourceMap: boolean;
 } {
-  const option = readEffectiveCompilerOptions(project, passthrough, binary);
+  const option =
+    effectiveOptions === undefined
+      ? readEffectiveCompilerOptions(project, passthrough, binary)
+      : effectiveOptions;
   const compilerOptions = project.compilerOptions as Record<string, unknown>;
   // Invalid forwarded flags fail the build on their own; the config answers
   // until then.

@@ -16,6 +16,16 @@ import { literalGlobRoot } from "./literalGlobRoot";
  * creates. Exported so that boundary is pinned directly instead of being
  * inferred from a rebuild that a silent rescan and a skipped rescan produce
  * identically.
+ *
+ * @evidence contracts/common.md#principled-implementation Declaration ancestry, reload territories and admitted glob trees decide whether an unnamed input may have moved, covering replacement events named after an arriving sibling.
+ * @evidence contracts/common.md#clear-and-simple-design A shared declaration-anchor predicate separates replacement ancestry from reload and glob admission.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Admission follows published declarations rather than hardcoded node_modules exclusion or unconditional whole-project rescanning.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain lost replacements and unnecessary corpus scans with their reasons, following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path operations and transaction-owned physical containment qualify event paths and glob roots with actual case semantics.
+ * @evidence contracts/performance.md#efficient-algorithms Declaration lists are short-circuited; the worst case compares G globs with P previous members, O(GP) identity-containment questions, without reading or hashing corpus bytes here.
+ * @evidence contracts/performance.md#reuse-equivalent-work The caller can share one identity transaction with event matching and later classification; repeated resolutions within this decision use that transaction's cache.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No watcher, historical event population or resident cache is acquired by this admission predicate.
  */
 export function projectInputTopologyMayAffect(
   snapshot: ITtscProjectInputSnapshot,
@@ -54,9 +64,10 @@ export function projectInputTopologyMayAffect(
       if (identities.isWithin(changed, root)) return true;
       if (identities.isWithin(root, changed) === false) return false;
       if (WatchPaths.isDirectory(changed)) return true;
-      return [...previous.values()].some((input) =>
-        identities.isWithin(changed, input),
-      );
+      for (const input of previous.values()) {
+        if (identities.isWithin(changed, input)) return true;
+      }
+      return false;
     })
   );
 }

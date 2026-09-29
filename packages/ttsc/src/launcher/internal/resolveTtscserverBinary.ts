@@ -1,21 +1,30 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { SidecarEnvironment } from "../../compiler/internal/sharedHost/SidecarEnvironment";
+
 /**
  * Resolve the platform-specific ttscserver binary path. Looks first at the
  * TTSCSERVER_BINARY environment override (must be absolute), then at the
  * shipped per-platform npm package (`@ttsc/<platform>-<arch>/bin/ttscserver`),
- * then at the local-build fallback under `packages/native/`.
+ * then at the local-build fallback under this package's `native/` directory.
  *
  * Mirrors `resolveBinary` for the ttsc helper so editors that install ttsc via
  * pnpm see the LSP host alongside the existing helper.
+ *
+ * @evidence contracts/common.md#principled-implementation An absolute caller override precedes the host platform/architecture package and then the real package-relative development binary, preserving deployment precedence.
+ * @evidence contracts/common.md#clear-and-simple-design Executable discovery returns a path or absence; helpers isolate package-root resolution and the local-build candidate without starting the server.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The local fallback addresses an actual source-checkout layout, and .exe is a native executable naming distinction rather than a consumer exception.
+ * @evidence contracts/common.md#meaningful-documentation Native prose states search order, override requirements and local-development fallback; absence remains explicit in the return type.
+ * @evidence contracts/portability.md#os-neutral-implementation Node's host platform/architecture select the shipped executable; shared environment lookup follows Windows name aliases while POSIX names stay exact. Native path/realpath operations anchor local lookup without inferring filesystem case policy from an OS name.
  */
 export function resolveTtscserverBinary(
   opts: { env?: NodeJS.ProcessEnv } = {},
 ): string | null {
   const env = opts.env ?? process.env;
-  if (env.TTSCSERVER_BINARY && path.isAbsolute(env.TTSCSERVER_BINARY)) {
-    return env.TTSCSERVER_BINARY;
+  const explicit = SidecarEnvironment.read(env, "TTSCSERVER_BINARY");
+  if (explicit && path.isAbsolute(explicit)) {
+    return explicit;
   }
 
   try {

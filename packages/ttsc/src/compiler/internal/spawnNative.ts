@@ -8,16 +8,23 @@ import { ensureExecutable } from "./ensureExecutable";
  * Spawn a native binary (or a Node.js script when the path has a JS/TS
  * extension) and return its result with `stdout` and `stderr` as text.
  *
- * The child's streams are written to files rather than piped, and the files are
- * read once it exits. `spawnSync` buffers a _piped_ stream in this process's
- * memory and refuses to hold more than `maxBuffer` bytes, so a piped capture
- * has to name a ceiling — and any ceiling is a number nobody chose for this
- * machine, deciding that a large but legitimate compile said too much. A file
- * has no such limit: the bytes never pass through this heap on their way out of
- * the child, and how many there may be is the filesystem's business.
+ * Streams go to private files and are materialized after exit, avoiding the
+ * piped maxBuffer ceiling while retaining filesystem and runtime allocation
+ * limits. Filesystem read failures propagate after capture cleanup.
  *
  * When `options.encoding` is omitted it defaults to `"utf8"`. Pass `"buffer"`
  * when the caller needs raw bytes.
+ *
+ * @evidence contracts/common.md#principled-implementation Executable plus argv are passed directly to Node spawning; script candidates instead pass their path to process.execPath, and file-backed output reconstructs the normal stdout/stderr/output result fields.
+ * @evidence contracts/common.md#clear-and-simple-design This operation owns synchronous execution and capture lifetime; permission preparation, low-descriptor recovery and byte decoding remain explicit delegated boundaries.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts No shell parses argv or foreign process API is replaced. Descriptor recovery is selected by the real resource-exhaustion contract in spawnSyncResilient rather than a fixture outcome.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain executable routing, capture limits, read errors and encoding ownership following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Node receives native executable and argument arrays, Windows hiding is an explicit process option, and POSIX permission preparation remains in ensureExecutable rather than shell-specific commands.
+ * @evidence contracts/performance.md#efficient-algorithms Argument copying costs O(A); capture reads and decoding cost O(B) for child output bytes, in addition to the child runtime. Each stream is read once after completion.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A child execution may have effects and depend on arbitrary filesystem state; this wrapper has no equivalence or invalidation contract permitting reuse of a previous process result.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The invocation owns one capture until finally, including spawn, recovery and read failures. It returns materialized output to the caller; live file bytes and returned storage grow with child output without a configured ceiling.
  */
 export function spawnNative(
   binary: string,

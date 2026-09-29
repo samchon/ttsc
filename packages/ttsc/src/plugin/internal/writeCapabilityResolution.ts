@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -26,13 +27,36 @@ import { pluginSourceState } from "./source/pluginSourceState";
  * that still works, and a read-only or full disk is a reason to be slower, not
  * a reason for `resolveCapabilityPlugins` to start throwing at a caller whose
  * contract is that it never does.
+ *
+ * Returns the published entry, or null when no complete entry was written.
+ * Publication is not a freshness assertion: the reader must still prove its
+ * recorded observations before dependent results can reuse it.
+ *
+ * @evidence contracts/common.md#principled-implementation Retained inputs carry load-time hash/realpath and an optional expected pre-load authority refuses changed runtime/environment identity; source digest acceleration must reconstruct the recorded build state under agreeing observations.
+ * @evidence contracts/common.md#clear-and-simple-design The writer persists a narrow copied answer and proof entry; descriptor discovery and binary building remain outside persistence.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Host proofs are not rehashed now to bless an answer computed earlier; unavailable proof prevents a write, and write failure does not invent a capability answer.
+ * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains evaluation-time proof ownership, optional acceleration and best-effort persistence in separate paragraphs; parameter members and tags are visibly separated following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path.resolve/join and same-directory rename keep OS-neutral filesystem identities; source witnesses use actual device metadata instead of timestamp-precision assumptions.
+ * @evidence contracts/performance.md#efficient-algorithms Set-based path deduplication precedes one stable sort; each source digest is bracketed once, and the copied plugin answer stays proportional to the configured population.
+ * @evidence contracts/performance.md#reuse-equivalent-work Persistence stores one complete project answer under the shared format key; later reuse must reprove these exact evaluation/build states rather than treating writing as validation.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Same-directory staging is call-owned and removed after failed writes; committed single-file entries belong to default source-cache pruning, while caller-selected roots remain caller-owned. Probe cleanup is delegated to the clock witness owner.
  */
 export function writeCapabilityResolution(
   options: {
+    /** Invocation directory included in the shared cache-entry identity. */
     cwd: string;
+
+    /** Selected project config identity used by the matching reader. */
     tsconfig: string;
+
+    /** Ttsc product version paired with the cache format revision. */
     version: string;
+
+    /** Environment selecting storage, or ambient process env when omitted. */
     env?: NodeJS.ProcessEnv;
+
+    /** Pre-load authority key; a moved evaluation authority refuses the write. */
+    expectedAuthority?: string;
   },
   answer: {
     /**
@@ -49,6 +73,8 @@ export function writeCapabilityResolution(
 
     /** The files the answer was computed from, as absolute paths. */
     hostInputs: readonly string[];
+
+    /** The native plugin-manifest payload preserved verbatim. */
     manifest: string;
 
     /**
@@ -56,12 +82,21 @@ export function writeCapabilityResolution(
      * reported it (`pluginSources`).
      */
     pluginSources: Readonly<Record<string, string>>;
+
+    /** Native project identity payload, or null when no consumer requested it. */
     projectContext: string | null;
+
+    /** Ordered sidecar paths and their declared capability maps. */
     plugins: readonly ITtscCapabilityResolutionPlugin[];
   },
-): void {
+): ITtscCapabilityResolutionEntry | null {
   const file = CapabilityResolutionFormat.resolutionFile(options);
-  if (file === null) return;
+  if (file === null) return null;
+  if (
+    options.expectedAuthority !== undefined &&
+    options.expectedAuthority !== file
+  )
+    return null;
   const hostInputs = [
     ...new Set(
       answer.hostInputs
@@ -69,7 +104,7 @@ export function writeCapabilityResolution(
         .map((input) => path.resolve(input)),
     ),
   ].sort();
-  if (hostInputs.length === 0) return;
+  if (hostInputs.length === 0) return null;
   const hostInputHashes: Record<string, string | null> = {};
   const hostInputRealpaths: Record<string, string | null> = {};
   for (const input of hostInputs) {
@@ -77,7 +112,7 @@ export function writeCapabilityResolution(
       !Object.prototype.hasOwnProperty.call(answer.hostInputHashes, input) ||
       !Object.prototype.hasOwnProperty.call(answer.hostInputRealpaths, input)
     )
-      return;
+      return null;
     hostInputHashes[input] = answer.hostInputHashes[input]!;
     hostInputRealpaths[input] = answer.hostInputRealpaths[input]!;
   }
@@ -102,16 +137,23 @@ export function writeCapabilityResolution(
     projectContext: answer.projectContext,
     version: CapabilityResolutionFormat.formatVersion(options.version),
   };
+  const staging = `${file}.${String(process.pid)}.${crypto.randomUUID()}.tmp`;
   try {
     fs.mkdirSync(path.dirname(file), { recursive: true });
     // Written beside the target and renamed, so a reader never sees half an
     // entry: a truncated JSON parses as a failure and falls back, but a
     // partially written one could parse and be believed.
-    const staging = `${file}.${String(process.pid)}.tmp`;
     fs.writeFileSync(staging, JSON.stringify(entry), "utf8");
     fs.renameSync(staging, file);
+    return entry;
   } catch {
-    return;
+    return null;
+  } finally {
+    try {
+      fs.rmSync(staging, { force: true });
+    } catch {
+      // Cache cleanup must not replace the uncached discovery result.
+    }
   }
 }
 

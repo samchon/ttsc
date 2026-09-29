@@ -27,24 +27,53 @@ import { takeResidentCheckEntryRequest } from "./takeResidentCheckEntryRequest";
  * topology transition calls for a full reset before the next cycle. Emit and
  * transform lanes can pass through the coordinator, but compatibility checks
  * keep them on the established one-shot path without starting sidecars.
+ *
+ * The watch launcher must serialize cycles and use reload when invocation
+ * selection or startup environment changes. A session does not independently
+ * compare every option/environment field before reusing its cached context.
+ *
+ * @evidence contracts/common.md#principled-implementation Stable invocation selection and serialized cycles let compatible analysis-only checks retain their Program; explicit reload and observed input-topology changes reset selection before another cycle.
+ * @evidence contracts/common.md#clear-and-simple-design The session owns selected execution, dependency snapshot, process identities and per-entry delivery buffers while shared BuildExecution owns one-shot phase and failure policy.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Capability-aware residency has an actual transport-failure one-shot path, not a successful-result substitution; configuration positions remain distinct even when processes share a key.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs state supported lanes, reset causes and the caller's serialization/stable-invocation premise; run and dispose document lifecycle effects.
+ * @evidence contracts/portability.md#os-neutral-implementation Native filesystem checks and cache touch helpers use selected binary paths; child creation delegates native executable/argv/environment handling to ResidentCheckProcess and BuildExecution.
+ * @evidence contracts/performance.md#efficient-algorithms Per-cycle selection and buffer union scale with configured checks and pending paths; snapshot comparisons are linear in normalized inputs and accumulated output may recopy earlier phase text.
+ * @evidence contracts/performance.md#reuse-equivalent-work Process keys include binary/name/argv/compiler payload, while stable invocation context and reload guard the remaining startup inputs; current input snapshots and change requests determine warm Program updates.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Reset/dispose clear execution, snapshots, buffers and sidecar ownership; under stable options process keys are bounded by configured checks, but pending unique paths may grow during repeated earlier failures and OS-level termination is delegated to the child owner.
  */
 export class ResidentCheckWatchSession {
   private execution:
     | ReturnType<typeof BuildExecution.resolveExecutionContext>
     | undefined;
+
+  /** Undelivered changes keyed by configured check position, not process key. */
   private readonly pendingChanges = new Map<number, ResidentCheckRequest>();
+
+  /** Latest normalized dependency population, plus declared watch aliases. */
   private projectInputs: ITtscProjectInputSnapshot | undefined;
+
+  /** Sidecars acquired for the stable invocation; reset releases every key. */
   private readonly processes = new Map<string, ResidentCheckProcess>();
 
   /**
-   * Run one watch cycle and return its result, exactly as a one-shot
-   * {@link runBuild} with the same options would report it.
+   * Run one serialized watch cycle through the shared build/check policies.
+   * Options identifying the invocation and startup environment must remain
+   * stable until reload; callers must not run overlapping cycles.
    *
    * The first cycle, and any cycle after `change.reload`, resolves the project
    * and plugins and starts resident check processes for compatible entries.
    * Later cycles reuse them and forward `change` as an incremental request. A
    * resident process that fails is retired and its entry falls back to the
    * one-shot check for that cycle.
+   *
+   * @evidence contracts/common.md#principled-implementation Compatible no-emit check-only selection uses the same diagnostic/failure policy as one-shot execution; reload, missing binaries and changed normalized dependency topology cold-resolve the next execution.
+   * @evidence contracts/common.md#clear-and-simple-design The cycle separates setup/reuse, topology refresh, ordered checks and final diagnostics/timing, delegating each phase to its owning shared operation.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed resident transport retires that process and uses the established real check command; the fallback neither drops forwarded compiler options nor converts a nonzero check into success.
+   * @evidence contracts/common.md#meaningful-documentation Native paragraphs document serialization, stable startup inputs, reload and failed-sidecar behavior instead of claiming arbitrary option changes are handled automatically.
+   * @evidence contracts/portability.md#os-neutral-implementation Native binary existence and cache freshness use filesystem helpers; all commands preserve selected cwd and use native process/environment abstractions without shell interpolation.
+   * @evidence contracts/performance.md#efficient-algorithms Warm cycles avoid project/plugin re-resolution, but still perform required dependency discovery and per-entry change union; total cost includes actual host work and pending-path sorting.
+   * @evidence contracts/performance.md#reuse-equivalent-work Selected context and capability-supported sidecars survive only stable invocation cycles; change requests update Programs, reload/topology transitions reset them, and effectful configured entries remain separately scheduled.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The session retains successful sidecars and per-entry pending changes; failures retire their process, reset clears all state, and unconsumed path sets have no finite bound while an earlier entry repeatedly fails.
    */
   public async run(
     options: RunBuildOptions,
@@ -142,11 +171,29 @@ export class ResidentCheckWatchSession {
     return BuildTiming.appendTimingOutput(result, timing);
   }
 
-  /** Terminate every sidecar and discard the cached selection context. */
+  /**
+   * Request termination of every retained sidecar and discard session state.
+   * This is synchronous release initiation, not an awaitable guarantee of OS
+   * process exit; child termination and queued-request rejection belong to the
+   * ResidentCheckProcess owner. A later run can start a fresh session
+   * selection.
+   *
+   * @evidence contracts/common.md#principled-implementation Reset visits each owned process before clearing its map and discards pending changes, dependency snapshot and selected execution together.
+   * @evidence contracts/common.md#clear-and-simple-design Disposal uses the same reset boundary as topology transitions, keeping resource and cached-selection release in one place.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Release calls the supported child disposal API rather than replacing process methods or marking still-owned resources as successful check results.
+   * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes termination initiation from awaited OS exit and describes fresh reuse after disposal.
+   * @evidence contracts/portability.md#os-neutral-implementation Platform-specific child termination is delegated to ResidentCheckProcess; this coordinator does not assume a POSIX signal guarantees process-tree exit on every OS.
+   * @evidence contracts/performance.md#efficient-algorithms Reset traverses the retained process population once and clears maps without scanning individual pending paths.
+   *
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Disposal invalidates shared execution ownership rather than establishing reusable computation.
+   *
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Every retained process receives dispose before map ownership is cleared, and buffer/snapshot/context references are released; actual native termination guarantees remain with the child owner.
+   */
   public dispose(): void {
     this.reset();
   }
 
+  /** Release the selected invocation and every sidecar/buffer acquired for it. */
   private reset(): void {
     for (const process of this.processes.values()) process.dispose();
     this.processes.clear();
@@ -155,6 +202,7 @@ export class ResidentCheckWatchSession {
     this.projectInputs = undefined;
   }
 
+  /** Capture discoveries only when the caller actually subscribes to them. */
   private captureProjectInputs(options: RunBuildOptions): RunBuildOptions {
     const onProjectInputs = options.onProjectInputs;
     if (onProjectInputs === undefined) return options;
@@ -167,6 +215,11 @@ export class ResidentCheckWatchSession {
     };
   }
 
+  /**
+   * Refresh normalized Program topology while always publishing declared alias
+   * updates to the watcher, even when physical dependency identity is
+   * unchanged.
+   */
   private refreshProjectInputTopology(
     options: RunBuildOptions,
     execution: ReturnType<typeof BuildExecution.resolveExecutionContext>,
@@ -181,6 +234,11 @@ export class ResidentCheckWatchSession {
     return changed;
   }
 
+  /**
+   * Deliver changes in configured order, retaining later entries' undelivered
+   * requests after an earlier failure. Process sharing never shares away a
+   * configured check invocation.
+   */
   private async runCheckPlugins(
     options: RunBuildOptions,
     execution: ReturnType<typeof BuildExecution.resolveExecutionContext>,
@@ -282,6 +340,10 @@ export class ResidentCheckWatchSession {
   }
 }
 
+/**
+ * Compare canonical physical topology; alias watch spellings refresh
+ * separately.
+ */
 function projectInputSnapshotsEqual(
   left: ITtscProjectInputSnapshot,
   right: ITtscProjectInputSnapshot,
@@ -305,6 +367,10 @@ function projectInputSnapshotsEqual(
   );
 }
 
+/**
+ * Residency serves analysis-only check stages without fix/format/terminal
+ * effects.
+ */
 function residentCheckExecutionIsCompatible(
   options: RunBuildOptions,
   execution: ReturnType<typeof BuildExecution.resolveExecutionContext>,

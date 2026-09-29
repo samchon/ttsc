@@ -10,8 +10,19 @@ import { RuntimeFilesystem } from "./RuntimeFilesystem";
 
 /**
  * Atomically acquire the current generation of a dependency build lock, or
- * `null` when another process already holds it. Exported for the deterministic
- * multi-process cache regressions.
+ * `null` when another process already holds it or the candidate loses its
+ * publication race. Unexpected filesystem errors propagate.
+ *
+ * @evidence contracts/common.md#principled-implementation A private candidate contains its generation and owner before directory rename publishes current; a nonempty held directory prevents replacement, giving the winner a fully initialized lease.
+ * @evidence contracts/common.md#clear-and-simple-design Candidate preparation, atomic publication and unconditional candidate cleanup define one acquisition operation; layout and native contention classification use shared owners.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Acquisition uses a real atomic filesystem boundary rather than an empty-owner window, fixture schedule or ignored unexpected error.
+ * @evidence contracts/common.md#meaningful-documentation Native prose documents null contention and propagated errors, while the cleanup comment explains why the private candidate cannot select current or another contender.
+ * @evidence contracts/portability.md#os-neutral-implementation Node fs/path supply native directory operations; isContendedCandidateRename owns supported Windows and POSIX contention codes instead of this operation guessing from an OS label.
+ * @evidence contracts/performance.md#efficient-algorithms Acquisition performs a fixed number of directory and small-record operations; it neither scans historical tombstones nor spins while a holder is active.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Acquisition changes lock ownership and cannot reuse a past lease; the higher-level build coordinator owns shared compilation.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The call owns one candidate directory and removes its unused name in finally; successful rename transfers the generation to the lease holder, whose release or dead-owner recovery retires it. A forced kill before publication can leave a candidate until its cache container is removed.
  */
 export function acquireDependencyBuildLock(
   lockDir: string,

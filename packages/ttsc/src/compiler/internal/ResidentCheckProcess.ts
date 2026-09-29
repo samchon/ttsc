@@ -12,10 +12,23 @@ import type { ResidentCheckResult } from "./ResidentCheckResult";
  * caller cannot accidentally pair a late response with the next request. Any
  * framing failure retires the process; the launcher then falls back to the
  * ordinary one-shot command for that cycle.
+ *
+ * The caller owns disposal. Requests have no deadline, and outstanding request
+ * count and reply-line size are not capped; a slow live check remains pending.
+ *
+ * @evidence contracts/common.md#principled-implementation One positional reply consumes one queued cycle; invalid framing or shape retires the stream so a delayed reply cannot answer a different cycle.
+ * @evidence contracts/common.md#clear-and-simple-design One client owns its child, line reader, FIFO and failure state; private parsing and settlement keep transport policy separate from the watch coordinator's fallback.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Protocol validation uses the declared reply fields, and transport failure is rejection rather than a fabricated successful check or a consumer-specific recovery.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain FIFO ownership, retirement, caller disposal and the absence of request bounds, following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Node spawns the supplied native executable with an argv array and pipe streams, without shell quoting; cwd and environment retain caller-provided native semantics.
+ * @evidence contracts/performance.md#efficient-algorithms A head cursor consumes replies in constant amortized queue work; prefix compaction costs no more than the consumed population, and failure drains outstanding requests once.
+ * @evidence contracts/performance.md#reuse-equivalent-work One fixed-configuration child retains its Program across FIFO cycles; changed and external paths travel with each request, while the watch owner replaces the process when configuration or plugin identity changes.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Each settled slot releases its request, retirement clears the queue and closes pipes, and termination has a forced attempt after its grace period. Outstanding requests and line bytes have no fixed cap, and OS-denied termination can leave a live child.
  */
 export class ResidentCheckProcess {
   private readonly child: ChildProcess;
-  private readonly pending: PendingRequest[] = [];
+  private readonly pending: (PendingRequest | undefined)[] = [];
+  private pendingHead = 0;
   private readonly reader: Interface;
   private failure: Error | undefined;
   private stderr = "";
@@ -54,14 +67,26 @@ export class ResidentCheckProcess {
    * process failed, or whose line cannot be written, rejects with the failure
    * that retired the process, so the caller can fall back to a one-shot check
    * for that cycle.
+   *
+   * Serialization errors reject only this call before it enters the stream. A
+   * closed input retires the shared host and rejects its other pending calls.
+   *
+   * @evidence contracts/common.md#principled-implementation Serialization precedes enqueueing, and each successfully enqueued call keeps its own FIFO slot until a validated reply or shared retirement settles it.
+   * @evidence contracts/common.md#clear-and-simple-design Pre-write validation remains local; write failures use the same settlement and retirement operations as pipe and protocol failure.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed serialization cannot consume a reply slot, and a closed pipe is not treated as a healthy host with one exceptional caller.
+   * @evidence contracts/common.md#meaningful-documentation Separate paragraphs document reply ordering, rejection scope and closed-input effects, applying the documentation skill.
+   * @evidence contracts/portability.md#os-neutral-implementation JSON lines pass native change paths as data over Node's stdin stream, without constructing a shell command or converting native separators.
+   * @evidence contracts/performance.md#efficient-algorithms Encoding costs the payload's serialized size, enqueueing is constant time, and reply settlement is amortized constant queue work plus parsing the reply bytes.
+   * @evidence contracts/performance.md#reuse-equivalent-work Each cycle is sent to the existing fixed-configuration Program owner; changes are effectful transitions and are not coalesced merely because request values match.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The client retains one resolver pair per outstanding call until reply or retirement; serialization allocates one request line, and live requests wait without an implicit timeout or population limit.
    */
   public request(payload: ResidentCheckRequest): Promise<ResidentCheckResult> {
     if (this.failure !== undefined) return Promise.reject(this.failure);
     const stdin = this.child.stdin;
     if (stdin === null || stdin.destroyed) {
-      return Promise.reject(
-        new Error("ttsc: resident check host stdin is closed"),
-      );
+      const error = new Error("ttsc: resident check host stdin is closed");
+      this.fail(error);
+      return Promise.reject(error);
     }
     let line: string;
     try {
@@ -70,11 +95,11 @@ export class ResidentCheckProcess {
       return Promise.reject(asError(error));
     }
     return new Promise<ResidentCheckResult>((resolve, reject) => {
-      const pending: PendingRequest = { reject, resolve };
+      const pending: PendingRequest = { reject, resolve, settled: false };
       this.pending.push(pending);
       try {
         stdin.write(line, (error) => {
-          if (error === null || error === undefined) return;
+          if (error === null || error === undefined || pending.settled) return;
           this.settle(pending, error);
           this.fail(error);
         });
@@ -89,6 +114,17 @@ export class ResidentCheckProcess {
   /**
    * Retire the sidecar: reject every pending request and terminate the process.
    * Idempotent; a process that already failed is left as is.
+   *
+   * @evidence contracts/common.md#principled-implementation Setting failure before rejecting the detached FIFO makes disposal terminal; subsequent replies and requests cannot revive the child.
+   * @evidence contracts/common.md#clear-and-simple-design Disposal enters the same retirement path as transport failure instead of maintaining a second cleanup sequence.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Cleanup ends the actual owned streams and attempts child termination; it does not disguise a pending request as a successful result.
+   * @evidence contracts/common.md#meaningful-documentation The native comment states terminal rejection and repeated-call behavior, following the documentation skill's ownership guidance.
+   * @evidence contracts/portability.md#os-neutral-implementation Stream destruction and child signaling use Node's supported APIs; the forced signal follows Node's platform behavior rather than shell or POSIX process-tree commands.
+   * @evidence contracts/performance.md#efficient-algorithms Retirement visits each outstanding request once and releases the queue in linear time rather than repeatedly shifting all remaining entries.
+   *
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Disposal ends the owner and produces no computation that another request may reuse.
+   *
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Disposal closes the reader and all owned pipes, clears pending callbacks and schedules at most one unreferenced forced-termination timer; child exit clears that timer, while signaling errors cannot guarantee process death.
    */
   public dispose(): void {
     if (this.failure !== undefined) return;
@@ -97,7 +133,7 @@ export class ResidentCheckProcess {
 
   private onLine(line: string): void {
     if (this.failure !== undefined || line.trim().length === 0) return;
-    const pending = this.pending[0];
+    const pending = this.pending[this.pendingHead];
     if (pending === undefined) {
       this.fail(
         new Error("ttsc: resident check host sent an unsolicited reply"),
@@ -120,9 +156,15 @@ export class ResidentCheckProcess {
     pending: PendingRequest,
     result: Error | ResidentCheckResult,
   ): void {
-    const index = this.pending.indexOf(pending);
-    if (index === -1) return;
-    this.pending.splice(index, 1);
+    if (pending.settled) return;
+    pending.settled = true;
+    if (this.pending[this.pendingHead] === pending) {
+      this.pending[this.pendingHead++] = undefined;
+      if (this.pendingHead * 2 >= this.pending.length) {
+        this.pending.splice(0, this.pendingHead);
+        this.pendingHead = 0;
+      }
+    }
     if (result instanceof Error) pending.reject(result);
     else pending.resolve(result);
   }
@@ -130,20 +172,25 @@ export class ResidentCheckProcess {
   private fail(error: Error): void {
     if (this.failure !== undefined) return;
     this.failure = error;
-    while (this.pending.length !== 0) {
-      this.settle(this.pending[0]!, error);
+    const pending = this.pending.splice(0);
+    this.pendingHead = 0;
+    for (const request of pending) {
+      if (request !== undefined) this.settle(request, error);
     }
     this.terminate();
   }
 
   private terminate(): void {
+    this.reader.close();
+    this.child.stdout?.destroy();
+    this.child.stderr?.destroy();
     const stdin = this.child.stdin;
     if (stdin !== null && !stdin.destroyed) stdin.destroy();
     if (this.child.exitCode !== null || this.child.signalCode !== null) return;
     try {
       this.child.kill();
     } catch {
-      return;
+      // A failed cooperative signal does not cancel the forced attempt.
     }
     const force = setTimeout(() => {
       if (this.child.exitCode !== null || this.child.signalCode !== null)
@@ -180,6 +227,7 @@ const TERMINATION_GRACE_MS = 1_000;
 type PendingRequest = {
   reject(reason: Error): void;
   resolve(result: ResidentCheckResult): void;
+  settled: boolean;
 };
 function parseResidentCheckResult(
   line: string,

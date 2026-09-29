@@ -5,6 +5,15 @@ import { parse as parseCommonJs } from "cjs-module-lexer";
  * Node's export metadata plus the scoped star helpers ttsx already supports.
  * Node's frozen lexer patterns omit helpers inside blocks and functions. An AST
  * supplies those calls without interpreting regex or template text as code.
+ *
+ * @evidence contracts/common.md#principled-implementation Native lexer metadata remains authoritative, while Acorn node kinds identify supported literal require/export-star shapes without treating comments or string contents as code; this is metadata discovery, not evaluation or lexical binding analysis.
+ * @evidence contracts/common.md#clear-and-simple-design A native parse plus one optional AST walk isolates supplemental star discovery; the node predicate admits only structured parser nodes.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported helper spellings are the transform protocol, and parser failures preserve native metadata so Node's actual loader still owns syntax rejection.
+ * @evidence contracts/common.md#meaningful-documentation Native prose states the metadata boundary and why an AST supplements the frozen lexer; failure comments distinguish discovery from loading.
+ * @evidence contracts/performance.md#efficient-algorithms The initial lexer scans source bytes; AST work is skipped without the helper marker, otherwise each node is visited once and K matching calls are sorted by source position in O(K log K) with O(nodes + K) temporary storage.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This per-source parser owns no cross-request coordinator; consumers choose whether identical transformed source metadata can be reused.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Parser nodes and pending matches are call-local; no handle, task or historical cache is acquired.
  */
 export function parseCommonJsExports(
   source: string,

@@ -7,6 +7,15 @@ import { normalizeFlagToken } from "./normalizeFlagToken";
  * generator emits a literal Go map with the same shape, but this function is
  * the runtime equivalent — used in tests to verify the generated Go matches the
  * schema.
+ *
+ * @evidence contracts/common.md#principled-implementation Consumer membership chooses the native lane, normalized canonical names and aliases form its keys, and value/valueOptional arity becomes the Go map's value-token boolean. Conflicting arity for one identity throws rather than choosing a declaration order.
+ * @evidence contracts/common.md#clear-and-simple-design This adapter derives the native representation from the shared schema and normalization function, keeping native allow-list ownership aligned with JavaScript flag identity.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The returned constants reflect declared host/lint CLI contracts; conflicting normalized entries remain explicit errors instead of silent consumer-specific overrides.
+ * @evidence contracts/common.md#meaningful-documentation The comment describes key grammar, value meaning and the relationship with generated native maps, following the documentation skill's representation and ownership guidance.
+ * @evidence contracts/performance.md#efficient-algorithms One schema traversal and one traversal of accepted aliases build the map in O(F plus alias text) expected time; normalized keys provide constant-time collision checks without pairwise comparisons.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The adapter creates an independently mutable map for its caller and coordinates no completed or in-flight cross-request result.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The map owns only references and boolean arity values for the selected schema spellings and transfers to the caller on return; the function keeps no historical entries or handles.
  */
 export function buildGoAllowList(layer: "host" | "lint"): Map<string, boolean> {
   const out = new Map<string, boolean>();
@@ -19,8 +28,7 @@ export function buildGoAllowList(layer: "host" | "lint"): Map<string, boolean> {
       // spellings. The Go consumers apply the same normalization before the
       // lookup (`strings.ToLower` on the dash-stripped name).
       const key = normalizeFlagToken(name);
-      // If two flags collide on the normalized key (e.g. `-p` vs `--project`),
-      // use the value-taking shape.
+      // A normalized identity must have one arity on the selected native lane.
       const existing = out.get(key);
       if (existing !== undefined && existing !== takesValue) {
         throw new Error(

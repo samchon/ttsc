@@ -28,6 +28,11 @@ import { type ParseResult } from "../../flags/ParseResult";
  * `forwardAfterFirstPositional` and `honorDoubleDashSeparator`, so a token
  * after the entry lands in `result.tail` and never in `result.values`; reading
  * `values` is what keeps `ttsx script.ts --build` the user program's own flag.
+ *
+ * @evidence contracts/common.md#principled-implementation Presence in the launcher's parsed values identifies a requested unsupported compiler mode; the program's post-entry arguments are outside this map.
+ * @evidence contracts/common.md#clear-and-simple-design A shared pre-build guard owns this unsupported-mode diagnostic for both launchers instead of rewriting compiler argument order.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The rejection follows the supported single-project contract, including an explicit false token, without compensating for a tsgo diagnostic through a synthetic solution build.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain pinned-project semantics, presence detection and the boundary with user-program flags, with tags separated from prose.
  */
 export function assertNoSolutionBuild(
   result: ParseResult,

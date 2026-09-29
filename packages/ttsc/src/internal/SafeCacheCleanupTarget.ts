@@ -1,16 +1,24 @@
 /**
- * One cache directory that a clean transaction has proven safe to delete.
+ * One cache location authorized by a completed cleanup plan.
  *
  * Produced by {@link resolveSafeCacheCleanupTargets} only after every requested
  * directory has been resolved and checked, so a caller that removes `path` for
- * each target never deletes a filesystem root or anything that contains the
- * project.
+ * each target uses the resolver's root/project protection and terminal-link
+ * policy. This is a checked deletion plan, not a held directory handle or an
+ * atomic filesystem snapshot; callers must not reinterpret or retarget its
+ * path.
+ *
+ * @evidence contracts/common.md#principled-implementation Requested spelling, pinned deletion path and observed presence express distinct cleanup facts; the producer validates every candidate before returning a plan, while this passive type cannot itself prevent subsequent filesystem races.
+ * @evidence contracts/common.md#clear-and-simple-design Three fields separate reporting, deletion and missing-cache reporting without embedding filesystem operations or policy flags in each planned target.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Terminal links retain their own deletion spelling rather than pretending removal follows their target; absence remains an observed boolean and does not bypass the resolver's project/root protection.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the producing validation, plan-versus-snapshot limitation and each field's use, with documented-member and tag spacing following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation The representation carries physically pinned native paths and distinguishes terminal symlink/junction deletion from requested lexical reporting; the shared resolver, not platform-name string rules in this DTO, owns alias and case interpretation.
  */
 export interface SafeCacheCleanupTarget {
   /**
-   * The directory existed when the transaction inspected it. A target that did
-   * not exist is still returned, so the caller can report it without treating a
-   * missing cache as an error.
+   * The terminal entry existed when the transaction inspected it. A target that
+   * did not exist is still returned, so the caller can report it without
+   * treating a missing cache as an error.
    */
   exists: boolean;
 

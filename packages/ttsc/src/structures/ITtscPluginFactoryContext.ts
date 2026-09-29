@@ -8,9 +8,15 @@ import type { ITtscProjectPluginConfig } from "./ITtscProjectPluginConfig";
  * descriptor needs to inspect the original plugin config, the resolved tsconfig
  * path, the project root, or the descriptor's own location on disk.
  *
- * The factory runs in Node.js while ttsc is loading `compilerOptions.plugins`.
- * It should only create the descriptor. Heavy validation and TypeScript-Go work
- * belong in the Go source plugin selected by {@link ITtscPlugin.source}.
+ * The factory runs in an isolated supported JavaScript runtime while ttsc loads
+ * `compilerOptions.plugins`. It should only create the descriptor. Heavy
+ * validation and TypeScript-Go work belong in the selected Go source plugin.
+ *
+ * @evidence contracts/common.md#principled-implementation Separate invocation, project, configuration and descriptor locations preserve their different resolution bases; the generic plugin field keeps the factory's own config type without guessing its shape.
+ * @evidence contracts/common.md#clear-and-simple-design One factory input collects already-resolved context and the original configuration so descriptors need neither reparse CLI arguments nor infer their own load mode.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit filename/dirname fields are the supported descriptor boundary for both module modes; they avoid substituting globals or consumer-specific path repairs.
+ * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains each path's origin, generated-wrapper overrides and the descriptor factory's limited responsibility; member spacing, paragraphs and separation before tags follow the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Explicit native descriptor and project path anchors support OS-neutral path resolution without deriving them from URL text, POSIX separator splitting or CommonJS-only globals. Invocation cwd, project root and config origin keep their separate identities across generated wrappers.
  */
 export interface ITtscPluginFactoryContext<T = ITtscProjectPluginConfig> {
   /**

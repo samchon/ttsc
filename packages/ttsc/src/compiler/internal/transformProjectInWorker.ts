@@ -1,19 +1,13 @@
+import { availableParallelism } from "node:os";
 import path from "node:path";
 import { Worker } from "node:worker_threads";
 
+import { CompilerContextSnapshot } from "../../internal/CompilerContextSnapshot";
 import type { ITtscCompilerContext } from "../../structures/ITtscCompilerContext";
 import type { TransformProjectWorkerReply } from "./TransformProjectWorkerReply";
 import type { TransformProjectWorkerRequest } from "./TransformProjectWorkerRequest";
+import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
 import type { transformProjectInMemory } from "./transformProjectInMemory";
-
-/** Worker threads that finished their last transform, ready for the next. */
-const IDLE_WORKERS: Worker[] = [];
-
-/**
- * The listener each idle worker carries while it waits in {@link IDLE_WORKERS},
- * which takes it out of the pool if it fails or exits there.
- */
-const IDLE_RETIREMENTS = new WeakMap<Worker, () => void>();
 
 /**
  * {@link transformProjectInMemory} on a worker thread, so the calling thread's
@@ -38,23 +32,41 @@ const IDLE_RETIREMENTS = new WeakMap<Worker, () => void>();
  * builds warm. Concurrent transforms get workers of their own. An idle worker
  * never keeps the process alive.
  *
+ * Warm idle threads are retained up to the host's reported parallelism budget;
+ * excess completed threads terminate. Active requests retain their own workers
+ * without a concurrency cap or implicit deadline.
+ *
  * @param context Compiler context of the requesting {@link TtscCompiler}.
+ *
  * @returns What {@link transformProjectInMemory} returns, or a rejection with
  *   what it threw.
+ *
+ * @evidence contracts/common.md#principled-implementation One request exclusively owns a worker until its output, exception or death settles; structured cloning isolates caller data, and adopting that request's environment prevents a pooled worker from inheriting the previous invocation's authority.
+ * @evidence contracts/common.md#clear-and-simple-design The public operation owns checkout, exclusive event listeners and return to the idle pool; two private helpers isolate idle-worker retirement from active request settlement.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Blocking work runs in a supported worker boundary rather than rewriting the caller's environment around synchronous work; failures preserve real exceptions and do not substitute measured or expected results.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain why all transform phases move off-thread, environment isolation, warm reuse and retained-population limits following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Worker entry is a native path and the environment snapshot uses native name identity; Windows worker copies are case-sensitive, so canonical merging prevents aliases from defeating caller overrides inside the worker.
+ * @evidence contracts/performance.md#efficient-algorithms Worker checkout is constant-time and request cloning costs the context size; the unchanged transform owns its project/source work off-thread, while no extra transform is performed merely to reconstruct its result on the caller.
+ * @evidence contracts/performance.md#reuse-equivalent-work An exclusively checked-out warm worker reuses the loader's input-validated caches; each request adopts its complete current environment and still executes the transform, so thread reuse is not an unsupported response cache.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources At most the reported CPU budget remains idle and unreferenced; excess or failed workers terminate, and one terminal settlement removes active listeners. Active worker count scales with concurrent requests, and a live transform has no implicit deadline.
  */
 export function transformProjectInWorker(
   context: ITtscCompilerContext,
 ): Promise<ReturnType<typeof transformProjectInMemory>> {
   const request: TransformProjectWorkerRequest = {
     context,
-    env: { ...process.env, ...context.env },
+    env: SidecarEnvironment.merge(process.env, context.env),
+    serializedPlugins: CompilerContextSnapshot.serializePlugins(context),
   };
   const worker =
     takeIdleWorker() ??
     new Worker(path.join(__dirname, "transformProjectWorker.js"));
   worker.ref();
   return new Promise((resolve, reject) => {
-    const release = (reusable: boolean): void => {
+    let settled = false;
+    const release = (reusable: boolean): boolean => {
+      if (settled) return false;
+      settled = true;
       worker.off("message", onMessage);
       worker.off("error", onError);
       worker.off("exit", onExit);
@@ -63,24 +75,22 @@ export function transformProjectInWorker(
       } else {
         void worker.terminate();
       }
+      return true;
     };
     const onMessage = (reply: TransformProjectWorkerReply): void => {
-      release(true);
+      if (!release(true)) return;
       if ("output" in reply) {
         resolve(reply.output);
         return;
       }
-      const error = new Error(reply.thrown.message);
-      if (reply.thrown.name !== undefined) error.name = reply.thrown.name;
-      if (reply.thrown.stack !== undefined) error.stack = reply.thrown.stack;
-      reject(error);
+      reject(reply.thrown);
     };
     const onError = (error: Error): void => {
-      release(false);
+      if (!release(false)) return;
       reject(error);
     };
     const onExit = (code: number): void => {
-      release(false);
+      if (!release(false)) return;
       reject(
         new Error(
           `ttsc: the transform worker exited with code ${code} before it answered`,
@@ -95,11 +105,23 @@ export function transformProjectInWorker(
     } catch (error) {
       // A context that cannot be cloned never reached the worker, which stays
       // fit for the next request.
-      release(true);
+      if (!release(true)) return;
       reject(error);
     }
   });
 }
+
+/** Worker threads that finished their last transform, ready for the next. */
+const IDLE_WORKERS: Worker[] = [];
+
+/** Keep at most the host's CPU budget in warm, otherwise idle threads. */
+const MAX_IDLE_WORKERS = availableParallelism();
+
+/**
+ * The listener each idle worker carries while it waits in {@link IDLE_WORKERS},
+ * which takes it out of the pool if it fails or exits there.
+ */
+const IDLE_RETIREMENTS = new WeakMap<Worker, () => void>();
 
 /**
  * Return a worker to the idle pool, with a listener that retires it if it fails
@@ -111,6 +133,10 @@ export function transformProjectInWorker(
  * and wait forever.
  */
 function parkIdleWorker(worker: Worker): void {
+  if (IDLE_WORKERS.length >= MAX_IDLE_WORKERS) {
+    void worker.terminate();
+    return;
+  }
   const retire = (): void => {
     worker.off("error", retire);
     worker.off("exit", retire);
