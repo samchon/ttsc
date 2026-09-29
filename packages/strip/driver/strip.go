@@ -239,20 +239,24 @@ func (s *stripRewriter) matchesCall(name string) bool {
 }
 
 // parseCallPattern parses a dot-separated call pattern string such as
-// "console.log" or "assert.*". A wildcard ("*") is only allowed as the
-// final segment. Empty segments are rejected.
+// "console.log" or "assert.*". A wildcard ("*") requires a dotted prefix
+// and must be the whole final segment; embedded stars and empty segments are
+// rejected.
 func parseCallPattern(text string) (callPattern, error) {
   parts := strings.Split(text, ".")
   for i, part := range parts {
     if part == "" {
       return callPattern{}, fmt.Errorf("invalid call pattern %q", text)
     }
-    if part == "*" && i != len(parts)-1 {
-      return callPattern{}, fmt.Errorf("wildcard is only supported at the end of call pattern %q", text)
+    if strings.Contains(part, "*") && (part != "*" || i != len(parts)-1) {
+      return callPattern{}, fmt.Errorf("wildcard is only supported as the final segment of call pattern %q", text)
     }
   }
   wildcard := parts[len(parts)-1] == "*"
   if wildcard {
+    if len(parts) == 1 {
+      return callPattern{}, fmt.Errorf("wildcard requires a dotted call prefix in pattern %q", text)
+    }
     parts = parts[:len(parts)-1]
   }
   return callPattern{parts: parts, wildcard: wildcard}, nil
