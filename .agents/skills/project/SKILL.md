@@ -48,4 +48,4 @@ The `@ttsc/evidence` implementation invariants are [evidence/SKILL.md](evidence/
 
 ## Engineering Acknowledgments
 
-The [contracts skill](../contracts/SKILL.md) owns common and scoped acknowledgment questions. It links to these product contracts and package documentation; it does not replace their semantics or duplicate package ownership.
+The [contracts skill](../contracts/SKILL.md) owns common and scoped acknowledgment questions. Read it alongside these product contracts and package documentation; it does not replace their semantics or duplicate package ownership.

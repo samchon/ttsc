@@ -37,7 +37,7 @@ A permanent acknowledgment concerns mechanisms present in the implementation. It
 
 Write useful native documentation for public declarations and members. Explain purpose and the nonobvious facts needed to use them, such as ownership, units, failure effects or optional-state meaning. Repeating names, types and executable branches does not supply that context.
 
-Follow the documentation skill in related repository documents and apply its paragraph separation, clear prose and explanation of reasons to native comments. Preserve TypeScript JSDoc and Go declaration-comment syntax. Concision does not justify forcing different ideas into one paragraph.
+Follow the documentation skill in related repository documents and apply its paragraph separation, clear prose and explanation of reasons to native comments. Use TypeScript JSDoc and Go declaration comments for public declarations and members. Concision does not justify forcing different ideas into one paragraph.
 
 Separate descriptive prose from acknowledgment tags with a blank comment line. Separate documented properties with a blank source line so each explanation is visibly associated with its member. Properties retain useful native documentation without separate checklist acknowledgments.
 
