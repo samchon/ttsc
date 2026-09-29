@@ -7,6 +7,7 @@
       "files": [
         "src/**/*.ts",
         "!src/bootTtsc.ts",
+        "!src/createMemFS.ts",
         "!src/index.ts"
       ],
       "symbol": [
@@ -50,7 +51,8 @@
       "name": "shared browser loading and retained resources",
       "type": "typescript",
       "files": [
-        "src/bootTtsc.ts"
+        "src/bootTtsc.ts",
+        "src/createMemFS.ts"
       ],
       "symbol": [
         "type",

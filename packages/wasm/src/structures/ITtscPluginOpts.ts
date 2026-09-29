@@ -1,13 +1,29 @@
-/** Options for dispatching a named plugin subcommand via `api.plugin`. */
+/**
+ * Options for dispatching a named plugin subcommand via `api.plugin`.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Required dispatch fields plus scalar options mirror buildPluginArgv's native
+ *   translation, allowing each registered plugin to own its argument schema.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Plugin defaults remain with the plugin; this transport does not hardcode
+ *   consumer-specific arguments or pretend to validate an unknown command.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Member JSDoc distinguishes dispatch identity from forwarded arguments and
+ *   boolean omission, following the documentation skill's usage-context guidance.
+ */
 export interface ITtscPluginOpts {
   /** Plugin id registered with `host.Expose` (e.g. `@ttsc/banner`). */
   name: string;
+
   /** Subcommand the plugin's Run will receive (e.g. `build`). */
   command: string;
+
   /** Forwarded as `--cwd=<value>`. */
   cwd?: string;
-  /** Forwarded as `--tsconfig=<value>`. Defaults to `tsconfig.json`. */
+
+  /** Forwarded as `--tsconfig=<value>`; an absent value is left to the plugin. */
   tsconfig?: string;
-  /** Any extra key/value pairs map to `--key=value` argv entries. */
+
+  /** Scalars become `--key=value`; true becomes `--key`, false/undefined are omitted. */
   [key: string]: string | boolean | number | undefined;
 }

@@ -118,7 +118,7 @@ There is no boot deadline. How long a fetch and instantiation take belongs to th
 
 Once `go.run` starts, JavaScript cannot terminate the Go wasm runtime. A boot failure from that point throws `BootTtscWorkerTerminationError` with code `TTSC_WASM_WORKER_TERMINATION_REQUIRED`, and later boots for the same `apiName` reject without installing another readiness bridge. Terminate and replace that Worker before retrying.
 
-Booting two wasms with the same `apiName` overwrites the previous global binding; pick a unique `apiName` per binary. `bootTtsc` also installs shared `fs` and `process` globals in its Worker, so use separate Workers when binaries need independent filesystems.
+Use one Go runtime per Worker. A different API name does not isolate the shared `Go`, `fs` and `process` globals, so another binary needs another Worker. Calls joining the same API/binary boot reuse its actual filesystem; a different explicit host or `wasmExecUrl` is rejected rather than silently ignored. The default runtime-script URL is the binary's sibling `wasm_exec.js`, without its query or fragment.
 
 ## Fountain API (snapshot, AST, type checker)
 

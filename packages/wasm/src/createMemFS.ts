@@ -30,6 +30,9 @@ interface INode {
   kind: "file" | "dir";
   data: Uint8Array;
   mtimeMs: number;
+
+  /** UTF-8 decoding of current bytes, cleared by every content mutation. */
+  text?: string;
 }
 
 const encoder = new TextEncoder();
@@ -70,13 +73,104 @@ function normalize(p: string): string {
  * descendants. An operation that cannot satisfy that throws (`writeFile`,
  * `mkdirp`) or reports a POSIX error through its callback, having changed no
  * node, byte, or descriptor.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   The owned Node-shaped fs bridge uses maps for virtual node/descriptor
+ *   identity and preserves opened nodes independently from paths. The Go js/wasm
+ *   callback interface is the authority; unsupported link and metadata mutation
+ *   capabilities are explicit in IWasmExecFS.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Virtual flag/errno values are bridge constants, not native-host guesses.
+ *   The implementation owns its maps rather than patching foreign filesystem
+ *   methods. Directory indexes, geometric file growth and linked pipe queues
+ *   correct repeated global scans, full-buffer copies and queue shifts at their
+ *   owners, without size exceptions or benchmark-specific paths.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native paragraphs explain installation, copying and tree ownership; helper
+ *   and interface comments state cost and unsupported capabilities. This follows
+ *   the documentation skill's paragraph, units and rationale guidance.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Directory lookup visits D direct entries and sorts them in O(D log D),
+ *   emptiness uses the indexed child count, and rename visits only S subtree
+ *   nodes plus F open descriptors. Growing file writes amortize copying through
+ *   geometric capacity; pipe enqueue/dequeue change linked endpoints in O(1).
+ *   Output fragments append without flattening all prior text; a full capture
+ *   is materialized only when its string is requested.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Child membership is maintained once by node insertion/deletion rather than
+ *   reconstructed for every listing. Text decoding is cached on node identity
+ *   and invalidated by every content mutation. Open descriptors share their
+ *   actual inode; public byte reads still copy to preserve caller isolation.
+ *   Each output stream keeps its own incremental UTF-8 decoder, so a split
+ *   character is decoded once and capture reads reuse the materialized string
+ *   until another fragment arrives.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Each host owns its tree, indexes, captures and descriptors. Unlink/rmdir
+ *   remove tree entries, close releases descriptors, and consumed pipe entries
+ *   are detached. File write capacity stays at most twice logical length; truncate
+ *   and replacement release spare storage. Total input and captured output have
+ *   no fixed bound, so the caller owns deletion, resetStdio and host lifetime.
  */
 export function createMemFS(): IMemFSHost {
   const nodes = new Map<string, INode>();
+  const children = new Map<string, Set<string>>([["/", new Set()]]);
   nodes.set("/", { kind: "dir", data: new Uint8Array(), mtimeMs: Date.now() });
 
-  const stdout = { buffer: "" };
-  const stderr = { buffer: "" };
+  /** Keep parent membership and directory indexes with the owned node tree. */
+  function setNode(p: string, node: INode): void {
+    nodes.set(p, node);
+    children.get(parentDir(p))!.add(p);
+    if (node.kind === "dir" && !children.has(p)) children.set(p, new Set());
+  }
+
+  /** Remove a validated node and its index; open descriptors retain the node. */
+  function deleteNode(p: string): void {
+    nodes.delete(p);
+    children.get(parentDir(p))!.delete(p);
+    children.delete(p);
+  }
+
+  /** Decode stream fragments incrementally and materialize capture text on read. */
+  function createCapture() {
+    let streamDecoder = new TextDecoder();
+    let chunks: string[] = [];
+    let cached = "";
+    let dirty = false;
+    const append = (text: string): string => {
+      if (text.length > 0) {
+        chunks.push(text);
+        cached = "";
+        dirty = true;
+      }
+      return text;
+    };
+    return {
+      output: {
+        get buffer(): string {
+          if (dirty) {
+            cached = chunks.join("");
+            chunks = cached.length > 0 ? [cached] : [];
+            dirty = false;
+          }
+          return cached;
+        },
+        set buffer(value: string) {
+          streamDecoder = new TextDecoder();
+          chunks = value.length > 0 ? [value] : [];
+          cached = value;
+          dirty = false;
+        },
+      },
+      write(bytes: Uint8Array): string {
+        return append(streamDecoder.decode(bytes, { stream: true }));
+      },
+      flush(): void {
+        append(streamDecoder.decode());
+      },
+    };
+  }
+  const stdout = createCapture();
+  const stderr = createCapture();
 
   /**
    * One open descriptor.
@@ -125,9 +219,30 @@ export function createMemFS(): IMemFSHost {
   // These fds only ever come from a direct JavaScript `fs.pipe2` call. Go's
   // wasm `os.Pipe` returns ENOSYS without crossing the `globalThis.fs` bridge,
   // so the Go runtime never reaches this state — see IWasmExecFS.pipe2.
+  interface IQueueEntry<T> {
+    value: T;
+    next?: IQueueEntry<T>;
+  }
+  interface IQueue<T> {
+    head?: IQueueEntry<T>;
+    tail?: IQueueEntry<T>;
+  }
+  function enqueue<T>(queue: IQueue<T>, value: T): void {
+    const entry = { value };
+    if (queue.tail) queue.tail.next = entry;
+    else queue.head = entry;
+    queue.tail = entry;
+  }
+  function dequeue<T>(queue: IQueue<T>): T | undefined {
+    const entry = queue.head;
+    if (!entry) return undefined;
+    queue.head = entry.next;
+    if (!queue.head) queue.tail = undefined;
+    return entry.value;
+  }
   interface IPipeState {
-    buffers: Uint8Array[];
-    pendingReaders: Array<{
+    buffers: IQueue<Uint8Array>;
+    pendingReaders: IQueue<{
       buffer: Uint8Array;
       offset: number;
       length: number;
@@ -136,6 +251,7 @@ export function createMemFS(): IMemFSHost {
     readFd: number;
     writeFd: number;
     writeClosed: boolean;
+    readClosed: boolean;
   }
   const pipes = new Map<number, IPipeState>();
 
@@ -150,13 +266,13 @@ export function createMemFS(): IMemFSHost {
     length: number,
   ): number {
     let written = 0;
-    while (state.buffers.length > 0 && written < length) {
-      const chunk = state.buffers[0]!;
+    while (state.buffers.head && written < length) {
+      const chunk = state.buffers.head.value;
       const copyLen = Math.min(chunk.byteLength, length - written);
       buffer.set(chunk.subarray(0, copyLen), offset + written);
       written += copyLen;
-      if (copyLen >= chunk.byteLength) state.buffers.shift();
-      else state.buffers[0] = chunk.subarray(copyLen);
+      if (copyLen >= chunk.byteLength) dequeue(state.buffers);
+      else state.buffers.head.value = chunk.subarray(copyLen);
     }
     return written;
   }
@@ -167,10 +283,10 @@ export function createMemFS(): IMemFSHost {
    */
   function flushPipeReaders(state: IPipeState): void {
     while (
-      state.pendingReaders.length > 0 &&
-      (state.buffers.length > 0 || state.writeClosed)
+      state.pendingReaders.head &&
+      (state.buffers.head || state.writeClosed)
     ) {
-      const reader = state.pendingReaders.shift()!;
+      const reader = dequeue(state.pendingReaders)!;
       const n = drainPipeInto(
         state,
         reader.buffer,
@@ -218,7 +334,7 @@ export function createMemFS(): IMemFSHost {
   /** Materialize the directories `missingDirs` reported. */
   function createDirs(paths: string[]): void {
     for (const path of paths)
-      nodes.set(path, {
+      setNode(path, {
         kind: "dir",
         data: new Uint8Array(),
         mtimeMs: Date.now(),
@@ -249,11 +365,7 @@ export function createMemFS(): IMemFSHost {
 
   /** True when `dir` has at least one descendant node in the tree. */
   function hasChildren(dir: string): boolean {
-    const prefix = dir === "/" ? "/" : dir + "/";
-    for (const key of nodes.keys()) {
-      if (key !== dir && key.startsWith(prefix)) return true;
-    }
-    return false;
+    return (children.get(dir)?.size ?? 0) > 0;
   }
 
   /**
@@ -264,6 +376,26 @@ export function createMemFS(): IMemFSHost {
     const next = new Uint8Array(length);
     next.set(data.subarray(0, Math.min(length, data.byteLength)));
     return next;
+  }
+
+  /** Grow writes geometrically; the public view still exposes only file bytes. */
+  function growFileData(data: Uint8Array, length: number): Uint8Array {
+    const capacity = data.buffer.byteLength - data.byteOffset;
+    if (length <= capacity) {
+      const next = new Uint8Array(data.buffer, data.byteOffset, length);
+      next.fill(0, data.byteLength);
+      return next;
+    }
+    const next = new Uint8Array(Math.max(length, data.byteLength * 2));
+    next.set(data);
+    return next.subarray(0, length);
+  }
+
+  /** Reject invalid byte slices before a write or queued read can mutate state. */
+  function validSlice(buffer: Uint8Array, offset: number, length: number): boolean {
+    return Number.isSafeInteger(offset) && Number.isSafeInteger(length) &&
+      offset >= 0 && length >= 0 && offset <= buffer.byteLength &&
+      length <= buffer.byteLength - offset;
   }
 
   /**
@@ -292,12 +424,15 @@ export function createMemFS(): IMemFSHost {
     const start = entry.append
       ? node.data.byteLength
       : (position ?? entry.position);
-    if (!Number.isInteger(start) || start < 0)
+    if (!Number.isSafeInteger(start) || start < 0)
       throw new MemFSError("EINVAL", syscall, entry.path);
     if (view.byteLength === 0) return 0;
     const end = start + view.byteLength;
-    if (end > node.data.byteLength) node.data = resizeFileData(node.data, end);
+    if (!Number.isSafeInteger(end))
+      throw new MemFSError("EINVAL", syscall, entry.path);
+    if (end > node.data.byteLength) node.data = growFileData(node.data, end);
     node.data.set(view, start);
+    node.text = undefined;
     node.mtimeMs = Date.now();
     if (position === null || entry.append) entry.position = end;
     return view.byteLength;
@@ -311,19 +446,20 @@ export function createMemFS(): IMemFSHost {
    */
   function moveSubtree(src: string, dest: string): void {
     const srcPrefix = src + "/";
-    const moves: Array<[string, INode]> = [];
-    for (const [key, node] of nodes) {
-      if (key === src) moves.push([dest, node]);
-      else if (key.startsWith(srcPrefix))
-        moves.push([dest + "/" + key.slice(srcPrefix.length), node]);
+    const moves: Array<[string, string, INode]> = [];
+    const pending = [src];
+    while (pending.length > 0) {
+      const key = pending.pop()!;
+      const target = key === src ? dest : dest + key.slice(src.length);
+      moves.push([key, target, nodes.get(key)!]);
+      for (const child of children.get(key) ?? []) pending.push(child);
     }
     // Delete the whole source subtree first so a nested overwrite cannot leave
     // a stale descendant behind, then reinsert at the destination prefix. Any
     // pre-existing `dest` node is replaced by the reinsert.
-    for (const key of [...nodes.keys()]) {
-      if (key === src || key.startsWith(srcPrefix)) nodes.delete(key);
-    }
-    for (const [key, node] of moves) nodes.set(key, node);
+    for (let i = moves.length - 1; i >= 0; --i) deleteNode(moves[i]![0]);
+    if (nodes.has(dest)) deleteNode(dest);
+    for (const [, key, node] of moves) setNode(key, node);
     for (const entry of fdTable.values()) {
       if (entry.path === src) entry.path = dest;
       else if (entry.path.startsWith(srcPrefix))
@@ -350,8 +486,9 @@ export function createMemFS(): IMemFSHost {
     // file observe the replacement instead of a detached predecessor.
     if (existing) {
       existing.data = bytes;
+      existing.text = undefined;
       existing.mtimeMs = Date.now();
-    } else nodes.set(norm, { kind: "file", data: bytes, mtimeMs: Date.now() });
+    } else setNode(norm, { kind: "file", data: bytes, mtimeMs: Date.now() });
   }
 
   function readFile(p: string): Uint8Array | null {
@@ -361,8 +498,9 @@ export function createMemFS(): IMemFSHost {
   }
 
   function readFileText(p: string): string | null {
-    const bytes = readFile(p);
-    return bytes === null ? null : decoder.decode(bytes);
+    const node = nodes.get(normalize(p));
+    if (!node || node.kind !== "file") return null;
+    return (node.text ??= decoder.decode(node.data));
   }
 
   function exists(p: string): boolean {
@@ -402,23 +540,17 @@ export function createMemFS(): IMemFSHost {
   /**
    * Return immediate children of directory `p`, sorted alphabetically.
    *
-   * Uses a linear scan over the node map and a `Set` to deduplicate nested
-   * paths into direct-child names — O(n) in the number of total nodes.
+   * The maintained child index limits work to this directory's entries. Sorting
+   * provides deterministic output without scanning unrelated project files.
    */
   function readdirSync(p: string): string[] {
     const norm = normalize(p);
     const node = nodes.get(norm);
     if (!node) throw new MemFSError("ENOENT", "readdir", norm);
     if (node.kind !== "dir") throw new MemFSError("ENOTDIR", "readdir", norm);
-    const prefix = norm === "/" ? "/" : norm + "/";
-    const direct = new Set<string>();
-    for (const key of nodes.keys()) {
-      if (!key.startsWith(prefix) || key === norm) continue;
-      const rest = key.slice(prefix.length);
-      const cut = rest.indexOf("/");
-      direct.add(cut === -1 ? rest : rest.slice(0, cut));
-    }
-    return [...direct].sort();
+    return [...children.get(norm)!]
+      .map((child) => child.slice(norm === "/" ? 1 : norm.length + 1))
+      .sort();
   }
 
   const fs: IWasmExecFS = {
@@ -434,12 +566,11 @@ export function createMemFS(): IMemFSHost {
 
     writeSync(fd, buf) {
       if (fd === 1) {
-        stdout.buffer += decoder.decode(buf);
+        stdout.write(buf);
         return buf.length;
       }
       if (fd === 2) {
-        const text = decoder.decode(buf);
-        stderr.buffer += text;
+        const text = stderr.write(buf);
         // Surface wasm-side stderr to the host console in real-time so plugin
         // debug prints / Go panics aren't trapped inside the MemFS buffer.
         // Stripped at end of message for cleaner display.
@@ -466,6 +597,8 @@ export function createMemFS(): IMemFSHost {
 
     write(fd, buf, offset, length, position, callback) {
       try {
+        if (!validSlice(buf, offset, length))
+          throw new MemFSError("EINVAL", "write");
         // Pipe write: snapshot the data (caller may reuse `buf`) and queue.
         // Synchronously wake any blocked reader so the cooperative wasm
         // scheduler doesn't deadlock waiting for a future fs roundtrip.
@@ -475,10 +608,14 @@ export function createMemFS(): IMemFSHost {
             callback(new MemFSError("EBADF", "write"), 0);
             return;
           }
+          if (pipeState.readClosed) {
+            callback(new MemFSError("EPIPE", "write"), 0);
+            return;
+          }
           if (length > 0) {
             const copy = new Uint8Array(length);
             copy.set(buf.subarray(offset, offset + length));
-            pipeState.buffers.push(copy);
+            enqueue(pipeState.buffers, copy);
             flushPipeReaders(pipeState);
           }
           callback(null, length);
@@ -531,7 +668,7 @@ export function createMemFS(): IMemFSHost {
           if (missing.length > 0)
             throw new MemFSError("ENOENT", "open", missing[0]!);
           node = { kind: "file", data: new Uint8Array(), mtimeMs: Date.now() };
-          nodes.set(norm, node);
+          setNode(norm, node);
         } else {
           if (creating && exclusive)
             throw new MemFSError("EEXIST", "open", norm);
@@ -546,6 +683,7 @@ export function createMemFS(): IMemFSHost {
         }
         if (truncating) {
           node.data = new Uint8Array();
+          node.text = undefined;
           node.mtimeMs = Date.now();
         }
         const fd = nextFd++;
@@ -566,11 +704,18 @@ export function createMemFS(): IMemFSHost {
     close(fd, callback) {
       const pipeState = pipes.get(fd);
       if (pipeState) {
+        pipes.delete(fd);
         if (fd === pipeState.writeFd) {
           pipeState.writeClosed = true;
           flushPipeReaders(pipeState);
+        } else {
+          pipeState.readClosed = true;
+          pipeState.buffers = {};
+          while (pipeState.pendingReaders.head) {
+            const reader = dequeue(pipeState.pendingReaders)!;
+            reader.callback(new MemFSError("EBADF", "read"), 0);
+          }
         }
-        pipes.delete(fd);
         callback(null);
         return;
       }
@@ -578,11 +723,17 @@ export function createMemFS(): IMemFSHost {
         callback(new MemFSError("EBADF", "close"));
         return;
       }
+      if (fd === 1) stdout.flush();
+      if (fd === 2) stderr.flush();
       if (fd > 2) fdTable.delete(fd);
       callback(null);
     },
 
     read(fd, buffer, offset, length, position, callback) {
+      if (!validSlice(buffer, offset, length)) {
+        callback(new MemFSError("EINVAL", "read"), 0);
+        return;
+      }
       // Pipe read: drain queued chunks; block (defer callback) on empty.
       // Empty + writeClosed → return 0 (EOF). Position is ignored for pipes.
       const pipeState = pipes.get(fd);
@@ -591,7 +742,11 @@ export function createMemFS(): IMemFSHost {
           callback(new MemFSError("EBADF", "read"), 0);
           return;
         }
-        if (pipeState.buffers.length > 0) {
+        if (length === 0) {
+          callback(null, 0);
+          return;
+        }
+        if (pipeState.buffers.head) {
           const n = drainPipeInto(pipeState, buffer, offset, length);
           callback(null, n);
           return;
@@ -600,7 +755,7 @@ export function createMemFS(): IMemFSHost {
           callback(null, 0);
           return;
         }
-        pipeState.pendingReaders.push({ buffer, offset, length, callback });
+        enqueue(pipeState.pendingReaders, { buffer, offset, length, callback });
         return;
       }
       const entry = fdTable.get(fd);
@@ -620,7 +775,7 @@ export function createMemFS(): IMemFSHost {
         return;
       }
       const start = position ?? entry.position;
-      if (!Number.isInteger(start) || start < 0) {
+      if (!Number.isSafeInteger(start) || start < 0) {
         callback(new MemFSError("EINVAL", "read", entry.path), 0);
         return;
       }
@@ -650,7 +805,7 @@ export function createMemFS(): IMemFSHost {
         if (!parent) throw new MemFSError("ENOENT", "mkdir", parentDir(norm));
         if (parent.kind !== "dir")
           throw new MemFSError("ENOTDIR", "mkdir", parentDir(norm));
-        nodes.set(norm, {
+        setNode(norm, {
           kind: "dir",
           data: new Uint8Array(),
           mtimeMs: Date.now(),
@@ -729,7 +884,7 @@ export function createMemFS(): IMemFSHost {
         callback(new MemFSError("EISDIR", "unlink", norm));
         return;
       }
-      nodes.delete(norm);
+      deleteNode(norm);
       callback(null);
     },
 
@@ -805,7 +960,7 @@ export function createMemFS(): IMemFSHost {
         callback(new MemFSError("ENOTEMPTY", "rmdir", norm));
         return;
       }
-      nodes.delete(norm);
+      deleteNode(norm);
       callback(null);
     },
 
@@ -852,6 +1007,7 @@ export function createMemFS(): IMemFSHost {
         return;
       }
       node.data = resizeFileData(node.data, length);
+      node.text = undefined;
       node.mtimeMs = Date.now();
       callback(null);
     },
@@ -884,6 +1040,7 @@ export function createMemFS(): IMemFSHost {
         return;
       }
       node.data = resizeFileData(node.data, length);
+      node.text = undefined;
       node.mtimeMs = Date.now();
       callback(null);
     },
@@ -891,11 +1048,12 @@ export function createMemFS(): IMemFSHost {
       const readFd = nextFd++;
       const writeFd = nextFd++;
       const state: IPipeState = {
-        buffers: [],
-        pendingReaders: [],
+        buffers: {},
+        pendingReaders: {},
         readFd,
         writeFd,
         writeClosed: false,
+        readClosed: false,
       };
       pipes.set(readFd, state);
       pipes.set(writeFd, state);
@@ -910,11 +1068,11 @@ export function createMemFS(): IMemFSHost {
     readFileText,
     exists,
     mkdirp,
-    stdout,
-    stderr,
+    stdout: stdout.output,
+    stderr: stderr.output,
     resetStdio() {
-      stdout.buffer = "";
-      stderr.buffer = "";
+      stdout.output.buffer = "";
+      stderr.output.buffer = "";
     },
   };
 }

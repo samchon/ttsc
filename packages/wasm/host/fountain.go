@@ -73,79 +73,143 @@ func fountainAPIMap() map[string]any {
 }
 
 // SnapshotResult is the response shape for `snapshot()`.
+// The caller owns Handle and must pass it to releaseSnapshot after its queries.
+// @evidence contracts/common.md#principled-implementation An opaque string projects registry identity without exposing a Go Program through JSON.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Identity refers to an actual retained program rather than a reconstructed project path.
+// @evidence contracts/common.md#meaningful-documentation The Go comment explains opaque identity and caller release ownership under the documentation skill.
 type SnapshotResult struct {
+  // Handle is opaque and valid until released in this wasm instance.
   Handle string `json:"handle"`
 }
 
 // ReleaseSnapshotResult is the response shape for `releaseSnapshot()`.
+// @evidence contracts/common.md#principled-implementation A boolean distinguishes a removed registry entry from idempotent absent-handle release.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts An absent entry is not reported as a fabricated successful removal.
+// @evidence contracts/common.md#meaningful-documentation Native comments explain the release outcome under the documentation skill's absence guidance.
 type ReleaseSnapshotResult struct {
+  // Released is false when the handle was never present or already removed.
   Released bool `json:"released"`
 }
 
 // ListSnapshotsResult is the response shape for `snapshots()`.
+// @evidence contracts/common.md#principled-implementation A string slice projects registry identities without a second public program representation.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Current map membership supplies the list rather than a history of expected handles.
+// @evidence contracts/common.md#meaningful-documentation Native member comments identify live state and unspecified order under the documentation skill.
 type ListSnapshotsResult struct {
+  // Handles lists live registry keys in unspecified order; empty encodes as [].
   Handles []string `json:"handles"`
 }
 
 // GetSourceFilesResult is the response shape for `getSourceFiles()`.
+// @evidence contracts/common.md#principled-implementation The program's SourceFiles are projected into path strings through the shared output-key policy.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler membership determines files instead of a guessed filesystem glob.
+// @evidence contracts/common.md#meaningful-documentation The member comment explains path bases and declaration exclusion under the documentation skill.
 type GetSourceFilesResult struct {
+  // Files excludes declarations; paths outside cwd remain absolute slash paths.
   Files []string `json:"files"`
 }
 
 // GetSourceFileTextResult is the response shape for `getSourceFileText()`.
+// @evidence contracts/common.md#principled-implementation A required string projects program text while file lookup failures use the error envelope.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Text comes from the snapshot instead of a separately read file that may have changed.
+// @evidence contracts/common.md#meaningful-documentation The member comment names retained-program provenance under the documentation skill's context guidance.
 type GetSourceFileTextResult struct {
+  // Text is the source currently held by the retained Program, including rewrites.
   Text string `json:"text"`
 }
 
 // GetDiagnosticsResult is the response shape for `getDiagnostics()`.
+// @evidence contracts/common.md#principled-implementation The shared CompileDiagnostic slice preserves the compiler's public diagnostic projection.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Queries return compiler messages rather than source-pattern approximations of diagnostics.
+// @evidence contracts/common.md#meaningful-documentation Native comments identify the payload and empty-array meaning under the documentation skill.
 type GetDiagnosticsResult struct {
+  // Diagnostics is an initialized slice, so no selected messages encodes as [].
   Diagnostics []CompileDiagnostic `json:"diagnostics"`
 }
 
 // NodeInfo is the serialized AST node returned by `getNodeAtPosition`.
+// @evidence contracts/common.md#principled-implementation Kind metadata and native byte ranges project a token without exposing Go AST objects.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Native ranges remain byte coordinates rather than guessed JavaScript character indices.
+// @evidence contracts/common.md#meaningful-documentation Member comments explain native identity, units and optional text under the documentation skill.
 type NodeInfo struct {
+  // Kind is the numeric TypeScript-Go AST kind.
   Kind     int    `json:"kind"`
+  // KindName is its human-readable Stringer name.
   KindName string `json:"kindName"`
+  // Pos is the inclusive UTF-8 byte offset.
   Pos      int    `json:"pos"`
+  // End is the exclusive UTF-8 byte offset.
   End      int    `json:"end"`
+  // Text is omitted when the scanner has no nonempty source spelling.
   Text     string `json:"text,omitempty"`
 }
 
 // GetNodeAtPositionResult is the response shape for `getNodeAtPosition()`.
+// @evidence contracts/common.md#principled-implementation A nullable pointer distinguishes successful absence from the query's error envelope.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No fabricated node fills whitespace or an absent token.
+// @evidence contracts/common.md#meaningful-documentation The member comment explains null token absence under the documentation skill.
 type GetNodeAtPositionResult struct {
+  // Node encodes as null when no syntax token touches the queried position.
   Node *NodeInfo `json:"node"`
 }
 
 // TypeInfo is the serialized type returned by `getTypeAtPosition`.
+// @evidence contracts/common.md#principled-implementation Checker-printed text and native flags avoid a parallel incomplete public type model.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The checker supplies type presentation rather than inferring it from token spelling.
+// @evidence contracts/common.md#meaningful-documentation Native comments identify printing authority and flag provenance under the documentation skill.
 type TypeInfo struct {
+  // Text is the checker's TypeToString presentation.
   Text  string `json:"text"`
+  // Flags is the numeric TypeScript-Go TypeFlags bitmask.
   Flags int    `json:"flags"`
 }
 
 // GetTypeAtPositionResult is the response shape for `getTypeAtPosition()`.
+// @evidence contracts/common.md#principled-implementation Nullable semantic output mirrors the TypeScript request result without overloading an error type.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Positions without type semantics remain absent rather than receiving a fabricated any type.
+// @evidence contracts/common.md#meaningful-documentation The member comment explains null meaning under the documentation skill's absence guidance.
 type GetTypeAtPositionResult struct {
+  // Type encodes as null when the touching token has no semantic type result.
   Type *TypeInfo `json:"type"`
 }
 
 // SymbolDeclaration is the serialized declaration site returned by
 // `getSymbolAtPosition`.
+// @evidence contracts/common.md#principled-implementation Nullable source identity and native ranges preserve declaration provenance through JSON.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts A source-less declaration keeps nil identity rather than a placeholder filename.
+// @evidence contracts/common.md#meaningful-documentation Member comments explain path identity and byte interval units under the documentation skill.
 type SymbolDeclaration struct {
+  // File is a project-relative or outside absolute path, nil for source-less nodes.
   File *string `json:"file"`
+  // Pos is the declaration's inclusive UTF-8 byte offset.
   Pos  int     `json:"pos"`
+  // End is the declaration's exclusive UTF-8 byte offset.
   End  int     `json:"end"`
 }
 
 // SymbolInfo is the serialized symbol returned by `getSymbolAtPosition`.
+// @evidence contracts/common.md#principled-implementation Raw and printed names, flags and declaration projections preserve the native checker result.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The response cap preserves the original total rather than presenting a shortened declaration list as complete.
+// @evidence contracts/common.md#meaningful-documentation Native comments distinguish internal names, display text and capped metadata under the documentation skill.
 type SymbolInfo struct {
+  // Name is the raw name, including TypeScript internal prefix markers.
   Name             string              `json:"name"`
+  // Text is the optional checker-printed symbol representation.
   Text             string              `json:"text,omitempty"`
+  // Flags is the numeric TypeScript-Go SymbolFlags bitmask.
   Flags            int                 `json:"flags"`
+  // Declarations contains at most 16 sites and is omitted when empty.
   Declarations     []SymbolDeclaration `json:"declarations,omitempty"`
+  // DeclarationCount retains the original total and is omitted when zero.
   DeclarationCount int                 `json:"declarationCount,omitempty"`
 }
 
 // GetSymbolAtPositionResult is the response shape for `getSymbolAtPosition()`.
+// @evidence contracts/common.md#principled-implementation A nullable symbol pointer distinguishes absent semantics from a failed request.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Missing binding does not produce a symbol guessed from the token's name.
+// @evidence contracts/common.md#meaningful-documentation The member comment explains null result meaning under the documentation skill.
 type GetSymbolAtPositionResult struct {
+  // Symbol encodes as null when the touching token has no associated symbol.
   Symbol *SymbolInfo `json:"symbol"`
 }
 
@@ -446,7 +510,7 @@ func resolveSnapshotFile(entry *snapshotEntry, path string) *ast.SourceFile {
   return nil
 }
 
-// snapshotFileKey mirrors apiOutputKey but is exported for use by all
+// snapshotFileKey delegates to apiOutputKey for use by all
 // fountain endpoints that return file paths.
 func snapshotFileKey(cwd, fileName string) string {
   return apiOutputKey(cwd, fileName)

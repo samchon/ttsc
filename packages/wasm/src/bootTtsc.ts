@@ -26,6 +26,8 @@ declare const importScripts: (...urls: string[]) => void;
 interface BootInFlight {
   controller: AbortController;
   promise: Promise<IBootResult>;
+  host: IBootResult["host"];
+  wasmExecUrl: string;
 }
 
 interface BootCancellationReason {
@@ -56,7 +58,7 @@ const terminalBootFailuresByApiName = new Map<
 const bootChainByApiName = new Map<string, Promise<unknown>>();
 
 function bootKey(apiName: string, wasmUrl: string): string {
-  return `${apiName}|${resolveWasmUrl(wasmUrl)}`;
+  return JSON.stringify([apiName, resolveWasmUrl(wasmUrl)]);
 }
 
 /**
@@ -96,7 +98,7 @@ function resolveWasmUrl(wasmUrl: string): string {
  * safe to host two wasm instances at once. Create a fresh Worker per concurrent
  * wasm.
  *
- * @evidence contracts/common.md#standard-implementation-practices
+ * @evidence contracts/common.md#principled-implementation
  *   The documented Go wasm_exec bridge is installed before streaming
  *   instantiation, and Promise sharing coordinates calls that use its global
  *   readiness slot. This follows the host.Expose integration rather than
@@ -121,7 +123,9 @@ function resolveWasmUrl(wasmUrl: string): string {
  *   separately buffered binary. Cancellation uses events rather than polling.
  *
  * @evidence contracts/performance.md#reuse-equivalent-work
- *   One API/normalized-URL pair shares fetch and instantiation. Per-API Promise
+ *   One API/normalized-URL pair shares fetch and instantiation only with the same
+ *   runtime-script URL and an identical supplied host. Omitted hosts reuse the
+ *   entry's actual host. Per-API Promise
  *   chains serialize access to the global readiness slot; distinct URLs are
  *   distinct boot identities. The URL must identify immutable binary content
  *   for successful-result reuse to remain valid within the Worker lifetime.
@@ -133,15 +137,37 @@ function resolveWasmUrl(wasmUrl: string): string {
  */
 export function bootTtsc(options: IBootTtscOptions): Promise<IBootResult> {
   const apiName = options.apiName ?? "ttsc";
-  const key = bootKey(apiName, options.wasmUrl);
+  let wasmUrl: string;
+  let wasmExecUrl: string;
+  try {
+    wasmUrl = resolveWasmUrl(options.wasmUrl);
+    wasmExecUrl = resolveWasmUrl(
+      options.wasmExecUrl ?? defaultWasmExecUrl(wasmUrl),
+    );
+  } catch (error) {
+    return Promise.reject(error);
+  }
+  const key = bootKey(apiName, wasmUrl);
   const terminalFailure = terminalBootFailuresByApiName.get(apiName);
   if (terminalFailure) return Promise.reject(terminalFailure);
   const inflight = bootsInFlight.get(key);
   if (inflight) {
+    if (
+      (options.host !== undefined && options.host !== inflight.host) ||
+      wasmExecUrl !== inflight.wasmExecUrl
+    ) {
+      return Promise.reject(
+        new Error(
+          `bootTtsc: ${apiName} is already bound to a different host or wasm_exec.js URL; use the original boot options or replace the Worker.`,
+        ),
+      );
+    }
     attachBootCancellation(inflight, options.signal);
     return inflight.promise;
   }
   const controller = new AbortController();
+  const host = options.host ?? createMemFS();
+  const bootOptions = { ...options, host, wasmUrl, wasmExecUrl };
   const prior = bootChainByApiName.get(apiName) ?? Promise.resolve();
   const queuedCancellation = createBootCancellationPromise(
     controller.signal,
@@ -160,7 +186,7 @@ export function bootTtsc(options: IBootTtscOptions): Promise<IBootResult> {
         "waiting for an earlier boot",
       );
       queuedCancellation.dispose();
-      return bootTtscOnce(options, apiName, controller.signal);
+      return bootTtscOnce(bootOptions, apiName, controller.signal);
     });
   let entry!: BootInFlight;
   const promise = Promise.race([queued, queuedCancellation.promise])
@@ -169,7 +195,7 @@ export function bootTtsc(options: IBootTtscOptions): Promise<IBootResult> {
       throw err;
     })
     .finally(queuedCancellation.dispose);
-  entry = { controller, promise };
+  entry = { controller, promise, host, wasmExecUrl };
   bootsInFlight.set(key, entry);
   attachBootCancellation(entry, options.signal);
   // Track the chain head for this apiName so the next boot waits on it.
@@ -230,6 +256,11 @@ async function bootTtscOnce(
   };
 
   try {
+    if (globalAny.fs !== host.fs) {
+      throw new Error(
+        "bootTtsc: globalThis.fs belongs to a different host; supply its original MemFS host or boot in a fresh Worker.",
+      );
+    }
     throwIfBootCanceled(signal, apiName, phase);
     // wasm_exec.js installs `globalThis.Go`. It also reads globalThis.fs at
     // module-eval time, so this import must follow the assignment above.
@@ -451,15 +482,11 @@ function bootCancellationError(
 }
 
 /**
- * Derive the `wasm_exec.js` URL from the wasm URL by replacing the filename.
- *
- * If `wasmUrl` has no directory component, returns `"wasm_exec.js"` (same
- * directory as the caller's base URL).
+ * Resolve the sibling runtime script using URL path semantics, dropping the
+ * binary's query and fragment so slashes in either cannot become directories.
  */
 function defaultWasmExecUrl(wasmUrl: string): string {
-  const slash = wasmUrl.lastIndexOf("/");
-  if (slash < 0) return "wasm_exec.js";
-  return wasmUrl.slice(0, slash + 1) + "wasm_exec.js";
+  return new URL("wasm_exec.js", resolveWasmUrl(wasmUrl)).href;
 }
 
 /**

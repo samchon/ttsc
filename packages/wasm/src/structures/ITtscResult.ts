@@ -1,14 +1,31 @@
-/** Envelope returned by every `ITtscApi` method. */
+/**
+ * Envelope returned by asynchronous `ITtscApi` operations.
+ *
+ * `version` and `plugins` return their synchronous values directly.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   The uniform exit-code/stream/payload shape mirrors the native JavaScript
+ *   bridge, with structured JSON separate from plugin output streams.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   A nonzero code remains visible; empty payload text is not replaced with a
+ *   fabricated success object or interpreted as evidence that the call succeeded.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Separate JSDoc paragraphs distinguish asynchronous envelopes from direct
+ *   values; members explain channels, following the documentation skill's guidance.
+ */
 export interface ITtscResult {
   /** Exit code. 0 = success, 2 = compiler/config/usage error, 3 = runtime error. */
   code: number;
-  /** Anything the wasm wrote to its stdout stream. */
+
+  /** Invocation-owned plugin stdout; project/query endpoints use an empty string. */
   stdout: string;
-  /** Anything the wasm wrote to its stderr stream. */
+
+  /** Plugin stderr or a project/query failure message; distinct from host.stderr capture. */
   stderr: string;
+
   /**
-   * For the base endpoints, the JSON-encoded compile/transform result. For the
-   * plugin endpoint, this is empty — the plugin's own output sits in
+   * For project and snapshot endpoints, the JSON-encoded structured result. For the
+   * plugin endpoint, this is empty. The plugin's own output sits in
    * stdout/stderr. Use `parseResult<T>` to deserialize.
    */
   result: string;

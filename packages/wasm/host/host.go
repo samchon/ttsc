@@ -27,7 +27,7 @@ var (
   date    = "unknown"
 )
 
-// exposed gates Expose so a duplicate call panics instead of leaking the
+// exposed gates Expose so a duplicate call reports failure instead of leaking the
 // previous batch of js.Funcs + spawning a second keepalive goroutine.
 var exposed atomic.Bool
 
@@ -35,7 +35,8 @@ var exposed atomic.Bool
 // minor releases. Pin exact versions in production playgrounds.
 //
 // Expose installs `globalThis[apiName]` with the base API endpoints and the
-// plugin dispatcher, then keeps the Go runtime alive forever.
+// plugin dispatcher, then keeps the Go runtime alive until Worker termination.
+// Invalid or duplicate registration reports failure and returns before binding.
 //
 // The contract:
 //
@@ -51,6 +52,10 @@ var exposed atomic.Bool
 //
 // A matching readiness resolver is invoked: `globalThis[`${apiName}Ready`]`.
 // JS callers register this BEFORE go.run begins so they can await wasm boot.
+//
+// @evidence contracts/common.md#principled-implementation syscall/js bindings and explicit Ready/Failed callbacks implement the Go wasm host protocol; an atomic gate owns one installation per instance.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Registered plugins use owned invocation streams rather than foreign global-output replacement; rejected duplicate installation is reported through the boot failure boundary.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs explain setup order, payload channels and runtime lifetime under the documentation skill's context guidance.
 func Expose(apiName string, cfg Config) {
   // Refuse double-Expose: the second call would leak every js.FuncOf from
   // the first batch (Go pins js.Funcs and they're not GC'd), spin a second

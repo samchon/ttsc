@@ -3,14 +3,31 @@
  *
  * Matches the shape of `NodeJS.ErrnoException` so Go's `os` package interprets
  * it as a proper `os.PathError` with a numeric error code. Thrown by the MemFS
- * implementation when a callback would otherwise pass `null` for an impossible
- * filesystem operation (missing path, type mismatch, …).
+ * implementation for rejected virtual filesystem operations.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   Error fields follow NodeJS.ErrnoException and Go's js/wasm filesystem bridge;
+ *   numeric errno values describe that virtual ABI, not the browser host OS.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   POSIX error identifiers are protocol constants; failed operations remain
+ *   errors instead of returning a fake successful callback value.
+ * @evidence contracts/common.md#meaningful-documentation
+ *   Native JSDoc explains the bridge and members' machine-readable roles,
+ *   following the documentation skill's concrete context guidance.
  */
 export class MemFSError extends Error {
+  /** POSIX symbolic error, consumed by the Go bridge. */
   public code: string;
+
+  /** Negative Linux-style errno for the virtual filesystem ABI. */
   public errno: number;
+
+  /** Normalized virtual path, when the failing operation identifies one. */
   public path?: string;
+
+  /** Filesystem operation that produced the error. */
   public syscall?: string;
+
   constructor(code: string, syscall: string, path?: string) {
     super(`${code}: ${syscall} ${path ?? ""}`.trim());
     this.code = code;
@@ -39,6 +56,8 @@ function errnoForCode(code: string): number {
       return -22;
     case "ESPIPE":
       return -29;
+    case "EPIPE":
+      return -32;
     case "ENOTEMPTY":
       return -39;
     default:
