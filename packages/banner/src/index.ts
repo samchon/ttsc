@@ -14,6 +14,9 @@ export * from "./structures/index";
  * executable sidecar or linked native source.
  */
 type TtscPluginDescriptor = {
+  /** The bundled driver host records actual writes and their physical sources. */
+  capabilities: { emitProvenance: true };
+
   /** Universal config-discovery inputs consumed by the native transform. */
   hostInputs?: string[];
 
@@ -164,6 +167,7 @@ export default function createTtscBanner(
 
   const configInputs = bannerConfigInputs(context);
   return {
+    capabilities: { emitProvenance: true },
     hostInputHashes: configInputs.hashes,
     hostInputRealpaths: configInputs.realpaths,
     hostInputs: configInputs.inputs,
