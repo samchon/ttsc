@@ -21,7 +21,7 @@ description: Defines ttsc's implementation procedures, testing, validation, and 
 
 Apply the [contracts skill](../contracts/SKILL.md) before changing maintained production source, reading the common checklist and the scoped topics relevant to the affected operations.
 
-- When a failure disproves an implementation assumption, follow the [implementation-shortcut contract](../contracts/common.md#no-implementation-shortcuts) before adding another compensating path. Verify the cause, correct the owning behavior, and remove superseded compensations in the same repair. Do not wait for the same failure to recur before reassessing an assumption already shown false.
+- When a failure disproves an implementation assumption, follow the [standard implementation practices contract](../contracts/common.md#standard-implementation-practices) before adding another compensating path. Verify the cause, correct the owning behavior, and remove superseded compensations in the same repair. Do not wait for the same failure to recur before reassessing an assumption already shown false.
 - **No whack-a-mole.** Patching the one case that surfaced is whack-a-mole, and so is repairing one symptom at a time as each rerun reveals the next, which [AGENTS.md's **Collect every symptom before correcting** rule](../../../AGENTS.md#attitude) forbids. Map every case the root cause can produce through the [consequence analysis](#consequence-analysis), and seal them all with coverage so the class of failure cannot recur.
 
 ## Work Rules
@@ -135,7 +135,7 @@ For mechanical ports, migrations, or broad rewrites, preserve the existing algor
 
 ## Evidence Adoption
 
-Each production package's `evidence.config.json` owns its selection and references the shared [common engineering contracts](../contracts/common.md). Source globs are relative to that package. References use `root: "../../.agents/skills"` and paths such as `contracts/common.md`. Add exclusions only for material the positive globs actually select and whose exclusion has a verified reason.
+Each production package's `evidence.config.json` owns its selection and references the shared [common engineering contracts](../contracts/common.md). Production selectors use `type` and `function` under the [contracts skill](../contracts/SKILL.md); properties retain documentation and are reviewed through their owning type instead of carrying separate checklist tags. Source globs are relative to that package. References use `root: "../../.agents/skills"` and paths such as `contracts/common.md`. Add exclusions only for material the positive globs actually select and whose exclusion has a verified reason.
 
 Run `pnpm evidence` from the repository root to execute the production packages' Evidence scripts recursively with `--no-bail`. This collects every package's result even when an earlier package fails. Packages without an Evidence script are skipped; the explicit `./packages/*` filter keeps tests, benchmarks, and the website outside this command. Use `pnpm --filter <package-name> evidence` for one package.
 

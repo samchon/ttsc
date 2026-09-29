@@ -2,11 +2,19 @@
 
 These contracts govern the maintained production declarations selected by `evidence.config.json` and guide review of their private helpers. Each H2 is one checklist obligation. Its acknowledgment addresses every requirement in that section, even when several requirements share one tag.
 
-Write concrete facts about the declaration. A simple data member can describe its contract and lack of runtime operations briefly; a filesystem or process operation needs its actual mechanisms explained. A generic statement such as "all principles are satisfied" gives a reviewer nothing to verify.
+Write concrete facts about the declaration. A data-only type can describe its fields' contract and lack of runtime operations briefly; a filesystem or process operation needs its actual mechanisms explained. A generic statement such as "all principles are satisfied" gives a reviewer nothing to verify.
 
 The [development workflow](../development/SKILL.md#evidence-adoption) owns selection, commands, and adoption. Evidence checks that acknowledgments exist; [review](../review/SKILL.md#review-law) checks that their facts are true and their answers cover the section.
 
-## No implementation shortcuts
+## Standard Implementation Practices
+
+Use the language's established idioms, the library's documented APIs and supported extension points, and the repository's established implementation patterns when they satisfy the owning contract. Before introducing another mechanism, examine the applicable API and a maintained implementation of the same concern. Existing code is a reference to assess, not proof that its approach is correct.
+
+When a different approach is necessary, identify the supported requirement the established approach cannot satisfy and explain why the chosen mechanism meets it. A familiar pattern or a passing test alone does not justify the choice. State the actual API or convention used; "standard implementation" is not an acknowledgment a reviewer can verify.
+
+When translating or reimplementing behavior owned by another tool, identify its authoritative contract and verify the relevant accepted, rejected and failure cases through the real consuming path. A help command, preliminary parser or simplified local model can differ from the operation whose behavior the integration must preserve. Explain why a separate implementation is needed and how it remains consistent with its owner.
+
+Supported boundaries give consumers defined behavior and let dependency maintainers change their internals without breaking the integration. Reusing a suitable established mechanism also avoids competing implementations with different validation, lifecycle or failure behavior.
 
 Implement behavior for supported consumers through the owning contract:
 
@@ -19,7 +27,7 @@ Hard-coded answers and test-only branches can make a known case pass while leavi
 
 Compensating for a failed assumption leaves the original defect active and makes later callers depend on the compensation. Another passing example does not establish that the owning behavior was repaired. The [repair procedure](../development/SKILL.md#repair-discipline) governs collecting symptoms and correcting their whole cause.
 
-Identify the source of decisions and fixed values, the extension or mutation boundary, and the real consumer behavior served by the declaration. Address these prohibitions. For a data-only declaration, explain what its fields or literal values represent and that it introduces no executable branches or mutation.
+Identify the established API, idiom or implementation pattern used, the source of decisions and fixed values, the extension or mutation boundary, and the real consumer behavior served by the declaration. Explain any necessary departure and address the prohibitions above. For a data-only type, explain the supported value contract its fields represent and that it introduces no executable branches or mutation; it does not need an invented algorithm or exception rationale.
 
 For a repair, also identify the observed failure, the disproven assumption or other root cause, and the owning path corrected. Explain which superseded compensations were removed and why any remaining adapter, fallback, or retry belongs to a supported contract. Point to verification of the repaired behavior and relevant negative or boundary cases. Report an unverified cause as unresolved rather than claiming a workaround fixed it. Record these facts in the acknowledgment of the operation responsible for the repair and in its change review; subordinate helpers describe their contribution without repeating the whole history.
 

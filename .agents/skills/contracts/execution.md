@@ -10,4 +10,8 @@ Identify which owning project and module format the operation selects, where the
 
 The hook contract distinguishes entry-project output, dependencies with their own tsconfig, and dependencies without an owning project. Name the path this operation implements rather than claiming that every module follows the same loading policy.
 
+Distinguish an intentionally absent or disabled plugin from a selected plugin whose descriptor, native build or execution failed. State how the latter failure reaches the caller and prevents execution and successful-generation publication. Emit-only handling of dependency type diagnostics does not authorize replacing a failed required transform with untransformed execution.
+
+A fallback can preserve a successful exit while running a different program from the one the dependency's configuration requires. A diagnostic on stderr alone does not establish that the execution gate held.
+
 Type stripping can leave runtime imports the real compiler would erase. Serving output from the wrong project or generation can also run code that was never checked under the consumer's actual contract.

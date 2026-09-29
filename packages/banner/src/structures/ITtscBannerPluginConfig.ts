@@ -5,9 +5,9 @@
  * the separate `ITtscBannerConfig` value so discovery and config evaluation
  * have one supported home instead of an additional inline option surface.
  *
- * @evidence contracts/common.md#no-implementation-shortcuts The fields describe host registration and the banner-owned configFile option accepted by the factory; the interface adds no consumer exception, monkey patch, test-only branch or workaround.
+ * @evidence contracts/common.md#standard-implementation-practices This optional-field TypeScript interface follows compilerOptions.plugins registration and the package's dedicated config-file convention. enabled and transform belong to the host; configFile selects banner-owned configuration. The type defines no runtime branch or foreign mutation, fixture answer, test-only path or compensating mechanism. Its fields describe the supported registration contract, with no alternative implementation hidden in the data shape.
  * @evidence contracts/common.md#portable-behavior Registration stores a module specifier and optional filesystem path; the host resolves the module and native filepath operations resolve configFile, rather than this data type imposing separators or process commands.
- * @evidence contracts/common.md#meaningful-documentation The comment explains placement and the separation from banner text, with the reason in its own paragraph and native JSDoc syntax following the documentation skill's prose guidance.
+ * @evidence contracts/common.md#meaningful-documentation Interface and member JSDoc distinguish host registration from banner text, disabled and omitted enabled states, module specifiers from config or binary paths, and configFile anchoring, discovery, validation and failure behavior. Separate paragraphs explain why generated wrapper directories cannot become the discovery base, applying the documentation skill's clear prose and rationale guidance to the complete type contract.
  */
 export interface ITtscBannerPluginConfig {
   /**
@@ -15,10 +15,6 @@ export interface ITtscBannerPluginConfig {
    *
    * Omission leaves the entry enabled. The ttsc host owns this switch; it is
    * not a banner option passed through the standalone config file.
-   *
-   * @evidence contracts/common.md#no-implementation-shortcuts This boolean represents the host's supported enable switch; it contains no fixture logic, foreign mutation, test-only execution or alternate repair path.
-   * @evidence contracts/common.md#portable-behavior This host-owned boolean has no path, line-ending or process representation that varies by operating system.
-   * @evidence contracts/common.md#meaningful-documentation The comment explains false and omitted values and identifies the consuming host, using distinct paragraphs to separate behavior from ownership.
    */
   enabled?: boolean;
 
@@ -27,10 +23,6 @@ export interface ITtscBannerPluginConfig {
    *
    * Use `@ttsc/banner` to register this package through the transform key.
    * This names the factory module, not the banner config file or Go binary.
-   *
-   * @evidence contracts/common.md#no-implementation-shortcuts The package specifier identifies the real host-loadable factory; the member performs no fixture matching, foreign replacement, test-only execution or compensating behavior.
-   * @evidence contracts/common.md#portable-behavior The value is a module specifier interpreted by the host's module resolver, rather than a filesystem path assembled with OS-specific separators.
-   * @evidence contracts/common.md#meaningful-documentation The comment explains the value's consumer and distinguishes it from config and binary paths, with the usage example in a separate paragraph under the documentation skill's clear-prose guidance.
    */
   transform?: string;
 
@@ -47,10 +39,6 @@ export interface ITtscBannerPluginConfig {
    *
    * The host anchor matters when the tsconfig is a generated wrapper: its
    * temporary directory must not become the user's config-resolution base.
-   *
-   * @evidence contracts/common.md#no-implementation-shortcuts The path selects the dedicated supported config surface; discovery is driven by actual config candidates rather than fixture names, with no foreign mutation, test-only branch or layered workaround in this member.
-   * @evidence contracts/common.md#portable-behavior The factory uses node:path resolution and the native loader uses filepath absolute/join operations from the same host anchor; the declaration stores a path without imposing separators or shell syntax.
-   * @evidence contracts/common.md#meaningful-documentation The comment states anchoring, omission, invalid and missing input behavior, and why wrapper locations must not select the base, separating those ideas into JSDoc paragraphs.
    */
   configFile?: string;
 }

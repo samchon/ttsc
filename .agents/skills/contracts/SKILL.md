@@ -7,6 +7,8 @@ description: Defines common and scoped Evidence acknowledgment contracts for mai
 
 The common checklist applies to the production declarations selected by `evidence.config.json`. Read the scoped topics for the operations a change implements or affects, including private helpers. A package name alone does not make every scoped contract apply to every declaration in that package.
 
+Production claims select `type` and `function`. A type's acknowledgment covers its fields, optional states and invariants together; individual properties keep useful native documentation without separate checklist tags. Function acknowledgments cover the operation and its private helpers. This keeps one design answer together instead of repeating it on each field. Explicit operation review still covers callable members that the extractor does not select as functions.
+
 Apply contracts at the scope of the promise: common requirements across maintained production code, package requirements across the public behavior the package promises, and operation requirements across the implementations that establish them. These scopes accumulate. Splitting a package into logical units does not let a helper or adapter escape its package's contract.
 
 Use the project skill and package documentation to identify package requirements. Split an acknowledgment topic when its implementations need different facts to establish correctness or cost, not simply because they occupy different directories. Keep one promise owned in one place, including when several packages implement it. Review the complete operation through its entry point and helpers; a passing tag on an entry point alone does not establish the operation's contract.
@@ -23,7 +25,7 @@ Verify a host answering all its applicable contracts in one run, including exist
 
 ## [Common Contracts](common.md)
 
-Implementation shortcuts, supported-OS behavior, and useful documentation with documentation-skill compliance.
+Standard implementation practices, supported-OS behavior, and useful documentation with documentation-skill compliance.
 
 ## [Work And Resource Costs](performance.md)
 
