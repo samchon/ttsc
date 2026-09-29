@@ -172,10 +172,11 @@ export function serializeOptions(
 /**
  * Reconstruct the resolved options inside a worker process.
  *
- * Reads {@link ENV_KEY}; when it is unset or malformed the adapter falls back to
- * defaults, which means "auto-discover `tsconfig.json` and read its configured
- * plugins", the standard ttsc behaviour, and the right thing for a project that
- * called `withTtsc(config)` with no explicit options.
+ * Reads {@link ENV_KEY}; when it is unset or contains invalid JSON or a
+ * non-object payload, the adapter falls back to defaults: auto-discover
+ * `tsconfig.json` and read its configured plugins. This is the standard ttsc
+ * behaviour for a project that called `withTtsc(config)` with no explicit
+ * options.
  *
  * @evidence contracts/common.md#principled-implementation
  *   JSON.parse reads the adapter-owned environment channel. The parser accepts
@@ -187,8 +188,8 @@ export function serializeOptions(
  *   normalization from the resolved object workers consume.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
- *   Invalid transport uses documented defaults, not a failed compiler
- *   fallback; it patches no global APIs.
+ *   Invalid JSON and non-object payloads use documented defaults, not a failed
+ *   compiler fallback; this parser patches no global APIs.
  *
  * @evidenceExclude contracts/portability.md#os-neutral-implementation
  *   This declaration defines or transports JSON-compatible option values.
@@ -197,7 +198,7 @@ export function serializeOptions(
  *   contract.
  *
  * @evidence contracts/common.md#meaningful-documentation
- *   The native JSDoc explains absent/malformed payload defaults,
+ *   The native JSDoc explains absent, invalid-JSON and non-object defaults,
  *   plugin-presence semantics and filter normalization. Checked against the
  *   documentation skill: separate paragraphs state the contract and why its
  *   nonobvious boundary matters; field comments retain their own useful

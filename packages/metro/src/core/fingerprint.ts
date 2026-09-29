@@ -223,13 +223,12 @@ export function resolveFingerprintBase(
 }
 
 /**
- * The directories whose walk universes the fingerprint hashes: the base
- * directory, plus the resolved tsconfig's directory when the tsconfig is not
- * already inside the base walk (an explicit out-of-root `project`, or a
- * monorepo-root tsconfig discovered above the app). Matching the transform
- * core's own validation universe keeps the invariant simple: everything the
- * core treats as an input is fingerprinted by the walk, the recorded snapshot,
- * or both.
+ * The directories whose walk universes the fingerprint hashes. An implicit
+ * tsconfig found below the base selects its directory; an explicit project
+ * inside the base selects the base. A config outside the base adds its
+ * directory to the base walk. Matching the transform core's own validation
+ * universe keeps the invariant simple: everything the core treats as an input
+ * is fingerprinted by the walk, the recorded snapshot, or both.
  *
  * @evidence contracts/common.md#principled-implementation
  *   The shared project resolver owns tsconfig selection; lexical path
@@ -408,9 +407,10 @@ interface TtscMetroFingerprintProjectMap {
  *   rediscovery for every derived input.
  *
  * @evidence contracts/performance.md#reuse-equivalent-work
- *   The returned view is reused by the module's recorder batch and frozen
- *   into its transform options. Config sources are reread for a later module
- *   because matching mtime and size cannot establish continued equivalence.
+ *   The returned view is reused by the module's recorder batch; its selected
+ *   tsconfig is passed to the transform options. Config sources are reread for
+ *   a later module because matching mtime and size cannot establish continued
+ *   equivalence.
  *
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
  *   Returned project data transfers to the caller. This operation retains no
@@ -1521,8 +1521,8 @@ export function readSnapshotState(base: string): SnapshotState | undefined {
  * any volatile declaration, compares compiler-generation evidence with the
  * matching main-process run baseline, and marks any temporal mismatch tainted.
  * A clean transform also writes a document so it can clear a volatile
- * declaration from an earlier run. One cumulative document is flushed per
- * delivered module; the unique name makes worker writes race-free, and
+ * declaration from an earlier run. The first or changed delivery flushes one
+ * cumulative document; the unique name makes worker writes race-free, and
  * `withTtsc` compacts the files on the next run.
  *
  * `record` accepts one lexical path without generation evidence; `recordMany`
@@ -1534,10 +1534,11 @@ export function readSnapshotState(base: string): SnapshotState | undefined {
  * worker never adds a new disk read to its earlier immutable baseline.
  *
  * Sets and baseline maps live for the recorder's worker lifetime and grow with
- * observed projects and distinct inputs. A changed batch serializes the
- * cumulative recorded set once per module, not once per input. A failed write
- * remains dirty for retry and tries recovery storage. If both stores fail, a
- * reusable run throws rather than publishing output backed by lost evidence.
+ * observed projects and distinct inputs. The first delivery and each changed
+ * batch serialize the cumulative recorded set once, not once per input. A
+ * failed write remains dirty for retry and tries recovery storage. If both
+ * stores fail, a reusable run throws rather than publishing output backed by
+ * lost evidence.
  *
  * @evidence contracts/common.md#principled-implementation
  *   One worker closure retains derived inputs and compares their
@@ -1547,8 +1548,9 @@ export function readSnapshotState(base: string): SnapshotState | undefined {
  *   Listing and plugin-tree paths stay in the retained file universe even
  *   when a static proof already covers them, so optional payloads survive
  *   subsequent compaction and key capture.
- *   One cumulative atomic document is flushed per module, with recovery storage and AggregateError
- *   when a reusable generation cannot persist either record.
+ *   A first or changed module batch publishes one cumulative atomic document,
+ *   with recovery storage and AggregateError when a reusable generation cannot
+ *   persist either record.
  *
  * @evidence contracts/common.md#clear-and-simple-design
  *   One worker closure owns recorder state; shared recordMany owns evidence
