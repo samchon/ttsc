@@ -96,6 +96,7 @@ export default function createTtscStrip(
   }
   const configInputs = stripConfigInputs(context);
   return {
+    capabilities: { emitProvenance: true },
     hostInputHashes: configInputs.hashes,
     hostInputRealpaths: configInputs.realpaths,
     hostInputs: configInputs.inputs,
@@ -134,6 +135,9 @@ type TtscStripInputs = {
 
 /** Registration of native source and the descriptor's observed inputs. */
 type TtscStripDescriptor = {
+  /** The bundled driver host records actual writes and their physical sources. */
+  capabilities: { emitProvenance: true };
+
   /** Evaluation-time fingerprints used to validate descriptor reuse. */
   hostInputHashes: TtscStripInputs["hashes"];
 
