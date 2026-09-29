@@ -223,12 +223,14 @@ export function resolveFingerprintBase(
 }
 
 /**
- * The directories whose walk universes the fingerprint hashes. An implicit
- * tsconfig found below the base selects its directory; an explicit project
- * inside the base selects the base. A config outside the base adds its
- * directory to the base walk. Matching the transform core's own validation
- * universe keeps the invariant simple: everything the core treats as an input
- * is fingerprinted by the walk, the recorded snapshot, or both.
+ * The directories whose walk universes the fingerprint hashes. Implicit
+ * selection searches from the base upward, so a config at the base uses that
+ * walk and a config above it adds its directory. An explicit project inside
+ * the base uses the base walk; one outside adds its directory. The separate
+ * per-file project view can select a nested config below the base. Matching
+ * the transform core's validation universe keeps the invariant simple:
+ * everything it treats as an input is fingerprinted by the walk, the recorded
+ * snapshot, or both.
  *
  * @evidence contracts/common.md#principled-implementation
  *   The shared project resolver owns tsconfig selection; lexical path
