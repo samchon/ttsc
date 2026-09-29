@@ -15,7 +15,9 @@
 
 const cp = require("node:child_process");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
+const { walkForGoFiles } = require("./ci/go-test-overlay.cjs");
 
 const root = path.resolve(__dirname, "..");
 const packageDir = path.join(root, "packages", "evidence");
@@ -27,17 +29,38 @@ function main() {
     );
     process.exit(1);
   }
-  const result = cp.spawnSync("go", ["test", "-count=1", "./native/"], {
-    cwd: packageDir,
-    stdio: "inherit",
-  });
-  if (result.error) {
-    console.error(
-      `test-go-evidence: failed to run go: ${result.error.message}`,
+  // Repository-only tests join the same Go process through a virtual overlay.
+  // No test or source file is written into the protected product package.
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-evidence-go-test-"));
+  try {
+    const replace = {};
+    for (const file of walkForGoFiles(
+      path.join(root, "tests", "test-evidence", "go"),
+    )) {
+      const target = path.join(packageDir, "native", path.basename(file));
+      if (fs.existsSync(target) || Object.hasOwn(replace, target))
+        throw new Error(`evidence Go overlay collision: ${target}`);
+      replace[target] = file;
+    }
+    const overlay = path.join(scratch, "overlay.json");
+    fs.writeFileSync(overlay, JSON.stringify({ Replace: replace }));
+    const result = cp.spawnSync(
+      "go",
+      [
+        "test",
+        "-count=1",
+        "-overlay",
+        overlay,
+        ...process.argv.slice(2),
+        "./native/",
+      ],
+      { cwd: packageDir, stdio: "inherit", windowsHide: true },
     );
-    process.exit(1);
+    if (result.error) throw result.error;
+    process.exitCode = result.status ?? 1;
+  } finally {
+    fs.rmSync(scratch, { recursive: true, force: true });
   }
-  process.exit(result.status ?? 1);
 }
 
 main();

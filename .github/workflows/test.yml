@@ -86,19 +86,29 @@ jobs:
         shell: bash
         run: node -e "console.log('minimum='+require('./scripts/ci/validation-suites.cjs').NODE_FLOOR)" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@v7
-        if: ${{ !cancelled() && steps.installed.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         with:
           node-version: ${{ steps.nodes.outputs.minimum }}
       - name: Minimum Node installed CLI smoke
         if: ${{ !cancelled() && steps.installed.outcome == 'success' }}
         run: pnpm exec node scripts/ci/installed-cli-smoke.cjs --reuse
+      - name: Minimum Node runtime contracts
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: node scripts/ci/run-validation-group.cjs --lanes=runtime-node-floor --concurrency=2
+        env:
+          TTSC_TEST_WORKERS: 2
       - uses: actions/setup-node@v7
-        if: ${{ !cancelled() && steps.installed.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         with:
           node-version: current
       - name: Current Node installed CLI smoke
         if: ${{ !cancelled() && steps.installed.outcome == 'success' }}
         run: pnpm exec node scripts/ci/installed-cli-smoke.cjs --reuse
+      - name: Current Node runtime contracts
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: node scripts/ci/run-validation-group.cjs --lanes=runtime-node-current --concurrency=2
+        env:
+          TTSC_TEST_WORKERS: 2
 
   installed-smoke:
     name: install (${{ matrix.name }})

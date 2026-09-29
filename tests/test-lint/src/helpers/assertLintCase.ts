@@ -65,8 +65,10 @@ export function materializeLintCorpus(directory: string) {
       {
         relativeFile,
         projectRoot: project.tmpdir,
-        sourcePath,
-        sourcePaths: [sourcePath, ...Object.keys(extraSources)],
+        sourcePath: path.posix.normalize(sourcePath.replaceAll("\\", "/")),
+        sourcePaths: [sourcePath, ...Object.keys(extraSources)].map((file) =>
+          path.posix.normalize(file.replaceAll("\\", "/")),
+        ),
         rules,
         expected,
       },
