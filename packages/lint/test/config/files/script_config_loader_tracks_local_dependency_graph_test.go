@@ -672,7 +672,7 @@ export default { rules: { "no-var": severity } };`)
   directories := resolver.(interface{ ConfigDirectories() []string }).ConfigDirectories()
   foundExtendsRoot := false
   for _, directory := range directories {
-    if filepath.Clean(directory) == filepath.Clean(extendsRoot) {
+    if sameConfigTestPath(directory, extendsRoot) {
       foundExtendsRoot = true
       break
     }
