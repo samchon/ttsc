@@ -14,7 +14,9 @@
  *   removal list. The native parser applies defaults only when both keys are
  *   absent and validates syntax that TypeScript string types cannot constrain.
  *   The representation intentionally permits input construction while runtime
- *   validation rejects unsupported dotted patterns and statement names.
+ *   validation rejects empty dotted segments, nonfinal standalone wildcards
+ *   and unsupported statement names. Other nonempty spellings may be accepted
+ *   even when they cannot match a dotted identifier in source.
  *
  * @evidence contracts/common.md#clear-and-simple-design
  *   Two independent lists group call patterns and statement kinds by the
@@ -56,7 +58,9 @@ export interface ITtscStripConfig {
    * `assert.equal()` and `assert.strict.equal()` but excludes `assert()`.
    * Computed access and calls embedded in other expressions remain untouched.
    * Empty or whitespace-only entries, empty dotted segments and nonfinal `*`
-   * segments are rejected. A matched statement's arguments are also removed.
+   * segments are rejected. Other nonempty spellings may be accepted without
+   * matching any dotted identifier. A matched statement's arguments are also
+   * removed.
    */
   calls?: readonly string[];
 
