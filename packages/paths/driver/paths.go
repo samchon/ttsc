@@ -348,26 +348,53 @@ func (r *rewriter) resolveSource(specifier string) (string, bool) {
   return "", false
 }
 
-// lookupSource checks whether candidate (a normalized path, possibly without
-// extension) corresponds to a known source file. It tries the exact path, stem
-// with each known TypeScript/JavaScript source extension, and index files.
+// lookupSource checks whether candidate corresponds to a Program source that
+// can produce an output. Explicit module-format suffixes restrict replacement
+// to their own source family, as in TypeScript-Go's tryAddingExtensions. The
+// candidate itself is the directory name for an index lookup; stripping its
+// suffix there would search a different directory.
 func (r *rewriter) lookupSource(candidate string) (string, bool) {
   normalized := normalizePath(candidate)
   if source, ok := r.sourceFiles[r.sourceKey(normalized)]; ok {
+    if isDeclarationSource(source) {
+      return "", false
+    }
     return source, true
   }
   stem := stripKnownSourceExtension(normalized)
-  for _, ext := range sourceLookupExtensions {
+  extensions := sourceLookupExtensions
+  switch strings.ToLower(filepath.Ext(normalized)) {
+  case ".mjs", ".mts":
+    extensions = []string{".mts", ".mjs"}
+  case ".cjs", ".cts":
+    extensions = []string{".cts", ".cjs"}
+  case ".jsx", ".tsx":
+    extensions = []string{".tsx", ".ts", ".jsx", ".js"}
+  case ".js", ".ts":
+    extensions = []string{".ts", ".tsx", ".js", ".jsx"}
+  case "":
+  default:
+    extensions = nil
+  }
+  for _, ext := range extensions {
     if source, ok := r.sourceFiles[r.sourceKey(stem+ext)]; ok {
       return source, true
     }
   }
   for _, ext := range sourceLookupExtensions {
-    if source, ok := r.sourceFiles[r.sourceKey(filepath.Join(stem, "index"+ext))]; ok {
+    if source, ok := r.sourceFiles[r.sourceKey(filepath.Join(normalized, "index"+ext))]; ok {
       return source, true
     }
   }
   return "", false
+}
+
+// isDeclarationSource reports inputs that type-check but emit no target file.
+func isDeclarationSource(source string) bool {
+  lower := strings.ToLower(source)
+  return strings.HasSuffix(lower, ".d.ts") ||
+    strings.HasSuffix(lower, ".d.mts") ||
+    strings.HasSuffix(lower, ".d.cts")
 }
 
 // sourceKey applies the compiler host's filesystem identity rule to one path.
