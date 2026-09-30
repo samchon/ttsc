@@ -3,17 +3,9 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
-import { COMPILER_OPTION_KINDS } from "../../flags/COMPILER_OPTION_KINDS";
-import { getBoolean } from "../../flags/getBoolean";
-import { getNumber } from "../../flags/getNumber";
-import { getString } from "../../flags/getString";
-import { getStringList } from "../../flags/getStringList";
-import { normalizeFlagToken } from "../../flags/normalizeFlagToken";
-import { parseFlags } from "../../flags/parseFlags";
-import { resolveFlagSpec } from "../../flags/resolveFlagSpec";
-import { assertNoSolutionBuild } from "./assertNoSolutionBuild";
 import { getCompilerVersionText } from "./getCompilerVersionText";
 import { prepareExecution } from "./prepareExecution";
+import { parseTtsxCLI } from "./parseTtsxCLI";
 import { resolveCacheDir } from "./resolveCacheDir";
 import { ProcessOwnedDirectory } from "./runtime/ProcessOwnedDirectory";
 import { checkNodeRuntimeSupport } from "./runtime/checkNodeRuntimeSupport";
@@ -75,7 +67,7 @@ async function run(
   argv: readonly string[],
   signals: LauncherSignals,
 ): Promise<number> {
-  const parsed = parseCLI(argv);
+  const parsed = parseTtsxCLI(argv);
   if (parsed === "help") {
     printHelp();
     return 0;
@@ -141,156 +133,6 @@ function formatError(error: unknown): string {
     return error.message;
   }
   return String(error);
-}
-
-function parseCLI(argv: readonly string[]) {
-  // ttsx accepts ttsc-style flags plus its own `--no-plugins` / `--require`.
-  // The shared schema engine recognises both; the engine returns positional
-  // tokens (entry file + flag values that aren't `.ts`) and a passthrough
-  // list mirroring the pre-schema behaviour.
-  //
-  // The legacy uppercase `-P` spelling ttsx has always accepted needs no
-  // rewrite: the engine resolves a token to the flag the compiler resolves it
-  // to, so `-P` and `-P=<file>` reach `--tsconfig` by the same rule that makes
-  // `-p` reach it. A textual pre-rewrite here would be a second rule for a job
-  // the engine owns.
-  //
-  // Terminal flags (--help / --version) belong to ttsx only before the entry;
-  // after it they are the program's own argv, exactly as `node entry.js
-  // --version` hands `--version` to the program (samchon/ttsc#1401). The
-  // parser already draws that boundary, so they are read off its result, and
-  // resolved through the schema so every spelling the compiler accepts
-  // (`--HELP`, `-Version`) reaches the same branch.
-  let result: ReturnType<typeof parseFlags>;
-  try {
-    result = parseFlags({
-      argv,
-      errorPrefix: "ttsx:",
-      forwardAfterFirstPositional: true,
-      honorDoubleDashSeparator: true,
-      // The entry is the first bare token that is no option's value, whatever
-      // its extension: the schema and the compiler's own option table say
-      // which options take a value (the `es2020` of `--target es2020`), so a
-      // JavaScript entry is the entry too rather than a forwarded value
-      // (samchon/ttsc#1569).
-      subcommand: "ttsx",
-    });
-  } catch (error) {
-    // Help still prints when the other options do not parse, as long as it was
-    // asked for before anything that looks like the entry.
-    const terminal = terminalRequest(argv.slice(0, firstPositionalIndex(argv)));
-    if (terminal !== null) return terminal;
-    throw error;
-  }
-  const terminal = terminalRequest([
-    ...[...result.values.keys()],
-    ...result.passthrough,
-  ]);
-  if (terminal !== null) return terminal;
-  assertNoSolutionBuild(result, "ttsx:");
-  assertNoWatch(result);
-
-  const entry = result.positional[0];
-  if (entry === undefined) {
-    throw new Error("ttsx: entry file is required");
-  }
-  // With `forwardAfterFirstPositional: true`, the parser reports
-  // `result.positional` as just the entry, `result.passthrough` as the
-  // tsgo-forwarded flags (and their in-order space values) arriving BEFORE the
-  // entry, and `result.tail` as every token AFTER the entry — the user
-  // program's argv (e.g. the `generate --input src/input` tail of `ttsx
-  // typia.ts generate --input src/input`), which MUST NOT reach tsgo.
-  const postEntryArgs: string[] = [...result.tail];
-
-  // `--require` is declared `repeatable`, so the engine records every accepted
-  // value in argv order and the launcher reads the list straight off the parse
-  // result.
-  //
-  // This replaces a second, hand-written scan over raw argv that re-derived the
-  // pre-entry boundary from the entry's extension. Applied to raw tokens that
-  // test cannot tell an entry from a `--require` value carrying a TypeScript
-  // extension, nor from an inline `--require=<x>.ts` token, so the scan
-  // stopped before the tokens it existed to collect and preloads were dropped
-  // silently. The engine already owns that boundary:
-  // `forwardAfterFirstPositional` routes every post-entry token to
-  // `result.tail` without parsing it, so `ttsx entry.ts -r preload.cjs` still
-  // forwards the pair to the program instead of preloading it.
-  const preload = getStringList(result, "--require");
-
-  return {
-    binary: getString(result, "--binary"),
-    cacheDir: getString(result, "--cache-dir"),
-    checkers: getNumber(result, "--checkers"),
-    cwd: getString(result, "--cwd"),
-    entry,
-    noPlugins: getBoolean(result, "--no-plugins") === true,
-    passthrough: postEntryArgs,
-    preload,
-    project: getString(result, "--tsconfig"),
-    singleThreaded: getBoolean(result, "--singleThreaded") === true,
-    tsgoFlags: [...result.passthrough],
-  };
-}
-
-/**
- * `"help"` or `"version"` when one of `tokens` asks for it, else `null`. Only
- * dash-prefixed tokens can name a flag; a bare value such as the `all` of
- * `--target all` must not read as `--all`.
- */
-function terminalRequest(tokens: readonly string[]): "help" | "version" | null {
-  for (const token of tokens) {
-    if (!token.startsWith("-")) continue;
-    const flag = resolveFlagSpec(token)?.name;
-    if (flag === "--help") return "help";
-    if (flag === "--version") return "version";
-  }
-  return null;
-}
-
-/**
- * Index of the first bare token that is no option's value, or the length. Used
- * only where the parser itself failed, to still find the options before the
- * entry.
- */
-function firstPositionalIndex(argv: readonly string[]): number {
-  for (let index = 0; index < argv.length; index += 1) {
-    const token = argv[index]!;
-    if (token.startsWith("@")) continue;
-    if (!token.startsWith("-")) return index;
-    if (token.includes("=")) continue;
-    const flag = resolveFlagSpec(token);
-    const next = argv[index + 1];
-    if (next === undefined || next.startsWith("-")) continue;
-    const takesValue =
-      flag !== undefined
-        ? flag.kind !== "boolean"
-        : COMPILER_OPTION_KINDS.get(normalizeFlagToken(token)) === "value";
-    if (takesValue || next === "true" || next === "false") index += 1;
-  }
-  return argv.length;
-}
-
-/**
- * Refuse `--watch` (or `-w`) given to ttsx itself, before any compiler starts.
- *
- * Forwarded to the type-check, it turned the check into a process that never
- * returns, so the entry never ran and the command hung with no output
- * (samchon/ttsc#1409). ttsx runs the entry once after one check, and a watch
- * that restarts the program is a different feature; the message names the two
- * tools that already provide the halves. A `--watch` after the entry is the
- * program's own flag and never reaches here.
- */
-function assertNoWatch(result: ReturnType<typeof parseFlags>): void {
-  const watching =
-    result.values.has("--watch") ||
-    result.passthrough.some(
-      (token) =>
-        token.startsWith("-") && resolveFlagSpec(token)?.name === "--watch",
-    );
-  if (!watching) return;
-  throw new Error(
-    "ttsx: --watch is not supported; ttsx type-checks once and then runs the entry. For a watching type-check use `ttsc --watch --noEmit`; to restart the program on changes use `node --watch --require ttsc/register <entry.ts>`. Arguments after the entry, including --watch, go to the program.",
-  );
 }
 
 /** Whether the entry is a TypeScript source, which ttsx checks and builds. */
@@ -391,7 +233,7 @@ function isRelativeSpecifier(specifier: string): boolean {
  * of a TypeScript entry are refused rather than ignored.
  */
 async function runJavaScriptEntry(
-  parsed: Exclude<ReturnType<typeof parseCLI>, "help" | "version">,
+  parsed: Exclude<ReturnType<typeof parseTtsxCLI>, "help" | "version">,
   cwd: string,
   entry: string,
   signals: LauncherSignals,
@@ -451,7 +293,7 @@ async function runJavaScriptEntry(
  * find tsgo without re-resolving it from inside the hook.
  */
 async function runPreparedEntry(
-  parsed: Exclude<ReturnType<typeof parseCLI>, "help" | "version">,
+  parsed: Exclude<ReturnType<typeof parseTtsxCLI>, "help" | "version">,
   execution: ReturnType<typeof prepareExecution>,
   cwd: string,
   sourceEntry: string,

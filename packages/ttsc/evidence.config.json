@@ -255,7 +255,8 @@
         "!src/plugin/internal/source/PluginBuildLockFence.ts",
         "!src/plugin/internal/source/PluginBuildLockLease.ts",
         "!src/plugin/internal/source/PluginBuildLockObservation.ts",
-        "!src/compiler/internal/resolveTsgo.ts"
+        "!src/compiler/internal/resolveTsgo.ts",
+        "!src/launcher/internal/parseTtsxCLI.ts"
       ],
       "symbol": ["type", "function"],
       "reference": {
@@ -457,7 +458,8 @@
         "src/launcher/internal/runTtsx.ts",
         "src/launcher/internal/buildSingleRootProject.ts",
         "src/launcher/internal/inlineServedSourceMap.ts",
-        "src/register.ts"
+        "src/register.ts",
+        "src/launcher/internal/parseTtsxCLI.ts"
       ],
       "symbol": ["type", "function"],
       "reference": {
