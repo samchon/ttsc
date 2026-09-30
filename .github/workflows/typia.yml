@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/typia.yml"
       - "scripts/ci/consumer-tarballs.cjs"
+      - "scripts/ci/consumer-pnpmfile.cjs"
       - "experimental/native-host-provenance/**"
       - "experimental/source-map/**"
       - "website/compiler-dependencies/package.json"

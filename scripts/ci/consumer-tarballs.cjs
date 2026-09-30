@@ -33,16 +33,11 @@ function wireConsumerTarballs(consumerRoot, patchFiles = []) {
   const workspaceFile = path.join(consumer, "pnpm-workspace.yaml");
   const workspace = YAML.parse(fs.readFileSync(workspaceFile, "utf8"));
   workspace.overrides = { ...workspace.overrides, ...Object.fromEntries(overrides) };
-  // pnpm 10.6 auto peers bypass file overrides and delete same-name declared
-  // dependencies. Root peer aliases can also mask file identities, so each
-  // compiler host resolves its own explicit candidate dependency.
-  workspace.autoInstallPeers = false;
-  workspace.resolvePeersFromWorkspaceRoot = false;
-  workspace.packageExtensions ??= {};
-  for (const host of ["typia", "@ttsc/factory", "@ttsc/unplugin"]) {
-    const extension = (workspace.packageExtensions[host] ??= {});
-    extension.dependencies = { ...extension.dependencies, ttsc: `file:${path.join(tarballs, "ttsc.tgz").split(path.sep).join("/")}` };
-  }
+  const hookFile = path.join(consumer, ".pnpmfile.cjs");
+  const hook = `module.exports = require(${JSON.stringify(path.join(__dirname, "consumer-pnpmfile.cjs"))});\n`;
+  if (fs.existsSync(hookFile) && fs.readFileSync(hookFile, "utf8") !== hook)
+    throw new Error("consumer already has a pnpm installation hook");
+  fs.writeFileSync(hookFile, hook);
   workspace.patchedDependencies ??= {};
   for (const [name, file] of patches) {
     if (workspace.patchedDependencies[name] !== undefined && workspace.patchedDependencies[name] !== file)

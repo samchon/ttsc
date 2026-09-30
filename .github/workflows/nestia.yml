@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/nestia.yml"
       - "scripts/ci/consumer-tarballs.cjs"
+      - "scripts/ci/consumer-pnpmfile.cjs"
       - "experimental/native-host-provenance/**"
       - "patches/typia@15.0.0.patch"
       - "experimental/tarballs/**"
