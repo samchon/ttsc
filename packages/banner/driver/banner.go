@@ -24,13 +24,6 @@ func init() {
 // plugin implements driver.SourcePreamblePlugin for @ttsc/banner.
 type plugin struct{}
 
-var (
-  // linkConfigNodeModules is overridable in tests to avoid real symlink creation.
-  linkConfigNodeModules = linkNearestNodeModules
-  // writeConfigLoaderFile is overridable in tests to avoid real file I/O.
-  writeConfigLoaderFile = os.WriteFile
-)
-
 // frameworkKeys lists the tsconfig plugin-entry keys that the ttsc host
 // framework owns. They are accepted without error; all other keys are rejected.
 var frameworkKeys = map[string]struct{}{
@@ -626,27 +619,11 @@ func loadBannerTypeScriptConfigFileWithInputs(location, resolutionRoot string) (
   }
   defer os.RemoveAll(tempDir)
 
-  if err := linkConfigNodeModules(tempDir, filepath.Dir(location)); err != nil {
-    return bannerLoadedConfig{}, err
-  }
-
-  loader := filepath.Join(tempDir, "loader.mts")
-  tsconfig := filepath.Join(tempDir, "tsconfig.json")
-  importSpecifier, err := relativeImportSpecifier(tempDir, location)
+  loader, tsconfig, err := prepareBannerTypeScriptConfigLoader(
+    tempDir, location, linkNearestNodeModules, os.WriteFile,
+  )
   if err != nil {
     return bannerLoadedConfig{}, err
-  }
-  importLiteral, _ := json.Marshal(importSpecifier)
-  recorder := filepath.Join(tempDir, "ttsc-resolution-inputs.cjs")
-  if err := writeConfigLoaderFile(recorder, []byte(resolutioninputs.Recorder), 0o644); err != nil {
-    return bannerLoadedConfig{}, fmt.Errorf("@ttsc/banner: write config loader: %w", err)
-  }
-  recorderLiteral, _ := json.Marshal(recorder)
-  if err := writeConfigLoaderFile(loader, []byte(bannerTypeScriptConfigLoaderSource(string(importLiteral), string(recorderLiteral))), 0o644); err != nil {
-    return bannerLoadedConfig{}, fmt.Errorf("@ttsc/banner: write config loader: %w", err)
-  }
-  if err := writeConfigLoaderFile(tsconfig, []byte(typeScriptConfigLoaderTsconfig(loader, location, tempDir)), 0o644); err != nil {
-    return bannerLoadedConfig{}, fmt.Errorf("@ttsc/banner: write config loader tsconfig: %w", err)
   }
 
   args := []string{
@@ -685,6 +662,48 @@ func loadBannerTypeScriptConfigFileWithInputs(location, resolutionRoot string) (
     return bannerLoadedConfig{}, fmt.Errorf("@ttsc/banner: parse TypeScript config file %s output: %w", location, err)
   }
   return loaded, nil
+}
+
+// prepareBannerTypeScriptConfigLoader owns the ordered preparation needed before
+// the loader process can start: dependency links, resolution recorder, generated
+// loader and tsconfig. Its caller supplies the invocation's filesystem operations
+// explicitly and retains directory lifetime ownership. The native caller supplies
+// linkNearestNodeModules and os.WriteFile; no mutable process-global hooks exist.
+//
+// A failed operation returns immediately with its original error context and
+// never admits the process with partial preparation. Each fixed file is written
+// once, native paths are joined through filepath, and helpers retain no state
+// across invocations. I/O failure decisions can be verified at this owner without
+// claiming that supplied callbacks establish actual kernel link capabilities.
+func prepareBannerTypeScriptConfigLoader(
+  tempDir, location string,
+  linkNodeModules func(string, string) error,
+  writeFile func(string, []byte, os.FileMode) error,
+) (string, string, error) {
+  if err := linkNodeModules(tempDir, filepath.Dir(location)); err != nil {
+    return "", "", err
+  }
+
+  loader := filepath.Join(tempDir, "loader.mts")
+  tsconfig := filepath.Join(tempDir, "tsconfig.json")
+  importSpecifier, err := relativeImportSpecifier(tempDir, location)
+  if err != nil {
+    return "", "", err
+  }
+  importLiteral, _ := json.Marshal(importSpecifier)
+  recorder := filepath.Join(tempDir, "ttsc-resolution-inputs.cjs")
+  if err := writeFile(recorder, []byte(resolutioninputs.Recorder), 0o644); err != nil {
+    return "", "", fmt.Errorf("@ttsc/banner: write config loader: %w", err)
+  }
+  recorderLiteral, _ := json.Marshal(recorder)
+  if err := writeFile(loader, []byte(bannerTypeScriptConfigLoaderSource(string(importLiteral), string(recorderLiteral))), 0o644); err != nil {
+    return "", "", fmt.Errorf("@ttsc/banner: write config loader: %w", err)
+  }
+  if err := writeFile(tsconfig, []byte(typeScriptConfigLoaderTsconfig(loader, location, tempDir)), 0o644); err != nil {
+    return "", "", fmt.Errorf("@ttsc/banner: write config loader tsconfig: %w", err)
+  }
+
+  return loader, tsconfig, nil
 }
 
 // bannerTypeScriptConfigLoaderSource returns the source of a TypeScript loader

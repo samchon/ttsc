@@ -7,6 +7,7 @@ const path = require("node:path");
 
 const { copyGoTestsFlat } = require("./ci/go-test-overlay.cjs");
 const { writeGoWork } = require("./go-work.cjs");
+const { createUtilityTestOverlay } = require("./ci/utility-test-overlay.cjs");
 
 const root = path.resolve(__dirname, "..");
 const goRoot = path.join(os.homedir(), "go-sdk", "go", "bin");
@@ -131,12 +132,15 @@ function runUtilityPluginCoverage(name) {
   try {
     const goWork = path.join(workdir, "go.work");
     writeUtilityGoWork(goWork, packageDir);
+    const overlay = createUtilityTestOverlay(packageDir, workdir);
     fs.mkdirSync(commandCoverDir, { recursive: true });
     run(
       "go",
       [
         "test",
         "-count=1",
+        "-overlay",
+        overlay,
         "./test",
         "-covermode=atomic",
         "-coverpkg=./plugin,./driver",
@@ -147,6 +151,7 @@ function runUtilityPluginCoverage(name) {
         env: {
           ...goEnv(),
           GOWORK: goWork,
+          TTSC_UTILITY_TEST_MODULE_ROOT: packageDir,
           TTSC_PLUGIN_COVERDIR: commandCoverDir,
         },
       },

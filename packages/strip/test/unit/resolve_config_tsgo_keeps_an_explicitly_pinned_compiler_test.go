@@ -1,0 +1,42 @@
+package strip_test
+
+import (
+  "path/filepath"
+  "testing"
+)
+
+// TestResolveConfigTsgoKeepsAnExplicitlyPinnedCompiler verifies an explicit
+// TTSC_TSGO_BINARY still wins over the project's own install.
+//
+// Anchoring the resolution on the project is a fallback, not a replacement: an
+// embedder that pins a compiler (a cross-version harness, a benchmark cell)
+// must keep pinning it, and so must the ttsc host that exports the variable
+// into every plugin process it spawns. The project here can answer, so the
+// assertion pins the precedence rather than the absence of an alternative.
+//
+//  1. Seed a project holding a resolvable `typescript` install.
+//  2. Point TTSC_TSGO_BINARY at a different path.
+//  3. Assert the pinned path is returned verbatim.
+//
+// @evidence contracts/testing.md#behavioral-verification Sets TTSC_TSGO_BINARY with a competing seeded project compiler and asserts stripResolveConfigTsgo returns exactly the pinned path, not the project compiler.
+// @evidence contracts/testing.md#independent-expectations The explicit compiler override outranks discovery. The pinned and project identities are independent paths, and the override is permitted without checking its existence.
+// @evidence contracts/testing.md#distinguishing-cases Owns nonempty override precedence against a valid project install; empty-environment discovery and missing artifacts are covered separately.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestResolveConfigTsgoKeepsAnExplicitlyPinnedCompiler is selected from test/unit by the utility runner unit overlay. Runs stripResolveConfigTsgo in the Go process with testing-restored environment; neither compiler path is executed.
+func TestResolveConfigTsgoKeepsAnExplicitlyPinnedCompiler(t *testing.T) {
+  shedConfigToolEnvironment(t)
+  root := stripRealpathIfPossible(t.TempDir())
+  project := seedProjectTypeScript(t, root)
+  config := filepath.Join(root, "strip.config.ts")
+  writeFile(t, config, "export default {};\n")
+
+  pinned := filepath.Join(root, "pinned", "tsc")
+  t.Setenv("TTSC_TSGO_BINARY", pinned)
+
+  got := stripResolveConfigTsgo(stripConfigToolAnchors(config, root))
+  if got == project {
+    t.Fatalf("stripResolveConfigTsgo took the project compiler %q over the pinned %q", project, pinned)
+  }
+  if got != pinned {
+    t.Fatalf("stripResolveConfigTsgo = %q, want the pinned %q", got, pinned)
+  }
+}

@@ -1,0 +1,110 @@
+// linkname_helpers_test.go exposes unexported symbols from the banner driver to
+// this external test package via go:linkname. Each declaration mirrors the
+// private function or variable exactly so driver unit tests can reach package
+// internals without violating module boundaries.
+package banner_test
+
+import (
+  "os"
+  "os/exec"
+
+  _ "github.com/samchon/ttsc/packages/banner/driver"
+  "github.com/samchon/ttsc/packages/ttsc/driver"
+  _ "unsafe"
+)
+
+//go:linkname bannerParseBanner github.com/samchon/ttsc/packages/banner/driver.parseBanner
+func bannerParseBanner(config map[string]any, cwd, tsconfigPath string) (string, error)
+
+//go:linkname bannerResolveBannerText github.com/samchon/ttsc/packages/banner/driver.resolveBannerText
+func bannerResolveBannerText(config map[string]any, cwd, tsconfigPath string) (string, error)
+
+//go:linkname bannerValidateBannerConfig github.com/samchon/ttsc/packages/banner/driver.validateBannerConfig
+func bannerValidateBannerConfig(config map[string]any) error
+
+//go:linkname bannerTextFromConfigValue github.com/samchon/ttsc/packages/banner/driver.bannerTextFromConfigValue
+func bannerTextFromConfigValue(raw any, label string) (string, bool, error)
+
+//go:linkname bannerFindBannerConfigFile github.com/samchon/ttsc/packages/banner/driver.findBannerConfigFile
+func bannerFindBannerConfigFile(cwd, tsconfigPath string) (string, []driver.ConfigCandidate, error)
+
+//go:linkname bannerResolveBannerConfigPath github.com/samchon/ttsc/packages/banner/driver.resolveBannerConfigPath
+func bannerResolveBannerConfigPath(configPath, cwd, tsconfigPath string) string
+
+//go:linkname bannerTsconfigBaseDir github.com/samchon/ttsc/packages/banner/driver.tsconfigBaseDir
+func bannerTsconfigBaseDir(cwd, tsconfigPath string) string
+
+//go:linkname bannerLoadBannerConfigFile github.com/samchon/ttsc/packages/banner/driver.loadBannerConfigFile
+func bannerLoadBannerConfigFile(location, resolutionRoot string) (any, error)
+
+//go:linkname bannerIsBannerConfigFileName github.com/samchon/ttsc/packages/banner/driver.isBannerConfigFileName
+func bannerIsBannerConfigFileName(name string) bool
+
+//go:linkname bannerLoadBannerJSONConfigFile github.com/samchon/ttsc/packages/banner/driver.loadBannerJSONConfigFile
+func bannerLoadBannerJSONConfigFile(location string) (any, error)
+
+//go:linkname bannerLoadBannerScriptConfigFile github.com/samchon/ttsc/packages/banner/driver.loadBannerScriptConfigFile
+func bannerLoadBannerScriptConfigFile(location string) (any, error)
+
+//go:linkname bannerLoadBannerTypeScriptConfigFile github.com/samchon/ttsc/packages/banner/driver.loadBannerTypeScriptConfigFile
+func bannerLoadBannerTypeScriptConfigFile(location, resolutionRoot string) (any, error)
+
+//go:linkname bannerRelativeImportSpecifier github.com/samchon/ttsc/packages/banner/driver.relativeImportSpecifier
+func bannerRelativeImportSpecifier(fromDir, location string) (string, error)
+
+//go:linkname bannerTypeScriptConfigLoaderSource github.com/samchon/ttsc/packages/banner/driver.bannerTypeScriptConfigLoaderSource
+func bannerTypeScriptConfigLoaderSource(importLiteral, recorderLiteral string) string
+
+//go:linkname bannerTypeScriptConfigLoaderTsconfig github.com/samchon/ttsc/packages/banner/driver.typeScriptConfigLoaderTsconfig
+func bannerTypeScriptConfigLoaderTsconfig(loader, location, outDir string) string
+
+//go:linkname bannerLoaderTempBase github.com/samchon/ttsc/packages/banner/driver.loaderTempBase
+func bannerLoaderTempBase(location, systemTemp string) string
+
+//go:linkname bannerTtsxCommand github.com/samchon/ttsc/packages/banner/driver.ttsxCommand
+func bannerTtsxCommand(anchors []string, args ...string) *exec.Cmd
+
+//go:linkname bannerShouldRunTtsxThroughNode github.com/samchon/ttsc/packages/banner/driver.shouldRunTtsxThroughNode
+func bannerShouldRunTtsxThroughNode(binary string) bool
+
+//go:linkname bannerConfigToolAnchors github.com/samchon/ttsc/packages/banner/driver.configToolAnchors
+func bannerConfigToolAnchors(configPath, resolutionRoot string) []string
+
+//go:linkname bannerResolveConfigTsgo github.com/samchon/ttsc/packages/banner/driver.resolveConfigTsgo
+func bannerResolveConfigTsgo(anchors []string) string
+
+//go:linkname bannerResolveTtsxLauncher github.com/samchon/ttsc/packages/banner/driver.resolveTtsxLauncher
+func bannerResolveTtsxLauncher(anchors []string) string
+
+//go:linkname bannerNodePackageManifestFrom github.com/samchon/ttsc/packages/banner/driver.nodePackageManifestFrom
+func bannerNodePackageManifestFrom(anchor, pkg string) string
+
+//go:linkname bannerNodePlatformPair github.com/samchon/ttsc/packages/banner/driver.nodePlatformPair
+func bannerNodePlatformPair() (string, string)
+
+//go:linkname bannerNodePlatformPairFor github.com/samchon/ttsc/packages/banner/driver.nodePlatformPairFor
+func bannerNodePlatformPairFor(goos, goarch string) (string, string)
+
+//go:linkname bannerRealpathIfPossible github.com/samchon/ttsc/packages/banner/driver.realpathIfPossible
+func bannerRealpathIfPossible(location string) string
+
+//go:linkname bannerPhysicalHostInput github.com/samchon/ttsc/packages/banner/driver.physicalHostInput
+func bannerPhysicalHostInput(location string) *string
+
+//go:linkname bannerNodeConfigLoaderEnv github.com/samchon/ttsc/packages/banner/driver.nodeConfigLoaderEnv
+func bannerNodeConfigLoaderEnv(location string) []string
+
+//go:linkname bannerLinkNearestNodeModules github.com/samchon/ttsc/packages/banner/driver.linkNearestNodeModules
+func bannerLinkNearestNodeModules(tempDir, sourceDir string) error
+
+//go:linkname bannerFindNearestNodeModules github.com/samchon/ttsc/packages/banner/driver.findNearestNodeModules
+func bannerFindNearestNodeModules(start string) string
+
+//go:linkname bannerSetEnv github.com/samchon/ttsc/packages/banner/driver.setEnv
+func bannerSetEnv(env []string, key, value string) []string
+
+//go:linkname bannerSanitizeJSDocLine github.com/samchon/ttsc/packages/banner/driver.sanitizeJSDocLine
+func bannerSanitizeJSDocLine(line string) string
+
+//go:linkname bannerPrepareTypeScriptConfigLoader github.com/samchon/ttsc/packages/banner/driver.prepareBannerTypeScriptConfigLoader
+func bannerPrepareTypeScriptConfigLoader(tempDir, location string, link func(string, string) error, write func(string, []byte, os.FileMode) error) (string, string, error)

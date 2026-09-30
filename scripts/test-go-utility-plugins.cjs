@@ -6,6 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 
 const { writeGoWork } = require("./go-work.cjs");
+const { createUtilityTestOverlay } = require("./ci/utility-test-overlay.cjs");
 
 const root = path.resolve(__dirname, "..");
 const goRoot = path.join(os.homedir(), "go-sdk", "go", "bin");
@@ -15,37 +16,8 @@ const layer = process.env.TTSC_TEST_LAYER;
 if (layer && layer !== "unit" && layer !== "e2e")
   throw new Error(`unknown TTSC_TEST_LAYER: ${layer}`);
 
-// Explicit function identities, rather than a name prefix: every new or
-// unclassified test remains in the integration batch. The original Go test
-// functions and assertions execute unchanged, with no generated wrapper.
-const unitTests = {
-  banner: [
-    "TestConfigRejectsUnknownTsconfigKeys",
-    "TestConfigToolAnchorsListsTheConfigThenTheProjectRoot",
-    "TestNodePlatformPairMatchesTheNpmPlatformVocabulary",
-    "TestTypeScriptConfigLoaderSourcePrefersDefaultThenText",
-  ],
-  paths: [
-    "TestRewriterCommonSourceDirTerminatesAtVolumeRoots",
-    "TestRewriterHelpersCoverResolutionEdges",
-    "TestRewriterLookupSourceHonorsHostCaseSensitivity",
-    "TestRewriterLookupSourcePrefersTSForAmbiguousStem",
-    "TestRewriterLookupSourceResolvesAllowJSExtensionlessSource",
-    "TestRewriterLookupSourceResolvesAllowJSIndexSource",
-    "TestRewriterMapsSourceToEmittedOutputExtension",
-    "TestRewriterMatchPatternRejectsOverlappingPrefixSuffix",
-    "TestRewriterOrderPatternsKeepsDeclarationOrderOnPrefixTies",
-    "TestRewriterPlacesOutputBelowRootDirByHostCaseRule",
-    "TestRewriterResolvesExactJsonAliasWithoutWideningExtensionlessLookup",
-    "TestRewriterResolveSourceCommitsToBestPattern",
-    "TestRewriterResolveSourcePrefersLongestPrefixPattern",
-  ],
-  strip: [
-    "TestConfigAndPatternHelpers",
-    "TestConfigToolAnchorsListsTheConfigThenTheProjectRoot",
-    "TestNodePlatformPairMatchesTheNpmPlatformVocabulary",
-  ],
-};
+// Physical unit and E2E populations join their shared helper declarations in
+// the original module package; no name-prefix selector can misclassify a case.
 
 for (const name of packageNames) {
   const packageDir = path.join(root, "packages", name);
@@ -57,11 +29,13 @@ for (const name of packageNames) {
   try {
     const goWork = path.join(workdir, "go.work");
     writeUtilityGoWork(goWork, packageDir);
+    const overlay = createUtilityTestOverlay(packageDir, workdir, layer);
     // Build the actual producer once; every surviving command case executes
     // this same binary rather than invoking the Go tool again during tests.
     const env = {
       ...process.env,
       GOWORK: goWork,
+      TTSC_UTILITY_TEST_MODULE_ROOT: packageDir,
       PATH: fs.existsSync(goRoot)
         ? `${goRoot}${path.delimiter}${process.env.PATH ?? ""}`
         : process.env.PATH,
@@ -74,7 +48,7 @@ for (const name of packageNames) {
             ...(env.TTSC_PLUGIN_COVERDIR
               ? ["-cover", "-covermode=atomic", "-coverpkg=./plugin,./driver"]
               : []),
-            "./...",
+            "./plugin",
           ], {
             cwd: packageDir,
             env,
@@ -93,10 +67,7 @@ for (const name of packageNames) {
         workdir,
         `plugin${process.platform === "win32" ? ".exe" : ""}`,
       );
-    const selection = `^(${unitTests[name].join("|")})$`;
-    const args = ["test", "-count=1"];
-    if (layer === "unit") args.push(`-run=${selection}`);
-    else if (layer === "e2e") args.push(`-skip=${selection}`);
+    const args = ["test", "-count=1", "-overlay", overlay, ...process.argv.slice(2)];
     args.push("./test");
     const result = cp.spawnSync("go", args, {
       cwd: packageDir,
