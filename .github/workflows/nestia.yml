@@ -83,6 +83,9 @@ jobs:
       - name: Read migration template versions from declared workspace catalogs
         run: git -C experimental/nestia apply "$GITHUB_WORKSPACE/experimental/native-host-provenance/nestia-declared-catalogs.patch"
 
+      - name: Preserve temporary directories owned by concurrent nestia processes
+        run: git -C experimental/nestia apply "$GITHUB_WORKSPACE/experimental/native-host-provenance/nestia-owned-temporary-directories.patch"
+
       - name: Use local ttsc tarballs
         run: node scripts/ci/consumer-tarballs.cjs experimental/nestia patches/typia@15.0.0.patch
 
