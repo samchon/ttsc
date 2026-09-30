@@ -1,5 +1,5 @@
-import { TsgoArguments } from "../../../../../packages/ttsc/lib/compiler/internal/build/TsgoArguments.js";
-import { assert } from "../../internal/toolchain";
+import { TsgoArguments } from "../../../../../packages/ttsc/src/compiler/internal/build/TsgoArguments";
+import assert from "node:assert/strict";
 
 /**
  * Verifies a native host's tsgo payload drops only well-formed timing flags.

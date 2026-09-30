@@ -1,10 +1,10 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { inlineServedSourceMap } from "../../../../../packages/ttsc/lib/launcher/internal/inlineServedSourceMap.js";
+import { inlineServedSourceMap } from "../../../../../packages/ttsc/src/launcher/internal/inlineServedSourceMap";
 
 /**
  * Verifies the serve-time source-map inliner rewrites an external map into an

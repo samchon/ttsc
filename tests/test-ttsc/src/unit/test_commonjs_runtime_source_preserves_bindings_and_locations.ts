@@ -50,7 +50,13 @@ export function test_commonjs_runtime_source_preserves_bindings_and_locations():
   const payload = JSON.parse(Buffer.from(prepared.slice(prepared.lastIndexOf(marker) + marker.length), "base64").toString("utf8"));
   const map = new SourceMap(payload);
   const column = prepared.indexOf("module.exports=1;");
-  assert.equal(map.findEntry(0, column).originalColumn, 0);
-  assert.equal(map.findEntry(0, column + 1).originalColumn, 1);
-  assert.equal(map.findEntry(1, 0).originalLine, 1);
+  const first = map.findEntry(0, column);
+  const second = map.findEntry(0, column + 1);
+  const nextLine = map.findEntry(1, 0);
+  assert.ok("originalColumn" in first, "first emitted column must have a source mapping");
+  assert.ok("originalColumn" in second, "adjacent emitted column must have a source mapping");
+  assert.ok("originalLine" in nextLine, "next emitted line must have a source mapping");
+  assert.equal(first.originalColumn, 0);
+  assert.equal(second.originalColumn, 1);
+  assert.equal(nextLine.originalLine, 1);
 }

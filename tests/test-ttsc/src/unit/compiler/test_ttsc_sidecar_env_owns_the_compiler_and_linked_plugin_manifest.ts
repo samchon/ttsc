@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import os from "node:os";
 
-import { BuildExecution } from "../../../../../packages/ttsc/lib/compiler/internal/build/BuildExecution.js";
-import { inheritedSidecarEnv } from "../../../../../packages/ttsc/lib/compiler/internal/sharedHost/inheritedSidecarEnv.js";
-import { publishLinkedTransformPlugins } from "../../../../../packages/ttsc/lib/compiler/internal/sharedHost/publishLinkedTransformPlugins.js";
+import { BuildExecution } from "../../../../../packages/ttsc/src/compiler/internal/build/BuildExecution";
+import { inheritedSidecarEnv } from "../../../../../packages/ttsc/src/compiler/internal/sharedHost/inheritedSidecarEnv";
+import { publishLinkedTransformPlugins } from "../../../../../packages/ttsc/src/compiler/internal/sharedHost/publishLinkedTransformPlugins";
 
 /**
  * Verifies a sidecar environment carries this invocation's compiler and linked

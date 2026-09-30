@@ -1,5 +1,5 @@
-import { normalizeBuildOutput } from "../../../../../packages/ttsc/lib/compiler/internal/build/normalizeBuildOutput.js";
-import { assert } from "../../internal/toolchain";
+import { normalizeBuildOutput } from "../../../../../packages/ttsc/src/compiler/internal/build/normalizeBuildOutput";
+import assert from "node:assert/strict";
 
 /**
  * Verifies structured diagnostics keep a plugin-defined code whole.
