@@ -7,7 +7,7 @@ description: Defines ttsc's review law and its two uses, Overall Self-Review (th
 
 ## Review Law
 
-Read the [contracts skill](../contracts/SKILL.md) when reviewing maintained production code, including its common checklist and the scoped topics relevant to affected operations.
+Read the [contracts skill](../contracts/SKILL.md) when reviewing maintained production code or tests. Select its production or test checklists according to the declaration's responsibility.
 
 Judge each acknowledgment against the declaration, its documentation, and its consequence surface. Verify every fact requested by the referenced section, including applicable documentation-skill guidance. Evidence checks the presence of acknowledgments; review establishes whether their contents are complete and true.
 

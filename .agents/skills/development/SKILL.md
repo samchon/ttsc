@@ -67,13 +67,15 @@ Do not add inline option keys to `@ttsc/banner`, `@ttsc/paths`, `@ttsc/strip`, o
 
 ## Testing
 
+Read the [test contracts](../contracts/SKILL.md#testing) for every test and the [E2E contracts](../contracts/SKILL.md#e2e) for real boundary execution. They own assertion quality, layer classification, execution sharing and coverage preservation. Keep unit and E2E cases in separate locations and runner populations; classify by the operations actually executed.
+
 **One test case per file, named after what it asserts.** Applies to both layers.
 
-- **Go unit tests:** keep them in `packages/*/test/` with one `Test*` per file. Run the real command entrypoint, such as `go run ./plugin`, so wrapper branches stay covered.
+- **Go unit tests:** keep them beside the owning Go package or in its `test/` directory, with one `Test*` per file. Exercise the owning operations in the same Go test process. Keep necessary command entrypoint coverage in the shared E2E batch.
 - **TypeScript e2e tests:** keep ordinary scenarios in `tests/test-*/src/features/`.
-- **Native-plugin lanes:** when a suite builds real Go plugin binaries, put those scenarios in `tests/test-*/src/native-plugins/<category>/` so CI can isolate them. Keep cheap scenarios under `features/`.
+- **Native-plugin lanes:** when a suite builds real Go plugin binaries, put those scenarios in `tests/test-*/src/native-plugins/<category>/` so CI can isolate them. Other necessary boundary scenarios stay under `features/`; execution cost alone does not determine the layer.
 - **Platforms:** portable semantics run once on Linux. The test workflow has one installation and minimal CLI matrix covering Linux, Windows and macOS on x64 and arm64. Keep integration boundaries batched on Linux, including filesystem, process and watch contracts; reaching the filesystem does not require repeating a portable suite on every OS. Every removed integration assertion must retain equivalent unit coverage or remain in the batched integration run. Rule semantics belong in unit tests, with Go contributor fixtures batched in one process. The execution and cache contract lives in [the validation README](../../../scripts/ci/README.md).
-- **TypeScript test contract:** export exactly one `test_<snake_case>` function from a matching filename. `DynamicExecutor` discovers that prefix. Materialize a temporary project, spawn the real binary, and assert observable output.
+- **TypeScript test entry:** export exactly one `test_<snake_case>` function from a matching filename. `DynamicExecutor` discovers that prefix. Keep unit cases under `src/unit/`; necessary E2E scenarios use the feature or native-plugin locations above.
 
 Open every case with a doc comment in the same three-part shape: a one-line `Verifies …` headline, a short paragraph stating the non-obvious _why_ (which branch or regression is being pinned), and a 2–4-step numbered list summarizing the scenario.
 
@@ -101,18 +103,7 @@ Use the shared helpers in `tests/utils` and the per-suite `internal/` modules; d
 
 Commit only tests that are meaningful and necessary to verify the change. Scratch probes and one-off checks you ran while working stay out of the repository.
 
-A test runs the code it concerns and asserts what that code does. Do not add a test or check script whose subject is the repository's own files: that a document lists every package, a README mentions an option, a workflow contains a step, a file exists, source text matches a pattern, or two committed files agree.
-
-### Coverage, not happy paths
-
-A test that only feeds a rule its own canonical output and asserts it is unchanged proves idempotency, not correctness. Each rule or predicate needs more than its happy path:
-
-- **The transformation direction.** For a rule that rewrites X into Y, assert that a mangled or unformatted input produces the canonical output (input differs from output), not only that the canonical form round-trips unchanged.
-- **A negative twin for every positive.** Wherever a predicate acts (hug, break, merge, autofix), pin an adjacent case one property away where it must NOT act. An over-match stays invisible until the counter-example exists.
-- **Boundaries.** The empty case, the single-element case, the exact width limit, the deepest nesting, the modifier or annotation that flips the decision.
-- **Oracle-derived expectations.** Take the expected output from the authoritative spec (the Prettier version the workspace pins for `format`, the upstream ESLint rule for a lint port), never from whatever the current code happens to emit. A snapshot written against the code's own output locks its bugs in.
-
-This is not a formatter-only rule. The same happy-path bias hides autofix corruption and edge-case faults across the lint set, so every rule carries the burden.
+Use the [behavioral verification](../contracts/testing.md#behavioral-verification), [independent expectations](../contracts/testing.md#independent-expectations) and [distinguishing cases](../contracts/testing.md#distinguishing-cases) chapters when designing or reviewing assertions.
 
 ## Validation
 
@@ -137,21 +128,21 @@ For mechanical ports, migrations, or broad rewrites, preserve the existing algor
 
 Each production package's `evidence.config.json` owns its selection and references the shared [common engineering contracts](../contracts/common.md). Production selectors use `type` and `function` under the [contracts skill](../contracts/SKILL.md); properties retain documentation and are reviewed through their owning type instead of carrying separate checklist tags. Source globs are relative to that package. References use `root: "../../.agents/skills"` and paths such as `contracts/common.md`. Add exclusions only for material the positive globs actually select and whose exclusion has a verified reason.
 
-Run `pnpm evidence` from the repository root to execute the production packages' Evidence scripts recursively with `--no-bail`. This collects every package's result even when an earlier package fails. Packages without an Evidence script are skipped; the explicit `./packages/*` filter keeps tests, benchmarks, and the website outside this command. Use `pnpm --filter <package-name> evidence` for one package.
+Run `pnpm evidence` from the repository root to collect the production and enrolled test populations without stopping at the first failure. Each test owner must connect its actual runner population to the shared [testing checklist](../contracts/testing.md), and E2E owners must also select the [E2E checklist](../contracts/e2e.md). Verify discovery, selection and execution wiring together; contract documents alone do not establish enforcement. Use `pnpm --filter <package-name> evidence` for one package that owns an Evidence script.
 
 The JSON configuration avoids evaluating configuration through the compiler this repository is developing. This keeps the checker usable before that compiler has been built.
 
-The existing `.github/workflows/build.yml` job runs `pnpm evidence` after dependency installation and before building on every pull request and master push. Keep Evidence out of test source, test configurations, `pnpm test`, `test:*` scripts, existing test workflows, and their validation planner. Sharing the build job removes a separate install and job without changing the production selection or treating checklist acknowledgments as unit assertions.
+The existing `.github/workflows/build.yml` job runs `pnpm evidence` after dependency installation and before building on every pull request and master push. Execute test contract checks through this same command and job. Do not add a separate Evidence workflow, job or test-runner step; acknowledgments remain a graph check, not behavioral assertions.
 
-During draft adoption, report all outstanding obligations and any incomplete analysis. The report must distinguish a functioning checker from completed enforcement of the selected production code.
+During draft adoption, report all outstanding obligations and any incomplete analysis. Distinguish a functioning checker from completed enforcement of the selected code and tests. Include anonymous callbacks, dynamically registered cases and script bodies the adapter cannot address; do not report complete test enrollment from a selector that leaves those entries invisible.
 
 1. Run the complete check and collect its entire report before correcting findings, following [AGENTS.md's symptom-collection rule](../../../AGENTS.md#attitude). Group missing acknowledgments, code or documentation defects, selection mistakes, generated-source provenance, and incomplete analysis by cause so one correction addresses the verified class of failure.
 2. Inspect the selected declarations and their private helpers against each applicable principle. Fix verified defects within the authorized scope before writing an acknowledgment, because the tag must describe the resulting implementation. Generic compliance tags or weaker selection and severity can hide the defect while making the report pass.
-3. Write `@evidence contracts/common.md#<anchor> <reason>` in native documentation, addressing every fact the referenced section asks to acknowledge. One section may combine several related checks; the checker cannot judge the completeness or truth of its prose. Use `@evidenceExclude` only for a genuinely inapplicable individual item with a reason; whole-document exclusion would bypass every obligation for that host.
+3. Write `@evidence contracts/<document>.md#<anchor> <reason>` in native documentation, using the selected chapter's document and addressing every fact it asks to acknowledge. One section may combine several related checks; the checker cannot judge the completeness or truth of its prose. Use `@evidenceExclude` only for a genuinely inapplicable individual item with a reason; whole-document exclusion would bypass every obligation for that host.
 4. From the owning package, use `pnpm exec evidence list` to inspect selected public addresses and `pnpm exec evidence inspect '<target>'` to investigate resolution. The CLI discovers `evidence.config.ts` first and `evidence.config.json` when TS is absent. These commands show what the checker can address. Record private-helper and script-body limitations so whole-surface review covers what the graph cannot select.
 5. Recheck the complete selected population after each coherent correction, because a changed declaration or selector can affect other obligations. Keep the issue open and the pull request draft while obligations or incomplete analysis remain. Record progress through the pull-request skill's formal review ledger so the pending work is visible.
 
-Exclude generated, copied, dependency, build, and test material through explicit selection with verified provenance. Those files have a different author or validation owner; they must not acquire obligations accidentally through a broad glob.
+Exclude generated, copied, dependency, build and test material from production claims through explicit selection with verified provenance. Authored tests belong to their own test claims; a fixture copied as input does not become a test host because its syntax resembles one. Never use exclusions or reduced severity to conceal outstanding test obligations.
 
 A hand-maintained shim or authored helper remains maintained source even beside generated files. Test and benchmark enrollment requires its own authorized scope.
 
