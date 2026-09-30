@@ -39,6 +39,11 @@ func (r importedSourcePopulationRule) Check(ctx *publicrule.ProjectContext) {
 // 1. Register a project rule that records every ctx.Sources basename.
 // 2. Evaluate one project cycle over a consumer importing a sibling source.
 // 3. Assert the population holds the consumer file and the sibling file.
+//
+// @evidence contracts/testing.md#behavioral-verification A real loaded Program hands both the consumer main.ts and imported sibling index.ts to the registered project rule through ctx.Sources.
+// @evidence contracts/testing.md#independent-expectations The authored consumer import references the sibling source outside its files list, independently requiring both user basenames in the callback population. The original presence oracle does not assert population cardinality or order.
+// @evidence contracts/testing.md#distinguishing-cases One directly selected consumer and one import-reached sibling distinguish config-only population from all user sources; the test retains actual load diagnostics and closes the Program.
+// @evidence contracts/testing.md#execution-ownership A fixture filesystem feeds owning loadProgram and program.runProjectCycle in one Go process with a direct project-rule adapter. No consumer installation, native artifact build or compiler child is used.
 func TestProjectRuleSourcesIncludeImportedSiblingSource(t *testing.T) {
   consumer, _ := seedLintSiblingSourceProject(
     t,

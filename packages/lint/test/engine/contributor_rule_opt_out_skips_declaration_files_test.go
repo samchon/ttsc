@@ -33,6 +33,11 @@ func (declarationOptOutContributor) VisitsDeclarationFiles() bool { return false
 //     metadata.
 //  2. Ask the engine's declaration-file predicate.
 //  3. Assert the adapter reports the skip.
+//
+// @evidence contracts/testing.md#behavioral-verification inspectContributor and newContributorAdapter retain an explicit false VisitsDeclarationFiles marker, and the actual declaration predicate returns false.
+// @evidence contracts/testing.md#independent-expectations The authored contributor marker returns false independently of adapter construction; the observed predicate must preserve that public answer.
+// @evidence contracts/testing.md#distinguishing-cases Explicit opt-out is the negative case paired with the marker-absent default acceptance test; this case does not claim to execute the contributor Check method.
+// @evidence contracts/testing.md#execution-ownership Real metadata inspection, adapter construction and ruleVisitsDeclarationFiles calls run directly in one Go process, without registering or compiling a native contributor.
 func TestContributorRuleOptOutSkipsDeclarationFiles(t *testing.T) {
   metadata, err := inspectContributor(declarationOptOutContributor{})
   if err != nil {

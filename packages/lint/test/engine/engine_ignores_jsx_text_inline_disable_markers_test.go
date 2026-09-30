@@ -17,6 +17,11 @@ import (
 //  1. Put fake and real range-disable markers before separate `debugger` statements.
 //  2. Put fake and real range-enable markers around two more statements.
 //  3. Assert only the statements outside the genuine range are reported exactly.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine.Run ignores disable/enable-looking JSX text but honors genuine expression-container comments, retaining exactly the first and last debugger errors.
+// @evidence contracts/testing.md#independent-expectations First and last literal debugger offsets and full statement lengths independently define the surviving ranges; canonical rule, configured error severity and source identity pin their meaning.
+// @evidence contracts/testing.md#distinguishing-cases Fake disable, real disable, fake enable and real enable exercise both lexical-goal boundaries and range transitions with two suppressed middle statements.
+// @evidence contracts/testing.md#execution-ownership A real TSX parser and direct no-debugger engine run in the shared Go process; this individually selected case inspects findings without evaluating JSX or starting a native host.
 func TestEngineIgnoresJsxTextInlineDisableMarkers(t *testing.T) {
   const ruleName = "no-debugger"
   source := "const fakeDisable = <div>/* eslint-disable no-debugger */</div>;\n" +
@@ -39,6 +44,9 @@ func TestEngineIgnoresJsxTextInlineDisableMarkers(t *testing.T) {
   }
   for i, start := range starts {
     end := start + len("debugger;")
+    if findings[i].File != file || findings[i].Rule != ruleName || findings[i].Severity != SeverityError {
+      t.Fatalf("finding %d lost debugger identity: %+v", i, findings[i])
+    }
     if findings[i].Pos != start || findings[i].End != end {
       t.Fatalf("finding %d: want debugger range [%d,%d), got [%d,%d)", i, start, end, findings[i].Pos, findings[i].End)
     }

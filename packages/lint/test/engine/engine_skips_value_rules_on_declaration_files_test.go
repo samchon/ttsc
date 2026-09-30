@@ -19,6 +19,11 @@ import (
 // 1. Parse a source containing a debugger statement.
 // 2. Mark it as a declaration source file.
 // 3. Run the engine with `no-debugger` and assert zero findings.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine.Run skips no-debugger when the parsed source is marked as a declaration, and the identical source reports one error without that marker.
+// @evidence contracts/testing.md#independent-expectations The declaration-file eligibility contract excludes executable value rules; the literal debugger control independently establishes that the configured rule remains active on ordinary sources.
+// @evidence contracts/testing.md#distinguishing-cases Only IsDeclarationFile changes between the two calls, distinguishing declaration filtering from a missing rule or universally disabled dispatch.
+// @evidence contracts/testing.md#execution-ownership The actual no-debugger engine directly walks one parsed virtual source twice in one Go process; the input intentionally models the declaration marker rather than compiling a valid ambient declaration.
 func TestEngineSkipsValueRulesOnDeclarationFiles(t *testing.T) {
   file := parseTS(t, "debugger;")
   file.IsDeclarationFile = true
@@ -26,5 +31,10 @@ func TestEngineSkipsValueRulesOnDeclarationFiles(t *testing.T) {
   findings := engine.Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 0 {
     t.Fatalf("value rule fired on a declaration file; got %d findings", len(findings))
+  }
+  file.IsDeclarationFile = false
+  ordinary := engine.Run([]*shimast.SourceFile{file}, nil)
+  if len(ordinary) != 1 || ordinary[0].File != file || ordinary[0].Rule != "no-debugger" || ordinary[0].Severity != SeverityError {
+    t.Fatalf("ordinary source control did not report debugger: %+v", ordinary)
   }
 }

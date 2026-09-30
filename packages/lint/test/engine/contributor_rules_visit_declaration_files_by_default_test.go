@@ -33,6 +33,11 @@ func (declarationDefaultContributor) Check(ctx *rule.Context, node *shimast.Node
 // 1. Inspect a contributor rule without the marker and wrap the metadata.
 // 2. Ask the engine's declaration-file predicate.
 // 3. Assert the adapter reports it visits declaration files.
+//
+// @evidence contracts/testing.md#behavioral-verification A contributor without the declaration marker is accepted by ruleVisitsDeclarationFiles after real metadata inspection and adaptation.
+// @evidence contracts/testing.md#independent-expectations The public contributor contract conservatively defaults to visiting declarations when a marker is absent; the fixture deliberately implements no marker.
+// @evidence contracts/testing.md#distinguishing-cases Absent marker is the positive case complementary to the explicit false opt-out test; the empty Check is not treated as evidence of dispatch execution.
+// @evidence contracts/testing.md#execution-ownership Direct inspectContributor, newContributorAdapter and declaration predicate calls run in the shared Go process, without source walking, native contributor compilation or installation.
 func TestContributorRulesVisitDeclarationFilesByDefault(t *testing.T) {
   metadata, err := inspectContributor(declarationDefaultContributor{})
   if err != nil {

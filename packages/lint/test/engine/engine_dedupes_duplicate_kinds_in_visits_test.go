@@ -22,6 +22,11 @@ import (
 //     twice.
 //  2. Parse a source file that contains one node of that Kind.
 //  3. Run the engine and assert exactly one finding (not two).
+//
+// @evidence contracts/testing.md#behavioral-verification NewEngine deduplicates two identical Visits subscriptions so the authored custom rule reports exactly once for the single variable statement.
+// @evidence contracts/testing.md#independent-expectations One matching statement and literal duplicate-kinds rule fired message independently require exactly one finding with the configured rule/error/file identity.
+// @evidence contracts/testing.md#distinguishing-cases Repeated identical Kind entries versus one matching AST node distinguish duplicate binding from ordinary traversal; cleanup removes the temporary registration after this individual case.
+// @evidence contracts/testing.md#execution-ownership Actual Register, NewEngine and Engine.Run directly exercise the authored Go rule in one shared process; this unit does not compile or start a native contributor host.
 func TestEngineDedupesDuplicateKindsInVisits(t *testing.T) {
   // Defensive: `Register` panics on duplicates, so a `go test -count=N`
   // re-run would crash before `defer` could clean up. Drop any prior
@@ -38,6 +43,9 @@ func TestEngineDedupesDuplicateKindsInVisits(t *testing.T) {
   findings := engine.Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 1 {
     t.Fatalf("want 1 finding after dedup, got %d", len(findings))
+  }
+  if findings[0].File != file || findings[0].Severity != SeverityError || findings[0].Message != "duplicate-kinds rule fired" {
+    t.Fatalf("custom diagnostic contract changed: %+v", findings[0])
   }
   if findings[0].Rule != "dedupe-visits-test/rule" {
     t.Errorf("want rule name %q, got %q", "dedupe-visits-test/rule", findings[0].Rule)
