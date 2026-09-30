@@ -44,3 +44,6 @@ jobs:
 
       - name: Smoke release-candidate ttscgraph snapshot
         run: node scripts/assert-ttscgraph-release-candidate.cjs
+
+      - name: Check source quality gates once
+        run: node scripts/ci/run-typecheck-lane.cjs --quality-only

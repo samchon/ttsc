@@ -19,7 +19,7 @@ const LANES = [
   },
   {
     "id": "typecheck",
-    "run": "node scripts/ci/run-typecheck-lane.cjs",
+    "run": "node scripts/ci/run-typecheck-lane.cjs --boundaries-only",
     "dirs": [
       "features"
     ]

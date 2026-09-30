@@ -38,6 +38,10 @@ function runStep(step) {
 }
 
 if (require.main === module) {
+  const qualityOnly = process.argv.includes("--quality-only");
+  const boundariesOnly = process.argv.includes("--boundaries-only");
+  if (qualityOnly && boundariesOnly)
+    throw new Error("Select quality gates or Node boundaries, not both");
   const nodeTests = selectedNodeTests(root, "typecheck").map((relative) =>
     path.join(root, ...relative.split("/")),
   );
@@ -60,7 +64,11 @@ if (require.main === module) {
     },
     { name: "TypeScript types", command: "pnpm", args: ["run", "test:typecheck"] },
   ];
-  const failed = runAll(steps, runStep);
+  const selected = steps.filter((step) =>
+    qualityOnly ? step.name !== "Node harness" :
+    boundariesOnly ? step.name === "Node harness" : true,
+  );
+  const failed = runAll(selected, runStep);
   if (failed.length !== 0) {
     console.error(`typecheck: ${failed.length} step(s) failed: ${failed.join(", ")}`);
     process.exitCode = 1;
