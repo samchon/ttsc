@@ -16,7 +16,7 @@ import path from "node:path";
  *
  * @evidence contracts/testing.md#behavioral-verification Actual ttsx executes all preloads before its checked entry and forwards the exact tail; output assertions detect dropped or reordered preloads, unwanted post-entry effects and compiler contamination.
  * @evidence contracts/testing.md#independent-expectations Fixture preloads announce their names and set a loaded flag; literal argv tokens define the expected program arguments independently of parsing or emitted source.
- * @evidence contracts/testing.md#distinguishing-cases Spaced and inline long/short require forms with CJS/TS/TSX inputs run together; the post-entry require has an observable negative side effect, and terminal/watch/build flags plus an inner separator remain program data. The parser unit owns each original standalone shape.
+ * @evidence contracts/testing.md#distinguishing-cases Spaced and inline long/short require forms with CJS/TS/TSX inputs run together; the post-entry require has an observable negative side effect, and terminal/watch/build flags plus an inner separator remain program data. Pre-entry spaced target/module values and bare pretty also reach the actual compiler without consuming the entry. The parser unit owns each original standalone shape.
  * @evidence contracts/testing.md#execution-ownership This named E2E entry owns one actual launcher/compiler/Node host and fixture inputs; the portable argv Cartesian population executes in test_parse_ttsx_cli_preserves_preload_order_program_arguments_and_early_rejections.
  * @evidence contracts/e2e.md#necessary-boundary Parsed preloads and tail arrays must reach Node's real require and child argv channels in order; direct parsing cannot detect dropping values between projection and spawn or failing to transport child cwd/environment and execute the marker write.
  * @evidence contracts/e2e.md#shared-execution The original six preload runs and separate argv/preload-tail, entry-side-effect and explicit-cwd hosts share one project preparation and one process lifetime; different token shapes now execute through the actual parser unit rather than repeating equivalent compiler emit.
@@ -45,12 +45,13 @@ export function test_ttsx_preloads_every_require_spelling_before_the_entry() {
       "src/main.ts": `declare const process: { argv: string[]; cwd(): string; env: { TTSX_MARKER?: string } }; declare function require(name: string): { writeFileSync(file: string, text: string): void }; const marker = process.env.TTSX_MARKER; if (!marker) throw new Error("missing marker path"); require("node:fs").writeFileSync(marker, JSON.stringify({ argv: process.argv.slice(2), cwd: process.cwd(), executed: true })); console.log(JSON.stringify({ entry: "ENTRY", preload: (globalThis as Record<string, unknown>).__ttsxPreload, argv: process.argv.slice(2) }));\n`,
     });
 
+    const compilerFlags = ["--pretty", "--target", "es2020", "--module", "commonjs"];
     const flags = ["--require=./a.ts", "-r=./a.cjs", "-r", "./c.tsx", "--require", "./b.cjs"];
-    const tail = ["generate", "--input", "X", "--output", "Y", "--help", "-h", "--version", "-v", "--watch", "--build", "-r", "./after.cjs", "a", "--", "b", "--mode", "probe"];
+    const tail = ["generate", "--input", "X", "--output", "Y", "--help", "-h", "--version", "-v", "--watch", "--build", "-r", "./after.cjs", "a", "--", "b", "--mode", "probe", "alpha", "beta"];
     const marker = path.join(root, "runner-marker.json");
-    const result = TestProject.spawn(TestProject.TTSX_BIN, ["--cwd", root, ...flags, "src/main.ts", "--", ...tail], { cwd: parent, env: { TTSX_MARKER: marker } });
+    const result = TestProject.spawn(TestProject.TTSX_BIN, ["--cwd", root, ...compilerFlags, ...flags, "src/main.ts", "--", ...tail], { cwd: parent, env: { TTSX_MARKER: marker } });
     assert.equal(result.status, 0, result.stderr);
-    assert.doesNotMatch(result.stdout + result.stderr, /Unknown compiler option|UNEXPECTED POST-ENTRY PRELOAD/);
+    assert.doesNotMatch(result.stdout + result.stderr, /entry file is required|Unknown compiler option|UNEXPECTED POST-ENTRY PRELOAD/i);
     const lines = result.stdout.trim().split(/\r?\n/);
     assert.deepEqual(lines.slice(0, -1), ["PRELOAD a.ts", "PRELOAD a.cjs", "PRELOAD c.tsx", "PRELOAD b.cjs"]);
     assert.deepEqual(JSON.parse(lines.at(-1)!), { entry: "ENTRY", preload: "loaded", argv: tail });

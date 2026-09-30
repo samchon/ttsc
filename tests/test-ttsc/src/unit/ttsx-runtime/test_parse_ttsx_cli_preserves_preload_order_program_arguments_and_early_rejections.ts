@@ -15,7 +15,7 @@ import { parseTtsxCLI } from "../../../../../packages/ttsc/src/launcher/internal
  *
  * @evidence contracts/testing.md#behavioral-verification The actual launcher parser returns ordered preload and tail arrays and throws its own mode/value errors; assertions detect the historical projection bug beyond the shared schema parser.
  * @evidence contracts/testing.md#independent-expectations Node-style arguments after an entry belong to that program, one immediate optional separator is consumed, and each pre-entry require value retains argv order; unsupported one-shot watch/build and missing values independently require explicit errors.
- * @evidence contracts/testing.md#distinguishing-cases Six spaced/inline/mixed preload forms, all seven original terminal/separator tails and the original side-effect --mode/probe tail, non-separated generator flags, post-entry watch/build/require, pre-entry refusals, terminal recovery from malformed flags and typed launcher values cover both ownership directions.
+ * @evidence contracts/testing.md#distinguishing-cases Six spaced/inline/mixed preload forms, all seven original terminal/separator tails and the original side-effect --mode/probe tail, non-separated generator flags, post-entry watch/build/require, pre-entry refusals, terminal recovery from malformed flags and typed launcher values, original spaced target/module and bare pretty compiler flags, and both uppercase project spellings cover both ownership directions.
  * @evidence contracts/testing.md#execution-ownership This named source unit directly calls the authored parser and its private helpers without a project, compiler or product process; retained CLI hosts own actual require/argv/error transport.
  */
 export function test_parse_ttsx_cli_preserves_preload_order_program_arguments_and_early_rejections() {
@@ -54,6 +54,21 @@ export function test_parse_ttsx_cli_preserves_preload_order_program_arguments_an
     assert.deepEqual(result.passthrough, expected);
     assert.deepEqual(result.preload, []);
     assert.deepEqual(result.tsgoFlags, []);
+  }
+  const spacedCompiler = record(["--target", "es2020", "--module", "commonjs", "src/main.ts", "alpha", "beta"]);
+  assert.equal(spacedCompiler.entry, "src/main.ts");
+  assert.deepEqual(spacedCompiler.tsgoFlags, ["--target", "es2020", "--module", "commonjs"]);
+  assert.deepEqual(spacedCompiler.passthrough, ["alpha", "beta"]);
+  const booleanCompiler = record(["--pretty", "src/main.ts"]);
+  assert.equal(booleanCompiler.entry, "src/main.ts");
+  assert.deepEqual(booleanCompiler.tsgoFlags, ["--pretty"]);
+  assert.deepEqual(booleanCompiler.passthrough, []);
+  for (const projectFlags of [["-P", "alt/tsconfig.json"], ["-P=alt/tsconfig.json"]]) {
+    const projected = record([...projectFlags, "src/main.ts"]);
+    assert.equal(projected.project, "alt/tsconfig.json");
+    assert.equal(projected.entry, "src/main.ts");
+    assert.deepEqual(projected.tsgoFlags, []);
+    assert.deepEqual(projected.passthrough, []);
   }
   for (const flag of ["--watch", "-w"]) assert.throws(() => parseTtsxCLI([flag, "src/main.ts"]), (error: unknown) => {
     assert.ok(error instanceof Error);

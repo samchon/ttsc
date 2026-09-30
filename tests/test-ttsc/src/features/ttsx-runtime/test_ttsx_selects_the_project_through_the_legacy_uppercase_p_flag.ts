@@ -14,11 +14,19 @@ import assert from "node:assert/strict";
  *
  * 1. Create a project whose `alt/tsconfig.json` is the only one that declares the
  *    entry's directory, and whose entry prints a recognisable line.
- * 2. Run ttsx once with `-P alt/tsconfig.json` and once with the inline form.
- * 3. Assert both exit 0 and run the entry.
+ * 2. Run ttsx with `-P alt/tsconfig.json`; verify both lexical forms directly in the parser unit.
+ * 3. Assert the public selection reaches that project and runs the entry.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The public launcher selects the only alternate config through uppercase -P and executes ENTRY with status zero; no default root config can silently supply this preparation.
+ * @evidence contracts/testing.md#independent-expectations The fixture config explicitly owns ../src and the authored program prints ENTRY; choosing that config is required to prepare the entry, independently of the parser's internal projection.
+ * @evidence contracts/testing.md#distinguishing-cases Uppercase spaced project selection exercises the real alternate-config connection. The actual parseTtsxCLI unit separately owns spaced and inline uppercase forms, exact selected path and absence of leaked compiler/program arguments.
+ * @evidence contracts/testing.md#execution-ownership This named E2E entry invokes one actual compiler-backed public launcher; the parser spelling matrix runs in the source-unit population.
+ * @evidence contracts/e2e.md#necessary-boundary The parser's selected path must reach real project discovery, preparation and Node execution; returning a path from a unit call cannot prove that caller wiring.
+ * @evidence contracts/e2e.md#shared-execution One alternate project preparation and one runtime host check selection assembly. Repeating the same compiler program for the inline spelling adds no connection, so that lexical decision executes directly through the owning parser.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fresh fixture has only its alternate config and immutable source; no default config or prior output can satisfy the invocation. Synchronous spawn completes before TestProject releases fixture state.
+ * @evidence contracts/e2e.md#preserved-coverage Original zero-exit and ENTRY assertions remain in this public host; both original -P argument forms retain exact path, entry and forwarded-array assertions in the actual parser unit.
  */
-export const test_ttsx_selects_the_project_through_the_legacy_uppercase_p_flag =
-  () => {
+export function test_ttsx_selects_the_project_through_the_legacy_uppercase_p_flag() {
     const root = TestProject.createProject({
       "alt/tsconfig.json": JSON.stringify({
         compilerOptions: {
@@ -33,21 +41,8 @@ export const test_ttsx_selects_the_project_through_the_legacy_uppercase_p_flag =
       "src/main.ts": `console.log("ENTRY");\n`,
     });
 
-    for (const project of ["alt/tsconfig.json", "-inline"]) {
-      const args =
-        project === "-inline"
-          ? ["-P=alt/tsconfig.json"]
-          : ["-P", "alt/tsconfig.json"];
-      const result = TestProject.spawn(
-        TestProject.TTSX_BIN,
-        ["--cwd", root, ...args, "src/main.ts"],
-        { cwd: root },
-      );
-      assert.equal(
-        result.status,
-        0,
-        `ttsx ${args.join(" ")}:\n${result.stdout}${result.stderr}`,
-      );
-      assert.match(result.stdout, /ENTRY/);
-    }
-  };
+    const args = ["-P", "alt/tsconfig.json"];
+    const result = TestProject.spawn(TestProject.TTSX_BIN, ["--cwd", root, ...args, "src/main.ts"], { cwd: root });
+    assert.equal(result.status, 0, `ttsx ${args.join(" ")}:\n${result.stdout}${result.stderr}`);
+    assert.match(result.stdout, /ENTRY/);
+}
