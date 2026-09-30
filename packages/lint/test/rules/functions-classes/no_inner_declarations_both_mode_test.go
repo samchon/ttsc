@@ -12,6 +12,11 @@ import "testing"
 // 1. Place `var` in blocks, loop headers, functions, namespaces, and static blocks.
 // 2. Keep root `var`, lexical declarations, and a strict block function nearby.
 // 3. Assert every nested `var` and no safe twin is reported.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine compares every authored nested-var finding while preserving lexical declarations, roots and strict-function allowance.
+// @evidence contracts/testing.md#independent-expectations The explicit positional both option extends the independently specified hoisting policy to nested var declarations; authored annotations identify every expected site.
+// @evidence contracts/testing.md#distinguishing-cases Statement/loop/function/namespace/static nested vars report; let/const and corresponding roots stay clean, strict functions are allowed, and the sloppy nested function still reports.
+// @evidence contracts/testing.md#execution-ownership TestNoInnerDeclarationsBothModeChecksEveryNestedVarForm is selected in the shared Go unit population. It calls assertNoInnerDeclarationsCase for both-mode.ts with the actual positional both JSON option through InlineRuleResolver and Engine. No consumer install, native artifact build or real host runs.
 func TestNoInnerDeclarationsBothModeChecksEveryNestedVarForm(t *testing.T) {
   assertNoInnerDeclarationsCase(t, "both-mode.ts", `var programRoot = 0;
 

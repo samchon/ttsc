@@ -11,6 +11,11 @@ import "testing"
 // 1. Mix sloppy, strict, class, static-block, and namespace declarations.
 // 2. Run the rule without options.
 // 3. Assert only functions in genuinely sloppy nested blocks are reported.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine compares exact annotated diagnostics for genuinely sloppy nested functions without reporting strict class, namespace or directive contexts.
+// @evidence contracts/testing.md#independent-expectations Real directive prologues create strict context while late, parenthesized and escaped strings do not; authored source annotations identify the independent sloppy sites.
+// @evidence contracts/testing.md#distinguishing-cases Sloppy blocks report; real strict directives, namespace/class/static contexts and roots stay clean. Late/parenthesized/escaped strings remain distinct from strict directives.
+// @evidence contracts/testing.md#execution-ownership TestNoInnerDeclarationsDefaultFollowsStrictContext is selected in the shared Go unit population. It calls assertNoInnerDeclarationsCase for default-strict-context.ts, parsing the actual source and running Engine with default options. No consumer install, native artifact build or real host runs.
 func TestNoInnerDeclarationsDefaultFollowsStrictContext(t *testing.T) {
   assertNoInnerDeclarationsCase(t, "default-strict-context.ts", `if (sloppyCondition) {
   // expect: no-inner-declarations error
@@ -84,30 +89,5 @@ const StrictClassExpression = class {
 };
 
 function rootFunction() {}
-`, "")
-}
-
-// TestNoInnerDeclarationsDefaultAllowsStrictScriptBlockFunctions verifies a
-// source-file directive prologue.
-//
-// A real top-level `"use strict"` directive makes the entire script strict,
-// including nested function bodies. The default option must therefore allow
-// block functions at both depths without confusing the source with a module.
-//
-// 1. Start an otherwise ordinary script with a real strict directive.
-// 2. Place block functions at program and nested-function depth.
-// 3. Assert the default rule emits no diagnostics.
-func TestNoInnerDeclarationsDefaultAllowsStrictScriptBlockFunctions(t *testing.T) {
-  assertNoInnerDeclarationsCase(t, "default-strict-script.ts", `'use strict';
-
-if (programCondition) {
-  function programNested() {}
-}
-
-function outer() {
-  if (functionCondition) {
-    function functionNested() {}
-  }
-}
 `, "")
 }

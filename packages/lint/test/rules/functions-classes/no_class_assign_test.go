@@ -15,6 +15,11 @@ import (
 //  1. Write class bindings through assignment, update, destructuring, loop, and TypeScript wrapper forms.
 //  2. Place official clean twins and same-spelled parameter, local, block, catch, loop, and sibling shadows beside them.
 //  3. Assert exactly the marked identifier ranges are reported once with the canonical message.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual Checker-backed Engine compares every marked identifier range, rule, severity and canonical class message and forbids edits.
+// @evidence contracts/testing.md#independent-expectations Authored report markers identify writes resolving to class declarations or named-expression self bindings; marker offsets and names are independent of findings.
+// @evidence contracts/testing.md#distinguishing-cases Assignment/update/destructuring/loop/wrapper writes, hoisting and merges report; same-name lexical shadows, anonymous outer bindings and ordinary properties stay clean.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusNoClassAssign is selected in the shared Go unit population. It calls runRuleFindingsSnapshot with a real Program/Checker for no-class-assign; the marked range matrix belongs to this entry. No consumer install, native artifact build or real host runs.
 func TestRuleCorpusNoClassAssign(t *testing.T) {
   engine := NewEngine(RuleConfig{"no-class-assign": SeverityError})
   if !engine.NeedsTypeChecker() {

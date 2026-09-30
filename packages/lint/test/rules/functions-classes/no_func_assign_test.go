@@ -15,6 +15,11 @@ import (
 //  1. Write function bindings through assignment, update, destructuring, loop, and TypeScript wrapper forms.
 //  2. Place same-spelled parameter, function-local, block, catch, loop, and sibling shadows beside them.
 //  3. Assert exactly the marked identifier ranges are reported once with the canonical message.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual Checker-backed Engine compares every marked identifier range, rule, severity and canonical function message and forbids edits.
+// @evidence contracts/testing.md#independent-expectations Authored report markers identify writes resolving to function declaration or named-expression self bindings; marker offsets and names do not come from findings.
+// @evidence contracts/testing.md#distinguishing-cases Assignment/update/destructuring/loop/wrapper writes, hoisting, overloads and merges report; parameter/local/block/catch/sibling shadows and mutable outer function-expression variables stay clean.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusNoFuncAssign is selected in the shared Go unit population. It calls runRuleFindingsSnapshot with a real Program/Checker for no-func-assign; the marked range matrix belongs to this entry. No consumer install, native artifact build or real host runs.
 func TestRuleCorpusNoFuncAssign(t *testing.T) {
   engine := NewEngine(RuleConfig{"no-func-assign": SeverityError})
   if !engine.NeedsTypeChecker() {

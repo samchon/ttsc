@@ -15,6 +15,12 @@ import "testing"
 // 1. Load the annotated TypeScript fixture source embedded below.
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine reports an async Promise executor and permits a synchronous executor.
+// @evidence contracts/testing.md#independent-expectations Promise construction does not await the executor return; the rule independently forbids the async executor modifier.
+// @evidence contracts/testing.md#distinguishing-cases The async executor reports; a synchronous executor resolving the same value stays clean.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusNoAsyncPromiseExecutor is selected in the shared Go unit population. It calls assertRuleCorpusCase with no-async-promise-executor.ts through the owning Engine and assertRuleSkipsSource for the explicit clean input. No consumer install, native artifact build or real host runs.
 func TestRuleCorpusNoAsyncPromiseExecutor(t *testing.T) {
   assertRuleCorpusCase(t, "no-async-promise-executor.ts", "// expect: no-async-promise-executor error\nnew Promise(async (resolve) => {\n  resolve(1);\n});\n")
+  assertRuleSkipsSource(t, "no-async-promise-executor", "new Promise((resolve) => { resolve(1); });\n")
 }

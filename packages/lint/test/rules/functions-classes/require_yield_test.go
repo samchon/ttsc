@@ -15,6 +15,12 @@ import "testing"
 // 1. Load the annotated TypeScript fixture source embedded below.
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine reports a nonempty generator without yield and permits a generator yielding the same value.
+// @evidence contracts/testing.md#independent-expectations The generator-yield policy supplies the authored distinction between returning and suspending with a yielded value.
+// @evidence contracts/testing.md#distinguishing-cases Original return-only generator reports; yield 1 remains clean.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusRequireYield is selected in the shared Go unit population. It calls assertRuleCorpusCase with require-yield.ts through the owning Engine and assertRuleSkipsSource for the explicit clean input. No consumer install, native artifact build or real host runs.
 func TestRuleCorpusRequireYield(t *testing.T) {
   assertRuleCorpusCase(t, "require-yield.ts", "// expect: require-yield error\nfunction* gen() {\n  return 1;\n}\nJSON.stringify(gen);\n")
+  assertRuleSkipsSource(t, "require-yield", "function* gen() { yield 1; }\n")
 }

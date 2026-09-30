@@ -19,6 +19,11 @@ import (
 // 1. Exercise direct, zero, partial, spread, dynamic, and non-bind call shapes.
 // 2. Place `this` across function, method, computed-key, and class-owned scopes.
 // 3. Assert only the truly unnecessary regular-function binds are reported.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine compares the complete authored diagnostic-line matrix and exact rule/severity for argument shape and lexical this ownership.
+// @evidence contracts/testing.md#independent-expectations Fixed diagnostic comments identify unnecessary receiver binding; expected line numbers come only from authored source markers, not the rule traversal.
+// @evidence contracts/testing.md#distinguishing-cases Direct/arrows and nested receiver-owning function/class bodies report; partial/spread/dynamic/named/non-bind calls and inherited this in defaults/arrows/computed keys/decorators stay clean.
+// @evidence contracts/testing.md#execution-ownership TestRuleNoExtraBindFunctionBody is selected in the shared Go unit population. It calls runRuleFindingsSnapshot for no-extra-bind directly; all original in-source cases and line failure identity belong to this Go entry. No consumer install, native artifact build or real host runs.
 func TestRuleNoExtraBindFunctionBody(t *testing.T) {
   source := `declare const receiver: { value: number };
 declare const bindArguments: [unknown];
@@ -55,6 +60,9 @@ const classStaticBlock = function () { return class { static { void this; } }; }
   _, _, findings := runRuleFindingsSnapshot(t, "no-extra-bind", source, nil)
   actualLines := make([]int, 0, len(findings))
   for _, finding := range findings {
+    if finding.Rule != "no-extra-bind" || finding.Severity != SeverityError {
+      t.Fatalf("unexpected rule/severity: %+v", finding)
+    }
     actualLines = append(actualLines, strings.Count(source[:finding.Pos], "\n")+1)
   }
   sort.Ints(actualLines)

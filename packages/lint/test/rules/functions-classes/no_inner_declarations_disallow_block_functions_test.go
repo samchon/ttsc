@@ -12,6 +12,11 @@ import "testing"
 // 1. Configure the full canonical positional option tuple in an ESM source.
 // 2. Mix nested strict functions with every allowed root and a nested `var`.
 // 3. Assert only the nested functions are reported.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine reports exactly nested functions under the explicit disallow tuple, without widening to nested var or permitted roots.
+// @evidence contracts/testing.md#independent-expectations The authored functions/disallow option deliberately overrides strict-context allowance; original annotations and absent var annotation independently pin that scope.
+// @evidence contracts/testing.md#distinguishing-cases ESM/method/static nested functions report; program/function/static/export roots and nested var remain clean under functions mode.
+// @evidence contracts/testing.md#execution-ownership TestNoInnerDeclarationsDisallowReportsStrictBlockFunctions is selected in the shared Go unit population. It calls assertNoInnerDeclarationsCase for disallow-block-functions.ts with the actual two-slot option tuple through InlineRuleResolver and Engine. No consumer install, native artifact build or real host runs.
 func TestNoInnerDeclarationsDisallowReportsStrictBlockFunctions(t *testing.T) {
   assertNoInnerDeclarationsCase(t, "disallow-block-functions.ts", `export {};
 

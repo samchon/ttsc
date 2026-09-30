@@ -14,6 +14,11 @@ import "testing"
 // 1. Load the annotated TypeScript fixture source embedded below.
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine compares all eight authored redundant-binding diagnostics while preserving partial/spread binding and actual this owners.
+// @evidence contracts/testing.md#independent-expectations The original annotations distinguish unused receiver rebinding from partial argument application and retained lexical this requirements.
+// @evidence contracts/testing.md#distinguishing-cases Regular/arrow, computed/template/optional and parenthesized bind forms report; own/default/inherited this and partial/spread arguments remain clean. Suggestion/body tests own edit safety.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusNoExtraBind is selected in the shared Go unit population. It calls assertRuleCorpusCase with no-extra-bind.ts through the owning Engine. No consumer install, native artifact build or real host runs.
 func TestRuleCorpusNoExtraBind(t *testing.T) {
   assertRuleCorpusCase(t, "no-extra-bind.ts", `declare const receiver: { value: number };
 const bindArguments = [receiver] as const;

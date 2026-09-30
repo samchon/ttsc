@@ -18,6 +18,11 @@ import (
 // 1. Run the rule against global Promise executors and collect every marked line.
 // 2. Exercise concise, block, function-expression, and nested control-flow returns.
 // 3. Assert local and top-level Promise bindings plus nested functions stay silent.
+//
+// @evidence contracts/testing.md#behavioral-verification Three named Checker-backed cases compare every marked return line and rule/severity without admitting findings from shadowed bindings.
+// @evidence contracts/testing.md#independent-expectations Authored markers follow actual global Promise constructor identity and executor-scope return ownership; the empty module-shadow and script-value cases supply independent negative oracles.
+// @evidence contracts/testing.md#distinguishing-cases Concise/parenthesized/control-flow/function/nested Promise returns report; nested functions and class methods, local/module/script shadows and globalThis member syntax retain their original clean policy controls.
+// @evidence contracts/testing.md#execution-ownership TestNoPromiseExecutorReturnCompleteSemantics is selected in the shared Go unit population. Its three named subtests call runRuleFindingsSnapshot with the real Program/Checker for each source, retaining original case names and assertions. No consumer install, native artifact build or real host runs.
 func TestNoPromiseExecutorReturnCompleteSemantics(t *testing.T) {
   cases := []struct {
     name   string
@@ -123,6 +128,9 @@ new Promise(() => 1);
       )
       actualLines := make([]int, 0, len(findings))
       for _, finding := range findings {
+    if finding.Rule != "no-promise-executor-return" || finding.Severity != SeverityError {
+      t.Fatalf("unexpected rule/severity: %+v", finding)
+    }
         if finding.Pos < 0 || finding.Pos > len(testCase.source) {
           t.Fatalf("finding position %d is outside source length %d", finding.Pos, len(testCase.source))
         }

@@ -15,6 +15,12 @@ import "testing"
 // 1. Load the annotated TypeScript fixture source embedded below.
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine reports a discarded constructor result and permits retaining that result.
+// @evidence contracts/testing.md#independent-expectations The rule concerns construction used only as an expression statement; storing the produced value independently changes that decision.
+// @evidence contracts/testing.md#distinguishing-cases Bare new Thing reports; const instance = new Thing stays clean.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusNoNew is selected in the shared Go unit population. It calls assertRuleCorpusCase with no-new.ts through the owning Engine and assertRuleSkipsSource for the explicit clean input. No consumer install, native artifact build or real host runs.
 func TestRuleCorpusNoNew(t *testing.T) {
   assertRuleCorpusCase(t, "no-new.ts", "class Thing {}\n// expect: no-new error\nnew Thing();\n")
+  assertRuleSkipsSource(t, "no-new", "class Thing {} const instance = new Thing();\n")
 }
