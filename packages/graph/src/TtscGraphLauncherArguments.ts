@@ -95,6 +95,28 @@ export namespace TtscGraphLauncherArguments {
     return { code: result.status ?? 1 };
   }
 
+  /**
+   * Answer help without a producer, or retain the missing-installation failure.
+   *
+   * This summary is a fallback: installed native dump still owns its exact flags.
+   *
+   * @evidence contracts/common.md#principled-implementation Only the three existing help spellings qualify a missing-producer success; ordinary dump remains code one with the owned installation diagnostic.
+   * @evidence contracts/common.md#clear-and-simple-design The actual unresolved-binary facade writes these channels and returns their code; this operation decides neither resolution nor child execution.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The qualified help summary names the native authority and its possible drift; no graph fact or native success is fabricated.
+   * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes missing-install help from installed authoritative help and ordinary missing-install failure.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation This completion maps already parsed tokens to fixed text and numeric code, without filesystem or process operations.
+   */
+  export function missingDump(argv: readonly string[]): { code: 0 | 1; stdout?: string; stderr?: string } {
+    if (argv.some((argument) => DUMP_HELP_FLAGS.has(argument)))
+      return { code: 0, stdout: DUMP_HELP_SUMMARY };
+    return {
+      code: 1,
+      stderr: "@ttsc/graph: could not resolve the ttscgraph binary. " +
+        "Install `ttsc` so its platform package is present, " +
+        "or set TTSC_GRAPH_BINARY to an absolute path.\n",
+    };
+  }
+
 }
 
 interface IViewOptions extends IProjectOptions {
@@ -109,3 +131,23 @@ const DUMP_OPTIONS = [
   { key: "pretty", flags: ["--pretty", "-pretty"], kind: "boolean" },
   { key: "help", flags: ["--help", "-help", "-h"], kind: "flag" },
 ] as const;
+
+/** The native help aliases mirrored only for missing-installation fallback. */
+const DUMP_HELP_FLAGS = new Set(["--help", "-help", "-h"]);
+
+/** Short fallback summary pointing to the native command's authoritative help. */
+const DUMP_HELP_SUMMARY = [
+      "Usage: ttsc-graph dump [options]",
+      "",
+      "Write the whole compiler graph as JSON to stdout: every node and edge,",
+      "none of the MCP response caps.",
+      "",
+      "Options:",
+      "  --cwd <dir>        Project root (default: current directory).",
+      "  --tsconfig <path>  Project tsconfig path (default: tsconfig.json).",
+      "  --pretty           Indent the JSON output.",
+      "",
+      "The native `ttscgraph` binary owns these flags and is not installed here,",
+      "so this summary may lag it. Install `ttsc` and rerun for the exact list.",
+      "",
+    ].join("\n");
