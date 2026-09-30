@@ -14,7 +14,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The actual check command accepts the original clean string/value.length/void source under all eight lint-violations rule policies with no output, then reports a no-var error after only the source is changed.
 // @evidence contracts/testing.md#independent-expectations Authored clean syntax violates none of the eight canonical rules, independently requiring status zero and empty stdout/stderr; the added var control independently requires status two and a no-var diagnostic.
 // @evidence contracts/testing.md#distinguishing-cases Original mixed error/warn/off policies and clean source retain the full positive case; the violating no-var control distinguishes actual rule execution from unconditional success.
-// @evidence contracts/testing.md#execution-ownership Direct run(check) loads the original include-based temporary tsconfig and lint JSON in one Go process. This individual entry owns command/config/compiler/rule semantics; package resolution, native producer and ttsc child transport remain shared E2E boundaries.
+// @evidence contracts/testing.md#execution-ownership Direct run(check) loads the original include-based temporary tsconfig and lint JSON in one Go process. This individual entry owns command/config/compiler/rule semantics; package resolution, native producer and ttsc child transport remain shared E2E boundaries. The shared seedCommandLintCorpusProject helper writes the original ES2022/commonjs/strict/rootDir/outDir/plugin/include compiler fixture plus this case's authored lint JSON and source into a separately owned temporary root.
 func TestCommandCheckCorpusCleanProjectExitsZero(t *testing.T) {
   root := seedCommandLintCorpusProject(t, `{
     "rules": {
