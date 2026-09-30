@@ -15,6 +15,11 @@ import "testing"
 // 1. Enable unicorn/throw-new-error via expect annotations.
 // 2. Throw `Error(...)`, `ValidationError(...)`, and `ns.CustomError(...)`.
 // 3. Assert exactly those three call expressions are reported.
+//
+// @evidence contracts/testing.md#behavioral-verification assertRuleCorpusCase compares exact rule/severity/line triples for builtin, custom and namespaced call-form throws.
+// @evidence contracts/testing.md#independent-expectations The supported Error-callee contract and literal expect annotations identify the three intended diagnostics without generating them from engine results.
+// @evidence contracts/testing.md#distinguishing-cases The three call shapes report while existing new, computed key, optional chain and non-error name stay accepted in the same source.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusUnicornThrowNewError is the named Go unit owner of these authored sources and any named t.Run variants. The lint engine reads authored fixtures in the shared Go process; no installation, native build or real product child runs.
 func TestRuleCorpusUnicornThrowNewError(t *testing.T) {
   assertRuleCorpusCase(
     t,

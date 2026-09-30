@@ -19,6 +19,11 @@ import "testing"
 //  1. Run the fixer over each upstream invalid source.
 //  2. Compare the rewritten file byte-for-byte with the upstream output.
 //  3. Reparse the output and assert the rule no longer fires on it.
+//
+// @evidence contracts/testing.md#behavioral-verification Exact fix snapshots, reparsing and clean output distinguish incorrectly inserted constructor syntax across every explicitly named upstream source.
+// @evidence contracts/testing.md#independent-expectations The transcribed eslint-plugin-unicorn 71.1.0 throw-new-error snapshots establish literal expected outputs independently of this Go implementation.
+// @evidence contracts/testing.md#distinguishing-cases Fourteen named forms cover built-ins/custom names/acronyms/digits, member/computed links, parenthesized callees/operands and call chains; authored fixed counterparts remain clean.
+// @evidence contracts/testing.md#execution-ownership TestUnicornThrowNewErrorFixesUpstreamInvalidCorpus is the named Go unit owner of these authored sources and any named t.Run variants. Engine, parser and fix applier operate in the shared Go process with temporary fixture files; no installation, native build or real product child runs.
 func TestUnicornThrowNewErrorFixesUpstreamInvalidCorpus(t *testing.T) {
   cases := []struct {
     name     string

@@ -21,6 +21,11 @@ import "testing"
 //  1. Lint `throw <callee>(...);` with only unicorn/throw-new-error enabled.
 //  2. Assert exactly one finding carrying the rule's message.
 //  3. Assert the finding covers the whole call expression, not just the callee.
+//
+// @evidence contracts/testing.md#behavioral-verification runRuleFindingsSnapshot checks one exact message and whole-call range for each Error-shaped callee, exposing built-in-only or identifier-only detection.
+// @evidence contracts/testing.md#independent-expectations The supported anchored case-sensitive Error-name policy and official Effect Data receiver exception establish the literal positive names and range lengths.
+// @evidence contracts/testing.md#distinguishing-cases Builtin/custom/acronym/digit/repeated Error words, nested/static-member and call-object forms report; lowercase data is not the exact Data exemption. SkipsNonMatchingCallees owns adjacent exclusions.
+// @evidence contracts/testing.md#execution-ownership TestUnicornThrowNewErrorReportsCustomAndMemberCallees is the named Go unit owner of these authored sources and any named t.Run variants. The lint engine reads authored fixtures in the shared Go process; no installation, native build or real product child runs.
 func TestUnicornThrowNewErrorReportsCustomAndMemberCallees(t *testing.T) {
   for _, call := range []string{
     `Error("oops")`,

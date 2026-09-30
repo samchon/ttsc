@@ -19,6 +19,11 @@ import "testing"
 //     a comment (trivia is not adjacency).
 //  2. Compare the rewritten file byte-for-byte.
 //  3. Reparse the output and assert the rule no longer fires on it.
+//
+// @evidence contracts/testing.md#behavioral-verification Exact rewritten bytes, reparsing and clean output distinguish thrownew token corruption or conflicting zero-width inserts from valid construction.
+// @evidence contracts/testing.md#independent-expectations JavaScript keyword tokenization and the throw/new policy establish the authored separating space and preserved parentheses/comment bytes.
+// @evidence contracts/testing.md#distinguishing-cases Direct adjacency with and without callee parentheses needs spacing; existing operand parentheses and comment trivia use distinct offsets without losing new.
+// @evidence contracts/testing.md#execution-ownership TestUnicornThrowNewErrorFixSpacesAnAbuttingThrowKeyword is the named Go unit owner of these authored sources and any named t.Run variants. Engine, parser and fix applier operate in the shared Go process with temporary fixture files; no installation, native build or real product child runs.
 func TestUnicornThrowNewErrorFixSpacesAnAbuttingThrowKeyword(t *testing.T) {
   cases := []struct {
     name     string

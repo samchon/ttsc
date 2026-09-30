@@ -16,6 +16,11 @@ import "testing"
 //
 //  1. Lint each source with only unicorn/throw-new-error enabled.
 //  2. Assert the engine emits no finding at all.
+//
+// @evidence contracts/testing.md#behavioral-verification assertRuleSkipsSource executes the actual engine for each named source and requires no findings, exposing widened names or unsafe new fixes.
+// @evidence contracts/testing.md#independent-expectations The supported anchored Error-name policy, JavaScript optional-chain constructor restriction and official Effect Data exception establish acceptance independently of findings.
+// @evidence contracts/testing.md#distinguishing-cases Constructed values, wrong names/cases, noncalls, computed final keys, optional chains at every object/call link and Data.TaggedError remain clean; ReportsCustomAndMemberCallees owns reportable twins.
+// @evidence contracts/testing.md#execution-ownership TestUnicornThrowNewErrorSkipsNonMatchingCallees is the named Go unit owner of these authored sources and any named t.Run variants. The lint engine reads authored fixtures in the shared Go process; no installation, native build or real product child runs.
 func TestUnicornThrowNewErrorSkipsNonMatchingCallees(t *testing.T) {
   for _, source := range []string{
     // Already constructed with `new`.
