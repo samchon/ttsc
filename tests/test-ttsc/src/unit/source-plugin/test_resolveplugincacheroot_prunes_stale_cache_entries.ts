@@ -1,11 +1,11 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 import {
   assert,
   fs,
   path,
   resolvePluginCacheRoot,
-} from "../../internal/source-build";
+} from "../../internal/source-build-unit";
 
 /**
  * Verifies resolvePluginCacheRoot prunes stale cache entries.
@@ -24,6 +24,11 @@ import {
  *    protects its binary and old v2 coordination remains available.
  * 5. Point another default plugin-cache leaf at an external directory and assert
  *    opportunistic GC never follows the junction to delete its entries.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls resolvePluginCacheRoot on owned filesystem fixtures and asserts stale eviction, fresh and uncertain-lock retention, unchanged external hardlink contents and no traversal through the cache-root link.
+ * @evidence contracts/testing.md#independent-expectations The 30-day retention and owned default-root contracts independently specify the authored old/fresh dates and protected external sentinel bytes.
+ * @evidence contracts/testing.md#distinguishing-cases Evictable old entries contrast with fresh and uncertain-owner entries; a hardlinked GC marker and linked root distinguish unsafe writes and escaped deletion. Real producer and process coordination remain in native source-plugin boundaries.
+ * @evidence contracts/testing.md#execution-ownership test_resolveplugincacheroot_prunes_stale_cache_entries is a named source-unit entry discovered in src/unit/source-plugin; direct owning operations use disposable fixture directories without installing a consumer, building native code or starting a product host.
  */
 export const test_resolveplugincacheroot_prunes_stale_cache_entries = () => {
   const root = TestProject.tmpdir("ttsc-cache-gc-");
