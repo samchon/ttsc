@@ -1,45 +1,28 @@
-import { SOURCE, assert, runLint } from "../../internal/config-file";
+import assert from "node:assert/strict";
+import path from "node:path";
+
+import { configLanguageBoundaryResult } from "../../internal/config-language-boundary";
 
 /**
- * Verifies that a `.ts` lint config using `satisfies ITtscLintConfig` from
- * `@ttsc/lint` is evaluated correctly by ttsx.
+ * Verifies typescript configs can use exported ttsc lint types in the shared configuration boundary.
  *
- * Pins the end-to-end TypeScript config path with type assertions. The config
- * uses `{ rules: { ... } } satisfies ITtscLintConfig` which is a compile-time
- * construct; ttsx must type-check and transpile it before the rules map can be
- * extracted. If `@ttsc/lint` is not resolvable during ttsx evaluation, the type
- * annotation fails and the config is rejected.
+ * The original typed config imports ITtscLintConfig from @ttsc/lint and retains its satisfies expression and no-console off control through ttsx.
  *
- * 1. Materialise a fixture with a `.ts` config that imports and uses
- *    `ITtscLintConfig`.
- * 2. Run ttsc; assert the `no-var` rule from the config fires correctly.
+ * @evidence contracts/testing.md#behavioral-verification The original typed config imports ITtscLintConfig from @ttsc/lint and retains its satisfies expression and no-console off control through ttsx. This original source's exact no-var/error record and error exit remain asserted.
+ * @evidence contracts/testing.md#independent-expectations The original var/console source and independently authored configuration rule map define the literal one-finding expectation. The full batch owner compares nine independently literal file/line/rule/severity records.
+ * @evidence contracts/testing.md#distinguishing-cases The original package type import and satisfies syntax must type-check and erase before the rule map is usable; a lost package import or option-map change fails its exact finding.
+ * @evidence contracts/testing.md#execution-ownership This named entry asserts its own source-file result from configLanguageBoundaryResult. The JSON pointer entry owns exact full-stream cardinality so filtering cannot conceal extra or missing findings.
+ * @evidence contracts/e2e.md#necessary-boundary The real descriptor evaluator, config module loader, native config binding and CLI diagnostic transport must connect the supported input to its original finding; direct rule or syntax tests cannot establish that module/host connection.
+ * @evidence contracts/e2e.md#shared-execution One explicit JSON root follows the supported string extends chain through nine independently scoped configs in one project and one launcher/native host load. All consumers reuse one completed result and unchanged builtin producer; module evaluation still executes each actual config.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each unchanged original source sits below its declaring config's BaseDir and matches only that config's literal files selector. Explicit tsconfig files exclude executable config/helper code from consumer diagnostics. The helper removes its owned project in finally, retains only output or initial preparation failure, and shares only immutable builtin artifact identity.
+ * @evidence contracts/e2e.md#preserved-coverage Original module syntax, import/manifest cues, rule map, exact per-source rule/severity finding and nonzero exit remain executable. The complete nine-record owner rejects cross-case leakage or omitted cases; the source-only JSON unit preserves the separate evaluator-free decision.
  */
-export const test_lint_config_file_typescript_configs_can_use_exported_ttsc_lint_types =
-  () => {
-    const result = runLint({
-      name: "config-file-ts-satisfies-native-type",
-      source: SOURCE,
-      pluginConfig: {
-        configFile: "./ttsc-lint.config.ts",
-      },
-      extraSources: {
-        "ttsc-lint.config.ts": `import type { ITtscLintConfig } from "@ttsc/lint";
-
-      const config = {
-        rules: {
-          "no-var": "error",
-          "no-console": "off",
-        },
-      } satisfies ITtscLintConfig;
-
-      export default config;\n`,
-      },
-    });
-
-    assert.notEqual(result.status, 0);
-    assert.deepEqual(
-      result.diagnostics.map((d) => [d.rule, d.severity]),
-      [["no-var", "error"]],
-      result.stderr,
-    );
-  };
+export function test_lint_config_file_typescript_configs_can_use_exported_ttsc_lint_types(): void {
+  const result = configLanguageBoundaryResult();
+  assert.notEqual(result.status, 0, result.stderr);
+  assert.deepEqual(
+    result.diagnostics.filter((diagnostic) => path.basename(diagnostic.file) === "exported-types.ts").map(({ rule, severity }) => [rule, severity]),
+    [["no-var", "error"]],
+    result.stderr,
+  );
+}

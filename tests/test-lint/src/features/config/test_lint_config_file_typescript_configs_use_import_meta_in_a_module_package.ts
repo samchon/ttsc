@@ -1,50 +1,28 @@
-import { SOURCE, assert, runLint } from "../../internal/config-file";
+import assert from "node:assert/strict";
+import path from "node:path";
+
+import { configLanguageBoundaryResult } from "../../internal/config-language-boundary";
 
 /**
- * Verifies a `.ts` lint config in a `"type": "module"` package is still
- * evaluated as an ES module.
+ * Verifies typescript configs use import meta in a module package in the shared configuration boundary.
  *
- * The negative twin of the CommonJS-package case. Deriving the loader's
- * `module` option from the nearest `package.json` fixes `__dirname` in a
- * CommonJS package, but a fix that simply swapped the hardcoded answer would
- * break every ESM config instead — `import.meta` is a syntax error under a
- * CommonJS emit. Both directions have to follow the manifest, which is what
- * makes the manifest, rather than either constant, the rule.
+ * The ambiguous .ts config retains the original name/version/type:module manifest and typed import.meta.url-dependent rule.
  *
- * 1. Materialize a fixture whose `package.json` declares `"type": "module"` and
- *    whose `configFile` is a `.ts` config reading `import.meta.url`.
- * 2. Run ttsc.
- * 3. Assert the config evaluated and its `no-console` rule fired.
+ * @evidence contracts/testing.md#behavioral-verification The ambiguous .ts config retains the original name/version/type:module manifest and typed import.meta.url-dependent rule. This original source's exact no-console/error record and error exit remain asserted.
+ * @evidence contracts/testing.md#independent-expectations The original var/console source and independently authored configuration rule map define the literal one-finding expectation. The full batch owner compares nine independently literal file/line/rule/severity records.
+ * @evidence contracts/testing.md#distinguishing-cases The file:-URL condition distinguishes ESM evaluation from the CommonJS __dirname owner without replacing either package-format decision by a constant.
+ * @evidence contracts/testing.md#execution-ownership This named entry asserts its own source-file result from configLanguageBoundaryResult. The JSON pointer entry owns exact full-stream cardinality so filtering cannot conceal extra or missing findings.
+ * @evidence contracts/e2e.md#necessary-boundary The real descriptor evaluator, config module loader, native config binding and CLI diagnostic transport must connect the supported input to its original finding; direct rule or syntax tests cannot establish that module/host connection.
+ * @evidence contracts/e2e.md#shared-execution One explicit JSON root follows the supported string extends chain through nine independently scoped configs in one project and one launcher/native host load. All consumers reuse one completed result and unchanged builtin producer; module evaluation still executes each actual config.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each unchanged original source sits below its declaring config's BaseDir and matches only that config's literal files selector. Explicit tsconfig files exclude executable config/helper code from consumer diagnostics. The helper removes its owned project in finally, retains only output or initial preparation failure, and shares only immutable builtin artifact identity.
+ * @evidence contracts/e2e.md#preserved-coverage Original module syntax, import/manifest cues, rule map, exact per-source rule/severity finding and nonzero exit remain executable. The complete nine-record owner rejects cross-case leakage or omitted cases; the source-only JSON unit preserves the separate evaluator-free decision.
  */
-export const test_lint_config_file_typescript_configs_use_import_meta_in_a_module_package =
-  () => {
-    const result = runLint({
-      name: "config-file-module-import-meta",
-      source: SOURCE,
-      pluginConfig: {
-        configFile: "./ttsc-lint.config.ts",
-      },
-      extraSources: {
-        "package.json": `${JSON.stringify(
-          { name: "module-package-fixture", version: "1.0.0", type: "module" },
-          null,
-          2,
-        )}\n`,
-        "ttsc-lint.config.ts": [
-          `const here: string = import.meta.url;`,
-          ``,
-          `export default {`,
-          `  rules: { "no-console": here.startsWith("file:") ? "error" : "off" },`,
-          `};`,
-          ``,
-        ].join("\n"),
-      },
-    });
-
-    assert.notEqual(result.status, 0);
-    assert.deepEqual(
-      result.diagnostics.map((d) => [d.rule, d.severity]),
-      [["no-console", "error"]],
-      result.stderr,
-    );
-  };
+export function test_lint_config_file_typescript_configs_use_import_meta_in_a_module_package(): void {
+  const result = configLanguageBoundaryResult();
+  assert.notEqual(result.status, 0, result.stderr);
+  assert.deepEqual(
+    result.diagnostics.filter((diagnostic) => path.basename(diagnostic.file) === "module-meta.ts").map(({ rule, severity }) => [rule, severity]),
+    [["no-console", "error"]],
+    result.stderr,
+  );
+}
