@@ -24,6 +24,11 @@ import "testing"
 //  2. Run the rule under the engine and confirm zero findings — the
 //     fix path is never reached, so the source must stay byte-identical.
 //  3. Source stays byte-identical (no autofix applied).
+//
+// @evidence contracts/testing.md#behavioral-verification The escape rule emits no findings for escaped substitution openers across head, middle, tail and no-substitution templates.
+// @evidence contracts/testing.md#independent-expectations Literal escaped dollar/brace text must remain text rather than interpolation; newline and backslash literals are independent valid-escape controls.
+// @evidence contracts/testing.md#distinguishing-cases All four template token forms and two ordinary valid escapes are owned here; useless ordinary letter escapes remain positive elsewhere.
+// @evidence contracts/testing.md#execution-ownership TestFixNoUselessEscapeSkipsTemplateSubstitutionEscape calls assertRuleSkipsSource on all six literals in one parser/Engine execution.
 func TestFixNoUselessEscapeSkipsTemplateSubstitutionEscape(t *testing.T) {
   assertRuleSkipsSource(
     t,

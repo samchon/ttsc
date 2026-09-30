@@ -16,6 +16,11 @@ import "testing"
 // 1. Parse a `for` header declaring `var i` whose body pushes `() => i`.
 // 2. Run the no-var fixer through the disk-backed applier.
 // 3. Assert at least one finding fired but zero fixes were applied.
+//
+// @evidence contracts/testing.md#behavioral-verification no-var refuses the for-header i rewrite when iteration-created arrows capture i.
+// @evidence contracts/testing.md#independent-expectations The original fns loop and zero edits retain one shared var binding; no output is generated from the candidate fixer.
+// @evidence contracts/testing.md#distinguishing-cases Closure capture contrasts with the direct-read safe for-header test.
+// @evidence contracts/testing.md#execution-ownership TestFixNoVarSkipsForHeaderClosureCapture calls assertNoFixSnapshot for the fns-push loop.
 func TestFixNoVarSkipsForHeaderClosureCapture(t *testing.T) {
   assertNoFixSnapshot(
     t,

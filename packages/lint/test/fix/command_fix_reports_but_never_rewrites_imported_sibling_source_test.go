@@ -21,6 +21,11 @@ import (
 //  2. Run fix with no-var enabled.
 //  3. Assert the consumer file was rewritten, the sibling file is byte-identical,
 //     and the sibling diagnostic still failed the command.
+//
+// @evidence contracts/testing.md#behavioral-verification The in-process fix command diagnoses an imported sibling violation, changes only the consumer source and returns failure for the unchanged sibling.
+// @evidence contracts/testing.md#independent-expectations Literal consumer let output and byte-identical siblingSource establish separate write ownership; code 2 and named sibling diagnostic establish the read surface.
+// @evidence contracts/testing.md#distinguishing-cases The same no-var violation is writable in the consumer and readable but unwritable in the sibling, preventing either blanket exclusion or cross-package rewriting.
+// @evidence contracts/testing.md#execution-ownership TestCommandFixReportsButNeverRewritesImportedSiblingSource uses seedLintSiblingSourceProject, captureCommandOutput/run and real temporary file reads in the single Go unit process.
 func TestCommandFixReportsButNeverRewritesImportedSiblingSource(t *testing.T) {
   const siblingSource = "export var legacy = 1;\nexport const value = legacy;\n"
   consumer, sibling := seedLintSiblingSourceProject(

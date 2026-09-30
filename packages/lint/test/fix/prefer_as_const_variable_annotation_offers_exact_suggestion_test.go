@@ -8,6 +8,11 @@ import (
 
 // TestPreferAsConstVariableAnnotationOffersExactSuggestion verifies the
 // declaration rewrite is manual, complete, and trivia-safe.
+//
+// @evidence contracts/testing.md#behavioral-verification prefer-as-const offers exactly two manual edits moving the variable literal annotation into as const.
+// @evidence contracts/testing.md#independent-expectations The literal rewritten declaration preserves before/marker/after comments and trailing use; no autofix and one suggestion specify explicit user choice.
+// @evidence contracts/testing.md#distinguishing-cases Variable declaration annotation is manual rather than automatic expression assertion; type parentheses are removed without deleting adjacent source.
+// @evidence contracts/testing.md#execution-ownership TestPreferAsConstVariableAnnotationOffersExactSuggestion calls parseTS, NewEngine.Run and applyFindingFixesToText on its literal value declaration in process.
 func TestPreferAsConstVariableAnnotationOffersExactSuggestion(t *testing.T) {
   source := "let /* before */ value /* marker */: (\"literal\") = \"literal\" /* after */;\nJSON.stringify(value);\n"
   file := parseTS(t, source)

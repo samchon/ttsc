@@ -23,6 +23,11 @@ import "testing"
 //  2. Run the no-var fixer through the disk-backed applier.
 //  3. Assert at least one finding fired but zero fixes were applied
 //     (conservative over-decline).
+//
+// @evidence contracts/testing.md#behavioral-verification no-var reports var f = () => f while conservatively withholding its otherwise safe lexical rewrite.
+// @evidence contracts/testing.md#independent-expectations The original f closure and zero applied fixes specify the supported initializer-reference policy, not an assertion of runtime unsafety.
+// @evidence contracts/testing.md#distinguishing-cases Deferred self-reference differs semantically from immediate self-reference, but both intentionally share the conservative gate.
+// @evidence contracts/testing.md#execution-ownership TestFixNoVarSkipsDeferredSelfReferenceInInit calls assertNoFixSnapshot on its one-line f initializer.
 func TestFixNoVarSkipsDeferredSelfReferenceInInit(t *testing.T) {
   assertNoFixSnapshot(
     t,

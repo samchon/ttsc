@@ -13,6 +13,11 @@ import "testing"
 // 1. Parse an object literal with `{ x: x }`.
 // 2. Apply the finding through the disk-backed fixer.
 // 3. Assert the redundant tail is gone.
+//
+// @evidence contracts/testing.md#behavioral-verification object-shorthand deletes only the redundant x: x tail and retains x as the shorthand property.
+// @evidence contracts/testing.md#independent-expectations The authored { x } result preserves the declaration, braces and JSON.stringify use.
+// @evidence contracts/testing.md#distinguishing-cases Equal key/value identifiers are the fixing arm; this case does not assert different-name detection.
+// @evidence contracts/testing.md#execution-ownership TestFixObjectShorthandDropsValueTail executes assertFixSnapshot for object-shorthand in process.
 func TestFixObjectShorthandDropsValueTail(t *testing.T) {
   assertFixSnapshot(
     t,

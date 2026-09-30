@@ -18,6 +18,11 @@ import "testing"
 //  3. Assert the already-sorted twin, a single flag, and no flags at all report
 //     nothing, so the fix cannot be reached by a literal that is already
 //     canonical.
+//
+// @evidence contracts/testing.md#behavioral-verification regexp/sort-flags changes ygimu to gimuy and leaves canonical, singleton and empty flag runs alone.
+// @evidence contracts/testing.md#independent-expectations The literal gimuy result follows the canonical flag order, retaining the regex body and surrounding source.
+// @evidence contracts/testing.md#distinguishing-cases Scrambled five-flag input must change; already-sorted, one-flag and no-flag inputs must emit zero findings.
+// @evidence contracts/testing.md#execution-ownership TestFixRegexpSortFlagsRewritesFlagRunInCanonicalOrder calls assertFixSnapshot and three assertRuleSkipsSource controls in the Go process.
 func TestFixRegexpSortFlagsRewritesFlagRunInCanonicalOrder(t *testing.T) {
   assertFixSnapshot(
     t,

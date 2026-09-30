@@ -19,6 +19,11 @@ import "testing"
 //  3. Assert the negative twins stay silent: the same element written with
 //     Solid's own `class` and `for`, and `className` on a component, which is
 //     a real prop name rather than a DOM attribute.
+//
+// @evidence contracts/testing.md#behavioral-verification The Solid DOM rule renames className/htmlFor to class/for while preserving values, withholds key autofix and leaves component props alone.
+// @evidence contracts/testing.md#independent-expectations Literal TSX results preserve string/expression/bare-boolean attribute shapes; exact original key source and zero edits establish the no-autofix oracle.
+// @evidence contracts/testing.md#distinguishing-cases DOM string/expression and boolean attributes fix; key receives no automatic edit; canonical DOM props and uppercase component className stay silent.
+// @evidence contracts/testing.md#execution-ownership TestFixSolidNoReactSpecificPropsRenamesReactProps owns assertFixSnapshotFile, runFixSnapshotFile and both runRuleFindingsSnapshotFile controls on real TSX grammar.
 func TestFixSolidNoReactSpecificPropsRenamesReactProps(t *testing.T) {
   assertFixSnapshotFile(
     t,

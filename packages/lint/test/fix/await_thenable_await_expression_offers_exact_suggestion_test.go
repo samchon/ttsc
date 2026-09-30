@@ -5,6 +5,11 @@ import "testing"
 // TestAwaitThenableAwaitExpressionOffersExactSuggestion verifies an ordinary
 // non-thenable await keeps its diagnostic but exposes only upstream's token
 // removal suggestion.
+//
+// @evidence contracts/testing.md#behavioral-verification await-thenable reports await 0 while withholding autofix; its single suggestion removes exactly the await token and retains the trivia.
+// @evidence contracts/testing.md#independent-expectations The literal token offset, Remove unnecessary await title and entire expected rewritten function specify removal independently of the emitted edit.
+// @evidence contracts/testing.md#distinguishing-cases The automatic pass must preserve source while the opt-in pass changes it; the comment after await must survive. Real microtask behavior belongs to the separate process-boundary case.
+// @evidence contracts/testing.md#execution-ownership TestAwaitThenableAwaitExpressionOffersExactSuggestion calls runRuleFindingsSnapshot with the real checker and applies the suggestion through applyFindingFixesToText in the Go unit process.
 func TestAwaitThenableAwaitExpressionOffersExactSuggestion(t *testing.T) {
   source := "async function run() {\n  await /* keep trivia */ 0;\n}\nvoid run();\n"
   _, _, findings := runRuleFindingsSnapshot(t, "typescript/await-thenable", source, nil)

@@ -17,6 +17,11 @@ import "testing"
 //  1. Parse `var x = (() => x)();`, a self-read via an IIFE in the initializer.
 //  2. Run the no-var fixer through the disk-backed applier.
 //  3. Assert at least one finding fired but zero fixes were applied.
+//
+// @evidence contracts/testing.md#behavioral-verification no-var leaves x initialized through an immediately invoked self-reading arrow unchanged.
+// @evidence contracts/testing.md#independent-expectations The literal IIFE source and zero edits preserve the var hoisting read instead of a let temporal dead zone.
+// @evidence contracts/testing.md#distinguishing-cases The self-read executes during initialization; the deferred arrow companion pins the same conservative gate without claiming the same hazard.
+// @evidence contracts/testing.md#execution-ownership TestFixNoVarSkipsIifeSelfReferenceInInit invokes assertNoFixSnapshot on x = (() => x)().
 func TestFixNoVarSkipsIifeSelfReferenceInInit(t *testing.T) {
   assertNoFixSnapshot(
     t,

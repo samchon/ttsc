@@ -15,6 +15,11 @@ import "testing"
 // 1. Parse a string-literal alias import the rule must not collapse.
 // 2. Run the rule under the engine and confirm zero findings.
 // 3. Source stays byte-identical (no destructive rebinding).
+//
+// @evidence contracts/testing.md#behavioral-verification no-useless-rename emits no finding for a string-literal foo-to-bar alias instead of treating both names as empty identifiers.
+// @evidence contracts/testing.md#independent-expectations The independent foo/bar literal inputs denote distinct names; zero findings forbid deleting the alias and rebinding it.
+// @evidence contracts/testing.md#distinguishing-cases String-literal name kinds differ from the equal identifier foo-as-foo positive twin; the fixture tests parser-level recognition, not successful compilation.
+// @evidence contracts/testing.md#execution-ownership TestFixNoUselessRenameSkipsStringLiteralAlias invokes assertRuleSkipsSource for the actual Engine rule without a consumer or native host.
 func TestFixNoUselessRenameSkipsStringLiteralAlias(t *testing.T) {
   assertRuleSkipsSource(
     t,

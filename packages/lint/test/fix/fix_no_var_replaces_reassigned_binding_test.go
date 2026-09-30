@@ -13,6 +13,11 @@ import "testing"
 //  1. Parse `var count = 0; count = count + 1;`.
 //  2. Apply the no-var finding's text edit through the disk-backed fixer.
 //  3. Assert only the `var` keyword changed to `let`.
+//
+// @evidence contracts/testing.md#behavioral-verification no-var fixes count even though a later assignment updates it.
+// @evidence contracts/testing.md#independent-expectations Literal let count output retains count = count + 1, distinguishing mutable let from const and reassignment from a second binding declaration.
+// @evidence contracts/testing.md#distinguishing-cases One declaration plus a value write remains fixable; redeclarations belong to the no-fix companion cases.
+// @evidence contracts/testing.md#execution-ownership TestFixNoVarReplacesReassignedBinding exercises no-var through assertFixSnapshot on the count fixture.
 func TestFixNoVarReplacesReassignedBinding(t *testing.T) {
   assertFixSnapshot(
     t,

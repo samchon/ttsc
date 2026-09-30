@@ -15,6 +15,11 @@ import "testing"
 // 1. Parse a `for...in` header declaring `var looped` enumerating `looped`.
 // 2. Run the no-var fixer through the disk-backed applier.
 // 3. Assert at least one finding fired but zero fixes were applied.
+//
+// @evidence contracts/testing.md#behavioral-verification no-var leaves the self-referential for-in header looped in looped unchanged while reporting it.
+// @evidence contracts/testing.md#independent-expectations The literal original source and zero edits preserve the hoisted head-expression read rather than causing a let temporal dead zone.
+// @evidence contracts/testing.md#distinguishing-cases Head-expression self-reference differs from the ordinary non-self-referential for-in fix.
+// @evidence contracts/testing.md#execution-ownership TestFixNoVarSkipsForInHeaderExpressionSelfReference calls assertNoFixSnapshot for the looped-in-looped fixture.
 func TestFixNoVarSkipsForInHeaderExpressionSelfReference(t *testing.T) {
   assertNoFixSnapshot(
     t,

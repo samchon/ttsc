@@ -16,6 +16,11 @@ import "testing"
 // 1. Parse string literals containing `\m`, `\.`, and `\:` (no meaningful escape).
 // 2. Apply the findings through the disk-backed fixer.
 // 3. Assert all three backslashes are gone and nothing else changed.
+//
+// @evidence contracts/testing.md#behavioral-verification The escape fixer removes backslashes before m, dot and colon while preserving all three literal values and uses.
+// @evidence contracts/testing.md#independent-expectations The literal amb/a.b/a:b result follows ordinary identity escapes; colon is independently the ASCII neighbor immediately above 9.
+// @evidence contracts/testing.md#distinguishing-cases Letter, punctuation and the upper digit-range neighbor must fix; backslash digits remain exempt in the companion test.
+// @evidence contracts/testing.md#execution-ownership TestFixNoUselessEscapeDropsNondigitNeighborsOfOctalExemption owns all three string rewrites in one assertFixSnapshot call.
 func TestFixNoUselessEscapeDropsNondigitNeighborsOfOctalExemption(t *testing.T) {
   assertFixSnapshot(
     t,

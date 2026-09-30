@@ -14,6 +14,11 @@ import "testing"
 // 1. Parse a `for...of` header declaring `var chain` iterating `[chain]`.
 // 2. Run the no-var fixer through the disk-backed applier.
 // 3. Assert at least one finding fired but zero fixes were applied.
+//
+// @evidence contracts/testing.md#behavioral-verification no-var preserves for (var chain of [chain]) despite emitting its diagnostic.
+// @evidence contracts/testing.md#independent-expectations The original iterable self-read and zero applied edits preserve hoisting rather than introducing a temporal dead zone.
+// @evidence contracts/testing.md#distinguishing-cases The iterable reads the same binding before assignment; ordinary non-self-referential for-of is the positive twin.
+// @evidence contracts/testing.md#execution-ownership TestFixNoVarSkipsForOfHeaderExpressionSelfReference runs assertNoFixSnapshot over chain and its iterable.
 func TestFixNoVarSkipsForOfHeaderExpressionSelfReference(t *testing.T) {
   assertNoFixSnapshot(
     t,

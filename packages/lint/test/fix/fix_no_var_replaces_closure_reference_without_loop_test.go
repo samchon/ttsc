@@ -14,6 +14,11 @@ import "testing"
 //  1. Parse a top-level `var x` read from inside an arrow function.
 //  2. Apply the no-var finding's text edit through the disk-backed fixer.
 //  3. Assert only the `var` keyword changed to `let`.
+//
+// @evidence contracts/testing.md#behavioral-verification no-var fixes top-level x captured by a later arrow while leaving the closure unchanged.
+// @evidence contracts/testing.md#independent-expectations The literal let x output preserves g and its invocation; the non-loop binding remains one shared binding.
+// @evidence contracts/testing.md#distinguishing-cases Capture outside a loop is safe, contrasting with per-iteration closure captures in the loop refusal cases.
+// @evidence contracts/testing.md#execution-ownership TestFixNoVarReplacesClosureReferenceWithoutLoop applies no-var through assertFixSnapshot to its x/g fixture.
 func TestFixNoVarReplacesClosureReferenceWithoutLoop(t *testing.T) {
   assertFixSnapshot(
     t,

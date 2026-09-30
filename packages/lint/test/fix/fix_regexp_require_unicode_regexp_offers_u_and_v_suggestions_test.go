@@ -17,6 +17,11 @@ import "testing"
 //     and `gvy` respectively.
 //  3. Assert a literal that already carries `u`, and one that carries `v`,
 //     report nothing.
+//
+// @evidence contracts/testing.md#behavioral-verification The Unicode regex rule offers u and v suggestions in canonical flag position while withholding automatic edits.
+// @evidence contracts/testing.md#independent-expectations Literal titles and guy/gvy source results preserve g/y and the entire statement; neither expected result comes from the emitted edit.
+// @evidence contracts/testing.md#distinguishing-cases No-Unicode flags require two choices; already-u and already-v regexes stay silent, and the automatic pass preserves original source.
+// @evidence contracts/testing.md#execution-ownership TestFixRegexpRequireUnicodeRegexpOffersUAndVSuggestions owns both opt-in applyFindingFixesToText calls and its runRuleFindingsSnapshot/skip controls.
 func TestFixRegexpRequireUnicodeRegexpOffersUAndVSuggestions(t *testing.T) {
   source := "const value = /a/gy;\nJSON.stringify(value);\n"
   _, _, findings := runRuleFindingsSnapshot(t, "regexp/require-unicode-regexp", source, nil)

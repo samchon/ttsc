@@ -13,6 +13,11 @@ import "testing"
 //  1. Parse a switch whose case 1 declares `var x` and reads it in-clause.
 //  2. Apply the no-var finding's text edit through the disk-backed fixer.
 //  3. Assert only the `var` keyword changed to `let`.
+//
+// @evidence contracts/testing.md#behavioral-verification no-var rewrites x declared and read within case 1.
+// @evidence contracts/testing.md#independent-expectations The literal expected switch source retains the case label, read and break while changing only the declaration keyword.
+// @evidence contracts/testing.md#distinguishing-cases The read stays in its declaring clause; TestFixNoVarSkipsCrossCaseReference owns the later-clause TDZ hazard.
+// @evidence contracts/testing.md#execution-ownership TestFixNoVarReplacesSameCaseClauseReferences runs assertFixSnapshot on its single-clause switch fixture.
 func TestFixNoVarReplacesSameCaseClauseReferences(t *testing.T) {
   assertFixSnapshot(
     t,

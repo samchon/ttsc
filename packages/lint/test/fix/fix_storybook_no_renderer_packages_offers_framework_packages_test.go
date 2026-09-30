@@ -23,6 +23,11 @@ import (
 //     with a single successor renders without an "or".
 //  4. Assert the negative twin `@storybook/react-vite`, already a framework
 //     package, reports nothing.
+//
+// @evidence contracts/testing.md#behavioral-verification The Storybook rule offers three renderer-to-framework choices, edits none automatically, and renders both multiple and single successor messages.
+// @evidence contracts/testing.md#independent-expectations Authored Next.js/Vite/Webpack titles and full outputs preserve the rest of the import/module; exact disjunction and single-server suffix specify message behavior.
+// @evidence contracts/testing.md#distinguishing-cases Three React framework choices contrast with one server successor; already-framework react-vite emits no finding.
+// @evidence contracts/testing.md#execution-ownership TestFixStorybookNoRendererPackagesOffersFrameworkPackages owns every suggestion row through runRuleFindingsSnapshot/applyFindingFixesToText and its canonical skip control.
 func TestFixStorybookNoRendererPackagesOffersFrameworkPackages(t *testing.T) {
   source := "import type { Meta } from \"@storybook/react\";\nexport default { component: Button };\n"
   _, _, findings := runRuleFindingsSnapshot(t, "storybook/no-renderer-packages", source, nil)

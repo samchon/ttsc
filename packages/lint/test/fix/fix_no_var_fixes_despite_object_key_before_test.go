@@ -13,6 +13,11 @@ import "testing"
 //  1. Parse `({ x: 1 });` (object key) before `var x = 2;`.
 //  2. Apply the no-var finding's text edit through the disk-backed fixer.
 //  3. Assert only the `var` keyword changed to `let`.
+//
+// @evidence contracts/testing.md#behavioral-verification no-var fixes var x after an object key named x.
+// @evidence contracts/testing.md#independent-expectations Literal let x output preserves the earlier { x: 1 } property and trailing read; the property key binds no variable.
+// @evidence contracts/testing.md#distinguishing-cases A property key differs from the shorthand value read protected by TestFixNoVarSkipsShorthandValueBefore.
+// @evidence contracts/testing.md#execution-ownership TestFixNoVarFixesDespiteObjectKeyBefore exercises no-var through assertFixSnapshot over the authored object-key fixture.
 func TestFixNoVarFixesDespiteObjectKeyBefore(t *testing.T) {
   assertFixSnapshot(
     t,

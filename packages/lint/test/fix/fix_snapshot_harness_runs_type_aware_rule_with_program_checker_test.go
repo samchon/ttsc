@@ -11,6 +11,11 @@ import "testing"
 // 1. Record the Program lifecycle sequence and materialize a TSX fixer case.
 // 2. Apply the type-aware prefer-const edit through the shared snapshot helper.
 // 3. Assert a Program was created and the exact on-disk rewrite succeeded.
+//
+// @evidence contracts/testing.md#behavioral-verification The snapshot lifecycle creates a real Program/checker and fixes stable in a TSX prefer-const fixture.
+// @evidence contracts/testing.md#independent-expectations Literal TSX output and a strictly advanced programLifecycleSequence independently reject both missing fixing and a parser-only lifecycle.
+// @evidence contracts/testing.md#distinguishing-cases The typed rule differs from the parser-only no-var companion while both preserve JSX and caller-selected filenames.
+// @evidence contracts/testing.md#execution-ownership TestFixSnapshotHarnessRunsTypeAwareRuleWithProgramChecker calls assertFixSnapshotFile with prefer-const and observes the real in-process Program lifecycle.
 func TestFixSnapshotHarnessRunsTypeAwareRuleWithProgramChecker(t *testing.T) {
   before := programLifecycleSequence.Load()
   assertFixSnapshotFile(

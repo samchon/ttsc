@@ -15,6 +15,11 @@ import "testing"
 //  1. Assert `/a{0}/` and `/a{0,0}/` both report.
 //  2. Assert neither applies any edit.
 //  3. Assert `/a{0,1}/`, one step away on the upper bound, does not report.
+//
+// @evidence contracts/testing.md#behavioral-verification regexp/no-zero-quantifier reports {0} and {0,0} without changing either pattern.
+// @evidence contracts/testing.md#independent-expectations The original zero-repeat sources and zero applied edits preserve the zero repetitions instead of inventing a desired replacement.
+// @evidence contracts/testing.md#distinguishing-cases The zero upper bound differs from {0,1}, which must emit no finding.
+// @evidence contracts/testing.md#execution-ownership TestFixRegexpNoZeroQuantifierStaysDiagnosticOnly calls assertNoFixSnapshot for both zero forms and assertRuleSkipsSource for the adjacent optional form.
 func TestFixRegexpNoZeroQuantifierStaysDiagnosticOnly(t *testing.T) {
   assertNoFixSnapshot(
     t,

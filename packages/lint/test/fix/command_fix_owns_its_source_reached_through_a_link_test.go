@@ -20,6 +20,11 @@ import (
 //  1. Point the tsconfig at `src/main.ts` where `src` is a link.
 //  2. Run fix with no-var enabled.
 //  3. Assert the command succeeds and the backing file was rewritten.
+//
+// @evidence contracts/testing.md#behavioral-verification The in-process fix command follows src as a directory link and rewrites its owned backing main.ts, finishing without diagnostics.
+// @evidence contracts/testing.md#independent-expectations The independently authored let result preserves the initializer and JSON.stringify call; exact exit/stdout/stderr require a successful fix cycle.
+// @evidence contracts/testing.md#distinguishing-cases Alias spelling must not erase write ownership. This case exercises a real directory link and retains its existing permission skip when link creation is unavailable.
+// @evidence contracts/testing.md#execution-ownership TestCommandFixOwnsItsSourceReachedThroughALink calls run inside captureCommandOutput over a temporary project; os.Symlink is the native filesystem boundary, with no child host or install.
 func TestCommandFixOwnsItsSourceReachedThroughALink(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{

@@ -16,6 +16,11 @@ import "testing"
 //  1. Parse a for-of body declaring `var x` and pushing `class { p = x }`.
 //  2. Run the no-var fixer through the disk-backed applier.
 //  3. Assert at least one finding fired but zero fixes were applied.
+//
+// @evidence contracts/testing.md#behavioral-verification no-var diagnoses but leaves loop-local x captured by a class instance-field initializer unchanged.
+// @evidence contracts/testing.md#independent-expectations The literal source and zero disk edits preserve the shared var capture rather than creating per-iteration let bindings.
+// @evidence contracts/testing.md#distinguishing-cases Deferred class-field capture differs from a direct loop-local read; this is not merely the arrow-only capture arm.
+// @evidence contracts/testing.md#execution-ownership TestFixNoVarSkipsClassFieldCaptureInLoop executes assertNoFixSnapshot over its classes-push fixture.
 func TestFixNoVarSkipsClassFieldCaptureInLoop(t *testing.T) {
   assertNoFixSnapshot(
     t,

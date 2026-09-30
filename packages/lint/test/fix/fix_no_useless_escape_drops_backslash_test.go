@@ -13,6 +13,11 @@ import "testing"
 // 1. Parse a string literal containing `\c` (no meaningful escape).
 // 2. Apply the finding through the disk-backed fixer.
 // 3. Assert the backslash is gone.
+//
+// @evidence contracts/testing.md#behavioral-verification no-useless-escape deletes the redundant backslash before c without altering the surrounding string or use.
+// @evidence contracts/testing.md#independent-expectations The authored abcdef result follows cooked string equivalence for an ordinary letter escape; exact source equality catches oversized edits.
+// @evidence contracts/testing.md#distinguishing-cases This ordinary useless ASCII escape is positive; digit, tagged-template and substitution escapes are retained in companion negative cases.
+// @evidence contracts/testing.md#execution-ownership TestFixNoUselessEscapeDropsBackslash calls assertFixSnapshot with no-useless-escape and actual disk edit application.
 func TestFixNoUselessEscapeDropsBackslash(t *testing.T) {
   assertFixSnapshot(
     t,

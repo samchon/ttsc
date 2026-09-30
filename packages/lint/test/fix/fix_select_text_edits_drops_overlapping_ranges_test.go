@@ -12,6 +12,11 @@ import "testing"
 // 1. Build two edits whose ranges overlap on a shared source position.
 // 2. Run `selectTextEdits` against the synthetic source length.
 // 3. Assert only the earlier-starting edit survives.
+//
+// @evidence contracts/testing.md#behavioral-verification selectTextEdits keeps the earlier-starting first edit and drops a later intersecting range.
+// @evidence contracts/testing.md#independent-expectations The literal [0,5) first payload oracle independently identifies the winner rather than accepting any one-edit result.
+// @evidence contracts/testing.md#distinguishing-cases Two ranges overlap; the adjacent endpoint and distinct-range cases supply the nonconflicting boundaries.
+// @evidence contracts/testing.md#execution-ownership TestFixSelectTextEditsDropsOverlappingRanges calls selectTextEdits once and checks its actual surviving edit.
 func TestFixSelectTextEditsDropsOverlappingRanges(t *testing.T) {
   edits := []TextEdit{
     {Pos: 0, End: 5, Text: "first"},

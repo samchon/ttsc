@@ -14,6 +14,11 @@ import "testing"
 //  1. Parse `if (…) var x = 1;` — the var statement is the bare if-body.
 //  2. Run the no-var fixer through the disk-backed applier.
 //  3. Assert at least one finding fired but zero fixes were applied.
+//
+// @evidence contracts/testing.md#behavioral-verification no-var reports but keeps the unbraced if-body var declaration.
+// @evidence contracts/testing.md#independent-expectations The original source and zero edits avoid the illegal if-body lexical declaration grammar.
+// @evidence contracts/testing.md#distinguishing-cases An unbraced statement slot differs from a proper block, SourceFile or namespace container.
+// @evidence contracts/testing.md#execution-ownership TestFixNoVarSkipsSingleStatementPosition invokes assertNoFixSnapshot for the bare if-body fixture.
 func TestFixNoVarSkipsSingleStatementPosition(t *testing.T) {
   assertNoFixSnapshot(
     t,

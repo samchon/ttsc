@@ -13,6 +13,11 @@ import "testing"
 //  2. Assert the result is `/a??/`, taken from the quantifier semantics rather
 //     than from what reads naturally.
 //  3. Assert `{0,2}`, `{1,1}`, and `{0,}` report nothing.
+//
+// @evidence contracts/testing.md#behavioral-verification The question-quantifier fixer rewrites lazy {0,1}? to the two-question-mark a?? spelling.
+// @evidence contracts/testing.md#independent-expectations Literal a?? independently denotes lazy optional repetition; one question mark would silently make it greedy.
+// @evidence contracts/testing.md#distinguishing-cases Upper bound two, equal one and open-ended zero remain unreported by this rule.
+// @evidence contracts/testing.md#execution-ownership TestFixRegexpPreferQuestionQuantifierReplacesZeroToOne calls assertFixSnapshot for lazy optional repetition and assertRuleSkipsSource for all three neighboring bounds.
 func TestFixRegexpPreferQuestionQuantifierReplacesZeroToOne(t *testing.T) {
   assertFixSnapshot(
     t,

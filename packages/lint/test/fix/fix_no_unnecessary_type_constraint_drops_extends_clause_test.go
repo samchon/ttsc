@@ -13,6 +13,11 @@ import "testing"
 // 1. Parse a source file with `<T extends any>`.
 // 2. Apply the finding through the disk-backed fixer.
 // 3. Assert the clause is gone and the type parameter name remains.
+//
+// @evidence contracts/testing.md#behavioral-verification The type-constraint fix removes extends any from function box without adding an arrow-only comma.
+// @evidence contracts/testing.md#independent-expectations Literal function box<T> output preserves value parameter, return annotation, function body and trailing use.
+// @evidence contracts/testing.md#distinguishing-cases A function declaration contrasts with the singleton TSX arrow; this case owns a harmless constraint in a non-arrow declaration.
+// @evidence contracts/testing.md#execution-ownership TestFixNoUnnecessaryTypeConstraintDropsExtendsClause runs assertFixSnapshot for typescript/no-unnecessary-type-constraint and the disk applier.
 func TestFixNoUnnecessaryTypeConstraintDropsExtendsClause(t *testing.T) {
   assertFixSnapshot(
     t,

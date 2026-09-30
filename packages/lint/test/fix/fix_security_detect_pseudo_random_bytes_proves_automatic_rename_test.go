@@ -23,6 +23,11 @@ import (
 //     rather than a file-wide name table.
 //  4. Assert the message names `crypto.randomBytes`.
 //  5. Keep `crypto.randomBytes` and the same member on another object silent.
+//
+// @evidence contracts/testing.md#behavioral-verification The crypto rule automatically renames only proven Node bindings and exposes exact opt-in rewrites for unbound/local/shadowed crypto.
+// @evidence contracts/testing.md#independent-expectations Literal ESM/CommonJS automatic results and three full authored suggestion results preserve unrelated source; titles and message suffix name randomBytes independently.
+// @evidence contracts/testing.md#distinguishing-cases Node import/require bindings fix; unbound object, application object and parameter shadow are suggestion-only; canonical API and another object remain silent.
+// @evidence contracts/testing.md#execution-ownership TestFixSecurityDetectPseudoRandomBytesProvesAutomaticRename owns all checker-backed snapshot and applyFindingFixesToText calls, retaining row-specific source failure identities.
 func TestFixSecurityDetectPseudoRandomBytesProvesAutomaticRename(t *testing.T) {
   assertFixSnapshot(
     t,
@@ -37,7 +42,7 @@ func TestFixSecurityDetectPseudoRandomBytesProvesAutomaticRename(t *testing.T) {
     "const crypto = require(\"crypto\");\nconst generate = crypto.randomBytes;\nconsole.log(generate);\n",
   )
 
-  for _, source := range []string{
+  for index, source := range []string{
     "const bytes = crypto.pseudoRandomBytes(16);\nconsole.log(bytes);\n",
     "const crypto = { pseudoRandomBytes: (size: number) => size };\nconst bytes = crypto.pseudoRandomBytes(16);\nconsole.log(bytes);\n",
     "import * as crypto from \"node:crypto\";\ntype LocalCrypto = { pseudoRandomBytes(size: number): number };\nfunction generate(crypto: LocalCrypto) {\n  return crypto.pseudoRandomBytes(16);\n}\nconsole.log(generate);\n",
@@ -63,6 +68,14 @@ func TestFixSecurityDetectPseudoRandomBytesProvesAutomaticRename(t *testing.T) {
     )
     if applied != 1 || !strings.Contains(suggested, "crypto.randomBytes") {
       t.Fatalf("suggested edit: applied=%d source=%q", applied, suggested)
+    }
+    exactSuggestion := []string{
+      "const bytes = crypto.randomBytes(16);\nconsole.log(bytes);\n",
+      "const crypto = { pseudoRandomBytes: (size: number) => size };\nconst bytes = crypto.randomBytes(16);\nconsole.log(bytes);\n",
+      "import * as crypto from \"node:crypto\";\ntype LocalCrypto = { pseudoRandomBytes(size: number): number };\nfunction generate(crypto: LocalCrypto) {\n  return crypto.randomBytes(16);\n}\nconsole.log(generate);\n",
+    }[index]
+    if suggested != exactSuggestion {
+      t.Fatalf("suggestion changed unrelated source:\nwant %q\ngot %q", exactSuggestion, suggested)
     }
     if !strings.HasSuffix(finding.Message, "Use `crypto.randomBytes` instead.") {
       t.Fatalf("message = %q", finding.Message)

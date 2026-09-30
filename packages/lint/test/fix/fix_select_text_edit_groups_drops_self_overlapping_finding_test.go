@@ -15,6 +15,11 @@ import "testing"
 //  1. Build one group whose two edits cover overlapping ranges.
 //  2. Run selectTextEditGroups with that group alone.
 //  3. Assert nothing is selected, not even the earlier-starting member.
+//
+// @evidence contracts/testing.md#behavioral-verification selectTextEditGroups rejects a group whose two nonidentical ranges overlap internally.
+// @evidence contracts/testing.md#independent-expectations An empty selected result independently follows the all-or-nothing finding contract; keeping even the earlier edit fails.
+// @evidence contracts/testing.md#distinguishing-cases Self-overlap is rejected, while identical duplicates are collapsed and wholly disjoint group members are accepted in companion cases.
+// @evidence contracts/testing.md#execution-ownership TestSelectTextEditGroupsDropsSelfOverlappingFinding invokes selectTextEditGroups directly on its one contradictory group.
 func TestSelectTextEditGroupsDropsSelfOverlappingFinding(t *testing.T) {
   group := []TextEdit{
     {Pos: 2, End: 6, Text: "FIRST"},

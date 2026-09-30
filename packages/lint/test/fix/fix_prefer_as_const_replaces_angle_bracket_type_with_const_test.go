@@ -12,6 +12,11 @@ import "testing"
 // 1. Parse a source file with `<"literal">"literal"`.
 // 2. Apply the preferAsConst finding through the disk-backed fixer.
 // 3. Assert only the bracketed type changed to `const`.
+//
+// @evidence contracts/testing.md#behavioral-verification prefer-as-const changes the angle-bracket literal type to const while retaining the expression.
+// @evidence contracts/testing.md#independent-expectations The authored <const> literal result independently specifies only the type-position replacement.
+// @evidence contracts/testing.md#distinguishing-cases Angle-bracket assertion syntax differs from as syntax and is exercised in ordinary TS grammar.
+// @evidence contracts/testing.md#execution-ownership TestFixPreferAsConstReplacesAngleBracketTypeWithConst calls assertFixSnapshot for its bracketed assertion.
 func TestFixPreferAsConstReplacesAngleBracketTypeWithConst(t *testing.T) {
   assertFixSnapshot(
     t,

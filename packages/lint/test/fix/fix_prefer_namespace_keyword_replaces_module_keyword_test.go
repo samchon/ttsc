@@ -14,6 +14,11 @@ import "testing"
 // 1. Parse a source file declaring `module Foo {}`.
 // 2. Apply the finding through the disk-backed fixer.
 // 3. Assert the keyword is now `namespace`.
+//
+// @evidence contracts/testing.md#behavioral-verification prefer-namespace-keyword replaces module with namespace while retaining Foo members and its use.
+// @evidence contracts/testing.md#independent-expectations The literal namespace Foo result independently specifies the length-changing keyword edit and unchanged body.
+// @evidence contracts/testing.md#distinguishing-cases Legacy module is the fixing arm; this case does not assert ambient string-module behavior.
+// @evidence contracts/testing.md#execution-ownership TestFixPreferNamespaceKeywordReplacesModuleKeyword calls assertFixSnapshot with the actual namespace-keyword rule.
 func TestFixPreferNamespaceKeywordReplacesModuleKeyword(t *testing.T) {
   assertFixSnapshot(
     t,

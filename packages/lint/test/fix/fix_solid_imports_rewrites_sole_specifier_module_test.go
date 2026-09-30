@@ -23,9 +23,12 @@ import "testing"
 //  2. Assert an aliased specifier still resolves from its imported name, and a
 //     single-quoted specifier keeps its quotes, proving only source text inside
 //     the quotes is replaced.
-//  3. Assert the negative twins report without a fix: a declaration with a
-//     second specifier, and one with a default binding.
-//  4. Assert an already-canonical import reports nothing at all.
+//  3. Assert an already-canonical import reports nothing at all.
+//
+// @evidence contracts/testing.md#behavioral-verification solid/imports rewrites sole render/createStore module specifiers while preserving quotes and aliases, and names the canonical render module.
+// @evidence contracts/testing.md#independent-expectations Literal solid-js/web and solid-js/store outputs plus the exact Import render message independently specify the supported entry points.
+// @evidence contracts/testing.md#distinguishing-cases Single-quoted createStore and aliased render must fix; already-canonical createSignal is silent. Relocation of mixed/default bindings is owned by the separate relocation test.
+// @evidence contracts/testing.md#execution-ownership TestFixSolidImportsRewritesSoleSpecifierModule owns the three disk rewrites, explicit runRuleFindingsSnapshot message check and zero-finding canonical control.
 func TestFixSolidImportsRewritesSoleSpecifierModule(t *testing.T) {
   source := "import { render } from \"solid-js\";\nrender();\n"
   assertFixSnapshot(

@@ -14,6 +14,11 @@ import "testing"
 //  1. Group A is a single interior replace selected first.
 //  2. Group B is a two-edit finding, both edits disjoint from A and each other.
 //  3. Assert all three edits survive, sorted by position.
+//
+// @evidence contracts/testing.md#behavioral-verification selectTextEditGroups retains all three edits when both members of group B are disjoint from group A.
+// @evidence contracts/testing.md#independent-expectations The independently authored ordered AA/BB/INS TextEdit list verifies all positions and payloads exactly.
+// @evidence contracts/testing.md#distinguishing-cases A valid two-edit group including a zero-width insert must not be blanket rejected; collided and self-overlapping groups are separate negative twins.
+// @evidence contracts/testing.md#execution-ownership TestSelectTextEditGroupsKeepsDisjointMultiEditFindingWhole owns this direct selectTextEditGroups call and complete element-by-element oracle.
 func TestSelectTextEditGroupsKeepsDisjointMultiEditFindingWhole(t *testing.T) {
   groupA := []TextEdit{{Pos: 2, End: 4, Text: "AA"}}
   groupB := []TextEdit{

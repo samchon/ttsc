@@ -13,6 +13,11 @@ import "testing"
 //  1. Parse a top-level `var x` read from inside a with body.
 //  2. Apply the no-var finding's text edit through the disk-backed fixer.
 //  3. Assert only the `var` keyword changed to `let`.
+//
+// @evidence contracts/testing.md#behavioral-verification no-var fixes x declared before with even though the with body reads x.
+// @evidence contracts/testing.md#independent-expectations Literal let x output preserves the with statement and read; the declaration remains outside the dynamic object environment.
+// @evidence contracts/testing.md#distinguishing-cases Declaration location distinguishes this safe arm from TestFixNoVarSkipsWithStatementBody, where the declaration is inside with.
+// @evidence contracts/testing.md#execution-ownership TestFixNoVarReplacesReferenceInsideWithBody invokes assertFixSnapshot on the outer-x/inner-with source.
 func TestFixNoVarReplacesReferenceInsideWithBody(t *testing.T) {
   assertFixSnapshot(
     t,

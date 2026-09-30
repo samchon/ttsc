@@ -10,6 +10,11 @@ import "testing"
 // destructuring defaults. The member target is the negative boundary: writing
 // through holder.value does not reassign holder, so holder and the unrelated
 // stable binding must still receive the ordinary let-to-const fix.
+//
+// @evidence contracts/testing.md#behavioral-verification prefer-const retains mutable bindings through assertion-wrapped assignment/update/loop/destructuring targets while fixing holder and stable.
+// @evidence contracts/testing.md#independent-expectations The full literal expected source changes only holder/stable to const; all ten mutable binding declarations and writes remain independently spelled.
+// @evidence contracts/testing.md#distinguishing-cases as, angle brackets, satisfies, non-null, parentheses and nested patterns wrap writes; assigning holder.value does not reassign holder.
+// @evidence contracts/testing.md#execution-ownership TestFixPreferConstPreservesAssertionWrappedAssignmentTargets runs assertFixSnapshot over the complete checker-backed matrix.
 func TestFixPreferConstPreservesAssertionWrappedAssignmentTargets(t *testing.T) {
   source := `let simple = 0;
 (simple as number) = 1;

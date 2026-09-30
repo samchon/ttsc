@@ -20,6 +20,11 @@ import "testing"
 //  2. Apply the fix through the disk-backed fixer.
 //  3. Assert the comments survive verbatim and the hoist produced the
 //     canonical `import type { Foo, Bar }` shape.
+//
+// @evidence contracts/testing.md#behavioral-verification The inline-type hoist preserves block comments containing the misleading word type before both specifiers.
+// @evidence contracts/testing.md#independent-expectations Literal comments survive byte-for-byte while only actual type modifiers disappear; the expected full source is authored independently.
+// @evidence contracts/testing.md#distinguishing-cases Comment words must not become deletion anchors; both Foo and Bar carry leading trivia and the ordinary no-comment hoist is the companion case.
+// @evidence contracts/testing.md#execution-ownership TestFixNoImportTypeSideEffectsPreservesLeadingComment calls assertFixSnapshot for the import rule against its temporary multiline fixture.
 func TestFixNoImportTypeSideEffectsPreservesLeadingComment(t *testing.T) {
   assertFixSnapshot(
     t,

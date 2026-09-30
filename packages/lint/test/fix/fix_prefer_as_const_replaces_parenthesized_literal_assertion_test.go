@@ -13,6 +13,11 @@ import "testing"
 // 1. Parse a source file with `("literal") as "literal"`.
 // 2. Apply the preferAsConst finding through the disk-backed fixer.
 // 3. Assert only the literal type changed to `const`.
+//
+// @evidence contracts/testing.md#behavioral-verification prefer-as-const fixes the literal type through expression parentheses while preserving those parentheses.
+// @evidence contracts/testing.md#independent-expectations The authored parenthesized-expression as const result detects dropping grouping or missing the fix.
+// @evidence contracts/testing.md#distinguishing-cases An expression wrapper must be transparent to matching but retained in output; type-side parentheses have their own case.
+// @evidence contracts/testing.md#execution-ownership TestFixPreferAsConstReplacesParenthesizedLiteralAssertion invokes assertFixSnapshot with the wrapped expression.
 func TestFixPreferAsConstReplacesParenthesizedLiteralAssertion(t *testing.T) {
   assertFixSnapshot(
     t,

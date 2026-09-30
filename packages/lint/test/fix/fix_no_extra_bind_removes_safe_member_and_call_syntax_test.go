@@ -12,6 +12,11 @@ import "testing"
 // 1. Bind literal, identifier, `this`, and function-expression receivers.
 // 2. Keep comments immediately before the member and after the call.
 // 3. Assert only the bind member and its call arguments disappear.
+//
+// @evidence contracts/testing.md#behavioral-verification no-extra-bind removes only safe bind member/call syntax across direct, computed, optional and function-receiver shapes.
+// @evidence contracts/testing.md#independent-expectations The full literal result retains each return value, grouping and comments outside deleted syntax; a whole-node deletion or receiver corruption differs.
+// @evidence contracts/testing.md#distinguishing-cases Pure receivers allow automatic removal; effectful receivers and comments inside deleted ranges are the negative twins in TestFixNoExtraBindSkipsEffectfulOrCommentedRemovals.
+// @evidence contracts/testing.md#execution-ownership TestFixNoExtraBindRemovesSafeMemberAndCallSyntax calls assertFixSnapshot over the eight-declaration fixture; Engine and the disk edit applier execute in process.
 func TestFixNoExtraBindRemovesSafeMemberAndCallSyntax(t *testing.T) {
   assertFixSnapshot(
     t,

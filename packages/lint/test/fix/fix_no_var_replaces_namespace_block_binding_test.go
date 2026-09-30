@@ -13,6 +13,11 @@ import "testing"
 //  1. Parse a namespace declaring `var x` and reading it inside the body.
 //  2. Apply the no-var finding's text edit through the disk-backed fixer.
 //  3. Assert only the `var` keyword changed to `let`.
+//
+// @evidence contracts/testing.md#behavioral-verification no-var rewrites namespace-local x while retaining the namespace body and local use.
+// @evidence contracts/testing.md#independent-expectations The literal namespace/let result identifies a legal lexical declaration slot and preserves all non-keyword bytes.
+// @evidence contracts/testing.md#distinguishing-cases ModuleBlock is a permitted scope container; unbraced statement bodies are rejected separately.
+// @evidence contracts/testing.md#execution-ownership TestFixNoVarReplacesNamespaceBlockBinding calls assertFixSnapshot with its namespace N fixture.
 func TestFixNoVarReplacesNamespaceBlockBinding(t *testing.T) {
   assertFixSnapshot(
     t,

@@ -13,6 +13,11 @@ import "testing"
 // 1. Parse a `for...of` header destructuring `var [a, b]`.
 // 2. Run the no-var fixer through the disk-backed applier.
 // 3. Assert at least one finding fired but zero fixes were applied.
+//
+// @evidence contracts/testing.md#behavioral-verification no-var reports but does not rewrite the destructured [a, b] for-of header.
+// @evidence contracts/testing.md#independent-expectations Original source identity and zero edits preserve the shared keyword and both leaves; the contract declines unmodeled destructured headers.
+// @evidence contracts/testing.md#distinguishing-cases Multiple bound leaves contrast with the safe plain-identifier for-of arm.
+// @evidence contracts/testing.md#execution-ownership TestFixNoVarSkipsForOfDestructuringHeader invokes assertNoFixSnapshot on the [a,b] loop in process.
 func TestFixNoVarSkipsForOfDestructuringHeader(t *testing.T) {
   assertNoFixSnapshot(
     t,

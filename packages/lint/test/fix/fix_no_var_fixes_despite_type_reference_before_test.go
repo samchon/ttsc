@@ -15,6 +15,11 @@ import "testing"
 //     the `var`.
 //  2. Apply the no-var finding's text edit through the disk-backed fixer.
 //  3. Assert only the `var` keyword changed to `let`.
+//
+// @evidence contracts/testing.md#behavioral-verification no-var rewrites the value binding T despite a preceding type annotation named T.
+// @evidence contracts/testing.md#independent-expectations The authored let T result preserves the type alias and v annotation, which independently occupy TypeScript type space.
+// @evidence contracts/testing.md#distinguishing-cases A same-spelled type reference must not act like a forward value read; both namespaces coexist in this fixture.
+// @evidence contracts/testing.md#execution-ownership TestFixNoVarFixesDespiteTypeReferenceBefore calls assertFixSnapshot on the T type/value fixture using no-var.
 func TestFixNoVarFixesDespiteTypeReferenceBefore(t *testing.T) {
   assertFixSnapshot(
     t,

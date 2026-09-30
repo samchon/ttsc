@@ -14,6 +14,11 @@ import "testing"
 //  2. Run the prefer-const rule.
 //  3. Assert the binding is recognized as reassigned, so the rule emits zero
 //     findings and never offers the corrupting `const` rewrite.
+//
+// @evidence contracts/testing.md#behavioral-verification prefer-const emits no finding for k repeatedly assigned by a bare for-in target.
+// @evidence contracts/testing.md#independent-expectations Literal for (k in ...) writes the existing k binding, independently requiring mutable let.
+// @evidence contracts/testing.md#distinguishing-cases A bare identifier target differs from a fresh loop declaration and from initialized stable bindings.
+// @evidence contracts/testing.md#execution-ownership TestFixPreferConstSkipsForInReassignment calls assertRuleSkipsSource with actual checker-backed prefer-const.
 func TestFixPreferConstSkipsForInReassignment(t *testing.T) {
   assertRuleSkipsSource(
     t,

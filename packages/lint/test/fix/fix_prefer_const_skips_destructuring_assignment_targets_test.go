@@ -18,6 +18,11 @@ import "testing"
 //     destructuring-assignment patterns.
 //  2. Run preferConst through the disk-backed fixer.
 //  3. Assert the rule reports nothing and the source is left unchanged.
+//
+// @evidence contracts/testing.md#behavioral-verification prefer-const emits no findings for bindings written only through array/object/nested destructuring assignments.
+// @evidence contracts/testing.md#independent-expectations The authored assignment targets, rest and defaults require mutable bindings; zero findings forbid any const edit.
+// @evidence contracts/testing.md#distinguishing-cases Array elements, object shorthand, rest and nested/default targets all count as writes rather than mere reads.
+// @evidence contracts/testing.md#execution-ownership TestFixPreferConstSkipsDestructuringAssignmentTargets calls assertRuleSkipsSource through the real Program/checker on its full matrix.
 func TestFixPreferConstSkipsDestructuringAssignmentTargets(t *testing.T) {
   assertRuleSkipsSource(
     t,

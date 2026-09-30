@@ -16,6 +16,11 @@ import "testing"
 //     `() => item`.
 //  2. Run the no-var fixer through the disk-backed applier.
 //  3. Assert at least one finding fired but zero fixes were applied.
+//
+// @evidence contracts/testing.md#behavioral-verification no-var withholds the item header edit when fns captures item per iteration.
+// @evidence contracts/testing.md#independent-expectations The literal source and zero fixes retain shared var capture, rather than introducing separate let bindings.
+// @evidence contracts/testing.md#distinguishing-cases Captured item differs from the direct-read safe for-of header.
+// @evidence contracts/testing.md#execution-ownership TestFixNoVarSkipsForOfHeaderClosureCapture uses assertNoFixSnapshot for the fns loop.
 func TestFixNoVarSkipsForOfHeaderClosureCapture(t *testing.T) {
   assertNoFixSnapshot(
     t,

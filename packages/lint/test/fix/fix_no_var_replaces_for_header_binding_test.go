@@ -14,6 +14,11 @@ import "testing"
 // 1. Parse a `for` statement declaring `var i` and reading it directly.
 // 2. Apply the no-var finding's text edit through the disk-backed fixer.
 // 3. Assert only the `var` keyword changed to `let`.
+//
+// @evidence contracts/testing.md#behavioral-verification no-var rewrites a unique for-header i to let while retaining the loop condition, increment and body.
+// @evidence contracts/testing.md#independent-expectations The complete literal for-let result preserves the direct iteration reads independently of the fixer.
+// @evidence contracts/testing.md#distinguishing-cases Only in-loop direct uses occur; closure capture, post-loop read and multi-declarator headers have separate no-fix cases.
+// @evidence contracts/testing.md#execution-ownership TestFixNoVarReplacesForHeaderBinding calls assertFixSnapshot for the i header and applies its actual rule edits in process.
 func TestFixNoVarReplacesForHeaderBinding(t *testing.T) {
   assertFixSnapshot(
     t,

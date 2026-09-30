@@ -15,6 +15,11 @@ import "testing"
 //  2. Assert the result is `/a+?b+/`.
 //  3. Assert `{2,}`, `{1,2}`, and the comma-free `{1}` report nothing, so the
 //     rewrite cannot reach a quantifier with a different meaning.
+//
+// @evidence contracts/testing.md#behavioral-verification The plus-quantifier fixer replaces both {1,} runs and retains the lazy marker.
+// @evidence contracts/testing.md#independent-expectations Literal a+?b+ output follows open-ended minimum-one quantifier equivalence independently of rule scanning.
+// @evidence contracts/testing.md#distinguishing-cases {2,}, {1,2} and comma-free {1} are nearby zero-finding bounds.
+// @evidence contracts/testing.md#execution-ownership TestFixRegexpPreferPlusQuantifierReplacesOpenEndedOne calls assertFixSnapshot and three assertRuleSkipsSource controls in one Go process.
 func TestFixRegexpPreferPlusQuantifierReplacesOpenEndedOne(t *testing.T) {
   assertFixSnapshot(
     t,

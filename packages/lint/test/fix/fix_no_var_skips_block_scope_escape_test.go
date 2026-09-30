@@ -15,6 +15,11 @@ import "testing"
 //  1. Parse a file declaring `var x` inside an if-block and reading `x` after it.
 //  2. Run the no-var fixer through the disk-backed applier.
 //  3. Assert at least one finding fired but zero fixes were applied.
+//
+// @evidence contracts/testing.md#behavioral-verification no-var still diagnoses block-local x but declines rewriting it when x is read after the block.
+// @evidence contracts/testing.md#independent-expectations The original full source and zero applied fixes preserve var visibility; runFixSnapshot requires a finding so silence cannot pass.
+// @evidence contracts/testing.md#distinguishing-cases The outside read contrasts with the same-block and nested-block positive cases.
+// @evidence contracts/testing.md#execution-ownership TestFixNoVarSkipsBlockScopeEscape calls assertNoFixSnapshot for the if-block/external-read fixture.
 func TestFixNoVarSkipsBlockScopeEscape(t *testing.T) {
   assertNoFixSnapshot(
     t,

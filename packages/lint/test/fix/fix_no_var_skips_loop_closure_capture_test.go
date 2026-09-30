@@ -15,6 +15,11 @@ import "testing"
 //  1. Parse a for-of body declaring `var last` and pushing `() => last`.
 //  2. Run the no-var fixer through the disk-backed applier.
 //  3. Assert at least one finding fired but zero fixes were applied.
+//
+// @evidence contracts/testing.md#behavioral-verification no-var reports but leaves a loop-body last binding captured by an arrow unchanged.
+// @evidence contracts/testing.md#independent-expectations Original source equality and zero fixes preserve one var binding across all fns entries.
+// @evidence contracts/testing.md#distinguishing-cases Per-iteration capture differs from loop-body direct reads and non-loop captures, each retained as positive cases.
+// @evidence contracts/testing.md#execution-ownership TestFixNoVarSkipsLoopClosureCapture runs assertNoFixSnapshot over the last/fns source.
 func TestFixNoVarSkipsLoopClosureCapture(t *testing.T) {
   assertNoFixSnapshot(
     t,

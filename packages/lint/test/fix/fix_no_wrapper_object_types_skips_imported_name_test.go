@@ -11,11 +11,16 @@ import "testing"
 // the fix rewrote it to the global `string` primitive — silently retargeting
 // the annotation to a different type. The repair extends the guard to import
 // bindings (default, namespace, named — incl. aliased) and top-level
-// value/enum declarations, bailing to detection-only when one is present.
+// value/enum declarations, emitting no finding when one is present.
 //
 //  1. Parse a file that imports `String` and annotates with it.
 //  2. Run the rule under the engine and confirm zero findings.
 //  3. The imported `String` annotation survives byte-for-byte.
+//
+// @evidence contracts/testing.md#behavioral-verification The wrapper-type rule leaves an imported String name unreported.
+// @evidence contracts/testing.md#independent-expectations The authored named import and zero-finding expectation preserve a foreign symbol rather than choosing the global primitive.
+// @evidence contracts/testing.md#distinguishing-cases Imported and unshadowed String differ only in ownership of the name.
+// @evidence contracts/testing.md#execution-ownership TestFixNoWrapperObjectTypesSkipsImportedName invokes assertRuleSkipsSource on the named-import fixture.
 func TestFixNoWrapperObjectTypesSkipsImportedName(t *testing.T) {
   assertRuleSkipsSource(
     t,

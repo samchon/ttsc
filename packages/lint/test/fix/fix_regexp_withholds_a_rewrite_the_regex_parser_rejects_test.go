@@ -20,6 +20,11 @@ import "testing"
 //     suggestions, rather than offering a flag that would not compile.
 //  3. Assert the same rules do rewrite the well-formed twin, so the gate is
 //     rejecting the invalid result and not disabling the fixers.
+//
+// @evidence contracts/testing.md#behavioral-verification Regex repair validation withholds invalid quantifier edits and all Unicode suggestions for the identity escape backslash-minus.
+// @evidence contracts/testing.md#independent-expectations Literal unchanged malformed-candidate sources, zero actions and exact safe a+/a results establish refusal versus valid repair independently.
+// @evidence contracts/testing.md#distinguishing-cases Atomless brace runs and Unicode-incompatible escapes are rejected; well-formed atom-bearing twins still fix.
+// @evidence contracts/testing.md#execution-ownership TestFixRegexpWithholdsARewriteTheRegexParserRejects calls assertNoFixSnapshot for both atomless candidates, runRuleFindingsSnapshot for the incompatible Unicode suggestions, and assertFixSnapshot for both valid atom-bearing controls.
 func TestFixRegexpWithholdsARewriteTheRegexParserRejects(t *testing.T) {
   assertNoFixSnapshot(
     t,

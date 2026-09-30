@@ -14,6 +14,11 @@ import "testing"
 //     targets a disjoint range.
 //  2. Run `selectTextEdits` against a synthetic source length.
 //  3. Assert exactly two edits survive and both ranges are accounted for.
+//
+// @evidence contracts/testing.md#behavioral-verification selectTextEdits collapses a repeated let replacement and preserves the disjoint var replacement.
+// @evidence contracts/testing.md#independent-expectations Exact TextEdit identities verify both original ranges and payloads independently, preventing position-only deduplication.
+// @evidence contracts/testing.md#distinguishing-cases Duplicate identical edits collapse while a separate range survives; overlap rejection is owned by the companion case.
+// @evidence contracts/testing.md#execution-ownership TestFixSelectTextEditsDropsDuplicateEdits calls selectTextEdits directly on its three-edit literal list.
 func TestFixSelectTextEditsDropsDuplicateEdits(t *testing.T) {
   duplicate := TextEdit{Pos: 0, End: 3, Text: "let"}
   edits := []TextEdit{

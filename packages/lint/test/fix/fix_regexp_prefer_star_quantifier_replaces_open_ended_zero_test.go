@@ -13,6 +13,11 @@ import "testing"
 //     an atom wider than one character.
 //  2. Assert the result is `/(?:ab)*c/`.
 //  3. Assert `{1,}`, `{0,1}`, and the comma-free `{0}` report nothing.
+//
+// @evidence contracts/testing.md#behavioral-verification The star-quantifier fixer changes a grouped {0,} repetition to star without altering its group or following c.
+// @evidence contracts/testing.md#independent-expectations Literal (?:ab)*c derives from minimum-zero unbounded repetition, retaining multi-byte group syntax.
+// @evidence contracts/testing.md#distinguishing-cases {1,}, {0,1} and {0} differ in the lower/upper bound and must not report.
+// @evidence contracts/testing.md#execution-ownership TestFixRegexpPreferStarQuantifierReplacesOpenEndedZero owns its assertFixSnapshot and three assertRuleSkipsSource cases.
 func TestFixRegexpPreferStarQuantifierReplacesOpenEndedZero(t *testing.T) {
   assertFixSnapshot(
     t,

@@ -19,6 +19,11 @@ import (
 //  2. Assert only `g` remains and the message names both dead flags.
 //  3. Assert the negative twins keep their flag: `/[a-z]/i`, where `i` is what
 //     extends the class, and `/^a$/m`, which has anchors for `m` to re-define.
+//
+// @evidence contracts/testing.md#behavioral-verification regexp/no-useless-flag removes inert i/m while retaining g and renders both plural and singular flag messages.
+// @evidence contracts/testing.md#independent-expectations Literal g-only/no-flag output and independently authored diagnostic strings detect deleting live flags or naming the wrong ones.
+// @evidence contracts/testing.md#distinguishing-cases Digit patterns permit i/m deletion; letter classes with i and anchors with m remain zero-finding negative twins.
+// @evidence contracts/testing.md#execution-ownership TestFixRegexpNoUselessFlagDeletesTheFlagItNamed calls assertFixSnapshot, runRuleFindingsSnapshot and assertRuleSkipsSource for its literal regex matrix.
 func TestFixRegexpNoUselessFlagDeletesTheFlagItNamed(t *testing.T) {
   assertFixSnapshot(
     t,

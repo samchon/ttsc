@@ -19,6 +19,11 @@ import "testing"
 //  3. Assert a comment between `new` and `Buffer` survives every suggestion.
 //  4. Assert the negative twins stay silent: a literal argument, which the
 //     rule exempts, and a different constructor.
+//
+// @evidence contracts/testing.md#behavioral-verification The Buffer rule offers exactly from/alloc/allocUnsafe suggestions and no autofix, preserving arguments and intervening comments.
+// @evidence contracts/testing.md#independent-expectations Three literal titles/results require each API and its two edits; separately authored commented results retain the user-choice prose.
+// @evidence contracts/testing.md#distinguishing-cases Unknown argument needs alternatives; literal input and Uint8Array construction stay silent, while the automatic pass leaves original bytes unchanged.
+// @evidence contracts/testing.md#execution-ownership TestFixSecurityDetectNewBufferOffersThreeSuccessors owns every suggestion row and comment row via runRuleFindingsSnapshot/applyFindingFixesToText in process.
 func TestFixSecurityDetectNewBufferOffersThreeSuccessors(t *testing.T) {
   source := "const buffer = new Buffer(input);\nconsole.log(buffer);\n"
   _, _, findings := runRuleFindingsSnapshot(t, "security/detect-new-buffer", source, nil)

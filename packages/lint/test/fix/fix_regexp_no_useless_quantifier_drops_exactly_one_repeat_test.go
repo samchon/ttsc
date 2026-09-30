@@ -16,6 +16,11 @@ import "testing"
 //  2. Assert both collapse to the bare atom.
 //  3. Assert the lazy and backreference neighbours still report but apply no
 //     edit, and that `{1,}` and `{2}` do not report at all.
+//
+// @evidence contracts/testing.md#behavioral-verification regexp/no-useless-quantifier removes {1} after ordinary/group atoms but preserves lazy and backreference-neighbor hazards.
+// @evidence contracts/testing.md#independent-expectations Literal ab and grouped-ab/c results encode exact-one equivalence; unchanged unsafe source prevents turning lazy exact-one into optional or fusing backreference digits.
+// @evidence contracts/testing.md#distinguishing-cases Safe atom/group cases, reported-but-unfixed lazy/backreference cases and silent {1,}/{2} cases distinguish three outcomes.
+// @evidence contracts/testing.md#execution-ownership TestFixRegexpNoUselessQuantifierDropsExactlyOneRepeat owns six calls through assertFixSnapshot, assertNoFixSnapshot and assertRuleSkipsSource in process.
 func TestFixRegexpNoUselessQuantifierDropsExactlyOneRepeat(t *testing.T) {
   assertFixSnapshot(
     t,

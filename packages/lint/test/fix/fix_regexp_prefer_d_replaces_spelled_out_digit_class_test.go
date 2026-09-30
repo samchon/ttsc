@@ -15,6 +15,11 @@ import "testing"
 //  2. Assert both become `\d`.
 //  3. Assert the escaped-bracket literal applies no edit, and that `[0-9a]`
 //     and the negated `[^0-9]` report nothing.
+//
+// @evidence contracts/testing.md#behavioral-verification regexp/prefer-d changes both real [0-9] classes to backslash-d but does not rewrite an escaped bracket.
+// @evidence contracts/testing.md#independent-expectations Literal two-class output preserves the separator and quantifier; original escaped-bracket source requires zero edits.
+// @evidence contracts/testing.md#distinguishing-cases Real classes fix, the substring lookalike remains report-only, and extended/negated classes stay silent.
+// @evidence contracts/testing.md#execution-ownership TestFixRegexpPreferDReplacesSpelledOutDigitClass calls assertFixSnapshot for both real classes, assertNoFixSnapshot for the escaped bracket, and assertRuleSkipsSource for extended/negated classes.
 func TestFixRegexpPreferDReplacesSpelledOutDigitClass(t *testing.T) {
   assertFixSnapshot(
     t,

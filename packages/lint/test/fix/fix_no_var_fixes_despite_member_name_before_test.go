@@ -13,6 +13,11 @@ import "testing"
 //  1. Parse `o.x;` (member access) before `var x = 1;`.
 //  2. Apply the no-var finding's text edit through the disk-backed fixer.
 //  3. Assert only the `var` keyword changed to `let`.
+//
+// @evidence contracts/testing.md#behavioral-verification no-var fixes var x after o.x without mistaking the member name for a forward binding read.
+// @evidence contracts/testing.md#independent-expectations Literal expected let x preserves o.x and the o initializer; a member name independently denotes a property rather than this binding.
+// @evidence contracts/testing.md#distinguishing-cases Member access precedes the declaration but remains fixable, unlike a direct x value read before declaration.
+// @evidence contracts/testing.md#execution-ownership TestFixNoVarFixesDespiteMemberNameBefore calls assertFixSnapshot for its o.x fixture in the shared Go unit process.
 func TestFixNoVarFixesDespiteMemberNameBefore(t *testing.T) {
   assertFixSnapshot(
     t,

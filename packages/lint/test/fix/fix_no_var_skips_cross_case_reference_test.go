@@ -14,6 +14,11 @@ import "testing"
 //  1. Parse a switch declaring `var x` in case 1 and reading `x` in case 2.
 //  2. Run the no-var fixer through the disk-backed applier.
 //  3. Assert at least one finding fired but zero fixes were applied.
+//
+// @evidence contracts/testing.md#behavioral-verification no-var refuses to rewrite x declared in case 1 and read in case 2.
+// @evidence contracts/testing.md#independent-expectations The original switch source and zero edits preserve var hoisting rather than introducing a later-case temporal dead zone.
+// @evidence contracts/testing.md#distinguishing-cases A cross-clause read differs from TestFixNoVarReplacesSameCaseClauseReferences; the diagnostic must remain active.
+// @evidence contracts/testing.md#execution-ownership TestFixNoVarSkipsCrossCaseReference calls assertNoFixSnapshot for the two-clause switch source.
 func TestFixNoVarSkipsCrossCaseReference(t *testing.T) {
   assertNoFixSnapshot(
     t,

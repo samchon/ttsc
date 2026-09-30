@@ -8,6 +8,11 @@ import (
 
 // TestPreferAsConstPropertyAnnotationOffersExactSuggestion verifies a manual
 // property rewrite preserves modifiers and source outside the annotation.
+//
+// @evidence contracts/testing.md#behavioral-verification prefer-as-const offers exactly two manual edits for a literal property annotation, preserving public/readonly and surrounding comments.
+// @evidence contracts/testing.md#independent-expectations The complete literal property result retains modifier and before/annotation/tail/after payloads; exact two applied edits and no autofix distinguish the channels.
+// @evidence contracts/testing.md#distinguishing-cases A declaration annotation is manual; type-side wrapper parentheses disappear while comments and initializer survive.
+// @evidence contracts/testing.md#execution-ownership TestPreferAsConstPropertyAnnotationOffersExactSuggestion calls parseTS, NewEngine.Run and applyFindingFixesToText directly for Holder.value in the Go process.
 func TestPreferAsConstPropertyAnnotationOffersExactSuggestion(t *testing.T) {
   source := "class Holder {\n  public readonly /* keep */ value: /* annotation */ (\"literal\" /* tail */) = \"literal\" /* after */;\n}\nJSON.stringify(new Holder());\n"
   file := parseTS(t, source)

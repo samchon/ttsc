@@ -17,6 +17,11 @@ import "testing"
 //  1. Parse `var x = typeof x;`, a self-read inside the initializer.
 //  2. Run the no-var fixer through the disk-backed applier.
 //  3. Assert at least one finding fired but zero fixes were applied.
+//
+// @evidence contracts/testing.md#behavioral-verification no-var leaves x = typeof x unchanged while retaining its diagnostic.
+// @evidence contracts/testing.md#independent-expectations The authored initializer and zero fixes preserve typeof on a hoisted var rather than a lexical temporal-dead-zone read.
+// @evidence contracts/testing.md#distinguishing-cases An own-initializer reference is unsafe even though its source position follows the var token.
+// @evidence contracts/testing.md#execution-ownership TestFixNoVarSkipsTypeofSelfReferenceInInit calls assertNoFixSnapshot on the typeof-x initializer.
 func TestFixNoVarSkipsTypeofSelfReferenceInInit(t *testing.T) {
   assertNoFixSnapshot(
     t,

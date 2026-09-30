@@ -13,6 +13,11 @@ import "testing"
 //  1. Parse a labeled loop `x: for (…) break x;` before `var x = 1;`.
 //  2. Apply the no-var finding's text edit through the disk-backed fixer.
 //  3. Assert only the `var` keyword changed to `let`.
+//
+// @evidence contracts/testing.md#behavioral-verification no-var replaces var x even after the x statement/break label.
+// @evidence contracts/testing.md#independent-expectations Literal let x output preserves both labels because labels occupy a namespace separate from values.
+// @evidence contracts/testing.md#distinguishing-cases The x label is not a forward value read; the actual shorthand/ordinary forward-read refusal cases supply the opposite boundary.
+// @evidence contracts/testing.md#execution-ownership TestFixNoVarFixesDespiteLabelBefore runs assertFixSnapshot on the labeled-loop source with no-var and the actual disk applier.
 func TestFixNoVarFixesDespiteLabelBefore(t *testing.T) {
   assertFixSnapshot(
     t,

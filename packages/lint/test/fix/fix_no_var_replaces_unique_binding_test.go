@@ -13,6 +13,11 @@ import "testing"
 //  1. Parse `var x = 1;` as the only declaration of `x`.
 //  2. Apply the no-var finding's text edit through the disk-backed fixer.
 //  3. Assert only the `var` keyword changed to `let`.
+//
+// @evidence contracts/testing.md#behavioral-verification no-var rewrites the sole x declaration without changing its initializer or use.
+// @evidence contracts/testing.md#independent-expectations The independently authored let x source specifies the safe unique-binding result exactly.
+// @evidence contracts/testing.md#distinguishing-cases One binding and no preceding value read distinguish this arm from redeclaration and forward-reference refusals.
+// @evidence contracts/testing.md#execution-ownership TestFixNoVarReplacesUniqueBinding calls assertFixSnapshot with no-var over x and its trailing use.
 func TestFixNoVarReplacesUniqueBinding(t *testing.T) {
   assertFixSnapshot(
     t,

@@ -25,6 +25,11 @@ import "testing"
 //  2. Run only `no-useless-escape` and confirm zero findings — the fix
 //     path is never reached.
 //  3. Source stays byte-identical (no autofix applied).
+//
+// @evidence contracts/testing.md#behavioral-verification no-useless-escape emits no findings for protected digit escapes in strings, template tokens and regex backreferences.
+// @evidence contracts/testing.md#independent-expectations Literal zero/one/seven/eight/nine escapes encode the supported exemption; zero findings prohibit the potentially value-changing deletion.
+// @evidence contracts/testing.md#distinguishing-cases The zero whitelist edge, octal-shaped 01, template tail and regex backreference complement the ordinary letter/dot/colon fixing case.
+// @evidence contracts/testing.md#execution-ownership TestFixNoUselessEscapeSkipsBackslashDigitEscapes calls assertRuleSkipsSource on its complete authored fixture with an actively bound Engine rule.
 func TestFixNoUselessEscapeSkipsBackslashDigitEscapes(t *testing.T) {
   assertRuleSkipsSource(
     t,

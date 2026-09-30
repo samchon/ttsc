@@ -12,6 +12,11 @@ import "testing"
 // 1. Parse a source file with `null as null`.
 // 2. Run preferAsConst with the engine.
 // 3. Assert zero findings.
+//
+// @evidence contracts/testing.md#behavioral-verification prefer-as-const emits no finding for null as null.
+// @evidence contracts/testing.md#independent-expectations Literal null keyword inputs and zero findings follow the supported non-literal-type upstream boundary.
+// @evidence contracts/testing.md#distinguishing-cases null differs from the matching string-literal positive case.
+// @evidence contracts/testing.md#execution-ownership TestFixPreferAsConstSkipsNullLiteralAssertion calls assertRuleSkipsSource on its null fixture.
 func TestFixPreferAsConstSkipsNullLiteralAssertion(t *testing.T) {
   assertRuleSkipsSource(
     t,

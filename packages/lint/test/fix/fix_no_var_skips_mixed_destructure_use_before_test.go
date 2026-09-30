@@ -17,6 +17,11 @@ import "testing"
 //  1. Parse a file that reads `b` before a mixed plain+destructure list.
 //  2. Run the no-var fixer through the disk-backed applier.
 //  3. Assert at least one finding fired but zero fixes were applied.
+//
+// @evidence contracts/testing.md#behavioral-verification no-var preserves a mixed a/{b} list when b is read before it.
+// @evidence contracts/testing.md#independent-expectations The literal f(b) prefix and original source identity require zero edits, preserving the forward var read.
+// @evidence contracts/testing.md#distinguishing-cases A destructured sibling carries the hazard even when the plain a binding is safe.
+// @evidence contracts/testing.md#execution-ownership TestFixNoVarSkipsMixedDestructureUseBefore calls assertNoFixSnapshot on the prefixed mixed list.
 func TestFixNoVarSkipsMixedDestructureUseBefore(t *testing.T) {
   assertNoFixSnapshot(
     t,

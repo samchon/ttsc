@@ -15,6 +15,11 @@ import "testing"
 //  1. Build one group whose first edit appears twice and whose second is disjoint.
 //  2. Run selectTextEditGroups with that group alone.
 //  3. Assert both distinct edits survive, in position order, with no duplicate.
+//
+// @evidence contracts/testing.md#behavioral-verification selectTextEditGroups collapses an exact duplicate within one group and retains both distinct edits in order.
+// @evidence contracts/testing.md#independent-expectations The independent two-element TextEdit literal oracle verifies positions, ends and payloads rather than just the count.
+// @evidence contracts/testing.md#distinguishing-cases An identical repeated edit is benign, unlike the self-overlap group that must be rejected entirely.
+// @evidence contracts/testing.md#execution-ownership TestSelectTextEditGroupsCollapsesDuplicateEditWithinFinding calls selectTextEditGroups directly on one authored group in the Go unit process.
 func TestSelectTextEditGroupsCollapsesDuplicateEditWithinFinding(t *testing.T) {
   group := []TextEdit{
     {Pos: 2, End: 4, Text: "AA"},

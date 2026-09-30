@@ -17,6 +17,11 @@ import "testing"
 //     disjoint from everything.
 //  3. Assert only A survives and NEITHER member of B is applied — proving the
 //     drop is whole-group, not per-edit.
+//
+// @evidence contracts/testing.md#behavioral-verification selectTextEditGroups rejects all of group B when one edit overlaps earlier group A, including B disjoint insertion.
+// @evidence contracts/testing.md#independent-expectations Literal surviving AA edit and explicit absence of DISJOINT require whole-group atomicity independently of selection logic.
+// @evidence contracts/testing.md#distinguishing-cases A single collided member invalidates a two-edit group; the disjoint multi-edit positive case retains every member.
+// @evidence contracts/testing.md#execution-ownership TestSelectTextEditGroupsDropsPartiallyOverlappedFindingWhole calls selectTextEditGroups once with its A/B groups.
 func TestSelectTextEditGroupsDropsPartiallyOverlappedFindingWhole(t *testing.T) {
   groupA := []TextEdit{{Pos: 2, End: 4, Text: "AA"}}
   groupB := []TextEdit{

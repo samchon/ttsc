@@ -15,6 +15,11 @@ import "testing"
 //  2. Assert `/a/g`, which carries no Unicode flag, offers an insertion
 //     producing `gv`, and that neither literal is edited automatically.
 //  3. Assert a literal already carrying `v` reports nothing.
+//
+// @evidence contracts/testing.md#behavioral-verification The Unicode-sets rule suggests replacing u with v or inserting v, applying neither automatically.
+// @evidence contracts/testing.md#independent-expectations Authored giv/gv results and exact titles independently specify mutually exclusive Unicode flags and preserved g/i.
+// @evidence contracts/testing.md#distinguishing-cases Existing u versus absent Unicode flag exercise replacement versus insertion; existing v stays silent.
+// @evidence contracts/testing.md#execution-ownership TestFixRegexpRequireUnicodeSetsRegexpOffersTheVFlag owns both table rows and their failure identities through runRuleFindingsSnapshot and applyFindingFixesToText.
 func TestFixRegexpRequireUnicodeSetsRegexpOffersTheVFlag(t *testing.T) {
   cases := []struct {
     source string
