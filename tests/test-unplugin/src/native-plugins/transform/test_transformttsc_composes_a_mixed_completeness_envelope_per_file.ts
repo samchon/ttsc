@@ -23,9 +23,18 @@ import { emitGraphPlugins } from "../../internal/transform-graph/emitGraphPlugin
  * 2. Assert `src/main.ts` registers only its reported dependency and the universal
  *    inputs.
  * 3. Assert `src/other.ts` registers its graph reach and the universal inputs.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Actual native transform emits one envelope for two modules; successful deliveries assert complete main narrows to consulted input while unmarked other retains its graph edge and ambient file.
+ * @evidence contracts/testing.md#independent-expectations The literal GRAPH and plugin operations define independent per-file expected lists, including universal host/config/source inputs and the absent nearer routing config; neither expected list comes from the selector.
+ * @evidence contracts/testing.md#distinguishing-cases The same generation contrasts one explicitly complete module with an unmarked module. Dedicated source units own empty complete dependencies, an off-graph declared dependency and contradictory complete/volatile watch derivation.
+ * @evidence contracts/testing.md#execution-ownership The named native E2E entry uses the actual built public API and Go-source fixture producer, then two module deliveries through one cache. Pure dependency/watch derivations execute separately under unit/transform.
+ * @evidence contracts/e2e.md#necessary-boundary Native plugin operations, decoded dependenciesComplete/graph metadata and public adapter delivery must connect; source units cannot detect producer fields omitted or misassigned while constructing a mixed envelope.
+ * @evidence contracts/e2e.md#shared-execution Both module assertions use one fixture root, options and cache so the second delivery consumes the first generation. The content-addressed default Go fixture producer is reused across suite consumers.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity An isolated root and new cache separate envelope metadata from other cases; module source and options remain unchanged between deliveries. A finally block resets the local cache and disposes retained generation watchers after successful assertions or failure.
+ * @evidence contracts/e2e.md#preserved-coverage Both successful deliveries and their exact per-file watch lists remain here. Transferred narrow, empty and volatile watch-list assertions retain named source-unit entries; actual volatility and timestamp delivery remain in test_transformttsc_volatile_file_bypasses_the_transform_cache.
  */
 export async function test_transformttsc_composes_a_mixed_completeness_envelope_per_file(): Promise<void> {
-  const { resolveOptions, transformTtsc, createTtscTransformCache } =
+  const { resolveOptions, transformTtsc, createTtscTransformCache, resetTtscTransformCache } =
     await TestUnpluginRuntime.loadUnpluginApi();
   const root = TestUnpluginProject.createProject({ plugins: [] });
   const other = path.join(root, "src", "other.ts");
@@ -47,30 +56,34 @@ export async function test_transformttsc_composes_a_mixed_completeness_envelope_
   // calls the adapter file by file over a single project transform.
   const cache = createTtscTransformCache();
 
-  const collect = async (file: string): Promise<string[]> => {
-    const watched: string[] = [];
-    const result = await transformTtsc(
-      file,
-      fs.readFileSync(file, "utf8"),
-      options,
-      undefined,
-      cache,
-      { addWatchFile: (input: string) => watched.push(input) },
-    );
-    assert.ok(result);
-    return [...watched].sort();
-  };
+  try {
+    const collect = async (file: string): Promise<string[]> => {
+      const watched: string[] = [];
+      const result = await transformTtsc(
+        file,
+        fs.readFileSync(file, "utf8"),
+        options,
+        undefined,
+        cache,
+        { addWatchFile: (input: string) => watched.push(input) },
+      );
+      assert.ok(result);
+      return [...watched].sort();
+    };
 
-  assert.deepEqual(
-    await collect(TestUnpluginProject.mainFile(root)),
-    [member(root, "src/consulted.d.ts"), ...fixtureHostInputs(root)].sort(),
-  );
-  assert.deepEqual(
-    await collect(other),
-    [
-      member(root, "src/other-type.d.ts"),
-      member(root, "src/ambient.d.ts"),
-      ...fixtureHostInputs(root),
-    ].sort(),
-  );
+    assert.deepEqual(
+      await collect(TestUnpluginProject.mainFile(root)),
+      [member(root, "src/consulted.d.ts"), ...fixtureHostInputs(root)].sort(),
+    );
+    assert.deepEqual(
+      await collect(other),
+      [
+        member(root, "src/other-type.d.ts"),
+        member(root, "src/ambient.d.ts"),
+        ...fixtureHostInputs(root),
+      ].sort(),
+    );
+  } finally {
+    resetTtscTransformCache(cache);
+  }
 }
