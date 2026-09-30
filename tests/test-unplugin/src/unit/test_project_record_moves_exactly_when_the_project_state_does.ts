@@ -1,17 +1,17 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { membershipRecordDigest } from "../../../../../packages/unplugin/lib/core/bridge/membershipRecordDigest.js";
-import { projectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/projectRecordFile.js";
-import { readProjectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/readProjectRecordFile.js";
-import { refreshProjectRecordFiles } from "../../../../../packages/unplugin/lib/core/bridge/refreshProjectRecordFiles.js";
-import { writeProjectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/writeProjectRecordFile.js";
-import { hostInputStateHash } from "../../../../../packages/unplugin/lib/core/transform/inputs/hostInputStateHash.js";
-import { walkProjectInputs } from "../../../../../packages/unplugin/lib/core/transform/project/walkProjectInputs.js";
-import { MISSING_INPUT_STATE } from "../../../../../packages/unplugin/lib/core/transform/validation/MISSING_INPUT_STATE.js";
-import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/lib/core/tsconfig/readProjectMembershipPolicy.js";
+import { membershipRecordDigest } from "../../../../packages/unplugin/src/core/bridge/membershipRecordDigest";
+import { projectRecordFile } from "../../../../packages/unplugin/src/core/bridge/projectRecordFile";
+import { readProjectRecordFile } from "../../../../packages/unplugin/src/core/bridge/readProjectRecordFile";
+import { refreshProjectRecordFiles } from "../../../../packages/unplugin/src/core/bridge/refreshProjectRecordFiles";
+import { writeProjectRecordFile } from "../../../../packages/unplugin/src/core/bridge/writeProjectRecordFile";
+import { hostInputStateHash } from "../../../../packages/unplugin/src/core/transform/inputs/hostInputStateHash";
+import { walkProjectInputs } from "../../../../packages/unplugin/src/core/transform/project/walkProjectInputs";
+import { MISSING_INPUT_STATE } from "../../../../packages/unplugin/src/core/transform/validation/MISSING_INPUT_STATE";
+import { readProjectMembershipPolicy } from "../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
 
 /**
  * Verifies a project's record, the one file a build host depends on for every
@@ -106,7 +106,7 @@ export async function test_project_record_moves_exactly_when_the_project_state_d
   assert.equal(stamp(), settled, "an unchanged project moves nothing");
   assert.equal(signal(), 0);
   fs.mkdirSync(path.join(root, "dist"), { recursive: true });
-  fs.writeFileSync(path.join(root, "dist", "emitted.js"), "");
+  fs.writeFileSync(path.join(root, "dist", "emitted"), "");
   refreshProjectRecordFiles(tool);
   assert.equal(signal(), 0, "an excluded entry is not the project's state");
 

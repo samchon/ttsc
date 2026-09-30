@@ -1,9 +1,9 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { EmitOwnershipIndex } from "../../../../../packages/ttsc/lib/compiler/internal/EmitOwnershipIndex.js";
+import { EmitOwnershipIndex } from "../../../../packages/ttsc/src/compiler/internal/EmitOwnershipIndex";
 
 /**
  * Verifies the emit ownership index answers only with output compiled from the
@@ -17,13 +17,12 @@ import { EmitOwnershipIndex } from "../../../../../packages/ttsc/lib/compiler/in
  * named through a link, a file symlink with another name, and each extension
  * mapping. The negative twins pin that a same-named file elsewhere, a
  * declaration file, a file outside the root, and an output the record does not
- * list are never answers, and that an output two TypeScript sources could have
- * produced goes to the one its source map names, or else to the one the
- * compiler's extension precedence picks.
+ * list are never answers. Same-stem siblings receive only the output whose
+ * producer record names them, independently of maps or extension precedence.
  *
  * 1. Lay out sources under a root and outputs under an emit directory, with a
  *    directory link and, where permitted, a file symlink.
- * 2. Index the build with and without an explicit output record.
+ * 2. Index captured physical source ownership, with and without an output list.
  * 3. Assert each lookup returns its own output or `null`.
  */
 export const test_emit_ownership_index_answers_only_with_the_output_of_the_same_file =
@@ -66,7 +65,14 @@ export const test_emit_ownership_index_answers_only_with_the_output_of_the_same_
     ];
     for (const output of outputs) write(path.join(emit, output));
 
-    const index = new EmitOwnershipIndex({ emitDir: emit, rootDir: root });
+    const emittedSources: Record<string, string[]> = Object.fromEntries([
+      ["a/index.ts", "a/index.js"], ["real/aliased.ts", "alias/aliased.js"],
+      ["modules/esm.mts", "modules/esm.mjs"], ["modules/cjs.cts", "modules/cjs.cjs"],
+      ["view/page.tsx", "view/page.jsx"], ["solo/widget.tsx", "solo/widget.js"],
+      ["both/twin.ts", "both/twin.js"],
+    ].map(([source, output]) => [path.join(emit, output!), [fs.realpathSync.native(path.join(root, source!))]]));
+    const createIndex = () => new EmitOwnershipIndex({ emitDir: emit, rootDir: root, emittedSources });
+    const index = createIndex();
     const found = (source: string): string | null =>
       index.find(path.join(root, source));
     const emitted = (output: string): string => path.join(emit, output);
@@ -80,11 +86,10 @@ export const test_emit_ownership_index_answers_only_with_the_output_of_the_same_
     assert.equal(found("modules/cjs.cts"), emitted("modules/cjs.cjs"));
     assert.equal(found("view/page.tsx"), emitted("view/page.jsx"));
     assert.equal(found("solo/widget.tsx"), emitted("solo/widget.js"));
-    // `twin.js` could be either source's output. With no source map, the
-    // compiler's precedence decides: `.ts` before `.tsx`.
+    // The producer recorded twin.ts; a same-stem sibling was not compiled.
     assert.equal(found("both/twin.ts"), emitted("both/twin.js"));
     assert.equal(found("both/twin.tsx"), null, "the lower-precedence twin");
-    // A source map names the file the compiler actually read.
+    // The producer records pair.tsx, independently of its optional source map.
     write(path.join(root, "mapped/pair.ts"));
     write(path.join(root, "mapped/pair.tsx"));
     write(path.join(emit, "mapped/pair.js"));
@@ -104,7 +109,8 @@ export const test_emit_ownership_index_answers_only_with_the_output_of_the_same_
         mappings: "",
       }),
     );
-    const mapped = new EmitOwnershipIndex({ emitDir: emit, rootDir: root });
+    emittedSources[path.join(emit, "mapped/pair.js")] = [fs.realpathSync.native(path.join(root, "mapped/pair.tsx"))];
+    const mapped = createIndex();
     assert.equal(
       mapped.find(path.join(root, "mapped", "pair.tsx")),
       emitted("mapped/pair.js"),
@@ -116,7 +122,9 @@ export const test_emit_ownership_index_answers_only_with_the_output_of_the_same_
     write(path.join(root, "preserved/doc.tsx"));
     write(path.join(emit, "preserved/doc.js"));
     write(path.join(emit, "preserved/doc.jsx"));
-    const preserved = new EmitOwnershipIndex({ emitDir: emit, rootDir: root });
+    emittedSources[path.join(emit, "preserved/doc.js")] = [fs.realpathSync.native(path.join(root, "preserved/doc.ts"))];
+    emittedSources[path.join(emit, "preserved/doc.jsx")] = [fs.realpathSync.native(path.join(root, "preserved/doc.tsx"))];
+    const preserved = createIndex();
     assert.equal(
       preserved.find(path.join(root, "preserved", "doc.ts")),
       emitted("preserved/doc.js"),
@@ -125,6 +133,7 @@ export const test_emit_ownership_index_answers_only_with_the_output_of_the_same_
       preserved.find(path.join(root, "preserved", "doc.tsx")),
       emitted("preserved/doc.jsx"),
     );
+    write(path.join(base, "outside.ts"));
     assert.equal(
       index.find(path.join(base, "outside.ts")),
       null,
@@ -137,6 +146,7 @@ export const test_emit_ownership_index_answers_only_with_the_output_of_the_same_
     const throughLink = new EmitOwnershipIndex({
       emitDir: emit,
       rootDir: linkedRoot,
+      emittedSources,
     });
     assert.equal(
       throughLink.find(path.join(root, "a", "index.ts")),
@@ -148,6 +158,7 @@ export const test_emit_ownership_index_answers_only_with_the_output_of_the_same_
     const recorded = new EmitOwnershipIndex({
       emitDir: emit,
       outputs: ["a/index.js"],
+      emittedSources: { [path.join(emit, "a/index.js")]: emittedSources[path.join(emit, "a/index.js")]! },
       rootDir: root,
     });
     write(path.join(root, "late.ts"));
@@ -184,6 +195,7 @@ export const test_emit_ownership_index_answers_only_with_the_output_of_the_same_
       return;
     }
     write(path.join(emit, "shortcut.js"));
-    const linked = new EmitOwnershipIndex({ emitDir: emit, rootDir: root });
+    emittedSources[path.join(emit, "shortcut.js")] = [fs.realpathSync.native(target)];
+    const linked = createIndex();
     assert.equal(linked.find(target), emitted("shortcut.js"));
   };

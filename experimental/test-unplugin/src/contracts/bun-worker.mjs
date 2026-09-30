@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { BROKEN_INPUT, landLateRace, projectAt, valuesIn } from "./common.mjs";
-import { runScenarios } from "./scenarios.mjs";
+import { runScenarios, SCENARIOS } from "./scenarios.mjs";
 
 /**
  * The Bun half of the host matrix, in a Bun process: one `Bun.build` per
@@ -15,7 +15,7 @@ import { runScenarios } from "./scenarios.mjs";
  * Bun offers no seam after a module's loader, as esbuild does not; the seam
  * after ttsc is the resolution of the module's imports.
  */
-const [root, linked, transformPlugin] = process.argv.slice(2);
+const [root, linked, transformPlugin, contract = "complete"] = process.argv.slice(2);
 const project = projectAt(root, {
   linked: linked === "linked",
   plugin: transformPlugin,
@@ -70,7 +70,7 @@ const session = {
     assert.match(result.logs.join("\n"), pattern);
   },
 };
-await runScenarios(project, session);
+await runScenarios(project, session, contract === "complete" ? SCENARIOS : SCENARIOS.slice(0, 4));
 
 // The preload session owns a different cache lifetime: each `bun run` is one
 // immutable load session.

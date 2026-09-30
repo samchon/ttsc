@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { pluginDescriptorProcessFailure } from "../../../../../packages/ttsc/lib/plugin/internal/pluginDescriptorProcessFailure.js";
+import { pluginDescriptorProcessFailure } from "../../../../packages/ttsc/src/plugin/internal/pluginDescriptorProcessFailure";
 
 /**
  * Verifies executable plugin-descriptor failures preserve their real cause.

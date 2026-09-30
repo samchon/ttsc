@@ -1,13 +1,13 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { projectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/projectRecordFile.js";
-import { readProjectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/readProjectRecordFile.js";
-import { refreshProjectRecordFiles } from "../../../../../packages/unplugin/lib/core/bridge/refreshProjectRecordFiles.js";
-import { writeProjectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/writeProjectRecordFile.js";
-import { pluginSourceState } from "../../../../../packages/unplugin/lib/core/transform/inputs/pluginSourceState.js";
+import { projectRecordFile } from "../../../../packages/unplugin/src/core/bridge/projectRecordFile";
+import { readProjectRecordFile } from "../../../../packages/unplugin/src/core/bridge/readProjectRecordFile";
+import { refreshProjectRecordFiles } from "../../../../packages/unplugin/src/core/bridge/refreshProjectRecordFiles";
+import { writeProjectRecordFile } from "../../../../packages/unplugin/src/core/bridge/writeProjectRecordFile";
+import { pluginSourceState } from "../../../../packages/unplugin/src/core/transform/inputs/pluginSourceState";
 
 /**
  * Verifies a project's record holds the state of each plugin source directory

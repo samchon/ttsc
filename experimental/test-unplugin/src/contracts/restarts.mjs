@@ -149,11 +149,16 @@ export const RESTART_STEPS = [
  * @param host The host, one `restart-cycle.mjs` knows.
  */
 export async function restartContract(project, host) {
+  // Input-kind invalidation belongs to the shared record proof, covered directly
+  // in units and through webpack's complete persisted-consumer contract. Each
+  // additional backend proves actual persistence, two unchanged adoptions,
+  // live edits from a cached session, and an offline edit that invalidates it.
+  const steps = host === "webpack" ? RESTART_STEPS : RESTART_STEPS.slice(0, 3);
   const cycle = (label, expectation) =>
     restartCycle(project, host, label, expectation);
   const expectation = (index) => {
-    const step = RESTART_STEPS[index];
-    const next = RESTART_STEPS[index + 1];
+    const step = steps[index];
+    const next = steps[index + 1];
     const store = next?.expect.compiles !== undefined;
     if (step === undefined) {
       return { kind: "settled", value: "FIRST", store };
@@ -161,7 +166,7 @@ export async function restartContract(project, host) {
     return { ...step.expect, store };
   };
   await cycle("first session", expectation(-1));
-  for (const [index, step] of RESTART_STEPS.entries()) {
+  for (const [index, step] of steps.entries()) {
     step.edit(project);
     await cycle(step.name, expectation(index));
   }

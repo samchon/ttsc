@@ -34,10 +34,12 @@ export async function test_transform_session_store_outlives_its_process(): Promi
   );
   fs.mkdirSync(root, { mode: 0o700, recursive: true });
   const dead = spawnSync(process.execPath, ["-e", ""]).pid;
-  const crashed = path.join(root, `${dead}-left`);
-  const running = path.join(root, `${process.pid}-running`);
+  const crashed = path.join(root, `${dead}-abc123`);
+  const running = path.join(root, `${process.pid}-abc456`);
   fs.mkdirSync(crashed);
   fs.mkdirSync(running);
+  const unowned = path.join(root, `${dead}-unrecognized`);
+  fs.mkdirSync(unowned);
 
   const open = (): string => {
     const env: NodeJS.ProcessEnv = {
@@ -72,4 +74,5 @@ export async function test_transform_session_store_outlives_its_process(): Promi
   }
   assert.equal(fs.existsSync(crashed), false, "a crashed process's store");
   assert.equal(fs.existsSync(running), true, "a live process's store");
+  assert.equal(fs.existsSync(unowned), true, "a foreign directory is not a legacy store");
 }

@@ -1,9 +1,9 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { pluginDescriptorFailureReason } from "../../../../../packages/ttsc/lib/plugin/internal/pluginDescriptorFailureReason.js";
+import { pluginDescriptorFailureReason } from "../../../../packages/ttsc/src/plugin/internal/pluginDescriptorFailureReason";
 
 /**
  * Verifies only a well-formed envelope becomes a descriptor's failure reason.

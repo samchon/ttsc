@@ -4,17 +4,17 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { createFilesystemPathIdentityContext } from "../../../../../packages/ttsc/lib/internal/pathIdentity/createFilesystemPathIdentityContext.js";
-import { discoverNearestProjectTsconfig } from "../../../../../packages/unplugin/lib/core/discovery/discoverNearestProjectTsconfig.js";
-import { findNearestProjectTsconfig } from "../../../../../packages/unplugin/lib/core/discovery/findNearestProjectTsconfig.js";
-import { findProjectTsconfigs } from "../../../../../packages/unplugin/lib/core/discovery/findProjectTsconfigs.js";
-import type { TtscTransformFilesystemOperations } from "../../../../../packages/unplugin/lib/core/transform/filesystem/TtscTransformFilesystemOperations.js";
-import { validateGraphInputObservation } from "../../../../../packages/unplugin/lib/core/transform/inputs/validateGraphInputObservation.js";
-import type { TtscWatchInputKeyBaseline } from "../../../../../packages/unplugin/lib/core/transform/watch/TtscWatchInputKeyBaseline.js";
-import { captureWatchInputBaseline } from "../../../../../packages/unplugin/lib/core/transform/watch/captureWatchInputBaseline.js";
-import { captureWatchInputFileBaseline } from "../../../../../packages/unplugin/lib/core/transform/watch/captureWatchInputFileBaseline.js";
-import { isWatchInputKeyBaseline } from "../../../../../packages/unplugin/lib/core/transform/watch/isWatchInputKeyBaseline.js";
-import { watchInputEvidenceMatchesBaseline } from "../../../../../packages/unplugin/lib/core/transform/watch/watchInputEvidenceMatchesBaseline.js";
+import { createFilesystemPathIdentityContext } from "../../../../packages/ttsc/src/internal/pathIdentity/createFilesystemPathIdentityContext";
+import { discoverNearestProjectTsconfig } from "../../../../packages/unplugin/src/core/discovery/discoverNearestProjectTsconfig";
+import { findNearestProjectTsconfig } from "../../../../packages/unplugin/src/core/discovery/findNearestProjectTsconfig";
+import { findProjectTsconfigs } from "../../../../packages/unplugin/src/core/discovery/findProjectTsconfigs";
+import type { TtscTransformFilesystemOperations } from "../../../../packages/unplugin/src/core/transform/filesystem/TtscTransformFilesystemOperations";
+import { validateGraphInputObservation } from "../../../../packages/unplugin/src/core/transform/inputs/validateGraphInputObservation";
+import type { TtscWatchInputKeyBaseline } from "../../../../packages/unplugin/src/core/transform/watch/TtscWatchInputKeyBaseline";
+import { captureWatchInputBaseline } from "../../../../packages/unplugin/src/core/transform/watch/captureWatchInputBaseline";
+import { captureWatchInputFileBaseline } from "../../../../packages/unplugin/src/core/transform/watch/captureWatchInputFileBaseline";
+import { isWatchInputKeyBaseline } from "../../../../packages/unplugin/src/core/transform/watch/isWatchInputKeyBaseline";
+import { watchInputEvidenceMatchesBaseline } from "../../../../packages/unplugin/src/core/transform/watch/watchInputEvidenceMatchesBaseline";
 
 interface IFilesystemState {
   contents?: Buffer;
@@ -195,7 +195,7 @@ export async function test_transformttsc_predicate_proofs_cover_filesystem_kinds
   };
   assert.deepEqual(
     validateGraphInputObservation(
-      path.join(root, "punycode.js"),
+      path.join(root, "punycode"),
       directoryProof,
       directory,
     ),
@@ -848,7 +848,7 @@ function assertRealFilesystemKinds(): void {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-predicate-proof-"));
   try {
     const targetDirectory = path.join(root, "directory-target");
-    const directoryLink = path.join(root, "candidate.js");
+    const directoryLink = path.join(root, "candidate");
     fs.mkdirSync(targetDirectory);
     fs.symlinkSync(
       targetDirectory,

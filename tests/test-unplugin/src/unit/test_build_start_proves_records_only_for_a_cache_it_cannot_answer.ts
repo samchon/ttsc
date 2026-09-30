@@ -1,21 +1,22 @@
-import { TestProject, TestUnpluginRuntime } from "@ttsc/testing";
+import { TestProject } from "../../../utils/src/TestProject";
+import { unplugin } from "../../../../packages/unplugin/src/core/unplugin";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { membershipRecordDigest } from "../../../../../packages/unplugin/lib/core/bridge/membershipRecordDigest.js";
-import { projectRecordDigest } from "../../../../../packages/unplugin/lib/core/bridge/projectRecordDigest.js";
-import { projectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/projectRecordFile.js";
-import { readProjectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/readProjectRecordFile.js";
-import { writeProjectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/writeProjectRecordFile.js";
-import { resolveOptions } from "../../../../../packages/unplugin/lib/core/options/resolveOptions.js";
-import { rollupDeliveryOptions } from "../../../../../packages/unplugin/lib/core/rollup/rollupDeliveryOptions.js";
-import { createAliasPaths } from "../../../../../packages/unplugin/lib/core/transform/alias/createAliasPaths.js";
-import { createHostPathIdentityContext } from "../../../../../packages/unplugin/lib/core/transform/filesystem/createHostPathIdentityContext.js";
-import { pathIdentityKey } from "../../../../../packages/unplugin/lib/core/transform/filesystem/pathIdentityKey.js";
-import { hostInputStateHash } from "../../../../../packages/unplugin/lib/core/transform/inputs/hostInputStateHash.js";
-import { walkProjectInputs } from "../../../../../packages/unplugin/lib/core/transform/project/walkProjectInputs.js";
-import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/lib/core/tsconfig/readProjectMembershipPolicy.js";
+import { membershipRecordDigest } from "../../../../packages/unplugin/src/core/bridge/membershipRecordDigest";
+import { projectRecordDigest } from "../../../../packages/unplugin/src/core/bridge/projectRecordDigest";
+import { projectRecordFile } from "../../../../packages/unplugin/src/core/bridge/projectRecordFile";
+import { readProjectRecordFile } from "../../../../packages/unplugin/src/core/bridge/readProjectRecordFile";
+import { writeProjectRecordFile } from "../../../../packages/unplugin/src/core/bridge/writeProjectRecordFile";
+import { resolveOptions } from "../../../../packages/unplugin/src/core/options/resolveOptions";
+import { rollupDeliveryOptions } from "../../../../packages/unplugin/src/core/rollup/rollupDeliveryOptions";
+import { createAliasPaths } from "../../../../packages/unplugin/src/core/transform/alias/createAliasPaths";
+import { createHostPathIdentityContext } from "../../../../packages/unplugin/src/core/transform/filesystem/createHostPathIdentityContext";
+import { pathIdentityKey } from "../../../../packages/unplugin/src/core/transform/filesystem/pathIdentityKey";
+import { hostInputStateHash } from "../../../../packages/unplugin/src/core/transform/inputs/hostInputStateHash";
+import { walkProjectInputs } from "../../../../packages/unplugin/src/core/transform/project/walkProjectInputs";
+import { readProjectMembershipPolicy } from "../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
 
 /**
  * Verifies a build start proves the project records of its tool directory only
@@ -43,7 +44,6 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/li
  *    project proves the record no more.
  */
 export async function test_build_start_proves_records_only_for_a_cache_it_cannot_answer(): Promise<void> {
-  const { unplugin } = await TestUnpluginRuntime.loadUnpluginApi();
   const root = fs.realpathSync.native(
     TestProject.tmpdir("ttsc-unplugin-build-start-proof-"),
   );

@@ -17,13 +17,13 @@ import {
   watchWebpackLike,
 } from "./predicates.mjs";
 import { restartContract } from "./restarts.mjs";
-import { runScenarios } from "./scenarios.mjs";
+import { runScenarios, SCENARIOS } from "./scenarios.mjs";
 import { unwritableContract } from "./unwritable.mjs";
 import { reactRouterContract } from "./vite.mjs";
 
 /**
- * One host's whole contract, in a process of its own: the scenario matrix on a
- * project named directly and again on one named through a link, then the
+ * One host's contract in an owned process: its complete linked-producer
+ * watcher contract, a source-producer connection/recovery contract, and the
  * compiler-predicate matrix through the host's own watcher
  * (samchon/ttsc#1388).
  */
@@ -54,16 +54,17 @@ function roots() {
     : [false, true];
 }
 
-/**
- * The transform plugins a host is tried with: the standalone source plugin,
- * whose envelope carries no compiler graph, and the linked plugin, whose
- * compile goes through TypeScript-Go's program (see `fixture`).
- */
-const PLUGINS = ["source", "linked"];
+// Every host exercises all watcher/race/verdict cases on the linked producer.
+// The other transport and root spelling need their own real connection and
+// recovery proof, not another Cartesian product of the same state transitions.
+// Rollup retains the complete source-transport contract as its shared oracle.
+const CONTRACTS = [
+  { plugin: "linked", linked: roots().includes(true), complete: true },
+  { plugin: "source", linked: false, complete: host === "rollup" },
+];
 
 async function matrix(open) {
-  for (const plugin of PLUGINS)
-    for (const linked of roots()) {
+  for (const { plugin, linked, complete } of CONTRACTS) {
       const project = fixture(
         `${host}${linked ? "-linked" : ""}${plugin === "linked" ? "-program" : ""}`,
         { linked, plugin },
@@ -71,18 +72,17 @@ async function matrix(open) {
       project.break();
       const session = await open(project);
       try {
-        await runScenarios(project, session);
+        await runScenarios(project, session, complete ? SCENARIOS : SCENARIOS.slice(0, 4));
       } finally {
         await session.close();
       }
-    }
+  }
 }
 
 if (host in sessions) {
   await matrix(sessions[host]);
 } else if (host === "bun") {
-  for (const plugin of PLUGINS)
-    for (const linked of roots()) {
+  for (const { plugin, linked, complete } of CONTRACTS) {
       const project = fixture(
         `bun${linked ? "-linked" : ""}${plugin === "linked" ? "-program" : ""}`,
         { linked, plugin },
@@ -95,6 +95,7 @@ if (host in sessions) {
           project.root,
           linked ? "linked" : "plain",
           plugin,
+          complete ? "complete" : "connection",
         ],
         {
           cwd: project.root,
@@ -103,7 +104,7 @@ if (host in sessions) {
           timeout: 240_000,
         },
       );
-    }
+  }
 } else if (host === "react-router") {
   await reactRouterContract();
 } else {

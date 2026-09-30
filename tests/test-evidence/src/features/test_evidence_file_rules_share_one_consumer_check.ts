@@ -1,3 +1,4 @@
+import { graphTypingConfigurations } from "../internal/graphTypingConfigurations";
 import {
   assertExcludes,
   assertFailure,
@@ -193,6 +194,11 @@ export const test_evidence_file_rules_share_one_consumer_check = (): void => {
   ];
   const files: Record<string, string> = {};
   const typedConfigurations: string[] = [];
+  for (const [index, configuration] of graphTypingConfigurations.entries()) {
+    const config = `graph-typing-${index}.ts`;
+    files[config] = configuration.source;
+    typedConfigurations.push(config);
+  }
   let previous: string | undefined;
   for (const [index, scenario] of cases.entries()) {
     for (const [relative, content] of Object.entries(scenario.files))
@@ -241,7 +247,7 @@ export const test_evidence_file_rules_share_one_consumer_check = (): void => {
   }
   const project = createProject({
     name: "file-rules-batch",
-    include: ["src", "lint.config.ts", "batch-*.ts"],
+    include: ["src", "lint.config.ts", "batch-*.ts", "graph-typing-*.ts"],
     compilerOptions: { pretty: false },
     lintConfig: [
       'import type { ITtscLintConfig } from "@ttsc/lint";',

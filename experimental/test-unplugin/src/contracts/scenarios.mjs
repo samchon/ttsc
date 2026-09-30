@@ -340,8 +340,8 @@ export const SCENARIOS = [
  * Run every applicable scenario on one session, and name the scenario a failure
  * came from.
  */
-export async function runScenarios(project, session) {
-  for (const scenario of SCENARIOS) {
+export async function runScenarios(project, session, scenarios = SCENARIOS) {
+  for (const scenario of scenarios) {
     if (scenario.when !== undefined && !scenario.when(session, project))
       continue;
     // The records as the scenario begins, against which the records it failed
