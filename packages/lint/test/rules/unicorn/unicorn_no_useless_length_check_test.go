@@ -14,6 +14,12 @@ import "testing"
 // 1. Enable unicorn/no-useless-length-check via an expect annotation.
 // 2. Compose `xs.length > 0 && xs.some((x) => x > 0)`.
 // 3. Assert the binary expression is reported.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine.Run through assertRuleCorpusCase verifies some is guarded by a redundant positive-length check; literal annotations compare the exact rule, severity and source line, including absence of extra findings.
+// @evidence contracts/testing.md#independent-expectations The authored unicorn/no-useless-length-check annotation follows the supported policy described above; the separately authored accepted source has a literal zero-finding oracle and is not generated from product output.
+// @evidence contracts/testing.md#distinguishing-cases The original reported input is retained; some is used directly because it handles empty arrays. Both source fixtures execute in this named entry.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusUnicornNoUselessLengthCheck is a discoverable Go unit entry. Its virtual TypeScript ASTs exercise the owning lint engine in the shared Go process, without consumer installation, native build or product host.
 func TestRuleCorpusUnicornNoUselessLengthCheck(t *testing.T) {
   assertRuleCorpusCase(t, "unicorn/no-useless-length-check.ts", "declare const xs: number[];\n// expect: unicorn/no-useless-length-check error\nconst any = xs.length > 0 && xs.some((x) => x > 0);\nvoid any;\n")
+  assertRuleSkipsSource(t, "unicorn/no-useless-length-check", "declare const xs: number[]; const any = xs.some(x => x > 0);\n")
 }
