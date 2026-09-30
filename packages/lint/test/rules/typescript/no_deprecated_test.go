@@ -19,6 +19,10 @@ import (
 //     it.
 //  2. Run `check` with typescript/no-deprecated enabled as error.
 //  3. Assert the command exits non-zero and stderr mentions the rule.
+// @evidence contracts/testing.md#behavioral-verification A call to a JSDoc-deprecated function must report its reference.
+// @evidence contracts/testing.md#independent-expectations The authored original source requires exactly one typescript/no-deprecated rendered error at line 3, exit code 2 and empty stdout; an independently authored clean source requires code 0 and no rule findings.
+// @evidence contracts/testing.md#distinguishing-cases A nondeprecated function with the same return shape remains clean.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusNoDeprecated runs the real Program/Checker via the in-process check command and shared typed semantic oracles; fixture project files configure the operation without installing, building a native artifact or spawning a compiler.
 func TestRuleCorpusNoDeprecated(t *testing.T) {
   root := seedLintProject(t, `/** @deprecated Use newFn instead. */
 declare function oldFn(): number;
@@ -37,4 +41,6 @@ JSON.stringify(a);
   if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/no-deprecated]") {
     t.Fatalf("no-deprecated diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
+  assertTypedRuleRenderedErrors(t, "typescript/no-deprecated", stderr, 3)
+  assertTypedRuleCleanSource(t, "typescript/no-deprecated", "declare function newFn(): number;\nconst a = newFn();\nJSON.stringify(a);\n")
 }

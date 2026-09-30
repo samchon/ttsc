@@ -23,6 +23,10 @@ import "testing"
 //     change behavior.
 //  3. Skip an access from outside the namespace and a path into an inner
 //     namespace, where the qualifier is not the enclosing scope.
+// @evidence contracts/testing.md#behavioral-verification A qualifier may report only when removal preserves binding identity.
+// @evidence contracts/testing.md#independent-expectations Authored Foo.Bar, Color.Red and NS.Item markers fix exact ranges; four load-bearing cases require no findings.
+// @evidence contracts/testing.md#distinguishing-cases Member shadowing, namespace-name shadowing, outside access and inner-namespace paths distinguish symbols from matching text.
+// @evidence contracts/testing.md#execution-ownership TestRuleTypescriptNoUnnecessaryQualifier executes the real Program/Checker through assertRuleFindingRanges in the shared Go unit population; every original source/marker is preserved and no native artifact build, installation or child compiler runs.
 func TestRuleTypescriptNoUnnecessaryQualifier(t *testing.T) {
   const ruleName = "typescript/no-unnecessary-qualifier"
   cases := []struct {

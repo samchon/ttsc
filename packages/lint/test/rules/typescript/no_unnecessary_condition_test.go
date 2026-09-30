@@ -26,6 +26,10 @@ import (
 //     object in an `if` condition.
 //  2. Run `check` with typescript/no-unnecessary-condition enabled as error.
 //  3. Assert the command exits non-zero and stderr mentions the rule.
+// @evidence contracts/testing.md#behavioral-verification A nonnullable object condition must report as always truthy.
+// @evidence contracts/testing.md#independent-expectations The authored original source requires exactly one typescript/no-unnecessary-condition rendered error at line 2, exit code 2 and empty stdout; an independently authored clean source requires code 0 and no rule findings.
+// @evidence contracts/testing.md#distinguishing-cases A boolean that can be false remains a meaningful condition.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusNoUnnecessaryCondition runs the real Program/Checker via the in-process check command and shared typed semantic oracles; fixture project files configure the operation without installing, building a native artifact or spawning a compiler.
 func TestRuleCorpusNoUnnecessaryCondition(t *testing.T) {
   root := seedLintProject(t, `declare const obj: { value: number };
 if (obj) {
@@ -44,4 +48,6 @@ if (obj) {
   if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/no-unnecessary-condition]") {
     t.Fatalf("no-unnecessary-condition diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
+  assertTypedRuleRenderedErrors(t, "typescript/no-unnecessary-condition", stderr, 2)
+  assertTypedRuleCleanSource(t, "typescript/no-unnecessary-condition", "declare const flag: boolean;\nif (flag) { JSON.stringify(flag); }\n")
 }

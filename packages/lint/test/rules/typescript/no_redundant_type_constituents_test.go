@@ -15,6 +15,10 @@ import "testing"
 //  1. Load the annotated TypeScript fixture source embedded below.
 //  2. Enable the rule severities declared by its `// expect:` comments.
 //  3. Assert the native Engine reports exactly the annotated diagnostics.
+// @evidence contracts/testing.md#behavioral-verification Syntactically redundant union/intersection constituents must report.
+// @evidence contracts/testing.md#independent-expectations Eight authored markers fix complete errors including two for string&never; any/unknown/never and textual duplicates have independent occurrences.
+// @evidence contracts/testing.md#distinguishing-cases Distinct primitive union and distinct object intersection stay clean; checker-backed subset or generic-alias reasoning is outside this oracle.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusNoRedundantTypeConstituents executes the AST Engine through assertRuleCorpusCase in the shared Go unit population; every original source/marker is preserved and no native artifact build, installation or child compiler runs.
 func TestRuleCorpusNoRedundantTypeConstituents(t *testing.T) {
   assertRuleCorpusCase(t, "typescript-no-redundant-type-constituents.ts",
     "// Positive: union with `any` absorbs every other constituent.\n"+

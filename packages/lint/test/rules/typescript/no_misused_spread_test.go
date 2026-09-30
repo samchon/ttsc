@@ -19,6 +19,10 @@ import "testing"
 //  1. Load the annotated TypeScript source embedded below.
 //  2. Enable the rule severity declared by its `// expect:` comments.
 //  3. Assert the native Engine reports exactly the annotated diagnostics.
+// @evidence contracts/testing.md#behavioral-verification Literal spreads in incompatible syntactic containers must report.
+// @evidence contracts/testing.md#independent-expectations Four authored markers fix errors for object-to-array, call/new arguments and array-to-object spreads.
+// @evidence contracts/testing.md#distinguishing-cases Matching literal containers stay clean; identifier operands remain intentionally opaque under this AST-only policy, without claiming general iterability safety.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusTypescriptNoMisusedSpread executes the AST Engine through assertRuleCorpusCase in the shared Go unit population; every original source/marker is preserved and no native artifact build, installation or child compiler runs.
 func TestRuleCorpusTypescriptNoMisusedSpread(t *testing.T) {
   assertRuleCorpusCase(t, "typescript-no-misused-spread.ts",
     "// Positive: object literal spread inside an array literal.\n"+

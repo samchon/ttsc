@@ -15,6 +15,10 @@ import "testing"
 // 1. Load the annotated TypeScript fixture source embedded below.
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
+// @evidence contracts/testing.md#behavioral-verification Type-only exports must report without rewriting mixed value exports.
+// @evidence contracts/testing.md#independent-expectations Two authored markers fix complete rule/error/line triples for OnlyType and OnlyType/OnlyAlias export lists.
+// @evidence contracts/testing.md#distinguishing-cases MixedType plus mixedValue, export type and empty exports remain clean.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusConsistentTypeExports executes the AST Engine through assertRuleCorpusCase in the shared Go unit population; every original source/marker is preserved and no native artifact build, installation or child compiler runs.
 func TestRuleCorpusConsistentTypeExports(t *testing.T) {
   assertRuleCorpusCase(t, "typescript-consistent-type-exports.ts", "interface OnlyType {\n  value: number;\n}\n\ntype OnlyAlias = { kind: \"alias\" };\n\ninterface MixedType {\n  ok: true;\n}\n\nconst mixedValue = { ok: true };\n\n// expect: typescript/consistent-type-exports error\nexport { OnlyType };\n\n// expect: typescript/consistent-type-exports error\nexport { OnlyType, OnlyAlias };\n\n// At least one exported name (`mixedValue`) is a value declaration in\n// this file, so the rewrite would be wrong. Should NOT fire.\nexport { MixedType, mixedValue };\n\n// Already `export type { ... }` — never fires.\nexport type { OnlyType as AliasA };\n\n// Empty re-export marker — no specifiers to classify.\nexport {};\n")
 }
