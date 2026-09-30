@@ -1,0 +1,43 @@
+package evidence
+
+import (
+  "testing"
+)
+
+/**
+ * Verifies the cache is bounded and drops its oldest entry first.
+ *
+ * A resident host lives for days, and a configuration that rewrites a document
+ * under a new digest every cycle would otherwise grow this map without end.
+ * Dropping the oldest rather than clearing keeps a project sitting exactly on
+ * the limit still hitting.
+ *
+ *  1. Store one more document than the limit allows.
+ *  2. Assert the first is gone and the last is present.
+ *  3. Assert the map never exceeds the limit.
+ *
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification swaggerCache evicts digest0,retains newest and stays within swaggerCacheLimit.
+ * @evidence .agents/skills/contracts/testing.md#independent-expectations Ordered inserted keys and capacity limit establish retention expectations.
+ * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Crossing capacity releases the oldest retained payload.
+ * @evidence .agents/skills/contracts/testing.md#execution-ownership TestSwaggerCacheIsBoundedAndEvictsTheOldest is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ */
+func TestSwaggerCacheIsBoundedAndEvictsTheOldest(t *testing.T) {
+  cache := isolateSwaggerCache(t)
+  for index := 0; index <= swaggerCacheLimit; index++ {
+    cache.store(
+      "digest-"+decimal(index),
+      swaggerDocumentOutcome{
+        Operations: []swaggerOperation{{Method: "get", Path: "/" + decimal(index)}},
+      },
+    )
+  }
+  if _, hit := cache.lookup("digest-0"); hit {
+    t.Fatal("the oldest entry must be evicted once the limit is passed")
+  }
+  if _, hit := cache.lookup("digest-" + decimal(swaggerCacheLimit)); !hit {
+    t.Fatal("the newest entry must be kept")
+  }
+  if len(cache.entries) > swaggerCacheLimit {
+    t.Fatalf("the cache must stay bounded, got %d entries", len(cache.entries))
+  }
+}
