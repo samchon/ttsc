@@ -16,6 +16,11 @@ import (
 // 1. Create clean, lint-error, warning-only and warning-with-type-error projects.
 // 2. Run the real in-process check entrypoint with discovered config files.
 // 3. Assert exact status, rendered rule presence and silent stdout.
+//
+// @evidence contracts/testing.md#behavioral-verification RunCheckWithIO returns exact statuses 0/2/0/2 for clean, lint-error, warning-only and warning-with-TypeScript-error projects, keeps stdout silent and renders no-var exactly when expected; the clean case also requires silent stderr.
+// @evidence contracts/testing.md#independent-expectations Authored const/var sources and error/warn severities establish independent command outcomes: warnings alone succeed, lint errors and an incompatible string assignment fail with status 2, and clean input produces no diagnostics.
+// @evidence contracts/testing.md#distinguishing-cases Four named cases distinguish clean success, lint failure, nonfatal warnings and compiler failure despite warning severity; each isolated temporary project retains discovered JSON config instead of replacing the owning loader with a stub.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns four dynamic named subcases invoking RunCheckWithIO directly in the shared lint process, with fixture JSON plugin descriptors and captured buffers; it builds no native contributor and does not install or spawn an independent consumer.
 func TestCommandCheckPreservesSeverityExitContract(t *testing.T) {
   cases := []struct {
     name, source, severity string

@@ -25,6 +25,11 @@ import (
 // 1. Read the projects prepared by scripts/test-go-lint.cjs.
 // 2. Resolve the real config and evaluate rules with their required checker.
 // 3. Compare every finding's source file, rule, severity and line.
+//
+// @evidence contracts/testing.md#behavioral-verification The prepared corpus reaches loadRules, production engine cycles, the required real checker and the production diagnostic renderer; every case compares the complete ordered source/rule/severity/line sequence, rejecting extra companion findings, and warning-only cases retain the real check failure assertion.
+// @evidence contracts/testing.md#independent-expectations Expected findings come from the original authored fixture annotations, with their source paths and order preserved by materialization; neither Engine nor its renderer generates the expected diagnostic sequence.
+// @evidence contracts/testing.md#distinguishing-cases Owns the classified non-skipped corpus, including options, renamed source files, TSX, companion inputs, checker-required rules and warning fixtures whose TypeScript errors must still fail check. The separate four-case command entry owns clean and warning-only success controls.
+// @evidence contracts/testing.md#execution-ownership TestLintFixtureCorpus is the discoverable Go entry; dynamically named fixture subcases share one selected Go process and are not separately addressable Evidence declarations. The runner supplies the required manifest; real config/program/renderer operations run in-process without per-fixture native compilation or child hosts, while absent standalone manifest remains an explicit skip rather than a coverage claim.
 func TestLintFixtureCorpus(t *testing.T) {
   manifest := os.Getenv("TTSC_LINT_CORPUS_MANIFEST")
   if manifest == "" {

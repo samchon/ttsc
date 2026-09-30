@@ -17,6 +17,11 @@ import (
 // 1. Copy each complete fixture into its own writable temporary project.
 // 2. Run the production format command with the original config and program.
 // 3. Assert success, silent diagnostics, exact output and immutable inputs.
+//
+// @evidence contracts/testing.md#behavioral-verification RunFormat transforms every original format project in an isolated writable copy, returns success without format diagnostics and writes exact authored expected/main.ts bytes; every original fixture file must retain its input bytes.
+// @evidence contracts/testing.md#independent-expectations The original expected/main.ts files are authored formatting oracles, not outputs generated during this test. The retained input tree independently establishes the immutability expectation; input/oracle presence checks validate fixture roles rather than committed repository layout.
+// @evidence contracts/testing.md#distinguishing-cases Owns the complete original format-project population with its rule combinations, cascades, line endings and template contents; per-project copies prevent one writable result from contaminating another case, and an empty fixture population fails rather than silently certifying coverage.
+// @evidence contracts/testing.md#execution-ownership TestFormatFixtureCorpus is the discoverable Go entry; directory-named subcases are dynamic rather than separately addressable Evidence declarations. Real RunFormat config and program operations share the selected Go process without a native producer per fixture; the separate launcher E2E batch owns executable plugin dispatch.
 func TestFormatFixtureCorpus(t *testing.T) {
   fixtures := os.Getenv("TTSC_LINT_FORMAT_FIXTURES")
   if fixtures == "" {
