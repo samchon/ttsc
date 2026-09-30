@@ -55,8 +55,8 @@ const lookupOf = (result: ToolResult): LookupResult => {
  * @evidence contracts/testing.md#distinguishing-cases Default citation completeness contrasts name diversity and an explicit three-hit bound, separating omission policy from whether a match exists.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_lookup_returns_every_citing_declaration_of_one_file starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Real native comment facts must feed the citation index and the MCP response's truncation flag; fabricated carriers bypass extraction and wire assembly.
- * @evidence contracts/e2e.md#shared-execution Eighteen identity/display, documentation/citation, DTO/audit and dispatch entries borrow one composite project, initialized MCP session and resident native compiler. Only the object-source mutation requires a new generation. The checker-rejection entry also executes the public dump CLI once because diagnostics/raw edges are a separate entrypoint connection; all named assertions remain.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique source files, symbol names and citation targets isolate fixtures; disjoint dispatch contracts and hub populations prevent cross-case implementations. Role-sensitive sources retain their spec/test suffix and real dependency declarations stay external. Only object-outline.ts changes; suite finally closes the shared client and checks successful exit after complete collection.
+ * @evidence contracts/e2e.md#shared-execution Twenty identity/display, documentation/citation, DTO/audit and traversal entries borrow one composite project, initialized MCP session and resident native compiler. Only the object-source mutation requires a new generation. The checker-rejection entry also executes the public dump CLI once because diagnostics/raw edges are a separate entrypoint connection; all named assertions remain.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique files, names, contracts, chain topologies and citation targets isolate fixtures, including a roster query with no other fixture name matches. Spec/test suffixes and external declarations retain their roles. Only object-outline.ts changes; serial requests synchronize its delta, then suite finally closes the shared client and checks successful exit after complete collection.
  * @evidence contracts/e2e.md#preserved-coverage Exact five carriers, absent default truncation, bounded name count, explicit three-hit count and true truncation remain here.
  */
 export const test_ttscgraph_lookup_returns_every_citing_declaration_of_one_file =
@@ -83,7 +83,7 @@ export const test_ttscgraph_lookup_returns_every_citing_declaration_of_one_file 
       const all = await lookup("docs/roster.md#fulfillment");
       assert.deepStrictEqual(
         all.hits.map((hit) => hit.name).sort(),
-        ["rosterPart1", "rosterPart2", "rosterPart3", "rosterPart4", "rosterPart5"],
+        ["rosterCarrier1", "rosterCarrier2", "rosterCarrier3", "rosterCarrier4", "rosterCarrier5"],
         "every declaration citing the address must be returned, though they share a file",
       );
       assert.strictEqual(
@@ -93,8 +93,8 @@ export const test_ttscgraph_lookup_returns_every_citing_declaration_of_one_file 
       );
 
       // The negative twin: the per-file cap still governs a name query, which is
-      // what it exists for. `rosterPart` matches all five by subword.
-      const byName = await lookup("rosterPart");
+      // what it exists for. `rosterCarrier` matches all five by subword.
+      const byName = await lookup("rosterCarrier");
       assert.ok(
         byName.hits.length <= 3,
         `a name query must stay capped per file: ${JSON.stringify(byName.hits.map((h) => h.name))}`,

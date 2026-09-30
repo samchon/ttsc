@@ -1,6 +1,5 @@
-import { TestProject } from "@ttsc/testing";
-
-import { TtsgraphClient, assert } from "../internal/ttsgraph";
+import { withIdentityBoundary } from "../internal/identityBoundary";
+import { assert } from "../internal/ttsgraph";
 
 interface ToolResult {
   structuredContent?: {
@@ -51,132 +50,13 @@ const OVER_CEILING_HOPS = 13;
  * @evidence contracts/testing.md#distinguishing-cases Depth two versus three, twelve versus thirteen, one-hop and identity, focus changes, external inclusion and a visited cycle distinguish genuine frontier omission from absence.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_path_reports_its_depth_bound_instead_of_a_disconnection starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Native call/type/member edges and transported identities must feed the same path eligibility rules; a synthetic traversal alone does not certify producer edge completeness.
- * @evidence contracts/e2e.md#shared-execution All chains and policy requests share one fixture/session and suite compiler. This already batches path contrasts; compatible trace fixtures could join it, but overall preparation minimization is unfinished.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique chain and seam handles keep disconnected and bounded graphs distinct; requests do not mutate source, stdin closes in finally and successful process exit is checked.
+ * @evidence contracts/e2e.md#shared-execution Twenty identity/display, documentation/citation, DTO/audit and traversal entries borrow one composite project, initialized MCP session and resident native compiler. Only the object-source mutation requires a new generation. The checker-rejection entry also executes the public dump CLI once because diagnostics/raw edges are a separate entrypoint connection; all named assertions remain.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique files, names, contracts, chain topologies and citation targets isolate fixtures, including a roster query with no other fixture name matches. Spec/test suffixes and external declarations retain their roles. Only object-outline.ts changes; serial requests synchronize its delta, then suite finally closes the shared client and checks successful exit after complete collection.
  * @evidence contracts/e2e.md#preserved-coverage Every original next-action/reason, junction presence/absence, exact hop count, ceiling, identity, cycle, external, type and dispatch assertion remains; no bound is weakened.
  */
 export const test_ttscgraph_path_reports_its_depth_bound_instead_of_a_disconnection =
   async () => {
-    const chain = Array.from(
-      { length: OVER_CEILING_HOPS + 1 },
-      (_unused, index) =>
-        index === OVER_CEILING_HOPS
-          ? `export function n${index}(): void {}`
-          : `export function n${index}(): void { n${index + 1}(); }`,
-    ).join("\n");
-
-    const root = TestProject.createProject({
-      "tsconfig.json": JSON.stringify(
-        {
-          compilerOptions: {
-            target: "ES2022",
-            module: "commonjs",
-            moduleResolution: "node",
-            strict: true,
-            rootDir: "src",
-            outDir: "dist",
-          },
-          include: ["src"],
-        },
-        null,
-        2,
-      ),
-      "node_modules/path-dependency/package.json": JSON.stringify({
-        name: "path-dependency",
-        version: "1.0.0",
-        types: "index.d.ts",
-      }),
-      "node_modules/path-dependency/index.d.ts":
-        "export declare function externalWork(): void;\n",
-      "src/chain.ts": `${chain}\n`,
-      "src/app.ts": [
-        'import { externalWork } from "path-dependency";',
-        "",
-        "export class Store {",
-        "  public value = 0;",
-        "}",
-        "",
-        "export const store = new Store();",
-        "",
-        "export function seamStart(): void {",
-        "  if (store.value === 0) seamMiddleOne();",
-        "}",
-        "",
-        "function seamMiddleOne(): void {",
-        "  seamMiddleTwo();",
-        "}",
-        "",
-        "function seamMiddleTwo(): void {",
-        "  seamEnd();",
-        "}",
-        "",
-        "export function seamEnd(): number {",
-        "  return store.value;",
-        "}",
-        "",
-        "export function holderA(): number {",
-        "  return store.value;",
-        "}",
-        "",
-        "export function holderB(): number {",
-        "  return store.value + 1;",
-        "}",
-        "",
-        "export function apartLeft(): void {}",
-        "export function apartRight(): void {}",
-        "",
-        "export function edgeStart(): void {",
-        "  edgeMid();",
-        "}",
-        "",
-        "function edgeMid(): void {",
-        "  externalWork();",
-        "}",
-        "",
-        "export function ringA(): void {",
-        "  ringB();",
-        "}",
-        "",
-        "function ringB(): void {",
-        "  ringA();",
-        "}",
-        "",
-        "export interface TypeBase {",
-        "  value: number;",
-        "}",
-        "",
-        "export interface TypeMiddle extends TypeBase {",
-        "  extra: number;",
-        "}",
-        "",
-        "export interface TypeLeaf extends TypeMiddle {",
-        "  more: number;",
-        "}",
-        "",
-        "export interface Emitter {",
-        "  fire(): void;",
-        "}",
-        "",
-        "export class Silent implements Emitter {",
-        "  public fire(): void {}",
-        "}",
-        "",
-        "export function useEmitter(emitter: Emitter): void {",
-        "  emitter.fire();",
-        "}",
-        "",
-      ].join("\n"),
-    });
-
-    const client = TtsgraphClient.start(root);
-    try {
-      await client.request("initialize", {
-        protocolVersion: "2025-06-18",
-        capabilities: {},
-        clientInfo: { name: "test-graph", version: "0.0.0" },
-      });
-      client.notify("notifications/initialized", {});
-
+    await withIdentityBoundary(async (client) => {
       const call = async (
         request: Record<string, unknown>,
       ): Promise<NonNullable<ToolResult["structuredContent"]>> => {
@@ -404,14 +284,5 @@ export const test_ttscgraph_path_reports_its_depth_bound_instead_of_a_disconnect
         "dispatches",
         `the found path crosses the dispatch: ${JSON.stringify(foundDispatch.result!.hops)}`,
       );
-    } finally {
-      client.endStdin();
-    }
-
-    const code = await client.waitForExit();
-    assert.equal(
-      code,
-      0,
-      `the launcher exits cleanly\nstderr: ${client.stderrText()}`,
-    );
+    });
   };

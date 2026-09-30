@@ -1,6 +1,5 @@
-import { TestProject } from "@ttsc/testing";
-
-import { TtsgraphClient, assert } from "../internal/ttsgraph";
+import { withIdentityBoundary } from "../internal/identityBoundary";
+import { assert } from "../internal/ttsgraph";
 
 interface ToolResult {
   structuredContent?: {
@@ -53,95 +52,12 @@ const graphArguments = (request: Record<string, unknown>) => ({
  * @evidence contracts/testing.md#distinguishing-cases Forward/reverse/impact leaf versus continuing chain, execution versus all, external exclusion/inclusion, cycles, exact node/hop counts and ambiguous start/target exercise the owned boundaries.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_trace_reports_only_actual_omissions starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Native call/type/external identities and MCP next-action/truncation assembly must agree; a predicate-only proof cannot certify real producer eligibility.
- * @evidence contracts/e2e.md#shared-execution All limit and policy contrasts reuse one large project/session and suite binary. This already batches its inputs; compatible path cases remain candidates for cross-case consolidation still unfinished.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Distinct fixture namespaces isolate each cap topology in one generation, with no source mutation or cache deletion; stdin closes in finally and normal exit is checked.
+ * @evidence contracts/e2e.md#shared-execution Twenty identity/display, documentation/citation, DTO/audit and traversal entries borrow one composite project, initialized MCP session and resident native compiler. Only the object-source mutation requires a new generation. The checker-rejection entry also executes the public dump CLI once because diagnostics/raw edges are a separate entrypoint connection; all named assertions remain.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique files, names, contracts, chain topologies and citation targets isolate fixtures, including a roster query with no other fixture name matches. Spec/test suffixes and external declarations retain their roles. Only object-outline.ts changes; serial requests synchronize its delta, then suite finally closes the shared client and checks successful exit after complete collection.
  * @evidence contracts/e2e.md#preserved-coverage All original identity, ambiguity, disconnection, focus/external, cycle, node/hop and exact-versus-overflow assertions are preserved, including both truncation outcomes.
  */
 export const test_ttscgraph_trace_reports_only_actual_omissions = async () => {
-  const root = TestProject.createProject({
-    "tsconfig.json": JSON.stringify(
-      {
-        compilerOptions: {
-          target: "ES2022",
-          module: "commonjs",
-          moduleResolution: "node",
-          strict: true,
-          rootDir: "src",
-          outDir: "dist",
-        },
-        include: ["src"],
-      },
-      null,
-      2,
-    ),
-    "node_modules/trace-dependency/package.json": JSON.stringify({
-      name: "trace-dependency",
-      version: "1.0.0",
-      types: "index.d.ts",
-    }),
-    "node_modules/trace-dependency/index.d.ts":
-      "export declare function externalWork(): void;\n",
-    "src/app.ts": [
-      'import { externalWork } from "trace-dependency";',
-      "",
-      "export function shared(): void {}",
-      "export function identity(): void { shared(); }",
-      "export function disconnected(): void {}",
-      "",
-      "export function leaf(): void {}",
-      "export function leafStart(): void { leaf(); }",
-      "",
-      "export function chainTail(): void {}",
-      "export function chainMiddle(): void { chainTail(); }",
-      "export function chainStart(): void { chainMiddle(); }",
-      "",
-      "export function reverseRoot(): void { reverseMiddle(); }",
-      "export function reverseMiddle(): void { reverseLeaf(); }",
-      "export function reverseLeaf(): void {}",
-      "",
-      "export type TypeOnly = { value: number };",
-      "export function typeBoundary(_value: TypeOnly): void {}",
-      "export function typeStart(): void { typeBoundary({ value: 1 }); }",
-      "",
-      "export function externalBoundary(): void { externalWork(); }",
-      "export function externalStart(): void { externalBoundary(); }",
-      "",
-      "export function cycleA(): void { cycleB(); }",
-      "export function cycleB(): void { cycleA(); }",
-      "",
-      "export function crossStart(): void { crossLeft(); crossRight(); }",
-      "export function crossLeft(): void { crossRight(); }",
-      "export function crossRight(): void {}",
-      "",
-      "export function exactNode(): void {}",
-      "export function exactNodeStart(): void { exactNode(); }",
-      "export function overflowNodeA(): void {}",
-      "export function overflowNodeB(): void {}",
-      "export function overflowNodeStart(): void { overflowNodeA(); overflowNodeB(); }",
-      "",
-      "export function exactHopStart(): void { exactHopA(); exactHopB(); }",
-      "export function exactHopA(): void { exactHopB(); exactHopStart(); }",
-      "export function exactHopB(): void {}",
-      "",
-      "export function overflowHopStart(): void { overflowHopA(); overflowHopB(); }",
-      "export function overflowHopA(): void { overflowHopB(); overflowHopStart(); }",
-      "export function overflowHopB(): void { overflowHopA(); }",
-      "",
-      "export namespace First { export function duplicate(): void {} }",
-      "export namespace Second { export function duplicate(): void {} }",
-      "",
-    ].join("\n"),
-  });
-
-  const client = TtsgraphClient.start(root);
-  try {
-    await client.request("initialize", {
-      protocolVersion: "2025-06-18",
-      capabilities: {},
-      clientInfo: { name: "test-graph", version: "0.0.0" },
-    });
-    client.notify("notifications/initialized", {});
-
+  await withIdentityBoundary(async (client) => {
     const call = async (
       request: Record<string, unknown>,
     ): Promise<NonNullable<ToolResult["structuredContent"]>> => {
@@ -365,14 +281,5 @@ export const test_ttscgraph_trace_reports_only_actual_omissions = async () => {
     });
     assert.equal(omittedHop.result!.hops.length, 4);
     assert.equal(omittedHop.result!.truncated, true);
-  } finally {
-    client.endStdin();
-  }
-
-  const code = await client.waitForExit();
-  assert.equal(
-    code,
-    0,
-    `the launcher exits cleanly\nstderr: ${client.stderrText()}`,
-  );
+  });
 };
