@@ -107,7 +107,8 @@
         "src/core/transform/tracker/reportsMembershipChange.ts",
         "src/core/transform/tracker/TtscTrackedInputScope.ts",
         "!src/core/transform/session/claimSharedCompile.ts",
-        "!src/core/vite/createViteServeInputWatch.ts"
+        "!src/core/vite/createViteServeInputWatch.ts",
+        "!src/core/transform/generation/retainGenerationNotifications.ts"
       ],
       "symbol": [
         "type",
@@ -226,7 +227,8 @@
         "src/core/transform/tracker/linux/openLinuxDirectoryObserver.ts",
         "src/core/transform/tracker/linux/subscribeLinuxDirectoryWatch.ts",
         "src/core/transform/tracker/linux/syncLinuxWatchHelper.ts",
-        "src/core/transform/tracker/linux/referenceLinuxWatchHelper.ts"
+        "src/core/transform/tracker/linux/referenceLinuxWatchHelper.ts",
+        "src/core/transform/generation/retainGenerationNotifications.ts"
       ],
       "symbol": [
         "type",

@@ -55,6 +55,7 @@ import { mergeGenerationProofFailures } from "./mergeGenerationProofFailures";
 import { projectWalkFailureFingerprint } from "./projectWalkFailureFingerprint";
 import { projectWalkStable } from "./projectWalkStable";
 import { recordGenerationProofFailure } from "./recordGenerationProofFailure";
+import { generationNotificationsAvailable, retainGenerationNotifications } from "./retainGenerationNotifications";
 import { recordProjectSnapshotFailures } from "./recordProjectSnapshotFailures";
 import { selectPersistentHostInputs } from "./selectPersistentHostInputs";
 
@@ -489,10 +490,9 @@ export async function captureTransformGeneration(props: {
         snapshot: inputSnapshot,
         tracker,
       });
-    const notificationsAvailable =
-      tracker?.failed !== true &&
-      hostInputTracker?.failed !== true &&
-      candidateTracker?.failed !== true;
+    const notificationsAvailable = generationNotificationsAvailable(
+      tracker, hostInputTracker, candidateTracker,
+    );
     // The compile read this file from disk, so the disk's bytes are its state in
     // this generation. A delivered text that differs, because a plugin ordered
     // before ttsc rewrote the module or the file changed after the host read
@@ -719,27 +719,19 @@ export async function captureTransformGeneration(props: {
     // Attach notifications only while they can actually prove membership. A
     // generation that could not open its watchers keeps its recorded snapshot
     // and validates through it, rather than losing the cache entirely.
-    const notifying =
-      props.retainProjectMembership &&
-      props.retainNotifications &&
-      stableProjectSnapshot &&
-      notificationsAvailable;
-    if (notifying && tracker !== undefined) {
-      cached.projectMutationTracker = tracker;
-    }
-    if (notifying && hostInputTracker !== undefined) {
-      cached.hostInputMutationTracker = hostInputTracker;
-    }
-    if (notifying && candidateTracker !== undefined) {
-      cached.candidateMutationTracker = candidateTracker;
-    }
-    // Every tracker the generation published is retained, and every tracker it
-    // did not is closed below. Naming only two of the three would close a
-    // published candidate tracker the moment either of the others was absent,
-    // and that is the one tracker whose silence is read as evidence.
-    retainTracker = notifying && tracker !== undefined;
-    retainHostInputTracker = notifying && hostInputTracker !== undefined;
-    retainCandidateTracker = notifying && candidateTracker !== undefined;
+    const retainedNotifications = retainGenerationNotifications({
+      cached,
+      project: tracker,
+      host: hostInputTracker,
+      candidate: candidateTracker,
+      retainProjectMembership: props.retainProjectMembership,
+      retainNotifications: props.retainNotifications,
+      stableProjectSnapshot,
+      notificationsAvailable,
+    });
+    retainTracker = retainedNotifications.project;
+    retainHostInputTracker = retainedNotifications.host;
+    retainCandidateTracker = retainedNotifications.candidate;
     if (clockReferenceDirectory !== undefined) {
       retainClockReferenceDirectory = true;
     }
