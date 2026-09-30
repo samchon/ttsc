@@ -12,6 +12,11 @@ import "testing"
 // 1. Place `// no default` followed by `// revisit later` after the last clause.
 // 2. Run the engine with default-case enabled.
 // 3. Assert exactly one finding at the switch statement (line 2).
+//
+// @evidence contracts/testing.md#behavioral-verification Engine requires exactly one error at switch line two when an unrelated comment follows the marker.
+// @evidence contracts/testing.md#independent-expectations The supported last-trailing-comment policy independently gives revisit later ownership of the omission; an earlier matching comment cannot suppress it.
+// @evidence contracts/testing.md#distinguishing-cases Matching marker followed by unrelated text reports; AcceptsNoDefaultMarker owns the marker-last clean twin.
+// @evidence contracts/testing.md#execution-ownership TestDefaultCaseRequiresMarkerToBeLastComment is selected in the shared Go unit population. It calls assertDefaultCaseReportsAtLines and lintDefaultCase, forwarding the actual authored source and option JSON through InlineRuleResolver and Engine.Run. No installed consumer, native artifact build or real product host runs.
 func TestDefaultCaseRequiresMarkerToBeLastComment(t *testing.T) {
   assertDefaultCaseReportsAtLines(t, `declare const foo: number;
 switch (foo) {

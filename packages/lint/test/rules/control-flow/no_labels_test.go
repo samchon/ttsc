@@ -15,6 +15,12 @@ import "testing"
 // 1. Load the annotated TypeScript fixture source embedded below.
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine reports the original outer loop label and permits an unlabeled loop break.
+// @evidence contracts/testing.md#independent-expectations The default label prohibition independently concerns label syntax, not terminating a loop with an ordinary break.
+// @evidence contracts/testing.md#distinguishing-cases Labeled outer loop reports; the unlabeled loop containing break remains clean.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusNoLabels is selected in the shared Go unit population. It calls assertRuleCorpusCase with no-labels.ts through the owning Engine and assertRuleSkipsSource for the clean input. No installed consumer, native artifact build or real host runs.
 func TestRuleCorpusNoLabels(t *testing.T) {
   assertRuleCorpusCase(t, "no-labels.ts", "// expect: no-labels error\nouter: for (let i = 0; i < 3; i++) {\n  break outer;\n}\n")
+  assertRuleSkipsSource(t, "no-labels", "for (let i = 0; i < 3; i++) { if (i) break; }\n")
 }

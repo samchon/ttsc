@@ -125,6 +125,11 @@ consume({ forPositions, iterablePositions, conditionPositions, nestedForAwait, i
 //  1. Exercise every loop position plus function, method, and for-await boundaries.
 //  2. Assert the native engine reports the exact candidate-node ranges once.
 //  3. Run the real check command and require the same diagnostic count and lines.
+//
+// @evidence contracts/testing.md#behavioral-verification Direct Engine findings require all eleven exact ranges, rule/error severity and canonical messages; the check operation must render the same count and locations with exit two and no stdout.
+// @evidence contracts/testing.md#independent-expectations Authored target snippets identify repeated positions independently: conventional tests/updates/bodies and repeated implicit awaits; once-only initializers/iterables and deliberate for-await bodies are clean.
+// @evidence contracts/testing.md#distinguishing-cases Every loop kind, nested for-await, await-using and function/method/arrow boundary retains its positive or clean site, including long-comment syntax independent of source-window heuristics.
+// @evidence contracts/testing.md#execution-ownership TestNoAwaitInLoopMatchesExecutionPositionsAndImplicitAwaits is selected in the shared Go unit population. It parses the complete authored source for Engine.Run, then invokes run(check) in-process on the same fixture with an explicit lint manifest. No native CLI process or contributor build is involved. No installed consumer, native artifact build or real product host runs.
 func TestNoAwaitInLoopMatchesExecutionPositionsAndImplicitAwaits(t *testing.T) {
   nestedForAwaitTarget := `for /* a comment deliberately longer than the former source window */ await (const value of stream()) {
       await consumeAsync(value);
@@ -165,6 +170,7 @@ func TestNoAwaitInLoopMatchesExecutionPositionsAndImplicitAwaits(t *testing.T) {
   }
   const message = "Unexpected `await` inside a loop — iterations run sequentially; prefer `Promise.all` when independent."
   for index, finding := range findings {
+    if finding.Rule != "no-await-in-loop" || finding.Severity != SeverityError { t.Fatalf("unexpected rule/severity: %+v", finding) }
     want := expected[index]
     if finding.Pos != want.pos || finding.End != want.end || finding.Message != message {
       target := ""

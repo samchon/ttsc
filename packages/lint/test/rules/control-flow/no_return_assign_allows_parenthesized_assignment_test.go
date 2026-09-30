@@ -20,6 +20,11 @@ import (
 //  1. Assert bare `return a = 1` and `=> a = 1` each report exactly once.
 //  2. Assert their parenthesized twins report nothing under the default.
 //  3. Assert the `"always"` option flags both parenthesized forms.
+//
+// @evidence contracts/testing.md#behavioral-verification Six named Engine cases require exact counts and rule/error severity for return and arrow assignment syntax under default and always options.
+// @evidence contracts/testing.md#independent-expectations The literal except-parens versus always policy independently distinguishes intentional parentheses; fixed counts come from that public option contract.
+// @evidence contracts/testing.md#distinguishing-cases Bare return and arrow assignments report; parenthesized equivalents stay clean by default and report under always. The ordinary return corpus owns non-assignment control.
+// @evidence contracts/testing.md#execution-ownership TestNoReturnAssignAllowsParenthesizedAssignment is selected in the shared Go unit population. Its six named subtests call runRuleFindingsSnapshot with each authored source and positional option, retaining every failure identity. No installed consumer, native artifact build or real product host runs.
 func TestNoReturnAssignAllowsParenthesizedAssignment(t *testing.T) {
   cases := []struct {
     name    string
@@ -67,6 +72,7 @@ func TestNoReturnAssignAllowsParenthesizedAssignment(t *testing.T) {
         opts = json.RawMessage(test.options)
       }
       _, _, findings := runRuleFindingsSnapshot(t, "no-return-assign", test.source, opts)
+      for _, finding := range findings { if finding.Rule != "no-return-assign" || finding.Severity != SeverityError { t.Fatalf("unexpected rule/severity: %+v", finding) } }
       if len(findings) != test.want {
         t.Fatalf(
           "no-return-assign %q: want %d findings, got %d (%+v)",

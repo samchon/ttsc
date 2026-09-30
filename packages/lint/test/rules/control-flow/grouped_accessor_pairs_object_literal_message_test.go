@@ -20,6 +20,11 @@ import (
 //  2. Lint an object literal that splits `get total` and `set total`.
 //  3. Assert one `notGrouped` finding on the trailing setter, and none for the
 //     adjacent twin.
+//
+// @evidence contracts/testing.md#behavioral-verification Direct Engine findings require exactly one grouped-accessor-pairs error with the canonical message and trailing-setter line nine, plus zero findings for adjacency.
+// @evidence contracts/testing.md#independent-expectations Authored object getter/bump/setter order independently splits the pair; the literal message and line identify the second accessor, not a computed snapshot.
+// @evidence contracts/testing.md#distinguishing-cases Intervening bump reports; deleting that intervening member makes the matching accessors adjacent and clean. The corpus owns corresponding class forms.
+// @evidence contracts/testing.md#execution-ownership TestGroupedAccessorPairsObjectLiteralMessage is selected in the shared Go unit population. It parses both actual object sources and calls NewEngineWithResolver.Run with the rule enabled. No installed consumer, native artifact build or real product host runs.
 func TestGroupedAccessorPairsObjectLiteralMessage(t *testing.T) {
   const ruleName = "grouped-accessor-pairs"
   resolver := InlineRuleResolver{Rules: RuleConfig{ruleName: SeverityError}}
@@ -42,7 +47,7 @@ func TestGroupedAccessorPairsObjectLiteralMessage(t *testing.T) {
   if len(findings) != 1 {
     t.Fatalf("split object literal: want 1 finding, got %d (%+v)", len(findings), findings)
   }
-  if findings[0].Rule != ruleName {
+  if findings[0].Rule != ruleName || findings[0].Severity != SeverityError {
     t.Fatalf("split object literal: rule mismatch: want %q, got %q", ruleName, findings[0].Rule)
   }
   if findings[0].Message != "Accessor pair should be grouped." {

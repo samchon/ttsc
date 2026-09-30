@@ -17,6 +17,11 @@ import "testing"
 // 1. Wrap each body in a single `for (const k in o)` loop.
 // 2. Run the native Engine with guard-for-in at error.
 // 3. Assert the exact finding count matches the upstream verdict.
+//
+// @evidence contracts/testing.md#behavioral-verification Fifteen named Engine cases require fixed counts and exact rule/error severity across guarded and unguarded body shapes.
+// @evidence contracts/testing.md#independent-expectations The hand-authored body/count table follows structural guard policy, not semantic predicate analysis; arbitrary conditions intentionally count as structural guards.
+// @evidence contracts/testing.md#distinguishing-cases Empty/sole-if/leading bare or single-block continue shapes stay clean; bare work, trailing work, multistatement continue and work-before-guard report. Every original named row remains owned.
+// @evidence contracts/testing.md#execution-ownership TestGuardForInStructuralMatrix is selected in the shared Go unit population. Its fifteen named subtests call runRuleFindingsSnapshot with guard-for-in and preserve the body input and failure identity. No installed consumer, native artifact build or real product host runs.
 func TestGuardForInStructuralMatrix(t *testing.T) {
   cases := []struct {
     name string
@@ -50,6 +55,7 @@ func TestGuardForInStructuralMatrix(t *testing.T) {
         "  for (const k in o) " + tc.body + "\n" +
         "}\n"
       _, _, findings := runRuleFindingsSnapshot(t, "guard-for-in", source, nil)
+      for _, finding := range findings { if finding.Rule != "guard-for-in" || finding.Severity != SeverityError { t.Fatalf("unexpected rule/severity: %+v", finding) } }
       if len(findings) != tc.want {
         t.Fatalf(
           "guard-for-in on body %q: want %d finding(s), got %d (%+v)",

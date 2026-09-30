@@ -11,6 +11,11 @@ import "testing"
 // 1. Place `// no default here` as the trailing comment.
 // 2. Run the engine with default-case enabled.
 // 3. Assert exactly one finding at the switch statement (line 2).
+//
+// @evidence contracts/testing.md#behavioral-verification Engine requires exactly one error at switch line two for no default here.
+// @evidence contracts/testing.md#independent-expectations The default marker pattern is anchored, independently rejecting extra text rather than accepting a substring.
+// @evidence contracts/testing.md#distinguishing-cases Extra-word marker reports; AcceptsNoDefaultMarker owns the exact-text clean twin.
+// @evidence contracts/testing.md#execution-ownership TestDefaultCaseRejectsMarkerWithTrailingText is selected in the shared Go unit population. It calls assertDefaultCaseReportsAtLines and lintDefaultCase, forwarding the actual authored source and option JSON through InlineRuleResolver and Engine.Run. No installed consumer, native artifact build or real product host runs.
 func TestDefaultCaseRejectsMarkerWithTrailingText(t *testing.T) {
   assertDefaultCaseReportsAtLines(t, `declare const foo: number;
 switch (foo) {

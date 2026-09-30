@@ -8,6 +8,11 @@ import "testing"
 // 1. Load the annotated TypeScript fixture source embedded below.
 // 2. Enable the rule severities declared by its `// expect:` comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine reports the original regular-function arguments read and preserves explicit rest parameters and the arrow boundary.
+// @evidence contracts/testing.md#independent-expectations The rule concerns a non-arrow function owning arguments; authored rest syntax expresses the variadic contract and an arrow has no own arguments.
+// @evidence contracts/testing.md#distinguishing-cases Legacy slice.call(arguments) reports; ...args and the original arrow arguments read stay clean under the supported lexical policy.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusPreferRestParams is selected in the shared Go unit population. It calls assertRuleCorpusCase with prefer-rest-params.ts through the owning Engine. No installed consumer, native artifact build or real host runs.
 func TestRuleCorpusPreferRestParams(t *testing.T) {
   assertRuleCorpusCase(t, "prefer-rest-params.ts", "// Positive: a non-arrow function that reads from `arguments` should\n// declare its variadic contract as `(...args)` instead.\nfunction sumLegacy() {\n  // expect: prefer-rest-params error\n  return Array.prototype.slice.call(arguments).reduce(\n    (a: number, b: number) => a + b,\n    0,\n  );\n}\n\n// Negative: rest parameters express the variadic shape on the signature.\nfunction sumModern(...args: number[]) {\n  return args.reduce((a, b) => a + b, 0);\n}\n\n// Negative: arrow functions do not have their own `arguments`, so reads\n// here resolve to the enclosing function and the rule does not apply.\nconst passthrough = () => arguments;\n\nJSON.stringify({\n  legacy: sumLegacy.call(null, 1, 2),\n  modern: sumModern(1, 2),\n  passthrough: passthrough,\n});\n")
 }

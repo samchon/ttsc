@@ -13,6 +13,11 @@ import "testing"
 // 1. Write `if (a) return 1; else if (b) return 2; else return 3;`.
 // 2. Run the engine with no-else-return enabled (default options).
 // 3. Assert exactly one finding spanning the final `else`'s `return 3;`.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine requires the sole terminal return-3 statement range, preventing duplicate reports on earlier else-if links.
+// @evidence contracts/testing.md#independent-expectations The authored three-branch chain ends in a plain else; independently selecting only its final consequent follows the supported chain policy.
+// @evidence contracts/testing.md#distinguishing-cases A terminal plain else reports once; the default chain without a terminal else stays clean in AllowsElseIfReturnChain.
+// @evidence contracts/testing.md#execution-ownership TestNoElseReturnReportsOnceOnTerminalElseOfChain is selected in the shared Go unit population. It calls assertRuleFindingRanges for no-else-return and the literal return-3 target in the complete source. No installed consumer, native artifact build or real product host runs.
 func TestNoElseReturnReportsOnceOnTerminalElseOfChain(t *testing.T) {
   assertRuleFindingRanges(t, "no-else-return", `declare const a: boolean;
 declare const b: boolean;

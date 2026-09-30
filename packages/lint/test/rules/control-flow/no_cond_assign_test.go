@@ -15,6 +15,12 @@ import "testing"
 // 1. Load the annotated TypeScript fixture source embedded below.
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine reports the original assignment condition and permits an equality condition.
+// @evidence contracts/testing.md#independent-expectations Assignment changes state rather than testing equality; the independently authored === expression removes the forbidden assignment.
+// @evidence contracts/testing.md#distinguishing-cases Original a = b in if reports; a === b stays clean.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusNoCondAssign is selected in the shared Go unit population. It calls assertRuleCorpusCase with no-cond-assign.ts through the owning Engine and assertRuleSkipsSource for the clean input. No installed consumer, native artifact build or real host runs.
 func TestRuleCorpusNoCondAssign(t *testing.T) {
   assertRuleCorpusCase(t, "no-cond-assign.ts", "let a = 0;\nlet b = 1;\n// expect: no-cond-assign error\nif (a = b) {\n  console.log(a);\n}\n")
+  assertRuleSkipsSource(t, "no-cond-assign", "if (a === b) { work(); }\n")
 }
