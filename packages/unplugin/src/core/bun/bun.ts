@@ -71,6 +71,8 @@ function resolveBunOptions(
  *   The first included load resolves options once. One cache shares a validated
  *   project generation across deliveries; bundler start/end boundaries reset
  *   delivery proof, while a runtime retains its immutable module-load session.
+ *   An incomplete observation withdraws the adapter's entire generation cache;
+ *   only the newly compiled delivery is returned within this nonwatching session.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   Setup owns the F-key matcher and project cache. Bundler end resets cached
  *   generations; runtime retention ends with the process because Bun exposes no
@@ -117,14 +119,20 @@ export function bun(options?: TtscBunOptions): BunLikePlugin {
           const loader = bunLoaderFor(args.path);
           const transformOptions = getOptions();
           const source = await fs.readFile(args.path, "utf8");
-          // Bun has no dependency subscription API. Omitting watch hooks also
-          // avoids deriving a filesystem watch graph that this host cannot use.
+          // Bun has no dependency subscription API or reusable build result
+          // cache. Builds are one-shot; runtime registration owns one immutable
+          // module-load session. Withdraw our owned generation cache when a
+          // fresh delivery cannot qualify reuse, without inventing watch inputs.
           const result = await transformTtsc(
             args.path,
             source,
             transformOptions,
             undefined,
             cache,
+            {
+              watching: false,
+              markVolatile: () => resetTtscTransformCache(cache),
+            },
           );
           if (result !== undefined) {
             return { contents: inlineSourceMap(result), loader };

@@ -66,6 +66,8 @@ The **declared inputs**, `envelope/selectDeclaredProjectInputKeys.ts`: the graph
 
 ## Validation paths
 
+An absent host input whose directory case policy cannot be observed uses an exact native path probe. Capture accepts only `ENOENT` or `ENOTDIR` after checking the producer's recorded hash and physical path; every later validation probes that same spelling again. A file or directory appearing there invalidates the generation, and permission or other observation errors reject the proof. This does not infer a case policy from the operating system or an empty directory listing.
+
 A producer can explicitly report that a supported observation API was unavailable through `observationsComplete: false` or a path-specific `hostInputProofFailures` reason. A local compile can deliver that fresh result only when the project and configuration held still and every admission failure is explicitly classified as observation unavailable. Validation still checks every known content hash and physical path, including those after an unavailable observation. A changed input, conflicting proof or unclassified missing proof retains the ordinary stabilization failure.
 
 Delivery also requires an explicitly known one-shot lifecycle (`watching === false`) consistent with the project's lifecycle and a host callback that actually withdraws the module from its cache. A callback whose metadata the host never consumes supplies no such authority. Watching builds, unknown lifecycle states and hosts without effective cache withdrawal reject incomplete results; their ordinary complete generations continue through the existing path.

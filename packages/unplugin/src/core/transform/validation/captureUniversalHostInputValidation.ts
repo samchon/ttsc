@@ -29,13 +29,13 @@ import { matchesRecordedInput } from "./matchesRecordedInput";
  * probes and plugin-tree witnesses to this generation for later reuse decisions.
  *
  * @evidence contracts/common.md#principled-implementation Evaluation-time content and physical-target witnesses must agree with the generation snapshot before reuse; explicit producer observation unavailability remains distinct from changed, contradictory or unexplained missing proof, and every input is checked before classifying the attempt.
- * @evidence contracts/common.md#clear-and-simple-design One admission operation builds the manifest; per-entry, absence and tree validators own its subsequent checks.
+ * @evidence contracts/common.md#clear-and-simple-design One admission operation builds the manifest; per-entry, grouped or exact-native absence and tree validators own its subsequent checks.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A missing publication witness declines narrow reuse instead of certifying an input from a convenient newer read.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains failed admission and successful generation attachment; inline comments justify readable-state, blocker and tree distinctions.
  * @evidence contracts/performance.md#efficient-algorithms Capture scans universal inputs and plugin trees with map/set insertion; first validation costs their read bytes and tree enumeration rather than repeating per-module capture.
  * @evidence contracts/performance.md#reuse-equivalent-work This shared generation manifest records exactly qualified lexical spellings, separable signatures and tree environments for later validators; changed proof requires new admission.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The generation retains one manifest proportional to universal inputs and missing-probe groups; releasing it releases those records, with no native handles acquired here.
- * @evidence contracts/portability.md#os-neutral-implementation Injected filesystem operations and measured generation case policy qualify native metadata and missing-name spelling; an unknown directory case policy cannot admit a listing-only absence proof, while physical targets and aliases remain distinct from content identity.
+ * @evidence contracts/portability.md#os-neutral-implementation Injected filesystem operations and measured generation case policy qualify native metadata and missing-name spelling; an unknown directory case policy requires exact native ENOENT or ENOTDIR rather than a listing-only absence proof, while physical targets and aliases remain distinct from content identity.
  */
 export function captureUniversalHostInputValidation(
   cached: TtscCachedProjectTransform,
@@ -54,6 +54,7 @@ export function captureUniversalHostInputValidation(
     entries: new Map(),
     covered: new Set(),
     missing: new Map(),
+    directMissing: new Set(),
     trees: new Map(),
   };
   const result = cached.result;
@@ -234,11 +235,23 @@ export function captureUniversalHostInputValidation(
     }
     const caseSensitive = state.identityContext.caseSensitive(probe.directory);
     if (caseSensitive === undefined) {
-      recordGenerationProofFailure(failures, {
-        domain: "host",
-        kind: "case-policy-unavailable",
-        path: probe.directory,
-      });
+      // Unknown case policy withdraws the listing shortcut, not the native
+      // filesystem's ability to answer whether this exact path exists.
+      let absent = false;
+      try {
+        filesystem.stat(input);
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        absent = code === "ENOENT" || code === "ENOTDIR";
+      }
+      if (absent) validation.directMissing!.add(absoluteInput);
+      else {
+        recordGenerationProofFailure(failures, {
+          domain: "host",
+          kind: "case-policy-unavailable",
+          path: probe.directory,
+        });
+      }
       continue;
     }
     // The probe below proves this exact spelling absent, so the per-module loop

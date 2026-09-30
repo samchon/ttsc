@@ -5,11 +5,12 @@
  * manifests read by discovery, can affect every module, so they are proven once
  * for the generation, not once per delivery. Existing inputs keep the metadata
  * signature that can stand in for their content. Absent ones are grouped by the
- * directory whose listing proves them still absent. `covered` records which
+ * directory whose listing proves them still absent, or checked by their exact
+ * native paths when directory case policy is unknown. `covered` records which
  * lexical spellings the manifest answers for, so the per-module loop can skip
  * exactly those and no others.
  *
- * @evidence contracts/common.md#principled-implementation Existing entries, absent-name groups and source-tree states retain distinct authority; lexical covered spellings cannot be replaced by physical identity.
+ * @evidence contracts/common.md#principled-implementation Existing entries, case-qualified absent-name groups, exact native absence probes and source-tree states retain distinct authority; lexical covered spellings cannot be replaced by physical identity.
  * @evidence contracts/common.md#clear-and-simple-design Separate populations expose each validator's responsibility while one generation owns their shared lifetime.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Readable content, blockers and external build environments remain explicit rather than one blanket watcher-success flag.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs and separated member comments explain optional signatures, exact coverage, absence groups and tree environments.
@@ -65,6 +66,13 @@ export interface TtscHostInputValidation {
    * absent.
    */
   readonly missing: Map<string, Set<string>>;
+
+  /**
+   * Exact absent paths checked through native stat when a directory's case
+   * policy cannot qualify a listing shortcut. Only ENOENT or ENOTDIR proves
+   * continued absence; permission and other observation failures reject reuse.
+   */
+  readonly directMissing?: Set<string>;
 
   /**
    * The plugin source directories of the generation, each with the state its

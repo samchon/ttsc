@@ -8,7 +8,8 @@ import type { TtscHostInputValidation } from "./TtscHostInputValidation";
 
 /**
  * Prove the universal inputs that were absent are still absent, through one
- * exact listing of the nearest directory that can settle it.
+ * exact listing of the nearest directory that can settle it, or native stat
+ * of the exact absent path when directory case policy is unknown.
  *
  * Unlike the entries half, this one rejects on an inability to prove: a
  * directory that exists but cannot be listed certifies nothing about the
@@ -17,20 +18,28 @@ import type { TtscHostInputValidation } from "./TtscHostInputValidation";
  * the recorded `missing` markers are re-compared directly and losing a proof
  * must not cost the cache.
  *
- * @evidence contracts/common.md#principled-implementation Exact nearest-directory listings prove missing names only when listing succeeds or an absent/non-directory ancestor proves traversal impossible; permission failure supplies no absence proof.
+ * @evidence contracts/common.md#principled-implementation Exact nearest-directory listings prove missing names under measured case policy; unknown policy instead requires an exact native ENOENT or ENOTDIR observation. Permission failure supplies no absence proof in either path.
  * @evidence contracts/common.md#clear-and-simple-design Missing-name validation has its own boolean boundary, leaving the complete snapshot caller to use stronger recorded-state fallback.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unreadable directories are never treated as empty listings; only ENOENT and ENOTDIR establish inaccessible path absence.
  * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain inability-to-prove rejection and the narrower caller contract before tags.
- * @evidence contracts/performance.md#efficient-algorithms Missing paths are grouped by nearest directory, so one listing and name-set membership checks serve all candidates in that group; cost grows with listed entries.
+ * @evidence contracts/performance.md#efficient-algorithms Case-qualified missing paths share one nearest-directory listing and name-set checks; unqualified paths require one native stat each without a directory scan.
  * @evidence contracts/performance.md#reuse-equivalent-work The generation manifest shares grouped absence observations across module consumers rather than independently probing every ancestor chain.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This pass borrows the manifest and holds only one temporary directory listing at a time; the generation owns retained groups.
- * @evidence contracts/portability.md#os-neutral-implementation Directory operations use the injected native filesystem and measured per-directory case policy; unavailable case observations decline listing-only proof rather than inventing a platform-wide casing rule.
+ * @evidence contracts/portability.md#os-neutral-implementation Directory operations use the injected native filesystem and measured per-directory case policy; unavailable case observations require exact native probes rather than inventing a platform-wide casing rule.
  */
 export function matchesUniversalHostInputProbes(
   cached: TtscCachedProjectTransform,
   validation: TtscHostInputValidation,
 ): boolean {
   const filesystem = resultFilesystem(cached.result);
+  for (const input of validation.directMissing ?? []) {
+    try {
+      filesystem.stat(input);
+      return false;
+    } catch (error) {
+      if (!isMissingPathError(error)) return false;
+    }
+  }
   for (const [directory, names] of validation.missing) {
     let entries: fs.Dirent[];
     try {
