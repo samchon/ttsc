@@ -31,10 +31,7 @@ import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/
  * @evidence contracts/testing.md#distinguishing-cases
  *   Contrasts configured polling with explicit environment override, and checks the poll-only edit actually reaches the importer rather than merely recording a scheduler.
  * @evidence contracts/testing.md#execution-ownership
- *   This exported source-function unit injects watch/poll observation and module
- *   graph callbacks; it starts no Vite host or native observer. TestProject owns
- *   fixture cleanup and watcher disposal remains in finally. Packed Vite hosts
- *   separately own actual registration, transport and live invalidation.
+ *   test_vite_compiler_watch_polls_when_polling_is_declared creates both watchers through its open helper, drives captured polling and inspects captured scopes after the environment override; it owns disposal and environment restoration, with no real observer.
  */
 export async function test_vite_compiler_watch_polls_when_polling_is_declared(): Promise<void> {
   const workspace = fs.realpathSync.native(

@@ -19,6 +19,11 @@ import { pathTraversesSymbolicLink } from "../../../../packages/unplugin/src/cor
  *    when it is not.
  * 2. Assert an input below a link inside the root traverses one, and an input
  *    outside the root is examined all the way up.
+ *
+ * @evidence contracts/testing.md#behavioral-verification pathTraversesSymbolicLink excludes ancestors at/above a watched root but still detects interior links and examines outside inputs to the volume root.
+ * @evidence contracts/testing.md#independent-expectations An authored lstat double names exactly two links; literal boolean expectations follow root containment, independently of traversal or memo computation.
+ * @evidence contracts/testing.md#distinguishing-cases The same input differs with versus without root, an interior link still rejects coverage, and an outside input does not inherit the project cutoff.
+ * @evidence contracts/testing.md#execution-ownership Calls pathTraversesSymbolicLink with a fresh memo and injected filesystem per assertion; these synthetic link semantics need no actual OS link or watcher.
  */
 export async function test_tracker_coverage_stops_at_the_watched_root(): Promise<void> {
   const root = path.resolve("/var/tmp/project");

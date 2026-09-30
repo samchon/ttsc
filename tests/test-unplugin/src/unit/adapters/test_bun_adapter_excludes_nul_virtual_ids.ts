@@ -31,9 +31,7 @@ import { captureBunLoader } from "../../internal/adapter-bun/captureBunLoader";
  *   invalid extensions, CSS and a NUL virtual ID. Empty plugin options make
  *   runtime source passthrough distinct from actual packed transform coverage.
  * @evidence contracts/testing.md#execution-ownership
- *   This exported unit invokes authored setup and loader functions without Bun,
- *   native compilation or an installed package. TestProject owns temporary file
- *   cleanup; the packed Bun batch owns real host scheduling and preload loading.
+ *   test_bun_adapter_excludes_nul_virtual_ids calls captureBunLoader on unpluginBun({ plugins: [] }), tests the captured filter and invokes each extension row on fixture bytes; no Bun host or native producer runs.
  */
 export async function test_bun_adapter_excludes_nul_virtual_ids(): Promise<void> {
   const { loader, options } = await captureBunLoader(

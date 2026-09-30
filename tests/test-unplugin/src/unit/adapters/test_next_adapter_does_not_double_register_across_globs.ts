@@ -79,7 +79,7 @@ const REFUSED_GLOBS = [
  * @evidence contracts/testing.md#distinguishing-cases
  *   Covers every measured family with package, regular-file and option-bearing loader identities, adjacent refused or conditional rules, partial coverage and unrelated loaders; preservation and missing automatic rules distinguish over- and under-registration.
  * @evidence contracts/testing.md#execution-ownership
- *   This selectable exported unit calls authored next through loadNext or loadNextModule and fixture filesystem observations, without an installed consumer, native build or real bundler. The packed package batch owns export loading and actual host delivery; the session-inheritance E2E owns worker environment transport.
+ *   test_next_adapter_does_not_double_register_across_globs loads authored next through loadNextModule and loadNext, owns every glob/loader combination and its named assertion, and uses fixture ownership observations without a Next build or worker process.
  */
 export async function test_next_adapter_does_not_double_register_across_globs(): Promise<void> {
   const nextModule = await loadNextModule();

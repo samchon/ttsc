@@ -38,7 +38,7 @@ import type { TtscWatchInput } from "../../../../../packages/unplugin/src/core/t
  * @evidence contracts/testing.md#distinguishing-cases
  *   Covers quiet initial registration, the explicitly cleared-reference boundary and an edited source causing both owner reload and reference creation. Digest rollback trust has complementary ownership in the source proof tests.
  * @evidence contracts/testing.md#execution-ownership
- *   This exported unit invokes authored owning functions with fixture filesystem state and injected notification operations. It installs no package, builds no native source and opens no actual product host. Packed lifecycle and cached-session restart boundaries own the real host registrations.
+ *   test_input_observer_mints_a_clock_reference_before_it_proves_a_plugin_source calls createInputObserver.open/replace, clears filesystemClockReferences, injects a changed Go-file notification and disposes in finally; real pluginSourceState/holds may probe go env/go version and GOROOT identity, but no plugin binary is built.
  */
 export async function test_input_observer_mints_a_clock_reference_before_it_proves_a_plugin_source(): Promise<void> {
   const root = fs.realpathSync.native(

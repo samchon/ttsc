@@ -41,7 +41,7 @@ import { writeProjectRecordFile } from "../../../../../packages/unplugin/src/cor
  * @evidence contracts/testing.md#distinguishing-cases
  *   Covers stale initial evidence, identical generation registration, a new stale generation, a current answer, current/next/following pass debt and a closed bridge with another outstanding record.
  * @evidence contracts/testing.md#execution-ownership
- *   This exported unit invokes authored owning functions with fixture filesystem state and injected notification operations. It installs no package, builds no native source and opens no actual product host. Packed lifecycle and cached-session restart boundaries own the real host registrations.
+ *   test_watch_bridge_moves_the_record_until_the_project_runs_again calls openHostWatchBridge.register/begin/owes/close with quiet observation doubles and actual temporary records; this entry owns scheduled signal assertions and final closure without a build host.
  */
 export async function test_watch_bridge_moves_the_record_until_the_project_runs_again(): Promise<void> {
   const root = fs.realpathSync.native(

@@ -15,6 +15,11 @@ import { warnMissingFseventsBinding } from "../../../../packages/unplugin/src/co
  * 1. Listen for Node process warnings, and warn twice.
  * 2. Assert exactly one warning, with its code, naming the binding and how to
  *    restore it.
+ *
+ * @evidence contracts/testing.md#behavioral-verification warnMissingFseventsBinding emits exactly one process warning naming fsevents and optional-dependency remediation after two calls.
+ * @evidence contracts/testing.md#independent-expectations The literal TTSC_FSEVENTS_MISSING code and one-message requirement identify the documented capability warning; message concepts independently require its cause and remedy.
+ * @evidence contracts/testing.md#distinguishing-cases First and repeated call distinguish warning creation from suppression, and next-tick dispatch is observed before removing the listener.
+ * @evidence contracts/testing.md#execution-ownership This entry calls the warning function directly, owns its temporary warning listener and later-tick completion, and performs no actual macOS binding lookup or watcher startup.
  */
 export async function test_watch_broker_warns_once_without_the_fsevents_binding(): Promise<void> {
   const warnings: string[] = [];

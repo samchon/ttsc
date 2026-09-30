@@ -31,10 +31,7 @@ import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/
  * @evidence contracts/testing.md#distinguishing-cases
  *   Contrasts dangerous ancestor scopes with legitimate siblings and absent/present probes; both scope recording and resulting importer invalidation are asserted.
  * @evidence contracts/testing.md#execution-ownership
- *   This exported source-function unit injects watch/poll observation and module
- *   graph callbacks; it starts no Vite host or native observer. TestProject owns
- *   fixture cleanup and watcher disposal remains in finally. Packed Vite hosts
- *   separately own actual registration, transport and live invalidation.
+ *   test_vite_compiler_watch_observes_no_machine_directory calls createViteServeInputWatch.attach/replace, captures every scope and ticks its ancestor-probe poll; this entry owns sibling/ancestor outcomes and finally disposal, without native observation.
  */
 export async function test_vite_compiler_watch_observes_no_machine_directory(): Promise<void> {
   const workspace = fs.realpathSync.native(

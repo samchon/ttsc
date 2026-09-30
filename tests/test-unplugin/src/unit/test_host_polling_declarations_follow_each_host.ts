@@ -16,6 +16,11 @@ import { hostDeclaresPolling } from "../../../../packages/unplugin/src/core/tran
  *
  * 1. Evaluate each declaration against the host option it overrides.
  * 2. Assert the verdict is the one the host itself reaches.
+ *
+ * @evidence contracts/testing.md#behavioral-verification hostDeclaresPolling interprets Chokidar environment overrides and Watchpack intervals, allowing either host to require polling.
+ * @evidence contracts/testing.md#independent-expectations The literal boolean table follows the supported Chokidar/Watchpack option conventions, including environment false overriding configured true.
+ * @evidence contracts/testing.md#distinguishing-cases Absent, true/TRUE/1/yes, empty/false/0 and positive numeric interval forms plus conflicting hosts distinguish polling from native observation.
+ * @evidence contracts/testing.md#execution-ownership Calls hostDeclaresPolling on explicitly supplied environment objects; every row retains its serialized env/usePolling failure identity and starts no observer.
  */
 export async function test_host_polling_declarations_follow_each_host(): Promise<void> {
   const rows: [NodeJS.ProcessEnv, boolean | undefined, boolean][] = [

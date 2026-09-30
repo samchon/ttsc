@@ -25,7 +25,7 @@ import { loadNext } from "../internal/adapter-next/loadNext";
  * @evidence contracts/testing.md#distinguishing-cases
  *   The warning case has a hook and no Turbopack block; three controls cover no hook, explicit Turbopack with a hook and explicit Turbopack without a hook. Empty stderr distinguishes undesired warnings.
  * @evidence contracts/testing.md#execution-ownership
- *   This selectable exported unit calls authored next through loadNext or loadNextModule and fixture filesystem observations, without an installed consumer, native build or real bundler. The packed package batch owns export loading and actual host delivery; the session-inheritance E2E owns worker environment transport.
+ *   test_next_adapter_warns_about_a_suppressed_webpack_hook calls next from loadNext under its capture helper for all four configs and restores stderr in finally; it tests the wrapper warning without starting Next.
  */
 export async function test_next_adapter_warns_about_a_suppressed_webpack_hook(): Promise<void> {
   const next = await loadNext();

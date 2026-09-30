@@ -30,10 +30,7 @@ import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
  * @evidence contracts/testing.md#distinguishing-cases
  *   Compares HMR enabled and disabled with the same changed dependency; captures reloads, invalidations and messages independently so a wrong fallback cannot pass.
  * @evidence contracts/testing.md#execution-ownership
- *   This exported source-function unit injects watch/poll observation and module
- *   graph callbacks; it starts no Vite host or native observer. TestProject owns
- *   fixture cleanup and watcher disposal remains in finally. Packed Vite hosts
- *   separately own actual registration, transport and live invalidation.
+ *   test_vite_compiler_watch_reloads_importers_through_vite_hmr owns run(true) and run(false), which call createViteServeInputWatch.attach/replace and inject dependency events into client/SSR doubles; both watchers dispose in finally without a Vite process.
  */
 export async function test_vite_compiler_watch_reloads_importers_through_vite_hmr(): Promise<void> {
   const root = fs.realpathSync.native(TestProject.tmpdir("ttsc-vite-hmr-"));

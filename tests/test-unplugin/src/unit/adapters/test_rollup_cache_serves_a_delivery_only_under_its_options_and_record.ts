@@ -34,7 +34,7 @@ import { createRollupCachedModuleProof } from "../../../../../packages/unplugin/
  * @evidence contracts/testing.md#distinguishing-cases
  *   Covers matching and changed options, delivery without a project, null or missing delivery, malformed and missing record, unowned module, changed bytes across begin and adoption of a fresh delivered proof.
  * @evidence contracts/testing.md#execution-ownership
- *   This exported unit invokes authored owning functions with fixture filesystem state and injected notification operations. It installs no package, builds no native source and opens no actual product host. Packed lifecycle and cached-session restart boundaries own the real host registrations.
+ *   test_rollup_cache_serves_a_delivery_only_under_its_options_and_record calls createRollupCachedModuleProof.deliver/moved/begin over a temporary record and captured options; all metadata states belong to this entry, with no Rollup process.
  */
 export async function test_rollup_cache_serves_a_delivery_only_under_its_options_and_record(): Promise<void> {
   const root = TestProject.tmpdir("ttsc-unplugin-rollup-cache-proof-");

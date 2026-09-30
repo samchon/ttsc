@@ -22,6 +22,11 @@ import { brokeredTrackerSink } from "../../../../packages/unplugin/src/core/tran
  *    mutation, a change, and nothing, and assert the classifier alone decides.
  * 3. Tell a sink with the project-directory tracker's filters a table of renames
  *    and changes, and assert each records the witness its filters admit.
+ *
+ * @evidence contracts/testing.md#behavioral-verification brokeredTrackerSink records plain events, classifier verdicts, membership changes and failure/gap flags without treating status as content.
+ * @evidence contracts/testing.md#independent-expectations Authored path arrays and booleans distinguish mutation, content-only change and ignored event; the empty tracker fixture contains no implementation output.
+ * @evidence contracts/testing.md#distinguishing-cases Unnamed and placeless events, gap recovery, failure, a declaration change, candidate rename and ignored bundle.js cover the plain/classified/filter decisions.
+ * @evidence contracts/testing.md#execution-ownership Calls brokeredTrackerSink directly on in-memory trackers; this entry owns every event row and its eventType/filename failure label, with no watch process.
  */
 export async function test_brokered_tracker_sink_records_what_its_filters_admit(): Promise<void> {
   const directory = path.resolve("/walked/project");

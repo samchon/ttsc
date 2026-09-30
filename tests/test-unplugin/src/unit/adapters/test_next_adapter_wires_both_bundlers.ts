@@ -29,7 +29,7 @@ import { loadersOf } from "../internal/adapter-next/loadersOf";
  * @evidence contracts/testing.md#distinguishing-cases
  *   The empty caller configuration is the assembly-positive branch. Existing hooks and unrelated or conditional rules are owned by the complementary preservation and dedupe units; real webpack and Turbopack execution remain in the packed host batch.
  * @evidence contracts/testing.md#execution-ownership
- *   This selectable exported unit calls authored next through loadNext or loadNextModule and fixture filesystem observations, without an installed consumer, native build or real bundler. The packed package batch owns export loading and actual host delivery; the session-inheritance E2E owns worker environment transport.
+ *   test_next_adapter_wires_both_bundlers calls next from loadNext with its project literal, inspects each returned rule and invokes the returned webpack hook; no bundler or installed consumer executes.
  */
 export async function test_next_adapter_wires_both_bundlers(): Promise<void> {
   const next = await loadNext();

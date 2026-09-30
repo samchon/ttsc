@@ -24,6 +24,11 @@ import { restoreTtscSourceMap } from "../../../../packages/unplugin/src/core/web
  *    without one.
  * 3. Run the webpack restore loader with the host asking for maps or not, with a
  *    map already arriving, and with text other than the transform's.
+ *
+ * @evidence contracts/testing.md#behavioral-verification resolveTransformSourceMap accepts matching module text, inlineSourceMap preserves code/newline shape, and restoreTtscSourceMap forwards text/metadata while choosing or refusing the stashed map.
+ * @evidence contracts/testing.md#independent-expectations Authored resolved source paths and literal map fields specify map identity; supplied code, metadata and callback count independently pin preservation rather than accepting only a map value.
+ * @evidence contracts/testing.md#distinguishing-cases Mismatched/absent source content, foreign module, sourceRoot, newline/no-newline, arriving map, disabled request, changed text and missing stash distinguish each handoff gate.
+ * @evidence contracts/testing.md#execution-ownership This entry calls all three authored functions with in-memory maps and a loader callback double; every load invocation asserts forwarding and stash withdrawal without webpack.
  */
 export async function test_source_maps_reach_the_host_only_for_the_text_they_describe(): Promise<void> {
   const file = path.resolve("/project/src/main.ts");
@@ -89,20 +94,28 @@ export async function test_source_maps_reach_the_host_only_for_the_text_they_des
     stashed: { code: string; map?: typeof map } | undefined,
     content: string,
     arriving?: unknown,
+    metadata?: unknown,
   ): { map: unknown; stashLeft: boolean } => {
     let handed: unknown = "unset";
+    let callbacks = 0;
     const context = {
       callback: (
         _error: null,
-        _content: string | Buffer,
+        forwardedContent: string | Buffer,
         forwarded?: unknown,
+        forwardedMetadata?: unknown,
       ) => {
+        callbacks += 1;
+        assert.equal(_error, null);
+        assert.equal(forwardedContent, content, "loader must preserve every content byte");
+        assert.equal(forwardedMetadata, metadata, "loader must retain metadata identity");
         handed = forwarded;
       },
       ...(sourceMap === undefined ? {} : { sourceMap }),
     };
     if (stashed !== undefined) TTSC_SOURCE_MAP_STASH.set(context, stashed);
-    restoreTtscSourceMap.call(context, content, arriving, undefined);
+    restoreTtscSourceMap.call(context, content, arriving, metadata);
+    assert.equal(callbacks, 1, "one loader call must complete exactly once");
     return { map: handed, stashLeft: TTSC_SOURCE_MAP_STASH.has(context) };
   };
   assert.deepEqual(load(true, { code: "out;", map }, "out;"), {
@@ -113,6 +126,12 @@ export async function test_source_maps_reach_the_host_only_for_the_text_they_des
     map,
     stashLeft: false,
   });
+  const metadata = { retained: "loader-metadata" };
+  assert.deepEqual(
+    load(true, { code: "out;", map }, "out;", undefined, metadata),
+    { map, stashLeft: false },
+    "a described map must preserve the supplied loader metadata",
+  );
   const arriving = { mappings: "", sources: [], version: 3 };
   assert.deepEqual(
     load(true, { code: "out;", map }, "out;", arriving),

@@ -20,7 +20,7 @@ import assert from "node:assert/strict";
  * @evidence contracts/testing.md#distinguishing-cases
  *   Uses an existing hook and empty plugin list; wires_both_bundlers owns the no-caller positive case and preserves_turbopack_config owns rule-shape negatives. No real webpack compiler is needed for hook composition.
  * @evidence contracts/testing.md#execution-ownership
- *   This selectable exported unit calls authored next through loadNext or loadNextModule and fixture filesystem observations, without an installed consumer, native build or real bundler. The packed package batch owns export loading and actual host delivery; the session-inheritance E2E owns worker environment transport.
+ *   test_next_adapter_preserves_an_existing_webpack_hook invokes next from loadNext and then the returned webpack hook against its caller-marked config; the hook trace is in process and no webpack compiler starts.
  */
 export async function test_next_adapter_preserves_an_existing_webpack_hook(): Promise<void> {
   const unpluginNext = await loadNext();

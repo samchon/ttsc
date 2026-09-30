@@ -34,9 +34,7 @@ import { runTurbopackLoader } from "../internal/adapter-turbopack/runTurbopackLo
  *   extension-only or virtual-guard omissions. The companion declaration unit
  *   owns declaration/vendor exclusions; packed hosts own accepted transforms.
  * @evidence contracts/testing.md#execution-ownership
- *   This exported unit calls authored loader completion directly with a minimal
- *   context, no project producer or native artifact. TestProject tracks its empty
- *   root; actual Turbopack matching and worker transport remain packed E2E cases.
+ *   test_turbopack_loader_passes_through_non_source_ids calls runTurbopackLoader for four JavaScript extensions and one NUL ID, owning each exact passthrough result and extension failure label; no native transform producer runs.
  */
 export async function test_turbopack_loader_passes_through_non_source_ids(): Promise<void> {
   const root = TestProject.tmpdir("adapter-source-unit-");

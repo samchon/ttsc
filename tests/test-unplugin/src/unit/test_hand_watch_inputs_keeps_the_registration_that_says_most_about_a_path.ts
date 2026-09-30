@@ -22,6 +22,11 @@ import { handWatchInputs } from "../../../../packages/unplugin/src/core/transfor
  * 2. Assert the root kept its membership, the file kept its first evidence, and
  *    the derived order survived.
  * 3. Repeat through a per-file hook and assert the same registrations.
+ *
+ * @evidence contracts/testing.md#behavioral-verification handWatchInputs hands membership over a plain root and the first evidence over a plain file, preserving first-seen path order through both host hooks.
+ * @evidence contracts/testing.md#independent-expectations The independently authored root/membership and file/first pairs pin the precedence and tie contract exactly; second evidence must not replace the first.
+ * @evidence contracts/testing.md#distinguishing-cases Plain/evidenced duplicates, root membership and two tied file proofs exercise both upgrade and tie decisions; batching and per-file channels must agree.
+ * @evidence contracts/testing.md#execution-ownership Calls handWatchInputs with captured addWatchFiles and addWatchFile callbacks; this entry owns the full registration list and literal callback trace without a host.
  */
 export async function test_hand_watch_inputs_keeps_the_registration_that_says_most_about_a_path(): Promise<void> {
   const root = path.resolve("project");

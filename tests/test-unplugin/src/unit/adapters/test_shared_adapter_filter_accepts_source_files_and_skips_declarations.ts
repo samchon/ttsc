@@ -21,7 +21,7 @@ import assert from "node:assert/strict";
  * @evidence contracts/testing.md#distinguishing-cases
  *   Includes ts, tsx, mts and cts positive cases plus adjacent mtsx/ctsx, JavaScript families, CSS, declaration families, vendored TypeScript and a NUL virtual identifier; false positives and false negatives each fail explicitly.
  * @evidence contracts/testing.md#execution-ownership
- *   This exported unit calls authored raw hooks directly through the unit runner; it installs no consumer, builds no native artifact and starts no host. Packed hosts independently own actual registration and transformed delivery.
+ *   test_shared_adapter_filter_accepts_source_files_and_skips_declarations calls unplugin.raw(undefined, { framework: "rollup" }).transformInclude for every named ID; this entry owns all true/false rows and starts no compiler or host.
  */
 export async function test_shared_adapter_filter_accepts_source_files_and_skips_declarations(): Promise<void> {
   const raw = unplugin.raw(undefined, { framework: "rollup" });

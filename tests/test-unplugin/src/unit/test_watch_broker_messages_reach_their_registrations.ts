@@ -31,6 +31,11 @@ import { routeWatchBrokerMessage } from "../../../../packages/unplugin/src/core/
  *    call it names and never an event.
  * 4. Route events with and without a directory, a name, and an event type, and
  *    assert each reaches the sink placed under the registration's spelling.
+ *
+ * @evidence contracts/testing.md#behavioral-verification routeWatchBrokerMessage routes drains/status/events to live owners once, preserves lexical spelling, and refuses malformed or scopeless proof.
+ * @evidence contracts/testing.md#independent-expectations Literal callback traces, release names, boolean answers and authored canonical-to-walked mapping independently specify each decoded message outcome.
+ * @evidence contracts/testing.md#distinguishing-cases Malformed/foreign/duplicate messages, draining versus forwarding owners, absent scope, partial-ready failure, gaps and named/placeless events distinguish reply ownership.
+ * @evidence contracts/testing.md#execution-ownership This entry owns every routed message against broker and sink doubles, including per-ID traces and drain maps; no broker child or kernel observer executes.
  */
 export async function test_watch_broker_messages_reach_their_registrations(): Promise<void> {
   const canonical = path.resolve("/canonical/project");

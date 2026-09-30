@@ -22,6 +22,11 @@ import { TestProject } from "../../../utils/src/TestProject";
  * 2. Independently edit configs, content, membership and dependency locations.
  * 3. Assert each edit invalidates and restoring the bytes restores the proof;
  *    excluded outputs and repeated unchanged proofs remain valid.
+ *
+ * @evidence contracts/testing.md#behavioral-verification projectRecordMoved returns the exact changed input path, project root for new membership, or undefined for unchanged/restored/excluded state.
+ * @evidence contracts/testing.md#independent-expectations Independently edited and restored fixture bytes plus literal file/root/undefined expectations distinguish stale proof without deriving the expected answer from the validator.
+ * @evidence contracts/testing.md#distinguishing-cases Config/base/source/declaration/dependency/external edits, file/directory moves, missing input appearance, malformed new root syntax and excluded output cover distinct invalidation reasons.
+ * @evidence contracts/testing.md#execution-ownership Calls projectRecordMoved on one persisted-record-shaped fixture; this entry owns every relative-path row and restoration assertion without restarting a product process.
  */
 export function test_project_record_proofs_cover_offline_restart_edits(): void {
   const root = fs.realpathSync.native(TestProject.tmpdir("ttsc-offline-record-"));

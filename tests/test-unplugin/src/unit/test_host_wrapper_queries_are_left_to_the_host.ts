@@ -16,6 +16,11 @@ import { isHostWrapperQuery } from "../../../../packages/unplugin/src/core/trans
  *
  * 1. Evaluate wrapper ids, alone, combined, and before a fragment.
  * 2. Evaluate program ids, including keys that merely contain a wrapper name.
+ *
+ * @evidence contracts/testing.md#behavioral-verification isHostWrapperQuery recognizes host-generated raw/url/inline/worker wrappers while leaving cache and route-chunk program queries transformable.
+ * @evidence contracts/testing.md#independent-expectations Literal true/false ID lists follow wrapper-versus-program ownership; rawdata and fragment-only raw must not match merely containing the name.
+ * @evidence contracts/testing.md#distinguishing-cases Combined keys and a fragment preserve real wrapper recognition; absent query, cache keys, worker_file, route-chunk and name lookalikes are adjacent negatives.
+ * @evidence contracts/testing.md#execution-ownership Calls isHostWrapperQuery directly for every literal ID, using that ID as assertion failure identity; it loads no host or project.
  */
 export async function test_host_wrapper_queries_are_left_to_the_host(): Promise<void> {
   for (const id of [

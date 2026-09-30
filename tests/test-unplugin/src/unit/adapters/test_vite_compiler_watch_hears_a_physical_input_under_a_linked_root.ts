@@ -29,10 +29,7 @@ import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/
  * @evidence contracts/testing.md#distinguishing-cases
  *   Contrasts physical registration with linked notification; requires exactly one linked scope, excluding redundant physical observers, and checks real changed fixture bytes before notification.
  * @evidence contracts/testing.md#execution-ownership
- *   This exported source-function unit injects watch/poll observation and module
- *   graph callbacks; it starts no Vite host or native observer. TestProject owns
- *   fixture cleanup and watcher disposal remains in finally. Packed Vite hosts
- *   separately own actual registration, transport and live invalidation.
+ *   test_vite_compiler_watch_hears_a_physical_input_under_a_linked_root calls createViteServeInputWatch.attach/replace against a real temporary directory link or Windows junction, then invokes the captured linked-path listener; watch handles are doubles and disposal is in finally.
  */
 export async function test_vite_compiler_watch_hears_a_physical_input_under_a_linked_root(): Promise<void> {
   const physical = fs.realpathSync.native(

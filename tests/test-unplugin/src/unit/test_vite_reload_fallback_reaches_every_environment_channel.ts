@@ -19,6 +19,11 @@ import { reloadImporters } from "../../../../packages/unplugin/src/core/vite/rel
  * 2. Reload an importer and wait for the fallback.
  * 3. Assert each environment channel received one full reload, the client one
  *    exactly once, and a Vite 5 server still receives one through `ws`.
+ *
+ * @evidence contracts/testing.md#behavioral-verification reloadImporters sends one full reload to each distinct environment channel after one reloadModule rejection and retains the Vite-5 ws fallback.
+ * @evidence contracts/testing.md#independent-expectations Literal client/edge/worker traces require all three receivers exactly once even when ws/hot alias client; the ws-only trace specifies the legacy fallback.
+ * @evidence contracts/testing.md#distinguishing-cases Successful client/worker reloads coexist with failing edge, shared transport identity prevents duplicate send, and disabled-HMR legacy graph uses ws rather than hot.
+ * @evidence contracts/testing.md#execution-ownership Calls reloadImporters with captured graph/channel doubles; this entry owns the asynchronous fallback and waitFor deadline, with no real Vite server.
  */
 export async function test_vite_reload_fallback_reaches_every_environment_channel(): Promise<void> {
   const importer = "/project/src/main.ts";

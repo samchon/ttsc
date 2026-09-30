@@ -31,6 +31,11 @@ import { pluginSourceState } from "../../../../packages/unplugin/src/core/transf
  *    moves the record.
  * 4. Deliver the state again, set another `GOFLAGS`, start a build, and assert it
  *    moves the record.
+ *
+ * @evidence contracts/testing.md#behavioral-verification refreshProjectRecordFiles detects plugin Go source additions/edits and GOFLAGS change while ignoring unchanged and pruned source directories.
+ * @evidence contracts/testing.md#independent-expectations Authored zero/one signals follow source and build-environment identity: restoring a delivered current state is quiet and a deliberate source/environment change invalidates.
+ * @evidence contracts/testing.md#distinguishing-cases node_modules/.git writes remain quiet; added and edited Go files invalidate separately, then a changed GOFLAGS invalidates the refreshed baseline.
+ * @evidence contracts/testing.md#execution-ownership This entry calls pluginSourceState and record refresh against temporary source bytes, preserving/restoring GOFLAGS; pluginSourceState/holds may probe go env/go version and GOROOT identity, but no plugin binary is built.
  */
 export async function test_project_record_moves_when_a_plugin_source_does(): Promise<void> {
   const root = fs.realpathSync.native(

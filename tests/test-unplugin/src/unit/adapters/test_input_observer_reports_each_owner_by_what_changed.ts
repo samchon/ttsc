@@ -39,7 +39,7 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/sr
  * @evidence contracts/testing.md#distinguishing-cases
  *   Covers pre-open registration, quiet unchanged state, content-only change, membership-only change and both in one flush, including one owner subscribing to both kinds.
  * @evidence contracts/testing.md#execution-ownership
- *   This exported unit invokes authored owning functions with fixture filesystem state and injected notification operations. It installs no package, builds no native source and opens no actual product host. Packed lifecycle and cached-session restart boundaries own the real host registrations.
+ *   test_input_observer_reports_each_owner_by_what_changed calls createInputObserver.open/replace and injects paired file/membership events against its three owners; it owns every flush trace and finally disposes, without a watcher process.
  */
 export async function test_input_observer_reports_each_owner_by_what_changed(): Promise<void> {
   const root = fs.realpathSync.native(

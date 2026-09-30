@@ -36,7 +36,7 @@ import { loadersOf } from "../internal/adapter-next/loadersOf";
  * @evidence contracts/testing.md#distinguishing-cases
  *   Covers empty and mixed rule lists, conditions, options, physical paths and file URLs, foreign packages, missing and directory loaders, ownership transitions and filesystem case sensitivity; adjacent negatives must append the actual loader.
  * @evidence contracts/testing.md#execution-ownership
- *   This selectable exported unit calls authored next through loadNext or loadNextModule and fixture filesystem observations, without an installed consumer, native build or real bundler. The packed package batch owns export loading and actual host delivery; the session-inheritance E2E owns worker environment transport.
+ *   test_next_adapter_preserves_turbopack_config calls next through loadNext for every rule/loader shape and actual temporary manifest/link-retarget fixture; it preserves all per-loader failure identities without a Turbopack consumer build.
  */
 export async function test_next_adapter_preserves_turbopack_config(): Promise<void> {
   const next = await loadNext();

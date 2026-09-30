@@ -32,7 +32,7 @@ import type { TtscWatchInput } from "../../../../../packages/unplugin/src/core/t
  * @evidence contracts/testing.md#distinguishing-cases
  *   Covers unchanged state, pruned writes, nested existing-file edits, re-registration and a newly created Go file.
  * @evidence contracts/testing.md#execution-ownership
- *   This exported unit invokes authored owning functions with fixture filesystem state and injected notification operations. It installs no package, builds no native source and opens no actual product host. Packed lifecycle and cached-session restart boundaries own the real host registrations.
+ *   test_input_observer_reloads_the_owners_of_an_edited_plugin_source owns createInputObserver.open/replace and the captured watch listener for each pruned/edit/addition row; actual pluginSourceState/holds reads fixture source plus go env/go version and GOROOT toolchain identity; observer disposal is in finally and no native artifact is built.
  */
 export async function test_input_observer_reloads_the_owners_of_an_edited_plugin_source(): Promise<void> {
   const root = fs.realpathSync.native(

@@ -36,10 +36,7 @@ import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
  * @evidence contracts/testing.md#distinguishing-cases
  *   Includes initially quiet state, physical-path admitted declaration and subsequent non-program text after updated membership proof, catching both missed positive and spurious negative notifications.
  * @evidence contracts/testing.md#execution-ownership
- *   This exported source-function unit injects watch/poll observation and module
- *   graph callbacks; it starts no Vite host or native observer. TestProject owns
- *   fixture cleanup and watcher disposal remains in finally. Packed Vite hosts
- *   separately own actual registration, transport and live invalidation.
+ *   test_vite_compiler_watch_places_a_physical_membership_event_under_the_root calls createViteServeInputWatch.attach/replace over a real temporary link or junction and injects physical-path events; it owns admitted/text outcomes and disposes in finally without a Vite host.
  */
 export async function test_vite_compiler_watch_places_a_physical_membership_event_under_the_root(): Promise<void> {
   const physical = fs.realpathSync.native(

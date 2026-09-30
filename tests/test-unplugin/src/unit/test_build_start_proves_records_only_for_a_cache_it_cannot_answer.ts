@@ -42,6 +42,11 @@ import { readProjectMembershipPolicy } from "../../../../packages/unplugin/src/c
  *    project it would serve from its cache must run; assert it must, its record
  *    moved and the other's did not, and asking for another module of the same
  *    project proves the record no more.
+ *
+ * @evidence contracts/testing.md#behavioral-verification unplugin.raw buildStart leaves two stale records untouched for Rollup/Vite serve, refreshes both for Farm, and Rollup cache lookup proves only its named project once.
+ * @evidence contracts/testing.md#independent-expectations Literal signal zero/one expectations and independently edited declaration bytes specify which host must prove which record; no cached compiler output generates the oracle.
+ * @evidence contracts/testing.md#distinguishing-cases Rollup, Vite serve with watch null and Farm differ by cache ownership; two projects distinguish global proof from per-module proof and repeated same-project lookup.
+ * @evidence contracts/testing.md#execution-ownership Calls raw buildStart/configResolved/shouldTransformCachedModule against host doubles and temporary records, restoring cwd in finally; no bundler or compiler producer runs.
  */
 export async function test_build_start_proves_records_only_for_a_cache_it_cannot_answer(): Promise<void> {
   const root = fs.realpathSync.native(

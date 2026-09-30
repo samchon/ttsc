@@ -21,6 +21,11 @@ import { routeLinuxWatchHelperLine } from "../../../../packages/unplugin/src/cor
  *    reach their subscription and the overflow reaches every one.
  * 4. End a subscription whose directory went away, and answer a sync, and assert
  *    the subscription is forgotten and the sync released.
+ *
+ * @evidence contracts/testing.md#behavioral-verification routeLinuxWatchHelperLine ignores malformed/foreign messages, readies or refuses subscriptions, routes events/overflow, retires gone watches and answers sync.
+ * @evidence contracts/testing.md#independent-expectations Literal callback traces, pending zero and one unref specify transport/lifecycle outcomes independently of the decoder; refused/gone IDs must disappear.
+ * @evidence contracts/testing.md#distinguishing-cases Malformed JSON and unknown IDs stay quiet, live/refused subscriptions differ, named change/rename reach one owner and overflow reaches all live owners.
+ * @evidence contracts/testing.md#execution-ownership Calls the line decoder on an in-memory LinuxWatchHelper and ChildProcess-shaped reference double; this entry owns every line, with no inotify helper or child process.
  */
 export async function test_linux_watch_helper_routes_every_line(): Promise<void> {
   const references: string[] = [];

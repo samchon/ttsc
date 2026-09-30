@@ -43,6 +43,11 @@ import { readProjectMembershipPolicy } from "../../../../packages/unplugin/src/c
  *    writes the state the refresh found.
  * 4. Remove the tsconfig, refresh twice, and assert the record is removed and
  *    stays removed.
+ *
+ * @evidence contracts/testing.md#behavioral-verification refreshProjectRecordFiles advances a real fixture record for content/missing-input/membership changes, stays quiet after restoration or excluded output, and removes a vanished-config record.
+ * @evidence contracts/testing.md#independent-expectations Literal signal progression and unchanged timestamp specify the proof state transitions; input bytes are deliberately changed/restored independently of record validation.
+ * @evidence contracts/testing.md#distinguishing-cases Unchanged and excluded writes contrast content edits, repeated stale proof, current delivery, missing file appearance/removal, new root member and config removal.
+ * @evidence contracts/testing.md#execution-ownership Calls writeProjectRecordFile/readProjectRecordFile/refreshProjectRecordFiles over temporary fixture files in this entry; no native artifact or restarted consumer is required.
  */
 export async function test_project_record_moves_exactly_when_the_project_state_does(): Promise<void> {
   const root = fs.realpathSync.native(

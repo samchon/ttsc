@@ -44,7 +44,7 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/sr
  * @evidence contracts/testing.md#distinguishing-cases
  *   Covers stale and current records in the same pass, repeat until answered, cessation after re-registration, and new included root membership without a changed loaded module.
  * @evidence contracts/testing.md#execution-ownership
- *   This exported unit invokes authored owning functions with fixture filesystem state and injected notification operations. It installs no package, builds no native source and opens no actual product host. Packed lifecycle and cached-session restart boundaries own the real host registrations.
+ *   test_watch_bridge_takes_every_record_at_its_first_pass passes its bridge to refreshProjectRecordFiles, registers a current delivery and observes the two fixture records; this entry owns repeat/stop/membership outcomes and closes without a real host.
  */
 export async function test_watch_bridge_takes_every_record_at_its_first_pass(): Promise<void> {
   const root = fs.realpathSync.native(

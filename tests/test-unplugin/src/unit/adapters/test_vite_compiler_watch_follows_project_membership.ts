@@ -37,10 +37,7 @@ import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
  * @evidence contracts/testing.md#distinguishing-cases
  *   Includes unchanged state, outDir output, notes.txt, ordinary source edits, a new declaration, empty directory and a new nested source; fresh membership evidence is registered between positive states.
  * @evidence contracts/testing.md#execution-ownership
- *   This exported source-function unit injects watch/poll observation and module
- *   graph callbacks; it starts no Vite host or native observer. TestProject owns
- *   fixture cleanup and watcher disposal remains in finally. Packed Vite hosts
- *   separately own actual registration, transport and live invalidation.
+ *   test_vite_compiler_watch_follows_project_membership calls createViteServeInputWatch.attach/replace, injects each membership event and owns both environment callback traces; it reads actual temporary membership fixtures and disposes without opening native watchers.
  */
 export async function test_vite_compiler_watch_follows_project_membership(): Promise<void> {
   const root = fs.realpathSync.native(

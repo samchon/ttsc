@@ -42,6 +42,11 @@ interface IFilesystemState {
  *    POSIX and Windows path semantics.
  * 4. Assert discovery picks the nearest regular config through links and
  *    directories, and refuses an unprovable or unreadable project map.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Baseline validators and project discovery distinguish missing/file/directory/unreadable/link states, exact invalidation reasons, lexical fallback and complete versus unprovable project maps.
+ * @evidence contracts/testing.md#independent-expectations Literal reason arrays and config paths, independent SHA-256 fixture bytes and authored stat/realpath tables specify the predicate observations rather than generating expected validator output.
+ * @evidence contracts/testing.md#distinguishing-cases Codec-strength and malformed-baseline negatives, kind/content/target transitions, BOM, Win32/POSIX path policies, ancestor races, alias cycles and unreadable listings cover proof boundaries.
+ * @evidence contracts/testing.md#execution-ownership This entry owns state-table assertions plus assertProjectTsconfigDiscovery and assertRealFilesystemKinds; the latter uses actual temporary junction/directory links and POSIX file/broken links under the existing Windows condition, without native builds.
  */
 export async function test_transformttsc_predicate_proofs_cover_filesystem_kinds_and_transitions(): Promise<void> {
   const root = path.resolve("predicate-proof-root");

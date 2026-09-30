@@ -20,6 +20,11 @@ import { routeWatchBrokerMessage } from "../../../../packages/unplugin/src/core/
  * 2. Assert A shares the in-flight drain and B's starts a new one.
  * 3. Answer the first drain, then the second, and assert each verdict reached only
  *    the registrations its request covered.
+ *
+ * @evidence contracts/testing.md#behavioral-verification drainWatchBroker and routeWatchBrokerMessage keep a late registration out of an earlier drain and release each covered scope after its own reply.
+ * @evidence contracts/testing.md#independent-expectations Authored registration IDs and exact proven traces specify scope ownership; two requests and distinct promises detect sharing a drain that never covered B.
+ * @evidence contracts/testing.md#distinguishing-cases Initial A, late B and repeated A registration exercise shared versus new drain, ordered replies and final empty scope retention.
+ * @evidence contracts/testing.md#execution-ownership This entry owns both pending promises and routes their captured IDs through an in-memory broker/ChildProcess-shaped send double; it launches no IPC process.
  */
 export async function test_watch_broker_drain_speaks_only_for_the_registrations_it_covered(): Promise<void> {
   const sent: number[] = [];

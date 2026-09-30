@@ -22,6 +22,11 @@ import { probeForLocation } from "../../../../packages/unplugin/src/core/transfo
  *    realpath maps the link to its target, and assert it carries a probe below
  *    the root's own spelling.
  * 2. Assert a location outside the root, and one with no root, carry none.
+ *
+ * @evidence contracts/testing.md#behavioral-verification probeForLocation assigns a canonical child or root to a probe under the project lexical spelling and refuses outside/no-root locations.
+ * @evidence contracts/testing.md#independent-expectations The authored realpath mapping and literal probe directory/root pair name one linked physical project independently of the selection algorithm.
+ * @evidence contracts/testing.md#distinguishing-cases Child and root equality are positive; sibling physical location and absent root are negative containment boundaries.
+ * @evidence contracts/testing.md#execution-ownership Calls probeForLocation with injected realpath and probeDirectory functions; this exported entry exercises portable mapping without creating an actual link or broker.
  */
 export async function test_watch_broker_probes_a_location_below_a_linked_root(): Promise<void> {
   const linked = path.resolve("/var/project");

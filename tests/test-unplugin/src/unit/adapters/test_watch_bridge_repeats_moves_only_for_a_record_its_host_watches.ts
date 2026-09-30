@@ -38,7 +38,7 @@ import { writeProjectRecordFile } from "../../../../../packages/unplugin/src/cor
  * @evidence contracts/testing.md#distinguishing-cases
  *   Covers quiet current registrations, one shared input becoming present, watched versus unwatched schedules and an unwatched record becoming a watched dependency.
  * @evidence contracts/testing.md#execution-ownership
- *   This exported unit invokes authored owning functions with fixture filesystem state and injected notification operations. It installs no package, builds no native source and opens no actual product host. Packed lifecycle and cached-session restart boundaries own the real host registrations.
+ *   test_watch_bridge_repeats_moves_only_for_a_record_its_host_watches calls openHostWatchBridge.register/compiled/owes, injects a shared declaration event and owns watched/unwatched signal traces; it closes in finally without a compiler process.
  */
 export async function test_watch_bridge_repeats_moves_only_for_a_record_its_host_watches(): Promise<void> {
   const root = fs.realpathSync.native(

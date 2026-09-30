@@ -22,16 +22,13 @@ import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/
  * 3. Replace the external root with a copy whose input differs, tick, and assert
  *    the importer is invalidated.
  * @evidence contracts/testing.md#behavioral-verification
- *   Registers an external declaration, checks an unchanged poll is quiet, withdraws all inputs, then changes the old declaration and requires no invalidation.
+ *   Registers an external declaration, checks an unchanged poll is quiet, replaces its directory with changed declaration bytes and requires the importer to invalidate at the next poll.
  * @evidence contracts/testing.md#independent-expectations
- *   A removed registration must not invalidate its former importer. The deliberately modified old input is a negative control after withdrawal, not an absent fixture that could hide a stale subscription.
+ *   A scope rooted at the old directory cannot witness the replacement. Literal quiet then one-importer results require the poll to detect actual root identity and input changes.
  * @evidence contracts/testing.md#distinguishing-cases
- *   Contrasts an active but unchanged external scope with the same scope after replacement by an empty input set; the actual file edit detects stale poll ownership.
+ *   Contrasts the unchanged external scope with a same-spelled replacement directory containing different bytes; no event is emitted, so retaining the old scope proof fails.
  * @evidence contracts/testing.md#execution-ownership
- *   This exported source-function unit injects watch/poll observation and module
- *   graph callbacks; it starts no Vite host or native observer. TestProject owns
- *   fixture cleanup and watcher disposal remains in finally. Packed Vite hosts
- *   separately own actual registration, transport and live invalidation.
+ *   test_vite_compiler_watch_withdraws_a_replaced_external_scope calls createViteServeInputWatch.attach/replace and captured poll before/after a real temporary external-directory replacement; this entry owns importer invalidation and finally disposal, not a native notification backend.
  */
 export async function test_vite_compiler_watch_withdraws_a_replaced_external_scope(): Promise<void> {
   const base = fs.realpathSync.native(

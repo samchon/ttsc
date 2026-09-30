@@ -23,12 +23,9 @@ import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/
  * @evidence contracts/testing.md#independent-expectations
  *   All inputs below the attached project share one pinned recursive observer. Its lifetime is the server lifetime, not input count; the literal one-observer expectation is independent of its implementation.
  * @evidence contracts/testing.md#distinguishing-cases
- *   Includes large registration, complete input withdrawal and disposal, checking active handles and close counts at each transition. The existing five-second regression bound remains unchanged.
+ *   Includes large registration, complete input withdrawal and disposal, checking active handles, successful closes and close-call attempts at each transition. The existing five-second regression bound remains unchanged.
  * @evidence contracts/testing.md#execution-ownership
- *   This source-function unit captures injected scope handles and calls the
- *   authored attach/replace/dispose lifecycle directly; no module graph or Vite
- *   server is started. TestProject tracks fixture cleanup and finally disposes
- *   the watcher. Packed Vite cases own actual host notification connections.
+ *   test_vite_compiler_watch_resources_are_bounded_by_scope calls createViteServeInputWatch.attach/begin/replace/dispose for 12000 predicate inputs; captured handle attempts and active counts belong to this entry, with real path proofs but no kernel observer or Vite host.
  */
 export async function test_vite_compiler_watch_resources_are_bounded_by_scope(): Promise<void> {
   const root = fs.realpathSync.native(
@@ -37,6 +34,7 @@ export async function test_vite_compiler_watch_resources_are_bounded_by_scope():
   const opened: string[] = [];
   let active = 0;
   let closed = 0;
+  let closeAttempts = 0;
   const watch = createViteServeInputWatch({
     watch(scope) {
       opened.push(path.resolve(scope));
@@ -44,6 +42,7 @@ export async function test_vite_compiler_watch_resources_are_bounded_by_scope():
       let live = true;
       return {
         close() {
+          closeAttempts += 1;
           if (!live) return;
           live = false;
           active -= 1;
@@ -90,14 +89,16 @@ export async function test_vite_compiler_watch_resources_are_bounded_by_scope():
       "the project observer must remain live through the attached server",
     );
     assert.equal(closed, 0, "input removal must not reopen the race window");
+    const elapsed = performance.now() - before;
     assert.ok(
-      performance.now() - before < 5_000,
-      `${count} registrations and removals must remain linear and finish within 5 seconds`,
+      elapsed < 5_000,
+      `${count} registrations and removals took ${elapsed.toFixed(3)} ms; must remain linear and finish within 5 seconds`,
     );
   } finally {
     await watch.dispose();
   }
   assert.equal(active, 0, "final disposal must leave no native observer");
+  assert.equal(closeAttempts, 1, "the owner must call close exactly once, even if the handle tolerates duplicates");
   assert.equal(
     closed,
     1,

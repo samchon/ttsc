@@ -14,6 +14,11 @@ import { resolveOptions } from "../../../../packages/unplugin/src/core/options/r
  * 2. Assert exactly those three keys are returned.
  * 3. Assert each value is preserved verbatim.
  * 4. Assert omission, explicit disable, and overlay copying retain their meaning.
+ *
+ * @evidence contracts/testing.md#behavioral-verification resolveOptions preserves exactly compilerOptions/plugins/project, retains omission versus false, and detaches the compiler option overlay from its caller.
+ * @evidence contracts/testing.md#independent-expectations Literal three-key and option objects independently specify the public result; mutating the resolved strict flag must leave the authored input true.
+ * @evidence contracts/testing.md#distinguishing-cases Populated options, omitted options, plugins false versus undefined and overlay mutation distinguish value preservation from aliasing.
+ * @evidence contracts/testing.md#execution-ownership This exported entry calls resolveOptions directly with in-memory values; its assertions own both normalized object and caller immutability, without a consumer.
  */
 export async function test_resolveoptions_keeps_only_the_public_ttsc_adapter_contract(): Promise<void> {
   const options = resolveOptions({

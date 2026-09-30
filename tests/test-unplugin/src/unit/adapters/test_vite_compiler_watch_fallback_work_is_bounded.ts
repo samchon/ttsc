@@ -28,10 +28,7 @@ import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/
  * @evidence contracts/testing.md#distinguishing-cases
  *   Includes native open failure, one input beyond the budget, exhausted work and final disposal; captures both callback count and handle-close count.
  * @evidence contracts/testing.md#execution-ownership
- *   This exported source-function unit injects watch/poll observation and module
- *   graph callbacks; it starts no Vite host or native observer. TestProject owns
- *   fixture cleanup and watcher disposal remains in finally. Packed Vite hosts
- *   separately own actual registration, transport and live invalidation.
+ *   test_vite_compiler_watch_fallback_work_is_bounded calls createViteServeInputWatch.attach/replace with a failing watch double, drives its captured poll twice, and disposes in finally; it owns the 65-input boundary without a Vite server or native observer.
  */
 export async function test_vite_compiler_watch_fallback_work_is_bounded(): Promise<void> {
   const root = fs.realpathSync.native(
