@@ -19,6 +19,7 @@ import { resolveCacheDir } from "./resolveCacheDir";
 import { type OwningModuleOptions } from "./runtime/OwningModuleOptions";
 import { ProcessOwnedDirectory } from "./runtime/ProcessOwnedDirectory";
 import { RuntimeEmitProvenance } from "./runtime/RuntimeEmitProvenance";
+import { claimRuntimeProjectDirectory } from "./runtime/claimRuntimeProjectDirectory";
 import { runtimeRunKey } from "./runtime/runtimeRunKey";
 import { withRuntimeDirectoryLock } from "./runtime/withRuntimeDirectoryLock";
 import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
@@ -334,26 +335,9 @@ function createProjectContext(
   // The `project` child can itself be a link. Pin its physical target, sweep
   // abandoned runs, and publish this run's owner in one locked transaction.
   // Clean can never observe a newly selected but still unowned index.
-  const { processDir, virtualRoot, emitDir } = withRuntimeDirectoryLock(
-    cacheDir,
-    () => {
-      const directory = path.join(
-        cacheDir,
-        SourceBuildCacheLayout.RUNTIME_PROJECT_DIRNAME,
-      );
-      fs.mkdirSync(directory, { recursive: true });
-      const runsDir = fs.realpathSync.native(directory);
-      const processDir = path.join(runsDir, runtimeCacheKey);
-      const virtualRoot = path.join(processDir, "fs");
-      const emitDir = project.compilerOptions.outDir
-        ? virtualPath(virtualRoot, project.compilerOptions.outDir)
-        : virtualPath(virtualRoot, runtimeRootDir);
-      ProcessOwnedDirectory.sweep(runsDir);
-      fs.rmSync(processDir, { recursive: true, force: true });
-      ProcessOwnedDirectory.claim(processDir);
-      return { processDir, virtualRoot, emitDir };
-    },
-  );
+  const processDir = claimRuntimeProjectDirectory(cacheDir, runtimeCacheKey);
+  const virtualRoot = path.join(processDir, "fs");
+  const emitDir = virtualPath(virtualRoot, project.compilerOptions.outDir || runtimeRootDir);
   return {
     project,
     tsconfig,
