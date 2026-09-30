@@ -12,6 +12,10 @@ import { createSandboxRequire } from "../../../../packages/playground/src/sandbo
  * 1. Mount an exported package under an alias and require its real-name subpath.
  * 2. Mount a legacy alias without exports as the adjacent negative case.
  * 3. Assert only the exports-owning package gains self-reference behavior.
+ * @evidence contracts/testing.md#behavioral-verification createSandboxRequire resolves actual/sub from the alias-mounted exported package to {value:42}, but rejects legacy-actual/sub from a package without exports.
+ * @evidence contracts/testing.md#independent-expectations The authored manifests distinguish mount alias from actual package name; Node self-reference requires declared exports, and distinct populated submodule bytes establish the independently expected positive and negative results.
+ * @evidence contracts/testing.md#distinguishing-cases An exported alias uses its real-name subpath while a legacy alias with a present private sub.js cannot gain self-reference; exact returned object and requested-name error are retained.
+ * @evidence contracts/testing.md#execution-ownership This named entry evaluates both authored alias fixture modules through createSandboxRequire in the portable source-unit batch without npm installation or a consumer process.
  */
 export const test_create_sandbox_require_resolves_aliased_package_self_references =
   () => {

@@ -7,6 +7,10 @@ import { createSandboxRequire } from "../../../../packages/playground/src/sandbo
  * entries. Retrying a failed child or parent must evaluate it again, while the
  * pre-evaluation insertion that makes successful cycles work stays intact and
  * successful modules remain cached by identity.
+ * @evidence contracts/testing.md#behavioral-verification createSandboxRequire retries a failed parent and child, rejects invalid JSON twice, preserves provisional cyclic exports and returns one successful cached export identity; independent console.hit counts pin evaluations.
+ * @evidence contracts/testing.md#independent-expectations Literal boom diagnostics, parent2/child4 and successful1 counters are recorded by fixture module bodies, independently of resolver cache internals; the cycle must return its original object identity.
+ * @evidence contracts/testing.md#distinguishing-cases Two failed retries contrast with two successful loads, a caught-then-retried child and a two-module cycle; valid provisional cycle entries must survive while failed entries are evicted.
+ * @evidence contracts/testing.md#execution-ownership This entry owns both local resolver instances and every retry/cycle assertion using immutable pack strings and an injected console recorder; it creates no installed consumer or product process.
  */
 export const test_create_sandbox_require_evicts_failed_modules = () => {
   const hits = new Map<string, number>();

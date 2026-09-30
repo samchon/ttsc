@@ -15,6 +15,10 @@ import { packageNameFromSpecifier } from "../../../../packages/playground/src/np
  *    in both bare and `node:` spellings.
  * 2. Keep prefix-only builtins, URL specifiers, scoped packages, and ordinary npm
  *    names on their distinct classification paths.
+ * @evidence contracts/testing.md#behavioral-verification packageNameFromSpecifier excludes runtime Node builtin roots, their subpaths and node: forms while preserving scoped/ordinary npm package roots and rejecting URL or unknown node: requests.
+ * @evidence contracts/testing.md#independent-expectations Node builtinModules is an independent runtime reference for the portable classifier; literal @scope/package and ordinary expectations pin npm root extraction without reading repository source or a manifest.
+ * @evidence contracts/testing.md#distinguishing-cases Every ordinary builtin root has bare/node:/subpath controls, prefix-only runtime builtins distinguish their bare npm names, and scoped/deep/URL/unknown-prefixed cases remain explicit.
+ * @evidence contracts/testing.md#execution-ownership This named source unit owns the builtinModules-derived rows and literal boundary calls; it queries the current Node API in process and performs no registry request or child host execution.
  */
 export const test_package_name_from_specifier_matches_node_builtins = () => {
   const roots = [
