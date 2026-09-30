@@ -13,9 +13,14 @@ const root = path.resolve(__dirname, "..");
 const goRoot = path.join(os.homedir(), "go-sdk", "go", "bin");
 const DRIVER_TEST_PACKAGES = ["./driver", "./test/driver"];
 if (require.main === module) {
+  // In-process compiler profiles have their own physical package. They do not
+  // launch the product and are not repeated by the native proxy/race batch.
+  const packages = process.env.TTSC_TEST_LAYER === "unit"
+    ? ["./test/driver-unit"]
+    : [...DRIVER_TEST_PACKAGES, "./test/driver-unit"];
   const result = cp.spawnSync(
     "go",
-    ["test", "-count=1", ...DRIVER_TEST_PACKAGES],
+    ["test", "-trimpath", "-count=1", ...packages],
     {
       cwd: path.join(root, "packages", "ttsc"),
       env: {

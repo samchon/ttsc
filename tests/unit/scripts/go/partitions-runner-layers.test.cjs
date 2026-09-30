@@ -31,14 +31,18 @@ function writeFile(root, rel, contents) {
 /**
  * @evidence contracts/testing.md#behavioral-verification selectedRunners assigns the documented portable and boundary runner populations and replaces duplicate driver execution with the owning race runner.
  * @evidence contracts/testing.md#independent-expectations Full population membership and explicitly authored mixed-suite ownership define the union; layer selections cannot omit a required runner or invent a second driver owner.
- * @evidence contracts/testing.md#distinguishing-cases Empty default preserves all, unit/e2e union retains coverage, transformer/shim stay unit-only, and an unknown layer is rejected.
+ * @evidence contracts/testing.md#distinguishing-cases Empty default preserves all, the union after canonical driver/race normalization retains coverage, library-only driver profiles are unit-owned while proxy/driver races stay E2E, transformer/shim stay unit-only, and an unknown layer is rejected.
  * @evidence contracts/testing.md#execution-ownership test_go_runner_partitions_runner_layers is the static CommonJS unit export registered once with node:test; it calls the owning harness with fixture files or injected callbacks and starts no native build or product process.
  */
 const test_go_runner_partitions_runner_layers = () => {
   const all = selectedRunners("");
   const unit = selectedRunners("unit");
   const e2e = selectedRunners("e2e");
-  assert.deepEqual([...new Set([...unit, ...e2e])].sort(), all.map((runner) => runner === "test-go-driver.cjs" ? "test-go-race.cjs" : runner).sort());
+  const canonical = (runner) => runner === "test-go-driver.cjs" ? "test-go-race.cjs" : runner;
+  assert.deepEqual([...new Set([...unit, ...e2e].map(canonical))].sort(), all.map(canonical).sort());
+  assert.ok(unit.includes("test-go-driver.cjs"));
+  assert.ok(e2e.includes("test-go-race.cjs"));
+  assert.ok(!e2e.includes("test-go-driver.cjs"));
   assert.deepEqual(
     unit.filter((runner) => e2e.includes(runner)),
     ["test-go-utility-plugins.cjs", "test-go-lint.cjs", "test-go-evidence.cjs"],
