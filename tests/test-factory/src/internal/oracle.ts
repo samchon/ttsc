@@ -1,5 +1,5 @@
-import type { Node } from "@ttsc/factory";
-import { TsPrinter } from "@ttsc/factory";
+import type { Node } from "../../../../packages/factory/src/index";
+import { TsPrinter } from "../../../../packages/factory/src/index";
 import ts from "ts-legacy";
 
 /**

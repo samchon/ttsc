@@ -1,10 +1,10 @@
-import factory, { SyntaxKind, TsPrinter } from "@ttsc/factory";
+import factory, { SyntaxKind, TsPrinter } from "../../../../packages/factory/src/index";
 import type {
   Expression,
   Node,
   ParameterDeclaration,
   TypeNode,
-} from "@ttsc/factory";
+} from "../../../../packages/factory/src/index";
 import ts from "ts-legacy";
 
 /** Shared default printer (80 columns, two-space indent). */
