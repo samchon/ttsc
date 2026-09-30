@@ -15,6 +15,11 @@ import { takeResidentCheckEntryRequest } from "../../../../../packages/ttsc/src/
  * 2. Buffer one cycle, consume only the first entry, and simulate a failure.
  * 3. Buffer the next cycle and require the deferred entry to retain both
  *    transitions while the first entry receives only the new transition.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls planResidentCheckEntries, bufferResidentCheckEntryRequests and takeResidentCheckEntryRequest to preserve separate entry positions and change delivery despite equal process keys.
+ * @evidence contracts/testing.md#independent-expectations Literal initial/next path lists establish exactly what each independently indexed entry receives. Duplicate-path union, sticky invalidation and compiler-argument key differences follow the delivery/process-identity contract rather than mirroring key construction.
+ * @evidence contracts/testing.md#distinguishing-cases Two identical entries share a key but retain independent pending deltas when the first consumes early. Later cycles accumulate only for the deferred entry, consumption releases both slots, missing consumption rejects, duplicate changes deduplicate, and false cannot clear prior invalidation.
+ * @evidence contracts/testing.md#execution-ownership This named source unit uses synthetic plugin descriptions and a local pending map to call real planning/buffering operations. No resident process or native binary starts; real protocol startup/recovery remains a separately owned boundary.
  */
 export const test_resident_check_planning_preserves_duplicate_entry_buffers =
   (): void => {
@@ -71,4 +76,20 @@ export const test_resident_check_planning_preserves_duplicate_entry_buffers =
       external: [...initial.external, ...next.external],
     });
     assert.equal(pending.size, 0);
+    assert.throws(() => takeResidentCheckEntryRequest(pending, 1), /entry 1 has no buffered request/);
+    bufferResidentCheckEntryRequests(pending, checks, { changed: ["/virtual/src/once.ts"], invalidate: true });
+    bufferResidentCheckEntryRequests(pending, checks, { changed: ["/virtual/src/once.ts"], invalidate: false });
+    assert.deepEqual(takeResidentCheckEntryRequest(pending, 0), {
+      changed: ["/virtual/src/once.ts"],
+      invalidate: true,
+    }, "duplicate paths collapse and prior invalidation remains sticky");
+    assert.deepEqual(takeResidentCheckEntryRequest(pending, 1), {
+      changed: ["/virtual/src/once.ts"],
+      invalidate: true,
+    });
+    assert.notEqual(
+      planResidentCheckEntries([plugin], () => [...args], '["--strict"]')[0]!.key,
+      planResidentCheckEntries([plugin], () => [...args], '["--strict","false"]')[0]!.key,
+      "forwarded compiler payload participates in process identity",
+    );
   };

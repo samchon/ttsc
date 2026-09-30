@@ -15,7 +15,12 @@ import { parseProjectInputSnapshot } from "../../../../../packages/ttsc/src/comp
  *
  * 1. Reject relative/remote/NUL reload files and resolution directories.
  * 2. Reject two otherwise-valid snapshots that publish different roots.
- * 3. Accept an old snapshot without reload metadata and merge physical aliases.
+ * 3. Accept an old snapshot without reload metadata and merge identical duplicate declarations.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Invokes parseProjectInputSnapshot, mergeProjectInputSnapshots and isAbsoluteLocalProjectInputPath to reject malformed/foreign views and retain exact validated reload/file/glob populations.
+ * @evidence contracts/testing.md#independent-expectations Absolute-local namespace and same-selected-root protocol requirements define rejection. Independent literal normalized lists establish duplicate collapse and omitted optional reload fields; explicit Windows/POSIX syntax inputs do not derive answers from the parser.
+ * @evidence contracts/testing.md#distinguishing-cases Relative/URL/NUL paths, wrong reload-list shapes and foreign roots contrast with old producer omission and identical duplicate snapshots. Drive/UNC/extended paths succeed while root-only, wildcard-volume, device and pipe namespaces reject; POSIX slash-root remains valid.
+ * @evidence contracts/testing.md#execution-ownership The exported source unit calls owning parsers and merger directly. Merge may observe local filesystem identity for supplied nonexistent paths but starts no host or watcher; explicit platform grammar is portable, and this duplicate snapshot case does not claim genuine symlink-alias validation.
  */
 export const test_project_input_snapshots_reject_non_local_paths_and_mismatched_roots =
   () => {
