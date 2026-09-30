@@ -16,6 +16,11 @@ import "testing"
 //     trailing one before the closing brace.
 //  2. Apply format/semi with prefer:"never".
 //  3. Assert both commas are removed.
+//
+// @evidence contracts/testing.md#behavioral-verification format/semi must remove both broken-interface comma separators under never while preserving its number/string member declarations.
+// @evidence contracts/testing.md#independent-expectations The literal expected broken-interface output follows the semi:false omission convention for interior and final separators, independent of the written comma spelling.
+// @evidence contracts/testing.md#distinguishing-cases An interior comma and a trailing comma must both change; flat or hazard-required comma normalization cases own the complementary retained-separator decisions.
+// @evidence contracts/testing.md#execution-ownership TestFormatSemiPreferNeverStripsACommaMemberSeparator is a public Go unit selected by TestSelectedLintUnits. This entry owns every literal declaration in its fixture; the shared syntax-only harness invokes the semicolon rule and applies edits for its complete output comparison in the same process without a consumer install, native product build or host execution.
 func TestFormatSemiPreferNeverStripsACommaMemberSeparator(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,

@@ -17,6 +17,11 @@ import "testing"
 //  1. Parse a CRLF broken mapped type and one trailed by a block comment.
 //  2. Apply format/semi through the disk-backed fixer.
 //  3. Assert both gain a `;` and every ending stays CRLF.
+//
+// @evidence contracts/testing.md#behavioral-verification format/semi must append the plain and block-comment-trailed mapped-clause terminators without changing any CRLF separator or note comment.
+// @evidence contracts/testing.md#independent-expectations The complete escaped output literal independently specifies every original CRLF byte and the correct plain/after-block-comment insertion position.
+// @evidence contracts/testing.md#distinguishing-cases Two changed CRLF mapped types complement LF modifier/comment positives; exact full output distinguishes correct punctuation from a stray insertion on the following CR byte.
+// @evidence contracts/testing.md#execution-ownership TestFormatSemiTerminatesAMappedTypeAcrossCrlf is a public Go unit selected by TestSelectedLintUnits. This entry owns every literal declaration in its fixture; the shared syntax-only harness invokes the semicolon rule and applies edits for its complete output comparison in the same process without a consumer install, native product build or host execution.
 func TestFormatSemiTerminatesAMappedTypeAcrossCrlf(t *testing.T) {
   assertFixSnapshot(
     t,

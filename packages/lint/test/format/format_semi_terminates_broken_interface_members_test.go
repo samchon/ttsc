@@ -15,6 +15,11 @@ import "testing"
 //     with no terminator.
 //  2. Apply format/semi through the disk-backed fixer.
 //  3. Assert every member gained a `;`.
+//
+// @evidence contracts/testing.md#behavioral-verification format/semi must append a semicolon to each of seven broken-interface member spellings while preserving every signature and property annotation.
+// @evidence contracts/testing.md#independent-expectations The literal full output independently lists the required terminators for property, method, index, call, construct and get/set signatures under default semi policy.
+// @evidence contracts/testing.md#distinguishing-cases All seven local member shapes, including the last setter, require a change; flat-interface singleton/pair negatives and already-terminated member cases own adjacent no-op layouts.
+// @evidence contracts/testing.md#execution-ownership TestFormatSemiTerminatesBrokenInterfaceMembers is a selected public Go unit under TestSelectedLintUnits. The shared syntax-only fixture harness calls the owning semicolon rule and applies edits for the complete literal output assertion in the same Go process without a consumer install, native product build or product host.
 func TestFormatSemiTerminatesBrokenInterfaceMembers(t *testing.T) {
   assertFixSnapshot(
     t,
