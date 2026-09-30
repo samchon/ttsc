@@ -84,7 +84,7 @@ export interface LegendDocument {
  * missing, and because the fallback below was the same string as `variable`, a
  * module was not merely unnamed — it was drawn as a variable.
  */
-export const NODE_COLORS: Record<string, string> = {
+export const NODE_COLORS: Record<string, string> = Object.assign(Object.create(null), {
   // The artifacts. They are one hue family on purpose: a reader tells a document
   // from a declaration at a glance, and tells the artifacts apart within it.
   markdown_document: "#e8b4b8",
@@ -101,7 +101,7 @@ export const NODE_COLORS: Record<string, string> = {
   type: "#f5b042",
   enum: "#c792ea",
   variable: "#8b97a8",
-};
+});
 
 /**
  * Edge colour per display family.
@@ -111,13 +111,13 @@ export const NODE_COLORS: Record<string, string> = {
  * rather than a use, and it is opaque so it stays apart from the translucent
  * fallback.
  */
-export const LINK_COLORS: Record<string, string> = {
+export const LINK_COLORS: Record<string, string> = Object.assign(Object.create(null), {
   "value-call": "#3fb950",
   "type-ref": "#f5b042",
   "doc-ref": "#c07de0",
   heritage: "#6ea8ff",
   exports: "#7d8590",
-};
+});
 
 /**
  * What an unrecognized node kind is drawn in.

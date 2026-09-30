@@ -44,7 +44,7 @@ Edges are colored by family. The graph itself distinguishes finer relationship k
 - **heritage**: an `extends`, `implements`, or `overrides` relationship.
 - **exports**: a module to a declaration its export table resolves to, which is what says the symbol is public on that surface.
 
-Every kind a dump carries folds onto one of those five, so no edge is drawn without a name beside it.
+Every native relationship kind folds onto one of those five. An uploaded JSON graph can carry an unknown kind: its name stays unchanged, and both node and edge colors use the viewer's unknown-kind fallback.
 
 ## What is left out
 

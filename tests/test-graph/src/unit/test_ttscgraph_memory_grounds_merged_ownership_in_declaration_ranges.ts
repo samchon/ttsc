@@ -1,0 +1,52 @@
+import assert from "node:assert/strict";
+
+import { hasDeclarationBody } from "../../../../packages/graph/src/server/runTrace";
+import { createSyntheticGraph, type ResolverGraphNode } from "../internal/resolverGraph";
+
+/**
+ * Verifies merged declaration ownership and abstract-class member bodies.
+ *
+ * A shared qualified name cannot choose between class and interface owners;
+ * an abstract class also does not make its concrete methods bodyless.
+ *
+ * 1. Synthesize members of merged declarations in both orders and on one line.
+ * 2. Contrast abstract, ambient, unique and ambiguous owner facts.
+ * 3. Collect every owner and body assertion through the authored functions.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Authored memory synthesis selects each member's enclosing declaration; the shared trace body predicate distinguishes concrete members from abstract, interface and ambient declarations.
+ * @evidence contracts/testing.md#independent-expectations Literal declaration ranges and explicit modifiers determine expected owner identities and body flags independently of synthesized contains edges.
+ * @evidence contracts/testing.md#distinguishing-cases Both declaration orders, same-line disjoint ranges, abstract and declare containers, ambiguous missing ranges, and the unique merged namespace owner exercise distinct ownership and body decisions.
+ * @evidence contracts/testing.md#execution-ownership This direct source-unit entry invokes memory and trace functions over typed facts without a native producer, generated validator or installed package.
+ */
+export function test_ttscgraph_memory_grounds_merged_ownership_in_declaration_ranges(): void {
+  const failures: unknown[] = [];
+  const check = (label: string, nodes: ResolverGraphNode[], expectations: [string, string, boolean][]): void => {
+    const graph = createSyntheticGraph(nodes);
+    for (const [id, owner, body] of expectations) {
+      try { assert.equal(graph.incoming(id).find((edge) => edge.kind === "contains")?.from, owner, `${label}: ${id} owner`); } catch (error) { failures.push(error); }
+      try { assert.equal(hasDeclarationBody(graph, graph.node(id)!), body, `${label}: ${id} body`); } catch (error) { failures.push(error); }
+    }
+  };
+  const node = (name: string, kind: ResolverGraphNode["kind"], startLine: number, startCol: number, endLine: number, endCol: number, modifiers?: ResolverGraphNode["modifiers"]): ResolverGraphNode => ({
+    id: `src/test.ts#${name}:${kind}`, name: name.split(".").at(-1)!, qualifiedName: name,
+    kind, file: "src/test.ts", external: false, evidence: { startLine, startCol, endLine, endCol }, ...(modifiers ? { modifiers } : {}),
+  });
+  for (const reverse of [false, true]) {
+    const classLine = reverse ? 2 : 1, interfaceLine = reverse ? 1 : 2;
+    const declarations = [node("C", "class", classLine, 1, classLine, 32), node("C", "interface", interfaceLine, 1, interfaceLine, 38)];
+    if (reverse) declarations.reverse();
+    check(`merged ${reverse}`, [...declarations, node("C.m", "method", classLine, 18, classLine, 30), node("C.extra", "method", interfaceLine, 22, interfaceLine, 36)], [
+      ["src/test.ts#C.m:method", "src/test.ts#C:class", true], ["src/test.ts#C.extra:method", "src/test.ts#C:interface", false],
+    ]);
+  }
+  check("same line", [node("C", "class", 1, 1, 1, 32), node("C", "interface", 1, 34, 1, 71), node("C.m", "method", 1, 18, 1, 30), node("C.extra", "method", 1, 55, 1, 69)], [
+    ["src/test.ts#C.m:method", "src/test.ts#C:class", true], ["src/test.ts#C.extra:method", "src/test.ts#C:interface", false],
+  ]);
+  for (const modifier of ["abstract", "declare"] as const) check(modifier, [node("C", "class", 1, 1, 3, 1, [modifier]), node("C.m", "method", 2, 1, 2, 20, ["abstract"]), node("C.n", "method", 2, 22, 2, 35)], [
+    ["src/test.ts#C.m:method", "src/test.ts#C:class", false], ["src/test.ts#C.n:method", "src/test.ts#C:class", modifier === "abstract"],
+  ]);
+  check("unique merged namespace", [node("C", "class", 1, 1, 1, 32), node("C.extra", "function", 2, 22, 2, 54)], [["src/test.ts#C.extra:function", "src/test.ts#C:class", true]]);
+  const missing = [node("C", "class", 1, 1, 1, 32), node("C", "interface", 2, 1, 2, 38), node("C.m", "method", 1, 18, 1, 30)].map(({ evidence: _evidence, ...rest }) => rest);
+  check("ambiguous without declaration ranges", missing, [["src/test.ts#C.m:method", "src/test.ts", true]]);
+  if (failures.length) throw new AggregateError(failures, "merged ownership/body matrix");
+}

@@ -252,7 +252,7 @@ export namespace TtscBenchmarkGraphReduce {
   };
 
   function displayKind(kind: string): string {
-    return DISPLAY_KIND[kind] ?? kind;
+    return Object.hasOwn(DISPLAY_KIND, kind) ? DISPLAY_KIND[kind]! : kind;
   }
 
   /**
