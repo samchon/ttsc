@@ -1,10 +1,10 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import child_process from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-import { mergeProjectInputSnapshots } from "../../../../../packages/ttsc/lib/compiler/internal/build/mergeProjectInputSnapshots.js";
+import { mergeProjectInputSnapshots as installedOperation } from "../../../../../packages/ttsc/lib/compiler/internal/build/mergeProjectInputSnapshots.js";
 
 /**
  * Verifies project-input merge keys follow physical filesystem identities.
@@ -20,9 +20,17 @@ import { mergeProjectInputSnapshots } from "../../../../../packages/ttsc/lib/com
  *    nearest existing directory's actual case semantics.
  * 3. Under a case-sensitive directory, keep case-distinct roots and entries
  *    separate, including missing descendants.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The actual packed-SDK snapshot operation unifies physical symlink aliases and supported Windows case/short/extended aliases while preserving sensitive existing and missing entries; order reversal must retain the same canonical snapshot.
+ * @evidence contracts/testing.md#independent-expectations Authored physical files, real native paths and literal expected population sizes/canonical paths establish alias identity; fsutil success and distinct real roots independently establish sensitive authority.
+ * @evidence contracts/testing.md#distinguishing-cases Existing/missing file, glob, reload-file/directory aliases and ordering remain covered; Windows short/extended/case aliases are observed when present, Linux/Windows sensitive roots remain distinct, and the original macOS sensitive-population omission is preserved.
+ * @evidence contracts/testing.md#execution-ownership This named os-boundaries/watch entry runs the supplied packed-SDK snapshot operation against the actual installation platform's filesystem and Windows tools within the sole installation matrix, separately from Linux unit and E2E populations.
+ * @evidence contracts/e2e.md#necessary-boundary Actual junction/symlink, Windows short/namespaced aliases and filesystem case flags must agree with the identity owner; injected path authority cannot prove these native relations.
+ * @evidence contracts/e2e.md#shared-execution One private filesystem fixture supplies all alias consumers and sensitive transitions in the installation OS batch; no independent consumer install, compiler run, Go build or watch host is created.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private roots isolate links and Windows directory flags; fresh snapshots carry the changed root premises without global fs replacement. Synchronous helper processes terminate before assertions and no watch handle remains.
+ * @evidence contracts/e2e.md#preserved-coverage Every original assertion, Windows alias availability check and macOS sensitive-population condition remains mechanically unchanged in this named actual OS entry.
  */
-export const test_project_input_snapshot_merge_uses_filesystem_identities =
-  (): void => {
+export function test_project_input_snapshot_merge_uses_filesystem_identities(mergeProjectInputSnapshots: typeof installedOperation = installedOperation) {
     const fixtureRoot = TestProject.tmpdir("ttsc-project-input-identity-");
     const physicalRoot = path.join(fixtureRoot, "physical-project");
     const existingFile = path.join(physicalRoot, "docs", "spec.md");
@@ -191,7 +199,7 @@ export const test_project_input_snapshot_merge_uses_filesystem_identities =
     assert.equal(caseDistinct.globs.length, 2);
     assert.equal(caseDistinct.reloadFiles?.length, 4);
     assert.equal(caseDistinct.reloadDirectories?.length, 4);
-  };
+}
 
 function realpath(location: string): string {
   return fs.realpathSync.native?.(location) ?? fs.realpathSync(location);
