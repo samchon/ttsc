@@ -67,7 +67,9 @@ const prettierModule = direct ? "" : resolvePrettierModule();
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-lint-go-test-"));
 // Native-binary tests copy the scratch module. Keep fixture projects outside it
 // so each such build cannot copy hundreds of unrelated sources and links.
-const corpusScratch = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-lint-corpus-"));
+const corpusScratch = fs.mkdtempSync(
+  path.join(os.tmpdir(), "ttsc-lint-corpus-"),
+);
 try {
   // Copy the source module into the scratch dir, skipping build artifacts
   // the way materializeScratchDir does.
@@ -79,9 +81,23 @@ try {
   const packageFiles = copyGoTestsFlat(
     lintTestsDir,
     path.join(scratch, "linthost"),
-    (file) => !windowsBoundary ||
-      path.relative(lintTestsDir, file).split(path.sep).join("/").startsWith("os-boundaries/windows/") ||
-      ["config_fixture_helpers_test.go", "windows_short_path_windows_test.go"].includes(path.basename(file)),
+    (file) =>
+      !windowsBoundary ||
+      path
+        .relative(lintTestsDir, file)
+        .split(path.sep)
+        .join("/")
+        .startsWith("os-boundaries/windows/") ||
+      [
+        "config_fixture_helpers_test.go",
+        "windows_short_path_windows_test.go",
+        "helpers_test.go",
+        "behavioral_witness_coverage_test.go",
+        "lsp_command_helpers_test.go",
+        "lsp_format_buffer_helpers_test.go",
+        "lsp_code_action_helpers_test.go",
+        "lsp_logical_project_link_helpers_test.go",
+      ].includes(path.basename(file)),
   );
   // Repository validation tests stay outside the product package. Overlay
   // them beside the engine only in this disposable Go test module.
@@ -93,7 +109,8 @@ try {
   const repositoryFiles = copyGoTestsFlat(
     path.join(root, "tests", "test-lint", "go"),
     path.join(scratch, "linthost"),
-    (file) => !windowsBoundary && (!e2e || !unitOverlays.has(path.basename(file))),
+    (file) =>
+      !windowsBoundary && (!e2e || !unitOverlays.has(path.basename(file))),
   );
 
   // Discover every in-tree module the workspace needs to satisfy:
@@ -116,7 +133,9 @@ try {
     PATH: fs.existsSync(goRoot)
       ? `${goRoot}${path.delimiter}${process.env.PATH ?? ""}`
       : process.env.PATH,
-    TTSC_TSGO_BINARY: direct ? "" : (process.env.TTSC_TSGO_BINARY ?? tsgoBinary),
+    TTSC_TSGO_BINARY: direct
+      ? ""
+      : (process.env.TTSC_TSGO_BINARY ?? tsgoBinary),
     TTSC_TTSX_BINARY: direct ? "" : ttsxBinary,
     TTSC_PRETTIER_MODULE: direct
       ? ""
@@ -130,26 +149,27 @@ try {
       "format-projects",
     ),
   };
-  const prepared = e2e || windowsBoundary
-    ? { status: 0 }
-    : cp.spawnSync(
-        process.execPath,
-        [
-          "--import",
-          pathToFileURL(
-            path.join(root, "scripts", "register-typescript-loader.mjs"),
-          ).href,
-          path.join(root, "scripts", "ci", "prepare-lint-corpus.mts"),
-          path.join(corpusScratch, "projects"),
-          env.TTSC_LINT_CORPUS_MANIFEST,
-        ],
-        {
-          cwd: path.join(root, "tests", "test-lint"),
-          env,
-          stdio: "inherit",
-          windowsHide: true,
-        },
-      );
+  const prepared =
+    e2e || windowsBoundary
+      ? { status: 0 }
+      : cp.spawnSync(
+          process.execPath,
+          [
+            "--import",
+            pathToFileURL(
+              path.join(root, "scripts", "register-typescript-loader.mjs"),
+            ).href,
+            path.join(root, "scripts", "ci", "prepare-lint-corpus.mts"),
+            path.join(corpusScratch, "projects"),
+            env.TTSC_LINT_CORPUS_MANIFEST,
+          ],
+          {
+            cwd: path.join(root, "tests", "test-lint"),
+            env,
+            stdio: "inherit",
+            windowsHide: true,
+          },
+        );
   if (prepared.error) throw prepared.error;
   if (prepared.status !== 0)
     console.error(
@@ -189,7 +209,9 @@ try {
       "-count=1",
       "-timeout=20m",
       ...selection,
-      ...process.argv.slice(2).filter((argument) => argument !== "--os-boundaries"),
+      ...process.argv
+        .slice(2)
+        .filter((argument) => argument !== "--os-boundaries"),
       "./linthost",
     ],
     {
@@ -204,23 +226,40 @@ try {
   }
   // An exit code, not `process.exit`: exiting here would skip the `finally`
   // that removes the scratch module.
-  process.exitCode = prepared.status === 0 ? result.status ?? 1 : 1;
+  process.exitCode = prepared.status === 0 ? (result.status ?? 1) : 1;
 } finally {
   fs.rmSync(scratch, { recursive: true, force: true });
   fs.rmSync(corpusScratch, { recursive: true, force: true });
   if (windowsBoundary)
-    fs.rmSync(process.env.TTSC_INSTALLED_SMOKE_ROOT, { recursive: true, force: true });
+    fs.rmSync(process.env.TTSC_INSTALLED_SMOKE_ROOT, {
+      recursive: true,
+      force: true,
+    });
 }
 
 function installedCandidateSdk() {
   const consumer = process.env.TTSC_INSTALLED_SMOKE_ROOT;
-  if (!consumer || fs.readFileSync(path.join(consumer, ".ttsc-cli-smoke"), "utf8") !== root)
-    throw new Error("Windows boundaries require the preceding owned installed CLI consumer");
+  if (
+    !consumer ||
+    fs.readFileSync(path.join(consumer, ".ttsc-cli-smoke"), "utf8") !== root
+  )
+    throw new Error(
+      "Windows boundaries require the preceding owned installed CLI consumer",
+    );
   const physicalConsumer = fs.realpathSync.native(consumer);
-  if (path.dirname(physicalConsumer).toLowerCase() !== fs.realpathSync.native(os.tmpdir()).toLowerCase() ||
-      !path.basename(physicalConsumer).startsWith("ttsc-cli-smoke-"))
-    throw new Error("The installed CLI consumer must be an owned direct temporary directory");
-  const sdk = path.dirname(createRequire(path.join(consumer, "package.json")).resolve("ttsc/package.json"));
+  if (
+    path.dirname(physicalConsumer).toLowerCase() !==
+      fs.realpathSync.native(os.tmpdir()).toLowerCase() ||
+    !path.basename(physicalConsumer).startsWith("ttsc-cli-smoke-")
+  )
+    throw new Error(
+      "The installed CLI consumer must be an owned direct temporary directory",
+    );
+  const sdk = path.dirname(
+    createRequire(path.join(consumer, "package.json")).resolve(
+      "ttsc/package.json",
+    ),
+  );
   for (const entry of ["go.mod", "driver", "shim"])
     if (!fs.existsSync(path.join(sdk, entry)))
       throw new Error(`Installed candidate SDK is missing ${entry}`);

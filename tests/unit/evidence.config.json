@@ -5,16 +5,12 @@
       "name": "TypeScript function units",
       "type": "typescript",
       "root": "../..",
-      "files": [
-        "tests/test-*/src/unit/**/test_*.ts"
-      ],
+      "files": ["tests/test-*/src/unit/**/test_*.ts"],
       "symbol": "function",
       "reference": {
         "type": "markdown",
         "root": "../../.agents/skills",
-        "files": [
-          "contracts/testing.md"
-        ],
+        "files": ["contracts/testing.md"],
         "symbol": "h2",
         "checklist": true
       }
@@ -31,9 +27,7 @@
       "reference": {
         "type": "markdown",
         "root": "../../.agents/skills",
-        "files": [
-          "contracts/testing.md"
-        ],
+        "files": ["contracts/testing.md"],
         "symbol": "h2",
         "checklist": true
       }
@@ -121,9 +115,7 @@
       "reference": {
         "type": "markdown",
         "root": "../../.agents/skills",
-        "files": [
-          "contracts/testing.md"
-        ],
+        "files": ["contracts/testing.md"],
         "symbol": "h2",
         "checklist": true
       }
@@ -133,6 +125,9 @@
       "type": "go",
       "root": "../..",
       "files": [
+        "packages/evidence/native/*_test.go",
+        "!packages/evidence/native/*_windows_test.go",
+        "!packages/evidence/native/*_bench_test.go",
         "tests/test-evidence/go/semantic_*_test.go",
         "tests/test-evidence/go/unit/**/*_test.go"
       ],
@@ -140,9 +135,7 @@
       "reference": {
         "type": "markdown",
         "root": "../../.agents/skills",
-        "files": [
-          "contracts/testing.md"
-        ],
+        "files": ["contracts/testing.md"],
         "symbol": "h2",
         "checklist": true
       }
@@ -160,9 +153,7 @@
       "reference": {
         "type": "markdown",
         "root": "../../.agents/skills",
-        "files": [
-          "contracts/testing.md"
-        ],
+        "files": ["contracts/testing.md"],
         "symbol": "h2",
         "checklist": true
       }
@@ -171,16 +162,12 @@
       "name": "Go transformer fixture operation units",
       "type": "go",
       "root": "../..",
-      "files": [
-        "tests/go-transformer/transformer/*_test.go"
-      ],
+      "files": ["tests/go-transformer/transformer/*_test.go"],
       "symbol": "function",
       "reference": {
         "type": "markdown",
         "root": "../../.agents/skills",
-        "files": [
-          "contracts/testing.md"
-        ],
+        "files": ["contracts/testing.md"],
         "symbol": "h2",
         "checklist": true
       }
@@ -189,16 +176,12 @@
       "name": "Go AST shim text units",
       "type": "go",
       "root": "../..",
-      "files": [
-        "packages/ttsc/shim/ast/test/*_test.go"
-      ],
+      "files": ["packages/ttsc/shim/ast/test/*_test.go"],
       "symbol": "function",
       "reference": {
         "type": "markdown",
         "root": "../../.agents/skills",
-        "files": [
-          "contracts/testing.md"
-        ],
+        "files": ["contracts/testing.md"],
         "symbol": "h2",
         "checklist": true
       }
@@ -218,9 +201,7 @@
       "reference": {
         "type": "markdown",
         "root": "../../.agents/skills",
-        "files": [
-          "contracts/testing.md"
-        ],
+        "files": ["contracts/testing.md"],
         "symbol": "h2",
         "checklist": true
       }
