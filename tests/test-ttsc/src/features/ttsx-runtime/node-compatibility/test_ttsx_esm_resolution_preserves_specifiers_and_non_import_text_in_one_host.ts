@@ -1,5 +1,8 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 /**
  * Verifies ESM resolution and scanner preservation in one emitted project.
@@ -19,7 +22,7 @@ import assert from "node:assert/strict";
  * @evidence contracts/e2e.md#necessary-boundary Compiler emit, Node hooks and ESM loading must agree on original source URLs; parsing alone cannot establish their assembly.
  * @evidence contracts/e2e.md#shared-execution Equivalent ES2022/bundler entry fixtures share one project load, emit, launcher and Node session; disjoint package scopes preserve same-named dependencies, and different dependency-owned compiler inputs retain their necessary builds.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A fresh project owns disjoint module paths and scenario-owned side-effect names; same-named fixture packages use distinct fixture versions so TypeScript package-ID deduplication cannot alias different bytes that formerly lived in separate projects; imports occur once and launcher cleanup owns outputs, with no warm-cache transition claimed.
- * @evidence contracts/e2e.md#preserved-coverage The batch retains all original outputs for scanner and suffix preservation, enum forward/reverse values, runtime namespaces, type-only elision, no-rootDir dependencies, ESM/package/MTS classification, source-package directory resolution and original import-meta-preserved asset lookup strengthened with a source-only marker; labeled caught imports and aggregated assertions report unrelated failures together.
+ * @evidence contracts/e2e.md#preserved-coverage The batch retains all original outputs for scanner and suffix preservation, enum forward/reverse values, runtime namespaces, type-only elision, no-rootDir dependencies, ESM/package/MTS classification, source-package directory resolution and original import-meta-preserved asset lookup plus source-only marker and an exact native physical source-file URL (native realpath permits OS aliases such as Windows 8.3 spellings without accepting a cache file); assets alone could remain readable through mirrored cache links; labeled caught imports and aggregated assertions report unrelated failures together.
  */
 export function test_ttsx_esm_resolution_preserves_specifiers_and_non_import_text_in_one_host() {
  const root = TestProject.createProject({
@@ -91,8 +94,8 @@ export function test_ttsx_esm_resolution_preserves_specifiers_and_non_import_tex
   "src/case14/src/main.ts": "import { message } from \"./helper\";\nconsole.log(message);\n"
 ,
   "src/case15/src/node.d.ts": "declare module \"node:fs\" { export function readFileSync(file: string | URL, encoding: string): string; }\ndeclare module \"node:path\" { export function dirname(file: string): string; export function resolve(...parts: string[]): string; }\ndeclare module \"node:url\" { export function fileURLToPath(url: string): string; }\n",
-  "src/case15/src/global.ts": "import path from \"node:path\";\nimport { fileURLToPath } from \"node:url\";\nexport const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), \"..\");\nexport const sourceOnly = new URL(\"./marker.txt\", import.meta.url);\n",
-  "src/case15/src/main.ts": "import fs from \"node:fs\";\nimport { ROOT, sourceOnly } from \"./global\";\nconsole.log(JSON.stringify({ asset: fs.readFileSync(ROOT + \"/template/data.txt\", \"utf8\"), source: fs.readFileSync(sourceOnly, \"utf8\") }));\n",
+  "src/case15/src/global.ts": "import path from \"node:path\";\nimport { fileURLToPath } from \"node:url\";\nexport const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), \"..\");\nexport const sourceOnly = new URL(\"./marker.txt\", import.meta.url);\nexport const sourceUrl = import.meta.url;\n",
+  "src/case15/src/main.ts": "import fs from \"node:fs\";\nimport { ROOT, sourceOnly, sourceUrl } from \"./global\";\nconsole.log(JSON.stringify({ asset: fs.readFileSync(ROOT + \"/template/data.txt\", \"utf8\"), source: fs.readFileSync(sourceOnly, \"utf8\"), sourceUrl }));\n",
   "src/case15/src/marker.txt": "esm-source-relative",
   "src/case15/template/data.txt": "import-meta-preserved"
 });
@@ -186,7 +189,7 @@ export function test_ttsx_esm_resolution_preserves_specifiers_and_non_import_tex
     "json": false
   }
 ,
-  {"name":"test_runner_corpus_esm_import_meta_url_resolves_from_configured_outdir","expected":{"asset":"import-meta-preserved","source":"esm-source-relative"},"json":true}
+  {"name":"test_runner_corpus_esm_import_meta_url_resolves_from_configured_outdir","expected":{"asset":"import-meta-preserved","source":"esm-source-relative",sourceUrl:pathToFileURL(TestProject.physicalPath(path.join(root,"src","case15","src","global.ts"))).href},"json":true}
 ];
  for (const scenario of cases) {
  try {
@@ -194,7 +197,9 @@ export function test_ttsx_esm_resolution_preserves_specifiers_and_non_import_tex
  const end = outputs.indexOf("END:" + scenario.name);
  assert.ok(begin >= 0 && end > begin, scenario.name);
  const value = outputs.slice(begin + 1, end).join("\n");
- assert.deepEqual(scenario.json ? JSON.parse(value) : value, scenario.expected, scenario.name);
+ const actual = scenario.json ? JSON.parse(value) : value;
+ if (scenario.name === "test_runner_corpus_esm_import_meta_url_resolves_from_configured_outdir") actual.sourceUrl = pathToFileURL(fs.realpathSync.native(fileURLToPath(actual.sourceUrl))).href;
+ assert.deepEqual(actual, scenario.expected, scenario.name);
  } catch (error) { failures.push(error); }
  }
  try { assert.equal(result.status, 0, result.stderr); } catch (error) { failures.push(error); }
