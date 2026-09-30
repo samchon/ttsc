@@ -11,6 +11,7 @@ import { load, resolve } from "./typescript-loader.mjs";
 const commonjsSources = [
   "ttsc",
   "wasm",
+  "graph",
   "playground",
   "banner",
   "paths",

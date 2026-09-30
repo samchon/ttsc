@@ -32,7 +32,9 @@
         "!src/server/startServer.ts",
         "!src/model/TtscGraphLinePeer.ts",
         "!src/model/TtscGraphNativeArguments.ts",
+        "!src/TtscGraphLauncherArguments.ts",
         "!src/model/TtscGraphProtocol.ts",
+        "!src/TtscGraphViewSnapshot.ts",
         "!src/model/TtscGraphSessionState.ts",
         "!src/model/TtscLintDaemonState.ts"
       ],
@@ -105,7 +107,8 @@
         "src/runGraph.ts",
         "src/launcherArgs.ts",
         "src/resolveGraphBinary.ts",
-        "src/model/TtscGraphNativeArguments.ts"
+        "src/model/TtscGraphNativeArguments.ts",
+        "src/TtscGraphLauncherArguments.ts"
       ],
       "symbol": ["type", "function"],
       "reference": {
@@ -121,6 +124,7 @@
       "type": "typescript",
       "files": [
         "src/model/TtscGraphProtocol.ts",
+        "src/TtscGraphViewSnapshot.ts",
         "src/model/TtscGraphSessionState.ts",
         "src/model/TtscLintDaemonState.ts"
       ],

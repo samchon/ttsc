@@ -1,10 +1,6 @@
 import { spawnSync } from "node:child_process";
 
-import {
-  PROJECT_OPTIONS,
-  parseLauncherOptions,
-  projectOptions,
-} from "./launcherArgs";
+import { TtscGraphLauncherArguments } from "./TtscGraphLauncherArguments";
 import { publishArtifacts } from "./model/publishedArtifacts";
 import { ensureExecutable } from "./nativeExecutable";
 import { resolveGraphBinary } from "./resolveGraphBinary";
@@ -14,13 +10,6 @@ import { runView } from "./view";
 // The server version reported in the MCP handshake; read from this package.
 const VERSION: string = (require("../package.json") as { version: string })
   .version;
-
-const DUMP_OPTIONS = [
-  { key: "cwd", flags: ["--cwd", "-cwd"], kind: "value" },
-  { key: "tsconfig", flags: ["--tsconfig", "-tsconfig"], kind: "value" },
-  { key: "pretty", flags: ["--pretty", "-pretty"], kind: "boolean" },
-  { key: "help", flags: ["--help", "-help", "-h"], kind: "flag" },
-] as const;
 
 /**
  * Run the `@ttsc/graph` launcher.
@@ -45,9 +34,7 @@ export function runGraph(
   if (argv[0] === "view") return runView(argv.slice(1));
   if (argv[0] === "dump") return runDump(argv.slice(1));
 
-  const { cwd, tsconfig } = projectOptions(
-    parseLauncherOptions(argv, PROJECT_OPTIONS),
-  );
+  const { cwd, tsconfig } = TtscGraphLauncherArguments.project(argv);
   void startServer({ cwd, tsconfig, version: VERSION }).catch(
     (error: unknown) => {
       process.stderr.write(
@@ -96,9 +83,7 @@ function printDumpHelp(): void {
 function runDump(argv: readonly string[]): number {
   // Resolve the native binary from the target project the caller named with
   // `--cwd`, not from wherever the launcher process happened to start.
-  const { cwd, tsconfig } = projectOptions(
-    parseLauncherOptions(argv, DUMP_OPTIONS),
-  );
+  const { cwd, tsconfig } = TtscGraphLauncherArguments.dump(argv);
   const binary = resolveGraphBinary(process.env, cwd);
   if (binary === null) {
     // `ttscgraph` owns the flag contract, so a resolvable binary always answers
@@ -126,19 +111,14 @@ function runDump(argv: readonly string[]): number {
     : publishArtifacts({ cwd, tsconfig });
   const result = spawnSync(
     binary,
-    [
-      "dump",
-      ...argv,
-      ...(published?.file == null ? [] : ["--artifacts", published.file]),
-    ],
+    TtscGraphLauncherArguments.dumpVector(argv, published?.file ?? null),
     {
       stdio: "inherit",
       windowsHide: true,
     },
   );
-  if (result.error) {
-    process.stderr.write(`@ttsc/graph: ${result.error.message}\n`);
-    return 1;
-  }
-  return result.status ?? 1;
+  const completion = TtscGraphLauncherArguments.dumpCompletion(result);
+  if (completion.diagnostic !== undefined)
+    process.stderr.write(completion.diagnostic);
+  return completion.code;
 }

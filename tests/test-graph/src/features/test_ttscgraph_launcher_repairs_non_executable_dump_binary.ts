@@ -1,8 +1,7 @@
-import { TestProject } from "@ttsc/testing";
 import fs from "node:fs";
-import path from "node:path";
 
-import { assert, resolveGraphLauncher } from "../internal/ttsgraph";
+import { installedTargetBoundary } from "../internal/installedTargetBoundary";
+import { assert } from "../internal/ttsgraph";
 
 /**
  * Verifies graph launcher repairs a non-executable dump binary.
@@ -11,54 +10,26 @@ import { assert, resolveGraphLauncher } from "../internal/ttsgraph";
  * from a non-POSIX host. The launcher must recover before spawning ttscgraph so
  * installed @ttsc/graph users do not hit EACCES on the first dump.
  *
- * 1. Materialize a fake ttscgraph script with mode 0644.
+ * 1. Borrow the shared target-installed real native binary copy and its cold 0644 receipt.
  * 2. Run the @ttsc/graph dump pass-through against that binary.
- * 3. Assert the script executed and gained an executable bit.
+ * 3. Assert a real compiler declaration was produced and the binary gained an executable bit.
  *
- * @evidence contracts/testing.md#behavioral-verification On POSIX the installed launcher runs a fixture binary initially at mode 0644, produces its marker and leaves executable permission bits set.
- * @evidence contracts/testing.md#independent-expectations Literal non-executable mode, successful exit, marker and nonzero executable-bit mask independently require actual permission repair and subsequent execution.
+ * @evidence contracts/testing.md#behavioral-verification On POSIX the installed launcher runs a fixture binary initially at mode 0644, produces the literal NativeTargetControl declaration and leaves executable permission bits set.
+ * @evidence contracts/testing.md#independent-expectations Literal non-executable mode, successful exit, literal compiler declaration and nonzero executable-bit mask independently require actual permission repair and subsequent execution.
  * @evidence contracts/testing.md#distinguishing-cases Readable-but-not-executable input must change to executable before dump. This existing case returns on Windows and does not certify Windows chmod behavior.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_launcher_repairs_non_executable_dump_binary runs installed CLI commands and their real resolution/spawn consequences; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Real POSIX access/chmod and child execution must connect through the launcher; an in-memory permission predicate cannot prove the repaired file was runnable.
- * @evidence contracts/e2e.md#shared-execution One project and one sentinel are prepared once for the sole launch using suite launcher artifacts. Sharing other compatible CLI preparations remains unfinished.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The case owns its binary path and initial mode, avoiding an already-executable warm input; synchronous spawn joins the child and TestProject tracks removal.
- * @evidence contracts/e2e.md#preserved-coverage Original exit, marker and repaired-mode assertions remain, including the platform scope; no fake permission capability or added skip replaces execution.
+ * @evidence contracts/e2e.md#shared-execution The target-cwd and permission entries share one installed project, one real binary copy and its first dump receipt. Only this copy begins at 0644; the canonical producer remains immutable.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The shared preparation records mode before and after its sole first dump. Receipt reuse retains the cold 0644 distinction regardless of case order; synchronous spawn joins and TestProject owns project removal.
+ * @evidence contracts/e2e.md#preserved-coverage Original status-zero and repaired-mode assertions remain with the original POSIX scope. The sentinel marker execution proof becomes an actual native-produced declaration; no fake producer or permission capability stands in for execution.
  */
-export const test_ttscgraph_launcher_repairs_non_executable_dump_binary =
-  () => {
-    if (process.platform === "win32") return;
-
-    const root = TestProject.tmpdir("ttscgraph-chmod-");
-    const binary = path.join(root, "ttscgraph");
-    fs.writeFileSync(
-      binary,
-      [
-        "#!/usr/bin/env node",
-        'if (process.argv[2] !== "dump") process.exit(2);',
-        'console.log("ttscgraph chmod repair ok");',
-        "",
-      ].join("\n"),
-      "utf8",
-    );
-    fs.chmodSync(binary, 0o644);
-
-    const result = TestProject.spawn(
-      process.execPath,
-      [resolveGraphLauncher(), "dump"],
-      {
-        env: { TTSC_GRAPH_BINARY: binary },
-      },
-    );
-
-    assert.equal(
-      result.status,
-      0,
-      `graph dump should execute the repaired binary\nstderr: ${result.stderr}`,
-    );
-    assert.match(result.stdout, /ttscgraph chmod repair ok/);
-    assert.notEqual(
-      fs.statSync(binary).mode & 0o111,
-      0,
-      "launcher should set an executable bit before spawning",
-    );
-  };
+export const test_ttscgraph_launcher_repairs_non_executable_dump_binary = () => {
+  if (process.platform === "win32") return;
+  const { binary, beforeMode, afterMode, dump: result } = installedTargetBoundary();
+  assert.equal(beforeMode & 0o111, 0, "the owned binary must begin non-executable");
+  assert.equal(result.status, 0, `graph dump should execute the repaired binary\nstderr: ${result.stderr}`);
+  const dump = JSON.parse(result.stdout) as { nodes: { name: string }[] };
+  assert.ok(dump.nodes.some((node) => node.name === "NativeTargetControl"));
+  assert.notEqual(afterMode & 0o111, 0, "launcher should repair executable bits before its first spawn");
+  assert.notEqual(fs.statSync(binary).mode & 0o111, 0, "the repaired copy must remain executable");
+};

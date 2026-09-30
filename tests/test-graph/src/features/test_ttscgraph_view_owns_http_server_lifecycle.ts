@@ -29,9 +29,9 @@ import {
  * @evidence contracts/testing.md#distinguishing-cases Port conflict contrasts successful ephemeral binding; three routes share one live viewer, and unhandled stack/error duplication must be absent.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_view_owns_http_server_lifecycle runs installed viewer processes and actual HTTP or dump-validation boundaries; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Native dump loading, bundled assets and a real HTTP listening socket must assemble through the CLI; direct reducer or route calls cannot certify binding and process lifetime.
- * @evidence contracts/e2e.md#shared-execution Both launches reuse the suite compiler and one project; occupied and successful server states require distinct viewer lifetimes here. Three asset consumers share the successful server; broader batching is incomplete.
+ * @evidence contracts/e2e.md#shared-execution Both launches reuse the suite compiler and one project; occupied and successful server states require distinct viewer lifetimes here. Three asset consumers and the original valid-dump viewer readiness/alive assertions share the successful real native viewer; occupied and successful sockets cannot share one server lifetime.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The occupying socket closes in finally, and the successful viewer is killed and its exit joined in finally; ephemeral ports and case-owned project prevent cross-case conflicts.
- * @evidence contracts/e2e.md#preserved-coverage Original status-one/error-count/stack exclusions, URL observation, three HTTP routes, asset length, arrays and live-child checks remain.
+ * @evidence contracts/e2e.md#preserved-coverage Original status-one/error-count/stack exclusions, URL observation, three HTTP routes, asset length, arrays and live-child checks remain. This genuine native success also retains the removed canned-dump viewer readiness, alive-until-stop and joined-exit assertions; malformed dump schema/diagnostic/code controls remain at the actual generated viewer decoder owner.
  */
 export const test_ttscgraph_view_owns_http_server_lifecycle =
   async (): Promise<void> => {
