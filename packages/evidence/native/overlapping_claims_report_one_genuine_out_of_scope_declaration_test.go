@@ -16,6 +16,7 @@ import (
  *  1. Activate type and property claims beside one function declaration.
  *  2. Resolve the function's target inside both references.
  *  3. Assert one scope finding names both claims while coverage remains missing.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule keeps type/property claims active beside a function citation and requires one scope finding naming both claims plus two missing acknowledgements.
  * @evidence contracts/testing.md#independent-expectations No owning selector admits the function; its invalid citation must neither cover the references nor be duplicated per claim.
  * @evidence contracts/testing.md#distinguishing-cases Separate SelectedType and selectedProperty anchors make activation observable through two missing obligations.

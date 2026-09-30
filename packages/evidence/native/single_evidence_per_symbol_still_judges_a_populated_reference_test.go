@@ -13,6 +13,7 @@ import "testing"
  *  1. Select one TypeScript function and a document with two headings.
  *  2. Require exactly one Markdown unit per selected symbol, and cite neither.
  *  3. Assert the host is named with its zero count.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule selects a function citing neither of two H2s; its named zero-unit cardinality finding must appear.
  * @evidence contracts/testing.md#independent-expectations Suppression for empty references must not suppress a live host's zero coverage when units exist.
  * @evidence contracts/testing.md#distinguishing-cases Two real headings keep the denominator populated; presence is checked without requiring total diagnostic count or every missing target.

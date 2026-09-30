@@ -10,6 +10,7 @@ import "testing"
  *  1. Cite one Markdown H2 scope from one function requiring exactly one unit.
  *  2. Assert the H2-only reference passes.
  *  3. Select the H3 descendant as well and assert the same citation now counts two.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule cites Contract under H2-only selection and requires clean coverage; selecting its H3 child as well must report a two-unit cardinality violation.
  * @evidence contracts/testing.md#independent-expectations A scope contributes its distinct selected descendants, not merely one written tag.
  * @evidence contracts/testing.md#distinguishing-cases The same fixture and citation with shallow versus deep selectors isolate the denominator change.

@@ -13,6 +13,7 @@ import (
  *  1. Point strict and ordinary references at the same Markdown section.
  *  2. Exclude the section from one selected function host.
  *  3. Assert only the strict reference reports the policy and missing coverage.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule excludes a shared H2 under strict and ordinary references; one forbidden exclusion and one missing acknowledgement must identify the strict reference.
  * @evidence contracts/testing.md#independent-expectations NoExclude refusal leaves the strict obligation uncovered while the ordinary twin accepts its own exclusion.
  * @evidence contracts/testing.md#distinguishing-cases The same physical declaration challenges policy leakage in either direction; message fragments and both counts preserve the separate consequences.

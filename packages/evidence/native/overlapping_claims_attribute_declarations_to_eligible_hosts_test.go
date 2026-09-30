@@ -13,6 +13,7 @@ import "testing"
  *  1. Select one file with separate type and property claims.
  *  2. Cite an H2 from the type and its selected H3 from the property.
  *  3. Assert both independent obligations pass without a false scope error.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule selects Entity's type and id property through two claims and requires no diagnostics after H2/H3 citations.
  * @evidence contracts/testing.md#independent-expectations Each declaration belongs only to claims admitting its actual host kind; shared file inventory does not make both tags eligible everywhere.
  * @evidence contracts/testing.md#distinguishing-cases Different selectors and reference ranks detect indiscriminate copying, but the clean-only assertion does not independently establish activation of both claims.

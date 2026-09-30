@@ -13,6 +13,7 @@ import (
  *  1. Configure identical references, one ordinary and one requiring unique evidence.
  *  2. Cite their shared unit from two selected hosts.
  *  3. Assert only reference two reports its own cardinality.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule cites one section from two functions under ordinary and uniqueEvidence references; exactly one unique failure must name reference 2.
  * @evidence contracts/testing.md#independent-expectations The ordinary obligation permits two positive hosts, while the strict twin independently allows at most one.
  * @evidence contracts/testing.md#distinguishing-cases Identical populations with different policy flags isolate policy ownership from resolution or selection; total graph diagnostics are not counted.

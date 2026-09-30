@@ -16,6 +16,7 @@ import (
  *  1. Give one claim a failed Markdown reference and a healthy sibling.
  *  2. Materialize and evaluate both from the same claim file.
  *  3. Assert only the healthy sibling derives a missing acknowledgement.
+ *
  * @evidence contracts/testing.md#behavioral-verification materializeClaimStates and evaluateEvidenceGraph consume a failed Markdown inventory beside healthy Good and a parsed TypeScript host; health flags, one missing Good, no empty-source and no unresolved derivatives are required.
  * @evidence contracts/testing.md#independent-expectations An injected load failure is not an empty denominator, and cannot prove a target unresolved; the healthy sibling still owes its literal Good target.
  * @evidence contracts/testing.md#distinguishing-cases The bad-reference citation and healthy sibling make suppression local. Direct fixture inventory state represents the loader failure; this does not reproduce an actual I/O error.

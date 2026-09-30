@@ -13,6 +13,7 @@ import (
  *  1. Select an empty host, a duplicate-tag host, and a two-unit host.
  *  2. Require exactly one positive unit per semantic host.
  *  3. Assert only the zero-unit and two-unit hosts fail cardinality.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule selects empty, duplicate and broad functions; exactly two cardinality failures must name counts zero and two, omit the duplicate host, and retain Duplicate evidence.
  * @evidence contracts/testing.md#independent-expectations Cardinality counts distinct selected unit identities per semantic host, including hosts without tags; duplicate tags do not add units.
  * @evidence contracts/testing.md#distinguishing-cases Zero tags, repeated one-unit tags and two-unit coverage challenge both host discovery and tag-based counting in one graph.

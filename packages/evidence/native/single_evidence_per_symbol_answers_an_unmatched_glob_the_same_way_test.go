@@ -16,6 +16,7 @@ import (
  *  1. Point the same policy at a glob no document occupies.
  *  2. Evaluate.
  *  3. Assert the population is named and no host is named.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule selects a live function but an absent Markdown file; matched-no-files must be present and per-host exactly-one cardinality must be absent.
  * @evidence contracts/testing.md#independent-expectations An empty reference owns its population diagnostic rather than asking each host to cite nonexistent units.
  * @evidence contracts/testing.md#distinguishing-cases An unmatched glob differs from a successfully loaded headingless document; this entry does not compare their complete messages directly.

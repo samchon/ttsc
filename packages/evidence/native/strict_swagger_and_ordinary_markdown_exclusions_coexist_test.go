@@ -13,6 +13,7 @@ import (
  *  1. Configure a strict Swagger operation and an ordinary Markdown section in one claim.
  *  2. Exclude both targets from the same eligible function carrier.
  *  3. Assert only the operation exclusion fails and only the operation remains missing.
+ *
  * @evidence contracts/testing.md#behavioral-verification evaluateEvidenceGraph consumes direct healthy Swagger/Markdown states with one function excluding both; exactly one forbidden and one missing finding must name POST:/orders, with no Markdown missing target.
  * @evidence contracts/testing.md#independent-expectations NoExclude belongs to the Swagger reference alone; the ordinary Markdown reference independently accepts its exclusion.
  * @evidence contracts/testing.md#distinguishing-cases Two artifact kinds and one host isolate policy leakage; this hand-built unit fixture performs no Swagger normalization or Node process.

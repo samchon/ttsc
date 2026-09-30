@@ -16,6 +16,7 @@ import (
  *  1. Reverse exact evidence and exclusion order.
  *  2. Reverse order for both parent-evidence and parent-exclusion overlaps.
  *  3. Assert every arrangement produces exactly one conflict.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule evaluates six source-order and parent/child intent permutations; each must report one conflict, both marker-location fragments, and no missing coverage.
  * @evidence contracts/testing.md#independent-expectations An evidence and exclusion scope sharing selected units contradict one another independently of order or which intent owns the parent.
  * @evidence contracts/testing.md#distinguishing-cases Exact overlap plus both hierarchy directions reject one-sided detection; missing-count zero verifies conflicting acknowledgements still contribute coverage.

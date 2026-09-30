@@ -13,6 +13,7 @@ import (
  *  1. Supply a selected host and one retained unit under an unhealthy reference state.
  *  2. Enable both cardinality options with no positive evidence.
  *  3. Assert the evaluator derives neither cardinality nor missing coverage.
+ *
  * @evidence contracts/testing.md#behavioral-verification evaluateEvidenceGraph receives a healthy host and an unhealthy reference retaining one selected unit with both cardinality policies; it must return no findings.
  * @evidence contracts/testing.md#independent-expectations Partial unavailable data cannot establish missing coverage or cardinality even when its retained subset has one unit.
  * @evidence contracts/testing.md#distinguishing-cases A healthy reference with this zero-evidence host would derive exactly-one cardinality and missing coverage; zero positive hosts do not violate uniqueEvidence. Healthy false suppresses those derivable findings and is supplied directly without a loader.

@@ -17,6 +17,7 @@ import (
  *  1. Select one TypeScript function and a Markdown document with no heading.
  *  2. Require exactly one Markdown unit per selected symbol.
  *  3. Assert the empty population is named and no per-host cardinality is derived.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule loads a prose-only Markdown document for a live function; the no-selected-units finding must appear without per-host cardinality.
  * @evidence contracts/testing.md#independent-expectations No selected units leaves no answerable per-host citation demand, even though the document loaded successfully.
  * @evidence contracts/testing.md#distinguishing-cases A matched headingless file distinguishes healthy emptiness from an unmatched glob or loader failure; the total population finding count is not asserted.

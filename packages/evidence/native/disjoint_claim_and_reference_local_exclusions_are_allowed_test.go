@@ -13,6 +13,7 @@ import "testing"
  *  1. Exclude two disjoint targets in one claim.
  *  2. Exclude one physical target from separate claims and reference entries.
  *  3. Assert none of the arrangements creates a duplicate.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule requires silence for disjoint exclusions, separate named claims excluding one target, and duplicate reference entries answered by one exclusion.
  * @evidence contracts/testing.md#independent-expectations Exclusion uniqueness is scoped to a claim-reference obligation and intersecting selected units, so these authored arrangements are legal.
  * @evidence contracts/testing.md#distinguishing-cases Three local subtests vary scope overlap and obligation identity; silence alone would also pass if claim activation were lost, which this entry does not independently inspect.

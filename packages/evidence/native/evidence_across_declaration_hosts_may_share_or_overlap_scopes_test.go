@@ -13,6 +13,7 @@ import "testing"
  *  1. Cite one target from two declaration hosts.
  *  2. Overlap parent and child scopes across different and identical hosts.
  *  3. Assert every positive graph remains valid.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule requires clean graphs for shared targets, parent/child positive scopes on one or different hosts, and copied citations across a merged interface/namespace.
  * @evidence contracts/testing.md#independent-expectations Positive evidence is many-to-many; overlap is legal across scopes and merged declarations unlike contradictory exclusion intent.
  * @evidence contracts/testing.md#distinguishing-cases The table and merged-identity subtest preserve distinct arrangements, but clean results alone do not certify that their claim populations stayed active.

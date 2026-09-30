@@ -12,6 +12,7 @@ import "testing"
  *  1. Repeat one target in a single JSDoc block and across two blocks.
  *  2. Cite one TypeScript unit through two local import names.
  *  3. Assert each later edge is reported once with its canonical target.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule repeats an evidence target in one block, separate blocks, and two import aliases; assertSingleEvidenceDuplicate requires one canonical duplicate with retained coverage.
  * @evidence contracts/testing.md#independent-expectations Duplicate identity follows one physical declaration host and resolved scope, so aliases of get are not distinct evidence edges.
  * @evidence contracts/testing.md#distinguishing-cases Block boundaries and spelling differences challenge text-based deduplication while different positive hosts remain legal in EvidenceAcrossDeclarationHostsMayShareOrOverlapScopes.

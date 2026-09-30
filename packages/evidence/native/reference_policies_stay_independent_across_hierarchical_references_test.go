@@ -13,6 +13,7 @@ import (
  *  1. Select an H2 in reference one and the H2 with its H3 descendant in reference two.
  *  2. Cite the H2 scope once under two single-evidence policies.
  *  3. Assert only the descendant-selecting reference fails its own count.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule cites Contract once under H2-only and H2/H3 references; exactly one singleEvidencePerSymbol failure must name reference 2.
  * @evidence contracts/testing.md#independent-expectations Distinct selected descendants are counted inside each reference denominator; one H2 scope counts one in the shallow reference and two in the deep reference.
  * @evidence contracts/testing.md#distinguishing-cases The same source and target under two overlapping selectors detect globally shared counts; only policy-count and attribution are asserted.

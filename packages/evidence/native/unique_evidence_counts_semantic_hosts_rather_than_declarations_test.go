@@ -13,6 +13,7 @@ import (
  *  1. Cite one unit twice from a single function under `uniqueEvidence`.
  *  2. Assert only the ordinary duplicate-tag diagnostic fires.
  *  3. Move the second citation onto another function and assert the unit reports two owners.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule first repeats a citation on one function, requiring Duplicate evidence without uniqueEvidence; moving it to a second function must report two distinct positive hosts.
  * @evidence contracts/testing.md#independent-expectations Unique ownership counts semantic implementations rather than written tag multiplicity.
  * @evidence contracts/testing.md#distinguishing-cases Repeated one-host tags versus two independent functions distinguish duplicate-edge reporting from unit-owner cardinality.

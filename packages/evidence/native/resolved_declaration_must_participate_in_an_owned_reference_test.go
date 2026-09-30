@@ -14,6 +14,7 @@ import "testing"
  *  1. Expose one target only through a second claim's reference.
  *  2. Cite it with `@evidenceExclude` from the first claim.
  *  3. Assert the tag is reported as non-participating with its repair context.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule resolves a Claim exclusion only through Other's reference and requires non-participation, its source location, owning claim context and repair text.
  * @evidence contracts/testing.md#independent-expectations Global resolution does not confer participation: Claim owns docs/owed.md, while only Other owns docs/stray.md.
  * @evidence contracts/testing.md#distinguishing-cases The healthy Other citation makes the target resolvable, distinguishing this placement error from an unresolved target; total findings are not asserted.

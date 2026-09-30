@@ -15,6 +15,7 @@ import (
  *  1. Repeat an exact exclusion on one and on separate hosts.
  *  2. Overlap parent and child exclusions in both source orders.
  *  3. Assert each later exclusion produces one duplicate finding.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule evaluates four exact/hierarchical exclusion overlaps; one duplicate, zero conflicts and zero missing coverage are required in each.
  * @evidence contracts/testing.md#independent-expectations Same-intent overlap repeats an exclusion decision rather than creating an evidence/exclusion conflict; acknowledgements still cover their scope.
  * @evidence contracts/testing.md#distinguishing-cases One versus two hosts and both parent orders detect inconsistent overlap accounting; the required named claim/reference fragment preserves obligation attribution.

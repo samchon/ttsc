@@ -10,6 +10,7 @@ import "testing"
  *  1. Declare two overload signatures and one implementation for one function.
  *  2. Put the only evidence tag on the implementation.
  *  3. Assert single-evidence cardinality sees one satisfied semantic host.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule reads two overload signatures plus a cited implementation under exactly-one evidence and requires silence.
  * @evidence contracts/testing.md#independent-expectations An exported overload set is one semantic function host; one implementation citation satisfies that identity.
  * @evidence contracts/testing.md#distinguishing-cases Unannotated signatures challenge physical-declaration host counting; clean-only results do not independently certify claim activation.
