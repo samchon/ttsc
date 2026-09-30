@@ -42,6 +42,7 @@ export namespace TtscGraphLinePeer {
      * @evidence contracts/portability.md#os-neutral-implementation Node numeric exit status, signal names, stdin callbacks and decoded line strings preserve native process semantics without assuming shell quoting or platform path spelling.
      */
     line(line: string): void;
+
     /**
      * Child startup or transport failure.
      *
@@ -55,6 +56,7 @@ export namespace TtscGraphLinePeer {
      * @evidence contracts/portability.md#os-neutral-implementation Node numeric exit status, signal names, stdin callbacks and decoded line strings preserve native process semantics without assuming shell quoting or platform path spelling.
      */
     error(error: Error): void;
+
     /**
      * Actual process exit; a retired reader cannot publish later lines.
      *
@@ -83,8 +85,9 @@ export namespace TtscGraphLinePeer {
    * @evidence contracts/portability.md#os-neutral-implementation Node numeric exit status, signal names, stdin callbacks and decoded line strings preserve native process semantics without assuming shell quoting or platform path spelling.
    */
   export interface Connection {
-    /** Up to the last 64 KiB of diagnostics when capture is selected. */
+    /** Up to the last 65,536 UTF-16 code units of diagnostics when capture is selected. */
     readonly stderr: string;
+
     /**
      * Whether the underlying child still has no exit status.
      *
@@ -98,6 +101,7 @@ export namespace TtscGraphLinePeer {
      * @evidence contracts/portability.md#os-neutral-implementation Node numeric exit status, signal names, stdin callbacks and decoded line strings preserve native process semantics without assuming shell quoting or platform path spelling.
      */
     alive(): boolean;
+
     /**
      * Write one complete request; errors belong to the request owner.
      *
@@ -111,6 +115,7 @@ export namespace TtscGraphLinePeer {
      * @evidence contracts/portability.md#os-neutral-implementation Node numeric exit status, signal names, stdin callbacks and decoded line strings preserve native process semantics without assuming shell quoting or platform path spelling.
      */
     write(line: string, done: (error?: Error | null) => void): void;
+
     /**
      * Detach the reader and optionally terminate the owned process.
      *
@@ -137,7 +142,7 @@ export namespace TtscGraphLinePeer {
    * @evidence contracts/common.md#clear-and-simple-design One adapter implements actual process I/O; resident state owners choose their existing diagnostic and shutdown policies.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Real process APIs retain their defaults and explicit argv; no test-only executable or response path is supplied.
    * @evidence contracts/common.md#meaningful-documentation Prose explains the existing two shutdown policies and connection comments describe bounded stderr and retirement.
-   * @evidence contracts/performance.md#efficient-algorithms One spawn/reader setup is constant-count; writes and line decoding process frame bytes once, while captured diagnostics retain only a 64 KiB tail and draining avoids pipe backpressure.
+   * @evidence contracts/performance.md#efficient-algorithms One spawn/reader setup is constant-count; writes and line decoding process frame bytes once, while captured diagnostics retain a tail of at most 65,536 UTF-16 code units and draining avoids pipe backpressure.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This effectful opener creates one native peer; resident state determines when that peer remains reusable or must be replaced.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The returned close owns one reader and child, detaches once and terminates at most once; graph grace escalation has one unreferenced finite timer cleared on exit, while stream/event references remain attached until native exit.
    * @evidence contracts/portability.md#os-neutral-implementation Node spawn receives an executable and argv vector directly with windowsHide; Node stream/process APIs own native signals and optional cwd, without a shell or manual path normalization.

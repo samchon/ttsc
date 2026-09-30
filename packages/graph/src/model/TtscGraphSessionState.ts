@@ -373,6 +373,7 @@ export namespace TtscGraphSessionState {
      * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The signature acquires no resource itself; its actual implementation and state close control lifetime.
      */
     open(events: TtscGraphLinePeer.Events): TtscGraphLinePeer.Connection;
+
     /**
      * Decode one complete line with the installed generated envelope validator.
      *
@@ -385,6 +386,7 @@ export namespace TtscGraphSessionState {
      * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The signature acquires no resource itself; its actual implementation and state close control lifetime.
      */
     decode(line: string): ITtscGraphSnapshot;
+
     /**
      * Synchronize changed artifact inputs before a refresh.
      *
@@ -397,6 +399,7 @@ export namespace TtscGraphSessionState {
      * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The signature acquires no resource itself; its actual implementation and state close control lifetime.
      */
     beforeRequest(signal?: AbortSignal): Promise<void>;
+
     /**
      * Current artifact answer; an empty string explicitly withdraws it.
      *
@@ -409,6 +412,7 @@ export namespace TtscGraphSessionState {
      * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The signature acquires no resource itself; its actual implementation and state close control lifetime.
      */
     artifacts(): string | undefined;
+
     /**
      * Retire sidecars owned by this session.
      *

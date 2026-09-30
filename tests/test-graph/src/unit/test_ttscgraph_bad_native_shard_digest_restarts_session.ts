@@ -25,7 +25,7 @@ export async function test_ttscgraph_bad_native_shard_digest_restarts_session():
     const snapshot = sessionTransaction();
     snapshot.upserts[0]!.digest = "wrong-digest";
     session.receive(port.peer, { id: Number(port.writes[0]!.id), protocolVersion: 1, mode: "initial", changed: true, capabilities: [], snapshot });
-    await assert.rejects(active, /native shard .* digest wrong-digest/);
+    await assert.rejects(active, /digest wrong-digest does not match/);
     assertRetired(port);
 
     const recovered = session.graph();

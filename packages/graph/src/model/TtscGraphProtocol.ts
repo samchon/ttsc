@@ -1,6 +1,12 @@
 import typia from "typia";
 import { ITtscGraphSnapshot } from "../structures/ITtscGraphSnapshot";
 
+/**
+ * The serve protocol version this client speaks.
+ *
+ * Keep it equal to `serveProtocolVersion` in
+ * `packages/ttsc/cmd/ttscgraph/serve.go`. The two are hand-synchronized.
+ */
 const PROTOCOL_VERSION = 1;
 
 /**
