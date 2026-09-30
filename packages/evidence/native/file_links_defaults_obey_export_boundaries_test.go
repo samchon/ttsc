@@ -11,6 +11,14 @@ import "testing"
  * 1. Publish defaults through declaration, alias, and imported-binding forms.
  * 2. Assert legitimate public addresses and namespace forwarding resolve.
  * 3. Reject default-only local names, ordinary star defaults, and type-only values.
+ *
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.Check through the file-link fixture exercises this case. Verifies default addresses respect public, star, namespace, and type-only exports.
+ *
+ * @evidence .agents/skills/contracts/testing.md#independent-expectations The table states which default, star, namespace, and type-only paths expose a property under TypeScript export rules. Rejected rows require some diagnostic, so their precise cause remains unasserted.
+ *
+ * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Publish defaults through declaration, alias, and imported-binding forms. Assert legitimate public addresses and namespace forwarding resolve. Reject default-only local names, ordinary star defaults, and type-only values.
+ *
+ * @evidence .agents/skills/contracts/testing.md#execution-ownership TestFileLinksDefaultsObeyExportBoundaries is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the file-link fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
  */
 func TestFileLinksDefaultsObeyExportBoundaries(t *testing.T) {
   for _, test := range []struct {

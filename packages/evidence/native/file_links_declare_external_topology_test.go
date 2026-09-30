@@ -3,7 +3,6 @@ package evidence
 import (
   "encoding/json"
   "testing"
-
   "github.com/samchon/ttsc/packages/lint/rule"
 )
 
@@ -16,6 +15,14 @@ import (
  * 1. Configure a rooted TypeScript reference and a Markdown claim.
  * 2. Inspect the configured external topology without loading sources.
  * 3. Reject a root/package combination instead of silently choosing a base.
+ *
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.DeclareInputs and decodeGraphConfig exercises this case. Verifies rooted code references declare future export dependencies.
+ *
+ * @evidence .agents/skills/contracts/testing.md#independent-expectations Explicit reference roots publish ../api/** beside review.md, while combining root and package is an invalid configuration. Both expected values are authored independently of normalization.
+ *
+ * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Configure a rooted TypeScript reference and a Markdown claim. Inspect the configured external topology without loading sources. Reject a root/package combination instead of silently choosing a base.
+ *
+ * @evidence .agents/skills/contracts/testing.md#execution-ownership TestFileLinksDeclareExternalTopology is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.DeclareInputs and decodeGraphConfig in the native Go process. It consumes authored strings or parsed source nodes directly; no installed consumer, compiled host, or loader process participates.
  */
 func TestFileLinksDeclareExternalTopology(t *testing.T) {
   config := `{"claims":[{"type":"markdown","files":["review.md"],"reference":{"type":"typescript","root":"../api","files":["src/index.ts"]}}]}`

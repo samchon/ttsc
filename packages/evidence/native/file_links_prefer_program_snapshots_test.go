@@ -15,6 +15,14 @@ import (
  * 1. Supply a Program export that differs from the file on disk.
  * 2. Verify repeated graph cycles use that snapshot.
  * 3. Replace the Program source and assert the citation becomes unresolved.
+ *
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.Check through the file-link fixture exercises this case. Verifies an active Program snapshot wins over stale disk content in a root.
+ *
+ * @evidence .agents/skills/contracts/testing.md#independent-expectations The Program exports value while disk exports stale, then the replacement snapshot exports renamed. Clean repeated and linked-root checks followed by missing-export failure distinguish snapshot precedence.
+ *
+ * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Supply a Program export that differs from the file on disk. Verify repeated graph cycles use that snapshot. Replace the Program source and assert the citation becomes unresolved.
+ *
+ * @evidence .agents/skills/contracts/testing.md#execution-ownership TestFileLinksPreferProgramSnapshots is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the file-link fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes. Its linked-directory fixture invokes the shared symbolic-link operation on real fixture paths. The separate Windows boundary cases own junction production; this entry does not substitute a process-backed producer when symbolic-link privileges are missing.
  */
 func TestFileLinksPreferProgramSnapshots(t *testing.T) {
   fixture := newFileLinkFixture(t, map[string]string{"api/value.ts": "export const stale = 1;", "review.md": "## Review\n<!-- @link api/value.ts#value Reads the value. -->\n"}, `{"claims":[{"type":"markdown","files":["review.md"],"symbol":"h2","reference":{"type":"typescript","root":"api","files":["*.ts"],"symbol":"property"}}]}`)

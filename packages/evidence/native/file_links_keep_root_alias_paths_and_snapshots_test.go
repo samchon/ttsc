@@ -16,6 +16,14 @@ import (
  * 1. Link a project beside a rooted API and supply a decoy Program sibling.
  * 2. Resolve the API's disk re-export, then prefer its actual editor snapshot.
  * 3. Remove its saved file and verify the unsaved source remains selectable.
+ *
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.Check through the file-link fixture exercises this case. Verifies linked project roots keep authored paths distinct from unit IDs.
+ *
+ * @evidence .agents/skills/contracts/testing.md#independent-expectations The authored logical API exports value/live, whereas the physical decoy exports decoy. Successful resolution before and after deletion proves selection follows the intended disk source and retained snapshot.
+ *
+ * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Link a project beside a rooted API and supply a decoy Program sibling. Resolve the API's disk re-export, then prefer its actual editor snapshot. Remove its saved file and verify the unsaved source remains selectable.
+ *
+ * @evidence .agents/skills/contracts/testing.md#execution-ownership TestFileLinksKeepRootAliasPathsAndSnapshots is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the file-link fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes. Its linked-directory fixture invokes the shared symbolic-link operation on real fixture paths. The separate Windows boundary cases own junction production; this entry does not substitute a process-backed producer when symbolic-link privileges are missing.
  */
 func TestFileLinksKeepRootAliasPathsAndSnapshots(t *testing.T) {
   fixture := newFileLinkFixture(t, map[string]string{

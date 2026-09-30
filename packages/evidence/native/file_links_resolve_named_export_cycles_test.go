@@ -10,8 +10,16 @@ import "testing"
  * contribute units; a cycle that never reaches a declaration remains missing.
  *
  * 1. Select mutually re-exporting modules with local and forwarded bindings.
- * 2. Verify named, star, and namespace forwarding close their obligations.
+ * 2. Verify named and star forwarding close the value and other obligations.
  * 3. Remove a real binding and assert the incomplete cycle is diagnosed.
+ *
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.Check through the file-link fixture exercises this case. Verifies named binding cycles preserve real exports and reject missing ones.
+ *
+ * @evidence .agents/skills/contracts/testing.md#independent-expectations Real value/other bindings survive named and star cycles; replacing the only real value with a circular forwarding binding must report no public value export.
+ *
+ * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Select mutually re-exporting modules with local and forwarded bindings. Verify named and star forwarding close the value and other obligations. Remove a real binding and assert the incomplete cycle is diagnosed.
+ *
+ * @evidence .agents/skills/contracts/testing.md#execution-ownership TestFileLinksResolveNamedExportCycles is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the file-link fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
  */
 func TestFileLinksResolveNamedExportCycles(t *testing.T) {
   fixture := newFileLinkFixture(t, map[string]string{

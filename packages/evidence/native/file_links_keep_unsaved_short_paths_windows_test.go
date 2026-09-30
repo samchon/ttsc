@@ -5,7 +5,6 @@ import (
   "path/filepath"
   "strings"
   "testing"
-
   "golang.org/x/sys/windows"
 )
 
@@ -19,6 +18,22 @@ import (
  * 2. Delete the saved target and its parent while retaining the snapshot.
  * 3. Resolve a new snapshot whose nested directories were never saved.
  * 4. Replace that snapshot and require the missing exported name diagnostic.
+ *
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.Check through the file-link fixture exercises this case. Verifies Windows 8.3 project roots retain snapshots after path deletion.
+ *
+ * @evidence .agents/skills/contracts/testing.md#independent-expectations The retained snapshot exports value through a real distinct DOS alias even after file and parent deletion; replacing it with renamed must yield the literal missing value export diagnostic.
+ *
+ * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Select a barrel and its snapshot through an actual DOS project-root alias. Delete the saved target and its parent while retaining the snapshot. Resolve a new snapshot whose nested directories were never saved. Replace that snapshot and require the missing exported name diagnostic.
+ *
+ * @evidence .agents/skills/contracts/testing.md#execution-ownership TestFileLinksKeepUnsavedShortPaths, discoverable only through its Windows filename, belongs to the existing Windows boundary batch. It calls GetShortPathName on its own fixture and invokes graphRule.Check against the returned DOS alias; it neither installs a consumer nor builds or starts another native host.
+ *
+ * @evidence .agents/skills/contracts/e2e.md#necessary-boundary GetShortPathName supplies the actual Windows DOS alias consumed by rooted source identity; portable path-parser calls cannot establish that alias remains usable after the saved target and parent disappear.
+ *
+ * @evidence .agents/skills/contracts/e2e.md#shared-execution This case consumes the existing Windows runner and native test artifact once. Its successive graph calls reuse one fixture and retained snapshot; only source bytes and deleted paths change, so no per-step installation or producer is needed.
+ *
+ * @evidence .agents/skills/contracts/e2e.md#state-isolation-and-reuse-validity The test owns a t.TempDir project and its snapshot slice. It first supplies value, removes the file and parent, then supplies a never-saved nested value and finally renamed. Go testing cleans the directory on success and failure; no warm snapshot is substituted for the required replacement.
+ *
+ * @evidence .agents/skills/contracts/e2e.md#preserved-coverage This entry retains every clean check across saved/deleted/never-saved states and the final missing-value diagnostic. The distinct DOS alias is a required fixture precondition; an unavailable alias must fail rather than silently count as successful coverage.
  */
 func TestFileLinksKeepUnsavedShortPaths(t *testing.T) {
   fixture := newFileLinkFixture(t, map[string]string{
@@ -32,7 +47,7 @@ func TestFileLinksKeepUnsavedShortPaths(t *testing.T) {
   }
   needed, err := windows.GetShortPathName(input, nil, 0)
   if err != nil || needed == 0 {
-    t.Skipf("Windows short paths are unavailable: %v", err)
+    t.Fatalf("Windows boundary fixture requires short paths: %v", err)
   }
   buffer := make([]uint16, needed)
   written, err := windows.GetShortPathName(input, &buffer[0], uint32(len(buffer)))
@@ -41,7 +56,7 @@ func TestFileLinksKeepUnsavedShortPaths(t *testing.T) {
   }
   short := windows.UTF16ToString(buffer[:written])
   if strings.EqualFold(filepath.Clean(short), filepath.Clean(fixture.root)) {
-    t.Skip("the test volume did not assign a distinct 8.3 alias")
+    t.Fatal("Windows boundary fixture requires a distinct 8.3 alias")
   }
   fixture.root = short
   fixture.sources = append(fixture.sources, fixture.source("api/nested/value.ts", "export const value = 1;"))

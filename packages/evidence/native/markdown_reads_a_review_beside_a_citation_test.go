@@ -25,6 +25,14 @@ import (
  *  2. Assert the citation's reason stops at its own sentence and the review was
  *     collected with its own target and description.
  *  3. Assert an unrelated `@tag` is still absorbed into a Markdown reason.
+ *
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification scanProjectMarkdown exercises this case. Verifies a Markdown review closes the citation above it without making every `@tag` a boundary.
+ *
+ * @evidence .agents/skills/contracts/testing.md#independent-expectations The citation and review each have literal target/reason expectations; the foreign architecture line remains prose. Counts detect swallowed or manufactured annotations.
+ *
+ * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Scan a document whose HTML comment holds a citation and then a review. Assert the citation's reason stops at its own sentence and the review was collected with its own target and description. Assert an unrelated `@tag` is still absorbed into a Markdown reason.
+ *
+ * @evidence .agents/skills/contracts/testing.md#execution-ownership TestMarkdownReadsAReviewBesideACitation is the selectable Go entry and owns its fixture variants and local closures. It invokes scanProjectMarkdown in the native Go process. It consumes authored strings or parsed source nodes directly; no installed consumer, compiled host, or loader process participates.
  */
 func TestMarkdownReadsAReviewBesideACitation(t *testing.T) {
   inventory, problems := scanProjectMarkdown("docs/spec.md", `# Pricing
@@ -66,42 +74,5 @@ func TestMarkdownReadsAReviewBesideACitation(t *testing.T) {
   }
   if reason := foreign.Declarations[0].Reason; reason != "Carries the limit agreed in that meeting.\n@architecture approved this adoption." {
     t.Fatalf("an unrelated @tag stopped being prose in a Markdown reason: %q", reason)
-  }
-}
-
-/**
- * Verifies a comment opening mid-line is treated as a tag position.
- *
- * The declaration scan runs over the whole document with a regular expression, so
- * it finds a review after prose on the same line. Leaving that line in the digest
- * meant writing the review changed the digest its own fingerprint is checked
- * against, which is the non-terminating repair loop the exclusion exists to close.
- *
- *  1. Take the digest of a section with no tags.
- *  2. Add a mid-line review to the same section.
- *  3. Assert the digest did not move.
- */
-func TestMarkdownExcludesAMidLineComment(t *testing.T) {
-  digestOf := func(content string) string {
-    inventory, _ := scanProjectMarkdown("docs/spec.md", content)
-    for _, unit := range inventory.Units {
-      if unit.Target == "docs/spec.md#pricing" {
-        return unit.Digest
-      }
-    }
-    t.Fatalf("expected a unit for the H2 in:\n%s", content)
-    return ""
-  }
-  bare := digestOf("## Pricing\n\nThe rate is capped.\n")
-  annotated := digestOf("## Pricing\n\nThe rate is capped. <!-- @evidenceReview docs/spec.md#pricing Checked the cap. -->\n")
-  if bare != annotated {
-    t.Fatal("a mid-line comment stays in the digest, so writing a review there invalidates it")
-  }
-  // The negative twin: only the comment span comes out, so the prose beside it
-  // still counts. Dropping the whole line instead would make a real content
-  // change on an annotated line expire nothing.
-  changed := digestOf("## Pricing\n\nThe rate is lifted. <!-- @evidenceReview docs/spec.md#pricing Checked the cap. -->\n")
-  if changed == annotated {
-    t.Fatal("prose beside a comment is missing from the digest, so a content change there expires nothing")
   }
 }

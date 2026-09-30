@@ -5,7 +5,6 @@ import (
   "os"
   "path/filepath"
   "testing"
-
   "github.com/samchon/ttsc/packages/lint/rule"
 )
 
@@ -16,8 +15,16 @@ import (
  * would hide that failure, while following it would cross the declared boundary.
  *
  * 1. Configure a disk barrel whose re-export leaves its root.
- * 2. Assert the boundary failure without derivative missing coverage.
+ * 2. Assert the explicit root-boundary failure.
  * 3. Move its implementation into the root and verify recovery.
+ *
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.Check through the file-link fixture exercises this case. Verifies rooted exports cannot silently escape into an unconfigured tree.
+ *
+ * @evidence .agents/skills/contracts/testing.md#independent-expectations An explicit api root authorizes ./value but not ../private/value. The outside traversal must report the boundary and the repaired sibling must pass; derivative diagnostic suppression is not separately asserted.
+ *
+ * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Configure a disk barrel whose re-export leaves its root. Assert the explicit root-boundary failure. Move its implementation into the root and verify recovery.
+ *
+ * @evidence .agents/skills/contracts/testing.md#execution-ownership TestFileLinksConfineRootedExportTraversal is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the file-link fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
  */
 func TestFileLinksConfineRootedExportTraversal(t *testing.T) {
   root := t.TempDir()

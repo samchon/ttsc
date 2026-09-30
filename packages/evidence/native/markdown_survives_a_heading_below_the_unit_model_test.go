@@ -13,6 +13,14 @@ import (
  *  1. Scan a document whose deepest heading is an H6 nested under real units.
  *  2. Assert the scan completes and materializes the file unit with its H1 through H4 sections, and nothing deeper.
  *  3. Assert an H6 answers as an H5 already does, for attribution and for a tag written under it.
+ *
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification scanProjectMarkdown and graphRule.Check through the authored project-rule fixture exercise this case. Verifies a heading deeper than the unit model is scanned rather than fatal.
+ *
+ * @evidence .agents/skills/contracts/testing.md#independent-expectations The literal inventory stops at H4, edits under H5/H6 change limits but not coupons, and each deep-host tag yields exactly one refusal at line 7 with its own host kind.
+ *
+ * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Scan a document whose deepest heading is an H6 nested under real units. Assert the scan completes and materializes the file unit with its H1 through H4 sections, and nothing deeper. Assert an H6 answers as an H5 already does, for attribution and for a tag written under it.
+ *
+ * @evidence .agents/skills/contracts/testing.md#execution-ownership TestMarkdownSurvivesAHeadingBelowTheUnitModel is the selectable Go entry and owns its fixture variants and local closures. It invokes scanProjectMarkdown, markdownUnitDigest, and graphRule.Check in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
  */
 func TestMarkdownSurvivesAHeadingBelowTheUnitModel(t *testing.T) {
   document := "# Spec {#spec}\n\n## Pricing {#pricing}\n\n### Coupons {#coupons}\n\n#### Limits {#limits}\n\n##### Deeper\n\n###### Deepest\n\nBody under the deepest heading.\n"

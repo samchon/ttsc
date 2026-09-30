@@ -11,6 +11,14 @@ import "testing"
  * 1. Declare private and protected constructor parameter properties.
  * 2. Cite each through its instance accessor.
  * 3. Assert the visibility reason and remaining public coverage obligation.
+ *
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.Check through the authored project-rule fixture exercises this case. Verifies private parameter properties receive the same diagnosis as body fields.
+ *
+ * @evidence .agents/skills/contracts/testing.md#independent-expectations TypeScript private/protected constructor properties cannot be public evidence; the literal restriction and missing-acknowledgement messages expose accidental publication.
+ *
+ * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Declare private and protected constructor parameter properties. Cite each through its instance accessor. Assert the visibility reason and remaining public coverage obligation.
+ *
+ * @evidence .agents/skills/contracts/testing.md#execution-ownership TestFileLinksClassifyPrivateParameterProperties is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the authored project-rule fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
  */
 func TestFileLinksClassifyPrivateParameterProperties(t *testing.T) {
   for _, visibility := range []string{"private", "protected"} {

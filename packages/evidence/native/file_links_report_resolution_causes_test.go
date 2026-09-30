@@ -11,6 +11,14 @@ import "testing"
  * 1. Cite malformed, missing, unselected, and inaccessible targets.
  * 2. Evaluate each against the same public class population.
  * 3. Assert its diagnostic and the still-missing acknowledgement.
+ *
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.Check through the authored project-rule fixture exercises this case. Verifies file-link failures name their repair and never satisfy coverage.
+ *
+ * @evidence .agents/skills/contracts/testing.md#independent-expectations The independently authored table distinguishes malformed, missing, unselected, private, accessor, and out-of-population targets; each failure leaves the real property still owed.
+ *
+ * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Cite malformed, missing, unselected, and inaccessible targets. Evaluate each against the same public class population. Assert its diagnostic and the still-missing acknowledgement.
+ *
+ * @evidence .agents/skills/contracts/testing.md#execution-ownership TestFileLinksReportResolutionCauses is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the authored project-rule fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
  */
 func TestFileLinksReportResolutionCauses(t *testing.T) {
   for _, test := range []struct{ target, diagnostic string }{

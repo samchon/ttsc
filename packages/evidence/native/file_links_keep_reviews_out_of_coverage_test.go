@@ -11,6 +11,14 @@ import "testing"
  * 1. Cite a property from a TypeScript documentation block without imports.
  * 2. Pair each acknowledgement kind with its corresponding review.
  * 3. Remove the acknowledgement and verify coverage remains owed.
+ *
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.Check through the authored project-rule fixture exercises this case. Verifies review annotations cannot replace file-qualified acknowledgements.
+ *
+ * @evidence .agents/skills/contracts/testing.md#independent-expectations A review has no acknowledgement kind. Removing link, evidence, or evidenceExclude while retaining its matching review must leave the property owed.
+ *
+ * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Cite a property from a TypeScript documentation block without imports. Pair each acknowledgement kind with its corresponding review. Remove the acknowledgement and verify coverage remains owed.
+ *
+ * @evidence .agents/skills/contracts/testing.md#execution-ownership TestFileLinksKeepReviewsOutOfCoverage is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the authored project-rule fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
  */
 func TestFileLinksKeepReviewsOutOfCoverage(t *testing.T) {
   config := `{"claims":[{"type":"typescript","files":["src/review.ts"],"symbol":"type","reference":{"type":"typescript","files":["src/target.ts"],"symbol":"property"}}]}`

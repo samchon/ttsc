@@ -14,6 +14,14 @@ import (
  * 1. Select a module with one real value and an undeclared exported binding.
  * 2. Assert the cause is diagnosed without deriving coverage from partial input.
  * 3. Declare and cite the missing value and verify recovery.
+ *
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.Check through the file-link fixture exercises this case. Verifies a missing local export cannot disappear from a healthy population.
+ *
+ * @evidence .agents/skills/contracts/testing.md#independent-expectations The undeclared missing binding is invalid in both direct and forwarding entries. Declaring and citing it restores coverage; partial-input findings must not report Missing acknowledgement.
+ *
+ * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Select a module with one real value and an undeclared exported binding. Assert the cause is diagnosed without deriving coverage from partial input. Declare and cite the missing value and verify recovery.
+ *
+ * @evidence .agents/skills/contracts/testing.md#execution-ownership TestFileLinksRejectMissingLocalExports is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the file-link fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
  */
 func TestFileLinksRejectMissingLocalExports(t *testing.T) {
   for _, entry := range []string{"value.ts", "index.ts"} {
