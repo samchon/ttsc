@@ -66,13 +66,16 @@ export namespace CommonJsRuntimeSource {
   /**
    * Insert the local bootstrap without changing lines or directive semantics.
    * A module that declares its own top-level require function keeps that binding.
+   * Flat and embedded indexed JSON maps retain their originals, including URI
+   * parameters and percent encoding. Invalid optional metadata does not reject
+   * otherwise executable JavaScript; an identity map describes that body instead.
    *
-   * @evidence contracts/common.md#principled-implementation Acorn's CommonJS grammar identifies directive prologues, hoisted require declarations and actual trailing source-map comments. The inserted prefix preserves strictness and shifts map generated columns on exactly the insertion line.
+   * @evidence contracts/common.md#principled-implementation Acorn's CommonJS grammar identifies directive prologues, hoisted require declarations and actual trailing source-map comments. Flat mappings or indexed section offsets shift generated columns on exactly the insertion line, preserving original locations. Optional malformed or externally indexed maps do not become executable-syntax failures.
    * @evidence contracts/common.md#clear-and-simple-design Source adaptation constructs one prefix and one corresponding map adjustment; evaluation stays with Node rather than a second interpreter.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The bootstrap reads this already-loaded helper through public require.cache, so compiler implementation paths do not become descriptor dependency resolutions. User-owned hoisted require functions are left intact.
    * @evidence contracts/common.md#meaningful-documentation Native prose states line/directive preservation and the user-owned binding exception.
    * @evidence contracts/portability.md#os-neutral-implementation JSON quotes the actual helper cache key and the filename becomes a file URL only for source-map identity, preserving native and protocol spelling separately.
-   * @evidence contracts/performance.md#efficient-algorithms Parsing and source construction cost O(B) source bytes; a mapless first line needs O(C) exact-column segments because Node does not interpolate original columns between map segments.
+   * @evidence contracts/performance.md#efficient-algorithms Parsing and source construction cost O(B) source bytes plus O(M) JSON map bytes and sections; a mapless first line needs O(C) exact-column segments because Node does not interpolate original columns between map segments.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Node's evaluation owner calls this operation once for each loaded body; this function retains no mutable-source cache.
    * @evidence contracts/performance.md#bound-retention-and-release-resources AST, comments and map data end with this call, scaling with source and map bytes; the returned body belongs to the loader.
    */
@@ -99,14 +102,13 @@ export namespace CommonJsRuntimeSource {
     const directive = trailing !== undefined && source.slice(trailing.end).trim() === ""
       ? /^\s*[#@]\s*sourceMappingURL\s*=\s*(\S+)\s*$/.exec(trailing.text)
       : null;
-    let map: { mappings: string; [key: string]: unknown };
+    let map: Record<string, unknown> | undefined;
     let body = source;
-    if (directive?.[1]?.startsWith("data:application/json;base64,")) {
-      map = JSON.parse(Buffer.from(directive[1].slice("data:application/json;base64,".length), "base64").toString("utf8"));
-      if (typeof map.mappings !== "string") throw new Error("ttsx: unsupported CommonJS source map layout");
-      const rows = map.mappings.split(";");
-      if (rows[line]) rows[line] = shiftFirstColumn(rows[line]!, header.length);
-      map.mappings = rows.join(";");
+    const uri = directive?.[1];
+    if (uri !== undefined) {
+      map = adjustedInlineMap(uri, line, header.length);
+    }
+    if (map !== undefined) {
       body = source.slice(0, trailing!.start);
     } else {
       const rows = Array(source.split(/\r\n|[\r\n\u2028\u2029]/).length).fill("A");
@@ -148,4 +150,50 @@ function shiftFirstColumn(row: string, amount: number): string {
   } while (digit >= 32);
   if (value % 2 !== 0) throw new Error("ttsx: negative CommonJS source map column");
   return encodeColumn(value / 2 + amount) + row.slice(index);
+}
+
+/** Decode optional JSON metadata; malformed maps must not reject valid JavaScript. */
+function adjustedInlineMap(uri: string, line: number, amount: number): Record<string, unknown> | undefined {
+  const match = /^data:application\/json((?:;[^,]*)?),([\s\S]*)$/i.exec(uri);
+  if (match === null) return undefined;
+  try {
+    const json = /(?:^|;)base64(?:;|$)/i.test(match[1]!)
+      ? Buffer.from(match[2]!, "base64").toString("utf8")
+      : decodeURIComponent(match[2]!);
+    const map: unknown = JSON.parse(json);
+    if (!shiftMapLine(map, line, amount)) return undefined;
+    return map as Record<string, unknown>;
+  } catch {
+    // Source-map comments are optional debug metadata, not executable syntax.
+    return undefined;
+  }
+}
+
+/** Shift one generated line in a flat map or its recursively indexed sections. */
+function shiftMapLine(value: unknown, line: number, amount: number): boolean {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+  const map = value as Record<string, unknown>;
+  if (map.version !== 3) return false;
+  if (typeof map.mappings === "string") {
+    const rows = map.mappings.split(";");
+    if (rows[line]) rows[line] = shiftFirstColumn(rows[line]!, amount);
+    map.mappings = rows.join(";");
+    return true;
+  }
+  if (!Array.isArray(map.sections)) return false;
+  for (const value of map.sections) {
+    if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+    const section = value as Record<string, unknown>;
+    const offset = section.offset as { line?: unknown; column?: unknown } | undefined;
+    if (offset === undefined || offset === null ||
+      !Number.isSafeInteger(offset.line) || !Number.isSafeInteger(offset.column) ||
+      (offset.line as number) < 0 || (offset.column as number) < 0) return false;
+    const start = offset.line as number;
+    if (!shiftMapLine(section.map, start < line ? line - start : -1, start < line ? amount : 0)) return false;
+    if (start === line) {
+      // Section columns affect their first line alone, exactly as the prefix does.
+      offset.column = (offset.column as number) + amount;
+    }
+  }
+  return true;
 }
