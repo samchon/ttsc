@@ -1,11 +1,11 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 import {
   assert,
   fs,
   path,
   waitForPluginBinary,
-} from "../../internal/source-build";
+} from "../../internal/source-build-unit";
 
 /**
  * Verifies waitForPluginBinary prefers a published binary over a released lock.
@@ -18,6 +18,11 @@ import {
  * 1. Publish a binary file and leave no lock directory.
  * 2. Call the wait loop.
  * 3. Assert it returns `{ outcome: "published" }`.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls the actual wait loop with a seeded binary and no lock and observes published.
+ * @evidence contracts/testing.md#independent-expectations The authored binary path establishes publication independently; literal published rejects unnecessary reacquisition.
+ * @evidence contracts/testing.md#distinguishing-cases Pins publication precedence over missing-lock release, without claiming the inert bytes are a working executable.
+ * @evidence contracts/testing.md#execution-ownership test_waitforpluginbinary_prefers_published_binary_over_released_lock is discovered once under src/unit/source-plugin and directly invokes the authored lock/cache operation over test-owned paths. This case installs no consumer, builds no artifact and starts no product host; the temporary-directory owner and its explicit lease finally blocks release its state.
  */
 export const test_waitforpluginbinary_prefers_published_binary_over_released_lock =
   () => {

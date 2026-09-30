@@ -1,4 +1,4 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 import {
   assert,
@@ -6,7 +6,7 @@ import {
   inspectPluginBuildLock,
   os,
   path,
-} from "../../internal/source-build";
+} from "../../internal/source-build-unit";
 
 /**
  * Verifies inspectPluginBuildLock keeps a live same-host owner active.
@@ -20,6 +20,11 @@ import {
  *    (definitely live) pid on this host.
  * 2. Inspect it.
  * 3. Assert the state is `active` and the owner label names the pid.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Reads owner.json naming this running process and returns active with its pid label.
+ * @evidence contracts/testing.md#independent-expectations The authored current pid is independently live; literal active ownership forbids stealing its lock.
+ * @evidence contracts/testing.md#distinguishing-cases Contrasts the real dead-child E2E with local live ownership and verifies the exact current pid label.
+ * @evidence contracts/testing.md#execution-ownership test_inspectpluginbuildlock_keeps_live_local_owner_active is discovered once under src/unit/source-plugin and directly invokes the authored lock/cache operation over test-owned paths. This case installs no consumer, builds no artifact and starts no product host; the temporary-directory owner and its explicit lease finally blocks release its state.
  */
 export const test_inspectpluginbuildlock_keeps_live_local_owner_active = () => {
   const root = TestProject.tmpdir("ttsc-lock-observe-");

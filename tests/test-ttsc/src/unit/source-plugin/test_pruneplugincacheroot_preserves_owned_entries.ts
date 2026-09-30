@@ -1,4 +1,4 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 import {
   acquirePluginBuildLock,
@@ -7,9 +7,14 @@ import {
   path,
   prunePluginCacheRoot,
   releasePluginBuildLock,
-} from "../../internal/source-build";
+} from "../../internal/source-build-unit";
 
-/** Active generations and the just-returned binary survive an LRU pass. */
+/** Active generations and the just-returned binary survive an LRU pass. *
+ * @evidence contracts/testing.md#behavioral-verification Forces a zero-target collector pass over legacy, active generation, protected returned and unowned old entries.
+ * @evidence contracts/testing.md#independent-expectations Authored directory contents and independently acquired ownership determine three survivors and one eviction.
+ * @evidence contracts/testing.md#distinguishing-cases Contrasts young metadata-less ownership, a real same-process lease, explicit return protection and an unprotected evictable entry.
+ * @evidence contracts/testing.md#execution-ownership test_pruneplugincacheroot_preserves_owned_entries is discovered once under src/unit/source-plugin and directly invokes the authored lock/cache operation over test-owned paths. This case installs no consumer, builds no artifact and starts no product host; the temporary-directory owner and its explicit lease finally blocks release its state.
+ */
 export const test_pruneplugincacheroot_preserves_owned_entries = (): void => {
   const root = path.join(
     TestProject.tmpdir("ttsc-plugin-cache-owned-"),

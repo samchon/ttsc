@@ -1,10 +1,10 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 import {
   assert,
   inspectPluginBuildLock,
   path,
-} from "../../internal/source-build";
+} from "../../internal/source-build-unit";
 
 /**
  * Verifies inspectPluginBuildLock reports a missing lock directory as released.
@@ -20,6 +20,11 @@ import {
  * 1. Point inspection at a lock path that does not exist.
  * 2. Assert the observation is exactly `{ state: "released" }` — not abandoned,
  *    and carrying no fabricated owner or age.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Inspects an absent lock directory and returns only released.
+ * @evidence contracts/testing.md#independent-expectations Authored absence means no holder; the literal one-field released object rejects fabricated owner, abandonment or infinite age.
+ * @evidence contracts/testing.md#distinguishing-cases Distinguishes directory absence from every existing-directory legacy/live state.
+ * @evidence contracts/testing.md#execution-ownership test_inspectpluginbuildlock_reports_missing_lock_as_released is discovered once under src/unit/source-plugin and directly invokes the authored lock/cache operation over test-owned paths. This case installs no consumer, builds no artifact and starts no product host; the temporary-directory owner and its explicit lease finally blocks release its state.
  */
 export const test_inspectpluginbuildlock_reports_missing_lock_as_released =
   () => {

@@ -1,11 +1,11 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 import {
   assert,
   fs,
   inspectPluginBuildLock,
   path,
-} from "../../internal/source-build";
+} from "../../internal/source-build-unit";
 
 /**
  * Verifies inspectPluginBuildLock treats a corrupt owner file as a legacy lock,
@@ -21,6 +21,11 @@ import {
  *    the directory past the legacy staleness window.
  * 2. Inspect it.
  * 3. Assert the state is active with unconfirmed ownership.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Inspects invalid owner JSON in an old existing directory and retains active unconfirmed legacy ownership.
+ * @evidence contracts/testing.md#independent-expectations Invalid metadata is not death evidence; literal active state and unconfirmed-owner label implement the fail-safe contract.
+ * @evidence contracts/testing.md#distinguishing-cases Combines torn JSON with stale mtime, ensuring neither authorizes abandonment or release.
+ * @evidence contracts/testing.md#execution-ownership test_inspectpluginbuildlock_treats_corrupt_owner_as_legacy_lock is discovered once under src/unit/source-plugin and directly invokes the authored lock/cache operation over test-owned paths. This case installs no consumer, builds no artifact and starts no product host; the temporary-directory owner and its explicit lease finally blocks release its state.
  */
 export const test_inspectpluginbuildlock_treats_corrupt_owner_as_legacy_lock =
   () => {

@@ -1,4 +1,4 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 import {
   acquirePluginBuildLock,
@@ -7,7 +7,7 @@ import {
   path,
   releasePluginBuildLock,
   waitForPluginBinary,
-} from "../../internal/source-build";
+} from "../../internal/source-build-unit";
 
 /**
  * Verifies waitForPluginBinary times out on a live owner with a finite
@@ -20,6 +20,11 @@ import {
  * 1. Acquire a v3 lock owned by this process so inspection stays `active`.
  * 2. Call the wait loop with a zero timeout budget.
  * 3. Assert it throws a finite timeout without changing the held generation.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Acquires a current-process lease, expires a zero admission budget, then inspects its unchanged active fence.
+ * @evidence contracts/testing.md#independent-expectations Elapsed time cannot retire a live owner; finite-duration diagnostic and the acquired generation are independent expectations.
+ * @evidence contracts/testing.md#distinguishing-cases Checks timeout and generation preservation against released/published paths and releases the lease in finally.
+ * @evidence contracts/testing.md#execution-ownership test_waitforpluginbinary_times_out_on_live_owner_with_finite_duration is discovered once under src/unit/source-plugin and directly invokes the authored lock/cache operation over test-owned paths. This case installs no consumer, builds no artifact and starts no product host; the temporary-directory owner and its explicit lease finally blocks release its state.
  */
 export const test_waitforpluginbinary_times_out_on_live_owner_with_finite_duration =
   () => {
