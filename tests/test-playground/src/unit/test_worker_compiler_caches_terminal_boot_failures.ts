@@ -17,6 +17,10 @@ import {
  * 1. Reject two compiles with one terminal boot error and assert one boot call.
  * 2. Reject two compiles with a transient error and assert each call retries.
  * 3. Confirm both error shapes remain visible to the compiler caller.
+ * @evidence contracts/testing.md#behavioral-verification createWorkerCompilerService retains a terminal boot rejection across two source compiles with boot1, while transient pre-runtime failure retries twice and both error shapes remain visible.
+ * @evidence contracts/testing.md#independent-expectations Independent injected boot counters and literal terminal code/replacement guidance versus fetch failed messages determine cache/retry behavior; parseResult cannot fabricate success because boot never produces a runtime.
+ * @evidence contracts/testing.md#distinguishing-cases Two different source inputs share one terminal failure and separately retry a transient failure; exact terminal code on both results excludes unknown/ordinary errors.
+ * @evidence contracts/testing.md#execution-ownership This named source unit owns two service instances and private dependency/error inspection helpers, injecting rejected boot calls directly without fetching WASM, building a native artifact or launching a Worker.
  */
 export const test_worker_compiler_caches_terminal_boot_failures =
   async (): Promise<void> => {

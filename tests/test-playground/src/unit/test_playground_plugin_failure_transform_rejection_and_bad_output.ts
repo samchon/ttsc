@@ -21,6 +21,10 @@ import {
  * 2. Code 0 with non-JSON stdout → error (unusable configured transform).
  * 3. Boundary: code 0 with empty stdout → success, build runs once (no rewrite was
  *    produced, so the original source is compiled legitimately).
+ * @evidence contracts/testing.md#behavioral-verification createWorkerCompilerService.compile rejects a throwing transform and unusable code0 JSON without invoking build, while empty code0 output legitimately builds the original source once.
+ * @evidence contracts/testing.md#independent-expectations Independent build logs, literal wasm host crashed message, authored malformed JSON and exact originalTS/emittedJS define rejection/no-op semantics without deriving expected values from the service.
+ * @evidence contracts/testing.md#distinguishing-cases Rejected call, nonJSON stdout and empty successful stdout preserve three separate instances; the no-op control must retain the original source bytes passed to the host.
+ * @evidence contracts/testing.md#execution-ownership This source entry owns all three makeFakeWorker instances and envelope/record assertions, exercising the actual service parser/gating with injected operations and no browser Worker or native/WASM artifact.
  */
 export const test_playground_plugin_failure_transform_rejection_and_bad_output =
   async () => {
@@ -78,5 +82,6 @@ export const test_playground_plugin_failure_transform_rejection_and_bad_output =
       assert.equal(result.type, "success", "empty transform output is a no-op");
       assert.equal(result.value, "x=1;");
       assert.equal(record.build.length, 1, "no-op transform still builds once");
+      assert.equal(record.writes["/work/src/playground.ts"], source, "a no-op transform must preserve original source bytes");
     }
   };

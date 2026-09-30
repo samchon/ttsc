@@ -21,6 +21,10 @@ import {
  *    directly to a success.
  * 2. `lintPlugin: false` → lint returns an empty result without calling the
  *    plugin, even though the wired handler would resolve a nonzero envelope.
+ * @evidence contracts/testing.md#behavioral-verification createWorkerCompilerService.compile/lint honor disabled typia/lint options: direct compilation returns literalx=1;, lint is empty and a wired failing plugin is never called.
+ * @evidence contracts/testing.md#independent-expectations Independent makeFakeWorker call logs require plugin0/build1 and authored emitted JSx=1; distinguishes successful direct compilation from invented empty success.
+ * @evidence contracts/testing.md#distinguishing-cases Two disabled lanes contrast with a populated plugin handler that would fail if invoked; configured-plugin failures remain owned by neighboring failure cases.
+ * @evidence contracts/testing.md#execution-ownership This entry calls the real service through makeFakeWorker, whose injected boot/API/host record operations without WASM boot or a Worker; the compile and lint assertions belong to this named source unit.
  */
 export const test_playground_plugin_failure_absent_when_plugins_disabled =
   async () => {

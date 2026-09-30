@@ -36,6 +36,10 @@ interface IRecord {
  *    orderings while resets overlap both attempts.
  * 2. Assert each invalidated connector closes exactly once and B remains the
  *    shared cached connection until its own reset.
+ * @evidence contracts/testing.md#behavioral-verification createCompilerClient.connect/reset fences stale resolution and rejection, shares current promises, closes each of seven allocated connectors once and allows retry despite a close failure.
+ * @evidence contracts/testing.md#independent-expectations Controlled connector IDs2/4/7, independent close counters and promise identity specify generation ownership; no client-owned cache statistic supplies expected results.
+ * @evidence contracts/testing.md#distinguishing-cases B-before-A resolve, A rejection after B, concurrent reset, empty reset, current boot failure/retry and throwing close retain distinct controlled orderings and final seven-one counts.
+ * @evidence contracts/testing.md#execution-ownership This entry patches the actual CJS tgrid connector prototype only at its connect/getDriver/close transport seam and restores it in finally; no Worker is started, and each gate/ID belongs to this unit.
  */
 export const test_compiler_client_fences_connection_generations = async () => {
   // `createCompilerClient` compiles to CommonJS, so load tgrid through the same
