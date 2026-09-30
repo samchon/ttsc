@@ -16,10 +16,10 @@ import (
  *  1. Let a disabled claim acknowledge the shared requirement.
  *  2. Leave an enabled sibling that cites the same requirement unacknowledged.
  *  3. Assert the enabled obligation still fails.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies disabling one obligation cannot satisfy another with declarations from the disabled claim's population. The original assertions check assert the enabled obligation still fails.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Evidence coverage is claim-local even when references select the same target. A declaration that exists only in a disabled claim must disappear with that claim rather than covering an enabled sibling by accident. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Let a disabled claim acknowledge the shared requirement. Leave an enabled sibling that cites the same requirement unacknowledged. Assert the enabled obligation still fails. The assertions and inputs in this function retain its own failure identity.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestDisabledClaimCannotCoverAnEnabledSibling is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule is exercised with the scenario below; the assertions require the enabled obligation still fails.
+ * @evidence .agents/skills/contracts/testing.md#independent-expectations Evidence coverage is claim-local even when references select the same target. A declaration that exists only in a disabled claim must disappear with that claim rather than covering an enabled sibling by accident.
+ * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Let a disabled claim acknowledge the shared requirement. Leave an enabled sibling that cites the same requirement unacknowledged. Assert the enabled obligation still fails.
+ * @evidence .agents/skills/contracts/testing.md#execution-ownership TestDisabledClaimCannotCoverAnEnabledSibling is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
  */
 func TestDisabledClaimCannotCoverAnEnabledSibling(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

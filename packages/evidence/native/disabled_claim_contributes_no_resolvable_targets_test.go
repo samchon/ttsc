@@ -16,10 +16,10 @@ import (
  *  1. Disable the only claim that references a staged Markdown section.
  *  2. Cite that staged section beside a valid citation in an enabled claim.
  *  3. Assert the staged target is unresolved rather than leaked globally.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies references owned only by a disabled claim contribute no resolvable targets to an enabled sibling. The original assertions check assert the staged target is unresolved rather than leaked globally.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Target lookup is assembled globally from active obligations. Filtering only during coverage would leave a disabled reference addressable and turn a genuinely unresolved declaration into a misleading participation failure. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Disable the only claim that references a staged Markdown section. Cite that staged section beside a valid citation in an enabled claim. Assert the staged target is unresolved rather than leaked globally. The assertions and inputs in this function retain its own failure identity.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestDisabledClaimContributesNoResolvableTargets is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule is exercised with the scenario below; the assertions require the staged target is unresolved rather than leaked globally.
+ * @evidence .agents/skills/contracts/testing.md#independent-expectations Target lookup is assembled globally from active obligations. Filtering only during coverage would leave a disabled reference addressable and turn an actually unresolved declaration into a misleading participation failure.
+ * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Disable the only claim that references a staged Markdown section. Cite that staged section beside a valid citation in an enabled claim. Assert the staged target is unresolved rather than leaked globally.
+ * @evidence .agents/skills/contracts/testing.md#execution-ownership TestDisabledClaimContributesNoResolvableTargets is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
  */
 func TestDisabledClaimContributesNoResolvableTargets(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

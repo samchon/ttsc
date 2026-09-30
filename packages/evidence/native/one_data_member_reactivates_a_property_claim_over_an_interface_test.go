@@ -1,11 +1,13 @@
 package evidence
 
-import "testing"
+import (
+  "testing"
+)
 
 /**
  * Verifies one data member restores the same claim.
  *
- * The firing twin of the case above, and the reason that one is not simply a
+ * The firing twin of the complementary case, and the reason that one is not simply a
  * rule that stopped working. One member the classifier answers `property` for
  * is the whole difference between a silent build and a reported obligation, so
  * the pair also states the repair an upgrading consumer needs: name the kinds
@@ -14,10 +16,10 @@ import "testing"
  *  1. Add a data member to the same interface, changing nothing else.
  *  2. Evaluate the same `property` claim.
  *  3. Assert the now-active claim reports its missing acknowledgement.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies one data member restores the same claim. The original assertions check assert the now-active claim reports its missing acknowledgement.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The firing twin of the case above, and the reason that one is not simply a rule that stopped working. One member the classifier answers `property` for is the whole difference between a silent build and a reported obligation, so the pair also states the repair an upgrading consumer needs: name the kinds the population really holds, or widen the selector. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Add a data member to the same interface, changing nothing else. Evaluate the same `property` claim. Assert the now-active claim reports its missing acknowledgement. The assertions and inputs in this function retain its own failure identity.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestOneDataMemberReactivatesAPropertyClaimOverAnInterface is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule is exercised with the scenario below; the assertions require the now-active claim reports its missing acknowledgement.
+ * @evidence .agents/skills/contracts/testing.md#independent-expectations The firing twin of the complementary case, and the reason that one is not simply a rule that stopped working. One member the classifier answers `property` for is the whole difference between a silent build and a reported obligation, so the pair also states the repair an upgrading consumer needs: name the kinds the population really holds, or widen the selector.
+ * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Add a data member to the same interface, changing nothing else. Evaluate the same `property` claim. Assert the now-active claim reports its missing acknowledgement.
+ * @evidence .agents/skills/contracts/testing.md#execution-ownership TestOneDataMemberReactivatesAPropertyClaimOverAnInterface is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
  */
 func TestOneDataMemberReactivatesAPropertyClaimOverAnInterface(t *testing.T) {
   assertProblemContains(t, runIndexRule(t, map[string]string{

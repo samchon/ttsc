@@ -1,6 +1,8 @@
 package evidence
 
-import "testing"
+import (
+  "testing"
+)
 
 /**
  * Verifies claim-local disabling does not suppress a source selected by an
@@ -13,10 +15,10 @@ import "testing"
  *  1. Select one source from disabled and enabled claims.
  *  2. Satisfy only the enabled claim's live reference.
  *  3. Assert the enabled overlapping obligation is evaluated and passes.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies claim-local disabling does not suppress a source selected by an enabled overlapping claim. The original assertions check assert the enabled overlapping obligation is evaluated and passes.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations `disabled` removes an obligation, not a physical file. Filtering shared inventories by path would make the enabled claim vanish merely because a disabled claim selected the same source. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Select one source from disabled and enabled claims. Satisfy only the enabled claim's live reference. Assert the enabled overlapping obligation is evaluated and passes. The assertions and inputs in this function retain its own failure identity.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestDisabledClaimDoesNotSuppressAnEnabledOverlappingSource is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule must return no diagnostic when disabled and enabled claims select the same IShared source and its docs/live.md#live citation satisfies the live reference. Silence rejects an erroneous disabled-root failure; by itself it cannot distinguish valid activation from incorrectly dropping the enabled claim.
+ * @evidence .agents/skills/contracts/testing.md#independent-expectations `disabled` removes an obligation, not a physical file. Filtering shared inventories by path would make the enabled claim vanish merely because a disabled claim selected the same source.
+ * @evidence .agents/skills/contracts/testing.md#distinguishing-cases The staged claim selects the same physical source but points to a missing reference root; the enabled claim selects an existing live section and cites it. This positive overlap case expects silence. TestDisabledClaimCannotCoverAnEnabledSibling supplies the negative enabled-coverage case.
+ * @evidence .agents/skills/contracts/testing.md#execution-ownership TestDisabledClaimDoesNotSuppressAnEnabledOverlappingSource is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
  */
 func TestDisabledClaimDoesNotSuppressAnEnabledOverlappingSource(t *testing.T) {
   assertNoProblems(t, runIndexRule(t, map[string]string{

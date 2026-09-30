@@ -17,10 +17,10 @@ import (
  *  1. Disable Claim 1 behind an unreadable population root.
  *  2. Leave Claim 2 active with one unacknowledged Markdown section.
  *  3. Assert only the Claim 2 coverage failure survives.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies a disabled claim performs no loading or evaluation while an enabled sibling retains its original diagnostic identity. The original assertions check assert only the Claim 2 coverage failure survives.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Filtering after graph loading would still report the disabled claim's unreadable root. Rebuilding the claim slice with new indexes would instead report the enabled sibling as Claim 1, sending the author to the wrong configuration entry. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Disable Claim 1 behind an unreadable population root. Leave Claim 2 active with one unacknowledged Markdown section. Assert only the Claim 2 coverage failure survives. The assertions and inputs in this function retain its own failure identity.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestDisabledClaimSkipsLoadingAndPreservesSiblingIndex is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule is exercised with the scenario below; the assertions require only the Claim 2 coverage failure survives.
+ * @evidence .agents/skills/contracts/testing.md#independent-expectations Filtering after graph loading would still report the disabled claim's unreadable root. Rebuilding the claim slice with new indexes would instead report the enabled sibling as Claim 1, sending the author to the wrong configuration entry.
+ * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Disable Claim 1 behind an unreadable population root. Leave Claim 2 active with one unacknowledged Markdown section. Assert only the Claim 2 coverage failure survives.
+ * @evidence .agents/skills/contracts/testing.md#execution-ownership TestDisabledClaimSkipsLoadingAndPreservesSiblingIndex is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
  */
 func TestDisabledClaimSkipsLoadingAndPreservesSiblingIndex(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

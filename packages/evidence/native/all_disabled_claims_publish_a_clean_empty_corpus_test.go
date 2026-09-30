@@ -17,10 +17,10 @@ import (
  *  1. Configure one disabled claim under unreadable roots.
  *  2. Run the project rule with no source population.
  *  3. Assert it passes and publishes an empty corpus and no hints.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.Check and graphRule.Hints exercises this case: Verifies an all-disabled configuration publishes a clean, empty graph corpus without requiring any project or population path to exist. The original assertions check assert it passes and publishes an empty corpus and no hints.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Staged authoring begins with every claim disabled. Treating that state like an empty `claims` array would reject the workflow, while resolving roots before the gate would still produce loader failures. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Configure one disabled claim under unreadable roots. Run the project rule with no source population. Assert it passes and publishes an empty corpus and no hints. The assertions and inputs in this function retain its own failure identity.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestAllDisabledClaimsPublishACleanEmptyCorpus is the selectable Go test entry; its local loops and closures remain owned by this entry. It exercises graphRule.Check and graphRule.Hints within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.Check and graphRule.Hints is exercised with the scenario below; the assertions require it passes and publishes an empty corpus and no hints.
+ * @evidence .agents/skills/contracts/testing.md#independent-expectations Staged authoring begins with every claim disabled. Treating that state like an empty `claims` array would reject the workflow, while resolving roots before the gate would still produce loader failures.
+ * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Configure one disabled claim under unreadable roots. Run the project rule with no source population. Assert it passes and publishes an empty corpus and no hints.
+ * @evidence .agents/skills/contracts/testing.md#execution-ownership TestAllDisabledClaimsPublishACleanEmptyCorpus is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
  */
 func TestAllDisabledClaimsPublishACleanEmptyCorpus(t *testing.T) {
   reporter := &capturedProjectReporter{}

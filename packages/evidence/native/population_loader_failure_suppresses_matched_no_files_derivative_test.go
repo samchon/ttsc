@@ -16,10 +16,10 @@ import (
  *  1. Record a Markdown population failure with no file inventories.
  *  2. Materialize a reference whose glob would otherwise match nothing.
  *  3. Assert the reference is unhealthy and emits no derived match diagnostic.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises this case: Verifies a failed population root is not reported as a healthy glob miss. The original assertions check assert the reference is unhealthy and emits no derived match diagnostic.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations No file inventory exists when the walk itself cannot start, so per-file health alone cannot distinguish failure from an honest empty match. The population marker carries that distinction without becoming a matchable artifact. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Record a Markdown population failure with no file inventories. Materialize a reference whose glob would otherwise match nothing. Assert the reference is unhealthy and emits no derived match diagnostic. The assertions and inputs in this function retain its own failure identity.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPopulationLoaderFailureSuppressesMatchedNoFilesDerivative is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls parseTypeScriptInventory within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification materializeClaimStates is exercised with the scenario below; the assertions require the reference is unhealthy and emits no derived match diagnostic.
+ * @evidence .agents/skills/contracts/testing.md#independent-expectations No file inventory exists when the walk itself cannot start, so per-file health alone cannot distinguish failure from an honest empty match. The population marker carries that distinction without becoming a matchable artifact.
+ * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Record a Markdown population failure with no file inventories. Materialize a reference whose glob would otherwise match nothing. Assert the reference is unhealthy and emits no derived match diagnostic.
+ * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPopulationLoaderFailureSuppressesMatchedNoFilesDerivative is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
  */
 func TestPopulationLoaderFailureSuppressesMatchedNoFilesDerivative(t *testing.T) {
   root := t.TempDir()
