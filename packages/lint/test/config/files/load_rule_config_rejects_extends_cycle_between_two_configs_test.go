@@ -20,6 +20,13 @@ import (
 //  2. Call LoadRuleConfig with `configFile: "./a.config.json"`.
 //  3. Assert a non-nil error that says `extends cycle detected` and names both
 //     files.
+//  4. Repeat the original discovery-root cycle and reject its return edge.
+//  5. Remove that return edge and accept the adjacent acyclic chain.
+//
+// @evidence contracts/testing.md#behavioral-verification LoadRuleConfig rejects an explicit a-to-b-to-a cycle and LoadConfigResolver rejects the migrated discovered lint.config.json-to-b-to-lint cycle before any rule or native host executes.
+// @evidence contracts/testing.md#independent-expectations A finite config-extends lineage must not revisit a file; independently authored two-file graphs and the literal cycle diagnostic establish rejection, with both filenames required for the explicit-path case.
+// @evidence contracts/testing.md#distinguishing-cases Preserves the explicit two-node cycle and adds the discovery-root cycle without rules; replacing the return edge with an empty object proves the same two-file chain becomes valid. Self-reference and depth-limit cases remain separate tests.
+// @evidence contracts/testing.md#execution-ownership TestLoadRuleConfigRejectsExtendsCycleBetweenTwoConfigs owns both direct Go resolver routes in the selected unit process, using JSON fixture files without script evaluation, native compilation or a child host.
 func TestLoadRuleConfigRejectsExtendsCycleBetweenTwoConfigs(t *testing.T) {
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
@@ -46,5 +53,19 @@ func TestLoadRuleConfigRejectsExtendsCycleBetweenTwoConfigs(t *testing.T) {
   }
   if !strings.Contains(message, "a.config.json") || !strings.Contains(message, "b.config.json") {
     t.Fatalf("error should name both files in the cycle, got %v", err)
+  }
+
+  discoveredRoot := t.TempDir()
+  writeFile(t, filepath.Join(discoveredRoot, "tsconfig.json"), "{}")
+  writeFile(t, filepath.Join(discoveredRoot, "lint.config.json"), `{"extends":"./b.config.json"}`)
+  base := filepath.Join(discoveredRoot, "b.config.json")
+  writeFile(t, base, `{"extends":"./lint.config.json"}`)
+  _, discoveredErr := LoadConfigResolver(&PluginEntry{}, discoveredRoot, "tsconfig.json")
+  if discoveredErr == nil || !strings.Contains(discoveredErr.Error(), "extends cycle detected") {
+    t.Fatalf("discovered cycle error = %v, want extends cycle detected", discoveredErr)
+  }
+  writeFile(t, base, "{}")
+  if _, err := LoadConfigResolver(&PluginEntry{}, discoveredRoot, "tsconfig.json"); err != nil {
+    t.Fatalf("acyclic discovered chain rejected: %v", err)
   }
 }
