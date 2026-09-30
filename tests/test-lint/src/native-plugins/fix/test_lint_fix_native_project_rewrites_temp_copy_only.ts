@@ -18,8 +18,17 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
  * 2. Run `ttsc fix` through the real launcher with `@ttsc/lint` linked.
  * 3. Assert the temp source matches `expected/main.ts` and the fixture source is
  *    unchanged.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The real ttsc fix command must apply no-var, prefer-const and safe eqeqeq edits to the writable project and retain an unfixed eqeqeq warning, while the original fixture stays unchanged.
+ * @evidence contracts/testing.md#independent-expectations The authored expected file fixes immutable declarations and typeof equality while preserving the reassigned declaration and unsafe equality, independently specifying the supported autofix policy.
+ * @evidence contracts/testing.md#distinguishing-cases Original var and immutable let declarations change to const, typeof equality becomes strict, but the mutated let and unsafe value equality remain; exact whole-file comparison rejects extra edits.
+ * @evidence contracts/testing.md#execution-ownership This named E2E entry owns launcher-to-native fix publication. Rule and edit selection semantics remain in Go units; this boundary verifies edits reach the selected consumer file.
+ * @evidence contracts/e2e.md#necessary-boundary The native command must write selected edits and return its remaining warning through the launcher, rather than merely calculating correct in-memory fixes.
+ * @evidence contracts/e2e.md#shared-execution One builtin fix command reuses the same immutable lint producer and content-keyed cache as other builtin consumers. Format and contributor fix have distinct write policies or source identities and remain separate commands.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A private writable fixture copy receives edits, then is removed in finally. Workspace lint bytes do not mutate, so existing cached native identity is equivalent, and the checked-in baseline is asserted unchanged.
+ * @evidence contracts/e2e.md#preserved-coverage The original exit-zero, eqeqeq warning, exact edited bytes and original-fixture immutability assertions remain executable here, including reassignment and unsafe-equality negatives.
  */
-export const test_lint_fix_native_project_rewrites_temp_copy_only = () => {
+export function test_lint_fix_native_project_rewrites_temp_copy_only() {
   const fixture = path.join(
     process.cwd(),
     "fixtures",
@@ -69,7 +78,7 @@ export const test_lint_fix_native_project_rewrites_temp_copy_only = () => {
   } finally {
     fs.rmSync(path.dirname(root), { recursive: true, force: true });
   }
-};
+}
 
 function linkLintPackage(root: string): void {
   const linkDir = path.join(root, "node_modules", "@ttsc");
