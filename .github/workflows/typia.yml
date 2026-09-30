@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/typia.yml"
-      - ".github/workflows/scripts/consumer-tarballs.cjs"
+      - "scripts/ci/consumer-tarballs.cjs"
       - "experimental/native-host-provenance/**"
       - "experimental/source-map/**"
       - "website/compiler-dependencies/package.json"
@@ -76,7 +76,7 @@ jobs:
         run: git -C experimental/typia apply --directory=packages/typia "$GITHUB_WORKSPACE/experimental/native-host-provenance/typia.patch"
 
       - name: Use local ttsc tarballs
-        run: node .github/workflows/scripts/consumer-tarballs.cjs experimental/typia
+        run: node scripts/ci/consumer-tarballs.cjs experimental/typia
 
       - name: Test typia master
         working-directory: experimental/typia

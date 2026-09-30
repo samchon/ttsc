@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/nestia.yml"
-      - ".github/workflows/scripts/consumer-tarballs.cjs"
+      - "scripts/ci/consumer-tarballs.cjs"
       - "experimental/native-host-provenance/**"
       - "patches/typia@15.0.0.patch"
       - "experimental/tarballs/**"
@@ -78,7 +78,7 @@ jobs:
         run: git -C experimental/nestia apply --directory=packages/core "$GITHUB_WORKSPACE/experimental/native-host-provenance/nestia.patch"
 
       - name: Use local ttsc tarballs
-        run: node .github/workflows/scripts/consumer-tarballs.cjs experimental/nestia patches/typia@15.0.0.patch
+        run: node scripts/ci/consumer-tarballs.cjs experimental/nestia patches/typia@15.0.0.patch
 
       - name: Install nestia dependencies
         working-directory: experimental/nestia

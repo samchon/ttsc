@@ -1,7 +1,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { createRequire } = require("node:module");
-const producerRoot = path.resolve(__dirname, "../../..");
+const producerRoot = path.resolve(__dirname, "../..");
 const YAML = createRequire(path.join(producerRoot, "packages/evidence/package.json"))("yaml");
 
 /**
@@ -34,8 +34,10 @@ function wireConsumerTarballs(consumerRoot, patchFiles = []) {
   const workspace = YAML.parse(fs.readFileSync(workspaceFile, "utf8"));
   workspace.overrides = { ...workspace.overrides, ...Object.fromEntries(overrides) };
   // pnpm 10.6 auto peers bypass file overrides and delete same-name declared
-  // dependencies. Keep the compiler hosts' explicit candidate dependency.
+  // dependencies. Root peer aliases can also mask file identities, so each
+  // compiler host resolves its own explicit candidate dependency.
   workspace.autoInstallPeers = false;
+  workspace.resolvePeersFromWorkspaceRoot = false;
   workspace.packageExtensions ??= {};
   for (const host of ["typia", "@ttsc/factory", "@ttsc/unplugin"]) {
     const extension = (workspace.packageExtensions[host] ??= {});
