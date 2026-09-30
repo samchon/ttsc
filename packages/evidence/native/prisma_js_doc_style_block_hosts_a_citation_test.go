@@ -5,28 +5,19 @@ import (
 )
 
 /**
- * Verifies a citation written in a JSDoc-style block hosts like any other.
+ * Verifies single-line and multi-line JSDoc blocks host model citations.
  *
- * Prisma keeps a block comment as documentation exactly as it keeps a `///`
- * one — measured by running `prisma generate`, both reach the generated client
- * types and prisma-markdown's ERD, indistinguishably. Refusing one of them
- * would be this rule inventing a distinction the artifact does not have, and
- * the diagnostic that did so claimed a block comment "does not document a
- * Prisma declaration", which is false.
+ * The scanner must recognize each documentation form and strip its leading
+ * asterisks before attaching the tag to the supplied model inventory. This
+ * direct attribution case does not invoke Prisma generation or a Node parser.
  *
- * The asterisks Prisma hands over as content are what makes this non-obvious:
- * the single-line form arrives as `* @evidence x` and the multi-line form
- * keeps an asterisk on every line, so the tag never opens its line. The shared
- * declaration parser already strips a leading asterisk, which is why honouring
- * the form costs nothing beyond letting it through.
+ *  1. Write both block-comment forms before the model.
+ *  2. Scan them with an authored model population.
+ *  3. Assert one model-hosted citation to docs/spec.md#a and no problems.
  *
- *  1. Write a citation in each JSDoc-style form.
- *  2. Assert each hosts on the model below it.
- *  3. Assert nothing is reported.
- *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaDeclarationsFromComments preserves one model citation and its asserted target/reason for each block variant.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Authored block fixtures and literal fields independently specify supported syntax.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Every local variant keeps its name and assertions under this entry.
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaClaimOf preserves one model citation and its asserted model host and target for each block variant.
+ * @evidence .agents/skills/contracts/testing.md#independent-expectations Authored block fixtures and literal host/target independently specify supported syntax.
+ * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Single-line and multi-line leading-asterisk forms execute here; the reason text is fixture input but is not separately asserted.
  * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaJSDocStyleBlockHostsACitation is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestPrismaJSDocStyleBlockHostsACitation(t *testing.T) {

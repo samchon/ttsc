@@ -15,7 +15,7 @@ import (
  *     nothing.
  *  2. Assert nothing is reported.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaDeclarationsFromComments reports neither problems nor declarations for ordinary prose.
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaClaimOf reports neither problems nor declarations for ordinary prose.
  * @evidence .agents/skills/contracts/testing.md#independent-expectations Literal comments contain no evidence declarations.
  * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Unrelated comments neither host citations nor trigger repairs.
  * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaOrdinaryCommentsAreNotReported is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.

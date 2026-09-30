@@ -17,7 +17,7 @@ import (
  *  1. Mention the tag inside a sentence and after a non-slash prefix.
  *  2. Assert nothing is reported.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaDeclarationsFromComments reports no buried-tag diagnostic for prose mentioning syntax.
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaClaimOf reports no buried-tag diagnostic for prose mentioning syntax.
  * @evidence .agents/skills/contracts/testing.md#independent-expectations The fixture contains prose rather than a declaration-starting evidence tag.
  * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Mentioning a tag differs from malformed annotation placement.
  * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaProseMentioningATagIsNotBuried is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.

@@ -8,16 +8,16 @@ import (
 /**
  * Verifies a citation on a declaration this graph does not address is reported.
  *
- * An enum, a view, a composite type, and a datasource setting are all legal
- * places to write a `///` comment and none of them materializes a unit here.
+ * The fixture documents an enum, which is outside the supported model, column
+ * and relation hosts. Views are model hosts and have a separate positive case.
  * Dropping such a citation would leave an author believing a table's grounds
  * were recorded when nothing reads them; naming the addressable kinds is what
  * makes the repair obvious.
  *
- *  1. Cite from an enum and from a datasource setting.
- *  2. Assert both are reported and neither becomes a declaration.
+ *  1. Cite from an enum beside the authored Sale model.
+ *  2. Assert one placement problem and no hosted declaration.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaDeclarationsFromComments hosts nothing and reports supported host kinds for an enum tag.
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaClaimOf hosts nothing and reports supported host kinds for an enum tag.
  * @evidence .agents/skills/contracts/testing.md#independent-expectations Literal enum declaration is outside model,column,relation hosts.
  * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Parsing a declaration does not make every kind addressable.
  * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaReportsACitationOnAnUnaddressableDeclaration is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.

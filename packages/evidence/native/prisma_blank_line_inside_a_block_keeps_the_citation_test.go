@@ -15,7 +15,7 @@ import (
  *  1. Separate a column's citation from the column by a blank line.
  *  2. Assert it still hosts on that column.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaDeclarationsFromComments keeps the literal column citation and reason at the asserted line.
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaClaimOf keeps the literal column citation and reason at the asserted line.
  * @evidence .agents/skills/contracts/testing.md#independent-expectations Explicit expected host,target,reason and source layout establish attachment.
  * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Blank line inside eligible documentation differs from discarded placement.
  * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaBlankLineInsideABlockKeepsTheCitation is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
