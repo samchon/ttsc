@@ -14,6 +14,11 @@ import "testing"
 //
 //  1. Assert `.source` / `.toString` objects report with no applied fix.
 //  2. Assert `.test(...)` and `?.source` objects still rewrite.
+//
+// @evidence contracts/testing.md#behavioral-verification assertNoFixSnapshot reports but declines edits for nonoptional source/toString member reads, while exact fix snapshots rewrite test and optional source forms.
+// @evidence contracts/testing.md#independent-expectations The authored outputs express upstream refusal to change observable regex source strings; literal full-source equality is independent of product formatting.
+// @evidence contracts/testing.md#distinguishing-cases Nonoptional source/toString are protected, but test and optional source remain fixable; changing only the member access changes edit eligibility.
+// @evidence contracts/testing.md#execution-ownership These four source inputs execute in the same named Go unit entry; the shared Go process runs owning operations without installing a consumer, building a native artifact or launching a product host.
 func TestUnicornBetterRegexReportsWithoutFixOnSourceMember(t *testing.T) {
   assertNoFixSnapshot(t, unicornBetterRegexRuleName, "const foo = /[0-9]/.source;\n")
   assertNoFixSnapshot(t, unicornBetterRegexRuleName, "const foo = /[0-9]/.toString;\n")

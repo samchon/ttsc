@@ -15,6 +15,11 @@ import "testing"
 //
 //  1. Lint each `u` / `v` literal, including bodies that would optimize.
 //  2. Assert no diagnostic fires.
+//
+// @evidence contracts/testing.md#behavioral-verification assertRuleSkipsSource verifies Unicode-mode literals never enter the unsupported optimizer path.
+// @evidence contracts/testing.md#independent-expectations The authored u/v/gu fixtures follow upstream Unicode-mode exclusions and require literal zero findings.
+// @evidence contracts/testing.md#distinguishing-cases The optimizable digit class is clean with u/v/gu flags, and more exotic Unicode bodies stay clean; the flagless digit class positive is TestRuleCorpusUnicornBetterRegex.
+// @evidence contracts/testing.md#execution-ownership All five excluded sources execute in this named Go unit entry; the shared Go process runs owning operations without installing a consumer, building a native artifact or launching a product host.
 func TestUnicornBetterRegexSkipsUnicodeFlagLiterals(t *testing.T) {
   sources := []string{
     "const foo = /[0-9]/u;\n",

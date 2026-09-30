@@ -16,6 +16,11 @@ const unicornBetterRegexRuleName = "unicorn/better-regex"
 //
 //  1. Lint each declaration through the native fix applier.
 //  2. Assert the rewritten source equals the upstream-optimized literal.
+//
+// @evidence contracts/testing.md#behavioral-verification assertFixSnapshot verifies fifteen literal regex rewrites, including digit/word complements, flag order, class sorting, whitespace quantifiers and the single-character class escape.
+// @evidence contracts/testing.md#independent-expectations Each input/output pair is an independently authored upstream better-regex invalid corpus pair, so exact full-source equality catches unsound token changes.
+// @evidence contracts/testing.md#distinguishing-cases Positive pairs retain surrounding declaration text; the negated [^*] class stays a class while [*] becomes an escaped literal. TestUnicornBetterRegexLeavesOptimalLiterals owns the adjacent canonical no-finding corpus.
+// @evidence contracts/testing.md#execution-ownership The table loops in this Go unit entry; failures retain the input/output fixture printed by assertFixSnapshot; the shared Go process runs owning operations without installing a consumer, building a native artifact or launching a product host.
 func TestUnicornBetterRegex(t *testing.T) {
   cases := []struct{ input, output string }{
     {"const foo = /[0-9]/;\n", "const foo = /\\d/;\n"},

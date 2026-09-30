@@ -17,6 +17,11 @@ import (
 //  1. Lint one optimizable literal.
 //  2. Assert a single finding at the literal token with the exact message.
 //  3. Assert the fix is one edit spanning the token with the canonical text.
+//
+// @evidence contracts/testing.md#behavioral-verification runRuleFindingsSnapshot verifies the digit-class message, one literal-wide diagnostic and one literal-wide replacement edit.
+// @evidence contracts/testing.md#independent-expectations The authored token [0-9], independently located byte bounds and literal /\d/ replacement specify the upstream shorthand contract rather than reading rule-computed ranges.
+// @evidence contracts/testing.md#distinguishing-cases The declaration prefix and semicolon are outside the exact diagnostic/edit range; canonical no-report forms are owned by TestUnicornBetterRegexLeavesOptimalLiterals.
+// @evidence contracts/testing.md#execution-ownership This named Go unit entry exercises the owning lint engine with a virtual AST; the shared Go process runs owning operations without installing a consumer, building a native artifact or launching a product host.
 func TestUnicornBetterRegexReportsExactRangeAndMessage(t *testing.T) {
   source := "const foo = /[0-9]/;\n"
   token := "/[0-9]/"

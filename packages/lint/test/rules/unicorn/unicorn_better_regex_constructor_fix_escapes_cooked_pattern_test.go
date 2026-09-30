@@ -23,6 +23,11 @@ import "testing"
 //  2. Compare each rewritten source with the upstream escapeString spelling.
 //  3. Re-parse the fixed source, assert it stays parse-valid, and assert the
 //     canonical output no longer fires.
+//
+// @evidence contracts/testing.md#behavioral-verification exact fix snapshots verify cooked pattern escapes are re-encoded as valid source; parseTSFile rejects malformed results and re-lint requires convergence.
+// @evidence contracts/testing.md#independent-expectations Named literal expected strings use the documented upstream quote-js-string escape policy, including C0/DEL braced escapes and exact delimiter quoting; no expected string is generated from the Go escaping implementation.
+// @evidence contracts/testing.md#distinguishing-cases Named cases distinguish LF/CR/CRLF, tabs/control characters, NUL followed by digits, U+2028/U+2029, exotic whitespace, astral/text, both quote styles and dollar-brace; unchanged patterns remain clean.
+// @evidence contracts/testing.md#execution-ownership The named table subcases belong to this discoverable Go unit host, retaining each semantic name and fixture in failure output; the shared Go process runs owning operations without installing a consumer, building a native artifact or launching a product host.
 func TestUnicornBetterRegexConstructorFixEscapesCookedPattern(t *testing.T) {
   const (
     backtick           = "`"
