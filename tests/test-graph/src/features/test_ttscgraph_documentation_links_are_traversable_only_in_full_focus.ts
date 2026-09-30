@@ -1,6 +1,5 @@
-import { TestProject } from "@ttsc/testing";
-
-import { TtsgraphClient, assert } from "../internal/ttsgraph";
+import { withIdentityBoundary } from "../internal/identityBoundary";
+import { assert } from "../internal/ttsgraph";
 
 interface ToolResult {
   content: { type: string; text: string }[];
@@ -71,68 +70,22 @@ const resultOf = <T extends { type: string }>(
  * @evidence contracts/testing.md#distinguishing-cases Full, execution and types focus differ on the same graph; direct detail dependencies contrast optional neighbors and bounded tour/trace payloads.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_documentation_links_are_traversable_only_in_full_focus starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Native documentation edges and ordinary checker references must survive transport together before the application applies focus and projection policy.
- * @evidence contracts/e2e.md#shared-execution All focus and detail requests share one fixture/session and suite producer. This fixture can join compatible documentation/citation inputs; cross-case shared-session work is still incomplete.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Case-owned links and declarations are immutable during requests; stdin ends and exit is awaited in finally without an exit-code assertion. The client observes close from construction, rejects pending requests on child failure, and terminates a child that exceeds its exit timeout.
+ * @evidence contracts/e2e.md#shared-execution Nine identity/display and documentation/citation entries borrow one composite project, initialized MCP session and resident native compiler. One object-source edit requires a delta generation; all other sources remain unchanged and every entry retains its named assertions.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique source files, symbol names and citation targets isolate every fixture. Only object-outline.ts changes; serial requests synchronize its delta while other inputs remain unchanged. Suite finally closes the shared client and asserts successful exit after every case has been collected, including failures.
  * @evidence contracts/e2e.md#preserved-coverage All original traversal sets, documentation edge directions, calls/types and docTags-absence assertions are preserved. No semantic coverage transfer is claimed by adding these acknowledgments.
  */
 export const test_ttscgraph_documentation_links_are_traversable_only_in_full_focus =
   async () => {
-    const root = TestProject.createProject({
-      "tsconfig.json": JSON.stringify(
-        {
-          compilerOptions: {
-            target: "ES2022",
-            module: "commonjs",
-            strict: true,
-            rootDir: "src",
-            outDir: "dist",
-          },
-          include: ["src"],
-        },
-        null,
-        2,
-      ),
-      "src/app.ts": [
-        "export interface ICited {",
-        "  note: string;",
-        "}",
-        "",
-        "export interface IUsed {",
-        "  value: number;",
-        "}",
-        "",
-        "export function helper(): void {}",
-        "",
-        "/**",
-        " * Renders the notice.",
-        " *",
-        " * @evidence {@link ICited} The contract this mirrors.",
-        " */",
-        "export function renderNotice(input: IUsed): void {",
-        "  helper();",
-        "}",
-        "",
-      ].join("\n"),
-    });
-
-    const client = TtsgraphClient.start(root);
-    try {
-      await client.request("initialize", {
-        protocolVersion: "2025-06-18",
-        capabilities: {},
-        clientInfo: { name: "test-graph", version: "0.0.0" },
-      });
-      client.notify("notifications/initialized", {});
-
+    await withIdentityBoundary(async (client) => {
       const trace = async (focus: string): Promise<TraceResult> =>
         resultOf<TraceResult>(
           (await client.request("tools/call", {
             name: "inspect_typescript_graph",
             arguments: graphArguments({
-              thinking: `What does renderNotice reach under ${focus}?`,
+              thinking: `What does DocLinkedNotice reach under ${focus}?`,
               request: {
                 type: "trace",
-                from: "renderNotice",
+                from: "DocLinkedNotice",
                 direction: "forward",
                 focus,
                 maxDepth: 1,
@@ -171,10 +124,10 @@ export const test_ttscgraph_documentation_links_are_traversable_only_in_full_foc
         (await client.request("tools/call", {
           name: "inspect_typescript_graph",
           arguments: graphArguments({
-            thinking: "What does renderNotice depend on?",
+            thinking: "What does DocLinkedNotice depend on?",
             request: {
               type: "details",
-              handles: ["renderNotice"],
+              handles: ["DocLinkedNotice"],
               neighbors: true,
               // The default neighbour slice is two, and this declaration has
               // three outgoing relations; raise it so the assertion is about
@@ -223,7 +176,7 @@ export const test_ttscgraph_documentation_links_are_traversable_only_in_full_foc
       );
       assert.ok(
         cited.nodes[0]?.dependedOnBy?.some(
-          (ref) => ref.name === "renderNotice" && ref.relation === "doc_ref",
+          (ref) => ref.name === "DocLinkedNotice" && ref.relation === "doc_ref",
         ),
         `the cited type must list its documenter: ${JSON.stringify(cited.nodes[0]?.dependedOnBy)}`,
       );
@@ -236,7 +189,7 @@ export const test_ttscgraph_documentation_links_are_traversable_only_in_full_foc
       // an empty project.
       for (const request of [
         { type: "tour", reinterpretations: [] },
-        { type: "trace", from: "renderNotice", direction: "forward" },
+        { type: "trace", from: "DocLinkedNotice", direction: "forward" },
       ]) {
         const payload = JSON.stringify(
           resultOf<{ type: string }>(
@@ -255,8 +208,5 @@ export const test_ttscgraph_documentation_links_are_traversable_only_in_full_foc
           `${request.type} must carry no documentation tag: ${payload.slice(0, 200)}`,
         );
       }
-    } finally {
-      client.endStdin();
-      await client.waitForExit();
-    }
+    });
   };

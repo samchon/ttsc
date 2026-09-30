@@ -1,6 +1,5 @@
-import { TestProject } from "@ttsc/testing";
-
-import { TtsgraphClient, assert } from "../internal/ttsgraph";
+import { withIdentityBoundary } from "../internal/identityBoundary";
+import { assert } from "../internal/ttsgraph";
 
 interface ToolResult {
   content: { type: string; text: string }[];
@@ -55,61 +54,13 @@ const lookupOf = (result: ToolResult): LookupResult => {
  * @evidence contracts/testing.md#distinguishing-cases Address-shaped leading tokens contrast prose/numeric/bare-tag queries, and the non-ASCII address must still return its sole exact carrier.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_lookup_indexes_addresses_and_not_prose starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Native JSDoc attachment and Unicode transport must precede the consumer's address recognition and ranking; synthetic indexed tags cannot prove comment extraction.
- * @evidence contracts/e2e.md#shared-execution All address forms share one fixture/session and the suite producer. This fits a shared citation project with distinct targets; current cross-case session batching remains unfinished.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique immutable addresses isolate the carrier populations; stdin ends and exit is awaited in finally without asserting its code. The client observes close from construction, rejects pending requests on child failure, and terminates a child that exceeds its exit timeout.
+ * @evidence contracts/e2e.md#shared-execution Nine identity/display and documentation/citation entries borrow one composite project, initialized MCP session and resident native compiler. One object-source edit requires a delta generation; all other sources remain unchanged and every entry retains its named assertions.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique source files, symbol names and citation targets isolate every fixture. Only object-outline.ts changes; serial requests synchronize its delta while other inputs remain unchanged. Suite finally closes the shared client and asserts successful exit after every case has been collected, including failures.
  * @evidence contracts/e2e.md#preserved-coverage Every original first-hit, sole non-ASCII hit and no-docTags negative assertion remains. Exact arbitrary fuzzy-ranking scores are not certified by this case.
  */
 export const test_ttscgraph_lookup_indexes_addresses_and_not_prose =
   async () => {
-    const root = TestProject.createProject({
-      "tsconfig.json": JSON.stringify(
-        {
-          compilerOptions: {
-            target: "ES2022",
-            module: "commonjs",
-            strict: true,
-            rootDir: "src",
-            outDir: "dist",
-          },
-          include: ["src"],
-        },
-        null,
-        2,
-      ),
-      "src/app.ts": [
-        "/** @evidence docs/pricing.md#sale Implements the pricing rule. */",
-        "export function priced(): void {}",
-        "",
-        "/** @todo Add caching here. */",
-        "export function cached(): void {}",
-        "",
-        "/** @default 4 */",
-        "export const retries = 4;",
-        "",
-        "/** @reference https://example.com/spec#part Background reading. */",
-        "export function referenced(): void {}",
-        "",
-        "/** A function whose name is the prose word. */",
-        "export function Add(): void {}",
-        "",
-        "/** @evidence 문서/가격.md#할인 A non-Latin address. */",
-        "export function nonAscii(): void {}",
-        "",
-        "/** @evidence */",
-        "export function bareTag(): void {}",
-        "",
-      ].join("\n"),
-    });
-
-    const client = TtsgraphClient.start(root);
-    try {
-      await client.request("initialize", {
-        protocolVersion: "2025-06-18",
-        capabilities: {},
-        clientInfo: { name: "test-graph", version: "0.0.0" },
-      });
-      client.notify("notifications/initialized", {});
-
+    await withIdentityBoundary(async (client) => {
       const lookup = async (query: string): Promise<LookupResult> =>
         lookupOf(
           (await client.request("tools/call", {
@@ -180,8 +131,5 @@ export const test_ttscgraph_lookup_indexes_addresses_and_not_prose =
         "referenced",
         `a URL reference must answer through the index: ${JSON.stringify(url.hits.map((h) => h.name))}`,
       );
-    } finally {
-      client.endStdin();
-      await client.waitForExit();
-    }
+    });
   };

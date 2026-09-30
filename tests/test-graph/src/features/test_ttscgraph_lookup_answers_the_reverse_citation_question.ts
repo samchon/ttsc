@@ -1,6 +1,5 @@
-import { TestProject } from "@ttsc/testing";
-
-import { TtsgraphClient, assert } from "../internal/ttsgraph";
+import { withIdentityBoundary } from "../internal/identityBoundary";
+import { assert } from "../internal/ttsgraph";
 
 interface ToolResult {
   content: { type: string; text: string }[];
@@ -74,64 +73,13 @@ const resultOf = <T extends { type: string }>(
  * @evidence contracts/testing.md#distinguishing-cases Markdown and operation addresses contrast unrelated tags, multiline tag continuation and an untagged symbol; details must separate prose summary from the tag sequence.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_lookup_answers_the_reverse_citation_question starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary The native producer must attach real declaration comments and transport their tag order before the reverse citation index and MCP DTO projection can answer.
- * @evidence contracts/e2e.md#shared-execution All lookup/details requests share one fixture/session and suite binary. Citation cases can share a compatible project; separate cross-case sessions are still awaiting consolidation.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Case-specific targets and carriers isolate citations; stdin ends and exit is awaited in finally without asserting its code. The client observes close from construction, rejects pending requests on child failure, and terminates a child that exceeds its exit timeout.
+ * @evidence contracts/e2e.md#shared-execution Nine identity/display and documentation/citation entries borrow one composite project, initialized MCP session and resident native compiler. One object-source edit requires a delta generation; all other sources remain unchanged and every entry retains its named assertions.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique source files, symbol names and citation targets isolate every fixture. Only object-outline.ts changes; serial requests synchronize its delta while other inputs remain unchanged. Suite finally closes the shared client and asserts successful exit after every case has been collected, including failures.
  * @evidence contracts/e2e.md#preserved-coverage Exact carriers, matching-tag filtering, operation precedence, ordered joined tags, summary and untagged-undefined assertions are all retained.
  */
 export const test_ttscgraph_lookup_answers_the_reverse_citation_question =
   async () => {
-    const root = TestProject.createProject({
-      "tsconfig.json": JSON.stringify(
-        {
-          compilerOptions: {
-            target: "ES2022",
-            module: "commonjs",
-            strict: true,
-            rootDir: "src",
-            outDir: "dist",
-          },
-          include: ["src"],
-        },
-        null,
-        2,
-      ),
-      "src/notice.ts": [
-        "/**",
-        " * Renders the stacking notice.",
-        " *",
-        " * @evidence docs/discount.md#coupon-stacking States the per-issuer",
-        " *           stacking limit this section defines.",
-        " * @evidence POST:/orders/{orderId}/coupons Explains the rejection.",
-        " */",
-        "export function renderNotice(): string {",
-        "  return 'notice';",
-        "}",
-        "",
-      ].join("\n"),
-      "src/checkout.ts": [
-        "/** @evidence docs/discount.md#coupon-stacking Enforces the same limit. */",
-        "export function applyCoupons(): number {",
-        "  return 0;",
-        "}",
-        "",
-        "/** @reference https://example.com/spec Background reading. */",
-        "export function documented(): void {}",
-        "",
-        "/** Carries no tag at all. */",
-        "export function untagged(): void {}",
-        "",
-      ].join("\n"),
-    });
-
-    const client = TtsgraphClient.start(root);
-    try {
-      await client.request("initialize", {
-        protocolVersion: "2025-06-18",
-        capabilities: {},
-        clientInfo: { name: "test-graph", version: "0.0.0" },
-      });
-      client.notify("notifications/initialized", {});
-
+    await withIdentityBoundary(async (client) => {
       const lookup = async (query: string): Promise<LookupResult> =>
         resultOf<LookupResult>(
           (await client.request("tools/call", {
@@ -220,8 +168,5 @@ export const test_ttscgraph_lookup_answers_the_reverse_citation_question =
         undefined,
         "a declaration carrying no tag must carry no field at all",
       );
-    } finally {
-      client.endStdin();
-      await client.waitForExit();
-    }
+    });
   };
