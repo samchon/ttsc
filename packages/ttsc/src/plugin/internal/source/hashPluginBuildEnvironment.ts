@@ -302,7 +302,7 @@ function findExecutableCandidate(
 
 function resolveRealPath(location: string): string {
   try {
-    return fs.realpathSync(location);
+    return fs.realpathSync.native(location);
   } catch {
     return location;
   }
