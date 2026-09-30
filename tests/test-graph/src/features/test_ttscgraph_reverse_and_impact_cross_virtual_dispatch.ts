@@ -1,6 +1,5 @@
-import { TestProject } from "@ttsc/testing";
-
-import { TtsgraphClient, assert } from "../internal/ttsgraph";
+import { withIdentityBoundary } from "../internal/identityBoundary";
+import { assert } from "../internal/ttsgraph";
 
 interface ToolResult {
   structuredContent?: {
@@ -42,140 +41,18 @@ const HUB_IMPLEMENTATIONS = 12;
  *    rejected pair, the external endpoint, and the hub stay governed by the
  *    forward policy, and that bounds and cycles behave as before.
  *
- * @evidence contracts/testing.md#behavioral-verification MCP reverse/impact traversal crosses valid dispatch to Pipeline, Runner and main, carries public/test roles, deduplicates cyclic seams and excludes incompatible/unrelated/hub/type-only paths.
+ * @evidence contracts/testing.md#behavioral-verification MCP reverse/impact traversal crosses valid dispatch to ReversePipeline, ReverseRunner and main, carries public/test roles, deduplicates cyclic seams and excludes incompatible/unrelated/hub/type-only paths.
  * @evidence contracts/testing.md#independent-expectations Authored valid and invalid implementations, literal caller names, roles, depth bound and twelve-way hub define expected inclusions and exclusions independently of traversal output.
- * @evidence contracts/testing.md#distinguishing-cases Execution/all focus, abstract overrides, invalid Bad, unrelated solo, external inclusion, hub suppression, depth one and types-only walks distinguish the reverse seam; forward Good remains a control.
+ * @evidence contracts/testing.md#distinguishing-cases Execution/all focus, abstract overrides, invalid ReverseBad, unrelated solo, external inclusion, hub suppression, depth one and types-only walks distinguish the reverse seam; forward ReverseGood remains a control.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_reverse_and_impact_cross_virtual_dispatch starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Native checker implementation relations and original edge direction must survive transport for reverse/impact consumers; hand-built reverse edges cannot certify checker eligibility.
- * @evidence contracts/e2e.md#shared-execution All reverse, impact and forward controls share one fixture/session and suite compiler. This batches many seams already; compatible dispatch projects could be combined, but full consolidation is unfinished.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Qualified fixture names and a stable generation prevent another case's caller graph or cache from determining the result; stdin closes in finally and successful exit is checked.
- * @evidence contracts/e2e.md#preserved-coverage Original caller names, dispatch edges, roles, hop uniqueness, all negative exclusions, external policy, truncation and forward control assertions remain intact.
+ * @evidence contracts/e2e.md#shared-execution Eighteen identity/display, documentation/citation, DTO/audit and dispatch entries borrow one composite project, initialized MCP session and resident native compiler. Only the object-source mutation requires a new generation. The checker-rejection entry also executes the public dump CLI once because diagnostics/raw edges are a separate entrypoint connection; all named assertions remain.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique source files, symbol names and citation targets isolate fixtures; disjoint dispatch contracts and hub populations prevent cross-case implementations. Role-sensitive sources retain their spec/test suffix and real dependency declarations stay external. Only object-outline.ts changes; suite finally closes the shared client and checks successful exit after complete collection.
+ * @evidence contracts/e2e.md#preserved-coverage Original caller identities (with fixture collision renames), dispatch edges, roles, hop uniqueness, all negative exclusions, external policy, truncation and forward control assertions remain intact.
  */
 export const test_ttscgraph_reverse_and_impact_cross_virtual_dispatch =
   async () => {
-    const hubImplementations = Array.from(
-      { length: HUB_IMPLEMENTATIONS },
-      (_unused, index) =>
-        [
-          `export class Widget${index} implements Widget {`,
-          "  public draw(): void {}",
-          "}",
-          "",
-        ].join("\n"),
-    ).join("");
-
-    const root = TestProject.createProject({
-      "tsconfig.json": JSON.stringify(
-        {
-          compilerOptions: {
-            target: "ES2022",
-            module: "commonjs",
-            moduleResolution: "node",
-            strict: true,
-            rootDir: "src",
-            outDir: "dist",
-          },
-          include: ["src"],
-        },
-        null,
-        2,
-      ),
-      "node_modules/graph-dependency/package.json": JSON.stringify({
-        name: "graph-dependency",
-        version: "1.0.0",
-        types: "index.d.ts",
-      }),
-      "node_modules/graph-dependency/index.d.ts":
-        "export interface Contract {\n  settle(): void;\n}\n",
-      "src/app.ts": [
-        'import { Contract } from "graph-dependency";',
-        "",
-        "export function accepted(): void {}",
-        "export function rejected(): void {}",
-        "",
-        "export interface Pipeline {",
-        "  execute(input: number): void;",
-        "}",
-        "",
-        "export class Good implements Pipeline {",
-        "  public execute(input: number): void {",
-        "    accepted();",
-        "  }",
-        "}",
-        "",
-        "export class Bad implements Pipeline {",
-        "  public execute(input: string): void {",
-        "    rejected();",
-        "  }",
-        "}",
-        "",
-        "export class Runner {",
-        "  public constructor(private readonly pipeline: Pipeline) {}",
-        "",
-        "  public run(): void {",
-        "    this.pipeline.execute(1);",
-        "  }",
-        "}",
-        "",
-        "export function main(runner: Runner): void {",
-        "  runner.run();",
-        "}",
-        "",
-        "export abstract class Task {",
-        "  public abstract perform(): void;",
-        "}",
-        "",
-        "export class RealTask extends Task {",
-        "  public perform(): void {",
-        "    startTask(this);",
-        "  }",
-        "}",
-        "",
-        "export function startTask(task: Task): void {",
-        "  task.perform();",
-        "}",
-        "",
-        "export class Alone {",
-        "  public solo(): void {}",
-        "}",
-        "",
-        "export function callSolo(alone: Alone): void {",
-        "  alone.solo();",
-        "}",
-        "",
-        "export class Settlement implements Contract {",
-        "  public settle(): void {}",
-        "}",
-        "",
-        "export interface Widget {",
-        "  draw(): void;",
-        "}",
-        "",
-        hubImplementations,
-        "export function paint(widget: Widget): void {",
-        "  widget.draw();",
-        "}",
-        "",
-      ].join("\n"),
-      "src/app.test.ts": [
-        'import { main, Runner } from "./app";',
-        "",
-        "export function exercisesMain(runner: Runner): void {",
-        "  main(runner);",
-        "}",
-        "",
-      ].join("\n"),
-    });
-
-    const client = TtsgraphClient.start(root);
-    try {
-      await client.request("initialize", {
-        protocolVersion: "2025-06-18",
-        capabilities: {},
-        clientInfo: { name: "test-graph", version: "0.0.0" },
-      });
-      client.notify("notifications/initialized", {});
-
+    await withIdentityBoundary(async (client) => {
       const call = async (
         request: Record<string, unknown>,
       ): Promise<TraceResult> => {
@@ -208,14 +85,14 @@ export const test_ttscgraph_reverse_and_impact_cross_virtual_dispatch =
       for (const direction of ["reverse", "impact"]) {
         for (const focus of ["execution", "all"]) {
           const crossed = await call({
-            from: "Good.execute",
+            from: "ReverseGood.execute",
             direction,
             focus,
             maxDepth: 4,
             maxNodes: 12,
           });
           const reached = names(crossed);
-          for (const expected of ["Pipeline.execute", "Runner.run", "main"])
+          for (const expected of ["ReversePipeline.execute", "ReverseRunner.run", "main"])
             assert.ok(
               reached.includes(expected),
               `${direction}/${focus} crosses the seam to ${expected}: ${reached.join(", ")}`,
@@ -228,7 +105,7 @@ export const test_ttscgraph_reverse_and_impact_cross_virtual_dispatch =
       }
 
       const impact = await call({
-        from: "Good.execute",
+        from: "ReverseGood.execute",
         direction: "impact",
         focus: "execution",
         maxDepth: 4,
@@ -253,7 +130,7 @@ export const test_ttscgraph_reverse_and_impact_cross_virtual_dispatch =
         maxNodes: 12,
       });
       const overrideReached = names(abstractOverride);
-      for (const expected of ["Task.perform", "startTask"])
+      for (const expected of ["ReverseTask.perform", "startTask"])
         assert.ok(
           overrideReached.includes(expected),
           `an abstract-method override crosses back to ${expected}: ${overrideReached.join(", ")}`,
@@ -268,14 +145,14 @@ export const test_ttscgraph_reverse_and_impact_cross_virtual_dispatch =
       );
 
       const invalid = await call({
-        from: "Bad.execute",
+        from: "ReverseBad.execute",
         direction: "reverse",
         focus: "execution",
         maxDepth: 4,
         maxNodes: 12,
       });
       assert.ok(
-        !names(invalid).includes("Pipeline.execute"),
+        !names(invalid).includes("ReversePipeline.execute"),
         `a checker-rejected member stays disconnected in reverse: ${names(invalid).join(", ")}`,
       );
 
@@ -343,7 +220,7 @@ export const test_ttscgraph_reverse_and_impact_cross_virtual_dispatch =
       );
 
       const bounded = await call({
-        from: "Good.execute",
+        from: "ReverseGood.execute",
         direction: "reverse",
         focus: "execution",
         maxDepth: 1,
@@ -351,7 +228,7 @@ export const test_ttscgraph_reverse_and_impact_cross_virtual_dispatch =
       });
       assert.deepEqual(
         names(bounded),
-        ["Pipeline.execute"],
+        ["ReversePipeline.execute"],
         "the depth bound governs the synthesized edge like any other",
       );
       assert.equal(
@@ -361,7 +238,7 @@ export const test_ttscgraph_reverse_and_impact_cross_virtual_dispatch =
       );
 
       const typed = await call({
-        from: "Good.execute",
+        from: "ReverseGood.execute",
         direction: "reverse",
         focus: "types",
         maxDepth: 4,
@@ -374,25 +251,16 @@ export const test_ttscgraph_reverse_and_impact_cross_virtual_dispatch =
       );
 
       const forward = await call({
-        from: "Runner.run",
+        from: "ReverseRunner.run",
         direction: "forward",
         focus: "execution",
         maxDepth: 4,
         maxNodes: 12,
       });
       assert.ok(
-        names(forward).includes("Good.execute") &&
-          names(forward).includes("accepted"),
+        names(forward).includes("ReverseGood.execute") &&
+          names(forward).includes("Reverseaccepted"),
         `the forward direction is unchanged: ${names(forward).join(", ")}`,
       );
-    } finally {
-      client.endStdin();
-    }
-
-    const code = await client.waitForExit();
-    assert.equal(
-      code,
-      0,
-      `the launcher exits cleanly\nstderr: ${client.stderrText()}`,
-    );
+    });
   };

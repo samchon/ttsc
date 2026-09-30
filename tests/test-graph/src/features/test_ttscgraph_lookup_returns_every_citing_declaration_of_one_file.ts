@@ -1,6 +1,5 @@
-import { TestProject } from "@ttsc/testing";
-
-import { TtsgraphClient, assert } from "../internal/ttsgraph";
+import { withIdentityBoundary } from "../internal/identityBoundary";
+import { assert } from "../internal/ttsgraph";
 
 interface ToolResult {
   content: { type: string; text: string }[];
@@ -56,48 +55,13 @@ const lookupOf = (result: ToolResult): LookupResult => {
  * @evidence contracts/testing.md#distinguishing-cases Default citation completeness contrasts name diversity and an explicit three-hit bound, separating omission policy from whether a match exists.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_lookup_returns_every_citing_declaration_of_one_file starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Real native comment facts must feed the citation index and the MCP response's truncation flag; fabricated carriers bypass extraction and wire assembly.
- * @evidence contracts/e2e.md#shared-execution The default, name and limited queries reuse one project/session and suite compiler. A broader citation batch can preserve these targets; population consolidation is not complete.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity One source owns the five carriers and no other case contributes hits; finally closes client stdin and the successful path checks process exit.
+ * @evidence contracts/e2e.md#shared-execution Eighteen identity/display, documentation/citation, DTO/audit and dispatch entries borrow one composite project, initialized MCP session and resident native compiler. Only the object-source mutation requires a new generation. The checker-rejection entry also executes the public dump CLI once because diagnostics/raw edges are a separate entrypoint connection; all named assertions remain.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique source files, symbol names and citation targets isolate fixtures; disjoint dispatch contracts and hub populations prevent cross-case implementations. Role-sensitive sources retain their spec/test suffix and real dependency declarations stay external. Only object-outline.ts changes; suite finally closes the shared client and checks successful exit after complete collection.
  * @evidence contracts/e2e.md#preserved-coverage Exact five carriers, absent default truncation, bounded name count, explicit three-hit count and true truncation remain here.
  */
 export const test_ttscgraph_lookup_returns_every_citing_declaration_of_one_file =
   async () => {
-    const declarations: string[] = [];
-    for (let index = 1; index <= 5; index++) {
-      declarations.push(
-        `/** @evidence docs/spec.md#rule Implements part ${index}. */`,
-        `export function part${index}(): void {}`,
-        "",
-      );
-    }
-
-    const root = TestProject.createProject({
-      "tsconfig.json": JSON.stringify(
-        {
-          compilerOptions: {
-            target: "ES2022",
-            module: "commonjs",
-            strict: true,
-            rootDir: "src",
-            outDir: "dist",
-          },
-          include: ["src"],
-        },
-        null,
-        2,
-      ),
-      "src/all.ts": declarations.join("\n"),
-    });
-
-    const client = TtsgraphClient.start(root);
-    try {
-      await client.request("initialize", {
-        protocolVersion: "2025-06-18",
-        capabilities: {},
-        clientInfo: { name: "test-graph", version: "0.0.0" },
-      });
-      client.notify("notifications/initialized", {});
-
+    await withIdentityBoundary(async (client) => {
       const lookup = async (
         query: string,
         limit?: number,
@@ -116,10 +80,10 @@ export const test_ttscgraph_lookup_returns_every_citing_declaration_of_one_file 
           })) as ToolResult,
         );
 
-      const all = await lookup("docs/spec.md#rule");
+      const all = await lookup("docs/roster.md#fulfillment");
       assert.deepStrictEqual(
         all.hits.map((hit) => hit.name).sort(),
-        ["part1", "part2", "part3", "part4", "part5"],
+        ["rosterPart1", "rosterPart2", "rosterPart3", "rosterPart4", "rosterPart5"],
         "every declaration citing the address must be returned, though they share a file",
       );
       assert.strictEqual(
@@ -129,8 +93,8 @@ export const test_ttscgraph_lookup_returns_every_citing_declaration_of_one_file 
       );
 
       // The negative twin: the per-file cap still governs a name query, which is
-      // what it exists for. `part` matches all five by subword.
-      const byName = await lookup("part");
+      // what it exists for. `rosterPart` matches all five by subword.
+      const byName = await lookup("rosterPart");
       assert.ok(
         byName.hits.length <= 3,
         `a name query must stay capped per file: ${JSON.stringify(byName.hits.map((h) => h.name))}`,
@@ -138,16 +102,12 @@ export const test_ttscgraph_lookup_returns_every_citing_declaration_of_one_file 
 
       // A limit below the carrier count cuts, and the result says so rather than
       // presenting three of five as the answer.
-      const capped = await lookup("docs/spec.md#rule", 3);
+      const capped = await lookup("docs/roster.md#fulfillment", 3);
       assert.strictEqual(capped.hits.length, 3);
       assert.strictEqual(
         capped.truncated,
         true,
         "a limit that cut the carriers must be reported",
       );
-    } finally {
-      client.endStdin();
-    }
-
-    assert.equal(await client.waitForExit(), 0, client.stderrText());
+    });
   };

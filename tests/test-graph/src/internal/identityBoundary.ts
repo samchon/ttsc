@@ -6,7 +6,7 @@ import { TtsgraphClient, assert } from "./ttsgraph";
 
 let preparation: Promise<{ client: TtsgraphClient; root: string }> | undefined;
 
-/** Borrow the compiler identity project shared by fifteen named cases. */
+/** Borrow the compiler identity project shared by eighteen named cases. */
 export async function withIdentityBoundary(
   body: (client: TtsgraphClient, root: string) => Promise<void>,
 ): Promise<void> {
@@ -80,6 +80,22 @@ async function prepare(): Promise<{ client: TtsgraphClient; root: string }> {
     { length: 20 },
     (_, i) => `export function handler${i}(): void { auditHelper(); log(); }`,
   ).join("\n");
+  const declarations: string[] = [];
+  for (let index = 1; index <= 5; index++)
+    declarations.push(
+      `/** @evidence docs/roster.md#fulfillment Implements part ${index}. */`,
+      `export function rosterPart${index}(): void {}`,
+      "",
+    );
+  const hubImplementations = Array.from(
+    { length: 12 },
+    (_, index) => [
+      `export class ReverseWidget${index} implements ReverseWidget {`,
+      "  public draw(): void {}",
+      "}",
+      "",
+    ].join("\n"),
+  ).join("");
   const root = TestProject.createProject({
     "tsconfig.json": JSON.stringify({
       compilerOptions: {
@@ -417,6 +433,93 @@ async function prepare(): Promise<{ client: TtsgraphClient; root: string }> {
       "src/audit.spec.ts": [
         "import { AuditService } from './audit';",
         "export function coversRun(): void { new AuditService().run(); }",
+        "",
+      ].join("\n"),
+      "src/all.ts": declarations.join("\n"),
+    "src/index.ts": "export class WireWidget {}\n",
+      "node_modules/graph-dependency/package.json": JSON.stringify({
+        name: "graph-dependency",
+        version: "1.0.0",
+        types: "index.d.ts",
+      }),
+      "node_modules/graph-dependency/index.d.ts":
+        "export interface Contract {\n  settle(): void;\n}\n",
+      "src/reverse.ts": [
+        'import { Contract } from "graph-dependency";',
+        "",
+        "export function Reverseaccepted(): void {}",
+        "export function Reverserejected(): void {}",
+        "",
+        "export interface ReversePipeline {",
+        "  execute(input: number): void;",
+        "}",
+        "",
+        "export class ReverseGood implements ReversePipeline {",
+        "  public execute(input: number): void {",
+        "    Reverseaccepted();",
+        "  }",
+        "}",
+        "",
+        "export class ReverseBad implements ReversePipeline {",
+        "  public execute(input: string): void {",
+        "    Reverserejected();",
+        "  }",
+        "}",
+        "",
+        "export class ReverseRunner {",
+        "  public constructor(private readonly pipeline: ReversePipeline) {}",
+        "",
+        "  public run(): void {",
+        "    this.pipeline.execute(1);",
+        "  }",
+        "}",
+        "",
+        "export function main(runner: ReverseRunner): void {",
+        "  runner.run();",
+        "}",
+        "",
+        "export abstract class ReverseTask {",
+        "  public abstract perform(): void;",
+        "}",
+        "",
+        "export class RealTask extends ReverseTask {",
+        "  public perform(): void {",
+        "    startTask(this);",
+        "  }",
+        "}",
+        "",
+        "export function startTask(task: ReverseTask): void {",
+        "  task.perform();",
+        "}",
+        "",
+        "export class Alone {",
+        "  public solo(): void {}",
+        "}",
+        "",
+        "export function callSolo(alone: Alone): void {",
+        "  alone.solo();",
+        "}",
+        "",
+        "export class Settlement implements Contract {",
+        "  public settle(): void {}",
+        "}",
+        "",
+        "export interface ReverseWidget {",
+        "  draw(): void;",
+        "}",
+        "",
+        hubImplementations,
+        "export function paint(widget: ReverseWidget): void {",
+        "  widget.draw();",
+        "}",
+        "",
+      ].join("\n"),
+      "src/reverse.test.ts": [
+        'import { main, ReverseRunner } from "./reverse";',
+        "",
+        "export function exercisesMain(runner: ReverseRunner): void {",
+        "  main(runner);",
+        "}",
         "",
       ].join("\n"),
     "src/object-outline.ts": before,

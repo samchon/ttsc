@@ -3,9 +3,9 @@ import {
   RESULT_AUDIT_DETAILS,
   RESULT_AUDIT_ESCAPE,
 } from "@ttsc/graph";
-import { TestProject } from "@ttsc/testing";
 
-import { TtsgraphClient, assert } from "../internal/ttsgraph";
+import { withIdentityBoundary } from "../internal/identityBoundary";
+import { assert } from "../internal/ttsgraph";
 
 interface ToolResult {
   content: { type: string; text: string }[];
@@ -46,7 +46,7 @@ const overviewArguments = () => ({
 });
 
 const detailsArguments = () => ({
-  question: "What is Widget?",
+  question: "What is WireWidget?",
   draft: {
     reason: "details is the smallest useful named-symbol request.",
     type: "details",
@@ -54,7 +54,7 @@ const detailsArguments = () => ({
   review: "Confirmed: read the symbol's shape from the graph, not from files.",
   request: {
     type: "details",
-    handles: ["Widget"],
+    handles: ["WireWidget"],
   },
 });
 
@@ -99,34 +99,12 @@ const auditFor = (type: string): string =>
  * @evidence contracts/testing.md#distinguishing-cases Escape avoids graph facts while overview and details have distinct scopes; each still places its audit first and returns only structured content.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_reports_its_audit_before_the_facts starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Installed MCP serialization and application dispatch must preserve the envelope and avoid duplicate text on the wire; a direct return-value check cannot test transport shape.
- * @evidence contracts/e2e.md#shared-execution Escape, overview and details reuse one fixture/client and the suite compiler. Compatible response-shape cases can share a session; the current population is not fully consolidated.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The case's stable declaration supplies details and overview, while escape is graph-free; stdin closes in finally and successful exit is joined.
+ * @evidence contracts/e2e.md#shared-execution Eighteen identity/display, documentation/citation, DTO/audit and dispatch entries borrow one composite project, initialized MCP session and resident native compiler. Only the object-source mutation requires a new generation. The checker-rejection entry also executes the public dump CLI once because diagnostics/raw edges are a separate entrypoint connection; all named assertions remain.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique source files, symbol names and citation targets isolate fixtures; disjoint dispatch contracts and hub populations prevent cross-case implementations. Role-sensitive sources retain their spec/test suffix and real dependency declarations stay external. Only object-outline.ts changes; suite finally closes the shared client and checks successful exit after complete collection.
  * @evidence contracts/e2e.md#preserved-coverage Exact keys/order, audit branch equality, next-action strings, result types and empty content assertions all remain; direct application units separately own capped audit behavior.
  */
 export const test_ttscgraph_reports_its_audit_before_the_facts = async () => {
-  const root = TestProject.createProject({
-    "tsconfig.json": JSON.stringify({
-      compilerOptions: {
-        target: "ES2022",
-        module: "commonjs",
-        strict: true,
-        rootDir: "src",
-        outDir: "dist",
-      },
-      include: ["src"],
-    }),
-    "src/index.ts": "export class Widget {}\n",
-  });
-
-  const client = TtsgraphClient.start(root);
-  try {
-    await client.request("initialize", {
-      protocolVersion: "2025-06-18",
-      capabilities: {},
-      clientInfo: { name: "test-graph", version: "0.0.0" },
-    });
-    client.notify("notifications/initialized", {});
-
+  await withIdentityBoundary(async (client) => {
     const call = async (
       args: Record<string, unknown>,
       expectedType: string,
@@ -170,14 +148,5 @@ export const test_ttscgraph_reports_its_audit_before_the_facts = async () => {
     await call(escapeArguments(), "escape");
     await call(overviewArguments(), "overview");
     await call(detailsArguments(), "details");
-  } finally {
-    client.endStdin();
-  }
-
-  const code = await client.waitForExit();
-  assert.equal(
-    code,
-    0,
-    `the launcher should exit cleanly\nstderr: ${client.stderrText()}`,
-  );
+  });
 };
