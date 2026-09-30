@@ -17,7 +17,7 @@ function wireConsumerTarballs(consumerRoot, patchFiles = []) {
   const artifacts = [
     ["ttsc", "ttsc.tgz"],
     ["@ttsc/unplugin", "unplugin.tgz"],
-    ["@ttsc/linux-x64", "ttsc-linux-x64.tgz"],
+    [`@ttsc/${process.platform}-${process.arch}`, `ttsc-${process.platform}-${process.arch}.tgz`],
   ];
   const overrides = artifacts.map(([name, file]) => {
     const location = path.join(tarballs, file);
@@ -33,6 +33,14 @@ function wireConsumerTarballs(consumerRoot, patchFiles = []) {
   const workspaceFile = path.join(consumer, "pnpm-workspace.yaml");
   const workspace = YAML.parse(fs.readFileSync(workspaceFile, "utf8"));
   workspace.overrides = { ...workspace.overrides, ...Object.fromEntries(overrides) };
+  // pnpm 10.6 auto peers bypass file overrides and delete same-name declared
+  // dependencies. Keep the compiler hosts' explicit candidate dependency.
+  workspace.autoInstallPeers = false;
+  workspace.packageExtensions ??= {};
+  for (const host of ["typia", "@ttsc/factory", "@ttsc/unplugin"]) {
+    const extension = (workspace.packageExtensions[host] ??= {});
+    extension.dependencies = { ...extension.dependencies, ttsc: `file:${path.join(tarballs, "ttsc.tgz").split(path.sep).join("/")}` };
+  }
   workspace.patchedDependencies ??= {};
   for (const [name, file] of patches) {
     if (workspace.patchedDependencies[name] !== undefined && workspace.patchedDependencies[name] !== file)
