@@ -12,6 +12,11 @@ import "testing"
 // 2. Check that 2^53 is accepted because it is exactly representable.
 // 3. Check that another exactly representable unsafe integer is accepted.
 // 4. Check that 2^53+1, including separator form, is rejected.
+//
+// @evidence contracts/testing.md#behavioral-verification The actual precision predicate distinguishes five authored safe/exact/inexact integer spellings without invoking Engine or generating expected flags.
+// @evidence contracts/testing.md#independent-expectations IEEE-754 represents 2^53 and 2^53+2 exactly but rounds 2^53+1; Number.MAX_SAFE_INTEGER and separator spelling supply independent boundary expectations.
+// @evidence contracts/testing.md#distinguishing-cases Safe maximum, exact unsafe boundary and its next representable neighbor stay clean; adjacent inexact decimal and separator forms report.
+// @evidence contracts/testing.md#execution-ownership TestNoLossOfPrecisionAcceptsExactUnsafeInteger is selected in the shared Go unit population. It calls numericLiteralLosesPrecision directly for all five authored integer spellings; the Go entry owns their distinct failure messages. No consumer install, native artifact build or real product host runs.
 func TestNoLossOfPrecisionAcceptsExactUnsafeInteger(t *testing.T) {
   if numericLiteralLosesPrecision("9007199254740991") {
     t.Fatal("Number.MAX_SAFE_INTEGER should not report precision loss")

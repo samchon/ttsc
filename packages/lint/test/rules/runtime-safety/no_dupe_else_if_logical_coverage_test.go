@@ -9,8 +9,13 @@ import (
 
 // TestNoDupeElseIfLogicalCoverage protects both sides of the rule's boolean
 // coverage test. Covered branches exercise exact, subset, accumulated, nested,
-// and commuted conditions; executable near-misses ensure shared operands alone
-// never cause a report.
+// and commuted conditions; clean controls include executable near-misses and
+// conservative token distinctions, so shared operands alone never cause a report.
+//
+// @evidence contracts/testing.md#behavioral-verification Eighteen named Engine cases compare every finding line and the exact diagnostic message, exposing missed covered branches and broad false reports.
+// @evidence contracts/testing.md#independent-expectations Literal per-case line lists follow earlier-condition coverage and the supported token-structural policy; they are independent of the rule output. Inner expression parentheses remain a conservative token distinction rather than a proof of runtime reachability.
+// @evidence contracts/testing.md#distinguishing-cases Exact, subset, accumulated, nested and commuted logical conditions report; broader or partially shared alternatives, separate if chains and identifier/call differences remain clean.
+// @evidence contracts/testing.md#execution-ownership TestNoDupeElseIfLogicalCoverage is selected in the shared Go unit population. Its eighteen named subtests call parseTS and Engine.Run directly with only no-dupe-else-if enabled, retaining each source and failure identity. No consumer install, native artifact build or real product host runs.
 func TestNoDupeElseIfLogicalCoverage(t *testing.T) {
   tests := []struct {
     name      string

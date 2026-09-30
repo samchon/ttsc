@@ -25,6 +25,11 @@ import (
 //  2. Run the single rule the case names through the native engine.
 //  3. Compare normalized rule/severity/line findings against the expectation,
 //     requiring zero findings for the arms upstream leaves silent.
+//
+// @evidence contracts/testing.md#behavioral-verification Twenty named Engine cases compare exact normalized rule/severity/line sets, including zero-finding branches and four other rules retaining ordering operators.
+// @evidence contracts/testing.md#independent-expectations Authored table expectations follow the typeof result vocabulary and equality-only valid-typeof policy; NaN, self comparison, negative zero and yoda ordering expectations remain independent peers.
+// @evidence contracts/testing.md#distinguishing-cases All four equality operators, reversed operands, parentheses and templates expose typos; known names, ordering comparisons, two typeof operands and unrelated equality remain clean.
+// @evidence contracts/testing.md#execution-ownership TestValidTypeofEqualityOperatorScope is selected in the shared Go unit population. Its twenty named subtests parse each source and run the exact per-case RuleConfig through Engine, retaining normalized findings and failure identities. No consumer install, native artifact build or real product host runs.
 func TestValidTypeofEqualityOperatorScope(t *testing.T) {
   tests := []struct {
     name       string

@@ -20,6 +20,11 @@ import (
 //  1. Parse each object-literal fixture with no type checker (AST-only rule).
 //  2. Run the engine with only no-dupe-keys enabled.
 //  3. Assert the reported duplicate-key messages match the oracle exactly.
+//
+// @evidence contracts/testing.md#behavioral-verification Four named Engine cases compare complete duplicate-key messages, exposing both missed literal collisions and false dynamic-key collisions.
+// @evidence contracts/testing.md#independent-expectations Authored messages name a and numeric 1 because those static keys have equal property names; calls and identifier values lack a fixed independent key.
+// @evidence contracts/testing.md#distinguishing-cases String and number computed literals collide with equivalent direct keys; repeated calls and distinct computed identifiers remain clean.
+// @evidence contracts/testing.md#execution-ownership TestNoDupeKeysComputedKeyStaticResolution is selected in the shared Go unit population. Its four named subtests call parseTS and Engine.Run directly with only no-dupe-keys enabled, retaining each message oracle and failure identity. No consumer install, native artifact build or real product host runs.
 func TestNoDupeKeysComputedKeyStaticResolution(t *testing.T) {
   tests := []struct {
     name         string

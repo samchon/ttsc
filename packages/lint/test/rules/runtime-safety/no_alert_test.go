@@ -15,6 +15,12 @@ import "testing"
 // 1. Load the annotated TypeScript fixture source embedded below.
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine reports the original alert call and permits a differently named notification function.
+// @evidence contracts/testing.md#independent-expectations The modal-browser-API policy selects alert, not all function calls; the authored line annotation supplies the independent diagnostic location.
+// @evidence contracts/testing.md#distinguishing-cases alert reports; notify and a non-call alert reference stay clean.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusNoAlert is selected in the shared Go unit population. It passes the authored no-alert.ts fixture through assertRuleCorpusCase to the owning AST Engine and runs the additional clean source through assertRuleSkipsSource. No consumer install, native artifact build or real product host runs.
 func TestRuleCorpusNoAlert(t *testing.T) {
   assertRuleCorpusCase(t, "no-alert.ts", "declare function alert(msg: string): void;\n// expect: no-alert error\nalert(\"hi\");\n")
+  assertRuleSkipsSource(t, "no-alert", "notify(\"hi\"); const handler = alert;\n")
 }

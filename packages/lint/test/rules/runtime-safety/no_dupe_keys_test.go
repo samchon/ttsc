@@ -18,6 +18,11 @@ import "testing"
 // 1. Load the annotated TypeScript fixture source embedded below.
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine compares exact diagnostics for literal and computed-static duplicate keys while leaving both dynamic computed calls clean.
+// @evidence contracts/testing.md#independent-expectations Authored annotations identify equal property values a and ["a"]; repeated dynamic calls need not evaluate to the same key.
+// @evidence contracts/testing.md#distinguishing-cases Literal and statically computed collisions report; the in-fixture dynamic key calls do not. The static-resolution table owns numeric and identifier variants.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusNoDupeKeys is selected in the shared Go unit population. It passes the authored no-dupe-keys.ts fixture through assertRuleCorpusCase to the owning AST Engine. No consumer install, native artifact build or real product host runs.
 func TestRuleCorpusNoDupeKeys(t *testing.T) {
   assertRuleCorpusCase(t, "no-dupe-keys.ts", `const o = {
   a: 1,

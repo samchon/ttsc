@@ -19,6 +19,11 @@ import (
 //  1. Parse each fixture with no type checker (AST-only rule).
 //  2. Run the engine with only no-extend-native enabled.
 //  3. Assert the finding count and, for the positives, the builtin in the message.
+//
+// @evidence contracts/testing.md#behavioral-verification Five named Engine cases require exact finding counts and builtin-specific messages across prototype writes and allowed targets.
+// @evidence contracts/testing.md#independent-expectations Authored Array expectations follow the protected built-in prototype policy; Foo and the ordinary target are independently outside that set.
+// @evidence contracts/testing.md#distinguishing-cases defineProperty, defineProperties and computed assignment report on Array.prototype; a non-native prototype and non-prototype target stay clean.
+// @evidence contracts/testing.md#execution-ownership TestNoExtendNativeDefinePropertyAndComputed is selected in the shared Go unit population. Its five named subtests call parseTS and Engine.Run directly with only no-extend-native enabled, retaining each count/message oracle and failure identity. No consumer install, native artifact build or real product host runs.
 func TestNoExtendNativeDefinePropertyAndComputed(t *testing.T) {
   tests := []struct {
     name        string

@@ -14,6 +14,11 @@ import (
 // 1. Check exact and inexact decimal integers, fractions, and exponents.
 // 2. Check binary, octal, hexadecimal, legacy octal, and separator spellings.
 // 3. Check rounding ties, coefficient carry, range edges, and exclusions.
+//
+// @evidence contracts/testing.md#behavioral-verification Every named literal subcase compares the precision predicate to its fixed bool, and the decimal tie subcase checks coefficient 13 and magnitude 0.
+// @evidence contracts/testing.md#independent-expectations Hand-authored flags follow Number significant-digit preservation, integer representability, finite/subnormal range and BigInt exclusion; the 1.25 two-digit tie independently rounds upward to 13e0. This is not a claim that ordinary decimals are exact binary rationals.
+// @evidence contracts/testing.md#distinguishing-cases Original decimal/base/legacy/separator forms, carry, sign, zero, huge exponent, finite/subnormal limits, BigInt and malformed input distinctions retain their named failure identities.
+// @evidence contracts/testing.md#execution-ownership TestNoLossOfPrecisionHandlesEveryNumberSyntax is selected in the shared Go unit population. Its named literal subtests call numericLiteralLosesPrecision directly, and the decimal-tie subtest calls roundFloatToDecimalPrecision; all original failure identities remain owned by this entry. No consumer install, native artifact build or real product host runs.
 func TestNoLossOfPrecisionHandlesEveryNumberSyntax(t *testing.T) {
   tests := []struct {
     name    string
