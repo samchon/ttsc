@@ -1,9 +1,23 @@
-import { TestProject } from "../../../utils/src/TestProject";
+import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 
-import { artifactsAreStale, publishArtifacts } from "../../../../packages/graph/src/model/publishedArtifacts";
+const require = createRequire(import.meta.url);
+const graphLib = path.dirname(require.resolve("@ttsc/graph"));
+const { artifactsAreStale, publishArtifacts } = require(
+  path.join(graphLib, "model", "publishedArtifacts.js"),
+) as {
+  artifactsAreStale(published: IPublished): boolean;
+  publishArtifacts(options: { cwd: string; tsconfig: string }): IPublished;
+};
+
+interface IPublished {
+  file: string | null;
+  inputs: { files: string[]; directories: { path: string }[] };
+  fingerprint: string;
+}
 
 /**
  * Verifies that "this project publishes no artifacts" is an answer that can
@@ -25,11 +39,14 @@ import { artifactsAreStale, publishArtifacts } from "../../../../packages/graph/
  * 2. Assert the answer is "none", and that it names those two files.
  * 3. Assert it reads fresh against itself.
  * 4. Edit the tsconfig, and require it to read stale.
- *
- * @evidence contracts/testing.md#behavioral-verification publishArtifacts returns no file for an unconfigured fixture while tracking tsconfig and manifest; artifactsAreStale rejects freshness after a config edit.
- * @evidence contracts/testing.md#independent-expectations A project with no publisher has no artifacts, but its declared configuration can change that answer; literal control paths and explicit writes establish expectations.
- * @evidence contracts/testing.md#distinguishing-cases Initial absence and unchanged freshness contrast adding a plugin entry; real fixture files exercise resolver invalidation without any configured producer to build or launch.
- * @evidence contracts/testing.md#execution-ownership The named exported src/unit entry executes authored operations through the unit loader; no installed consumer, native build or product host is used.
+  * @evidence contracts/testing.md#behavioral-verification The compiled publication API resolves the actual compiler plugin population, returns no artifact for a project with no publisher and records its tsconfig and manifest; an actual config edit withdraws freshness.
+ * @evidence contracts/testing.md#independent-expectations An unconfigured project has no graph-node publisher; literal required watch paths and an independent config edit define the expected empty and stale answers.
+ * @evidence contracts/testing.md#distinguishing-cases A successfully resolved empty population contrasts its unchanged reuse state and a subsequent plugin-config edit; portable fingerprint transitions have a separate direct-input source unit.
+ * @evidence contracts/testing.md#execution-ownership This named features entry exercises compiled graph code and the real compiler plugin-discovery process over an isolated consumer fixture, so it requires the native boundary batch rather than source-unit CI.
+ * @evidence contracts/e2e.md#necessary-boundary Real compiler plugin discovery must distinguish resolved-empty from unavailable and record the two discovery inputs; direct fingerprint predicates cannot establish that native connection.
+ * @evidence contracts/e2e.md#shared-execution The existing graph boundary process reuses the suite-built compiler and dependency links; this one empty-publisher project starts no contributor build or publisher sidecar.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fixture owns its project files and deliberately changes only its tsconfig after the fresh baseline; TestProject tracks and removes its directory at process completion.
+ * @evidence contracts/e2e.md#preserved-coverage All original no-artifact, exact watched-file, unchanged-fresh and config-edit-stale assertions remain here; separate source units cover direct freshness and declared-file transitions without a compiler host.
  */
 export function test_ttscgraph_artifacts_watch_a_project_that_publishes_none(): void {
     const cwd = TestProject.createProject({
@@ -81,4 +98,4 @@ export function test_ttscgraph_artifacts_watch_a_project_that_publishes_none(): 
       true,
       "configuring a plugin left the answer reading fresh, so a running session would never reconsider it",
     );
-}
+  }
