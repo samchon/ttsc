@@ -15,10 +15,12 @@ test("source units load workspace TypeScript while dependencies keep runtime exp
         name: "ttsc",
         type: "module",
         exports: {
-          "./contract": { types: "./contract.ts", default: "./unbuilt.js" },
+          "./path-identity": { types: "./wrong.ts", default: "./wrong.js" },
         },
       }),
-      "node_modules/ttsc/contract.ts":
+      "node_modules/ttsc/wrong.ts":
+        'export const resolveFilesystemPath = () => { throw new Error("foreign ttsc package selected"); };',
+      "contract.ts":
         "export namespace Contract { export const twice = (value: number): number => value * 2; }",
       "node_modules/dependency/package.json": JSON.stringify({
         name: "dependency",
@@ -27,9 +29,11 @@ test("source units load workspace TypeScript while dependencies keep runtime exp
       }),
       "node_modules/dependency/runtime.js": "export const value = 21;",
       "main.ts": [
-        'import { Contract } from "ttsc/contract";',
+        'import { Contract } from "./contract.ts";',
+        'import { resolveFilesystemPath } from "ttsc/path-identity";',
         'import { value } from "dependency";',
-        "console.log(Contract.twice(value));",
+        'console.log(JSON.stringify([Contract.twice(value), resolveFilesystemPath("/root/../owned", "linux"), resolveFilesystemPath("C:/root/../owned", "win32")]));',
+        'try { await import("ttsc/internal/pluginSource"); throw new Error("private export admitted"); } catch (error) { if (error.code !== "ERR_PACKAGE_PATH_NOT_EXPORTED") throw error; }',
       ].join("\n"),
     };
     for (const [relative, content] of Object.entries(files)) {
@@ -48,7 +52,7 @@ test("source units load workspace TypeScript while dependencies keep runtime exp
       { cwd: scratch, encoding: "utf8", windowsHide: true },
     );
     assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stdout.trim(), "42");
+    assert.equal(result.stdout.trim(), JSON.stringify([42, "/owned", "C:\\owned"]));
   } finally {
     fs.rmSync(scratch, { recursive: true, force: true });
   }
