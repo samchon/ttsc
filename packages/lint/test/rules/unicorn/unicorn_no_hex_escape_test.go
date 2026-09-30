@@ -17,6 +17,11 @@ const unicornNoHexEscapeRuleName = "unicorn/no-hex-escape"
 // 1. Mirror tests/test-lint/src/cases/unicorn-no-hex-escape.ts.
 // 2. Run the native engine with the rule enabled via expect annotations.
 // 3. Assert the reported (rule, severity, line) triples match the annotations.
+//
+// @evidence contracts/testing.md#behavioral-verification assertRuleCorpusCase runs the actual engine and compares exact annotated rule/severity/line triples for five active hex-escape sites.
+// @evidence contracts/testing.md#independent-expectations The supported Unicode escape preference and JavaScript backslash pairing establish authored expected locations without consulting findings.
+// @evidence contracts/testing.md#distinguishing-cases String and substituted-template escapes report; Unicode forms, even slash runs and raw tagged templates remain clean in the same source.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusUnicornNoHexEscape owns the explicit source matrix and any named t.Run variants as one discoverable Go unit entry. Parsing and actual engine calls share the Go test process; no installed consumer, native compilation or child product host is needed.
 func TestRuleCorpusUnicornNoHexEscape(t *testing.T) {
   assertRuleCorpusCase(
     t,

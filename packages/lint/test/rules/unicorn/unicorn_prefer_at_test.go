@@ -13,6 +13,11 @@ import "testing"
 // 1. Exercise equivalent receivers through runtime-neutral TypeScript wrappers.
 // 2. Exercise adjacent mismatches and effectful repeated calls without expects.
 // 3. Assert findings occur only on semantics-preserving `.at(-N)` candidates.
+//
+// @evidence contracts/testing.md#behavioral-verification assertRuleCorpusCase compares exact annotated rule/severity/line findings, detecting negative-index rewrites where length and indexed receivers differ.
+// @evidence contracts/testing.md#independent-expectations JavaScript negative indexing semantics and the supported receiver-equivalence/single-evaluation contract independently establish each authored report or accepted mismatch.
+// @evidence contracts/testing.md#distinguishing-cases Identifier/string/property/element/private receivers and TS wrappers report only equivalent pairs; mismatched keys/optional chains and repeated effectful calls remain clean.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusUnicornPreferAt owns this authored source matrix as one discoverable Go unit entry. The engine and checker-backed snapshot execute in the shared Go process with temporary fixtures; no installed consumer, native build or child product host runs.
 func TestRuleCorpusUnicornPreferAt(t *testing.T) {
   assertRuleCorpusCase(t, "unicorn/prefer-at.ts", `const xs = [1, 2, 3];
 // expect: unicorn/prefer-at error

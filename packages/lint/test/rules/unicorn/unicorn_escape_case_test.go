@@ -17,6 +17,11 @@ const unicornEscapeCaseRuleName = "unicorn/escape-case"
 // 1. Mirror tests/test-lint/src/cases/unicorn-escape-case.ts.
 // 2. Run the native engine with the rule enabled via expect annotations.
 // 3. Assert the reported (rule, severity, line) triples match the annotations.
+//
+// @evidence contracts/testing.md#behavioral-verification assertRuleCorpusCase executes the owning engine and compares annotated rule/severity/line triples for seven active lowercase escape sites.
+// @evidence contracts/testing.md#independent-expectations The uppercase escape policy, JavaScript backslash pairing and fixed digit widths determine authored annotations independently of engine findings.
+// @evidence contracts/testing.md#distinguishing-cases Strings and three template segments report lowercase digits; uppercase, bounded trailing letters, even slash runs and tagged templates remain clean.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusUnicornEscapeCase owns the explicit source matrix and any named t.Run variants as one discoverable Go unit entry. Parsing and actual engine calls share the Go test process; no installed consumer, native compilation or child product host is needed.
 func TestRuleCorpusUnicornEscapeCase(t *testing.T) {
   assertRuleCorpusCase(
     t,

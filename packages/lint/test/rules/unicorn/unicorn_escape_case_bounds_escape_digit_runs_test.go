@@ -19,6 +19,11 @@ import "testing"
 //  2. Assert they stay silent while their lowercase twins report at the
 //     literal's exact range.
 //  3. Assert the braced code point escape reports on its digits alone.
+//
+// @evidence contracts/testing.md#behavioral-verification assertRuleFindingRanges verifies exact literal ranges or no findings, exposing overlong raw escape scanning.
+// @evidence contracts/testing.md#independent-expectations JavaScript fixed x/u digit widths and braced code-point termination independently establish the authored matching tokens under the uppercase escape policy.
+// @evidence contracts/testing.md#distinguishing-cases Canonical escapes followed by literal a-f letters stay clean; lowercase/mixed digits and one-digit braces report, while digit-only forms do not.
+// @evidence contracts/testing.md#execution-ownership TestUnicornEscapeCaseBoundsEscapeDigitRuns owns the explicit source matrix and any named t.Run variants as one discoverable Go unit entry. Parsing and actual engine calls share the Go test process; no installed consumer, native compilation or child product host is needed.
 func TestUnicornEscapeCaseBoundsEscapeDigitRuns(t *testing.T) {
   cases := []struct {
     name    string

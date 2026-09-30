@@ -22,6 +22,11 @@ import "testing"
 //     template.
 //  2. Assert one finding per segment, each spanning exactly its element token.
 //  3. Assert an escape inside a substitution comment reports nothing.
+//
+// @evidence contracts/testing.md#behavioral-verification Exact finding-range assertions detect missed head/middle/tail elements and diagnostic ranges leaking into substitution code.
+// @evidence contracts/testing.md#independent-expectations The supported uppercase-escape policy and JavaScript template token boundaries establish literal delimiter-inclusive markers.
+// @evidence contracts/testing.md#distinguishing-cases Head/middle/tail, all segments, template types, no-substitution templates and nested strings report; substitution comments and canonical uppercase segments stay clean.
+// @evidence contracts/testing.md#execution-ownership TestUnicornEscapeCaseReportsInterpolatedTemplateSegments owns the explicit source matrix and any named t.Run variants as one discoverable Go unit entry. Parsing and actual engine calls share the Go test process; no installed consumer, native compilation or child product host is needed.
 func TestUnicornEscapeCaseReportsInterpolatedTemplateSegments(t *testing.T) {
   cases := []struct {
     name    string

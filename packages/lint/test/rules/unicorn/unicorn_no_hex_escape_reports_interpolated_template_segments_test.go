@@ -22,6 +22,11 @@ import "testing"
 //     template.
 //  2. Assert one finding per segment, each spanning exactly its element token.
 //  3. Assert a `\xHH` sequence inside a substitution comment reports nothing.
+//
+// @evidence contracts/testing.md#behavioral-verification Exact finding-range assertions expose skipped template elements and ranges that include substitution expressions or comments.
+// @evidence contracts/testing.md#independent-expectations JavaScript head/middle/tail boundaries and the no-hex-escape policy independently establish the delimiter-inclusive markers.
+// @evidence contracts/testing.md#distinguishing-cases Each and all template segments, template types, no-substitution templates and nested string literals report; hex-looking substitution comments stay clean.
+// @evidence contracts/testing.md#execution-ownership TestUnicornNoHexEscapeReportsInterpolatedTemplateSegments owns the explicit source matrix and any named t.Run variants as one discoverable Go unit entry. Parsing and actual engine calls share the Go test process; no installed consumer, native compilation or child product host is needed.
 func TestUnicornNoHexEscapeReportsInterpolatedTemplateSegments(t *testing.T) {
   cases := []struct {
     name    string

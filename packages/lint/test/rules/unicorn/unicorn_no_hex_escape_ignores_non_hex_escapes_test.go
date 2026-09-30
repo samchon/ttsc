@@ -20,6 +20,11 @@ import "testing"
 //  3. Assert genuine `\xHH` escapes — including one trailed by literal hex
 //     letters and one behind a multi-byte character — report at their exact
 //     byte range.
+//
+// @evidence contracts/testing.md#behavioral-verification Exact range and zero-finding assertions distinguish genuine xHH escapes from Unicode forms or hex-looking ordinary text.
+// @evidence contracts/testing.md#independent-expectations JavaScript hex-versus-Unicode escape grammar and the supported Unicode-preference policy establish independent literal markers.
+// @evidence contracts/testing.md#distinguishing-cases Fixed/braced Unicode, decoded glyphs, named escapes and plain x41 remain clean; genuine hex escapes still report behind literal hex letters or multibyte text.
+// @evidence contracts/testing.md#execution-ownership TestUnicornNoHexEscapeIgnoresNonHexEscapes owns the explicit source matrix and any named t.Run variants as one discoverable Go unit entry. Parsing and actual engine calls share the Go test process; no installed consumer, native compilation or child product host is needed.
 func TestUnicornNoHexEscapeIgnoresNonHexEscapes(t *testing.T) {
   cases := []struct {
     name    string

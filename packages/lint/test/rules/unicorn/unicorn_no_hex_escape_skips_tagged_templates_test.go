@@ -19,6 +19,11 @@ import "testing"
 //  2. Assert they report nothing while the untagged control does report.
 //  3. Assert an untagged template and a string literal inside a tagged
 //     template's substitution still report.
+//
+// @evidence contracts/testing.md#behavioral-verification Exact range and zero-finding assertions distinguish tag raw-text preservation from exemptions leaking into nested literals.
+// @evidence contracts/testing.md#independent-expectations The supported tag exemption follows JavaScript raw template semantics: replacing hex spelling changes the string observed by the tag.
+// @evidence contracts/testing.md#distinguishing-cases Tagged templates with and without substitutions stay clean; equivalent untagged templates and strings nested inside tagged substitutions remain checked.
+// @evidence contracts/testing.md#execution-ownership TestUnicornNoHexEscapeSkipsTaggedTemplates owns the explicit source matrix and any named t.Run variants as one discoverable Go unit entry. Parsing and actual engine calls share the Go test process; no installed consumer, native compilation or child product host is needed.
 func TestUnicornNoHexEscapeSkipsTaggedTemplates(t *testing.T) {
   cases := []struct {
     name    string

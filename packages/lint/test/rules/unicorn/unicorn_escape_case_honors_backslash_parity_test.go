@@ -24,6 +24,11 @@ import (
 //     even runs stay silent.
 //  3. Assert a run that starts mid-payload, after a plain character, is
 //     counted from that character and not from the payload start.
+//
+// @evidence contracts/testing.md#behavioral-verification Exact finding-range assertions distinguish active lowercase escapes from escaped-backslash text.
+// @evidence contracts/testing.md#independent-expectations JavaScript escape pairing determines odd/even backslash activity; literal token markers independently locate diagnostics.
+// @evidence contracts/testing.md#distinguishing-cases One through six backslashes run in strings and template heads; plain characters restart the run without reviving an even escaped sequence.
+// @evidence contracts/testing.md#execution-ownership TestUnicornEscapeCaseHonorsBackslashParity owns the explicit source matrix and any named t.Run variants as one discoverable Go unit entry. Parsing and actual engine calls share the Go test process; no installed consumer, native compilation or child product host is needed.
 func TestUnicornEscapeCaseHonorsBackslashParity(t *testing.T) {
   for backslashes := 1; backslashes <= 6; backslashes++ {
     run := strings.Repeat(`\`, backslashes)
