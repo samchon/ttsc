@@ -2,17 +2,16 @@ package linthost
 
 import "testing"
 
-// TestFormatQuotesConvertsDoubleToSinglePreservingApostropheEscape verifies
-// the convert path (not just the abstain path) handles a redundant `\'`
-// correctly. Under prefer:"single" a double-quoted literal with two `\"`
-// and a redundant `\'` flips to single: the `\"` become bare `"` and the
-// `\'` survives as a now-required escape. Matches Prettier 3.8.3
-// (`prettier --single-quote`), which keeps the redundant escape rather than
-// stripping it.
+// TestFormatQuotesConvertsDoubleToSinglePreservingApostropheEscape verifies the required quote conversion.
 //
-//  1. Parse `"a\"b\"c\'"` (two escaped doubles, one redundant escaped single).
-//  2. Apply format/quotes with prefer:"single".
-//  3. Assert it becomes `'a"b"c\”`.
+// Under prefer:single, the mixed value becomes cheaper with single quotes.
+// The two double quotes lose their escapes, but the apostrophe must stay
+// escaped under its new delimiter, matching Prettier 3.8.3.
+//
+// @evidence contracts/testing.md#behavioral-verification format/quotes must convert the double-quoted mixed payload under prefer:single while retaining the apostrophe escape required by the new delimiter.
+// @evidence contracts/testing.md#independent-expectations The complete literal output spells the same cooked value a"b"c' with two bare double quotes and one escaped apostrophe; Prettier 3.8.3 singleQuote agrees with this independently specified spelling.
+// @evidence contracts/testing.md#distinguishing-cases This positive conversion owns two escaped doubles plus a redundant escaped apostrophe; redundant-escape abstention siblings distinguish a cheaper existing delimiter.
+// @evidence contracts/testing.md#execution-ownership TestFormatQuotesConvertsDoubleToSinglePreservingApostropheEscape is a public Go unit selected by TestSelectedLintUnits. This host owns its literal inputs and complete output assertions; the shared syntax-only harness invokes the owning rule and applies source edits in process without a consumer install, native product build or product host.
 func TestFormatQuotesConvertsDoubleToSinglePreservingApostropheEscape(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,

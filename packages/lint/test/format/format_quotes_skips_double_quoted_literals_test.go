@@ -6,18 +6,14 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// TestFormatQuotesSkipsDoubleQuotedLiterals verifies the rule never re-reports
-// a double-quoted source literal.
+// TestFormatQuotesSkipsDoubleQuotedLiterals verifies a plain double-quoted hello
+// produces no edit under the default double preference. This is a
+// zero-escape tie; cost-minimizing cases may change other double-quoted values.
 //
-// Idempotence is mandatory: any rule whose second pass re-reports its own
-// previous edit would spin the format loop until the per-run cap. The
-// fastest regression mode here would be a one-character change that ignored
-// the raw[0] guard and walked a double-quoted literal as if it were single
-// — this scenario pins that guard.
-//
-// 1. Parse a source file with only double-quoted literals.
-// 2. Run the engine with formatQuotes enabled.
-// 3. Assert zero findings.
+// @evidence contracts/testing.md#behavioral-verification The engine must report no quote-style finding for the plain double-quoted hello already canonical under the default preference.
+// @evidence contracts/testing.md#independent-expectations The literal hello has zero required escapes under either delimiter, so the supported default-double tie policy independently selects its existing spelling.
+// @evidence contracts/testing.md#distinguishing-cases This canonical plain-string negative complements the single-to-double positive; it does not claim that all double-quoted strings are immune, since the strict-cost positive flips one.
+// @evidence contracts/testing.md#execution-ownership TestFormatQuotesSkipsDoubleQuotedLiterals is a public Go unit selected by TestSelectedLintUnits. This host owns the parsed source fixtures and direct in-process Engine assertions; it starts no consumer install, native product build or product host.
 func TestFormatQuotesSkipsDoubleQuotedLiterals(t *testing.T) {
   file := parseTS(t, `const greeting = "hello";`+"\n"+`JSON.stringify(greeting);`+"\n")
   findings := NewEngine(RuleConfig{"format/quotes": SeverityError}).

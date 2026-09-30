@@ -2,18 +2,15 @@ package linthost
 
 import "testing"
 
-// TestFormatQuotesSwitchesSingleToDoubleToMinimizeEscapes verifies the
-// symmetric escape-minimizing flip under prefer:"single": a
-// single-quoted literal that would be strictly cheaper double is
-// rewritten to double even though single is preferred.
+// TestFormatQuotesSwitchesSingleToDoubleToMinimizeEscapes verifies the required quote conversion.
 //
-// `'\”` carries one escape as single (the `\'`) and zero as double
-// (`"'"`). Minimizing escapes wins over the preference, so the literal
-// flips to double; on a tie it would have stayed single.
+// The apostrophe payload requires one escape with single quotes and none
+// with double quotes. The lower escape cost must override prefer:single.
 //
-//  1. Parse a source file with an escaped single-quoted literal.
-//  2. Apply the rule configured prefer:"single".
-//  3. Assert it is rewritten to the zero-escape double-quoted form.
+// @evidence contracts/testing.md#behavioral-verification format/quotes must switch an escaped apostrophe literal to double quotes even under prefer:single.
+// @evidence contracts/testing.md#independent-expectations The complete output literal preserves the one-apostrophe cooked value and declaration while removing its required escape; the supported minimum-escape policy outranks the preferred delimiter.
+// @evidence contracts/testing.md#distinguishing-cases This strict-cost positive is the symmetric option override; the plain prefer:single positive owns the tie branch and redundant-escape negatives own already-cheaper spellings.
+// @evidence contracts/testing.md#execution-ownership TestFormatQuotesSwitchesSingleToDoubleToMinimizeEscapes is a public Go unit selected by TestSelectedLintUnits. This host owns its literal inputs and complete output assertions; the shared syntax-only harness invokes the owning rule and applies source edits in process without a consumer install, native product build or product host.
 func TestFormatQuotesSwitchesSingleToDoubleToMinimizeEscapes(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,
