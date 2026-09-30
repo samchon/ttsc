@@ -7,6 +7,7 @@ import {
   goPath,
   os,
   path,
+  nativePluginSource,
   spawn,
   ttscBin,
 } from "../../internal/plugin-corpus";
@@ -20,19 +21,28 @@ import {
  * root.
  *
  * 1. Copy the `go-source-plugin` fixture and overwrite `plugin.cjs` so that
- *    `source` points at `go-plugin/go.mod` (a file, not a directory).
+ *    `source` points at the canonical producer's `go.mod` file.
  * 2. Run ttsc with `--emit`.
  * 3. Assert zero exit and `"PLUGIN"` in the emitted JS.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Real ttsc compiles a descriptor whose source is a go.mod file and requires native uppercase PLUGIN emission with zero exit.
+ * @evidence contracts/testing.md#independent-expectations The file-valued source and literal uppercase emitted value distinguish successful owning-module normalization from an untransformed source or directory-only resolver.
+ * @evidence contracts/testing.md#distinguishing-cases Owns actual descriptor file-source to native builder assembly; the authored module-resolution unit checks exact manifest/directory identity, nearest module and depth boundaries without a compiler.
+ * @evidence contracts/testing.md#execution-ownership This named corpus-source export owns one consumer project and one CLI invocation, selected once by the native boundary runner.
+ * @evidence contracts/e2e.md#necessary-boundary The module resolver unit cannot observe its file-source identity passing through descriptor loading and native compilation to final output publication; this verifies that real connection.
+ * @evidence contracts/e2e.md#shared-execution Uses the same canonical immutable actual compiler producer and TTSC_CACHE_DIR as runtime consumers; go.mod and directory spellings normalize to the same actual module build identity.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Consumer TypeScript and plugin config remain independent temporary files; only immutable producer source is shared and production module/toolchain keys govern reuse, with no asserted cold-build state hidden.
+ * @evidence contracts/e2e.md#preserved-coverage Keeps both original CLI success and uppercase emitted JavaScript assertions; exact source selection is additionally owned by the source unit, and native cold-build/invalidation tests retain their own independent caches.
  */
-export const test_plugin_corpus_source_path_can_point_directly_at_go_mod =
-  () => {
+export function test_plugin_corpus_source_path_can_point_directly_at_go_mod(): void {
     const root = copyProject("go-source-plugin");
     fs.writeFileSync(
       path.join(root, "plugin.cjs"),
       `const path = require("node:path");
 module.exports = (context) => ({
   name: "go-source-plugin",
-  source: path.resolve(context.dirname, "go-plugin", "go.mod"),
+  capabilities: { emitProvenance: true },
+  source: ${JSON.stringify(path.join(nativePluginSource("runtime-source"), "go.mod"))},
 });
 `,
     );
@@ -48,4 +58,4 @@ module.exports = (context) => ({
       fs.readFileSync(path.join(root, "dist", "main.js"), "utf8"),
       /"PLUGIN"/,
     );
-  };
+}

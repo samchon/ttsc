@@ -23,10 +23,21 @@ import {
  * 1. Copy the `go-source-plugin` fixture and run real ttsc with no cache override.
  * 2. Assert the one content-keyed binary lands under the workspace-local cache.
  * 3. Assert no legacy `.ttsc` directories were created.
+ *
+ * @evidence contracts/testing.md#behavioral-verification CLI success, cold-build diagnostic, exactly one native binary and absent legacy paths verify actual default publication.
+ * @evidence contracts/testing.md#independent-expectations Explicit empty installation marks the expected workspace; native filename and filesystem existence independently establish publication.
+ * @evidence contracts/testing.md#distinguishing-cases Owns default cache placement without override, one content-keyed entry and absence of both legacy locations.
+ * @evidence contracts/testing.md#execution-ownership The matching named native export owns one actual CLI call in the Linux boundary population.
+ * @evidence contracts/e2e.md#necessary-boundary A path-selection unit cannot observe native compilation and binary publication at the selected installation root.
+ * @evidence contracts/e2e.md#shared-execution Lightweight producer avoids linking the compiler for cache placement; the observed plugin cache remains independently cold.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Fresh explicit installation prevents an unrelated ancestor from selecting the workspace; no warm plugin masks compilation.
+ * @evidence contracts/e2e.md#preserved-coverage Original build diagnostic, one-entry, native binary and both legacy-absence assertions remain unchanged.
  */
-export const test_plugin_corpus_source_plugin_default_cache_is_workspace_local_content_cache =
-  () => {
+export function test_plugin_corpus_source_plugin_default_cache_is_workspace_local_content_cache(): void {
     const root = copyProject("go-source-plugin");
+    // An empty install root is actual workspace-placement evidence; do not let
+    // an unrelated ancestor installation select this fixture's default cache.
+    fs.mkdirSync(path.join(root, "node_modules"));
 
     const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
       cwd: root,
@@ -61,4 +72,4 @@ export const test_plugin_corpus_source_plugin_default_cache_is_workspace_local_c
       false,
     );
     assert.equal(fs.existsSync(path.join(root, ".ttsc")), false);
-  };
+  }

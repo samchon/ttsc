@@ -4,6 +4,7 @@ import {
   copyProject,
   fs,
   goPath,
+  nativePluginSource,
   path,
   spawn,
 } from "../../internal/plugin-corpus";
@@ -24,10 +25,19 @@ import {
  * 1. Copy the native Go-source plugin fixture and add an excluded entry root.
  * 2. Load it through real Mocha with `--require ttsc/register`.
  * 3. Assert the transformed uppercase value is the code that executes.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Real Mocha preloads the shipped register hook and executes an excluded TypeScript entry transformed by the actual Go compiler fixture, requiring zero exit and uppercase PLUGIN output.
+ * @evidence contracts/testing.md#independent-expectations The excluded entry calls goUpper on lowercase plugin; literal uppercase stdout independently establishes native transformation and selection of the synthetic-entry output.
+ * @evidence contracts/testing.md#distinguishing-cases Owns the preload's excluded-root fallback and synthetic compiler tsconfig connection, distinct from the direct ttsx in-include boundary.
+ * @evidence contracts/testing.md#execution-ownership This named native export owns one consumer project and real Mocha process, selected once by the native boundary runner.
+ * @evidence contracts/e2e.md#necessary-boundary Direct runtime decisions cannot prove Mocha's preload reaches compiler-backed plugin emission for a source outside include; the actual hook, synthetic tsconfig and successful Node output are required.
+ * @evidence contracts/e2e.md#shared-execution The canonical immutable compiler-backed Go producer reads its supplied synthetic tsconfig directly and shares TTSC_CACHE_DIR with direct ttsx and go.mod consumers, replacing per-consumer source rewrites and native rebuilds.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The excluded entry and consumer module links belong to the temporary project; compiler output provenance comes from the actual emitter and successful publication rather than guessed paths or advertised capabilities alone.
+ * @evidence contracts/e2e.md#preserved-coverage Keeps original exit and exact uppercase-line output assertions, the outside-include input and real Mocha preload; the removed helper's synthetic-file/rootDir behavior is supplied by the compiler's actual config loader.
  */
-export const test_plugin_corpus_ttsx_register_executes_source_plugin_output_end_to_end =
-  () => {
+export function test_plugin_corpus_ttsx_register_executes_source_plugin_output_end_to_end(): void {
     const root = copyProject("go-source-plugin");
+    fs.writeFileSync(path.join(root, "plugin.cjs"), `module.exports = () => ({ name: "go-source-plugin", capabilities: { emitProvenance: true }, source: ${JSON.stringify(nativePluginSource("runtime-source"))} });\n`);
     linkTtscPackage(root);
     const testDir = path.join(root, "test");
     fs.mkdirSync(testDir);
@@ -40,7 +50,6 @@ export const test_plugin_corpus_ttsx_register_executes_source_plugin_output_end_
       ].join("\n"),
       "utf8",
     );
-    makeFixtureReadSyntheticEntry(root);
     const result = spawn(
       process.execPath,
       [
@@ -61,57 +70,4 @@ export const test_plugin_corpus_ttsx_register_executes_source_plugin_output_end_
     );
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /^PLUGIN$/m);
-  };
-
-/** Make the fixture host honor the synthetic entry config used by ttsx. */
-function makeFixtureReadSyntheticEntry(root: string): void {
-  const source = path.join(root, "go-plugin", "main.go");
-  const original = fs.readFileSync(source, "utf8");
-  // The synthetic entry config lists one file and pins `rootDir`; like the
-  // compiler, the host writes that file's output mirrored below `rootDir`,
-  // which is the only place ttsx looks for a source's output.
-  const modified = original
-    .replace(
-      `_ = fs.String("tsconfig", "", "")`,
-      `tsconfig := fs.String("tsconfig", "", "")`,
-    )
-    .replace(
-      `source := filepath.Join(root, "src", "main.ts")`,
-      [
-        `source := filepath.Join(root, "src", "main.ts")`,
-        `  outName := "main.js"`,
-        `  if strings.Contains(filepath.Base(*tsconfig), ".ttsx-entry.") {`,
-        `    raw, readErr := os.ReadFile(*tsconfig)`,
-        `    if readErr != nil {`,
-        `      fmt.Fprintln(os.Stderr, readErr)`,
-        `      return 2`,
-        `    }`,
-        `    var config struct {`,
-        `      Files           []string`,
-        `      CompilerOptions struct{ RootDir string } \`json:"compilerOptions"\``,
-        `    }`,
-        `    if jsonErr := json.Unmarshal(raw, &config); jsonErr != nil || len(config.Files) != 1 {`,
-        `      fmt.Fprintln(os.Stderr, "go-source-plugin: invalid entry config")`,
-        `      return 2`,
-        `    }`,
-        `    source = filepath.FromSlash(config.Files[0])`,
-        `    rel, relErr := filepath.Rel(filepath.FromSlash(config.CompilerOptions.RootDir), source)`,
-        `    if relErr != nil {`,
-        `      fmt.Fprintln(os.Stderr, relErr)`,
-        `      return 2`,
-        `    }`,
-        `    outName = strings.TrimSuffix(rel, filepath.Ext(rel)) + ".js"`,
-        `  }`,
-      ].join("\n"),
-    )
-    .replace(
-      `out := filepath.Join(root, *outDir, "main.js")`,
-      `out := filepath.Join(root, *outDir, outName)`,
-    )
-    .replace(
-      `out = filepath.Join(*outDir, "main.js")`,
-      `out = filepath.Join(*outDir, outName)`,
-    );
-  assert.notEqual(modified, original);
-  fs.writeFileSync(source, modified, "utf8");
 }
