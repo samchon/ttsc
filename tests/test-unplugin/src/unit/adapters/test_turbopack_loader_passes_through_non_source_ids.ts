@@ -1,8 +1,8 @@
-import { TestUnpluginProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { runTurbopackLoader } from "../../internal/adapter-turbopack/runTurbopackLoader";
+import { runTurbopackLoader } from "../internal/adapter-turbopack/runTurbopackLoader";
 
 /**
  * Verifies the Turbopack loader applies the shared transform-target filter, not
@@ -23,9 +23,23 @@ import { runTurbopackLoader } from "../../internal/adapter-turbopack/runTurbopac
  *    source.
  * 2. Run it on a `\0` virtual id.
  * 3. Assert every source is returned unchanged.
+ * @evidence contracts/testing.md#behavioral-verification
+ *   Calls the authored Turbopack loader with JavaScript and NUL virtual IDs;
+ *   callback bytes must equal the supplied source instead of entering compilation.
+ * @evidence contracts/testing.md#independent-expectations
+ *   JavaScript and virtual IDs are excluded by the supported source contract.
+ *   The exact supplied source is an independent byte-preservation expectation.
+ * @evidence contracts/testing.md#distinguishing-cases
+ *   js, mjs, cjs and jsx spellings plus a TypeScript-shaped virtual ID detect
+ *   extension-only or virtual-guard omissions. The companion declaration unit
+ *   owns declaration/vendor exclusions; packed hosts own accepted transforms.
+ * @evidence contracts/testing.md#execution-ownership
+ *   This exported unit calls authored loader completion directly with a minimal
+ *   context, no project producer or native artifact. TestProject tracks its empty
+ *   root; actual Turbopack matching and worker transport remain packed E2E cases.
  */
 export async function test_turbopack_loader_passes_through_non_source_ids(): Promise<void> {
-  const root = TestUnpluginProject.createProject();
+  const root = TestProject.tmpdir("adapter-source-unit-");
   const script = 'export const value = goUpper("plugin");\n';
   for (const extension of ["js", "mjs", "cjs", "jsx"]) {
     const out = await runTurbopackLoader({
