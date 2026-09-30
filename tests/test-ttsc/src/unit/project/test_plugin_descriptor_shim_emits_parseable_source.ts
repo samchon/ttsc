@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import ts from "ts-legacy";
 
 import { COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE } from "../../../../../packages/ttsc/src/plugin/internal/load/COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE";
 import { PLUGIN_DESCRIPTOR_SHIM_SOURCE } from "../../../../../packages/ttsc/src/plugin/internal/load/PLUGIN_DESCRIPTOR_SHIM_SOURCE";
@@ -22,13 +23,27 @@ import { PLUGIN_DESCRIPTOR_SHIM_SOURCE } from "../../../../../packages/ttsc/src/
  * 1. Take the shim's emitted source.
  * 2. Assert no line leaves a string literal open, and none carries a control
  *    character a string cannot hold.
- * 3. Assert the environment variables the parent supplies survive.
+ * 3. Parse the complete emitted program with the independent TypeScript parser.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Parses both actual emitted shim programs using TypeScript transpileModule with syntax diagnostics enabled and retains per-line quote/control-character guards.
+ * @evidence contracts/testing.md#independent-expectations An independently maintained language parser must report zero diagnostics for the complete generated programs; separately authored unterminated strings and missing expressions must be rejected by the same oracle.
+ * @evidence contracts/testing.md#distinguishing-cases ESM top-level-await and CommonJS evaluator programs both parse; raw line terminators inside strings and syntactically incomplete expressions distinguish the parser from a quote-count-only validator.
+ * @evidence contracts/testing.md#execution-ownership Executes only emitted-source constants and an in-process language parser. Descriptor entry/context/output transport remains owned by the CJS factory-context and ttsx dirname-resolution E2E cases, not by source-text substring checks.
  */
 export const test_plugin_descriptor_shim_emits_parseable_source = (): void => {
   for (const source of [
     PLUGIN_DESCRIPTOR_SHIM_SOURCE,
     COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE,
   ]) {
+    const parsed = ts.transpileModule(source, {
+      fileName: "descriptor-shim.mts",
+      reportDiagnostics: true,
+      compilerOptions: {
+        module: ts.ModuleKind.ESNext,
+        target: ts.ScriptTarget.ESNext,
+      },
+    });
+    assert.deepEqual(parsed.diagnostics, [], "complete emitted shim must parse");
     for (const line of source.split("\n")) {
       assert.equal(
         quotesPair(line),
@@ -46,19 +61,16 @@ export const test_plugin_descriptor_shim_emits_parseable_source = (): void => {
       );
     }
   }
-  for (const variable of [
-    "TTSC_PLUGIN_ENTRY",
-    "TTSC_PLUGIN_CONTEXT",
-    "TTSC_PLUGIN_DESCRIPTOR_OUT",
-  ]) {
-    assert.equal(
-      [
-        PLUGIN_DESCRIPTOR_SHIM_SOURCE,
-        COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE,
-      ].some((source) => source.includes(variable)),
-      true,
-      `the shim lost ${variable}`,
-    );
+  for (const malformed of ['process.stderr.write("broken\n");', "const incomplete = ;"]) {
+    const parsed = ts.transpileModule(malformed, {
+      fileName: "malformed-shim.mts",
+      reportDiagnostics: true,
+      compilerOptions: {
+        module: ts.ModuleKind.ESNext,
+        target: ts.ScriptTarget.ESNext,
+      },
+    });
+    assert.ok(parsed.diagnostics!.length > 0, "language oracle must reject invalid source");
   }
 };
 
