@@ -16,6 +16,10 @@ import (
 //     falls back to Report / ReportRange.
 //  2. With a RelatedReporter but zero related locations, the call still uses the
 //     plain path rather than invoking the related method with an empty payload.
+// @evidence contracts/testing.md#behavioral-verification Public related node/range reports preserve both ordinary diagnostics when related capability is absent or the supplied related list is empty; neither rich callback fires for the empty-list case.
+// @evidence contracts/testing.md#independent-expectations Authored msg, parsed node identity and literal 0..1 diagnostic range must survive degradation, with exactly one ordinary callback per anchor. These values come from the call fixture rather than the delegation implementation.
+// @evidence contracts/testing.md#distinguishing-cases Nonempty locations on a legacy host isolate missing capability; empty locations on a capable host isolate empty payload. Rich forwarding with actual locations is exercised by the sibling positive unit.
+// @evidence contracts/testing.md#execution-ownership Actual public Context methods call observing legacy and related-capable reporters directly in one Go process, without native plugin preparation or installation.
 func TestPublicRuleContextReportRelatedFallsBack(t *testing.T) {
   related := []rule.RelatedInformation{{Pos: 0, End: 1, Message: "here"}}
   node := newDummyNode(t)
@@ -32,6 +36,7 @@ func TestPublicRuleContextReportRelatedFallsBack(t *testing.T) {
   if legacy.ranges != 1 {
     t.Fatalf("range path should fall back to ReportRange once, got %d", legacy.ranges)
   }
+  if legacy.lastNode != node || legacy.lastPos != 0 || legacy.lastEnd != 1 || legacy.lastMessage != "msg" || legacy.fixCalls != 0 || legacy.rangeFixCall != 0 { t.Fatalf("legacy diagnostic payload or route lost: %+v", legacy) }
 
   // Case 2: RelatedReporter present, but no related locations supplied.
   rich := &captureRelatedReporter{}
@@ -44,4 +49,5 @@ func TestPublicRuleContextReportRelatedFallsBack(t *testing.T) {
   if rich.reports != 1 || rich.ranges != 1 {
     t.Fatalf("empty related must use the plain path: reports=%d ranges=%d", rich.reports, rich.ranges)
   }
+  if rich.lastNode != node || rich.lastPos != 0 || rich.lastEnd != 1 || rich.lastMessage != "msg" { t.Fatalf("empty related diagnostic payload lost: %+v", rich) }
 }

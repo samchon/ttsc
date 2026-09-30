@@ -23,6 +23,10 @@ import (
 //  2. Call ReportRelated (node) and ReportRangeRelated (range) with one location.
 //  3. Assert each fired its related method exactly once, payload preserved, with
 //     no fallback to Report / ReportRange.
+// @evidence contracts/testing.md#behavioral-verification Public node and range related reports select their corresponding rich callbacks once, retain the diagnostic node/range/message and the full location list, and avoid ordinary fallback.
+// @evidence contracts/testing.md#independent-expectations Literal messages and 1..4 diagnostic versus 3..7 related coordinates define different authored anchors; parsed node identity and exact callback counts specify the expected result independently of the observing reporter.
+// @evidence contracts/testing.md#distinguishing-cases Both node and range routes are checked separately against nonempty related payloads. Legacy capability absence and empty locations have separate negative controls in the sibling fallback unit.
+// @evidence contracts/testing.md#execution-ownership Real public Context calls run in-process against a payload-recording RelatedReporter. No contributor registration, native build, installed CLI or interface-source inspection is exercised.
 func TestPublicRuleContextReportRelatedForwards(t *testing.T) {
   reporter := &captureRelatedReporter{}
   ctx := rule.NewContext(nil, nil, rule.SeverityError, nil, reporter)
@@ -41,6 +45,7 @@ func TestPublicRuleContextReportRelatedForwards(t *testing.T) {
   if !reflect.DeepEqual(reporter.lastRelated, related) {
     t.Fatalf("related round-trip mismatch: want %+v, got %+v", related, reporter.lastRelated)
   }
+  if reporter.lastNode != node || reporter.lastMessage != "already defined" || reporter.rangeRelatedCalls != 0 { t.Fatalf("node related diagnostic lost or misrouted: %+v", reporter) }
 
   ctx.ReportRangeRelated(1, 4, "already defined", related...)
   if reporter.rangeRelatedCalls != 1 {
@@ -49,6 +54,7 @@ func TestPublicRuleContextReportRelatedForwards(t *testing.T) {
   if reporter.reports != 0 || reporter.ranges != 0 {
     t.Fatalf("plain fallback fired for range path: reports=%d ranges=%d", reporter.reports, reporter.ranges)
   }
+  if reporter.relatedCalls != 1 || reporter.lastPos != 1 || reporter.lastEnd != 4 || reporter.lastMessage != "already defined" || !reflect.DeepEqual(reporter.lastRelated, related) { t.Fatalf("range related diagnostic or locations lost: %+v", reporter) }
 }
 
 // captureRelatedReporter implements the legacy rule.Reporter surface plus the
@@ -61,19 +67,25 @@ type captureRelatedReporter struct {
   relatedCalls      int
   rangeRelatedCalls int
   lastRelated       []rule.RelatedInformation
+  lastNode          *shimast.Node
+  lastPos           int
+  lastEnd           int
+  lastMessage       string
 }
 
-func (r *captureRelatedReporter) Report(*shimast.Node, string) { r.reports++ }
+func (r *captureRelatedReporter) Report(node *shimast.Node, message string) { r.reports++; r.lastNode, r.lastMessage = node, message }
 
-func (r *captureRelatedReporter) ReportRange(int, int, string) { r.ranges++ }
+func (r *captureRelatedReporter) ReportRange(pos, end int, message string) { r.ranges++; r.lastPos, r.lastEnd, r.lastMessage = pos, end, message }
 
-func (r *captureRelatedReporter) ReportRelated(_ *shimast.Node, _ string, related ...rule.RelatedInformation) {
+func (r *captureRelatedReporter) ReportRelated(node *shimast.Node, message string, related ...rule.RelatedInformation) {
   r.relatedCalls++
+  r.lastNode, r.lastMessage = node, message
   r.lastRelated = append([]rule.RelatedInformation(nil), related...)
 }
 
-func (r *captureRelatedReporter) ReportRangeRelated(_, _ int, _ string, related ...rule.RelatedInformation) {
+func (r *captureRelatedReporter) ReportRangeRelated(pos, end int, message string, related ...rule.RelatedInformation) {
   r.rangeRelatedCalls++
+  r.lastPos, r.lastEnd, r.lastMessage = pos, end, message
   r.lastRelated = append([]rule.RelatedInformation(nil), related...)
 }
 

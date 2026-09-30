@@ -13,6 +13,10 @@ import (
 // give contributors their own option bytes. A contributor is free to decode or
 // retain its Context, but mutating that Context must never corrupt the host's
 // resolver state or another invocation.
+// @evidence contracts/testing.md#behavioral-verification Both public Context constructors isolate option bytes from their input and other invocations in both mutation directions, while retaining nil options and empty length.
+// @evidence contracts/testing.md#independent-expectations The independently authored JSON mode loud must remain byte-exact after deliberate corruption of another buffer's first byte. Literal original JSON, nil identity and empty length define outcomes without using the constructor to compute expectations.
+// @evidence contracts/testing.md#distinguishing-cases Each constructor exercises input mutation, context mutation, separate invocation mutation, nil and nonnil-empty input. Bidirectional and cross-invocation controls distinguish copying once from continued ownership isolation.
+// @evidence contracts/testing.md#execution-ownership Actual public constructors allocate Contexts directly in-process, with controlled RawMessage mutations; no installed host, plugin artifact, compiler subprocess or repository-file inspection executes.
 func TestPublicRuleContextOptionsAreIsolated(t *testing.T) {
   constructors := []struct {
     name string
@@ -83,6 +87,10 @@ func TestPublicRuleContextOptionsAreIsolated(t *testing.T) {
 // not only the public constructors. The first file deliberately corrupts its
 // public Context; the second file and the resolver must still observe the
 // original JSON document.
+// @evidence contracts/testing.md#behavioral-verification The real contributor adapter invokes a deliberately option-mutating contributor for two source files; both decode mode loud and the resolver's original JSON remains byte-exact after the first invocation corrupts its Context options.
+// @evidence contracts/testing.md#independent-expectations Literal mode loud and original JSON specify each observed decode and retained resolver state independently of the adapter. Exactly two observations prove both real file callbacks executed rather than accepting an inert engine.
+// @evidence contracts/testing.md#distinguishing-cases Serial source-file visits make the first Context corruption precede the second invocation, distinguishing isolated copies from shared option storage. Constructor-only ownership controls are separate in the sibling unit.
+// @evidence contracts/testing.md#execution-ownership A real in-process Engine and inspected contributor adapter dispatch over two parsed source files, with registry cleanup. This owns adapter option isolation without claiming public registration, native source compilation, installation or a checker-dependent rule.
 func TestContributorCannotMutateLaterInvocationOptions(t *testing.T) {
   contributor := &optionMutatingContributor{}
   metadata, err := inspectContributor(contributor)
