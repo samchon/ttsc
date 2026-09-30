@@ -3,9 +3,10 @@ import path from "node:path";
 
 import { CachePrunePolicy } from "./CachePrunePolicy";
 import type { IPluginCachePruneOptions } from "./IPluginCachePruneOptions";
+import { PluginBinaryUse } from "./PluginBinaryUse";
+import type { PluginBuildLockLease } from "./PluginBuildLockLease";
 import { PluginBuildLockOwner } from "./PluginBuildLockOwner";
 import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
-import type { PluginBuildLockLease } from "./PluginBuildLockLease";
 import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
 import { acquirePluginBuildLock } from "./acquirePluginBuildLock";
 import { inspectPluginBuildLock } from "./inspectPluginBuildLock";
@@ -27,7 +28,10 @@ import { releasePluginBuildLock } from "./releasePluginBuildLock";
  * retired while it was still running remains protected until its exact
  * release-owned completion or proven process absence. Old v2 clients use an
  * independent namespace, so their liveness check is conservative observation
- * rather than atomic cross-version serialization.
+ * rather than atomic cross-version serialization. Returned binaries have
+ * independent process-reader reservations. Deletion inspects them under its key
+ * lease and preserves live or unknown consumers, including after a producer has
+ * completed and released its build lease.
  *
  * Binary eviction preserves coordination roots. A v3 retired generation is
  * reclaimed only after its holder and every registered observer are provably
@@ -40,7 +44,7 @@ import { releasePluginBuildLock } from "./releasePluginBuildLock";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Old v2 capabilities are not assumed expired; unknown ownership defers reclamation instead of hiding protocol uncertainty under a timeout.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish target-sized recent protection, retry behavior and persistent coordination-root growth.
  * @evidence contracts/portability.md#os-neutral-implementation Root/child lstat and physical parent checks avoid link traversal; native deletion tolerates sharing restrictions without assuming volume case policy.
- * @evidence contracts/performance.md#efficient-algorithms Binary scans visit retained files and sorts cost O(entries log entries); per-key unfinished-task checks and history collection add generation/observer metadata reads without reading binary contents.
+ * @evidence contracts/performance.md#efficient-algorithms Binary scans visit retained files and sorts cost O(entries log entries); per-key unfinished-task checks, reader-owner liveness checks and history collection add generation/observer/reader metadata reads without reading binary contents.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Producers and build locks establish valid binary reuse; this operation selects reclamation candidates.
  *
@@ -385,7 +389,8 @@ function removeCacheEntry(entry: PluginCacheEntry): boolean {
     if (
       lease === null ||
       pluginCacheEntryHasLiveV2Build(entry) ||
-      pluginCacheEntryHasUnfinishedRetiredTask(lockDir)
+      pluginCacheEntryHasUnfinishedRetiredTask(lockDir) ||
+      PluginBinaryUse.hasLiveOwners(entry.dir)
     ) {
       return false;
     }

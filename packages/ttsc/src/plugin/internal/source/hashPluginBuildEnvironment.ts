@@ -13,9 +13,10 @@ import { spawnGoTool } from "./spawnGoTool";
  * compiler's identity (its `go version` and the bytes of the binary), the Go
  * build environment `go env` reports for the build's directory (target, build
  * tags, cgo, FIPS, the C toolchain's commands by content, and GOROOT by
- * content), and the external toolchain environment cgo reads. Fixed source-build
- * flags enter this same identity, so its binary key and reported source state
- * both distinguish the artifact policy used by native compilation.
+ * content), and the external toolchain environment cgo reads. Fixed
+ * source-build flags enter this same identity, so its binary key and reported
+ * source state both distinguish the artifact policy used by native
+ * compilation.
  *
  * A plugin binary is a function of its sources and of this environment, so both
  * the plugin cache key (`computeCacheKey`) and the state a transform reports
@@ -35,14 +36,13 @@ import { spawnGoTool } from "./spawnGoTool";
  *   variable carries: the Go tool, the Go environment file `go env -w` writes,
  *   the executables the C toolchain commands name, and GOROOT. A consumer that
  *   keeps the reading compares their metadata before reusing it.
- *
  * @evidence contracts/common.md#principled-implementation Fixed artifact flags, compiler bytes/version, selected Go build values, command executables and contributing SDK files enter a deterministic digest; source-state reporting uses this same serialization rather than a second definition of toolchain identity.
  * @evidence contracts/common.md#clear-and-simple-design Private helpers separate compiler identity, Go-reported settings, external variables and SDK content while sharing one hash sink and optional pre-read witness.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Cache signatures include real identity/change metadata and effective invocation context; failed SDK witnessing refuses reuse rather than accepting a VERSION-only proxy.
  * @evidence contracts/common.md#meaningful-documentation Native documentation names the input classes and witness purpose; private comments explain context-sensitive compiler memoization and SDK exclusions without treating a passing check as proof.
  * @evidence contracts/portability.md#os-neutral-implementation Node path/stat/process APIs resolve native tool identities; platform-specific executable suffixes and environment lookup are isolated in GoToolResolution, and Go supplies its own effective build settings.
- * @evidence contracts/performance.md#efficient-algorithms For F relevant SDK files and B total bytes, sorted metadata traversal costs O(F log F); a changed manifest rehashes all B bytes, while an unchanged manifest reuses the aggregate identity without rereading those bytes.
- * @evidence contracts/performance.md#reuse-equivalent-work Compiler identity shares only matching realpath, file signature and invocation cwd/environment; the SDK aggregate identity reuses only an identical ordered metadata manifest. Every SDK dependency still enters the caller's witness.
+ * @evidence contracts/performance.md#efficient-algorithms SDK traversal observes E entries in D reached directories, sorts each directory population and F selected files, and frames link topology; changed manifests read B selected bytes while matching manifests reuse their aggregate. Compiler/context misses additionally execute Go version probing and read compiler or command bytes; effective environment framing scales with its values.
+ * @evidence contracts/performance.md#reuse-equivalent-work Compiler identity shares only matching realpath, file signature and invocation cwd/environment; the SDK aggregate identity reuses only an identical ordered metadata and target-topology manifest. Physical directories expand once per selection policy while aliases retain explicit edges, and every reached SDK dependency enters the caller's witness.
  * @evidence contracts/performance.md#bound-retention-and-release-resources This module retains compiler, Go-environment-path and SDK identity maps for process lifetime. Existing entries can be replaced but historical distinct tool/context/root keys have no eviction bound; no subprocess handle remains after synchronous probing.
  */
 export function hashPluginBuildEnvironment(
@@ -55,7 +55,9 @@ export function hashPluginBuildEnvironment(
 ): void {
   // Fixed artifact policy must invalidate binaries and reported source states
   // together, including binaries cached before this policy was introduced.
-  hash.update(JSON.stringify(["source-build-flags", GoSourceInputs.BUILD_FLAGS]));
+  hash.update(
+    JSON.stringify(["source-build-flags", GoSourceInputs.BUILD_FLAGS]),
+  );
   if (goBinary !== undefined) {
     hash.update(
       JSON.stringify([
@@ -568,6 +570,7 @@ function hashExternalGoBuildEnvironment(
 interface GoRootIdentitySnapshot {
   complete: boolean;
   files: string[];
+  topology: string[];
   signature: string;
 }
 
@@ -576,9 +579,9 @@ interface GoRootIdentityCacheEntry {
   signature: string;
 }
 
-// GOROOT is immutable during normal use but contributes roughly 140 MiB of
-// source/tool content to every plugin key. Retain only the final pathless
-// content identity, guarded by a fresh metadata manifest on every call. A
+// GOROOT is usually stable but its selected source/tool payloads contribute to
+// every plugin key. Retain only the final aggregate
+// identity, guarded by a fresh metadata/topology manifest on every call. A
 // changed or incomplete manifest falls through to the historical full read.
 const goRootIdentityCache = new Map<string, GoRootIdentityCacheEntry>();
 
@@ -601,6 +604,7 @@ function resolveGoRootCacheIdentity(
     }
   }
   const hash = crypto.createHash("sha256");
+  hash.update(JSON.stringify(snapshot.topology));
   for (const file of snapshot.files) {
     const relative = path.relative(resolved, file).split(path.sep).join("/");
     const contents = filesystem.readFile(file);
@@ -623,9 +627,11 @@ function collectGoRootIdentitySnapshot(
 ): GoRootIdentitySnapshot {
   const out: string[] = [];
   const state = { complete: true };
-  walkGoRootIdentity(root, root, out, state, witness);
+  const topology: string[] = [];
+  walkGoRootIdentity(root, out, topology, state, witness);
   out.sort();
   const signature = crypto.createHash("sha256");
+  signature.update(JSON.stringify(topology));
   for (const file of out) {
     const relative = path.relative(root, file).split(path.sep).join("/");
     try {
@@ -654,36 +660,93 @@ function collectGoRootIdentitySnapshot(
   return {
     complete: state.complete,
     files: out,
+    topology,
     signature: signature.digest("hex"),
   };
 }
 
 function walkGoRootIdentity(
   root: string,
-  dir: string,
   out: string[],
+  topology: string[],
   state: { complete: boolean },
   witness?: PluginBuildEnvironmentWitness.Record,
 ): void {
-  // Directory metadata witnesses changes to the file population, while each
-  // file below witnesses in-place changes that leave its parent unchanged.
-  PluginBuildEnvironmentWitness.add(witness, dir);
-  let entries: fs.Dirent[];
-  try {
-    entries = fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    state.complete = false;
-    return;
-  }
-  for (const entry of entries) {
-    const file = path.join(dir, entry.name);
-    const rel = path.relative(root, file).split(path.sep).join("/");
-    if (entry.isDirectory()) {
-      if (shouldHashGoRootPath(rel, true)) {
-        walkGoRootIdentity(root, file, out, state, witness);
+  // Go follows SDK junctions and file links. Observe the same target, including
+  // link topology, rather than certifying an incomplete ordinary-file tree.
+  // A physical directory is expanded once per selection policy; repeated
+  // aliases and cycles remain explicit edges without unbounded recursion.
+  const pending = [root];
+  const visited = new Set<string>();
+  while (pending.length !== 0) {
+    const dir = pending.pop()!;
+    const relative = path.relative(root, dir).split(path.sep).join("/");
+    PluginBuildEnvironmentWitness.add(witness, dir);
+    let entries: fs.Dirent[];
+    try {
+      const physical = fs.realpathSync.native(dir);
+      const target = path.relative(root, physical).split(path.sep).join("/");
+      topology.push(JSON.stringify([relative, target]));
+      // The SDK root selects compiler/source regions. Within any selected
+      // region, every payload can contribute through imports, embeds or tools.
+      // A source alias back to the root therefore needs its broader expansion.
+      const policy = relative === "" ? "root" : "selected-subtree";
+      const key = JSON.stringify([physical, policy]);
+      if (visited.has(key)) continue;
+      visited.add(key);
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+      entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    } catch {
+      state.complete = false;
+      continue;
+    }
+    for (const entry of entries) {
+      const file = path.join(dir, entry.name);
+      const rel = path.relative(root, file).split(path.sep).join("/");
+      let directory = entry.isDirectory();
+      let regular = entry.isFile();
+      if (entry.isSymbolicLink()) {
+        if (
+          !shouldHashGoRootPath(rel, true) &&
+          !shouldHashGoRootPath(rel, false)
+        )
+          continue;
+        PluginBuildEnvironmentWitness.addLink(witness, file);
+        PluginBuildEnvironmentWitness.add(witness, file);
+        try {
+          topology.push(JSON.stringify([rel, "link", fs.readlinkSync(file)]));
+          const stats = fs.statSync(file, { bigint: true });
+          directory = stats.isDirectory();
+          regular = stats.isFile();
+          topology.push(
+            JSON.stringify([
+              rel,
+              path
+                .relative(root, fs.realpathSync.native(file))
+                .split(path.sep)
+                .join("/"),
+            ]),
+          );
+        } catch (error) {
+          const code = (error as NodeJS.ErrnoException).code;
+          if (code !== "ENOENT" && code !== "ENOTDIR") state.complete = false;
+          else {
+            // A stable dangling target is an observed absence, not unreadable
+            // environment state. Go can build packages that do not use it;
+            // following-target and link witnesses reject later appearances
+            // and retargeting before publication or environment reuse.
+            try {
+              if (!fs.lstatSync(file).isSymbolicLink()) state.complete = false;
+              else topology.push(JSON.stringify([rel, "missing-target"]));
+            } catch {
+              state.complete = false;
+            }
+          }
+          continue;
+        }
       }
-    } else if (entry.isFile() && shouldHashGoRootPath(rel, false)) {
-      out.push(file);
+      if (directory && shouldHashGoRootPath(rel, true)) pending.push(file);
+      else if (regular && shouldHashGoRootPath(rel, false)) out.push(file);
     }
   }
 }
@@ -691,36 +754,10 @@ function walkGoRootIdentity(
 function shouldHashGoRootPath(rel: string, isDir: boolean): boolean {
   if (rel === "") return true;
   const parts = rel.split("/");
-  if (parts.includes(".git") || parts.includes("testdata")) return false;
-  if (!isDir && rel.endsWith("_test.go")) return false;
-
   const first = parts[0]!;
   if (parts.length === 1) {
     if (isDir) return ["bin", "pkg", "src", "lib"].includes(first);
     return ["VERSION", "go.env"].includes(first);
   }
-  if (first === "bin") {
-    if (isDir) return true;
-    const base = path.basename(rel);
-    return (
-      base === "go" ||
-      base === "go.exe" ||
-      base === "gofmt" ||
-      base === "gofmt.exe"
-    );
-  }
-  if (first === "pkg") {
-    const second = parts[1]!;
-    return second === "tool" || second === "include";
-  }
-  if (first === "src") {
-    if (!isDir && parts.length === 2) {
-      return ["go.mod", "go.sum"].includes(parts[1]!);
-    }
-    return parts[1] !== "cmd";
-  }
-  if (first === "lib") {
-    return parts[1] === "time";
-  }
-  return false;
+  return ["bin", "pkg", "src", "lib"].includes(first);
 }

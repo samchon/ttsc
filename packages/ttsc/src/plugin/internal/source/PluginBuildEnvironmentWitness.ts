@@ -12,16 +12,17 @@ import fs from "node:fs";
  * toolchain it ran is the one its key read (samchon/ttsc#1534). Change time can
  * reveal a write even when size and modification time are restored.
  *
- * This is a native metadata witness, not a second byte comparison. Its change
- * detection assumes the filesystem distinguishes contributing edits in the
- * captured identity and timestamps; an edit that reproduces the entire metadata
- * signature is outside the proof this record supplies.
+ * This witnesses native metadata and link target names, not a second byte
+ * comparison. Its change detection assumes the filesystem distinguishes
+ * contributing edits in the captured identity and timestamps; an edit that
+ * reproduces the entire metadata signature is outside the proof this record
+ * supplies.
  *
  * @evidence contracts/common.md#principled-implementation Pre-read identity and write metadata witness external dependencies not carried by variables under the documented metadata-distinguishability premise; a refused dependency makes the complete reading unusable.
  * @evidence contracts/common.md#clear-and-simple-design Record construction, refusal and validation share one metadata representation; the caller owns the reading and its lifetime.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Validation inspects real paths instead of replacing filesystem behavior or accepting a stable pathname as proof of unchanged contents.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain provenance, replacement detection and both consuming boundaries; member documentation states refusal and validation meaning.
- * @evidence contracts/portability.md#os-neutral-implementation Node bigint stat metadata supplies native identity and timestamps while following the same links as the content reader; no platform name supplies case or identity policy.
+ * @evidence contracts/portability.md#os-neutral-implementation Node bigint stat follows the content reader's targets, while lstat and readlink separately witness link identity and target spelling; no platform name supplies case or identity policy.
  *
  * @evidenceExclude contracts/performance.md#efficient-algorithms This namespace defines the record and operations; add and holds own observation/validation processing.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Consumers own environment reuse; the namespace itself retains no reading.
@@ -29,13 +30,15 @@ import fs from "node:fs";
  */
 export namespace PluginBuildEnvironmentWitness {
   /**
-   * Each witnessed path's metadata when it was first read.
+   * Each witnessed path's metadata when it was first read. Link observations
+   * use qualified internal keys so link spelling and followed target state
+   * remain separate dependencies.
    *
    * @evidence contracts/common.md#principled-implementation A path-to-signature map preserves the first observation for each dependency so later reads cannot overwrite evidence of a race.
    * @evidence contracts/common.md#clear-and-simple-design The record carries only dependencies and their signatures; witness operations own interpretation and consumers own retention.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The representation stores observed native state rather than predeclared expected results.
    * @evidence contracts/common.md#meaningful-documentation The native description identifies first-read provenance, which is the nonobvious meaning of this otherwise ordinary map.
-   * @evidence contracts/portability.md#os-neutral-implementation Keys are native path spellings supplied by readers and values contain Node native metadata, not a guessed filesystem case policy.
+   * @evidence contracts/portability.md#os-neutral-implementation Keys preserve readers' native path spellings with disjoint internal link qualifiers; values contain Node metadata and observed target spelling, not a guessed filesystem case policy.
    *
    * @evidenceExclude contracts/performance.md#efficient-algorithms The map type supplies a representation; capture and validation operations choose their algorithms.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work The record does not decide whether consumers may reuse an environment reading.
@@ -67,6 +70,26 @@ export namespace PluginBuildEnvironmentWitness {
   }
 
   /**
+   * Witness a link itself before following it, including a missing target.
+   * Target metadata remains a separate observation through add.
+   *
+   * @evidence contracts/common.md#principled-implementation First-observation retention records native link identity and target spelling separately from followed-target metadata; retargeting a stable missing link cannot preserve this witness.
+   * @evidence contracts/common.md#clear-and-simple-design Qualified keys keep link and target observations in the same caller-owned record, and holds dispatches to their respective native observations.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A link's existence does not certify its target; native lstat and readlink preserve missing-target and retargeting distinctions without replacing filesystem operations.
+   * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes the link observation from add's target observation and states pre-follow timing.
+   * @evidence contracts/portability.md#os-neutral-implementation Node lstat and readlink inspect the native link or junction and its target spelling without an OS-based case or existence assumption.
+   * @evidence contracts/performance.md#efficient-algorithms One unseen link performs a metadata probe and a target-name read; framing costs scale with the target spelling.
+   * @evidence contracts/performance.md#reuse-equivalent-work Repeated link observations retain their first signature in this record rather than replacing evidence of a race.
+   *
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller owns the record; the operation retains no native handle.
+   */
+  export function addLink(witness: Record | undefined, file: string): void {
+    const key = LINK_PREFIX + file;
+    if (witness === undefined || witness.has(key)) return;
+    witness.set(key, linkSignature(file));
+  }
+
+  /**
    * Record `file` as a path whose state could not be witnessed, so the record
    * never holds and nothing kept under it is reused.
    *
@@ -92,19 +115,43 @@ export namespace PluginBuildEnvironmentWitness {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts All dependencies are inspected; a quiet parent or unchanged VERSION cannot stand in for nested SDK inputs.
    * @evidence contracts/common.md#meaningful-documentation Native prose states the universal unchanged-metadata condition and tags remain separated from it.
    * @evidence contracts/portability.md#os-neutral-implementation Validation reads actual Node metadata using the same link-following semantics as capture.
-   * @evidence contracts/performance.md#efficient-algorithms Validation costs O(P) native stat calls for P dependencies and stops on the first mismatch; no content buffers are allocated.
+   * @evidence contracts/performance.md#efficient-algorithms Validation performs O(P) native metadata probes for P dependencies, additionally reading each witnessed link's target spelling, and stops on the first mismatch; file contents are not read.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call must establish current validity; caching that answer would conceal external changes.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Validation retains no handles or additional historical state.
    */
   export function holds(witness: Record): boolean {
     for (const [file, recorded] of witness)
-      if (signature(file) !== recorded) return false;
+      if (
+        (file.startsWith(LINK_PREFIX)
+          ? linkSignature(file.slice(LINK_PREFIX.length))
+          : signature(file)) !== recorded
+      )
+        return false;
     return true;
   }
 
   /** A recorded state no signature equals. */
   const UNWITNESSABLE = "unwitnessable";
+  /** NUL cannot occur in a native pathname, so this qualification is disjoint. */
+  const LINK_PREFIX = "\0link:";
+
+  /** Observe the link before its target, under the same metadata premise. */
+  function linkSignature(file: string): string {
+    try {
+      const stat = fs.lstatSync(file, { bigint: true });
+      return JSON.stringify([
+        stat.dev.toString(),
+        stat.ino.toString(),
+        stat.size.toString(),
+        stat.mtimeNs.toString(),
+        stat.ctimeNs.toString(),
+        fs.readlinkSync(file),
+      ]);
+    } catch {
+      return "missing";
+    }
+  }
 
   /**
    * The metadata a replacement moves: identity, size, and modification and

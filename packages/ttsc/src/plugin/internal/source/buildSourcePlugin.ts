@@ -11,6 +11,7 @@ import { GoToolResolution } from "./GoToolResolution";
 import type { IPluginModuleReplaceDirectory } from "./IPluginModuleReplaceDirectory";
 import type { ITtscBuildContributor } from "./ITtscBuildContributor";
 import type { ITtscSourceBuildCachePaths } from "./ITtscSourceBuildCachePaths";
+import { PluginBinaryUse } from "./PluginBinaryUse";
 import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import type { PluginBuildLockLease } from "./PluginBuildLockLease";
 import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
@@ -49,16 +50,19 @@ import { withGoBuildCacheLease } from "./withGoBuildCacheLease";
  * scratch inputs must match those readings and the external toolchain witness
  * must still hold. Different materialized inputs fail the build instead of
  * publishing an executable under a stale key. Default caches are managed
- * locally, while explicit roots retain caller-managed pruning policy.
+ * locally, while explicit roots retain caller-managed pruning policy. Every
+ * returned cache key reserves its executable for this process until exit;
+ * registration shares the builder/collector lease, and other consumers register
+ * independent readers. Failure to establish ownership propagates.
  *
  * @evidence contracts/common.md#principled-implementation Compilation uses the keyed module/contributor/overlay readings, verifies materialized and external sources plus pre-read toolchain witnesses, and publishes only after the build and those identity checks succeed.
  * @evidence contracts/common.md#clear-and-simple-design One owner sequences target resolution, key creation, cache selection and fenced build coordination; private helpers own scratch materialization, Go workspace semantics and publication cleanup.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Changed inputs are rejected at their snapshot boundary rather than compensated with an assumed valid key; injected reads are an explicit supported boundary and caller environments never patch process globals.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain effective environment, exact-input verification and managed versus explicit roots; option-map comments state their reading provenance with blank member separation.
  * @evidence contracts/portability.md#os-neutral-implementation Node path/physical-cache/temp APIs preserve native identities; executable resolution and Windows command handling are isolated owners, and the binary filename explicitly follows its executable platform.
- * @evidence contracts/performance.md#efficient-algorithms Key construction streams source hashes and shared toolchain identities; a cold build materializes only contributing inputs, parses each module manifest through a per-build memo and invokes one compiler for the plugin.
- * @evidence contracts/performance.md#reuse-equivalent-work Existing binaries and concurrent builders share the exact version/platform/source/environment key; fixed trimpath compilation removes disposable snapshot paths from equivalent Go object identities. Load-owned digest maps share readings while source/toolchain proofs reject changed production inputs.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The build owns scratch directories, unpublished binaries and build leases with finally cleanup; managed disk caches use age/LRU maintenance with live/recent entries protected, while explicit cache retention remains caller-owned.
+ * @evidence contracts/performance.md#efficient-algorithms Key construction streams conservatively selected source bytes and toolchain identities. A cold build copies those keyed module/external trees, including allowed files that Go may not consume, parses module manifests through a per-build memo and invokes one compiler for the plugin; copy and proof costs follow that full selected population.
+ * @evidence contracts/performance.md#reuse-equivalent-work Existing binaries and concurrent builders share the exact version/platform/source/environment key with reader admission before return; fixed trimpath compilation removes disposable snapshot paths from equivalent Go object identities. Load-owned digest maps share readings while source/toolchain proofs reject changed production inputs.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The build owns scratch directories, unpublished binaries and build leases with finally cleanup. One reader reservation per physical cache key remains until this process exits; managed age/LRU maintenance preserves live or unknown readers, while explicit scheduling and disk retention remain caller-owned.
  */
 export function buildSourcePlugin(opts: {
   source: string;
@@ -150,7 +154,7 @@ export function buildSourcePlugin(opts: {
     : path.join(pluginRoot, key);
   const binaryName = process.platform === "win32" ? "plugin.exe" : "plugin";
   const binaryPath = path.join(cacheDir, binaryName);
-  if (fs.existsSync(binaryPath)) {
+  if (fs.existsSync(binaryPath) && PluginBinaryUse.holds(cacheDir)) {
     touchCacheEntry(cacheDir);
     return binaryPath;
   }
@@ -162,7 +166,6 @@ export function buildSourcePlugin(opts: {
     binaryPath,
     {
       label,
-      managedCache: managePluginCache,
       pluginName: opts.pluginName,
       quiet,
     },
@@ -405,7 +408,6 @@ function buildUnderPluginLock(
   binaryPath: string,
   lockInfo: {
     label: string;
-    managedCache: boolean;
     pluginName: string;
     quiet: boolean;
   },
@@ -414,7 +416,7 @@ function buildUnderPluginLock(
   const lockDir = `${cacheDir}.lock`;
   const startedAt = performance.now();
   for (;;) {
-    if (fs.existsSync(binaryPath)) {
+    if (fs.existsSync(binaryPath) && PluginBinaryUse.holds(cacheDir)) {
       touchCacheEntry(cacheDir);
       return binaryPath;
     }
@@ -428,15 +430,10 @@ function buildUnderPluginLock(
       );
     }
     let lease: PluginBuildLockLease | null;
-    try {
-      lease = acquirePluginBuildLock(lockDir);
-    } catch (error) {
-      // Managed payload eviction uses this lease too: an uncoordinated build
-      // would lose its directory while publishing. Explicit unmanaged roots
-      // have no ttsc collector and retain their atomic-publication fallback.
-      if (lockInfo.managedCache) throw error;
-      return build();
-    }
+    // Registration must serialize with the public collector even when its
+    // scheduling is caller-managed. A failed ownership primitive cannot
+    // safely return a pathname that another collector may remove.
+    lease = acquirePluginBuildLock(lockDir);
     if (lease === null) {
       const waited = waitForPluginBinary({
         binaryPath,
@@ -449,8 +446,10 @@ function buildUnderPluginLock(
         ),
       });
       if (waited.outcome === "published") {
-        touchCacheEntry(cacheDir);
-        return binaryPath;
+        // Publication is not reader admission: reacquire the key to register
+        // this consumer before returning the shared executable pathname.
+        PluginBuildLockProtocol.sleepSync(Math.min(10, remaining));
+        continue;
       }
       if (waited.outcome === "abandoned") {
         // Retire only the generation that produced this observation. Losing
@@ -472,10 +471,13 @@ function buildUnderPluginLock(
       () => {
         // Re-check under the lock: a previous holder may have just published.
         if (fs.existsSync(binaryPath)) {
+          PluginBinaryUse.retain(cacheDir);
           touchCacheEntry(cacheDir);
           return binaryPath;
         }
-        return build();
+        const binary = build();
+        PluginBinaryUse.retain(cacheDir);
+        return binary;
       },
       () => releasePluginBuildLock(lockDir, held),
       (error) => reportPluginLockRelease(lockDir, lockInfo, error),
@@ -817,7 +819,6 @@ function anchorReplaceDirectories(
  *
  * @param caches The plugin cache root and the Go build cache root.
  * @param sources Every source directory the key covers.
- *
  * @throws When a cache lies inside a source, naming both.
  */
 function requireCachesOutsideSources(
@@ -848,7 +849,6 @@ function requireCachesOutsideSources(
  *
  * @param source The directory the key covers.
  * @param compiled What the build compiled from it: its copy, or itself.
- *
  * @throws When the two differ, naming the directory.
  */
 function requireKeyedSource(
