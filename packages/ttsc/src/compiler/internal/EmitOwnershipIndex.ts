@@ -93,6 +93,7 @@ export class EmitOwnershipIndex {
             ),
           );
     const accounted = new Set<string>();
+    const ownersByOutput = new Map<string, Set<string>>();
     for (const [output, sources] of Object.entries(
       props.emittedSources ?? {},
     )) {
@@ -122,6 +123,18 @@ export class EmitOwnershipIndex {
           );
         }
         keys.add(physicalSourceKey(source));
+      }
+      const previousOwners = ownersByOutput.get(identity.key);
+      if (previousOwners === undefined) {
+        ownersByOutput.set(identity.key, new Set(keys));
+      } else {
+        const previousSize = previousOwners.size;
+        for (const key of keys) previousOwners.add(key);
+        if (previousSize <= 1 && previousOwners.size > 1) {
+          unavailableReasons.push(
+            `multiple source owners were established across output aliases for ${JSON.stringify(location)}: ${JSON.stringify([...previousOwners])}`,
+          );
+        }
       }
       if (keys.size !== 1) {
         const reason = props.emittedSourceProofFailures?.[output];
