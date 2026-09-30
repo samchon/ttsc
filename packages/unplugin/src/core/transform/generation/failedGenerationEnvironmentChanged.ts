@@ -1,3 +1,5 @@
+import { PluginBuildEnvironmentReadings } from "ttsc/plugin-source";
+
 import { refreshProcessClockReference } from "../clock/refreshProcessClockReference";
 import { envelopeDerivation } from "../envelope/envelopeDerivation";
 import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransformFilesystemOperations";
@@ -6,6 +8,7 @@ import { hostInputStateHash } from "../inputs/hostInputStateHash";
 import { inputMetadataEvidence } from "../inputs/inputMetadataEvidence";
 import { pluginSourceHolds } from "../inputs/pluginSourceHolds";
 import { pluginSourceState } from "../inputs/pluginSourceState";
+import { usesPreparedPluginBuildEnvironments } from "../inputs/preparePluginBuildEnvironments";
 import { collectProjectInputSnapshot } from "../project/collectProjectInputSnapshot";
 import { hashText } from "../utils/hashText";
 import { MISSING_INPUT_STATE } from "../validation/MISSING_INPUT_STATE";
@@ -135,10 +138,14 @@ function environmentChanged(
   for (const [input, recorded] of validation.inputStates) {
     if (recorded.tree) {
       // A plugin source that could not be read then moved once it can be.
+      // The async delivery owner prepares native authority before confirmation.
+      const prepared = usesPreparedPluginBuildEnvironments(validation.cached.result)
+        ? { environment: PluginBuildEnvironmentReadings.cached(input) }
+        : undefined;
       if (
         recorded.state === MISSING_INPUT_STATE
-          ? pluginSourceState(input) !== null
-          : !pluginSourceHolds(input, recorded.state, filesystem)
+          ? pluginSourceState(input, prepared) !== null
+          : !pluginSourceHolds(input, recorded.state, filesystem, prepared)
       )
         return true;
       continue;

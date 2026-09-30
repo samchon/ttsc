@@ -1,16 +1,4 @@
-import crypto from "node:crypto";
-
-import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
-import { pluginBuildEnvironment } from "./pluginBuildEnvironment";
-
-/**
- * The build environments this process read, by directory and by the process's
- * variables at the read, each with the metadata of the paths it depended on.
- */
-const read = new Map<
-  string,
-  { environment: string; witness: PluginBuildEnvironmentWitness.Record }
->();
+import { PluginBuildEnvironmentReadings } from "./PluginBuildEnvironmentReadings";
 
 /**
  * The environment a plugin build in `directory` is keyed on under this
@@ -49,24 +37,5 @@ export function processPluginBuildEnvironment(
   directory: string,
   refresh = false,
 ): string {
-  const variables = crypto.createHash("sha256");
-  for (const [key, value] of Object.entries(process.env).sort(
-    ([left], [right]) => (left < right ? -1 : left > right ? 1 : 0),
-  )) {
-    if (value !== undefined)
-      variables.update(`${key.length}:${key}${value.length}:${value}\0`);
-  }
-  const key = `${directory}\0${variables.digest("hex")}`;
-  if (!refresh) {
-    const known = read.get(key);
-    if (
-      known !== undefined &&
-      PluginBuildEnvironmentWitness.holds(known.witness)
-    )
-      return known.environment;
-  }
-  const witness: PluginBuildEnvironmentWitness.Record = new Map();
-  const environment = pluginBuildEnvironment(directory, process.env, witness);
-  read.set(key, { environment, witness });
-  return environment;
+  return PluginBuildEnvironmentReadings.read(directory, refresh);
 }

@@ -1,8 +1,9 @@
-import { processPluginBuildEnvironment } from "ttsc/plugin-source";
+import { PluginBuildEnvironmentReadings, processPluginBuildEnvironment } from "ttsc/plugin-source";
 
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { resultFilesystem } from "../cache/resultFilesystem";
 import { pluginSourceHolds } from "../inputs/pluginSourceHolds";
+import { usesPreparedPluginBuildEnvironments } from "../inputs/preparePluginBuildEnvironments";
 import type { TtscHostInputValidation } from "./TtscHostInputValidation";
 import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
 
@@ -13,7 +14,7 @@ import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
  *
  * A directory whose tracker heard nothing below it has unchanged files, and is
  * skipped while the environment it was last proven under is still this
- * process's reading (`processPluginBuildEnvironment`), which holds only while
+ * process's prepared reading (`PluginBuildEnvironmentReadings.cached`), which holds only while
  * the Go tool, its environment file, and the C toolchain it names hold: the
  * tracker watches the sources, not the toolchain outside them
  * (samchon/ttsc#1516). Any other is proven by ttsc's rule
@@ -23,6 +24,11 @@ import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
  * or where no tracker watches it or its watch cannot vouch for it, and reads
  * the files' bytes again only when their metadata moved
  * (`pluginSourceFilesDigest`).
+ * A missing or stale environment reading returns false here. The async delivery
+ * owner prepares that authority before this synchronous proof; this operation
+ * never starts a cold Go or SDK probe on the host thread.
+ * Standalone synchronous results retain their original native observation and
+ * mismatch refresh; the async preparation owner marks its result identity.
  *
  * @param cached The generation being validated.
  * @param validation Its universal-input manifest.
@@ -43,13 +49,17 @@ export function matchesUniversalHostInputTrees(
   for (const [directory, digest] of validation.trees) {
     // Read before any proof, so the environment recorded below is one the
     // proof saw or older, never a newer one it did not prove.
-    const environment = processPluginBuildEnvironment(directory);
+    const prepared = usesPreparedPluginBuildEnvironments(cached.result);
+    const environment = prepared
+      ? PluginBuildEnvironmentReadings.cached(directory)
+      : processPluginBuildEnvironment(directory);
+    if (environment === undefined) return false;
     if (
       trackerProvesInputUnchanged(cached.hostInputMutationTracker, directory) &&
       validation.treeEnvironments?.get(directory) === environment
     )
       continue;
-    if (!pluginSourceHolds(directory, digest, resultFilesystem(cached.result)))
+    if (!pluginSourceHolds(directory, digest, resultFilesystem(cached.result), prepared ? { environment } : undefined))
       return false;
     (validation.treeEnvironments ??= new Map()).set(directory, environment);
   }

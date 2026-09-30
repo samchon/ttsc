@@ -1,5 +1,5 @@
 import path from "node:path";
-import { processPluginBuildEnvironment } from "ttsc/plugin-source";
+import { PluginBuildEnvironmentReadings, processPluginBuildEnvironment } from "ttsc/plugin-source";
 
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { resultFilesystem } from "../cache/resultFilesystem";
@@ -16,6 +16,7 @@ import { inputMetadataEvidence } from "../inputs/inputMetadataEvidence";
 import { inputMetadataSignature } from "../inputs/inputMetadataSignature";
 import { missingPathProbe } from "../inputs/missingPathProbe";
 import { pluginSourceHolds } from "../inputs/pluginSourceHolds";
+import { usesPreparedPluginBuildEnvironments } from "../inputs/preparePluginBuildEnvironments";
 import { sameHostInputRealpath } from "../inputs/sameHostInputRealpath";
 import type { TtscHostInputValidation } from "./TtscHostInputValidation";
 import { matchesRecordedInput } from "./matchesRecordedInput";
@@ -27,6 +28,11 @@ import { matchesRecordedInput } from "./matchesRecordedInput";
  * manifest. Every universal input is examined so an unavailable observation
  * cannot hide another input's actual change. Success attaches entries, absence
  * probes and plugin-tree witnesses to this generation for later reuse decisions.
+ * The async generation owner prepares native plugin environments beforehand;
+ * an unavailable or stale prepared reading declines admission without a cold
+ * native probe on the host's thread.
+ * Standalone synchronous callers retain the original native observation API;
+ * result identity records async execution ownership even when preparation fails.
  *
  * @evidence contracts/common.md#principled-implementation Evaluation-time content and physical-target witnesses must agree with the generation snapshot before reuse; explicit producer observation unavailability remains distinct from changed, contradictory or unexplained missing proof, and every input is checked before classifying the attempt.
  * @evidence contracts/common.md#clear-and-simple-design One admission operation builds the manifest; per-entry, grouped or exact-native absence and tree validators own its subsequent checks.
@@ -272,8 +278,11 @@ export function captureUniversalHostInputValidation(
     // The environment is recorded as read before the proof, so it is never a
     // reading the proof did not see; one that moved meanwhile only makes the
     // next delivery prove the tree again.
-    const environment = processPluginBuildEnvironment(directory);
-    if (!pluginSourceHolds(directory, digest, filesystem)) {
+    const prepared = usesPreparedPluginBuildEnvironments(cached.result);
+    const environment = prepared
+      ? PluginBuildEnvironmentReadings.cached(directory)
+      : processPluginBuildEnvironment(directory);
+    if (environment === undefined || !pluginSourceHolds(directory, digest, filesystem, prepared ? { environment } : undefined)) {
       recordGenerationProofFailure(failures, {
         domain: "host",
         kind: "content-changed",

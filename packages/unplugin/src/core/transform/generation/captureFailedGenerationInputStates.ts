@@ -1,10 +1,12 @@
 import path from "node:path";
+import { PluginBuildEnvironmentReadings } from "ttsc/plugin-source";
 
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { resultFilesystem } from "../cache/resultFilesystem";
 import { selectPluginSourceInputs } from "../envelope/selectPluginSourceInputs";
 import { inputMetadataEvidence } from "../inputs/inputMetadataEvidence";
 import { pluginSourceState } from "../inputs/pluginSourceState";
+import { usesPreparedPluginBuildEnvironments } from "../inputs/preparePluginBuildEnvironments";
 import { MISSING_INPUT_STATE } from "../validation/MISSING_INPUT_STATE";
 import type { TtscFailedGenerationInputState } from "./TtscFailedGenerationInputState";
 import type { TtscGenerationProofFailures } from "./TtscGenerationProofFailures";
@@ -20,6 +22,9 @@ import { selectPersistentHostInputs } from "./selectPersistentHostInputs";
  * when the filesystem clock proves separation. Plugin trees carry no single
  * path signature because their source/build environment requires whole-tree
  * validation. The returned map belongs to the terminal comparison baseline.
+ * The async generation owner already attempted native environment preparation;
+ * unavailable authority records a missing tree state without a cold fallback.
+ * Standalone synchronous results retain their original native capture API.
  *
  * @evidence contracts/common.md#principled-implementation External paths, surviving host paths, attributed failures and plugin source roots form the retry environment; metadata-before-state observation prevents a concurrent read from authorizing unchanged-state reuse incorrectly.
  * @evidence contracts/common.md#clear-and-simple-design This capture constructs one baseline map, delegating persistence selection, metadata evidence and ordinary/tree state composition to their owning helpers.
@@ -57,7 +62,9 @@ export function captureFailedGenerationInputStates(
         return [
           input,
           {
-            state: pluginSourceState(input) ?? MISSING_INPUT_STATE,
+            state: pluginSourceState(input, usesPreparedPluginBuildEnvironments(cached.result) ? {
+              environment: PluginBuildEnvironmentReadings.cached(input),
+            } : undefined) ?? MISSING_INPUT_STATE,
             tree: true,
           },
         ];

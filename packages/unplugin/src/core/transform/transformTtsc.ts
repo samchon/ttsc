@@ -12,6 +12,8 @@ import { awaitOrEvict } from "./cache/awaitOrEvict";
 import { createTransformCacheKey } from "./cache/createTransformCacheKey";
 import { disposeCachedTransform } from "./cache/disposeCachedTransform";
 import { evictGeneration } from "./cache/evictGeneration";
+import { preparePluginBuildEnvironments } from "./inputs/preparePluginBuildEnvironments";
+import { TtscUnstableGenerationError } from "./errors/TtscUnstableGenerationError";
 import { replaysTerminalGeneration } from "./cache/replaysTerminalGeneration";
 import { selectCachedGenerationAction } from "./cache/selectCachedGenerationAction";
 import { selectOrEvict } from "./cache/selectOrEvict";
@@ -141,6 +143,10 @@ export async function transformTtsc(
     if (transformed !== undefined) {
       const terminal = TERMINAL_TRANSFORM_GENERATIONS.get(transformed);
       if (terminal !== undefined) {
+        if (terminal instanceof TtscUnstableGenerationError) {
+          await preparePluginBuildEnvironments(terminal.validation.cached.result, filesystem);
+          if (cache?.get(key) !== transformed) continue;
+        }
         // A terminal verdict is an answer about one observed environment, not an
         // invitation for every later module to repeat the whole compile.
         if (
@@ -185,6 +191,8 @@ export async function transformTtsc(
       if (!transformCacheTrustsNotifications(cache)) {
         withdrawGenerationNotifications(cached);
       }
+      await preparePluginBuildEnvironments(cached.result, filesystem);
+      if (cache?.get(key) !== transformed) continue;
       if (epoch === undefined) {
         await settleProjectMutationEvents(cached);
         if (cache?.get(key) !== transformed) {

@@ -40,6 +40,7 @@ import { createTransformTsconfig } from "../tsconfig/createTransformTsconfig";
 import { readTransformTsconfigState } from "../tsconfig/readTransformTsconfigState";
 import { transformScratchEnvironment } from "../tsconfig/transformScratchEnvironment";
 import { hashText } from "../utils/hashText";
+import { preparePluginBuildEnvironments } from "../inputs/preparePluginBuildEnvironments";
 import { captureExternalInputSnapshot } from "../validation/captureExternalInputSnapshot";
 import { captureUniversalHostInputValidation } from "../validation/captureUniversalHostInputValidation";
 import { compilerGraphInputProofFailures } from "../validation/compilerGraphInputProofFailures";
@@ -328,6 +329,10 @@ export async function captureTransformGeneration(props: {
     // Everything after the compile matches under the case policy the compiler
     // reported. A walk before it that primed another policy described another
     // membership, so the attempt is taken again under the reported one.
+    // Prepare native toolchain authority before post-compile admission. Its
+    // cold subprocess and SDK reads stay off this host's event loop, and the
+    // config/walk/notification checks below include that asynchronous window.
+    await preparePluginBuildEnvironments(result, props.filesystem);
     const reportedCaseSensitivity =
       result.type === "exception"
         ? undefined

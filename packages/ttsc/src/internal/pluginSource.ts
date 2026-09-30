@@ -23,4 +23,5 @@ export * from "../plugin/internal/source/pluginSourceDigest";
 export * from "../plugin/internal/source/pluginSourceState";
 export * from "../plugin/internal/source/pluginSourceStateHolds";
 export * from "../plugin/internal/source/processPluginBuildEnvironment";
+export * from "../plugin/internal/source/PluginBuildEnvironmentReadings";
 export * from "../plugin/internal/source/prunesPluginSourceDirectory";
