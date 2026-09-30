@@ -26,6 +26,11 @@ import (
 //  2. Run the engine with an InlineRuleResolver that supplies the
 //     options blob the contributor expects.
 //  3. Confirm the rule observed the user's option, not the zero value.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual Engine dispatch through the contributor adapter carries the resolver mode loud option into public Context.DecodeOptions, observed by the contributor rather than as a zero default.
+// @evidence contracts/testing.md#independent-expectations The authored JSON mode loud independently defines the expected callback-observed value, so dropping options or failing decode cannot satisfy the literal observation.
+// @evidence contracts/testing.md#distinguishing-cases A populated payload and real parsed source distinguish the adapter option path from defaults or no dispatch; optionless rejection and cross-invocation mutation have separate sibling controls.
+// @evidence contracts/testing.md#execution-ownership Real in-process Engine, inspected contributor adapter and public decoder execute with registry cleanup, without public native registration, source-plugin compilation, installed CLI or subprocesses.
 func TestContributorRuleDecodesOptionsThroughPublicContext(t *testing.T) {
   recorder := &optionRecorder{}
   contributor := &optionConsumingContributor{recorder: recorder}

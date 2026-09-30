@@ -15,6 +15,11 @@ import (
 // 1. Parse a source whose parser error is on the second line.
 // 2. Add a lint error on the first line and render the mixed batch.
 // 3. Assert source order and the unchanged error count.
+//
+// @evidence contracts/testing.md#behavioral-verification The shared renderer interleaves an authored first-line lint error before a real second-line parser error and counts every error from both producers.
+// @evidence contracts/testing.md#independent-expectations The authored source determines line order independently of the renderer; the upstream parser supplies actual malformed-source diagnostics while a literal lint message identifies the separate producer.
+// @evidence contracts/testing.md#distinguishing-cases Parser findings supplied separately from lint must not preserve producer order; both messages must exist before their indices are compared, preventing missing diagnostics from satisfying ordering.
+// @evidence contracts/testing.md#execution-ownership Real parser diagnostics and a real supported LintDiagnostic enter the production Go writer in-memory, without a compiler child, native plugin, installed CLI or mock renderer.
 func TestMixedDiagnosticsRenderInterleavesParserAndLint(t *testing.T) {
   source := parseTSFile(t, "/virtual/mixed.ts", "const early = 1;\nconst broken: = 2;\n")
   astDiags := source.Diagnostics()

@@ -20,7 +20,13 @@ import (
 //  1. Construct public contributors whose metadata methods panic in turn.
 //  2. Inspect each contributor through the host adapter.
 //  3. Assert every panic becomes an error naming the contributor failure.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual contributor inspection converts panics from Name, Visits, IsFormat, VisitsDeclarationFiles and AcceptsTtscLintOptions into contextual errors; the same contributor without a selected panic is accepted under its literal name.
+// @evidence contracts/testing.md#independent-expectations Each authored method throws its own literal method boom value and requires metadata panicked context. The nonpanicking control supplies the independently expected test/metadata-panic name, rather than deriving expectations from metadata recovery.
+// @evidence contracts/testing.md#distinguishing-cases Five separate startup methods exercise metadata collection stages; a healthy instance distinguishes unconditional rejection from panic containment. Runtime Check recovery is owned by separate engine units.
+// @evidence contracts/testing.md#execution-ownership Real inspectContributor invokes public contributor methods directly in-process; this unit checks inspection error semantics without claiming public registration, native static initialization or installation.
 func TestContributorMetadataPanicIsRejected(t *testing.T) {
+  if metadata, err := inspectContributor(metadataPanickingContributor{}); err != nil || metadata.name != "test/metadata-panic" { t.Fatalf("nonpanicking contributor control rejected: %+v / %v", metadata, err) }
   for _, method := range []string{
     "Name",
     "Visits",

@@ -15,11 +15,17 @@ import (
 // Contributor rules default to type-aware because the host cannot infer a
 // third-party rule's shape. A contributor that never reads `ctx.Checker` can
 // implement `NeedsTypeChecker() bool { return false }`; the engine gate must
-// then keep the parallel file walk and avoid constructing a lint checker.
+// then let the checker gate select the AST-only lane. This unit observes that
+// selection, not an actual checker allocation or parallel file walk.
 //
 //  1. Inspect an AST-only contributor whose marker returns false and wrap it.
 //  2. Ask the internal checker gate about the wrapped rule.
 //  3. Assert the rule is treated as AST-only (no checker requested).
+//
+// @evidence contracts/testing.md#behavioral-verification Actual inspection and adapter checker metadata preserve an explicit false NeedsTypeChecker marker; both the adapter query and owning checker gate classify the contributor as AST-only.
+// @evidence contracts/testing.md#independent-expectations The authored false marker independently requires false at both metadata surfaces; this test does not infer actual checker allocation or parallel execution from that decision.
+// @evidence contracts/testing.md#distinguishing-cases Explicit false contrasts with the sibling explicit-true rule; inspected real contributor metadata prevents testing an uninitialized adapter default instead of the marker.
+// @evidence contracts/testing.md#execution-ownership Real metadata inspection and checker classification execute directly in-process; no program/checker allocation, native producer, installation or CLI is claimed.
 func TestContributorAstOnlyMarkerSkipsStandaloneChecker(t *testing.T) {
   metadata, err := inspectContributor(contributorAstOnlyMarkerRule{})
   if err != nil {

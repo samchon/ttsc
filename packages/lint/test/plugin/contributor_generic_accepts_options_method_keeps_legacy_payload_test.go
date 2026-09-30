@@ -21,6 +21,11 @@ import (
 //  1. Adapt a legacy file contributor with only AcceptsOptions returning false.
 //  2. Configure and dispatch it with an object payload.
 //  3. Assert its generic method is ignored and Check decodes the payload.
+//
+// @evidence contracts/testing.md#behavioral-verification A real adapted contributor with unrelated AcceptsOptions:false still receives and decodes mode strict exactly once, and the unrelated method is never invoked as a host capability.
+// @evidence contracts/testing.md#independent-expectations Literal strict, one Check callback and zero generic calls independently define backward compatibility; the fixture records real dispatch and decoder results instead of reading adapter flags as its oracle.
+// @evidence contracts/testing.md#distinguishing-cases A structurally tempting generic method returning false contrasts with the domain-specific optionless marker test; populated options and a real SourceFile callback distinguish accepted configuration from inert dispatch.
+// @evidence contracts/testing.md#execution-ownership Actual contributor inspection, adapter and Engine.Run execute over a parsed source in-process with registration cleanup; no native producer, installed host or source-method existence assertion runs.
 func TestContributorGenericAcceptsOptionsMethodKeepsLegacyPayload(t *testing.T) {
   contributor := &legacyGenericOptionsFileContributor{}
   metadata, err := inspectContributor(contributor)

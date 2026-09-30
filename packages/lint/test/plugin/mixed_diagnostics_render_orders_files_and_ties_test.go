@@ -15,6 +15,11 @@ import (
 // 1. Supply findings in reverse file and code order.
 // 2. Render the same batch twice through the shared formatter.
 // 3. Assert file, source-key, and repeatable output order.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual mixed rendering orders a.ts before b.ts and same-range lint warnings by literal ascending code, keeps parser output, repeats byte-identically and counts parser errors without counting lint warnings as errors.
+// @evidence contracts/testing.md#independent-expectations Authored paths, ranges, codes 9201/9202 and literal messages independently determine expected ordering; parser-produced error cardinality supplies the separate error-source count.
+// @evidence contracts/testing.md#distinguishing-cases Reverse file and code input orders contrast with output order; equal ranges isolate code ties, warning/error categories distinguish count semantics, and a second invocation checks deterministic bytes.
+// @evidence contracts/testing.md#execution-ownership Real supported parser and mixed diagnostic writer run directly in-process with buffers, without CLI invocation, producer compilation, consumer installation or repository layout oracles.
 func TestMixedDiagnosticsRenderOrdersFilesAndTies(t *testing.T) {
   firstFile := parseTSFile(t, "/virtual/a.ts", "const alpha = 1;\n")
   secondFile := parseTSFile(t, "/virtual/b.ts", "const broken: = 1;\n")
@@ -29,9 +34,9 @@ func TestMixedDiagnosticsRenderOrdersFilesAndTies(t *testing.T) {
   }
 
   var first bytes.Buffer
-  shimdw.FormatMixedDiagnostics(&first, astDiags, diagnostics, "/virtual")
+  if got := shimdw.FormatMixedDiagnostics(&first, astDiags, diagnostics, "/virtual"); got != len(astDiags) { t.Fatalf("warnings changed parser error count: %d, want %d", got, len(astDiags)) }
   var second bytes.Buffer
-  shimdw.FormatMixedDiagnostics(&second, astDiags, diagnostics, "/virtual")
+  if got := shimdw.FormatMixedDiagnostics(&second, astDiags, diagnostics, "/virtual"); got != len(astDiags) { t.Fatalf("repeat changed parser error count: %d, want %d", got, len(astDiags)) }
   if first.String() != second.String() {
     t.Fatalf("identical mixed batches rendered differently:\nfirst:\n%s\nsecond:\n%s", first.String(), second.String())
   }
