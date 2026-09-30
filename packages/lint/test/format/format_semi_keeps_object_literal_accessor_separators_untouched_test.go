@@ -23,6 +23,11 @@ import "testing"
 //     prefer:"never".
 //  3. Assert the default direction reports nothing, and that the strip
 //     direction removes only the two statement terminators.
+//
+// @evidence contracts/testing.md#behavioral-verification format/semi must preserve the comma after an object-literal getter in both modes; never removes only its return-statement and outer declaration terminators.
+// @evidence contracts/testing.md#independent-expectations The independently authored full never-mode output retains the property-list comma and getter body while dropping the two optional statement semicolons; default no-findings is separately asserted.
+// @evidence contracts/testing.md#distinguishing-cases The same object fixture supplies a default unchanged result and a never-mode changed/retained pair, distinguishing list ownership from the shared accessor AST kind.
+// @evidence contracts/testing.md#execution-ownership TestFormatSemiKeepsObjectLiteralAccessorSeparatorsUntouched is a public Go unit selected by TestSelectedLintUnits. The shared syntax-only harness invokes the owning semicolon rule and applies edits for exact output in the same Go process, without consumer installation, a native product build or host execution.
 func TestFormatSemiKeepsObjectLiteralAccessorSeparatorsUntouched(t *testing.T) {
   const source = "const holder = {\n" +
     "  get first(): string {\n" +

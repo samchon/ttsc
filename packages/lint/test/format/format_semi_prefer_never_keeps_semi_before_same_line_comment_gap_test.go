@@ -17,6 +17,11 @@ import "testing"
 //  1. Parse two same-line statements separated by `; /* note */`.
 //  2. Run format/semi with prefer:"never".
 //  3. Assert zero findings: the `;` is a required separator.
+//
+// @evidence contracts/testing.md#behavioral-verification format/semi must retain the separator between two same-line assignments despite an intervening single-line block comment.
+// @evidence contracts/testing.md#independent-expectations The literal note comment has no line terminator, so ASI cannot replace the semicolon; deleting it would join a=1 and b=2 into invalid source.
+// @evidence contracts/testing.md#distinguishing-cases The unchanged same-line-comment negative complements multiline-comment-gap stripping and comment-free newline stripping, distinguishing comment contents from token kind.
+// @evidence contracts/testing.md#execution-ownership TestFormatSemiPreferNeverKeepsSemiBeforeSameLineCommentGap is a public Go unit selected by TestSelectedLintUnits. The shared syntax-only harness invokes the owning semicolon rule and observes zero findings in the same Go process, without consumer installation, a native product build or host execution.
 func TestFormatSemiPreferNeverKeepsSemiBeforeSameLineCommentGap(t *testing.T) {
   assertRuleSkipsSourceWithOptions(
     t,

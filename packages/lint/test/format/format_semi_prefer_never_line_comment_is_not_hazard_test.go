@@ -17,6 +17,11 @@ import (
 //     so both terminators are strippable.
 //  4. Assert the fixed output removes both `;` and keeps the comment
 //     intact.
+//
+// @evidence contracts/testing.md#behavioral-verification format/semi must strip both safe declaration terminators across a standalone line comment while preserving its note bytes.
+// @evidence contracts/testing.md#independent-expectations The independently authored complete output retains a=b, c=d and the line comment; its existing line separators establish safe declaration boundaries independently of the hazard scan.
+// @evidence contracts/testing.md#distinguishing-cases The direct engine observes two findings and the fixture fixer requires exact output; regex/bracket-leading next-expression cases complement this trivia-only changed positive.
+// @evidence contracts/testing.md#execution-ownership TestFormatSemiPreferNeverLineCommentIsNotHazard is a public Go unit selected by TestSelectedLintUnits. This entry parses literal source and directly invokes Engine.Run with the owning semicolon rule; it also uses the syntax-only fixer harness for the exact output in the same Go process, without consumer installation, a native product build or host execution.
 func TestFormatSemiPreferNeverLineCommentIsNotHazard(t *testing.T) {
   const optionsJSON = `{"prefer":"never"}`
   source := "const a = b;\n" +

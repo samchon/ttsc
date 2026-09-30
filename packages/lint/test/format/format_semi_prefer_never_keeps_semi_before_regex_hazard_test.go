@@ -20,6 +20,11 @@ import (
 //     strip.
 //  4. Assert the fixed output retains the hazardous `;` and strips only
 //     the safe trailing one.
+//
+// @evidence contracts/testing.md#behavioral-verification format/semi must preserve the declaration terminator before a slash-leading regex expression and remove the final safe call terminator.
+// @evidence contracts/testing.md#independent-expectations The independently authored fixed source retains const a=b as a separate declaration and /re/.test(c) as a regex call; removing the first semicolon would risk expression continuation.
+// @evidence contracts/testing.md#distinguishing-cases Direct count-one and exact complete fixed output verify a retained hazardous candidate plus a changed EOF candidate, complementing the bracket-start hazard and trivia-only safe cases.
+// @evidence contracts/testing.md#execution-ownership TestFormatSemiPreferNeverKeepsSemiBeforeRegexHazard is a public Go unit selected by TestSelectedLintUnits. This entry parses literal source and directly invokes Engine.Run with the owning semicolon rule; it also uses the syntax-only fixer harness for the exact output in the same Go process, without consumer installation, a native product build or host execution.
 func TestFormatSemiPreferNeverKeepsSemiBeforeRegexHazard(t *testing.T) {
   const optionsJSON = `{"prefer":"never"}`
   source := "const a = b;\n" +
