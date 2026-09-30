@@ -17,6 +17,11 @@ import "testing"
 //     later-sorting third-party import.
 //  2. Apply the rule with unsafe runtime sorting enabled.
 //  3. Assert both commented declarations survive verbatim, sorted first.
+//
+// @evidence contracts/testing.md#behavioral-verification Both identical comment-bearing a imports must remain verbatim and separate before z; each keep comment and z use must survive.
+// @evidence contracts/testing.md#independent-expectations The parser-visible duplicate declarations are deliberately malformed bindings, yet formatting must not delete their comments. Literal full output independently retains both payload copies under permitted sorting.
+// @evidence contracts/testing.md#distinguishing-cases Byte-identical comments share spelling but still require two declaration copies. Different commented siblings and identical namespace declarations provide complementary protection paths.
+// @evidence contracts/testing.md#execution-ownership TestFormatSortImportsKeepsIdenticalCommentedImportsUnmerged owns its duplicate commented parse input and exact two-copy output under unsafe sorting in the selected public Go unit population. Parsing, owning syntax rule and fixture observations execute in one Go process without native builds, consumer installation or real product-host children.
 func TestFormatSortImportsKeepsIdenticalCommentedImportsUnmerged(t *testing.T) {
   source := "import { z } from \"z\";\n" +
     "import { a /* keep */ } from \"m\";\n" +

@@ -20,6 +20,11 @@ import (
 //     order the lexical sort would change.
 //  2. Run formatSortImports.
 //  3. Assert zero findings — the block stays in source order.
+//
+// @evidence contracts/testing.md#behavioral-verification The original mixed polyfill/shim/value block must remain silent, and a reversed namespace dependency block must also emit no findings with safe defaults.
+// @evidence contracts/testing.md#independent-expectations The public safe mode preserves runtime dependency order because module top-level effects can be observed. Zero findings independently forbids declaration edits rather than assuming a dependency is pure.
+// @evidence contracts/testing.md#distinguishing-cases The original block includes bare side-effect, named and default imports; the added namespace pair completes that runtime syntax distinction. The explicit unsafe bare-import host supplies a permitted reorder positive.
+// @evidence contracts/testing.md#execution-ownership TestFormatSortImportsPreservesSideEffectImports owns its literal mixed-runtime input and direct engine zero-finding assertion plus the authored namespace boundary in the selected public Go unit population. Parsing, owning syntax rule and fixture observations execute in one Go process without native builds, consumer installation or real product-host children.
 func TestFormatSortImportsPreservesSideEffectImports(t *testing.T) {
   source := "import \"./polyfill\";\n" +
     "import { reduce } from \"./local-a\";\n" +
@@ -33,4 +38,5 @@ func TestFormatSortImportsPreservesSideEffectImports(t *testing.T) {
     t.Fatalf("expected zero findings (side-effect imports inhibit sort), got %d:\n%v",
       len(findings), findings)
   }
+  assertRuleSkipsSource(t, "format/sort-imports", "import * as zebra from \"./z\";\nimport * as alpha from \"./a\";\nconsole.log(zebra, alpha);\n")
 }

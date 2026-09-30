@@ -12,6 +12,11 @@ import "testing"
 //     a later-sorting third-party import.
 //  2. Apply the rule with unsafe runtime sorting enabled.
 //  3. Assert the namespace import stays its own declaration.
+//
+// @evidence contracts/testing.md#behavioral-verification Namespace ns and named a imports from m must remain separate before z while all ns,a,z uses remain unchanged.
+// @evidence contracts/testing.md#independent-expectations TypeScript import grammar permits a namespace or named list after a default, not a combined namespace-plus-named slot. Literal output independently preserves both local bindings and valid syntax.
+// @evidence contracts/testing.md#distinguishing-cases Namespace and named imports share a module but cannot fold into one named declaration. Default-plus-named merging is compatible, and identical namespaces supply the duplicate-input boundary.
+// @evidence contracts/testing.md#execution-ownership TestFormatSortImportsKeepsNamespaceImportsSeparate owns its namespace/named source, exact complete sorted output and unsafe options in the selected public Go unit population. Parsing, owning syntax rule and fixture observations execute in one Go process without native builds, consumer installation or real product-host children.
 func TestFormatSortImportsKeepsNamespaceImportsSeparate(t *testing.T) {
   source := "import { z } from \"z\";\n" +
     "import * as ns from \"m\";\n" +
