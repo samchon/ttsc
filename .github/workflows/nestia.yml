@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/nestia.yml"
       - "experimental/native-host-provenance/**"
+      - "patches/typia@15.0.0.patch"
       - "experimental/tarballs/**"
       - "config/**"
       - "scripts/assert-platform-package.cjs"
@@ -65,17 +66,11 @@ jobs:
       - name: Build ttsc tarballs (current platform only)
         run: pnpm package:tgz
 
-      # Keep this integration gate attributable to ttsc. nestia master became
-      # red in its own sdk lane after this revision (PR #1594, openapi_v2), so a
-      # moving clone made every ttsc change inherit an unrelated upstream
-      # failure. Advance the pin only to a revision with a reviewed green full
-      # suite; 3b27e69b is the merge of nestia #1593 and its complete test run
-      # 29959327169 passed.
-      - name: Check out verified nestia integration revision
+      - name: Check out latest nestia master
         uses: actions/checkout@v4
         with:
           repository: samchon/nestia
-          ref: 3b27e69b69dea3f102315042dce87c18d81be74a
+          ref: master
           path: experimental/nestia
 
       - name: Add native host output ownership reporting
@@ -91,16 +86,30 @@ jobs:
           # block instead, creating it only when absent, and no-op on re-run.
           node -e '
           const fs = require("fs");
+          const path = require("path");
           const file = "pnpm-workspace.yaml";
           const text = fs.readFileSync(file, "utf8");
-          if (text.includes("file:../tarballs/ttsc.tgz")) process.exit(0);
           const entries = [
             "  ttsc: file:../tarballs/ttsc.tgz",
             "  \"@ttsc/linux-x64\": file:../tarballs/ttsc-linux-x64.tgz",
           ].join("\n");
-          const merged = /^overrides:[ \t]*$/m.test(text)
-            ? text.replace(/^overrides:[ \t]*$/m, (line) => line + "\n" + entries)
-            : text.replace(/\s*$/, "") + "\n\noverrides:\n" + entries + "\n";
+          let merged = text.includes("file:../tarballs/ttsc.tgz")
+            ? text
+            : /^overrides:[ \t]*$/m.test(text)
+              ? text.replace(/^overrides:[ \t]*$/m, (line) => line + "\n" + entries)
+              : text.replace(/\s*$/, "") + "\n\noverrides:\n" + entries + "\n";
+          // The standalone typia host is also exercised by nestia tests.
+          // Install the same physical-write provenance implementation used by
+          // this workspace while retaining the version selected by nestia master.
+          const patch = path.join(process.env.GITHUB_WORKSPACE, "patches", "typia@15.0.0.patch");
+          const patchEntry = "  typia@15.0.0: " + JSON.stringify(patch);
+          if (!merged.includes(patchEntry)) {
+            if (/^[ \t]+["\u0027]?typia@15\.0\.0["\u0027]?:/m.test(merged))
+              throw new Error("typia already has a different consumer patch");
+            merged = /^patchedDependencies:[ \t]*$/m.test(merged)
+              ? merged.replace(/^patchedDependencies:[ \t]*$/m, (line) => line + "\n" + patchEntry)
+              : merged.replace(/\s*$/, "") + "\n\npatchedDependencies:\n" + patchEntry + "\n";
+          }
           fs.writeFileSync(file, merged);
           '
 
@@ -129,4 +138,4 @@ jobs:
         run: |
           pnpm build
           GOWORK="$RUNNER_TEMP/nestia-current-driver.work" pnpm test:go
-          pnpm --filter=./tests/test-* --workspace-concurrency=1 -r start
+          pnpm --filter=./tests/test-* --workspace-concurrency=1 --no-bail -r start

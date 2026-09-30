@@ -64,10 +64,12 @@ jobs:
         id: tarballs
         run: pnpm package:tgz
 
-      - name: Clone typia next
-        run: |
-          rm -rf experimental/typia
-          git clone --depth=1 https://github.com/samchon/typia experimental/typia
+      - name: Check out latest typia master
+        uses: actions/checkout@v7
+        with:
+          repository: samchon/typia
+          ref: master
+          path: experimental/typia
 
       - name: Add native host output ownership reporting
         run: git -C experimental/typia apply --directory=packages/typia "$GITHUB_WORKSPACE/experimental/native-host-provenance/typia.patch"
@@ -138,7 +140,7 @@ jobs:
           visit(".");
           '
 
-      - name: Test typia next
+      - name: Test typia master
         working-directory: experimental/typia
         run: |
           pnpm install --no-frozen-lockfile
