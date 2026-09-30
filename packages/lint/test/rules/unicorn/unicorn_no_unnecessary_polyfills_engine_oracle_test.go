@@ -98,5 +98,3 @@ func decodePolyfillQueries(t *testing.T, raw json.RawMessage) []string {
   }
   return many
 }
-
-

@@ -82,17 +82,3 @@ func TestRuleCorpusUnicornPreferNumberProperties(t *testing.T) {
     }
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-

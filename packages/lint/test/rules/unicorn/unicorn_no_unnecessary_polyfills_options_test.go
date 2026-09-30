@@ -37,5 +37,3 @@ func TestUnicornNoUnnecessaryPolyfillsAcceptsUpstreamSchemaShapes(t *testing.T) 
     }
   }
 }
-
-

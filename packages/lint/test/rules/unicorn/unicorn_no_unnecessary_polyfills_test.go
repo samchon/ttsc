@@ -125,4 +125,3 @@ func TestUnicornNoUnnecessaryPolyfillsUpstreamValidTargets(t *testing.T) {
     assertPolyfillClean(t, testCase.source, testCase.options)
   }
 }
-

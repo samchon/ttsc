@@ -106,9 +106,3 @@ func TestUnicornNoUnnecessaryPolyfillsBrowserslistrcDiscovery(t *testing.T) {
     ".browserslistrc": "[production]\nnode 0.12\n\n[development]\nnode 6\n",
   }, "index.ts", `require("object-assign")`, "")
 }
-
-
-
-
-
-
