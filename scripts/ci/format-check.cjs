@@ -16,16 +16,16 @@
 const cp = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
+const { resolveBash } = require("../format-go.cjs");
 
 const root = path.resolve(__dirname, "..", "..");
 
-// Bash resolves through a shim on Windows, where a bare spawn fails with
-// ENOENT rather than running the command. Git and Node run directly.
+// Run resolved executables directly so shell syntax stays in Bash -c argv.
 function run(command, args, options = {}) {
   return cp.spawnSync(command, args, {
     cwd: root,
     encoding: "utf8",
-    shell: command === "bash",
+    shell: false,
     windowsHide: true,
     ...options,
   });
@@ -68,25 +68,114 @@ function prettierDrift() {
   return drift;
 }
 
-function goDrift() {
+/** Go/format must come from the SDK that owns the selected gofmt executable. */
+function matchingFormattingSdk(bash) {
+  const env = { ...bash.env, GOTOOLCHAIN: "local", GOWORK: "off", GOFLAGS: "" };
+  // Ask the same shell as the wrapper. Exported shell functions and aliases
+  // must keep their actual formatter instead of being mistaken for PATH tools.
+  const result = run(
+    bash.binary,
+    [
+      "-c",
+      [
+        '[ "$(type -t gofmt)" = file ] && [ "$(type -t go)" = file ] || exit 1',
+        process.platform === "win32"
+          ? 'cygpath -m "$(command -v gofmt)"'
+          : "command -v gofmt",
+        "go env GOROOT",
+      ].join("\n"),
+    ],
+    { env },
+  );
+  if (result.error || result.status !== 0) return;
+  try {
+    const [formatter, sdk] = result.stdout.trim().split(/\r?\n/);
+    const expected = fs.realpathSync(
+      path.join(
+        sdk,
+        "bin",
+        process.platform === "win32" ? "gofmt.exe" : "gofmt",
+      ),
+    );
+    if (fs.realpathSync(formatter) === expected) return env;
+  } catch {}
+}
+
+function goDrift(files = tracked("*.go")) {
+  if (files.length === 0) return [];
   const drift = [];
-  for (const file of tracked("*.go")) {
-    const current = fs.readFileSync(path.join(root, file), "utf8");
-    const formatted = run("bash", ["./.vscode/gofmt-2spaces.sh"], {
-      input: current,
-    });
-    // The wrapper exits non-zero only when gofmt cannot parse the file or is
-    // not installed. Skipping either would let an unparseable file, or a lane
-    // with no Go toolchain, pass this check silently.
-    if (formatted.status !== 0)
-      throw new Error(
-        `.vscode/gofmt-2spaces.sh exited ${formatted.status} on ${file}:\n${formatted.stderr ?? ""}`,
-      );
+  const failures = [];
+  const bash = resolveBash();
+  const env = matchingFormattingSdk(bash);
+  const records = files.map((file) => {
+    try {
+      return {
+        file,
+        source: fs.readFileSync(path.resolve(root, file), "utf8"),
+      };
+    } catch (error) {
+      return { file, source: "", error: error.message };
+    }
+  });
+  if (env && records.length) {
+    const result = run(
+      bash.binary,
+      ["./.vscode/gofmt-2spaces.sh", "--check-records"],
+      {
+        env,
+        input:
+          records.map((record) => JSON.stringify(record)).join("\n") + "\n",
+        maxBuffer: 64 * 1024 * 1024,
+      },
+    );
+    if (result.error) throw result.error;
+    const output = result.stdout
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
     if (
-      formatted.stdout.replace(/\r\n/g, "\n") !== current.replace(/\r\n/g, "\n")
+      output.length !== records.length ||
+      output.some((record, index) => record.file !== records[index].file)
     )
-      drift.push(file);
+      throw new Error(
+        `Go format batch did not report every selected input:\n${result.stderr ?? ""}`,
+      );
+    for (const record of output) {
+      if (record.error) failures.push(`${record.file}: ${record.error}`);
+      else if (record.drift) drift.push(record.file);
+    }
+    if (result.status !== 0 && failures.length === 0)
+      failures.push(
+        `Go format batch exited ${result.status}: ${result.stderr ?? ""}`,
+      );
+  } else {
+    // A standalone or independently selected gofmt must retain its own engine.
+    // It cannot share a formatter compiled from a different SDK's go/format.
+    for (const record of records) {
+      if (record.error) {
+        failures.push(`${record.file}: ${record.error}`);
+        continue;
+      }
+      const formatted = run(bash.binary, ["./.vscode/gofmt-2spaces.sh"], {
+        env: bash.env,
+        input: record.source,
+      });
+      if (formatted.error || formatted.status !== 0)
+        failures.push(
+          `${record.file}: ${formatted.error?.message ?? formatted.stderr ?? `exit ${formatted.status}`}`,
+        );
+      else if (
+        formatted.stdout.replace(/\r\n/g, "\n") !==
+        record.source.replace(/\r\n/g, "\n")
+      )
+        drift.push(record.file);
+    }
   }
+  if (failures.length)
+    throw new AggregateError(
+      failures.map((message) => new Error(message)),
+      `Go formatting failed:\n${failures.join("\n")}\nUnformatted: ${drift.join(", ")}`,
+    );
   return drift;
 }
 

@@ -22,6 +22,8 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { test } = require("node:test");
+const { resolveBash } = require("../format-go.cjs");
+const { goDrift } = require("./format-check.cjs");
 
 const root = path.resolve(__dirname, "..", "..");
 const WRAPPER = path.join(root, ".vscode", "gofmt-2spaces.sh");
@@ -30,17 +32,20 @@ const WRAPPER = path.join(root, ".vscode", "gofmt-2spaces.sh");
 function workspace() {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-gofmt-"));
   fs.copyFileSync(WRAPPER, path.join(directory, "gofmt-2spaces.sh"));
+  fs.copyFileSync(
+    path.join(root, ".vscode", "gofmt-check.go"),
+    path.join(directory, "gofmt-check.go"),
+  );
   return directory;
 }
 
-// `shell: true` because `bash` resolves through a shim on Windows, where a bare
-// spawn fails with ENOENT rather than running the command. This mirrors how
-// `scripts/ci/format-check.cjs` invokes the same script.
+// Use the same actual Git Bash and Perl resolution as the write and check paths.
 function bash(cwd, args, options = {}) {
-  return cp.spawnSync("bash", ["./gofmt-2spaces.sh", ...args], {
+  const bash = resolveBash();
+  return cp.spawnSync(bash.binary, ["./gofmt-2spaces.sh", ...args], {
     cwd,
     encoding: "utf8",
-    shell: true,
+    env: { ...bash.env, GOTOOLCHAIN: "local", GOWORK: "off", GOFLAGS: "" },
     windowsHide: true,
     ...options,
   });
@@ -282,3 +287,163 @@ test("an aligned block keeps its alignment when a value carries a tab", () => {
     "an alignment tab survived into the output",
   );
 });
+
+/**
+ * Verifies the shared formatter keeps each source and failure independent.
+ *
+ * A malformed record must not hide later files or join literals across files.
+ *
+ * 1. Send complete files, fragments, CRLF, literal tabs and one parse failure.
+ * 2. Compare every result with the original stdin path and preserve file labels.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Real Go and Perl processes report every source's drift/error; assertions reject truncation and wrong parse status.
+ * @evidence contracts/testing.md#independent-expectations The unchanged gofmt stdin mode supplies the formatting oracle; the malformed declaration independently requires failure status two.
+ * @evidence contracts/testing.md#distinguishing-cases Full files, declaration/statement fragments, CRLF and literal tabs remain separate around a failing middle record, with Unicode and newline labels.
+ * @evidence contracts/testing.md#execution-ownership The existing discovered Node wrapper harness executes this named E2E entry through the typecheck runner's wrapper population.
+ * @evidence contracts/e2e.md#necessary-boundary Actual Go formatting and Perl framing must agree at the process boundary; pure formatting unit calls cannot verify their serialization or exit status.
+ * @evidence contracts/e2e.md#shared-execution One actual batch serves all records; the unchanged stdin executions are required independent comparator reads rather than per-record new batch producers.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity One owned fixture carries matching wrapper/helper sources; each stdin request is independent and the directory is removed after every result is collected.
+ * @evidence contracts/e2e.md#preserved-coverage Original literal/comment/write regressions remain unchanged; this case adds framing, partial programs and failures after and before valid records.
+ */
+function test_gofmt_records_preserve_stdin_and_failures() {
+  const directory = workspace();
+  try {
+    const sources = [
+      RAW_STRING_TAB,
+      'const value = "a\tb"\n',
+      "println(1)\n",
+      "package a\r\n\r\nfunc A() {}\r\n",
+    ];
+    const expected = sources.map(normalized);
+    const records = [...sources, ...expected].map((source, index) => ({
+      file: `space 한글\n${index}.go`,
+      source,
+    }));
+    records.splice(1, 0, {
+      file: "broken.go",
+      source: "package a\nfunc broken( {",
+    });
+    const result = bash(directory, ["--check-records"], {
+      input: records.map((record) => JSON.stringify(record)).join("\n") + "\n",
+    });
+    assert.equal(result.status, 2, result.stderr);
+    const output = result.stdout
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    assert.deepEqual(
+      output.map((record) => record.file),
+      records.map((record) => record.file),
+    );
+    assert.match(output[1].error, /expected/);
+    for (let index = 0; index < records.length; index++) {
+      if (index === 1) continue;
+      const current = records[index].source.replace(/\r\n/g, "\n");
+      assert.equal(output[index].error, "");
+      assert.equal(
+        output[index].drift,
+        expected[(index > 1 ? index - 1 : index) % sources.length] !== current,
+      );
+    }
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+}
+test(
+  "framed checking preserves stdin formatting and every result after a parse error",
+  test_gofmt_records_preserve_stdin_and_failures,
+);
+
+/**
+ * Verifies the check retains drift and every independent read/parse failure.
+ *
+ * 1. Check clean and unformatted files without modifying their bytes.
+ * 2. Add malformed and missing inputs and require both errors and known drift.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Actual goDrift reads fixture files and reports format differences plus both syntax and read errors while preserving source bytes.
+ * @evidence contracts/testing.md#independent-expectations Literal valid and malformed Go inputs establish their outcomes; the existing stdin path establishes the clean literal-tab file.
+ * @evidence contracts/testing.md#distinguishing-cases Clean, changed, malformed and absent inputs share one request, so an early failure cannot hide the other classifications.
+ * @evidence contracts/testing.md#execution-ownership The named case is registered in the existing Node wrapper E2E harness and its typecheck runner population.
+ * @evidence contracts/e2e.md#necessary-boundary The real filesystem-to-Go-to-Perl check must collect file-specific errors and remain read-only; an in-process format call alone cannot establish this connection.
+ * @evidence contracts/e2e.md#shared-execution Each distinct input population uses one batch; no fixture installation or per-file native producer is repeated.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity All files belong to one bounded fixture removed after assertions; input bytes are independently compared after success and failure.
+ * @evidence contracts/e2e.md#preserved-coverage Existing write-path assertions remain; this adds complete failure collection and checks that optimization introduces no source writes.
+ */
+function test_gofmt_check_collects_errors_without_writes() {
+  const directory = workspace();
+  try {
+    const good = path.join(directory, "space 한글.go");
+    const bad = path.join(directory, "broken.go");
+    const clean = path.join(directory, "clean.go");
+    const source = "package a\n\nfunc A(){println(1)}\n";
+    fs.writeFileSync(good, source);
+    fs.writeFileSync(bad, "package a\nfunc broken( {");
+    fs.writeFileSync(clean, normalized(RAW_STRING_TAB));
+    assert.deepEqual(goDrift([good, clean]), [good]);
+    assert.equal(fs.readFileSync(good, "utf8"), source);
+    assert.throws(
+      () => goDrift([good, bad, clean, path.join(directory, "missing.go")]),
+      (error) => {
+        assert.match(error.message, /broken\.go/);
+        assert.match(error.message, /missing\.go/);
+        assert.ok(error.message.includes(good));
+        return error.errors.length === 2;
+      },
+    );
+    assert.equal(fs.readFileSync(good, "utf8"), source);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+}
+test(
+  "the read-only check reports independent drift and parse errors without rewriting files",
+  test_gofmt_check_collects_errors_without_writes,
+);
+
+/**
+ * Verifies custom shell selection keeps the actual formatter's behavior.
+ *
+ * 1. Select a shell formatter that adds a literal comment after real gofmt.
+ * 2. Require the check to detect that output without changing the source.
+ * 3. Check an empty population without executing the custom formatter.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Actual Bash selection through BASH_ENV changes formatting output; goDrift must report the custom formatter's observable difference.
+ * @evidence contracts/testing.md#independent-expectations The fixture command appends a known literal comment, which independently makes the otherwise clean source differ.
+ * @evidence contracts/testing.md#distinguishing-cases A custom shell function differs from the normal SDK executable; the empty population requires no producer and returns no drift.
+ * @evidence contracts/testing.md#execution-ownership This named Node E2E entry is registered with the existing wrapper regression harness.
+ * @evidence contracts/e2e.md#necessary-boundary The test exercises real shell command selection and process output, which a mocked SDK path comparison cannot establish.
+ * @evidence contracts/e2e.md#shared-execution One fixture and formatter request cover command selection; the empty input needs no second producer.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity BASH_ENV is restored on every exit and its owned script/source directory is removed after the child returns.
+ * @evidence contracts/e2e.md#preserved-coverage The normal SDK batch and original wrapper cases remain; this adds the independently selected formatter compatibility boundary.
+ */
+function test_gofmt_check_preserves_shell_selection() {
+  const directory = workspace();
+  const previous = process.env.BASH_ENV;
+  try {
+    const source = path.join(directory, "clean.go");
+    const environment = path.join(directory, "environment.sh");
+    fs.writeFileSync(source, "package a\n");
+    fs.writeFileSync(
+      environment,
+      'gofmt() { command gofmt "$@"; printf "// selected formatter\\n"; }\nexport -f gofmt\n',
+    );
+    process.env.BASH_ENV = environment;
+    assert.deepEqual(goDrift([source]), [source]);
+    assert.equal(fs.readFileSync(source, "utf8"), "package a\n");
+    assert.deepEqual(goDrift([]), []);
+  } finally {
+    if (previous === undefined) delete process.env.BASH_ENV;
+    else process.env.BASH_ENV = previous;
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+}
+test(
+  "an independently selected shell formatter keeps its observable formatting",
+  test_gofmt_check_preserves_shell_selection,
+);
+
+module.exports = {
+  test_gofmt_records_preserve_stdin_and_failures,
+  test_gofmt_check_collects_errors_without_writes,
+  test_gofmt_check_preserves_shell_selection,
+};

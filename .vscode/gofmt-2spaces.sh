@@ -58,6 +58,35 @@ space_indent() {
   perl -0777 -pe "$normalize"
 }
 
+# Read-only framed input keeps file boundaries around the same normalization
+# lexer. The caller verifies that go and gofmt belong to the same SDK before
+# choosing this path; ordinary stdin, argument and write modes stay unchanged.
+if [ "${1-}" = "--check-records" ]; then
+  directory="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+  go run "$directory/gofmt-check.go" | perl -MJSON::PP -e '
+    my $normalize = shift @ARGV;
+    my $failed = 0;
+    while (my $line = <STDIN>) {
+      my $record = decode_json($line);
+      my $drift = JSON::PP::false;
+      $failed = 1 if $record->{error};
+      if (!$record->{error}) {
+        $_ = $record->{formatted};
+        eval $normalize;
+        die $@ if $@;
+        s/\r\n/\n/g;
+        my $current = $record->{source};
+        $current =~ s/\r\n/\n/g;
+        $drift = $_ ne $current ? JSON::PP::true : JSON::PP::false;
+      }
+      print encode_json({file => $record->{file}, drift => $drift,
+        error => $record->{error} // ""}), "\n";
+    }
+    exit($failed ? 2 : 0);
+  ' "$normalize"
+  exit 0
+fi
+
 # Keep gofmt's parser and spacing decisions, then normalize tabs to two spaces.
 if [ "$#" -eq 0 ]; then
   gofmt | space_indent
