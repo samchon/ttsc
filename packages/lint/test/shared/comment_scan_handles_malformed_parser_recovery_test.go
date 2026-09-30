@@ -19,6 +19,11 @@ import (
 //  1. Parse an unterminated template with one real substitution comment.
 //  2. Parse an unclosed JSX element with text and expression comment twins.
 //  3. Assert only the real leading and expression comments are enumerated.
+//
+// @evidence contracts/testing.md#behavioral-verification forEachCommentToken enumerates only the literal leading and expression comments in an unterminated template and an unclosed JSX element, preserving each comment's kind and exact source range once in order.
+// @evidence contracts/testing.md#independent-expectations The authored real-comment strings define expected ranges through literal positions in the input source, independently of scanner output. Comment-shaped raw template and JSX text are grammar content rather than trivia even during parser recovery.
+// @evidence contracts/testing.md#distinguishing-cases Incomplete TS template substitution containing a regex contrasts with incomplete TSX element text; both keep real leading/expression comments while excluding fake literal twins and the template tail. Complete-source controls belong to the adjacent source-mode test.
+// @evidence contracts/testing.md#execution-ownership Each literal source is parsed in its real TS or TSX mode and passed to the production comment enumerator in the Go process; assertExactCommentTokens compares the complete ordered token sequence. No files, native build, consumer installation or product process is required.
 func TestCommentScanHandlesMalformedParserRecovery(t *testing.T) {
   cases := []struct {
     name     string

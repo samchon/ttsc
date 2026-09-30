@@ -22,6 +22,11 @@ import (
 //  1. Parse equivalent TS/JS sources with nested templates, regexes, and division.
 //  2. Parse equivalent TSX/JSX sources with JSX text and expression comments.
 //  3. Assert every real comment's kind and exact range once, in source order.
+//
+// @evidence contracts/testing.md#behavioral-verification forEachCommentToken returns the exact ordered, deduplicated comment-kind/range sequence for equivalent TS/JS and TSX/JSX sources, including file edges, empty containers, nested substitutions, regexes and division.
+// @evidence contracts/testing.md#independent-expectations Literal authored real-comment strings supply byte positions and lengths independently of enumeration; slash-prefix grammar supplies single-line versus block kind. The complete expected sequence rejects extra fake tokens, missing comments, duplicate visits or shifted ranges.
+// @evidence contracts/testing.md#distinguishing-cases Four parser source modes retain real trivia while excluding quoted strings, regex/template bodies, JSX text and attributes. CRLF and Unicode line separators preserve the real trailing and nested-expression comments; malformed recovery is covered by the adjacent unit.
+// @evidence contracts/testing.md#execution-ownership Real ParseSourceFile and the production parser-aware comment enumerator execute on virtual literal sources in the shared Go process. The helper calculates expectations from authored input strings without file-layout checks, native compilation, installation or subprocesses.
 func TestCommentScanUsesParserLexicalRangesAcrossSourceModes(t *testing.T) {
   scriptSource := "/* file-leading-real */\r\n" +
     "const quoted = \"// fake-string\"; // trailing-real\r\n" +
