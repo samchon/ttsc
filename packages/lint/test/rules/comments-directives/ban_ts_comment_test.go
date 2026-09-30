@@ -17,6 +17,11 @@ import "testing"
 // 1. Load the annotated TypeScript fixture source embedded below.
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine reports leading nocheck and ignore but leaves a described expect-error and prose mention alone.
+// @evidence contracts/testing.md#independent-expectations Literal authored expect annotations follow the default directive policies; unannotated source is required to stay clean by exact finding cardinality.
+// @evidence contracts/testing.md#distinguishing-cases Multiple forbidden directives coexist with described suppression and ordinary comment controls.
+// @evidence contracts/testing.md#execution-ownership assertRuleCorpusCase executes the embedded corpus source and this Test owns every marked and unmarked case. No consumer install or native product-host build/launch is used.
 func TestRuleCorpusBanTsComment(t *testing.T) {
   assertRuleCorpusCase(t, "ban-ts-comment.ts", "// expect: typescript/ban-ts-comment error\n// @ts-nocheck\n// expect: typescript/ban-ts-comment error\n// @ts-ignore\nconst a: number = \"oops\" as any;\n\n// @ts-expect-error: described suppressions stay allowed by default\nconst b: number = \"oops\";\n\n// just a comment mentioning @ts-ignore stays a negative control\nJSON.stringify([a, b]);\n")
 }

@@ -17,6 +17,11 @@ import (
 // 1. Lint `// @ts-ignore` above a statement with defaults.
 // 2. Assert one finding with the exact upgrade message.
 // 3. Assert Fix is empty and one suggestion covers only `@ts-ignore`.
+//
+// @evidence contracts/testing.md#behavioral-verification Default ban-ts-comment reports ignore with exact upgrade message, comment span and one narrowly targeted suggestion.
+// @evidence contracts/testing.md#independent-expectations Literal message/title/edit bytes encode the supported ignore-to-expect-error suggestion; offsets come from authored comment syntax.
+// @evidence contracts/testing.md#distinguishing-cases No automatic edit, exactly one suggestion and exact directive-token replacement distinguish advice from unsafe whole-comment rewrite.
+// @evidence contracts/testing.md#execution-ownership parseTS and NewEngine.Run produce the finding; this entry directly compares its message, range, suggestion title and edit. No consumer install or native product-host build/launch is used.
 func TestBanTsCommentDefaultReportsIgnoreWithUpgradeMessage(t *testing.T) {
   const message = "Use `@ts-expect-error` instead of `@ts-ignore`, as `@ts-ignore` will do nothing if the following line is error-free."
   source := "// @ts-ignore\nconst a: number = 1;\nJSON.stringify(a);\n"

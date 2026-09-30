@@ -14,6 +14,11 @@ import "testing"
 //     directly above a `// @ts-ignore` comment.
 //  2. Run the rule with defaults.
 //  3. Assert zero findings.
+//
+// @evidence contracts/testing.md#behavioral-verification An eslint-disable-next-line directive suppresses the otherwise forbidden next-line ts-ignore finding.
+// @evidence contracts/testing.md#independent-expectations The independently authored disable comment names precisely the enabled rule, requiring zero reports without changing the source input.
+// @evidence contracts/testing.md#distinguishing-cases Disabled positive shape complements the default ignore-reporting test, distinguishing engine suppression from missing scanner coverage.
+// @evidence contracts/testing.md#execution-ownership assertRuleSkipsSource calls the engine with the embedded disable directive; this Test owns the suppression result in the Go process. No consumer install or native product-host build/launch is used.
 func TestBanTsCommentRespectsInlineDisableNextLine(t *testing.T) {
   assertRuleSkipsSource(
     t,

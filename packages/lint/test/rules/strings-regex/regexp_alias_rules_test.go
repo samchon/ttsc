@@ -16,6 +16,11 @@ import (
 // 1. Parse regex literals that trip the existing control, empty-class, Unicode, and escape checks.
 // 2. Enable only the `regexp/*` aliases.
 // 3. Assert each diagnostic is reported under the namespaced rule name.
+//
+// @evidence contracts/testing.md#behavioral-verification Four namespaced regex rules report their own names rather than bare aliases.
+// @evidence contracts/testing.md#independent-expectations Literal control, empty class, legacy astral class and useless a escape establish independently authored namespaced line expectations.
+// @evidence contracts/testing.md#distinguishing-cases Four distinct alias routes are retained; detailed class/escape negative decisions live in their named semantic units.
+// @evidence contracts/testing.md#execution-ownership parseTS and NewEngine.Run execute the four authored alias-rule inputs together. This Test compares all normalized namespaced rule/severity/line triples with the independent four-entry list. The calls remain in the lint Go process without consumer installation or a native product-host build/launch.
 func TestRegexpAliasRulesMirrorBareRegexDiagnostics(t *testing.T) {
   source := `const control = /\x00/;
 const empty = /[]/;

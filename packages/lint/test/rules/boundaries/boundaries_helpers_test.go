@@ -36,10 +36,13 @@ func assertSingleBoundaryFinding(t *testing.T, ruleName string, findings []*Find
   if findings[0].Rule != ruleName {
     t.Fatalf("want rule %q, got %q", ruleName, findings[0].Rule)
   }
+  if findings[0].Severity != SeverityError {
+    t.Fatalf("%s: want error severity, got %v", ruleName, findings[0].Severity)
+  }
   if !strings.Contains(findings[0].Message, messagePart) {
     t.Fatalf("want message containing %q, got %q", messagePart, findings[0].Message)
   }
-  if len(findings[0].Fix) != 0 {
+  if len(findings[0].Fix) != 0 || len(findings[0].Suggestions) != 0 {
     t.Fatalf("%s: boundaries diagnostics must not offer autofixes", ruleName)
   }
 }
@@ -131,10 +134,22 @@ func assertBoundaryFindingTexts(t *testing.T, source string, findings []*Finding
     t.Fatalf("want %d findings, got %d (%+v)", len(expected), len(findings), findings)
   }
   actual := make([]string, 0, len(findings))
+  seenRanges := map[[2]int]bool{}
   for _, finding := range findings {
+    if finding.Rule != "boundaries/dependencies" || finding.Severity != SeverityError {
+      t.Fatalf("want boundaries/dependencies error finding, got %+v", finding)
+    }
+    if len(finding.Fix) != 0 || len(finding.Suggestions) != 0 {
+      t.Fatalf("boundary dependency findings must not offer edits: %+v", finding)
+    }
     if finding.Pos < 0 || finding.End < finding.Pos || finding.End > len(source) {
       t.Fatalf("invalid finding range %d..%d for %d-byte source", finding.Pos, finding.End, len(source))
     }
+    span := [2]int{finding.Pos, finding.End}
+    if seenRanges[span] {
+      t.Fatalf("one dependency range was reported more than once: %+v", finding)
+    }
+    seenRanges[span] = true
     actual = append(actual, source[finding.Pos:finding.End])
   }
   sort.Strings(actual)

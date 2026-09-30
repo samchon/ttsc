@@ -18,6 +18,11 @@ import (
 // 1. Lint bare, whitespace-only, and one-character-description directives.
 // 2. Assert each produces exactly one finding with the exact message.
 // 3. Assert the finding covers the comment's byte range and carries no fix.
+//
+// @evidence contracts/testing.md#behavioral-verification Default ban-ts-comment rejects absent, whitespace-only and one-character explanations with exact threshold message and no autofix.
+// @evidence contracts/testing.md#independent-expectations The default three-character policy independently classifies each authored short description; literal comment lengths define full diagnostic spans.
+// @evidence contracts/testing.md#distinguishing-cases Empty, whitespace and one-character boundary cases contrast with described allowance.
+// @evidence contracts/testing.md#execution-ownership parseTS and NewEngine.Run execute every comment in the loop; this Test owns message, range and no-fix assertions. No consumer install or native product-host build/launch is used.
 func TestBanTsCommentDefaultRequiresDescriptionForBareExpectError(t *testing.T) {
   const message = "Include a description after the `@ts-expect-error` directive to explain why the @ts-expect-error is necessary. The description must be 3 characters or longer."
   for _, comment := range []string{

@@ -13,6 +13,11 @@ import "testing"
 // 1. Materialize app and domain files in a temporary project tree.
 // 2. Configure app and domain elements plus an app -> domain disallow policy.
 // 3. Assert the app import of the domain file reports exactly one finding.
+//
+// @evidence contracts/testing.md#behavioral-verification The legacy element-types rule rejects a domain import but leaves app/local alone.
+// @evidence contracts/testing.md#independent-expectations Explicit app-disallow-domain rules independently establish the one diagnostic; the local fixture belongs to app rather than domain.
+// @evidence contracts/testing.md#distinguishing-cases Cross-element and internal same-element imports share one source to guard against unconditional rejection.
+// @evidence contracts/testing.md#execution-ownership runBoundaryRule calls NewEngineWithResolver.Run on the cross-element and local fixture imports. This Test owns assertSingleBoundaryFinding and its implicit zero-report local control.
 func TestBoundariesElementTypesRejectsDisallowedImport(t *testing.T) {
   const ruleName = "boundaries/element-types"
   findings := runBoundaryRule(t, ruleName, "src/app/main.ts", `

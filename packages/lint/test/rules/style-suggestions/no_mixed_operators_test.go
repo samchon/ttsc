@@ -15,6 +15,11 @@ import "testing"
 // 1. Load the annotated TypeScript fixture source embedded below.
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
+//
+// @evidence contracts/testing.md#behavioral-verification Reports left/right logical and arithmetic mixtures while retaining cross-group, grouped, same-operator and same-precedence controls.
+// @evidence contracts/testing.md#independent-expectations Authored expect annotations follow the supported default operator groups and grouping exemption; findings never generate the expected list.
+// @evidence contracts/testing.md#distinguishing-cases Three positives and four independent controls retain the complete authored corpus distinctions.
+// @evidence contracts/testing.md#execution-ownership assertRuleCorpusCase runs this entry's independently annotated fixture through the Go engine and compares rule/severity/line triples. This Test owns all marked violations and unmarked controls. Execution stays in the lint Go process without consumer installation or native product-host builds/launches.
 func TestRuleCorpusNoMixedOperators(t *testing.T) {
   assertRuleCorpusCase(t, "no-mixed-operators.ts", "declare const a: any;\ndeclare const b: any;\ndeclare const c: any;\ndeclare const d: any;\n\n// Logical mixed with a different logical: `&&` binds tighter than `||`.\n// expect: no-mixed-operators error\nconst m1 = a && b || c;\n\n// expect: no-mixed-operators error\nconst m2 = a || b && c;\n\n// Arithmetic mixing is in the default group: `*` binds tighter than `+`.\n// expect: no-mixed-operators error\nconst m3 = a + b * c;\n\n// Bitwise next to logical is a cross-group pair ESLint never flags.\nconst ok1 = a | b && c;\n\n// Inner expression is parenthesized — author acknowledged the grouping.\nconst ok2 = (a && b) || c;\n\n// Same operator chain — no confusion.\nconst ok3 = a && b && c && d;\n\n// Same precedence inside the arithmetic group is allowed by default.\nconst ok4 = a + b - c;\n\nJSON.stringify([m1, m2, m3, ok1, ok2, ok3, ok4]);\n")
 }

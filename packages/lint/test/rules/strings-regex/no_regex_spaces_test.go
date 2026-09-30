@@ -15,6 +15,12 @@ import "testing"
 // 1. Load the annotated TypeScript fixture source embedded below.
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
+//
+// @evidence contracts/testing.md#behavioral-verification Reports repeated spaces in a regex while leaving one space alone.
+// @evidence contracts/testing.md#independent-expectations The authored two-space run is the supported readability violation; the single-space pattern supplies an independent zero control.
+// @evidence contracts/testing.md#distinguishing-cases One versus two adjacent spaces isolates the minimum repetition boundary.
+// @evidence contracts/testing.md#execution-ownership assertRuleCorpusCase owns the original annotated engine fixture; assertRuleSkipsSource executes the newly authored neighboring clean source. Both invocations belong to this discoverable Test. All execute in the lint Go process without installing consumers or building/launching a native product host.
 func TestRuleCorpusNoRegexSpaces(t *testing.T) {
   assertRuleCorpusCase(t, "no-regex-spaces.ts", "// expect: no-regex-spaces error\nconst r = /a  b/;\nJSON.stringify(r);\n")
+  assertRuleSkipsSource(t, "no-regex-spaces", "const re = /a b/;\n")
 }

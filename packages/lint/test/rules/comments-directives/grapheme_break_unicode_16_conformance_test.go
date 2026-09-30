@@ -20,6 +20,11 @@ import (
 // 1. Parse every non-comment case from the vendored official corpus.
 // 2. Compare each expected break/no-break marker with the streaming segmenter.
 // 3. Assert the public length helper reports the resulting cluster count.
+//
+// @evidence contracts/testing.md#behavioral-verification graphemeSegmenter boundaries and stringLength agree with every official Unicode 16 corpus boundary and cluster count.
+// @evidence contracts/testing.md#independent-expectations The GraphemeBreakTest.txt division/multiplication markers are the independent UAX #29 oracle; expected clusters are counted from markers, never from segmenter output.
+// @evidence contracts/testing.md#distinguishing-cases All noncomment corpus rows retain per-code-point boundary and total-count assertions; malformed input, scan failure and zero-row guards prevent partial false greens.
+// @evidence contracts/testing.md#execution-ownership This Test reads the corpus as behavioral input, invokes graphemeProperties/hasBoundaryBefore/consume/stringLength directly and owns each source-line failure identity in one Go process. No consumer install or native product-host build/launch is used.
 func TestGraphemeBreakUnicode16Conformance(t *testing.T) {
   corpusPath := filepath.Join("..", "test", "testdata", "unicode", graphemeUnicodeVersion, "GraphemeBreakTest.txt")
   corpus, err := os.Open(corpusPath)

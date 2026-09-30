@@ -13,6 +13,11 @@ import "testing"
 // 1. Snapshot `const y = !Boolean(a && b);` source.
 // 2. Apply `no-extra-boolean-cast` fix.
 // 3. Assert the argument is spliced with parentheses: `!(a && b)`.
+//
+// @evidence contracts/testing.md#behavioral-verification Groups a&&b beneath logical not after removing Boolean.
+// @evidence contracts/testing.md#independent-expectations The independently authored !(a && b) negates the conjunction; !a && b would change branch meaning.
+// @evidence contracts/testing.md#distinguishing-cases A lower-precedence logical operand differs from the no-wrap bare identifier.
+// @evidence contracts/testing.md#execution-ownership assertFixSnapshot calls runFixSnapshot and applies the actual no-extra-boolean-cast edits to the fixture. This Test owns the exact independently authored source/output pair, including text outside the replacement. Execution stays in the lint Go process without consumer installation or native product-host builds/launches.
 func TestFixNoExtraBooleanCastParenthesizesLogicalOperandUnderBang(t *testing.T) {
   assertFixSnapshot(
     t,

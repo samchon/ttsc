@@ -13,6 +13,11 @@ import "testing"
 // 1. Import one type-only and one value dependency from an app file.
 // 2. Deny domain under `importKind: "type"`, then with a `kind: "value"` selector.
 // 3. Assert the first run reports only the type import and the second only the value import.
+//
+// @evidence contracts/testing.md#behavioral-verification Legacy importKind selects the type edge, but a nested dependency kind selector takes precedence and selects the value edge.
+// @evidence contracts/testing.md#independent-expectations The explicitly authored policy alternatives establish which source edge each contract form denotes; literal types/value targets are not engine-generated.
+// @evidence contracts/testing.md#distinguishing-cases Same type and value imports under two policies distinguish inherited legacy filtering from the stronger nested selector.
+// @evidence contracts/testing.md#execution-ownership runBoundaryRule calls NewEngineWithResolver.Run separately for the legacy type option and nested value override. This entry owns both literal expected targets in one Go unit.
 func TestBoundariesDependenciesFiltersPoliciesByLegacyImportKind(t *testing.T) {
   const ruleName = "boundaries/dependencies"
   source := "import type { Foo } from \"../domain/types\";\nimport { value } from \"../domain/value\";\nvoid value;\n"

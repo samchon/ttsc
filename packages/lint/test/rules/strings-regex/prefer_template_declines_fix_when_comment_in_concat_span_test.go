@@ -20,6 +20,11 @@ import "testing"
 //  2. Assert the comment-free twin still becomes the template “ `hi ${who}` “.
 //  3. Assert a `//`-bearing string operand (`"https://" + host`) still fixes,
 //     since the seam scan must not misread string content as a comment.
+//
+// @evidence contracts/testing.md#behavioral-verification Withholds automatic replacement over a real seam comment but fixes comment-free concatenation and a URL literal.
+// @evidence contracts/testing.md#independent-expectations The authored output literals preserve concatenation meaning; comments require preservation, while // inside https:// is literal content.
+// @evidence contracts/testing.md#distinguishing-cases Real block comment, no comment and slash-text literal distinguish seam parsing and fix safety.
+// @evidence contracts/testing.md#execution-ownership assertNoFixSnapshot owns the real-comment no-rewrite source; assertFixSnapshot runs and applies fixes for the no-comment and URL-literal sources. All three invocations belong to this Test. All execute in the lint Go process without installing consumers or building/launching a native product host.
 func TestPreferTemplateDeclinesFixWhenCommentInConcatSpan(t *testing.T) {
   assertNoFixSnapshot(
     t,

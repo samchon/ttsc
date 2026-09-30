@@ -17,6 +17,11 @@ import "testing"
 //     substitution template.
 //  2. Apply `prefer-template` fix.
 //  3. Assert the sub-chain flattens into per-operand slots.
+//
+// @evidence contracts/testing.md#behavioral-verification Fixes a plus an existing template expression while retaining that expression as an evaluated nested slot.
+// @evidence contracts/testing.md#independent-expectations The authored nested template output preserves original inner interpolation and evaluation as an operand, rather than reconstructing its body.
+// @evidence contracts/testing.md#distinguishing-cases Existing expression template and trailing string distinguish flattening only the outer concatenation.
+// @evidence contracts/testing.md#execution-ownership assertFixSnapshot calls runFixSnapshot, applies the rule's actual edits to the fixture and compares complete independently authored output. This Test entry owns this exact source/output pair. All execute in the lint Go process without installing consumers or building/launching a native product host.
 func TestFixPreferTemplateFlattensTemplateExpressionSubchain(t *testing.T) {
   assertFixSnapshot(
     t,

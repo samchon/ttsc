@@ -13,6 +13,11 @@ import "testing"
 //  1. Lint block-comment nocheck/check spellings with `ts-check: true`
 //     (nocheck already defaults to true).
 //  2. Assert zero findings for every spelling.
+//
+// @evidence contracts/testing.md#behavioral-verification Checking pragmas in block comments are ignored even when check is explicitly banned.
+// @evidence contracts/testing.md#independent-expectations TypeScript check/nocheck pragmas require line-comment syntax; six authored ordinary/JSDoc/multiline block forms independently remain clean.
+// @evidence contracts/testing.md#distinguishing-cases Both checking directives and three block layouts distinguish pragma semantics from the suppression final-line rules.
+// @evidence contracts/testing.md#execution-ownership assertRuleSkipsSourceWithOptions executes each authored block-comment source in this Test loop. No consumer install or native product-host build/launch is used.
 func TestBanTsCommentPragmaIgnoresBlockComments(t *testing.T) {
   const ruleName = "typescript/ban-ts-comment"
   for _, source := range []string{

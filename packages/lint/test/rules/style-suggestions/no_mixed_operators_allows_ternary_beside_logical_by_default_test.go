@@ -13,6 +13,11 @@ import "testing"
 // 1. Write `const x = a && b ? c : d;`.
 // 2. Enable no-mixed-operators with default options.
 // 3. Assert zero findings.
+//
+// @evidence contracts/testing.md#behavioral-verification Permits logical conjunction beside ?: under default groups.
+// @evidence contracts/testing.md#independent-expectations The default logical group does not include ternary; independently authored zero result follows its membership.
+// @evidence contracts/testing.md#distinguishing-cases The custom group including ?: reports the same source in its sibling.
+// @evidence contracts/testing.md#execution-ownership assertRuleSkipsSource executes this entry's exact authored source through the enabled engine rule; this Test owns its zero-finding comparison. Execution stays in the lint Go process without consumer installation or native product-host builds/launches.
 func TestNoMixedOperatorsAllowsTernaryBesideLogicalByDefault(t *testing.T) {
   assertRuleSkipsSource(
     t,

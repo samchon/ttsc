@@ -13,6 +13,11 @@ import "testing"
 //  1. Lint block comments whose directive sits before the last line.
 //  2. Assert zero findings with `ts-expect-error: true` (ignore already
 //     defaults to true).
+//
+// @evidence contracts/testing.md#behavioral-verification ban-ts-comment ignores suppression text before a block comment's final line.
+// @evidence contracts/testing.md#independent-expectations TypeScript suppression directives are recognized on the final block-comment line; all five authored earlier-line forms are literal zero controls.
+// @evidence contracts/testing.md#distinguishing-cases Ordinary/JSDoc, expect-error/ignore and blank closing-line variants contrast with TestBanTsCommentBlockCommentReportsDirectiveOnLastLine.
+// @evidence contracts/testing.md#execution-ownership assertRuleSkipsSourceWithOptions runs each of the five sources under the explicit expect-error ban; this Test owns each zero result. No consumer install or native product-host build/launch is used.
 func TestBanTsCommentBlockCommentIgnoresDirectiveBeforeLastLine(t *testing.T) {
   const ruleName = "typescript/ban-ts-comment"
   for _, source := range []string{

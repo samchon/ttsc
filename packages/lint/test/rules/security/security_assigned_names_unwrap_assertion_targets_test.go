@@ -5,6 +5,11 @@ import "testing"
 // TestSecurityAssignedNamesUnwrapAssertionTargets pins every write context
 // consumed by the security rules while keeping member writes out of the local
 // binding set.
+//
+// @evidence contracts/testing.md#behavioral-verification collectSecurityAssignedNames unwraps assignment, update, loop and destructuring assertion targets without marking the holder of a member write.
+// @evidence contracts/testing.md#independent-expectations The literal nine-name allow list follows the binding targets written by the fixture, not the collector output.
+// @evidence contracts/testing.md#distinguishing-cases Covers simple, compound, prefix, postfix, for-of, for-in, array/object destructuring and nested assertions; holder.value is the adjacent non-binding write.
+// @evidence contracts/testing.md#execution-ownership parseTS creates the authored AST and collectSecurityAssignedNames reads it directly. This entry owns every literal expected binding and the holder-member negative assertion in the Go process.
 func TestSecurityAssignedNamesUnwrapAssertionTargets(t *testing.T) {
   file := parseTS(t, `let simple = 0;
 (simple as number) = input;

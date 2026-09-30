@@ -15,6 +15,11 @@ import (
 // 1. Parse literals with duplicate class members, reducible classes, and empty groups.
 // 2. Enable the matching `regexp/*` rules.
 // 3. Assert each rule reports exactly once on the expected literal line.
+//
+// @evidence contracts/testing.md#behavioral-verification Eight namespaced rules report their designated class/group/alternative shape on the expected line.
+// @evidence contracts/testing.md#independent-expectations Literal [aba], [x], digit/word ranges and empty alternative/capture/group/lookahead independently define the authored per-rule expectations.
+// @evidence contracts/testing.md#distinguishing-cases Separate eight-rule routes establish alias and reporting ownership; this case does not exhaust every regex grammar branch.
+// @evidence contracts/testing.md#execution-ownership parseTS and NewEngine.Run execute the authored eight-rule source together. This Test compares every normalized rule/severity/line triple with the independent eight-entry list. The calls remain in the lint Go process without consumer installation or a native product-host build/launch.
 func TestRegexpCharacterClassAndGroupRules(t *testing.T) {
   source := `const duplicate = /[aba]/;
 const single = /[x]/;

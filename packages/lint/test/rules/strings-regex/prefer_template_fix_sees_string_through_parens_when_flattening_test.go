@@ -17,6 +17,11 @@ import "testing"
 // 1. Snapshot a chain whose only string literal hides inside parens.
 // 2. Apply `prefer-template` fix.
 // 3. Assert `c` still flattens into its own slot.
+//
+// @evidence contracts/testing.md#behavioral-verification Recognizes a string-producing parenthesized operand while retaining that operand whole in a slot and flattening later c.
+// @evidence contracts/testing.md#independent-expectations The authored (a-string+b) operand already yields a string, but explicit grouping remains; literal nested slot then c preserves evaluation.
+// @evidence contracts/testing.md#distinguishing-cases Contrasts grouped arithmetic subchains, which do not establish string mode until the suffix.
+// @evidence contracts/testing.md#execution-ownership assertFixSnapshot calls runFixSnapshot, applies the rule's actual edits to the fixture and compares complete independently authored output. This Test entry owns this exact source/output pair. All execute in the lint Go process without installing consumers or building/launching a native product host.
 func TestFixPreferTemplateSeesStringThroughParensWhenFlattening(t *testing.T) {
   assertFixSnapshot(
     t,

@@ -13,6 +13,11 @@ import "testing"
 // 1. Load the annotated TypeScript fixture source embedded below.
 // 2. Enable the rule severity declared by its `// expect:` comment.
 // 3. Assert the native Engine reports exactly the annotated diagnostic.
+//
+// @evidence contracts/testing.md#behavioral-verification Reports one-character variable/function/class/parameter names while accepting length two or greater.
+// @evidence contracts/testing.md#independent-expectations The default minimum is two characters; independently authored one-versus-two name pairs determine literal marked diagnostics.
+// @evidence contracts/testing.md#distinguishing-cases Four binding kinds include the minimum boundary rather than merely a long-name control.
+// @evidence contracts/testing.md#execution-ownership assertRuleCorpusCase runs this entry's independently annotated fixture through the Go engine and compares rule/severity/line triples. This Test owns all marked violations and unmarked controls. Execution stays in the lint Go process without consumer installation or native product-host builds/launches.
 func TestRuleCorpusIdLength(t *testing.T) {
   assertRuleCorpusCase(t, "id-length.ts", "// expect: id-length error\nconst a: number = 1;\nconst ab: number = 2;\nconst longer: number = 3;\n// expect: id-length error\nfunction f(): void {}\nfunction go(): void {}\n// expect: id-length error\nclass C {}\nclass Foo {}\nfunction take(\n  // expect: id-length error\n  x: number,\n  yy: number,\n  longParam: number,\n): void {\n  void x;\n  void yy;\n  void longParam;\n}\nJSON.stringify({ a, ab, longer, f, go, C, Foo, take });\n")
 }

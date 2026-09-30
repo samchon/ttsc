@@ -12,6 +12,11 @@ import "testing"
 // 1. Deny domain with a policy message and shared with the global message.
 // 2. Import one value from each target element.
 // 3. Assert both fully rendered messages and their precedence.
+//
+// @evidence contracts/testing.md#behavioral-verification Policy-specific message overrides the global template; another edge uses the global template with resolved context.
+// @evidence contracts/testing.md#independent-expectations Literal policy-index/kind/element/source values follow the authored two edges and policy order; exact expected strings are independent of rendering output.
+// @evidence contracts/testing.md#distinguishing-cases Two denied targets distinguish policy override from global fallback and verify distinct placeholder substitutions.
+// @evidence contracts/testing.md#execution-ownership runBoundaryRule executes NewEngineWithResolver.Run over the two authored denied edges. This entry owns both exact message strings and cardinality in the Go process.
 func TestBoundariesDependenciesRendersPolicyAndGlobalMessages(t *testing.T) {
   const ruleName = "boundaries/dependencies"
   findings := runBoundaryRule(t, ruleName, "src/app/main.ts", `

@@ -28,6 +28,11 @@ import (
 //     message must name the letter and stop there.
 //  3. Enable only `no-useless-escape` and assert each message names the exact
 //     character that follows the backslash.
+//
+// @evidence contracts/testing.md#behavioral-verification Messages identify complete decoded characters rather than UTF-8 leading bytes.
+// @evidence contracts/testing.md#independent-expectations Nine literal messages independently name e, Latin, CJK, astral and ASCII escapes; combining accent stays outside the escaped rune.
+// @evidence contracts/testing.md#distinguishing-cases String/regex pairs and a decomposed combining sequence distinguish rune decoding from byte or grapheme substitution.
+// @evidence contracts/testing.md#execution-ownership parseTS and NewEngine.Run execute the nine authored string/regex escapes. This Test sorts findings by position and compares each message with its independently literal Unicode string. The calls remain in the lint Go process without consumer installation or a native product-host build/launch.
 func TestNoUselessEscapeMessageNamesDecodedRune(t *testing.T) {
   // The combining accent is written as an escape so no editor can silently
   // normalize the fixture into a precomposed single rune.

@@ -17,6 +17,11 @@ import (
 // 1. Configure `{"ts-expect-error": true}`.
 // 2. Lint a directive with a full description.
 // 3. Assert one finding with the do-not-use message.
+//
+// @evidence contracts/testing.md#behavioral-verification True expect-error option rejects a directive despite a sufficient explanation.
+// @evidence contracts/testing.md#independent-expectations True means unconditional ban; the literal prohibition message follows that option rather than description length.
+// @evidence contracts/testing.md#distinguishing-cases A fully described directive distinguishes true ban from allow-with-description.
+// @evidence contracts/testing.md#execution-ownership parseTS and NewEngineWithResolver.Run execute the authored true option; this Test owns exact count/message checks. No consumer install or native product-host build/launch is used.
 func TestBanTsCommentOptionExpectErrorTrueReportsDespiteDescription(t *testing.T) {
   const ruleName = "typescript/ban-ts-comment"
   const message = "Do not use `@ts-expect-error` because it alters compilation errors."

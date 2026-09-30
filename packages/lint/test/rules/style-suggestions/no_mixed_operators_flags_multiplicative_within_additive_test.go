@@ -13,6 +13,11 @@ import "testing"
 // 1. Write `const x = a + b * c;`.
 // 2. Enable no-mixed-operators with default options.
 // 3. Assert exactly one finding spanning `b * c`.
+//
+// @evidence contracts/testing.md#behavioral-verification Reports exactly b*c nested under addition.
+// @evidence contracts/testing.md#independent-expectations Arithmetic operators belong to one default group and differ in precedence; literal b*c determines the expected span independently.
+// @evidence contracts/testing.md#distinguishing-cases Arithmetic positive contrasts with same-precedence multiplication/division allowance and custom-group arithmetic omission.
+// @evidence contracts/testing.md#execution-ownership assertRuleFindingRanges executes no-mixed-operators on this entry's literal source and compares its exact authored inner-expression marker. This Test owns the range and cardinality expectations. Execution stays in the lint Go process without consumer installation or native product-host builds/launches.
 func TestNoMixedOperatorsFlagsMultiplicativeWithinAdditive(t *testing.T) {
   assertRuleFindingRanges(
     t,

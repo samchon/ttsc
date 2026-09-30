@@ -12,6 +12,11 @@ import "testing"
 // 1. Import one app-local file and one unclassified shared file.
 // 2. Run the disallow fallback with both gates disabled and enabled.
 // 3. Assert the enabled run reports both exact module literals.
+//
+// @evidence contracts/testing.md#behavioral-verification Internal and unknown-local edges are skipped by default and checked when both gates are enabled.
+// @evidence contracts/testing.md#independent-expectations The local file belongs to app while shared/util lacks a configured element; authored checkInternals/checkUnknownLocals options determine the expected two targets.
+// @evidence contracts/testing.md#distinguishing-cases Same-element and unmatched-local inputs each cross a different gate, with both zero and two-finding results.
+// @evidence contracts/testing.md#execution-ownership runBoundaryRule calls NewEngineWithResolver.Run with the gate-disabled and gate-enabled options. This entry owns the internal and unknown-local pair under both configurations.
 func TestBoundariesDependenciesGatesInternalAndUnknownTargets(t *testing.T) {
   const ruleName = "boundaries/dependencies"
   source := "import \"./local\";\nimport \"../shared/util\";\n"

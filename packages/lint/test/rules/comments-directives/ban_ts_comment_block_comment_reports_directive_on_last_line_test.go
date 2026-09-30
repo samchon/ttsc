@@ -21,6 +21,11 @@ import (
 //     line carries the directive.
 //  2. Assert one finding per source with the do-not-use message, starting
 //     at the comment's byte offset.
+//
+// @evidence contracts/testing.md#behavioral-verification ban-ts-comment reports final-line expect-error with its exact ban message and full comment range.
+// @evidence contracts/testing.md#independent-expectations The authored true option forbids the directive; literal message and first closing-delimiter offsets establish the expectation independently.
+// @evidence contracts/testing.md#distinguishing-cases Five ordinary/JSDoc and newline/star-prefix forms contrast with the earlier-line clean sibling.
+// @evidence contracts/testing.md#execution-ownership parseTS and NewEngineWithResolver.Run execute each source; this Test owns all message and range comparisons. No consumer install or native product-host build/launch is used.
 func TestBanTsCommentBlockCommentReportsDirectiveOnLastLine(t *testing.T) {
   const ruleName = "typescript/ban-ts-comment"
   const message = "Do not use `@ts-expect-error` because it alters compilation errors."

@@ -20,6 +20,11 @@ import (
 //  1. Lint block comments whose last line (per each terminator) carries the
 //     directive, configured `ts-expect-error: true`.
 //  2. Assert exactly one finding per source.
+//
+// @evidence contracts/testing.md#behavioral-verification ban-ts-comment recognizes final-line suppression after each ECMAScript line terminator.
+// @evidence contracts/testing.md#independent-expectations CRLF, CR, LF, U+2028 and U+2029 each end a source line; the literal true option requires one finding in every authored case.
+// @evidence contracts/testing.md#distinguishing-cases Five terminators prevent ASCII-only last-line scanning; before-last-line placement is separately negative.
+// @evidence contracts/testing.md#execution-ownership parseTS and NewEngineWithResolver.Run execute the five source variants in this Test loop. No consumer install or native product-host build/launch is used.
 func TestBanTsCommentBlockCommentSplitsLastLineOnAllLineTerminators(t *testing.T) {
   const ruleName = "typescript/ban-ts-comment"
   for _, source := range []string{

@@ -13,6 +13,11 @@ import "testing"
 // 1. Snapshot `const y = !Boolean(await p);` in an async function.
 // 2. Apply `no-extra-boolean-cast` fix.
 // 3. Assert the wrapped splice `!(await p)`.
+//
+// @evidence contracts/testing.md#behavioral-verification Groups awaited value beneath logical not after Boolean removal.
+// @evidence contracts/testing.md#independent-expectations The authored !(await p) negates the resolved value; !await p without the required grouping would change syntax/association.
+// @evidence contracts/testing.md#distinguishing-cases Await operand complements bare, logical and yield precedence cases and preserves async function source.
+// @evidence contracts/testing.md#execution-ownership assertFixSnapshot calls runFixSnapshot and applies the actual no-extra-boolean-cast edits to the fixture. This Test owns the exact independently authored source/output pair, including text outside the replacement. Execution stays in the lint Go process without consumer installation or native product-host builds/launches.
 func TestFixNoExtraBooleanCastParenthesizesAwaitArgumentUnderBang(t *testing.T) {
   assertFixSnapshot(
     t,

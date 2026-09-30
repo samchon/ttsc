@@ -13,6 +13,11 @@ import "testing"
 //  1. Lint upstream's "just a comment containing ..." valid cases plus
 //     near-miss spellings.
 //  2. Assert zero findings for each under the recommended defaults.
+//
+// @evidence contracts/testing.md#behavioral-verification The rule ignores prose mentions and incomplete or misspelled directive names.
+// @evidence contracts/testing.md#independent-expectations Only recognized directive-leading syntax changes compiler checking; seven authored non-directives independently require zero findings.
+// @evidence contracts/testing.md#distinguishing-cases Embedded mentions, incomplete ts prefixes, preceding prose and typescript-ignore prevent substring-based false positives.
+// @evidence contracts/testing.md#execution-ownership assertRuleSkipsSource executes every authored near-miss source; this Test owns all loop iterations. No consumer install or native product-host build/launch is used.
 func TestBanTsCommentIgnoresProseAndNearMissComments(t *testing.T) {
   const ruleName = "typescript/ban-ts-comment"
   for _, source := range []string{

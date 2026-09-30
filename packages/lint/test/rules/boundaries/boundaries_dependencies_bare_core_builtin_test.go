@@ -13,6 +13,11 @@ import "testing"
 // 1. Import the bare `fs` built-in and an external package with all origins on.
 // 2. Deny external origins, then deny core origins.
 // 3. Assert the built-in reports only under the core policy and the package only under external.
+//
+// @evidence contracts/testing.md#behavioral-verification Dependency classification treats bare fs as core and react as external when selecting origin policies.
+// @evidence contracts/testing.md#independent-expectations Node fs is a core module despite lacking node: prefix, while react is an external package; literal targets reflect those independently known origins.
+// @evidence contracts/testing.md#distinguishing-cases Two opposite policies on the same two imports expose collapsed external/core classification.
+// @evidence contracts/testing.md#execution-ownership runBoundaryRule parses the same fs/react source and calls NewEngineWithResolver.Run twice, once for external and once for core policy. This entry owns both policy results in the Go process.
 func TestBoundariesDependenciesClassifiesBareBuiltinsAsCore(t *testing.T) {
   const ruleName = "boundaries/dependencies"
   source := "import \"fs\";\nimport \"react\";\n"

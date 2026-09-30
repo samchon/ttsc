@@ -18,6 +18,11 @@ import (
 // 1. Parse regex literals with redundant char-class escapes alongside legitimate ones.
 // 2. Enable only `no-useless-escape`.
 // 3. Assert each useless-inside-class escape is reported and the legitimate escapes stay silent.
+//
+// @evidence contracts/testing.md#behavioral-verification Reports redundant class escapes for dot, dollar and paren without reporting meaningful outside-dot, dash, closing-bracket or word escapes.
+// @evidence contracts/testing.md#independent-expectations ECMAScript class grammar makes the first three escaped characters ordinary class members; literal line 1/2/3 expectations are independent.
+// @evidence contracts/testing.md#distinguishing-cases Inside/outside dot and class syntax/shorthand controls distinguish context-sensitive escape meaning.
+// @evidence contracts/testing.md#execution-ownership parseTS constructs the seven authored regex literals and NewEngine.Run executes no-useless-escape. This Test compares every normalized rule/severity/line entry with the literal three-line list. The calls remain in the lint Go process without consumer installation or a native product-host build/launch.
 func TestNoUselessEscapeFlagsRegexCharacterClass(t *testing.T) {
   source := `const dotInClass = /[\.]/;
 const dollarInClass = /[\$]/;

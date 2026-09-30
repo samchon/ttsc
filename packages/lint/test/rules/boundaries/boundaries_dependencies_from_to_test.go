@@ -12,6 +12,11 @@ import "testing"
 // 1. Import domain and shared elements from the same app file.
 // 2. Scope a source-pattern denial to the app-to-domain edge.
 // 3. Assert only the domain import reports.
+//
+// @evidence contracts/testing.md#behavioral-verification A policy jointly matches app source, domain target and domain dependency path without rejecting shared.
+// @evidence contracts/testing.md#independent-expectations The authored from/to/dependency selectors are conjunctive, so only the literal domain import matches all predicates.
+// @evidence contracts/testing.md#distinguishing-cases Two targets in one source distinguish joint direction/path matching from indiscriminate source rejection.
+// @evidence contracts/testing.md#execution-ownership runBoundaryRule feeds the authored source and fixture files to parseTSFile and NewEngineWithResolver.Run. This entry owns the domain-versus-shared selector comparison without a native host.
 func TestBoundariesDependenciesAppliesBothPolicyDirections(t *testing.T) {
   const ruleName = "boundaries/dependencies"
   source := "import \"../domain/model\";\nimport \"../shared/value\";\n"

@@ -15,6 +15,11 @@ import "testing"
 // 1. Snapshot `if (Boolean(Boolean(x)))` source.
 // 2. Apply one `no-extra-boolean-cast` fix pass.
 // 3. Assert the outer cast collapses to `if (Boolean(x))` without parens.
+//
+// @evidence contracts/testing.md#behavioral-verification Removes one nested Boolean wrapper while retaining the inner cast.
+// @evidence contracts/testing.md#independent-expectations The literal expected Boolean(x) removes the targeted outer redundancy without making an unrequested second rewrite.
+// @evidence contracts/testing.md#distinguishing-cases Nested wrappers pin the one-pass edit surface; the simple Boolean-in-if unit owns direct unwrapping.
+// @evidence contracts/testing.md#execution-ownership assertFixSnapshot calls runFixSnapshot and applies the actual no-extra-boolean-cast edits to the fixture. This Test owns the exact independently authored source/output pair, including text outside the replacement. Execution stays in the lint Go process without consumer installation or native product-host builds/launches.
 func TestFixNoExtraBooleanCastCollapsesNestedBooleanCall(t *testing.T) {
   assertFixSnapshot(
     t,

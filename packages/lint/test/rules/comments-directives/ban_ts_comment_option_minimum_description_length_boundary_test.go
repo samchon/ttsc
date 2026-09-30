@@ -19,6 +19,11 @@ import (
 // 1. Assert a description of exactly the configured length is allowed.
 // 2. Assert a shorter description reports with the threshold in the message.
 // 3. Assert `minimumDescriptionLength: 0` allows a bare directive.
+//
+// @evidence contracts/testing.md#behavioral-verification Configured minimum accepts exact threshold and zero threshold while rejecting a shorter description with the configured value in its message.
+// @evidence contracts/testing.md#independent-expectations The authored exactly 21 characters description meets 21; missing text meets zero; TODO is shorter than ten independently.
+// @evidence contracts/testing.md#distinguishing-cases Exact, zero and below-limit inputs distinguish inclusive threshold and customized message behavior.
+// @evidence contracts/testing.md#execution-ownership assertRuleSkipsSourceWithOptions owns both boundary allowances; parseTS/NewEngineWithResolver.Run owns the below-limit check within this Test. No consumer install or native product-host build/launch is used.
 func TestBanTsCommentOptionMinimumDescriptionLengthBoundary(t *testing.T) {
   const ruleName = "typescript/ban-ts-comment"
   assertRuleSkipsSourceWithOptions(

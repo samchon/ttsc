@@ -11,6 +11,11 @@ import (
 // rule ids on one canonical predicate. It covers legacy, Unicode, Unicode Sets,
 // nested class-set, escaped delimiter, range, negation, and invalid-syntax
 // boundaries through the public engine surface.
+//
+// @evidence contracts/testing.md#behavioral-verification Both bare and namespaced rules report only four syntactically valid empty classes.
+// @evidence contracts/testing.md#independent-expectations Authored lines 1,5,7,9 follow ECMAScript legacy/u/v class meaning; negated classes match characters and malformed regexes must not receive this valid-class diagnostic.
+// @evidence contracts/testing.md#distinguishing-cases Twenty regexes distinguish empty/negated/nested sets, brackets/ranges, conflicting/unknown/duplicate flags and invalid escapes.
+// @evidence contracts/testing.md#execution-ownership parseTS constructs the twenty authored regex literals and NewEngine.Run executes both selected rule names. This Test groups normalizeRuleFindings by rule and compares each complete line list with literal [1,5,7,9]. The calls remain in the lint Go process without consumer installation or a native product-host build/launch.
 func TestNoEmptyCharacterClassUsesParsedClassSemantics(t *testing.T) {
   file := parseTS(t, `const legacyEmpty = /[]/;
 const legacyNegated = /[^]/;

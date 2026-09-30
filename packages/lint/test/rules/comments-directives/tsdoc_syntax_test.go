@@ -16,6 +16,11 @@ import (
 // 1. Parse a TypeScript file containing malformed inline and block TSDoc tags.
 // 2. Run the native Engine with only jsdoc/tsdoc-syntax enabled.
 // 3. Assert the diagnostic lines match the malformed doc comment lines.
+//
+// @evidence contracts/testing.md#behavioral-verification The TSDoc syntax scanner reports three malformed tags while ignoring literal shadows, fenced code and well-formed inline links.
+// @evidence contracts/testing.md#independent-expectations The authored line-3 unclosed link, line-7 invalid inline tag and line-12 malformed block tag determine literal rule/severity/line expectations independently.
+// @evidence contracts/testing.md#distinguishing-cases Ordinary strings, fenced examples, valid param/link tags and malformed inline/block syntax exercise both recognition and exemption paths.
+// @evidence contracts/testing.md#execution-ownership parseTS and NewEngine.Run execute the authored source; this Test owns every literal normalized finding and the implicit clean controls. No consumer install or native product-host build/launch is used.
 func TestTSDocSyntaxReportsMalformedDocTags(t *testing.T) {
   source := `const shadow = "/** {@link Missing */";
 /**

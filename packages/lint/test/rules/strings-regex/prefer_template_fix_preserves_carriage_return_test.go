@@ -16,6 +16,11 @@ import "testing"
 //     return (written as a `\r` escape in source).
 //  2. Apply `prefer-template` fix.
 //  3. Assert the CR survives as a `\r` escape inside the template literal.
+//
+// @evidence contracts/testing.md#behavioral-verification Fixes concatenation while retaining the string's escaped carriage return.
+// @evidence contracts/testing.md#independent-expectations Literal expected \r spelling preserves U+000D in the resulting value and all source outside the replaced expression.
+// @evidence contracts/testing.md#distinguishing-cases Carriage return differs from newline and delimiter escaping; the newline sibling owns the other control character.
+// @evidence contracts/testing.md#execution-ownership assertFixSnapshot calls runFixSnapshot, applies the rule's actual edits to the fixture and compares complete independently authored output. This Test entry owns this exact source/output pair. All execute in the lint Go process without installing consumers or building/launching a native product host.
 func TestFixPreferTemplatePreservesCarriageReturn(t *testing.T) {
   assertFixSnapshot(
     t,

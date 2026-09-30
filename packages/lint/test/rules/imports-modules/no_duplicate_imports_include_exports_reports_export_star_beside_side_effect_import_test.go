@@ -17,6 +17,11 @@ import "testing"
 //  2. Run the rule with `includeExports: true`.
 //  3. Assert one duplicated-as-import finding on line 2 and one
 //     duplicated-as-export finding on line 4.
+//
+// @evidence contracts/testing.md#behavioral-verification runNoDuplicateImports exercises the actual no-duplicate-imports Engine operation. Export-all and side-effect imports report as mergeable in both declaration orders. The shared assertion also rejects unexpected rules and any offered autofix.
+// @evidence contracts/testing.md#independent-expectations The authored messages identify export-as-import at line 2 and import-as-export at line 4, independently of emission order. The helper only normalizes returned line/message pairs and compares them with literal expectations.
+// @evidence contracts/testing.md#distinguishing-cases Both m and n orderings complement nonmergeable export-all/named acceptance.
+// @evidence contracts/testing.md#execution-ownership runNoDuplicateImports calls parseTSFile and NewEngineWithResolver.Run for this entry's authored source/options, then assertDuplicateImportsFindings performs the displayed literal result comparison. This Test owns that source and option combination in the Go process, without dynamic registration or a native host.
 func TestNoDuplicateImportsIncludeExportsReportsExportStarBesideSideEffectImport(t *testing.T) {
   got := runNoDuplicateImports(t, `import "m";
 export * from "m";

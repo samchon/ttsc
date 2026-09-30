@@ -19,6 +19,11 @@ import (
 // 1. Configure the canonical format with a 25-character minimum.
 // 2. Lint `: TS1234 because xyz` (matches the format, 20 characters).
 // 3. Assert the single finding carries the length message with 25.
+//
+// @evidence contracts/testing.md#behavioral-verification Length failure takes precedence over a matching description format, with the configured 25 threshold in the message.
+// @evidence contracts/testing.md#independent-expectations The authored description matches the regex but is below 25 graphemes; the expected length complaint and absence of format text follow gate order.
+// @evidence contracts/testing.md#distinguishing-cases Matching-but-short input distinguishes threshold checking from format acceptance or misleading format failure.
+// @evidence contracts/testing.md#execution-ownership parseTS and NewEngineWithResolver.Run execute the authored options; this Test owns count and message inclusion/exclusion checks. No consumer install or native product-host build/launch is used.
 func TestBanTsCommentOptionDescriptionFormatChecksLengthFirst(t *testing.T) {
   const ruleName = "typescript/ban-ts-comment"
   source := "// @ts-expect-error: TS1234 because xyz\nconst a: number = 1;\nJSON.stringify(a);\n"

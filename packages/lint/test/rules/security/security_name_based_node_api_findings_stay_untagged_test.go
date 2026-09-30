@@ -18,6 +18,11 @@ import (
 //  1. Report user-defined `Buffer` and `crypto` shapes and assert no tags.
 //  2. Assert each range remains the exact construct the diagnostic names.
 //  3. Keep `detect-buffer-noassert` untagged over its existing whole-call range.
+//
+// @evidence contracts/testing.md#behavioral-verification Security findings on local Buffer and crypto lookalikes have no Node deprecation tags, and their spans cover exactly the named construction/property; the noAssert call also has no tags and a whole-call span.
+// @evidence contracts/testing.md#independent-expectations DEP0005 and DEP0115 classify actual Node APIs, not merely the same lexical names. Expected spans come from authored marker strings and literal source offsets, not findings.
+// @evidence contracts/testing.md#distinguishing-cases Local constructor and object lookalikes distinguish name detection from proven Node identity; the Buffer noAssert call pins the separate whole-call range and empty-tag classification.
+// @evidence contracts/testing.md#execution-ownership runRuleFindingsSnapshot executes each local Buffer/crypto fixture and the separate noAssert fixture through the engine, loading a Program/checker if the rule requests one. This Test owns all tag and literal-marker range checks in the Go process.
 func TestSecurityNameBasedNodeApiFindingsStayUntagged(t *testing.T) {
   cases := []struct {
     rule   string

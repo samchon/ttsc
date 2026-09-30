@@ -14,6 +14,11 @@ import "testing"
 // 1. Import named value bindings from the same module twice.
 // 2. Run the rule with `allowSeparateTypeImports: true`.
 // 3. Assert exactly one duplicate-import finding on the second line.
+//
+// @evidence contracts/testing.md#behavioral-verification runNoDuplicateImports exercises the actual no-duplicate-imports Engine operation. The enabled separation option still reports two value named imports at line 2. The shared assertion also rejects unexpected rules and any offered autofix.
+// @evidence contracts/testing.md#independent-expectations The option cannot excuse duplicates within the value category; the literal line and duplicated-import message follow the policy. The helper only normalizes returned line/message pairs and compares them with literal expectations.
+// @evidence contracts/testing.md#distinguishing-cases Same-category value pair complements mixed type/value acceptance and the type-pair positive case.
+// @evidence contracts/testing.md#execution-ownership runNoDuplicateImports calls parseTSFile and NewEngineWithResolver.Run for this entry's authored source/options, then assertDuplicateImportsFindings performs the displayed literal result comparison. This Test owns that source and option combination in the Go process, without dynamic registration or a native host.
 func TestNoDuplicateImportsAllowSeparateTypeImportsStillReportsValuePairs(t *testing.T) {
   got := runNoDuplicateImports(t, `import { first } from "m";
 import { second } from "m";

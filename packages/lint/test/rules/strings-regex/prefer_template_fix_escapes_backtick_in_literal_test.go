@@ -15,6 +15,11 @@ import "testing"
 // 1. Snapshot a concat whose literal contains a backtick.
 // 2. Apply `prefer-template` fix.
 // 3. Assert the backtick is escaped inside the template literal.
+//
+// @evidence contracts/testing.md#behavioral-verification Fixes concatenation while escaping the literal backtick inside the template.
+// @evidence contracts/testing.md#independent-expectations The literal expected escaped backtick preserves the original string character and cannot terminate the new template.
+// @evidence contracts/testing.md#distinguishing-cases Embedded delimiter boundary complements ordinary three-part concatenation.
+// @evidence contracts/testing.md#execution-ownership assertFixSnapshot calls runFixSnapshot, applies the rule's actual edits to the fixture and compares complete independently authored output. This Test entry owns this exact source/output pair. All execute in the lint Go process without installing consumers or building/launching a native product host.
 func TestFixPreferTemplateEscapesBacktickInLiteralSegment(t *testing.T) {
   assertFixSnapshot(
     t,

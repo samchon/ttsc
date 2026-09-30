@@ -19,6 +19,11 @@ import (
 // 1. Run standards-derived positive and negative twins through the real rule.
 // 2. Exercise custom two-cluster and default three-cluster thresholds.
 // 3. Retain Hangul, marks, emoji ZWJ/modifier, and RI-pair coverage.
+//
+// @evidence contracts/testing.md#behavioral-verification The rule applies Unicode 16 cluster boundaries to description thresholds.
+// @evidence contracts/testing.md#independent-expectations Authored wantFinding values follow Unicode grapheme break rules for prepend, Indic linker, emoji tags/ZWJ/modifiers, Hangul and regional indicators.
+// @evidence contracts/testing.md#distinguishing-cases Twenty-five named subcases include reversed/missing controls and default two-versus-three boundaries; the official corpus sibling validates the segmenter exhaustively.
+// @evidence contracts/testing.md#execution-ownership This Test registers each table row with t.Run(testCase.name), calls runRuleFindingsSnapshot and owns its literal finding/no-finding expectation. No consumer install or native product-host build/launch is used.
 func TestBanTsCommentDescriptionLengthFollowsUnicode16Graphemes(t *testing.T) {
   const (
     ruleName = "typescript/ban-ts-comment"

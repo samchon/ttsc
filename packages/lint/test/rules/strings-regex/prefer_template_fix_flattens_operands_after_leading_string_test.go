@@ -17,6 +17,11 @@ import "testing"
 // 1. Snapshot a chain whose leftmost operand is a string literal.
 // 2. Apply `prefer-template` fix.
 // 3. Assert each trailing operand keeps its own `${…}` slot.
+//
+// @evidence contracts/testing.md#behavioral-verification Fixes string-leading +a+b as separate interpolation slots.
+// @evidence contracts/testing.md#independent-expectations Once the leading string is evaluated, successive + operations concatenate individually; literal ${a}${b} preserves that coercion order.
+// @evidence contracts/testing.md#distinguishing-cases Contrasts numeric leading subchain, which must stay inside one arithmetic slot.
+// @evidence contracts/testing.md#execution-ownership assertFixSnapshot calls runFixSnapshot, applies the rule's actual edits to the fixture and compares complete independently authored output. This Test entry owns this exact source/output pair. All execute in the lint Go process without installing consumers or building/launching a native product host.
 func TestFixPreferTemplateFlattensOperandsAfterLeadingString(t *testing.T) {
   assertFixSnapshot(
     t,

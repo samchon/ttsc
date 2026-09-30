@@ -24,6 +24,11 @@ import (
 //  1. Enable `regexp/no-useless-flag` on one regex literal per case.
 //  2. Run the engine on each.
 //  3. Assert the flag is reported only where toggling `i` cannot change a match.
+//
+// @evidence contracts/testing.md#behavioral-verification Reports i only for supported case-invariant patterns while retaining live or conservatively unanalyzed i flags.
+// @evidence contracts/testing.md#independent-expectations Each literal report boolean and reason follows ECMAScript case behavior or the supported conservative policy, not findings.
+// @evidence contracts/testing.md#distinguishing-cases Digit/control/empty/group-name positives contrast with letters, Unicode folding, property/backreference/wide-range conservative cases and legacy versus u/v distinctions.
+// @evidence contracts/testing.md#execution-ownership The Test loop calls parseTS and NewEngine.Run for every literal regex/report/reason row. Errorf collects all independent failures rather than stopping at the first; each row remains owned by this Test. All execute in the lint Go process without installing consumers or building/launching a native product host.
 func TestRegexpUselessIgnoreCaseFlag(t *testing.T) {
   cases := []struct {
     literal string

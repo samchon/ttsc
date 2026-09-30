@@ -18,6 +18,11 @@ import (
 // 1. Configure `^: TS\d+ because .+$` for `ts-expect-error`.
 // 2. Lint a truncated description and a whitespace-padded one.
 // 3. Assert one finding each with the exact format-mismatch message.
+//
+// @evidence contracts/testing.md#behavioral-verification Configured format rejects a truncated description and one padded before the colon with the exact format message.
+// @evidence contracts/testing.md#independent-expectations The authored anchored regex excludes both raw descriptions; literal expected message echoes that configuration independently.
+// @evidence contracts/testing.md#distinguishing-cases Two nonconforming shapes distinguish trimming the raw prefix from actually matching the configured expression.
+// @evidence contracts/testing.md#execution-ownership parseTS and NewEngineWithResolver.Run execute both sources; this entry owns each exact message/count result. No consumer install or native product-host build/launch is used.
 func TestBanTsCommentOptionDescriptionFormatReportsMismatch(t *testing.T) {
   const ruleName = "typescript/ban-ts-comment"
   const message = "The description for the `@ts-expect-error` directive must match the ^: TS\\d+ because .+$ format."

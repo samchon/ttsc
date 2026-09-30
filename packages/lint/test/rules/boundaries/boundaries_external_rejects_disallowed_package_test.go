@@ -13,6 +13,11 @@ import "testing"
 // 1. Parse a file importing two external packages.
 // 2. Configure only @legacy/sdk as a disallowed external dependency.
 // 3. Assert the @legacy/sdk subpath import reports exactly one finding.
+//
+// @evidence contracts/testing.md#behavioral-verification External policy rejects @legacy/sdk/client but leaves react clean.
+// @evidence contracts/testing.md#independent-expectations An explicit @legacy/sdk deny entry covers its subpath and does not cover react; literal package names establish the one finding.
+// @evidence contracts/testing.md#distinguishing-cases Blocked scoped package subpath and unrelated allowed package distinguish prefix matching from all external imports.
+// @evidence contracts/testing.md#execution-ownership runBoundaryRule executes NewEngineWithResolver.Run on the authored legacy/react imports. The entry owns assertSingleBoundaryFinding and its allowed-react control.
 func TestBoundariesExternalRejectsDisallowedPackage(t *testing.T) {
   const ruleName = "boundaries/external"
   findings := runBoundaryRule(t, ruleName, "src/app/main.ts", `

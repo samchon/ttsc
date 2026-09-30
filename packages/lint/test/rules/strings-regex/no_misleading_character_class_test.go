@@ -15,6 +15,12 @@ import "testing"
 // 1. Load the annotated TypeScript fixture source embedded below.
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
+//
+// @evidence contracts/testing.md#behavioral-verification Reports the astral thumbs-up inside a legacy regex class while permitting an ASCII class.
+// @evidence contracts/testing.md#independent-expectations Without Unicode mode the authored surrogate pair is two class members rather than one code point; the literal annotated diagnostic follows that regex meaning.
+// @evidence contracts/testing.md#distinguishing-cases Astral legacy member versus ASCII member distinguishes surrogate ambiguity from all character classes.
+// @evidence contracts/testing.md#execution-ownership assertRuleCorpusCase owns the original annotated engine fixture; assertRuleSkipsSource executes the newly authored neighboring clean source. Both invocations belong to this discoverable Test. All execute in the lint Go process without installing consumers or building/launching a native product host.
 func TestRuleCorpusNoMisleadingCharacterClass(t *testing.T) {
   assertRuleCorpusCase(t, "no-misleading-character-class.ts", "// expect: no-misleading-character-class error\nconst r = /[👍]/;\nJSON.stringify(r);\n")
+  assertRuleSkipsSource(t, "no-misleading-character-class", "const re = /[abc]/;\n")
 }

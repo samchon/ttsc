@@ -20,6 +20,11 @@ import (
 // 1. Assert a described top-of-file `@ts-nocheck` produces zero findings.
 // 2. Assert a bare top-of-file `@ts-nocheck` reports requires-description.
 // 3. Assert a post-statement `@ts-nocheck` stays silent under this option.
+//
+// @evidence contracts/testing.md#behavioral-verification Nocheck description policy permits a described leading pragma and a late pragma, but rejects bare leading nocheck.
+// @evidence contracts/testing.md#independent-expectations Description gating applies only to an effective leading nocheck; the authored late placement cannot disable file checking.
+// @evidence contracts/testing.md#distinguishing-cases Described leading, bare late and bare leading placements separate explanation from pragma effectiveness.
+// @evidence contracts/testing.md#execution-ownership assertRuleSkipsSourceWithOptions owns both allowances; parseTS/NewEngineWithResolver.Run owns bare-leading rejection and message in this entry. No consumer install or native product-host build/launch is used.
 func TestBanTsCommentOptionTsNocheckAllowWithDescription(t *testing.T) {
   const ruleName = "typescript/ban-ts-comment"
   const options = `{"ts-nocheck": "allow-with-description"}`

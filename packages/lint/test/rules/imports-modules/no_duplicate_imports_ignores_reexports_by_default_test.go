@@ -14,6 +14,11 @@ import "testing"
 // 1. Import from "m", then re-export from "m" twice.
 // 2. Run the rule with default options.
 // 3. Assert zero findings.
+//
+// @evidence contracts/testing.md#behavioral-verification runNoDuplicateImports exercises the actual no-duplicate-imports Engine operation. Default no-duplicate-imports ignores both reexports after an import. The shared assertion also rejects unexpected rules and any offered autofix.
+// @evidence contracts/testing.md#independent-expectations includeExports defaults false, so reexports neither report nor seed later duplicate comparisons. The helper only normalizes returned line/message pairs and compares them with literal expectations.
+// @evidence contracts/testing.md#distinguishing-cases An import and two same-module reexports would report if the gate were absent; enabled-export cases own the positive side.
+// @evidence contracts/testing.md#execution-ownership runNoDuplicateImports calls parseTSFile and NewEngineWithResolver.Run for this entry's authored source/options, then assertNoDuplicateImportsFindings performs the displayed literal result comparison. This Test owns that source and option combination in the Go process, without dynamic registration or a native host.
 func TestNoDuplicateImportsIgnoresReexportsByDefault(t *testing.T) {
   got := runNoDuplicateImports(t, `import { value } from "m";
 export { first } from "m";

@@ -20,6 +20,11 @@ import (
 // 1. Assert a described `@ts-ignore` produces zero findings.
 // 2. Assert a bare `@ts-ignore` reports the requires-description message.
 // 3. Assert the finding carries no fix edit.
+//
+// @evidence contracts/testing.md#behavioral-verification The ignore description option permits a long explanation but rejects a bare directive without providing an automatic rewrite.
+// @evidence contracts/testing.md#independent-expectations Authored allow-with-description policy makes explanation the distinguishing property; literal message fragment and no-fix expectation follow its contract.
+// @evidence contracts/testing.md#distinguishing-cases Long and absent descriptions on the same directive distinguish allowance from unconditional ban.
+// @evidence contracts/testing.md#execution-ownership assertRuleSkipsSourceWithOptions owns the described source; parseTS/NewEngineWithResolver.Run owns the bare source, message and fix checks. No consumer install or native product-host build/launch is used.
 func TestBanTsCommentOptionTsIgnoreAllowWithDescription(t *testing.T) {
   const ruleName = "typescript/ban-ts-comment"
   const options = `{"ts-ignore": "allow-with-description"}`

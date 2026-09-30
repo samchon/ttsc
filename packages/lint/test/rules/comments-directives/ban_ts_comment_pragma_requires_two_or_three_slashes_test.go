@@ -18,6 +18,11 @@ import (
 //  1. Assert `//// @ts-nocheck` (defaults) and `//// @ts-check` (configured
 //     true) produce zero findings.
 //  2. Assert `/// @ts-nocheck` (three slashes) still reports under defaults.
+//
+// @evidence contracts/testing.md#behavioral-verification Pragma recognition permits three slashes but ignores four-slash check/nocheck lookalikes.
+// @evidence contracts/testing.md#independent-expectations The supported pragma syntax has two or three leading slashes; literal three-slash range and four-slash zero results establish the boundary independently.
+// @evidence contracts/testing.md#distinguishing-cases Both four-slash directives stay clean while triple-slash nocheck reports with its full comment span.
+// @evidence contracts/testing.md#execution-ownership assertRuleSkipsSource and assertRuleSkipsSourceWithOptions own the two negatives; parseTS/NewEngine.Run owns the triple-slash positive in this entry. No consumer install or native product-host build/launch is used.
 func TestBanTsCommentPragmaRequiresTwoOrThreeSlashes(t *testing.T) {
   const ruleName = "typescript/ban-ts-comment"
   assertRuleSkipsSource(

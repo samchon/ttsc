@@ -12,6 +12,11 @@ import "testing"
 // 1. Run the same app-to-domain dependency with no matching policies.
 // 2. Compare omitted and explicit-allow default settings.
 // 3. Assert the omitted default reports once and explicit allow reports none.
+//
+// @evidence contracts/testing.md#behavioral-verification Dependencies deny an unallowed cross-element edge by default and permit it with explicit default allow.
+// @evidence contracts/testing.md#independent-expectations The supported default is disallow; changing only default to allow reverses the independently authored expected finding population.
+// @evidence contracts/testing.md#distinguishing-cases Two engine calls share source/elements and differ only in default policy, exercising both gate outcomes.
+// @evidence contracts/testing.md#execution-ownership runBoundaryRule calls NewEngineWithResolver.Run for each of the default-disallow and explicit-allow option objects. This entry owns the reversed finding populations in the same Go process.
 func TestBoundariesDependenciesDefaultsToDisallow(t *testing.T) {
   const ruleName = "boundaries/dependencies"
   source := "import \"../domain/model\";\n"

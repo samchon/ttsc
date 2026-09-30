@@ -15,6 +15,11 @@ import "testing"
 // 1. Load the annotated TypeScript fixture source embedded below.
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
+//
+// @evidence contracts/testing.md#behavioral-verification Reports redundant !! in an if condition.
+// @evidence contracts/testing.md#independent-expectations The authored annotation follows implicit if ToBoolean semantics; it does not certify every boolean conversion as redundant.
+// @evidence contracts/testing.md#distinguishing-cases Positive detection complements outside-context zero result and exact fix/comment-safety units.
+// @evidence contracts/testing.md#execution-ownership assertRuleCorpusCase runs this entry's independently annotated fixture through the Go engine and compares rule/severity/line triples. This Test owns all marked violations and unmarked controls. Execution stays in the lint Go process without consumer installation or native product-host builds/launches.
 func TestRuleCorpusNoExtraBooleanCast(t *testing.T) {
   assertRuleCorpusCase(t, "no-extra-boolean-cast.ts", "function f(x: any) {\n  // expect: no-extra-boolean-cast error\n  if (!!x) {\n    return 1;\n  }\n  return 0;\n}\nJSON.stringify(f);\n")
 }

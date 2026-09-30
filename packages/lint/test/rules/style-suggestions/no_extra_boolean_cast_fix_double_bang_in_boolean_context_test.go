@@ -14,6 +14,11 @@ import "testing"
 // 1. Snapshot `if (!!x)` source.
 // 2. Apply `no-extra-boolean-cast` fix.
 // 3. Assert the result drops the `!!` coercion.
+//
+// @evidence contracts/testing.md#behavioral-verification Removes !! in an if condition while preserving branch behavior.
+// @evidence contracts/testing.md#independent-expectations If already applies ToBoolean, so the independently authored if(x) keeps truthiness and all surrounding returns.
+// @evidence contracts/testing.md#distinguishing-cases Double-bang positive contrasts with the explicit outside-boolean-context negative and comment seam refusal.
+// @evidence contracts/testing.md#execution-ownership assertFixSnapshot calls runFixSnapshot and applies the actual no-extra-boolean-cast edits to the fixture. This Test owns the exact independently authored source/output pair, including text outside the replacement. Execution stays in the lint Go process without consumer installation or native product-host builds/launches.
 func TestFixNoExtraBooleanCastDropsDoubleBangInBooleanContext(t *testing.T) {
   assertFixSnapshot(
     t,

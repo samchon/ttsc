@@ -15,6 +15,11 @@ import "testing"
 //  1. Report on `if (!/* c */!x)` and assert nothing is applied automatically.
 //  2. Assert the single suggestion collapses the cast to `if (x)`.
 //  3. Assert the comment-free twin is still autofixed without asking.
+//
+// @evidence contracts/testing.md#behavioral-verification Comment-discarding cast removal is available only as a titled suggestion while comment-free !! gets an automatic fix.
+// @evidence contracts/testing.md#independent-expectations Literal title discloses discarded commentary, and independently authored whole outputs establish the intended branch-preserving splice.
+// @evidence contracts/testing.md#distinguishing-cases Suggestion/no-autofix channel and clean automatic channel share the same boolean shape, isolating comment safety.
+// @evidence contracts/testing.md#execution-ownership assertSuggestionSnapshot executes the comment-bearing no-extra-boolean-cast case, checking the title, opt-in output and absence of automatic edits. assertFixSnapshot owns the authored clean automatic-fix case in the same Test. Execution stays in the lint Go process without consumer installation or native product-host builds/launches.
 func TestNoExtraBooleanCastOffersWithheldSpliceAsSuggestion(t *testing.T) {
   assertSuggestionSnapshot(
     t,

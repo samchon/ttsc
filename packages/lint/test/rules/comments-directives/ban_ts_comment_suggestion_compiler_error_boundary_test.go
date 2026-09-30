@@ -5,6 +5,11 @@ import "testing"
 // TestBanTsCommentSuggestionCompilerErrorBoundary verifies the opt-in rewrite
 // creates TS2578 above an error-free line but remains valid above a genuine
 // type error.
+//
+// @evidence contracts/testing.md#behavioral-verification Applying the ignore-to-expect-error suggestion causes TS2578 only on the error-free statement, while a genuine type error remains correctly suppressed.
+// @evidence contracts/testing.md#independent-expectations TypeScript expect-error requires an error on the next line; authored want2578 booleans follow the number-versus-string assignments independently.
+// @evidence contracts/testing.md#distinguishing-cases Two t.Run cases distinguish semantics of the suggested rewrite, reject all unexpected compiler diagnostics and require exactly one applied edit.
+// @evidence contracts/testing.md#execution-ownership runRuleFindingsSnapshot obtains the suggestion; applyFindingFixesToText applies it; seedLintProject/loadProgram and programDiagnostics validate both named subcases in this Test without a CLI child. No consumer install or native product-host build/launch is used.
 func TestBanTsCommentSuggestionCompilerErrorBoundary(t *testing.T) {
   cases := []struct {
     name      string

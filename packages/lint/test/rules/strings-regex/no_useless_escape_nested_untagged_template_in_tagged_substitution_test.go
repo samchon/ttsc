@@ -17,6 +17,11 @@ import "testing"
 //  2. Assert each untagged literal (rows a, b, d, e, plus the string control)
 //     reports exactly the backslash byte, while the directly-tagged row f
 //     stays silent.
+//
+// @evidence contracts/testing.md#behavioral-verification Untagged inner templates and strings remain checked inside tagged substitutions while tagged raw template text remains untouched.
+// @evidence contracts/testing.md#independent-expectations Tagged raw text retains escape semantics; an untagged expression nested in its substitution retains normal cooked semantics. Literal backslash markers are independent expectations.
+// @evidence contracts/testing.md#distinguishing-cases Six named cases cover plain strings, untagged templates, nested untagged/tagged outers and the raw negative.
+// @evidence contracts/testing.md#execution-ownership This Test registers each named row with t.Run and assertRuleFindingRanges executes its authored source through the engine; each row retains its independent literal backslash markers and failure identity. All execute in the lint Go process without installing consumers or building/launching a native product host.
 func TestNoUselessEscapeNestedUntaggedTemplateInTaggedSubstitution(t *testing.T) {
   backslash := []string{"\\"}
   cases := []struct {

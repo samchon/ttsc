@@ -20,6 +20,11 @@ import (
 // 1. Configure `ts-expect-error: { descriptionFormat: "(" }`.
 // 2. Assert a bare directive still reports requires-description.
 // 3. Assert a described directive passes without a format complaint.
+//
+// @evidence contracts/testing.md#behavioral-verification An invalid format expression disables matching but preserves the description-length requirement.
+// @evidence contracts/testing.md#independent-expectations The literal ( is unusable as a regex; supported fallback still rejects missing descriptions while accepting sufficient text.
+// @evidence contracts/testing.md#distinguishing-cases Long-description allowance and bare-directive rejection guard against treating an invalid regex as full allowance or full ban.
+// @evidence contracts/testing.md#execution-ownership assertRuleSkipsSourceWithOptions owns allowance, and parseTS/NewEngineWithResolver.Run owns the missing-description finding in this entry. No consumer install or native product-host build/launch is used.
 func TestBanTsCommentOptionInvalidDescriptionFormatKeepsLengthGate(t *testing.T) {
   const ruleName = "typescript/ban-ts-comment"
   const options = `{"ts-expect-error": {"descriptionFormat": "("}}`

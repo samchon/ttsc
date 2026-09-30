@@ -17,6 +17,11 @@ import (
 // 1. Lint a file opening with `// @ts-nocheck` above real statements.
 // 2. Assert exactly one finding with the upstream do-not-use message.
 // 3. Assert the finding covers the pragma comment's byte range.
+//
+// @evidence contracts/testing.md#behavioral-verification Default ban-ts-comment reports a leading nocheck with exact message/range and no autofix.
+// @evidence contracts/testing.md#independent-expectations The leading directive disables file checking; literal comment bounds and ban message are independently supplied.
+// @evidence contracts/testing.md#distinguishing-cases Before-code positive contrasts with late-directive allowance and protects automatic-fix absence.
+// @evidence contracts/testing.md#execution-ownership parseTS and NewEngine.Run execute the source; this entry owns exact message, span and fix-count checks. No consumer install or native product-host build/launch is used.
 func TestBanTsCommentDefaultReportsTsNocheckBeforeCode(t *testing.T) {
   const message = "Do not use `@ts-nocheck` because it alters compilation errors."
   source := "// @ts-nocheck\nconst a: number = 1;\nJSON.stringify(a);\n"

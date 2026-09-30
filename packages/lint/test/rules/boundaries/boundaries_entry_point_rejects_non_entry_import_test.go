@@ -13,6 +13,11 @@ import "testing"
 // 1. Materialize a domain element with index.ts and internal.ts files.
 // 2. Configure index.ts as the domain entry point.
 // 3. Assert the app file's deep import reports while the index import passes.
+//
+// @evidence contracts/testing.md#behavioral-verification Entry-point policy rejects domain/internal but permits the directory index entry and names index.ts as the legal entry.
+// @evidence contracts/testing.md#independent-expectations The authored entry index.ts option independently marks the permitted import target; exact message fragments and one finding establish that distinction.
+// @evidence contracts/testing.md#distinguishing-cases Internal-file and root-directory imports contrast bypassed entry and legal entry resolution.
+// @evidence contracts/testing.md#execution-ownership runBoundaryRule calls NewEngineWithResolver.Run on the authored internal and directory-entry imports. The entry owns both assertSingleBoundaryFinding message checks and exact one-report cardinality.
 func TestBoundariesEntryPointRejectsNonEntryImport(t *testing.T) {
   const ruleName = "boundaries/entry-point"
   findings := runBoundaryRule(t, ruleName, "src/app/main.ts", `

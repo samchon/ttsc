@@ -13,6 +13,11 @@ import "testing"
 //     import-type forms.
 //  2. Select each form through dependency metadata under app-to-domain policy.
 //  3. Assert all seven module literals report, including type and typeof imports.
+//
+// @evidence contracts/testing.md#behavioral-verification Dependencies collect seven module edges with node-kind, dependency-kind and specifier metadata across static and dynamic syntax.
+// @evidence contracts/testing.md#independent-expectations The authored policies name distinct supported AST module forms and the Foo type specifier; seven literal module-string expectations define the edge population independently.
+// @evidence contracts/testing.md#distinguishing-cases Static import, reexport, import-equals, dynamic import, require, import-type and typeof import-type preserve distinct source ranges and metadata gates.
+// @evidence contracts/testing.md#execution-ownership runBoundaryRule parses the authored module forms and executes NewEngineWithResolver.Run. This entry owns all seven source-range expectations, with no generated extra Test entry.
 func TestBoundariesDependenciesCollectsModuleSyntaxAndMetadata(t *testing.T) {
   const ruleName = "boundaries/dependencies"
   source := `import type { Foo } from "../domain/types";

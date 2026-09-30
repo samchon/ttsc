@@ -16,6 +16,11 @@ import (
 //
 // 1. Lint a file containing only the nocheck pragma comment.
 // 2. Assert exactly one finding on line 1.
+//
+// @evidence contracts/testing.md#behavioral-verification Default ban-ts-comment reports nocheck even in a statement-free file.
+// @evidence contracts/testing.md#independent-expectations A source-leading pragma does not require a later statement to be effective; the literal directive range is the independent oracle.
+// @evidence contracts/testing.md#distinguishing-cases The empty statement population guards against using a first-statement sentinel that incorrectly skips the only directive.
+// @evidence contracts/testing.md#execution-ownership parseTS and NewEngine.Run execute the one-comment file; this Test owns its exact count and span. No consumer install or native product-host build/launch is used.
 func TestBanTsCommentDefaultReportsTsNocheckWithoutStatements(t *testing.T) {
   file := parseTS(t, "// @ts-nocheck\n")
   findings := NewEngine(RuleConfig{"typescript/ban-ts-comment": SeverityError}).

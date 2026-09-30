@@ -15,6 +15,12 @@ import "testing"
 // 1. Load the annotated TypeScript fixture source embedded below.
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
+//
+// @evidence contracts/testing.md#behavioral-verification Reports legacy 010 syntax while accepting explicit 0o10 and decimal zero.
+// @evidence contracts/testing.md#independent-expectations Modern ECMAScript has explicit octal notation; the independently authored forms distinguish confusing legacy notation from permitted numeric values.
+// @evidence contracts/testing.md#distinguishing-cases Legacy octal, explicit octal and singleton zero cover lexical notation boundaries.
+// @evidence contracts/testing.md#execution-ownership assertRuleCorpusCase owns the original annotated engine fixture; assertRuleSkipsSource executes the newly authored neighboring clean source. Both invocations belong to this discoverable Test. All execute in the lint Go process without installing consumers or building/launching a native product host.
 func TestRuleCorpusNoOctal(t *testing.T) {
   assertRuleCorpusCase(t, "no-octal.ts", "// expect: no-octal error\nconst n = 010;\nJSON.stringify(n);")
+  assertRuleSkipsSource(t, "no-octal", "const explicit = 0o10;\nconst zero = 0;\n")
 }

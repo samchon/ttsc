@@ -25,6 +25,11 @@ import (
 //  2. Assert every finding spans exactly the backslash byte.
 //  3. Assert the multi-byte findings carry no fix and the ASCII one deletes
 //     exactly the backslash.
+//
+// @evidence contracts/testing.md#behavioral-verification Finding spans cover only the removable backslash; multibyte escapes stay detection-only while ASCII a gets a deletion fix.
+// @evidence contracts/testing.md#independent-expectations Authored escape offsets and literal one-byte deletion establish expected ranges/edits; preserving Unicode token meaning constrains fix eligibility.
+// @evidence contracts/testing.md#distinguishing-cases String and regex CJK escapes contrast with the ASCII fixable escape in one source.
+// @evidence contracts/testing.md#execution-ownership parseTS and NewEngine.Run execute the two CJK escapes and one ASCII escape. This Test owns all three literal ranges, both multibyte no-fix checks and the exact ASCII deletion edit. The calls remain in the lint Go process without consumer installation or a native product-host build/launch.
 func TestNoUselessEscapeMultibyteRangeCoversBackslashOnly(t *testing.T) {
   source := `const wide = "\你";
 const pattern = /\你/;

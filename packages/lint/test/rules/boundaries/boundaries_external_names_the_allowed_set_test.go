@@ -13,6 +13,11 @@ import "testing"
 // 1. Allow only `react` and `@app/*`.
 // 2. Import `@legacy/sdk`, which the allow-list excludes.
 // 3. Assert the finding names the allowed patterns.
+//
+// @evidence contracts/testing.md#behavioral-verification External rejection names react and @app/* as the allowed patterns for a denied legacy client subpath.
+// @evidence contracts/testing.md#independent-expectations The literal allow list determines both rejection and the independently expected rendered Allowed here clause.
+// @evidence contracts/testing.md#distinguishing-cases Allow-list rejection contrasts with deny-only message omission; actual allowed imports are covered by the external rejection sibling control.
+// @evidence contracts/testing.md#execution-ownership runBoundaryRule executes NewEngineWithResolver.Run for the external allow-list. This entry owns both assertSingleBoundaryFinding message checks on its one rejected legacy import.
 func TestBoundariesExternalNamesTheAllowedSet(t *testing.T) {
   const ruleName = "boundaries/external"
   findings := runBoundaryRule(t, ruleName, "src/app/main.ts", `
@@ -22,21 +27,4 @@ func TestBoundariesExternalNamesTheAllowedSet(t *testing.T) {
   }`, nil)
   assertSingleBoundaryFinding(t, ruleName, findings, `External dependency "@legacy/sdk/client" is not allowed.`)
   assertSingleBoundaryFinding(t, ruleName, findings, `Allowed here: react, @app/*.`)
-}
-
-// TestBoundariesExternalDenyOnlyNamesNothing is the negative twin: a deny-only
-// external policy has no allowed set, so the message must not sprout one.
-//
-// 1. Disallow `@legacy/sdk` with no allow-list.
-// 2. Import it.
-// 3. Assert the finding fires and carries no allowed-set clause.
-func TestBoundariesExternalDenyOnlyNamesNothing(t *testing.T) {
-  const ruleName = "boundaries/external"
-  findings := runBoundaryRule(t, ruleName, "src/app/main.ts", `
-    import "@legacy/sdk/client";
-  `, `{
-    "disallow": ["@legacy/sdk"]
-  }`, nil)
-  assertSingleBoundaryFinding(t, ruleName, findings, `is not allowed.`)
-  assertBoundaryFindingExcludes(t, ruleName, findings, "Allowed here")
 }

@@ -17,6 +17,11 @@ import (
 // 1. Lint `/////@ts-ignore` above a genuinely erroneous line.
 // 2. Assert the replacement is suggestion-only.
 // 3. Apply it and preserve every surrounding byte.
+//
+// @evidence contracts/testing.md#behavioral-verification The suppression suggestion preserves all five leading slashes and the description while changing ignore to expect-error.
+// @evidence contracts/testing.md#independent-expectations The complete literal expected source retains the original type-error statement and comment prefix independently of finding offsets.
+// @evidence contracts/testing.md#distinguishing-cases Many-slash suppression differs from two/three-slash checking pragma recognition, preventing a shared prefix restriction from losing this valid suggestion.
+// @evidence contracts/testing.md#execution-ownership parseTS/NewEngine.Run obtains the suggestion and applyFindingFixesToText applies it; this entry owns exact output, applied count and absence of automatic fixes. No consumer install or native product-host build/launch is used.
 func TestBanTsCommentSuggestionRewritesManySlashLineComment(t *testing.T) {
   source := "/////@ts-ignore: Suppress next line\nconst a: number = \"wrong\";\nJSON.stringify(a);\n"
   expected := "/////@ts-expect-error: Suppress next line\nconst a: number = \"wrong\";\nJSON.stringify(a);\n"

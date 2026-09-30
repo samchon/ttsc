@@ -16,6 +16,11 @@ import (
 // 1. Validate representative malformed options at every nesting level.
 // 2. Validate one legacy and one direction-aware object-selector configuration.
 // 3. Assert each invalid payload names its actionable contract failure.
+//
+// @evidence contracts/testing.md#behavioral-verification The dependencies validator rejects fourteen malformed option shapes with specific reasons and accepts both legacy and rich supported policies.
+// @evidence contracts/testing.md#independent-expectations Literal malformed JSON/schema/value pairs and two valid objects are derived from the supported option contract, not from validator errors.
+// @evidence contracts/testing.md#distinguishing-cases Wrong containers, unknown keys, invalid defaults/kinds, missing selectors, incompatible rules/policies, element entry types and boolean gates cover rejection boundaries alongside valid acceptance.
+// @evidence contracts/testing.md#execution-ownership LookupRule returns boundaries/dependencies, then the ruleOptionsValidator.ValidateOptions method consumes every authored invalid and valid option object. The Test entry owns each iteration and reports its original option string on failure.
 func TestBoundariesDependenciesValidatesCompleteOptionShape(t *testing.T) {
   rule := LookupRule("boundaries/dependencies")
   validator, ok := rule.(ruleOptionsValidator)

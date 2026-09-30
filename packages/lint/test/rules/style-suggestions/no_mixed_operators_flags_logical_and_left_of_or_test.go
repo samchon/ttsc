@@ -13,6 +13,11 @@ import "testing"
 // 1. Write `const x = a && b || c;`.
 // 2. Enable no-mixed-operators with default options.
 // 3. Assert exactly one finding spanning `a && b`.
+//
+// @evidence contracts/testing.md#behavioral-verification Reports exactly the left a&&b span in a&&b||c.
+// @evidence contracts/testing.md#independent-expectations && has tighter precedence than || within the supported logical group; the literal marker independently identifies the implicated inner expression.
+// @evidence contracts/testing.md#distinguishing-cases Left nesting complements the right-nesting sibling and parenthesized exemption.
+// @evidence contracts/testing.md#execution-ownership assertRuleFindingRanges executes no-mixed-operators on this entry's literal source and compares its exact authored inner-expression marker. This Test owns the range and cardinality expectations. Execution stays in the lint Go process without consumer installation or native product-host builds/launches.
 func TestNoMixedOperatorsFlagsLogicalAndLeftOfOr(t *testing.T) {
   assertRuleFindingRanges(
     t,

@@ -19,6 +19,11 @@ import "testing"
 //     nothing (no finding, no corrupting fix).
 //  2. Assert the `u`-flag twin still fixes `/[\(]/u` to `/[(]/u`.
 //  3. Assert a useless `v`-mode escape `/[\a]/v` still fixes to `/[a]/v`.
+//
+// @evidence contracts/testing.md#behavioral-verification Unicode-set classes retain seven syntax-character escapes while still fixing a useless a escape; u-mode fixes the unnecessary paren escape.
+// @evidence contracts/testing.md#independent-expectations ECMAScript v class grammar gives these punctuation characters meaning; literal expected rewritten sources separately define legal u/v deletions.
+// @evidence contracts/testing.md#distinguishing-cases Seven retained escapes plus u-paren and v-a positives prevent both legacy stripping and a blanket v-mode exemption.
+// @evidence contracts/testing.md#execution-ownership This Test registers the seven retained characters and two fixer controls with t.Run; assertRuleSkipsSource owns allowance and assertFixSnapshot applies the actual edits against independently authored output. All execute in the lint Go process without installing consumers or building/launching a native product host.
 func TestNoUselessEscapeVFlagClassPreservesSyntaxCharEscapes(t *testing.T) {
   // `( ) [ { } | /` gain meaning only through the `v` flag; `]` and `-` are
   // meaningful in any character class and are covered by the base allowlist.

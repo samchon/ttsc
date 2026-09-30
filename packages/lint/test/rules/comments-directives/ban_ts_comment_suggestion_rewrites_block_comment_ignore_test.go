@@ -16,6 +16,11 @@ import (
 //  1. Lint a block comment whose last line contains the directive and description.
 //  2. Assert the finding has no automatic fix and one suggestion.
 //  3. Apply that suggestion and preserve delimiters, description, CRLF, and code.
+//
+// @evidence contracts/testing.md#behavioral-verification The block-comment suggestion changes only the directive token and preserves CRLF, header, description and following source.
+// @evidence contracts/testing.md#independent-expectations The complete expected source string is authored independently and differs only by ignore-to-expect-error spelling; exactly one applied edit is required.
+// @evidence contracts/testing.md#distinguishing-cases Multiline starred comment and CRLF preserve surrounding meaning; the compiler-boundary sibling owns the changed directive semantics.
+// @evidence contracts/testing.md#execution-ownership parseTS/NewEngine.Run obtains one suggestion with no autofix; applyFindingFixesToText executes its edits and this Test owns the exact output comparison. No consumer install or native product-host build/launch is used.
 func TestBanTsCommentSuggestionRewritesBlockCommentIgnore(t *testing.T) {
   source := "/* header\r\n * @ts-ignore: Preserve this description */\r\nconst a: number = 1;\r\nJSON.stringify(a);\r\n"
   expected := "/* header\r\n * @ts-expect-error: Preserve this description */\r\nconst a: number = 1;\r\nJSON.stringify(a);\r\n"

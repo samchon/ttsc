@@ -17,6 +17,11 @@ import (
 //
 // 1. Lint `// @ts-ignore: Unreachable code error` nested in an if block.
 // 2. Assert one finding whose range equals the comment's byte range.
+//
+// @evidence contracts/testing.md#behavioral-verification ban-ts-comment spans the indented ignore comment without consuming surrounding block text or whitespace.
+// @evidence contracts/testing.md#independent-expectations The exact authored comment substring determines its source range independently of findings.
+// @evidence contracts/testing.md#distinguishing-cases An indented nested block contrasts with column-zero reporting in the upgrade-message case.
+// @evidence contracts/testing.md#execution-ownership parseTS and NewEngine.Run execute the fixture; this Test owns the count and literal-comment offset assertions. No consumer install or native product-host build/launch is used.
 func TestBanTsCommentDefaultReportsIndentedIgnoreWithPosition(t *testing.T) {
   const ruleName = "typescript/ban-ts-comment"
   const comment = "// @ts-ignore: Unreachable code error"

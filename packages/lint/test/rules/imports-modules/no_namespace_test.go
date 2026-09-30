@@ -15,6 +15,15 @@ import "testing"
 // 1. Load the annotated TypeScript fixture source embedded below.
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine reports the authored internal namespace Foo while permitting a string-named ambient module declaration.
+// @evidence contracts/testing.md#independent-expectations ES module policy forbids internal namespace syntax but permits ambient external module typing, which has no equivalent value-module replacement.
+// @evidence contracts/testing.md#distinguishing-cases The original namespace finding remains; a string-literal module-name control guards against reporting every ModuleDeclaration. Global augmentation has TestNoNamespaceExemptsGlobalAugmentation in the TypeScript family.
+// @evidence contracts/testing.md#execution-ownership assertRuleCorpusCase executes the original annotated namespace fixture; runRuleFindingsSnapshot executes the string-named ambient module control. This Test owns the finding and zero-result contrast in the Go process.
 func TestRuleCorpusNoNamespace(t *testing.T) {
   assertRuleCorpusCase(t, "no-namespace.ts", "// expect: typescript/no-namespace error\nnamespace Foo {\n  export const x = 1;\n}\nJSON.stringify(Foo.x);\n")
+  _, _, clean := runRuleFindingsSnapshot(t, "typescript/no-namespace", "declare module \"virtual-module\" { export interface Value { key: string } }\n", nil)
+  if len(clean) != 0 {
+    t.Fatalf("supported neighboring import/module forms were reported: %+v", clean)
+  }
 }

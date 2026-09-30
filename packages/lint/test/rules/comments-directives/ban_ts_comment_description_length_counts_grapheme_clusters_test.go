@@ -19,6 +19,11 @@ import (
 // 1. Assert one family emoji reports requires-description (1 < 3).
 // 2. Assert three family emoji pass (3 >= 3).
 // 3. Assert two decomposed `é` report while three pass.
+//
+// @evidence contracts/testing.md#behavioral-verification Description length counts emoji families and decomposed e-acute as graphemes, not runes or bytes.
+// @evidence contracts/testing.md#independent-expectations Unicode grapheme meaning makes each authored family or e-plus-accent one cluster; one/two reject and three accept under the default threshold.
+// @evidence contracts/testing.md#distinguishing-cases Short family, two accented clusters and three-cluster allowances distinguish code-point and byte counting.
+// @evidence contracts/testing.md#execution-ownership The local reportShort helper calls parseTS/NewEngine.Run for rejecting cases; assertRuleSkipsSource owns the two allowance cases within this Test. No consumer install or native product-host build/launch is used.
 func TestBanTsCommentDescriptionLengthCountsGraphemeClusters(t *testing.T) {
   const ruleName = "typescript/ban-ts-comment"
   family := "\U0001F468\u200D\U0001F469\u200D\U0001F467\u200D\U0001F466"

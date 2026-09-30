@@ -15,6 +15,12 @@ import "testing"
 // 1. Load the annotated TypeScript fixture source embedded below.
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine reports the authored tslint:disable directive rather than ordinary source code.
+// @evidence contracts/testing.md#independent-expectations The supported ban-tslint-comment policy rejects legacy TSLint directives; the literal expect annotation supplies rule, severity and line independently.
+// @evidence contracts/testing.md#distinguishing-cases This case pins the disable directive; a nearby ordinary comment is retained as a clean control.
+// @evidence contracts/testing.md#execution-ownership assertRuleCorpusCase owns the original annotated fixture through the engine, and assertRuleSkipsSource owns the authored ordinary-comment control. Both execute under this discoverable Test entry. No consumer install or native product-host build/launch is used.
 func TestRuleCorpusBanTslintComment(t *testing.T) {
   assertRuleCorpusCase(t, "ban-tslint-comment.ts", "// expect: typescript/ban-tslint-comment error\n// tslint:disable\nconst x = 1;\nJSON.stringify(x);\n")
+  assertRuleSkipsSource(t, "typescript/ban-tslint-comment", "// ordinary explanation with no compiler directive\nconst value = 1;\nJSON.stringify(value);\n")
 }

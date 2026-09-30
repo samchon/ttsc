@@ -18,6 +18,11 @@ import (
 // 1. Write `const x = a && b ? c : d;` and configure groups with "?:".
 // 2. Run no-mixed-operators with that option blob.
 // 3. Assert exactly one finding spanning the condition `a && b`.
+//
+// @evidence contracts/testing.md#behavioral-verification Reports the a&&b span when a custom group includes logical and ternary operators.
+// @evidence contracts/testing.md#independent-expectations The authored &&/||/?: group creates the policy pair; literal a&&b marker fixes the independent inner-expression range.
+// @evidence contracts/testing.md#distinguishing-cases The same source stays clean under defaults in the ternary-beside-logical sibling.
+// @evidence contracts/testing.md#execution-ownership runRuleFindingsSnapshot executes this entry's exact custom option/source pair. The Test directly checks one finding and compares its Pos/End to the independently authored inner-expression marker. Execution stays in the lint Go process without consumer installation or native product-host builds/launches.
 func TestNoMixedOperatorsCustomGroupsTernaryFlagsLogical(t *testing.T) {
   const source = "const x = a && b ? c : d;\n"
   const marker = "a && b"

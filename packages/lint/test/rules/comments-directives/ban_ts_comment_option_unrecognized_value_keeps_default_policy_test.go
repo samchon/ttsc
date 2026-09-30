@@ -20,6 +20,11 @@ import (
 //     bare `@ts-ignore` still reports the default upgrade message.
 //  2. Configure `ts-expect-error: "allow"` (unknown literal) and assert a
 //     bare `@ts-expect-error` still reports requires-description.
+//
+// @evidence contracts/testing.md#behavioral-verification Unsupported directive option values retain default ignore-upgrade and expect-error-description behavior.
+// @evidence contracts/testing.md#independent-expectations Numeric ignore value and unsupported allow string do not activate a supported union arm; literal default message fragments are the independent oracles.
+// @evidence contracts/testing.md#distinguishing-cases Two invalid values exercise distinct default directive policies rather than muting the rule.
+// @evidence contracts/testing.md#execution-ownership The local run helper calls parseTS/NewEngineWithResolver.Run; this Test owns both one-finding and default-message comparisons. No consumer install or native product-host build/launch is used.
 func TestBanTsCommentOptionUnrecognizedValueKeepsDefaultPolicy(t *testing.T) {
   const ruleName = "typescript/ban-ts-comment"
   run := func(source, optsJSON string) *Finding {

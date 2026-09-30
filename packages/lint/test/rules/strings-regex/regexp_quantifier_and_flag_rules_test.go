@@ -15,6 +15,11 @@ import (
 // 1. Parse literals with redundant quantifiers, unsorted flags, and missing Unicode flags.
 // 2. Enable the corresponding `regexp/*` rules.
 // 3. Assert each rule reports on its own literal line.
+//
+// @evidence contracts/testing.md#behavioral-verification Ten quantifier/flag rules report their authored positive literal under the exact rule name at line 1.
+// @evidence contracts/testing.md#independent-expectations Zero/equal-bound/single/plus/star/question quantifier meanings and flag sorting/Unicode requirements independently determine the literal positive expectation.
+// @evidence contracts/testing.md#distinguishing-cases Ten rule-specific inputs retain distinct failure identities through tc.rule; detailed useless i/m negative controls are separate tests.
+// @evidence contracts/testing.md#execution-ownership The Test loop calls parseTS and NewEngine.Run once for each literal tc.rule/source pair, compares its authored normalized finding and reports tc.rule on failure; no cases are registered elsewhere. All execute in the lint Go process without installing consumers or building/launching a native product host.
 func TestRegexpQuantifierAndFlagRules(t *testing.T) {
   cases := []struct {
     rule   string

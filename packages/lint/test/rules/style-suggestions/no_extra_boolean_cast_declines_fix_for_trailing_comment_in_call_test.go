@@ -14,6 +14,11 @@ import "testing"
 // 1. Snapshot `!Boolean(ok // why` with the `)` on the next line.
 // 2. Run `no-extra-boolean-cast` through the fix applier.
 // 3. Assert a finding is reported but zero edits are applied.
+//
+// @evidence contracts/testing.md#behavioral-verification Withholds a Boolean-call splice that would discard a trailing line comment before the closing paren.
+// @evidence contracts/testing.md#independent-expectations The independently supplied source bytes retain the comment and its newline; removing wrapper text must not erase explanation.
+// @evidence contracts/testing.md#distinguishing-cases Trailing line-comment seam differs from leading seam and interior argument comment cases.
+// @evidence contracts/testing.md#execution-ownership assertNoFixSnapshot calls runFixSnapshot, requiring zero applied automatic edits and the complete authored input to remain unchanged. This Test owns that precise comment-bearing source. Execution stays in the lint Go process without consumer installation or native product-host builds/launches.
 func TestNoExtraBooleanCastDeclinesFixForTrailingCommentInCall(t *testing.T) {
   assertNoFixSnapshot(
     t,

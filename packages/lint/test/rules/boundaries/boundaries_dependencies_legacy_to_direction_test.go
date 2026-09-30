@@ -13,6 +13,11 @@ import "testing"
 // 1. Deny app sources on the domain target with a string `disallow` entry.
 // 2. Import the domain model from an app file and from a shared file.
 // 3. Assert only the app-origin dependency reports, at its exact range.
+//
+// @evidence contracts/testing.md#behavioral-verification A legacy disallow app entry under to domain selects the source element rather than interpreting app as the target.
+// @evidence contracts/testing.md#independent-expectations The authored to-domain policy denies only app sources; src/shared/main.ts independently belongs to shared and must remain clean.
+// @evidence contracts/testing.md#distinguishing-cases Identical relative dependency under app and shared source paths isolates the legacy direction interpretation.
+// @evidence contracts/testing.md#execution-ownership runBoundaryRule executes NewEngineWithResolver.Run on the authored app and shared source paths. This entry owns both source-direction results in the Go process.
 func TestBoundariesDependenciesTreatsLegacyEntryAsSourceForToPolicies(t *testing.T) {
   const ruleName = "boundaries/dependencies"
   source := "import \"../domain/model\";\n"

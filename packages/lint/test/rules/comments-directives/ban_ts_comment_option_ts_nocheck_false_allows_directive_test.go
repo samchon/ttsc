@@ -12,6 +12,11 @@ import "testing"
 // 1. Configure `{"ts-nocheck": false}`.
 // 2. Lint a file opening with the pragma above real statements.
 // 3. Assert zero findings.
+//
+// @evidence contracts/testing.md#behavioral-verification False nocheck policy permits even a bare leading pragma.
+// @evidence contracts/testing.md#independent-expectations The explicit false option is unconditional allowance; zero findings is authored independently of default nocheck policy.
+// @evidence contracts/testing.md#distinguishing-cases Same leading directive normally reports, distinguishing configured allowance from placement exemptions.
+// @evidence contracts/testing.md#execution-ownership assertRuleSkipsSourceWithOptions executes the false-option fixture; this entry owns the zero result. No consumer install or native product-host build/launch is used.
 func TestBanTsCommentOptionTsNocheckFalseAllowsDirective(t *testing.T) {
   assertRuleSkipsSourceWithOptions(
     t,

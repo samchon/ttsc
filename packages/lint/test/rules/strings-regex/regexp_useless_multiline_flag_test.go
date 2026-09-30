@@ -19,6 +19,11 @@ import (
 //  1. Enable `regexp/no-useless-flag` on one regex literal per case.
 //  2. Run the engine on each.
 //  3. Assert `m` is reported exactly when the pattern has no `^`/`$` assertion.
+//
+// @evidence contracts/testing.md#behavioral-verification Reports m when no real anchor changes meaning and retains it when anchors occur outside character classes.
+// @evidence contracts/testing.md#independent-expectations ECMAScript m changes ^/$ assertions, not literal or escaped characters; authored report booleans/reasons independently classify all nine patterns.
+// @evidence contracts/testing.md#distinguishing-cases Class, v-class and escaped anchor negatives for usefulness contrast with top-level/group/lookahead live assertions and an escaped-open-bracket boundary.
+// @evidence contracts/testing.md#execution-ownership The Test loop calls parseTS and NewEngine.Run for every literal regex/report/reason row. Errorf collects all independent failures rather than stopping at the first; each row remains owned by this Test. All execute in the lint Go process without installing consumers or building/launching a native product host.
 func TestRegexpUselessMultilineFlag(t *testing.T) {
   cases := []struct {
     literal string
