@@ -1,112 +1,51 @@
+import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
-import { benchmarkRoot } from "../internal/suiteRoot";
+import { acquireBenchmarkWorkspace } from "../internal/benchmarkWorkspace";
+import { scriptEnvironment } from "../internal/scriptEnvironment";
 
 /**
- * Verifies the delivered Playwright config evaluates where Playwright runs it.
+ * Loads the delivered configuration through the actual installed Playwright CLI.
  *
- * Playwright loads its config through a TypeScript require hook, and the
- * frontend package declares no `"type": "module"`, so the file evaluates as
- * CommonJS. The template shipped it resolving `.env` through
- * `import.meta.dirname`, which does not exist there. That is not a wrong path
- * that surfaces as a failing test — it throws while the config is being read,
- * before a single test is discovered, so the end-to-end gate reports nothing
- * rather than reporting that it could not start.
+ * Listing delivered tests exercises the real loader without starting a browser.
  *
- * The first cohort paid for this three separate ways, and none of them measured
- * the cell. One cell repaired the line itself and passed its gates. One refused
- * to touch frozen configuration, built a substitute runner instead, and failed
- * its overall review for using it. One received an operator's explicit
- * permission to make the same repair, which no other cell was offered. What a
- * cell scored turned on how it reacted to a defect it did not write.
- *
- * The case evaluates the delivered file the way its loader does rather than
- * reading it for a forbidden spelling: a rule against the words `import.meta`
- * would pass the day someone reaches the same undefined value another way, and
- * would fail `vite.config.ts`, which uses that form correctly because Vite
- * hands its config an ESM-capable loader.
- *
- * It also pins the module system the repair depends on. `__dirname` is right
- * only while the package stays CommonJS, so a later `"type": "module"` must
- * arrive as a failure here rather than as a silent return to a dead gate.
+ * @evidence contracts/testing.md#behavioral-verification Runs installed playwright test --list against prepared configuration, requiring zero status and nonempty Chromium discovery; invalid port zero fails with the literal configuration diagnostic.
+ * @evidence contracts/testing.md#independent-expectations Zero/nonzero statuses, positive test count, Chromium label and port-range diagnostic are authored expectations. No regex-transpiled configuration, stub defineConfig or manifest spelling supplies observed behavior.
+ * @evidence contracts/testing.md#distinguishing-cases Normal port 4173 discovers real testDir; port zero rejects before discovery. Both use the unchanged prepared package and actual loader, so module-system failure cannot pass through a substitute evaluator.
+ * @evidence contracts/testing.md#execution-ownership The original named feature remains in E2E; two joined CLI requests own assertions here. Chart/report and home source operations live in src/unit without this loader.
+ * @evidence contracts/e2e.md#necessary-boundary Actual Playwright TypeScript loading and delivered package mode determine evaluation; source-string checks or a custom CommonJS evaluator cannot establish their connection.
+ * @evidence contracts/e2e.md#shared-execution Reuses the suite's single prepared Evidence arm and installed dependency; both requests add no installer, native producer, browser download or preview server.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Child-only sanitized environments supply contrasting ports without changing globals or configuration. Synchronous children finish before the next; suite lifetime owns workspace release.
+ * @evidence contracts/e2e.md#preserved-coverage Actual configuration evaluation, object validation and testDir discovery strengthen old synthetic object/testDir checks. Manifest-type meta checking becomes observed loader behavior; no frozen template changes.
  */
 export const test_benchmark_template_playwright_config_loads_as_commonjs =
-  (): void => {
-    const frontend: string = path.join(
-      benchmarkRoot,
-      "template",
-      "base",
-      "packages",
-      "frontend",
-    );
-    const manifest: Record<string, unknown> = JSON.parse(
-      fs.readFileSync(path.join(frontend, "package.json"), "utf8"),
-    );
-    if (manifest.type !== undefined)
-      throw new Error(
-        `The frontend package now declares "type": ${JSON.stringify(manifest.type)}. playwright.config.ts resolves its environment file with \`__dirname\`, which exists only while the package loads as CommonJS. Decide what the config should use before changing this.`,
-      );
-
-    const root: string = fs.mkdtempSync(
-      path.join(os.tmpdir(), "evidence-playwright-config-"),
-    );
-    try {
-      // Evaluated as CommonJS, with the two imports the config takes from
-      // outside stubbed. The stubs matter as little as possible: the point is
-      // which module system the file is read under, not what Playwright would
-      // do with the object afterwards.
-      const source: string = fs.readFileSync(
-        path.join(frontend, "playwright.config.ts"),
-        "utf8",
-      );
-      const compiled: string = source
-        .replace(
-          /^import \{ defineConfig, devices \} from "@playwright\/test";$/mu,
-          "const { defineConfig, devices } = require('./playwright-stub.cjs');",
-        )
-        .replace(
-          /^import (\w+) from "node:(\w+)";$/gmu,
-          "const $1 = require('node:$2');",
-        )
-        .replace(/^export default /mu, "module.exports = ")
-        .replace(/(\w+)\s+as\s+\w+/gu, "$1")
-        .replace(/:\s*(?:string|number|boolean)\b/gu, "");
-      fs.writeFileSync(
-        path.join(root, "playwright-stub.cjs"),
-        "module.exports = { defineConfig: (value) => value, devices: new Proxy({}, { get: () => ({}) }) };\n",
-        "utf8",
-      );
-      fs.writeFileSync(path.join(root, "config.cjs"), compiled, "utf8");
-      fs.writeFileSync(
-        path.join(root, "run.cjs"),
-        [
-          "const config = require('./config.cjs');",
-          "if (typeof config !== 'object' || config === null)",
-          "  throw new Error('The config did not evaluate to an object.');",
-          "if (typeof config.testDir !== 'string')",
-          "  throw new Error('The evaluated config carries no testDir.');",
-          "console.log('ok');",
-          "",
-        ].join("\n"),
-        "utf8",
-      );
-
-      const result = spawnSync(process.execPath, [path.join(root, "run.cjs")], {
+  async (): Promise<void> => {
+    const workspace = await acquireBenchmarkWorkspace("evidence");
+    const frontend = path.join(workspace.workspace, "packages", "frontend");
+    const entrypoint = process.env.npm_execpath;
+    assert.ok(entrypoint, "This suite must run through pnpm");
+    const requests = ["4173", "0"].map((port) => spawnSync(
+      process.execPath,
+      [entrypoint, "exec", "playwright", "test", "--list", "--config", "playwright.config.ts"],
+      {
+        cwd: frontend,
+        env: scriptEnvironment({ PLAYWRIGHT_TEST_PORT: port }),
         encoding: "utf8",
-      });
-      if (result.status !== 0)
-        throw new Error(
-          [
-            "The delivered playwright.config.ts does not evaluate as CommonJS, which is how Playwright reads it.",
-            "Every end-to-end gate in every workspace built from this template starts by loading this file.",
-            "",
-            (result.stderr || result.stdout || "").trim(),
-          ].join("\n"),
-        );
-    } finally {
-      fs.rmSync(root, { recursive: true, force: true });
-    }
+        timeout: 120_000,
+        maxBuffer: 16 * 1024 * 1024,
+        shell: false,
+        windowsHide: true,
+      },
+    ));
+    const [normal, invalid] = requests;
+    assert.equal(normal!.error, undefined);
+    assert.equal(normal!.status, 0, normal!.stderr);
+    assert.match(normal!.stdout, /\[chromium\]/);
+    const total = /Total: (\d+) tests? in (\d+) files?/.exec(normal!.stdout);
+    assert.ok(total, normal!.stdout);
+    assert.ok(Number(total[1]) > 0 && Number(total[2]) > 0, normal!.stdout);
+    assert.equal(invalid!.error, undefined);
+    assert.notEqual(invalid!.status, 0);
+    assert.match(`${invalid!.stdout}${invalid!.stderr}`, /PLAYWRIGHT_TEST_PORT must be an integer from 1 to 65535/);
   };
