@@ -72,9 +72,16 @@ interface IKey {
  *    alone, replace the recorded digest again, and assert the read answers: it
  *    read the files, which still give the recorded state.
  * 4. Edit a file, and assert the read refuses the entry.
+ * @evidence contracts/testing.md#behavioral-verification The actual source-bearing cache accepts an unchanged proof, rejects an intentionally wrong recorded digest while its signature holds, rereads moved metadata despite that digest, and rejects edited source bytes.
+ * @evidence contracts/testing.md#independent-expectations Authored source bytes, independently moved timestamps and a literal impossible digest establish unchanged, untrusted and changed proof premises; each signature existence assertion ensures the acceleration lane is reached.
+ * @evidence contracts/testing.md#distinguishing-cases Positive cache reachability, signature-hit caller digest trust, identical bytes with moved metadata and changed bytes retain all original assertions.
+ * @evidence contracts/testing.md#execution-ownership This named features/api entry executes shipped source-state and cache owners against actual private files and the real Go environment; supplied-reading composition separately executes in test_plugin_source_state_composes_supplied_build_readings.
+ * @evidence contracts/e2e.md#necessary-boundary Actual native device-clock evidence and build-environment observation must compose with metadata acceleration, preventing a supplied or stale digest from proving changed contributor state.
+ * @evidence contracts/e2e.md#shared-execution All distinctions share their mutable module, cache where applicable, one process and installed Go tool in the API environment batch; a changed source/environment premise retains its required fresh observation, with no per-assertion native build or product host.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private module and cache/environment-file paths isolate mutations; original effective environment restoration and per-transition proofs remain, and no freshness witness is bypassed or global filesystem operation replaced.
+ * @evidence contracts/e2e.md#preserved-coverage Every original assertion and fixture mutation remains mechanically unchanged here; the new supplied-reading source unit strengthens composition without substituting for these native proof boundaries.
  */
-export const test_capabilityresolutioncache_reads_plugin_sources_only_when_their_metadata_moved =
-  (): void => {
+export function test_capabilityresolutioncache_reads_plugin_sources_only_when_their_metadata_moved() {
     const cwd = TestProject.tmpdir("ttsc-capability-source-reads-");
     const cache = path.join(cwd, "cache");
     const module = path.join(cwd, "plugin-module");
@@ -149,7 +156,7 @@ export const test_capabilityresolutioncache_reads_plugin_sources_only_when_their
     record();
     write(files[2]!, "package mark\n\n// edited\n");
     assert.equal(answers(), false);
-  };
+}
 
 /** The single entry the fixture writes, whatever its key hashes to. */
 function entryFile(cache: string): string {

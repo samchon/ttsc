@@ -51,9 +51,9 @@ import { watchDirectory } from "./watchDirectory";
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain membership authority, plugin fingerprinting, publication races, physical registration and public lifecycle operations following the documentation skill. Parameters identify each supplied operation and native default beside the constructor.
  * @evidence contracts/portability.md#os-neutral-implementation Native paths use Node APIs and registration uses realpath; compiler/plugin maps preserve lexical aliases and fold only measured insensitive ASCII components. Project inputs use physical identities, while unknown/native Unicode relations remain conservative event candidates rather than identity proof. Registration paths and native read options are passed unchanged; providers do not determine path case or compiler membership.
  *
- * @evidence contracts/performance.md#efficient-algorithms Constructor only retains operation references; reconciliation owns filesystem observation without adding installation, builds or enumeration.
- * @evidence contracts/performance.md#reuse-equivalent-work Each topology owns its supplied operation identities; this seam adds no result cache or assumption that changed inputs remain equivalent.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Existing watcher registries own acquired handles and close/rearm/error cleanup; constructor acquires no handle and directory arrays remain call-owned.
+ * @evidence contracts/performance.md#efficient-algorithms Identity-keyed maps separate current membership, content baselines and handle registries; public reconciliation operations own traversal and hashing, while constructor retains operation references without an additional filesystem observation or build.
+ * @evidence contracts/performance.md#reuse-equivalent-work Current membership, content baselines and live registrations belong to one topology; reconciliation owners decide their reuse against fresh premises. Supplied operation identities are retained without adding an observation-result cache or assuming changed inputs remain equivalent.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Current and pending input maps belong to the topology and reconciliation retires obsolete populations; watcher registries close or rearm their acquired handles under error and shutdown ownership. Constructor acquires no handle and directory-read arrays remain call-owned.
  */
 export class WatchTopology {
   private analysisOnly = false;
