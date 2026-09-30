@@ -22,7 +22,7 @@ import { SOURCE, assert, runLint } from "../../internal/config-file";
  * @evidence contracts/e2e.md#necessary-boundary A plugin entry without a configFile must still lead through descriptor/native discovery to actual configured rule output; direct resolver calls cannot prove the product supplies that zero-config context.
  * @evidence contracts/e2e.md#shared-execution One default-discovery launcher invocation jointly observes enabled and disabled rules, sharing the canonical builtin native artifact. Explicit-pointer language cases cannot alone prove this absent-pointer context.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The temporary consumer's source and adjacent config stay fixed; TestLint owns cleanup and reusable cache identity covers unchanged builtin compiler/plugin bytes rather than the consumer result.
- * @evidence contracts/e2e.md#preserved-coverage Original no configFile input, failing error exit and exact sole no-console/error list remain executable, including the no-var-off negative.
+ * @evidence contracts/e2e.md#preserved-coverage Original no configFile input, failing error exit and exact sole no-console/error list remain executable, including the no-var-off negative. TestNoDuplicateImportsPreservesMigratedJSONTupleOptions owns the original JSON option tuple and exact option-dependent negative/line-4 positive; TestEnginePreservesMigratedDisableDirectivePopulation owns the complete original ten-line directives and exact lines 1/8/10. This case owns generic config loading, native diagnostic transport and error exit without claiming to execute those rule-specific inputs.
  */
 export function test_lint_config_discovered_lint_config_file_applies_without_tsconfig_key() {
     const result = runLint({
