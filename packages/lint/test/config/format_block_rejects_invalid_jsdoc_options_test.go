@@ -28,6 +28,11 @@ import (
 //     6. Assert error naming `format.jsDoc.sortTags`.
 //     7. Call with `jsDoc: { minify: true }`.
 //     8. Assert error mentioning `minify`.
+//
+// @evidence contracts/testing.md#behavioral-verification expandFormatBlock rejects non-object tagSynonyms, a numeric synonym value, non-Boolean sortTags, and unknown minify key with the matching field context.
+// @evidence contracts/testing.md#independent-expectations The public JSDoc object admits string-valued synonyms and Boolean sortTags only; the four independently authored malformed values establish their exact rejection contexts.
+// @evidence contracts/testing.md#distinguishing-cases Owns wrong nested container, wrong map-element type, wrong Boolean option and unknown key; valid synonym and sortTags propagation are separate tests.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns four authored malformed JSDoc objects, calling expandFormatBlock directly and observing exact nested-field errors in the shared lint process; no source formatting or config script host is needed for validation.
 func TestFormatBlockRejectsInvalidJsdocOptions(t *testing.T) {
   cases := []struct {
     name      string
@@ -37,12 +42,12 @@ func TestFormatBlockRejectsInvalidJsdocOptions(t *testing.T) {
     {
       name:      "tagSynonyms not an object",
       raw:       map[string]any{"jsDoc": map[string]any{"tagSynonyms": true}},
-      wantInErr: "tagSynonyms",
+      wantInErr: "format.jsDoc.tagSynonyms",
     },
     {
       name:      "tagSynonyms value not a string",
       raw:       map[string]any{"jsDoc": map[string]any{"tagSynonyms": map[string]any{"foo": 42}}},
-      wantInErr: "tagSynonyms",
+      wantInErr: `format.jsDoc.tagSynonyms["foo"]`,
     },
     {
       name:      "sortTags not a bool",

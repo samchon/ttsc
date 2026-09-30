@@ -15,6 +15,11 @@ import (
 // 1. Parse entries containing one object, one string, and two option slots.
 // 2. Decode each stored payload according to its expected generic shape.
 // 3. Assert severity and every positional value survive unchanged.
+//
+// @evidence contracts/testing.md#behavioral-verification ParseRulesWithOptions preserves a single object, a single string, and multiple positional option slots while keeping each rule severity.
+// @evidence contracts/testing.md#independent-expectations Authored includeExports=true, both and functions/disallow literals define JSON shapes independently of normalization implementation.
+// @evidence contracts/testing.md#distinguishing-cases Object and scalar singletons must not become arrays, while multiple slots must retain ordered array values; the external severity-tuples case owns a one-slot tuple, and the standard inline case contrasts options with a bare severity.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go unit calls ParseRulesWithOptions on three authored tuples and independently decodes their JSON payloads in the shared lint process; generic option transport is observed without rule dispatch, consumer installation or a config script host.
 func TestParseRulesPreservesPositionalOptions(t *testing.T) {
   config, options, err := ParseRulesWithOptions(map[string]any{
     "no-duplicate-imports": []any{
