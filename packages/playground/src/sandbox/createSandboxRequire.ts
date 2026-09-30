@@ -57,8 +57,8 @@ class InvalidPackageConfigError extends Error {}
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported exports and legacy resolution decide module access uniformly; missing targets cannot trigger a second exports candidate, and failed evaluation evicts its provisional module instead of fabricating exports.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs define resolver scope, pack immutability and absent isolation; helper comments explain exports priority and cycle semantics under the documentation skill.
  * @evidence contracts/performance.md#efficient-algorithms Pack lookups use own-key membership and module cache lookup; exports exact matches avoid pattern search, otherwise one O(p) scan retains the highest-ranked match among p manifest patterns without sorting. Evaluation compiles each reached module once per successful resolver instance.
- * @evidence contracts/performance.md#reuse-equivalent-work The unchanged pack and resolved module key define evaluation identity; provisional entries support cycles and successful exports are shared across requires. Failed evaluation evicts its own provisional entry so later requests can retry without reusing invalid exports.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The returned require closure owns the pack and reachable module cache; retention is bounded by modules in that pack and ends when callers release the resolver. It owns no process isolation and cannot cancel tasks started by evaluated user code; the site executor owns those resources.
+ * @evidence contracts/performance.md#reuse-equivalent-work The unchanged pack qualifies parsed-manifest reuse by exact mount and evaluation reuse by resolved module key; provisional entries support cycles and successful exports are shared across requires. Failed evaluation evicts its own provisional entry so later requests can retry without reusing invalid exports.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The returned require closure owns the pack, reachable module cache and successfully parsed manifests; retention is bounded by entries in that pack because missing manifest requests are not retained, and ends when callers release the resolver. It owns no process isolation and cannot cancel tasks started by evaluated user code; the site executor owns those resources.
  */
 export function createSandboxRequire(
   pack: Record<string, string>,
@@ -66,6 +66,7 @@ export function createSandboxRequire(
 ): (specifier: string) => unknown {
   type ModuleObj = { exports: unknown };
   const cache = new Map<string, ModuleObj>();
+  const manifests = new Map<string, IPackJson>();
 
   const has = (key: string): boolean =>
     Object.prototype.hasOwnProperty.call(pack, key);
@@ -76,6 +77,7 @@ export function createSandboxRequire(
   };
 
   const readPackageJson = (mount: string): IPackJson | null => {
+    if (manifests.has(mount)) return manifests.get(mount)!;
     const key = `${mount}/package.json`;
     if (!has(key)) return null;
     try {
@@ -87,6 +89,7 @@ export function createSandboxRequire(
       ) {
         throw new Error("package.json must contain an object");
       }
+      manifests.set(mount, parsed as IPackJson);
       return parsed as IPackJson;
     } catch {
       throw new InvalidPackageConfigError(
