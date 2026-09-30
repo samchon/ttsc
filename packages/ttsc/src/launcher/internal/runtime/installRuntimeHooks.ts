@@ -16,7 +16,6 @@ import { resolveOwningProjectConfig } from "../../../compiler/internal/project/r
 import { resolveTsgo } from "../../../compiler/internal/resolveTsgo";
 import { spawnNative } from "../../../compiler/internal/spawnNative";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
-import { runHoldingLock } from "../../../internal/runHoldingLock";
 import { runtimeExecutableIdentity } from "../../../internal/runtimeExecutableIdentity";
 import { moduleResolutionBaseSelects } from "../../../plugin/internal/load/moduleResolutionBaseSelects";
 import { observeImportSearchRoots } from "../../../plugin/internal/load/observeImportSearchRoots";
@@ -27,9 +26,7 @@ import { inlineServedSourceMap } from "../inlineServedSourceMap";
 import { parseCommonJsExports } from "../parseCommonJsExports";
 import { runtimeCompilerArgs } from "../runtimeCompilerArgs";
 import { DependencyBuildGeneration } from "./DependencyBuildGeneration";
-import type { DependencyBuildLockFence } from "./DependencyBuildLockFence";
-import type { DependencyBuildLockLease } from "./DependencyBuildLockLease";
-import { DependencyBuildLockProtocol } from "./DependencyBuildLockProtocol";
+import { DependencyBuildAdmission } from "./DependencyBuildAdmission";
 import type { OwningModuleOptions } from "./OwningModuleOptions";
 import type { ResolveResult } from "./ResolveResult";
 import { RuntimeFilesystem } from "./RuntimeFilesystem";
@@ -41,17 +38,13 @@ import { RuntimeModuleFormat } from "./RuntimeModuleFormat";
 import { RuntimeEmitProvenance } from "./RuntimeEmitProvenance";
 import { PluginDescriptorInputObservation } from "./PluginDescriptorInputObservation";
 import { CommonJsRuntimeSource } from "./CommonJsRuntimeSource";
-import { acquireDependencyBuildLock } from "./acquireDependencyBuildLock";
 import { checkNodeRuntimeSupport } from "./checkNodeRuntimeSupport";
 import { commonJsImportFacade } from "./commonJsImportFacade";
 import { dependencyCacheKey } from "./dependencyCacheKey";
 import { dependencyCacheRoot } from "./dependencyCacheRoot";
-import { inspectDependencyBuildLock } from "./inspectDependencyBuildLock";
 import { projectModuleOptions } from "./projectModuleOptions";
 import { readDependencyCache } from "./readDependencyCache";
 import { realPath } from "./realPath";
-import { reclaimDependencyBuildLock } from "./reclaimDependencyBuildLock";
-import { releaseDependencyBuildLock } from "./releaseDependencyBuildLock";
 import { restoreStrippedNodeBuiltinScheme } from "./restoreStrippedNodeBuiltinScheme";
 
 /**
@@ -1885,7 +1878,7 @@ function ensureRootBuilt(
   fs.mkdirSync(root, { recursive: true });
   let built: DependencyBuildGeneration.BuiltProject;
   try {
-    built = withBuildLock(cacheDir, metaPath, lockDir, () =>
+    built = DependencyBuildAdmission.run(cacheDir, metaPath, lockDir, () =>
       buildRoot(tsconfig, source, cacheDir, metaPath, compilerProof),
     );
   } catch (error) {
@@ -2065,7 +2058,7 @@ function ensureProjectBuilt(
   fs.mkdirSync(root, { recursive: true });
   let built: DependencyBuildGeneration.BuiltProject;
   try {
-    built = withBuildLock(cacheDir, metaPath, lockDir, () =>
+    built = DependencyBuildAdmission.run(cacheDir, metaPath, lockDir, () =>
       buildDependency(tsconfig, cacheDir, metaPath, compilerProof),
     );
   } catch (error) {
@@ -2138,71 +2131,6 @@ function assertCompilerStillCurrent(tsconfig: string, proof?: string): void {
       `ttsx: compiler changed while building ${tsconfig}; the runtime generation was not published`,
     );
   }
-}
-
-/**
- * Run `build` while holding the fenced lock for this dependency, re-checking
- * the cache once the lock is held (a concurrent builder may have just
- * finished). A loser polls for the winner's completion marker and, only when
- * the holding generation is provably abandoned (dead owner or the steal budget
- * elapsed), retires precisely that generation before retrying — never a
- * successor's.
- */
-function withBuildLock(
-  cacheDir: string,
-  metaPath: string,
-  lockDir: string,
-  build: () => DependencyBuildGeneration.BuiltProject,
-): DependencyBuildGeneration.BuiltProject {
-  for (;;) {
-    const reuse = readDependencyCache(cacheDir, metaPath);
-    if (reuse !== null) {
-      return reuse;
-    }
-    let lease: DependencyBuildLockLease | null;
-    try {
-      lease = acquireDependencyBuildLock(lockDir);
-    } catch {
-      // An unusable coordination directory must not silently skip the build.
-      // Generation-stamped emit and the atomic marker swap still keep every
-      // reader's view of publication consistent without the lock.
-      return build();
-    }
-    if (lease === null) {
-      const waited = waitForDependencyBuild(
-        cacheDir,
-        metaPath,
-        lockDir,
-        DEP_BUILD_LOCK_STEAL_MS,
-      );
-      if (waited.outcome === "built") {
-        return waited.built;
-      }
-      if (waited.outcome === "abandoned") {
-        // Retire only the generation this observation named. Losing the rename
-        // race means the holder's own release (or another waiter) already made
-        // progress, so a stale result never removes a live successor.
-        reclaimDependencyBuildLock(lockDir, waited.fence);
-      }
-      // "released" needs no repair: the holder freed the lock normally, so
-      // retry the ordinary acquisition.
-      continue;
-    }
-    const held = lease;
-    return runHoldingLock(
-      () => readDependencyCache(cacheDir, metaPath) ?? build(),
-      () => releaseDependencyBuildLock(lockDir, held),
-      // The runtime writes nothing of its own into the program's output; the
-      // generation left held is reclaimed as abandoned once this process
-      // exits.
-      () => undefined,
-    );
-  }
-}
-
-/** Block the current (synchronous) thread for `ms` without busy-spinning. */
-function sleepSync(ms: number): void {
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
 /**
@@ -2384,80 +2312,6 @@ function throwAfterFailedArtifactCleanup(
  * ownership.
  */
 class EmptyProjectEmitError extends Error {}
-
-// -----------------------------------------------------------------------------
-// Fenced dependency-build lock.
-//
-// The lock serialises concurrent first-builders of one dependency so the
-// expensive `runBuild` runs once per key while the rest wait and reuse the
-// published generation. It is generation-fenced so a stale observer or a former
-// owner can never release a successor's lock:
-//
-//   * `<lockDir>/current` is the held generation — a directory carrying a
-//     `generation` id and an `owner.json` (pid + hostname). A contender writes a
-//     private candidate and atomically renames it onto `current`; a directory
-//     rename cannot replace a non-empty `current`, so exactly one contender wins
-//     with no empty-owner publication window.
-//   * Release and reclaim both retire a generation by renaming `current` to its
-//     deterministic tombstone `<lockDir>/retired/<generation>`. The only way to
-//     free `current` is to create that tombstone, so a successor can acquire only
-//     after its predecessor's tombstone exists. A late or duplicate retire of an
-//     already-retired generation therefore finds the tombstone occupied and
-//     fails atomically, and a reclaim that named an old generation can never move
-//     a different successor into that old tombstone.
-//
-// This mirrors the source-plugin v2 protocol (`buildSourcePlugin.ts`) proven by
-// issue #452 / PR #460, minus the legacy-compatibility layer: the ttsx
-// dependency cache lives under a per-run directory with no shipped on-disk
-// format to stay compatible with.
-// -----------------------------------------------------------------------------
-
-const DEP_BUILD_LOCK_STEAL_MS =
-  DependencyBuildLockProtocol.DEP_BUILD_LOCK_WAIT_MS;
-
-/** Outcome of one waiting session on another process's dependency build lock. */
-type DependencyBuildWaitResult =
-  | { outcome: "built"; built: DependencyBuildGeneration.BuiltProject }
-  | { outcome: "released" }
-  | { outcome: "abandoned"; reason: string; fence: DependencyBuildLockFence };
-
-/** Poll for the locked builder to publish, up to `timeoutMs`. */
-function waitForDependencyBuild(
-  cacheDir: string,
-  metaPath: string,
-  lockDir: string,
-  timeoutMs: number,
-): DependencyBuildWaitResult {
-  const startedAt = Date.now();
-  for (;;) {
-    const reuse = readDependencyCache(cacheDir, metaPath);
-    if (reuse !== null) {
-      return { outcome: "built", built: reuse };
-    }
-    const now = Date.now();
-    const lock = inspectDependencyBuildLock(lockDir, now);
-    if (lock.state === "released") {
-      // The holder retired its generation between the cache check above and this
-      // observation: prefer the marker if it landed in that window, otherwise
-      // hand the free lock back to the caller to re-acquire.
-      const built = readDependencyCache(cacheDir, metaPath);
-      return built !== null
-        ? { outcome: "built", built }
-        : { outcome: "released" };
-    }
-    if (lock.state === "abandoned") {
-      return { outcome: "abandoned", reason: lock.reason, fence: lock.fence };
-    }
-    if (now - startedAt > timeoutMs) {
-      return {
-        outcome: "abandoned",
-        reason: `timed out after ${DependencyBuildLockProtocol.formatDuration(now - startedAt)}`,
-        fence: lock.fence,
-      };
-    }
-    sleepSync(DependencyBuildLockProtocol.DEP_BUILD_LOCK_POLL_MS);
-  }
-}
 
 /** Owning-tsconfig cache keyed by directory, mirroring `packageTypeCache`. */
 interface ITsconfigLookup {

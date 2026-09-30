@@ -35,6 +35,7 @@ export namespace CommonJsRuntimeSource {
    */
   export function configure(policy: Resolver): void {
     resolve = policy;
+    factories[FACTORY_KEY] = create;
   }
 
   /**
@@ -72,12 +73,12 @@ export namespace CommonJsRuntimeSource {
    *
    * @evidence contracts/common.md#principled-implementation Acorn's CommonJS grammar identifies directive prologues, hoisted require declarations and actual trailing source-map comments. Flat mappings or indexed section offsets shift generated columns on exactly the insertion line, preserving original locations. Optional malformed or externally indexed maps do not become executable-syntax failures.
    * @evidence contracts/common.md#clear-and-simple-design Source adaptation constructs one prefix and one corresponding map adjustment; evaluation stays with Node rather than a second interpreter.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts The bootstrap reads this already-loaded helper through public require.cache, so compiler implementation paths do not become descriptor dependency resolutions. User-owned hoisted require functions are left intact.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The bootstrap reads an installation-owned symbol factory through the public VM context API, independently of mutable require.cache entries and user wrapper declarations. User-owned hoisted require functions are left intact.
    * @evidence contracts/common.md#meaningful-documentation Native prose states line/directive preservation and the user-owned binding exception.
-   * @evidence contracts/portability.md#os-neutral-implementation JSON quotes the actual helper cache key and the filename becomes a file URL only for source-map identity, preserving native and protocol spelling separately.
+   * @evidence contracts/portability.md#os-neutral-implementation JSON quotes the installation key and actual native filename; the filename becomes a file URL only for source-map identity, preserving native and protocol spelling separately.
    * @evidence contracts/performance.md#efficient-algorithms Parsing and source construction cost O(B) source bytes plus O(M) JSON map bytes and sections; a mapless first line needs O(C) exact-column segments because Node does not interpolate original columns between map segments.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Node's evaluation owner calls this operation once for each loaded body; this function retains no mutable-source cache.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources AST, comments and map data end with this call, scaling with source and map bytes; the returned body belongs to the loader.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources AST, comments and map data end with this call, scaling with source and map bytes; the returned body belongs to the loader. The installation owns one process-lifetime factory slot per helper location, replaced by configure without retaining body history.
    */
   export function prepare(source: string, filename: string): string {
     const comments: Array<{ end: number; start: number; text: string }> = [];
@@ -97,7 +98,9 @@ export namespace CommonJsRuntimeSource {
     if (source.startsWith("#!") && firstBreak === null) return source;
     const offset = source.startsWith("#!") ? firstBreak!.index + firstBreak![0].length : 0;
     const line = offset === 0 ? 0 : 1;
-    const header = `${strict ? '"use strict";' : ""}require=require("node:module").createRequire(__filename).cache[${JSON.stringify(__filename)}].exports.CommonJsRuntimeSource.create(require,__filename);`;
+    factories[FACTORY_KEY] ??= create;
+    const factoryExpression = `globalThis[Symbol.for(${JSON.stringify(FACTORY_NAME)})]`;
+    const header = `${strict ? '"use strict";' : ""}require=require("node:vm").runInThisContext(${JSON.stringify(factoryExpression)})(require,${JSON.stringify(filename)});`;
     const trailing = comments.at(-1);
     const directive = trailing !== undefined && source.slice(trailing.end).trim() === ""
       ? /^\s*[#@]\s*sourceMappingURL\s*=\s*(\S+)\s*$/.exec(trailing.text)
@@ -122,6 +125,11 @@ export namespace CommonJsRuntimeSource {
 
 type Resolver = (native: NodeJS.RequireResolve, specifier: string, options: { paths?: string[] } | undefined, filename: string) => string;
 let resolve: Resolver = (native, specifier, options) => native(specifier, options);
+// The installed hooks outlive individual CommonJS cache entries. This owned
+// symbol retains one factory per helper location without mutating Node's cache.
+const FACTORY_NAME = `ttsc.CommonJsRuntimeSource:${__filename}`;
+const FACTORY_KEY = Symbol.for(FACTORY_NAME);
+const factories = globalThis as unknown as Record<symbol, typeof CommonJsRuntimeSource.create | undefined>;
 const BASE64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 /** Encode one nonnegative source-map VLQ column or line delta. */

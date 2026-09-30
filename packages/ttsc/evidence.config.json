@@ -2,6 +2,22 @@
   "severity": "error",
   "claims": [
     {
+      "name": "compiler parsing and descriptor composition",
+      "type": "typescript",
+      "files": [
+        "src/launcher/internal/parseTtscBuildArgs.ts",
+        "src/plugin/internal/load/composePluginSources.ts"
+      ],
+      "symbol": ["type", "function"],
+      "reference": {
+        "type": "markdown",
+        "files": ["contracts/common.md", "contracts/performance.md"],
+        "symbol": "h2",
+        "checklist": true,
+        "root": "../../.agents/skills"
+      }
+    },
+    {
       "name": "maintained TypeScript production declarations",
       "type": "typescript",
       "files": [
@@ -128,6 +144,7 @@
         "!src/launcher/internal/runtime/dependencyCacheKey.ts",
         "!src/launcher/internal/runtime/runtimeRunKey.ts",
         "!src/launcher/internal/runtime/DependencyBuildGeneration.ts",
+        "!src/launcher/internal/runtime/DependencyBuildAdmission.ts",
         "!src/launcher/internal/runtime/DependencyBuildLockProtocol.ts",
         "!src/launcher/internal/runtime/RuntimeFilesystem.ts",
         "!src/launcher/internal/runtime/ProcessOwnedDirectory.ts",
@@ -256,7 +273,9 @@
         "!src/plugin/internal/source/PluginBuildLockLease.ts",
         "!src/plugin/internal/source/PluginBuildLockObservation.ts",
         "!src/compiler/internal/resolveTsgo.ts",
-        "!src/launcher/internal/parseTtsxCLI.ts"
+        "!src/launcher/internal/parseTtsxCLI.ts",
+        "!src/launcher/internal/parseTtscBuildArgs.ts",
+        "!src/plugin/internal/load/composePluginSources.ts"
       ],
       "symbol": ["type", "function"],
       "reference": {
@@ -421,6 +440,7 @@
       "type": "typescript",
       "files": [
         "src/launcher/internal/runtime/DependencyBuildGeneration.ts",
+        "src/launcher/internal/runtime/DependencyBuildAdmission.ts",
         "src/launcher/internal/runtime/DependencyBuildLockProtocol.ts",
         "src/launcher/internal/runtime/RuntimeFilesystem.ts",
         "src/launcher/internal/runtime/ProcessOwnedDirectory.ts",
