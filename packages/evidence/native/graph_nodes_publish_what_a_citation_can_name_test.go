@@ -6,7 +6,7 @@ import (
   "github.com/samchon/ttsc/packages/lint/rule"
 )
 
-// TestGraphNodesPublishWhatACitationCanName verifies that the artifacts this
+// Verifies that the artifacts this
 // rule already materialized reach a consumer as facts, and that nothing it
 // decided goes with them.
 //
@@ -25,10 +25,10 @@ import (
 //  1. Materialize a graph over a document with a selected file and headings.
 //  2. Take the published nodes.
 //  3. Assert the document and its headings arrive with their kinds, readable
-//     names, and containment — and that a hidden heading does not.
-// @evidence contracts/testing.md#behavioral-verification runGraphNodes exercises this case: TestGraphNodesPublishWhatACitationCanName verifies that the artifacts this rule already materialized reach a consumer as facts, and that nothing it decided goes with them. The original assertions check assert the document and its headings arrive with their kinds, readable names, and containment — and that a hidden heading does not.
-// @evidence contracts/testing.md#independent-expectations The graph reports; the linter judges. What crosses this boundary is what an artifact IS — its address, what kind of thing it is, its readable name, where it lives, and what contains it. What must never cross is what this rule concluded about it: coverage, exclusions, cardinality, a diagnostic. A consumer holding any of those would hold a second answer to a question this rule already answers as a compile error, and only one of the two would be maintained. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
-// @evidence contracts/testing.md#distinguishing-cases Materialize a graph over a document with a selected file and headings. Take the published nodes. Assert the document and its headings arrive with their kinds, readable names, and containment — and that a hidden heading does not. The assertions and inputs in this function retain its own failure identity.
+//     names, and containment.
+// @evidence contracts/testing.md#behavioral-verification runGraphNodes exercises this case: TestGraphNodesPublishWhatACitationCanName verifies that the artifacts this rule already materialized reach a consumer as facts, and that nothing it decided goes with them. The original assertions check assert the document and its headings arrive with their kinds, readable names, and containment.
+// @evidence contracts/testing.md#independent-expectations The graph reports; the linter judges. What crosses this boundary is what an artifact IS — its address, what kind of thing it is, its readable name, where it lives, and what contains it. What must never cross is what this rule concluded about it: coverage, exclusions, cardinality, a diagnostic. A consumer holding any of those would hold a second answer to a question this rule already answers as a compile error, and only one of the two would be maintained. Literal document and heading addresses, heading text, kinds, and allowed parents independently constrain the published nodes. The negative guard checks verdict words in addresses; it does not prove the absence of every possible verdict encoding.
+// @evidence contracts/testing.md#distinguishing-cases Materialize a graph over a document with a selected file and headings. Take the published nodes. Assert the document and its headings arrive with their kinds, readable names, and containment. The assertions and inputs in this function retain its own failure identity.
 // @evidence contracts/testing.md#execution-ownership TestGraphNodesPublishWhatACitationCanName is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runGraphNodes within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
 func TestGraphNodesPublishWhatACitationCanName(t *testing.T) {
   nodes, messages := runGraphNodes(t, map[string]string{
