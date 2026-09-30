@@ -10,7 +10,13 @@ import "testing"
 // 1. Parse normal and self-closing videos with no track child.
 // 2. Enable only `jsx-a11y/media-has-caption`.
 // 3. Assert each captionless video reports a diagnostic.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual TSX parsing and NewEngine.Run verify normal and self-closing videos lack captions; reported variants require one ordinary SeverityError finding from the named rule with the authored message fragment, and clean variants require zero findings.
+// @evidence contracts/testing.md#independent-expectations A captions track supplies a text alternative for the video. The source inputs and literal expected findings follow this supported accessibility policy without sampling implementation output.
+// @evidence contracts/testing.md#distinguishing-cases Both paired-empty and self-closing video report; a track kind="captions" child with the same media source is clean.
+// @evidence contracts/testing.md#execution-ownership TestJsxA11yMediaHasCaptionRequiresTrack owns these explicit AST variants as a named Go unit entry; the owning engine executes in the shared test process without a browser, accessibility runtime installation or product child host.
 func TestJsxA11yMediaHasCaptionRequiresTrack(t *testing.T) {
   assertJsxA11yRuleFinds(t, "jsx-a11y/media-has-caption", `const Component = () => <video src="/movie.mp4"></video>;`, "caption")
   assertJsxA11yRuleFinds(t, "jsx-a11y/media-has-caption", `const Component = () => <video src="/movie.mp4" />;`, "caption")
+  assertJsxA11yRuleSkips(t, "jsx-a11y/media-has-caption", "declare const props: object; const Component = () => <video src=\"/movie.mp4\"><track kind=\"captions\" /></video>;")
 }

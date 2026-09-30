@@ -14,8 +14,8 @@ func assertJsxA11yRuleFinds(t *testing.T, ruleName, source, messagePart string) 
   if len(findings) != 1 {
     t.Fatalf("%s: expected one finding, got %d: %+v", ruleName, len(findings), findings)
   }
-  if findings[0].Rule != ruleName {
-    t.Fatalf("%s: finding came from rule %q, not %q", ruleName, findings[0].Rule, ruleName)
+  if findings[0].engineFailure || findings[0].Severity != SeverityError || findings[0].Rule != ruleName {
+    t.Fatalf("%s: expected ordinary error finding, got %+v", ruleName, findings[0])
   }
   if messagePart != "" && !strings.Contains(findings[0].Message, messagePart) {
     t.Fatalf("%s: message %q does not contain %q", ruleName, findings[0].Message, messagePart)

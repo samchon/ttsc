@@ -10,6 +10,12 @@ import "testing"
 // 1. Parse a button with aria-hidden true.
 // 2. Enable only `jsx-a11y/no-aria-hidden-on-focusable`.
 // 3. Assert one diagnostic is reported.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual TSX parsing and NewEngine.Run verify a native button declaring aria-hidden true is reported; reported variants require one ordinary SeverityError finding from the named rule with the authored message fragment, and clean variants require zero findings.
+// @evidence contracts/testing.md#independent-expectations aria-hidden false keeps the focused control exposed. The source inputs and literal expected findings follow this supported accessibility policy without sampling implementation output.
+// @evidence contracts/testing.md#distinguishing-cases A native button with aria-hidden="true" reports; changing the state to false is clean.
+// @evidence contracts/testing.md#execution-ownership TestJsxA11yNoAriaHiddenOnFocusableRejectsHiddenButton owns these explicit AST variants as a named Go unit entry; the owning engine executes in the shared test process without a browser, accessibility runtime installation or product child host.
 func TestJsxA11yNoAriaHiddenOnFocusableRejectsHiddenButton(t *testing.T) {
   assertJsxA11yRuleFinds(t, "jsx-a11y/no-aria-hidden-on-focusable", `const Component = () => <button aria-hidden="true">Save</button>;`, "aria-hidden")
+  assertJsxA11yRuleSkips(t, "jsx-a11y/no-aria-hidden-on-focusable", "declare const props: object; const Component = () => <button aria-hidden=\"false\">Save</button>;")
 }
