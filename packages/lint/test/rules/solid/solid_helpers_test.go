@@ -75,6 +75,11 @@ func assertSolidExpectations(
   expected []ruleExpectation,
 ) {
   t.Helper()
+  for _, finding := range findings {
+    if finding.engineFailure {
+      t.Fatalf("unexpected engine failure: %+v", finding)
+    }
+  }
   actual := normalizeRuleFindings(file, findings)
   if len(actual) != len(expected) {
     t.Fatalf("want %v, got %v", expected, actual)

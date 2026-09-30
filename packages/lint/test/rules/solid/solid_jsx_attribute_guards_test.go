@@ -13,6 +13,11 @@ import "testing"
  * 2. Enable the JSX attribute rules.
  * 3. Assert each rule reports its own high-confidence attribute pattern.
  */
+//
+// @evidence contracts/testing.md#behavioral-verification The actual owning engine verifies ten exact findings identify duplicate/React/unsafe/namespaced/array-handler attributes; the assertions below retain the observable identity of every expected result.
+// @evidence contracts/testing.md#independent-expectations Solid DOM prop meanings establish class/for instead of className/htmlFor, callable event handlers and no unsafe innerHTML/script URLs; exact triples pin each actual offending attribute.
+// @evidence contracts/testing.md#distinguishing-cases Case variants onclick/onClick and repeated id attributes are independently reported; normal event, class, for, href and singleton id form the accepted control.
+// @evidence contracts/testing.md#execution-ownership TestSolidJSXAttributeGuards owns the explicit variants below as one discoverable Go unit entry; its parsed-source engine calls, with an in-process checker when required, execute in the shared process without a Solid installation or native product host.
 func TestSolidJSXAttributeGuards(t *testing.T) {
   source := `
 import { createSignal } from "solid-js";
@@ -53,4 +58,13 @@ function App() {
     {Rule: "solid/no-unknown-namespaces", Severity: SeverityError, Line: 14},
     {Rule: "solid/jsx-no-duplicate-props", Severity: SeverityError, Line: 16},
   })
+  assertSolidFindings(t, "import { createSignal } from \"solid-js\"; const view = <a onClick={() => {}} class=\"primary\" for=\"field\" href=\"/safe\" id=\"a\" />; void createSignal;\n", RuleConfig{
+    "solid/event-handlers": SeverityError,
+    "solid/jsx-no-duplicate-props": SeverityError,
+    "solid/jsx-no-script-url": SeverityError,
+    "solid/no-array-handlers": SeverityError,
+    "solid/no-innerhtml": SeverityError,
+    "solid/no-react-specific-props": SeverityError,
+    "solid/no-unknown-namespaces": SeverityError,
+  }, nil)
 }

@@ -27,6 +27,11 @@ import (
 //     inherits the tag.
 //  5. Assert the negative twin `solid/no-react-specific-props` reports both
 //     `className` and `key` with no tags at all.
+//
+// @evidence contracts/testing.md#behavioral-verification The actual owning engine verifies the exact dependency-array span receives Unnecessary while React-specific prop reports remain untagged; the assertions below retain the observable identity of every expected result.
+// @evidence contracts/testing.md#independent-expectations Solid tracks dependencies without a React array; deleting only the independently marked array is meaningful, whereas className requires renaming and cannot receive a rule-wide deletion tag.
+// @evidence contracts/testing.md#distinguishing-cases Named/aliased/namespace imports are positive; local, shadowed and similarly named custom APIs stay clean, and className/key reports have no tag.
+// @evidence contracts/testing.md#execution-ownership TestSolidNoReactDepsTagsDependencyArrayUnnecessary owns the explicit variants below as one discoverable Go unit entry; its parsed-source engine calls, with an in-process checker when required, execute in the shared process without a Solid installation or native product host.
 func TestSolidNoReactDepsTagsDependencyArrayUnnecessary(t *testing.T) {
   source := "import { createEffect } from \"solid-js\";\n\ncreateEffect(() => {}, [first, second]);\n"
   _, _, findings := runRuleFindingsSnapshot(t, "solid/no-react-deps", source, nil)

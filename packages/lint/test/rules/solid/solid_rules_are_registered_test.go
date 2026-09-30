@@ -13,6 +13,11 @@ import "testing"
  * 2. Look up each `solid/*` id in the native registry.
  * 3. Assert every rule exists.
  */
+//
+// @evidence contracts/testing.md#behavioral-verification LookupRule resolves all 20 supported Solid rule identifiers; the assertions below retain the observable identity of every expected result.
+// @evidence contracts/testing.md#independent-expectations The literal public rule surface is the supported lookup contract; actual registry resolution is behavior, not committed file existence.
+// @evidence contracts/testing.md#distinguishing-cases All supported names must resolve; individual parsing/fix cases own semantics, so lookup presence alone does not prove rule correctness.
+// @evidence contracts/testing.md#execution-ownership TestSolidRulesAreRegistered owns the explicit variants below as one discoverable Go unit entry; its public registry calls execute in the shared process without a Solid installation or native product host.
 func TestSolidRulesAreRegistered(t *testing.T) {
   names := []string{
     "components-return-once",

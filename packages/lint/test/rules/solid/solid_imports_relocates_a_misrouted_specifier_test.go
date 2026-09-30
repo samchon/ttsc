@@ -22,6 +22,11 @@ import "testing"
 // import into `import type { … }` makes every use of it a TS1361 error, and
 // dropping `type` from a synthesized declaration emits a runtime import for a
 // symbol with no runtime existence.
+//
+// @evidence contracts/testing.md#behavioral-verification assertFixSnapshot exercises the actual engine and fixer to verify six named fix cases relocate render into solid-js/web and preserve sibling/default/type bindings; the assertions below retain the observable identity of every expected result.
+// @evidence contracts/testing.md#independent-expectations Solid module ownership puts render in solid-js/web; literal whole-source expected strings establish the required relocation and retained syntax independently of the fixer.
+// @evidence contracts/testing.md#distinguishing-cases Sole/sibling/default/type-only imports and existing destinations cover in-place, split and merge edits; the mismatch test owns destinations of the wrong import kind.
+// @evidence contracts/testing.md#execution-ownership TestSolidImportsRelocatesAMisroutedSpecifier owns the explicit variants below as one discoverable Go unit entry; its parsed-source engine and fixer calls execute in the shared process without a Solid installation or native product host.
 func TestSolidImportsRelocatesAMisroutedSpecifier(t *testing.T) {
   for _, tc := range []struct {
     name   string

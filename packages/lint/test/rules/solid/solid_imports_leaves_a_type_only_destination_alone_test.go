@@ -13,6 +13,11 @@ import "testing"
 //
 // The fix is expected to synthesize a matching declaration instead of appending
 // into the mismatched one, which is what these two sources assert.
+//
+// @evidence contracts/testing.md#behavioral-verification assertFixSnapshot exercises the actual engine and fixer to verify two named fix cases synthesize declarations rather than merging value/type bindings into mismatched destinations; the assertions below retain the observable identity of every expected result.
+// @evidence contracts/testing.md#independent-expectations Type-only declarations must retain type-only semantics and value imports must remain runtime values; each complete fixed string is authored from the intended import meaning.
+// @evidence contracts/testing.md#distinguishing-cases Both mismatch directions preserve the existing destination, unrelated bindings and uses. TestSolidImportsRelocatesAMisroutedSpecifier owns matching destinations.
+// @evidence contracts/testing.md#execution-ownership TestSolidImportsLeavesATypeOnlyDestinationAlone owns the explicit variants below as one discoverable Go unit entry; its parsed-source engine and fixer calls execute in the shared process without a Solid installation or native product host.
 func TestSolidImportsLeavesATypeOnlyDestinationAlone(t *testing.T) {
   for _, tc := range []struct {
     name   string
