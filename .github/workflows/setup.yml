@@ -58,4 +58,14 @@ jobs:
         run: pnpm exec node --import ./scripts/register-typescript-loader.mjs tests/e2e/installed-os-boundaries.mts
       - name: Check the Windows kernel boundaries in one installed SDK batch
         if: ${{ !cancelled() && steps.installed.outcome == 'success' && runner.os == 'Windows' }}
-        run: pnpm exec node scripts/test-go-lint.cjs --os-boundaries
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          pnpm exec node scripts/test-go-evidence.cjs --os-boundaries
+          $evidenceExit = $LASTEXITCODE
+          pnpm exec node scripts/test-go-lint.cjs --os-boundaries
+          $lintExit = $LASTEXITCODE
+          if ($evidenceExit -ne 0 -or $lintExit -ne 0) {
+            Write-Error "Windows SDK boundary failures: Evidence=$evidenceExit, lint=$lintExit"
+            exit 1
+          }

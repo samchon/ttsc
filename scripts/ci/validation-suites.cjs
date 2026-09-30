@@ -34,6 +34,7 @@ const LANES = [
     "dirs": [
       "features/api",
       "features/compiler",
+      "native-plugins/compiler",
       "features/platform",
       "features/project",
       "features/ttscserver",
