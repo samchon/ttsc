@@ -1,7 +1,6 @@
 import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   assert,
-  copyDirectory,
   fs,
   goPath,
   path,
@@ -28,9 +27,17 @@ import {
  * 2. Run ttsc with `--emit` against the fixture project.
  * 3. Assert the build ran the transform (`"PLUGIN"`), the context fields equal the
  *    ambient globals, and `filename` is the resolved descriptor path.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Real native uppercase or prefix output and exact context-file assertions prove the selected descriptor receives its own file and directory identities.
+ * @evidence contracts/testing.md#independent-expectations Expected output literals and the independently resolved descriptor filename establish behavior independently of factory serialization.
+ * @evidence contracts/testing.md#distinguishing-cases Owns CommonJS descriptor and its ambient filename/dirname globals; the other evaluator mode remains its separate necessary transport connection.
+ * @evidence contracts/testing.md#execution-ownership The matching named native export executes one descriptor consumer through the actual CLI in the shared Linux boundary population.
+ * @evidence contracts/e2e.md#necessary-boundary The actual descriptor evaluator must supply context identities that the factory uses to locate and invoke its native source; pure descriptor guards cannot exercise this connection.
+ * @evidence contracts/e2e.md#shared-execution The consumer-relative Go source is a filesystem link to the immutable canonical transformer, so production realpath normalization shares the native binary rather than compiling copied modules.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Descriptor and observation file remain temporary consumer state; only immutable Go source is linked, and source/toolchain/contributor keys govern reuse. No cold build or mutation is asserted.
+ * @evidence contracts/e2e.md#preserved-coverage All original CLI success, transformed output and exact context/ambient/physical filename assertions remain; the factory still derives its source from context.dirname.
  */
-export const test_plugin_corpus_factory_context_exposes_descriptor_dirname_and_filename =
-  () => {
+export function test_plugin_corpus_factory_context_exposes_descriptor_dirname_and_filename(): void {
     const root = pluginProject(
       [{ transform: "./plugins/probe.cjs", name: "probe" }],
       {
@@ -61,9 +68,10 @@ export const test_plugin_corpus_factory_context_exposes_descriptor_dirname_and_f
       `,
       },
     );
-    copyDirectory(
+    fs.symlinkSync(
       path.join(workspaceRoot, "tests", "go-transformer"),
       path.join(root, "go-plugin"),
+      process.platform === "win32" ? "junction" : "dir",
     );
 
     const probe = path.join(root, "factory-context-probe.json");
@@ -97,4 +105,4 @@ export const test_plugin_corpus_factory_context_exposes_descriptor_dirname_and_f
       fs.realpathSync(path.join(root, "plugins", "probe.cjs")),
     );
     assert.equal(recorded.dirname, path.dirname(recorded.filename));
-  };
+  }

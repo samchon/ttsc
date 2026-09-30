@@ -2,7 +2,6 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   assert,
   commonJsProject,
-  copyDirectory,
   fs,
   goPath,
   path,
@@ -28,9 +27,17 @@ import {
  * 2. Run ttsc with `--emit` against a project that depends on it.
  * 3. Assert the transform ran (`"CTXDIR:plugin"`) and `filename`/`dirname` name
  *    the resolved descriptor entry, proving they survived ttsx serialization.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Real native uppercase or prefix output and exact context-file assertions prove the selected descriptor receives its own file and directory identities.
+ * @evidence contracts/testing.md#independent-expectations Expected output literals and the independently resolved descriptor filename establish behavior independently of factory serialization.
+ * @evidence contracts/testing.md#distinguishing-cases Owns ESM TypeScript barrel via the actual ttsx evaluator; the other evaluator mode remains its separate necessary transport connection.
+ * @evidence contracts/testing.md#execution-ownership The matching named native export executes one descriptor consumer through the actual CLI in the shared Linux boundary population.
+ * @evidence contracts/e2e.md#necessary-boundary The actual descriptor evaluator must supply context identities that the factory uses to locate and invoke its native source; pure descriptor guards cannot exercise this connection.
+ * @evidence contracts/e2e.md#shared-execution The consumer-relative Go source is a filesystem link to the immutable canonical transformer, so production realpath normalization shares the native binary rather than compiling copied modules.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Descriptor and observation file remain temporary consumer state; only immutable Go source is linked, and source/toolchain/contributor keys govern reuse. No cold build or mutation is asserted.
+ * @evidence contracts/e2e.md#preserved-coverage All original CLI success, transformed output and exact context/ambient/physical filename assertions remain; the factory still derives its source from context.dirname.
  */
-export const test_plugin_corpus_factory_context_dirname_resolves_source_through_ttsx =
-  () => {
+export function test_plugin_corpus_factory_context_dirname_resolves_source_through_ttsx(): void {
     const root = commonJsProject({
       "src/main.ts": `export const value: string = goUpper("plugin");\nconsole.log(value);\n`,
     });
@@ -40,9 +47,10 @@ export const test_plugin_corpus_factory_context_dirname_resolves_source_through_
         dependencies: { "barrel-plugin": "0.1.0" },
       }),
     );
-    copyDirectory(
+    fs.symlinkSync(
       path.join(workspaceRoot, "tests", "go-transformer"),
       path.join(root, "go-plugin"),
+      process.platform === "win32" ? "junction" : "dir",
     );
 
     const pkg = path.join(root, "node_modules", "barrel-plugin");
@@ -142,4 +150,4 @@ export default (context: {
       fs.realpathSync(path.join(pkg, "src", "index.ts")),
     );
     assert.equal(recorded.dirname, fs.realpathSync(path.join(pkg, "src")));
-  };
+  }
