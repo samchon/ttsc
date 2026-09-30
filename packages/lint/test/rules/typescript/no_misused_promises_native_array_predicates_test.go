@@ -9,6 +9,10 @@ import "testing"
 //     readonly, tuple, union, intersection, and constrained receivers.
 //  2. Keep dynamic keys and Promise-aware numeric-indexed APIs clean.
 //  3. Require one diagnostic when predicate and void-argument analysis overlap.
+// @evidence contracts/testing.md#behavioral-verification Native-array predicates must be distinguished from structurally similar Promise-aware APIs.
+// @evidence contracts/testing.md#independent-expectations Authored markers fix twelve diagnostics and require one diagnostic at the overlapping predicate/void-callback boundary.
+// @evidence contracts/testing.md#distinguishing-cases Static dot/computed/template/optional access, readonly/tuple/union/intersection/constrained arrays are paired with dynamic keys and Promise-aware structural or readonly overloads.
+// @evidence contracts/testing.md#execution-ownership TestNoMisusedPromisesNativeArrayPredicates executes the in-process check command over a real Program/Checker; disposable fixture configuration feeds that operation without a compiler child, installation or native plugin build.
 func TestNoMisusedPromisesNativeArrayPredicates(t *testing.T) {
   assertNoMisusedPromisesCase(t, "main.ts", `const mutable = [1, 2, 3];
 declare const readonlyValues: readonly number[];

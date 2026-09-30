@@ -9,6 +9,10 @@ import "testing"
 //     disposal, variables, object properties, returns, and JSX attributes.
 //  2. Pair them with synchronous and Promise-aware controls.
 //  3. Require only the Promise-producing boundaries to report.
+// @evidence contracts/testing.md#behavioral-verification Every default misuse family must inspect its supported Promise boundary.
+// @evidence contracts/testing.md#independent-expectations Authored markers fix the complete error-line multiset across conditions, predicates, spreads, inheritance, disposal, callbacks, returns and JSX.
+// @evidence contracts/testing.md#distinguishing-cases Synchronous disposal, await-using and Promise-aware arguments remain clean; the Promise-or-boolean condition boundary stays intentionally unreported.
+// @evidence contracts/testing.md#execution-ownership TestNoMisusedPromisesDefaults executes the in-process check command over a real Program/Checker; disposable fixture configuration feeds that operation without a compiler child, installation or native plugin build.
 func TestNoMisusedPromisesDefaults(t *testing.T) {
   assertNoMisusedPromisesCase(t, "main.tsx", `declare function consume(callback: () => void): void;
 declare function consumeAsync(callback: () => Promise<void>): void;

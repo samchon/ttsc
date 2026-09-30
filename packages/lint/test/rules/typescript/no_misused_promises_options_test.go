@@ -11,6 +11,10 @@ import (
 // 1. Disable each void-return position independently against one shared case.
 // 2. Require every other position to keep reporting in each run.
 // 3. Disable conditions and spreads independently from void-return checks.
+// @evidence contracts/testing.md#behavioral-verification Each option gate must disable only its own supported misuse positions.
+// @evidence contracts/testing.md#independent-expectations Authored line lists 4,5,7,8,9,10,12 and scalar lists 1/3 determine the exact remaining errors and exit code for every run.
+// @evidence contracts/testing.md#distinguishing-cases Six positional disables retain all other positions; whole void-return disable and independent conditional/spread disables distinguish selective from global suppression.
+// @evidence contracts/testing.md#execution-ownership TestNoMisusedPromisesOptions executes the in-process check command over a real Program/Checker; disposable fixture configuration feeds that operation without a compiler child, installation or native plugin build.
 func TestNoMisusedPromisesOptions(t *testing.T) {
   voidSource := `declare function consume(callback: () => void): void;
 declare global { namespace JSX { interface IntrinsicElements { button: { onClick?: () => void } } } }
