@@ -8,8 +8,8 @@
       "files": [
         "tests/test-*/src/features/**/test_*.ts",
         "tests/test-*/src/native-plugins/**/test_*.ts",
-        "!tests/test-factory/src/features/**/test_*.ts",
-        "!tests/test-lint/src/features/harness/**/test_*.ts"
+        "tests/test-*/src/os-boundaries/**/test_*.ts",
+        "tests/e2e/installed-os-boundaries.mts"
       ],
       "symbol": "function",
       "reference": [
@@ -34,13 +34,14 @@
       ]
     },
     {
-      "name": "Packed consumer host boundaries",
+      "name": "JavaScript process and packed host boundaries",
       "type": "javascript",
       "root": "../..",
       "files": [
         "experimental/test-unplugin/src/contracts/scenarios/test_host_*.mjs",
         "experimental/test-unplugin/src/contracts/builds/test_packed_*.mjs",
-        "scripts/ci/installed-cli-smoke.cjs"
+        "scripts/ci/installed-cli-smoke.cjs",
+        "tests/e2e/scripts/ci/*.test.cjs"
       ],
       "symbol": "function",
       "reference": [
@@ -109,11 +110,13 @@
       ]
     },
     {
-      "name": "Installed SDK Windows kernel boundaries",
+      "name": "Installed producer and Windows kernel boundaries",
       "type": "go",
       "root": "../..",
       "files": [
-        "packages/lint/test/os-boundaries/windows/*_test.go"
+        "packages/lint/test/os-boundaries/windows/*_test.go",
+        "tests/test-evidence/go/e2e/**/*_test.go",
+        "tests/test-evidence/go/os-boundaries/windows/**/*_test.go"
       ],
       "symbol": "function",
       "reference": [
@@ -136,6 +139,159 @@
           "checklist": true
         }
       ]
+    },
+    {
+      "name": "Utility boundary producer lifetimes",
+      "type": "go",
+      "root": "../..",
+      "files": [
+        "packages/banner/test/shared/helpers_test.go",
+        "packages/paths/test/shared/helpers_test.go",
+        "packages/strip/test/shared/helpers_test.go"
+      ],
+      "symbol": "function",
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": [
+          "contracts/common.md",
+          "contracts/performance.md",
+          "contracts/portability.md"
+        ],
+        "symbol": "h2",
+        "checklist": true
+      }
+    },
+    {
+      "name": "Validation preparation owners",
+      "type": "javascript",
+      "root": "../..",
+      "files": [
+        "scripts/ci/utility-test-overlay.cjs",
+        "scripts/ci/run-evidence.cjs"
+      ],
+      "symbol": "function",
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": [
+          "contracts/common.md",
+          "contracts/performance.md",
+          "contracts/portability.md"
+        ],
+        "symbol": "h2",
+        "checklist": true
+      }
+    },
+    {
+      "name": "Evidence project release ownership",
+      "type": "typescript",
+      "root": "../..",
+      "files": [
+        "tests/test-evidence/src/internal/withEvidenceProject.ts"
+      ],
+      "symbol": "function",
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": [
+          "contracts/common.md",
+          "contracts/performance.md"
+        ],
+        "symbol": "h2",
+        "checklist": true
+      }
+    },
+    {
+      "name": "Fixture and watch producer ownership",
+      "type": "typescript",
+      "root": "../..",
+      "files": [
+        "tests/test-evidence/src/internal/startWatch.ts",
+        "tests/test-evidence/src/internal/createProject.ts",
+        "tests/test-banner/src/internal/banner-map-boundary.ts"
+      ],
+      "symbol": "function",
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": [
+          "contracts/common.md",
+          "contracts/performance.md",
+          "contracts/portability.md"
+        ],
+        "symbol": "h2",
+        "checklist": true
+      }
+    },
+    {
+      "name": "Evidence fixture preparation inputs",
+      "type": "typescript",
+      "root": "../..",
+      "files": [
+        "tests/test-evidence/src/internal/ICreateProjectProps.ts"
+      ],
+      "symbol": "type",
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": [
+          "contracts/common.md"
+        ],
+        "symbol": "h2",
+        "checklist": true
+      }
+    },
+    {
+      "name": "Go utility process boundaries",
+      "type": "go",
+      "root": "../..",
+      "files": [
+        "packages/banner/test/e2e/**/*_test.go",
+        "packages/paths/test/e2e/**/*_test.go",
+        "packages/strip/test/e2e/**/*_test.go"
+      ],
+      "symbol": "function",
+      "reference": [
+        {
+          "type": "markdown",
+          "root": "../../.agents/skills",
+          "files": [
+            "contracts/testing.md"
+          ],
+          "symbol": "h2",
+          "checklist": true
+        },
+        {
+          "type": "markdown",
+          "root": "../../.agents/skills",
+          "files": [
+            "contracts/e2e.md"
+          ],
+          "symbol": "h2",
+          "checklist": true
+        }
+      ]
+    },
+    {
+      "name": "Evidence benchmark dependency preparation ownership",
+      "type": "typescript",
+      "root": "../..",
+      "files": [
+        "benchmarks/evidence/src/EvidenceBenchmarkWorkspace.ts"
+      ],
+      "symbol": "function",
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": [
+          "contracts/common.md",
+          "contracts/performance.md",
+          "contracts/portability.md"
+        ],
+        "symbol": "h2",
+        "checklist": true
+      }
     }
   ]
 }
