@@ -1,10 +1,9 @@
-import { TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { createCacheProject } from "../../internal/transform-project-cache/createCacheProject";
-import { projectModules } from "../../internal/transform-project-cache/projectModules";
+import { createCachedDeliveryUnitFixture } from "../../internal/transform-project-cache/createCachedDeliveryUnitFixture";
+import { observeValidationUnitGeneration } from "../../internal/transform-project-cache/observeValidationUnitGeneration";
 import { cachedGeneration } from "../../internal/transform-terminal-verdict/cachedGeneration";
 
 /**
@@ -25,11 +24,23 @@ import { cachedGeneration } from "../../internal/transform-terminal-verdict/cach
  *    the generation survives.
  * 3. Deliver the remaining modules and assert they are served from that
  *    generation.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Authored transformTtsc delivers a recorded successful three-module consumer generation, returns undefined for an out-of-program file, preserves the exact cached Promise and still serves both sibling modules.
+ * @evidence contracts/testing.md#independent-expectations A literal output map contains exactly the three src modules and no outside/helper.ts. Supported host fallback is undefined, while identity equality distinguishes a missing-output fallback from failure or generation eviction without computing expected values from the selector.
+ * @evidence contracts/testing.md#distinguishing-cases A present module precedes one existing file excluded by include src, then two present siblings prove the excluded module did not poison the pass. The fixture is established before observation, separating absence of program output from a membership mutation.
+ * @evidence contracts/testing.md#execution-ownership This named source unit calls the actual delivery coordinator over literal successful consumer metadata and real resolver files; no compiler, contributor or product host is built or substituted. Actual capture-to-native-output connection remains in test_transformttsc_failed_generation_recovery_batch and test_transformttsc_unavailable_notifications_keep_the_persistent_cache.
  */
 export async function test_transformttsc_an_out_of_program_module_does_not_fail_the_pass(): Promise<void> {
-  const api = await TestUnpluginRuntime.loadUnpluginApi();
-  const project = createCacheProject({ fileCount: 3, graphFanout: 1 });
-  const modules = projectModules(project.root);
+  const fixture = createCachedDeliveryUnitFixture();
+  const root = path.dirname(path.dirname(fixture.file));
+  const project = { root };
+  const modules = [fixture.file];
+  for (let index = 1; index < 3; index += 1) {
+    const file = path.join(root, "src", "module" + index + ".ts");
+    fs.writeFileSync(file, fixture.source);
+    fixture.good.result.typescript["src/module" + index + ".ts"] = fixture.code;
+    modules.push(file);
+  }
   // Under the project root but outside the tsconfig's `include: ["src"]`, so
   // the program has no entry for it. Planted before the first delivery, since
   // creating it later would be a membership change instead.
@@ -37,8 +48,10 @@ export async function test_transformttsc_an_out_of_program_module_does_not_fail_
   fs.mkdirSync(path.dirname(outside), { recursive: true });
   fs.writeFileSync(outside, "export const helper = 1;\n", "utf8");
 
-  const cache = api.createTtscTransformCache();
-  const options = api.resolveOptions();
+  const { api, cache, options } = fixture;
+  const observed = observeValidationUnitGeneration(root, fixture.good.result);
+  observed.deliveryEpoch = 1;
+  cache.set(fixture.key, Promise.resolve(observed));
   const deliver = (file: string) =>
     api.transformTtsc(
       file,
@@ -47,7 +60,6 @@ export async function test_transformttsc_an_out_of_program_module_does_not_fail_
       undefined,
       cache,
     );
-  api.beginTtscTransformBuild(cache);
   try {
     assert.ok(await deliver(modules[0]!));
     const generation = cachedGeneration(cache);
@@ -70,6 +82,6 @@ export async function test_transformttsc_an_out_of_program_module_does_not_fail_
       );
     }
   } finally {
-    api.resetTtscTransformCache(cache);
+    fixture.dispose();
   }
 }

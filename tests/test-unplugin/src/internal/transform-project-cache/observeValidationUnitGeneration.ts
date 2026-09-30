@@ -1,9 +1,9 @@
 import type { ITtscCompilerTransformation } from "ttsc";
 import { createHash } from "node:crypto";
-import fs from "node:fs";
 import path from "node:path";
 
 import type { TtscCachedProjectTransform } from "../../../../../packages/unplugin/src/core/transform/cache/TtscCachedProjectTransform";
+import { resultFilesystem } from "../../../../../packages/unplugin/src/core/transform/cache/resultFilesystem";
 import { envelopeDerivation } from "../../../../../packages/unplugin/src/core/transform/envelope/envelopeDerivation";
 import { selectExternalInputPaths } from "../../../../../packages/unplugin/src/core/transform/envelope/selectExternalInputPaths";
 import { collectProjectInputSnapshot } from "../../../../../packages/unplugin/src/core/transform/project/collectProjectInputSnapshot";
@@ -30,11 +30,12 @@ export function observeValidationUnitGeneration(
     result,
     tsconfig,
   };
+  const filesystem = resultFilesystem(result);
   const state = envelopeDerivation(cached);
   const snapshot = collectProjectInputSnapshot(
     root,
     state.identityContext,
-    undefined,
+    filesystem,
     undefined,
     { policy: cached.membershipPolicy },
   );
@@ -43,6 +44,7 @@ export function observeValidationUnitGeneration(
   cached.projectDirectories = snapshot.projectDirectories;
   cached.inputHashes = snapshot.hashes;
   const external = selectExternalInputPaths({
+    filesystem,
     projectRoot: root,
     result,
     membershipPolicy: cached.membershipPolicy,
@@ -52,9 +54,9 @@ export function observeValidationUnitGeneration(
   cached.externalInputRealpaths = {};
   for (const file of external) {
     const identity = state.identityContext.resolve(file).key;
-    const bytes = fs.readFileSync(file);
+    const bytes = filesystem.readFile(file);
     cached.externalInputHashes[identity] = createHash("sha256").update(bytes).digest("hex");
-    cached.externalInputRealpaths[identity] = fs.realpathSync.native(file);
+    cached.externalInputRealpaths[identity] = filesystem.realpath(file);
   }
   const universal = captureUniversalHostInputValidation(cached, path.join(root, "src", "mod0.ts"));
   if (universal.validation === undefined) {
