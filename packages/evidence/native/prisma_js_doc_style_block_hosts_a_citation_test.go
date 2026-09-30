@@ -24,7 +24,7 @@ import (
  *  2. Assert each hosts on the model below it.
  *  3. Assert nothing is reported.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaDeclarations preserves one model citation and its asserted target/reason for each block variant.
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaDeclarationsFromComments preserves one model citation and its asserted target/reason for each block variant.
  * @evidence .agents/skills/contracts/testing.md#independent-expectations Authored block fixtures and literal fields independently specify supported syntax.
  * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Every local variant keeps its name and assertions under this entry.
  * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaJSDocStyleBlockHostsACitation is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.

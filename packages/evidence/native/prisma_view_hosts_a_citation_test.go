@@ -16,7 +16,7 @@ import (
  *  1. Cite from a view and from one of its columns.
  *  2. Assert both host, with the symbols the population gives them.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaDeclarations accepts the asserted model/member citation index for a view.
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaDeclarationsFromComments accepts the asserted model/member citation index for a view.
  * @evidence .agents/skills/contracts/testing.md#independent-expectations Literal view fixture and expected index establish model-like hosting.
  * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Views remain eligible while enums have their separate negative case.
  * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaViewHostsACitation is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.

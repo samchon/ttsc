@@ -19,7 +19,7 @@ import (
  *  3. Assert the repeat collapses to the first occurrence.
  *
  * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaModelUnits emits only the expected Sale model and price column from malformed/duplicate inputs.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The literal expected index excludes invalid symbols,empty names and duplicates.
+ * @evidence .agents/skills/contracts/testing.md#independent-expectations The literal expected index excludes the unknown index symbol and repeated price identity.
  * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Valid members survive while bad/repeated identities do not multiply units.
  * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaAdmitsOnlyAddressableMembersOnce is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */

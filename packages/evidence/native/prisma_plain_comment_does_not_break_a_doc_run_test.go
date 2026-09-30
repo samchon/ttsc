@@ -17,7 +17,7 @@ import (
  *  1. Separate two citations with a plain comment.
  *  2. Assert both host on the model, each at its own line.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaDeclarations retains the expected index across an ordinary comment.
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaDeclarationsFromComments retains the expected index across an ordinary comment.
  * @evidence .agents/skills/contracts/testing.md#independent-expectations Authored schema and literal host/line/reason expectation establish continuity.
  * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Harmless plain comment differs from a discarded documentation run.
  * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaPlainCommentDoesNotBreakADocRun is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.

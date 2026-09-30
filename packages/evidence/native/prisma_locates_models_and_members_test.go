@@ -16,7 +16,7 @@ import (
  *  2. Assert each name's line.
  *  3. Assert the second model's member did not attach to the first model.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification scanPrismaSchema locates the checked model/member keys and excludes datasource settings.
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification scanPrismaFile locates the checked model/member keys and excludes datasource settings.
  * @evidence .agents/skills/contracts/testing.md#independent-expectations Literal source lines and expected locator positions specify addressable names.
  * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Datasource provider metadata cannot leak into model members.
  * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaLocatesModelsAndMembers is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.

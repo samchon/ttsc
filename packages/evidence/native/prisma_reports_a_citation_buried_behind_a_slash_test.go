@@ -19,7 +19,7 @@ import (
  *  2. Assert the valid one still hosts.
  *  3. Assert the buried one is reported with the repair named.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaDeclarations preserves the valid tag and reports one buried repair at schema.prisma:1.
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaDeclarationsFromComments preserves the valid tag and reports one buried repair at schema.prisma:1.
  * @evidence .agents/skills/contracts/testing.md#independent-expectations The fixture explicitly includes valid and slash-prefixed annotations.
  * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Malformed neighbor must not discard the valid citation.
  * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaReportsACitationBuriedBehindASlash is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.

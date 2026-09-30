@@ -19,7 +19,7 @@ import (
  *  2. Locate across the set.
  *  3. Assert each name reports its own file.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification locatePrismaModels places Sale/Seller in their own files at line1.
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification locatePrismaDeclarations places Sale/Seller in their own files at line1.
  * @evidence .agents/skills/contracts/testing.md#independent-expectations Two authored files and literal path-line assertions fix attribution.
  * @evidence .agents/skills/contracts/testing.md#distinguishing-cases A set-wide scan must preserve each defining file.
  * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaLocatesAcrossAMultiFileSet is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.

@@ -22,7 +22,7 @@ import (
  *  2. Assert two problems and no declarations.
  *  3. Assert each names its own repair.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaDeclarations hosts nothing and reports exactly two placement repairs.
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaDeclarationsFromComments hosts nothing and reports exactly two placement repairs.
  * @evidence .agents/skills/contracts/testing.md#independent-expectations Deliberate discarded/file-level positions have no eligible declaration.
  * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Each invalid placement retains its own diagnostic.
  * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaReportsDiscardedCommentAndFileLevelEvidence is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.

@@ -17,7 +17,7 @@ import (
  *  1. Scan one schema twice, with LF and with CRLF.
  *  2. Assert the two answer identically.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification scanPrismaSchema returns identical indexes for LF/CRLF source copies.
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification scanPrismaFile returns identical indexes for LF/CRLF source copies.
  * @evidence .agents/skills/contracts/testing.md#independent-expectations Only line endings change; equality establishes portability but cannot certify a shared incorrect index.
  * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Both newline forms must retain coordinates.
  * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaLocatesAcrossLineEndings is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
