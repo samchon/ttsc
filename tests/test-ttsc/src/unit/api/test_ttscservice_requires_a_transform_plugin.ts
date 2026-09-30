@@ -6,11 +6,9 @@ import { TtscService } from "../../../../../packages/ttsc/src/TtscService";
 /**
  * Verifies TtscService refuses a project with no transform-stage plugin.
  *
- * Resident mode runs through the linked-plugin shared host, the only binary
- * that exposes `serve`, so a project with only check plugins or none cannot be
- * served. The constructor must fail fast with a clear message rather than
- * spawning a host that has no `serve` subcommand. This throw happens before any
- * Go build (the plugin set is empty), so it needs no toolchain.
+ * The service requires a transform-stage plugin before selecting its resident
+ * host. A project with none must fail fast with a clear message before any Go
+ * build or host spawn, so this admission check needs no toolchain.
  *
  * 1. Create a plain project with no plugins.
  * 2. Assert constructing a TtscService throws the documented error.

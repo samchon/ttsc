@@ -193,7 +193,7 @@ function writePackageSourcePlugin(root: string, packageName: string) {
  * not backend bytes. Source mutation and provenance cases keep private modules.
  *
  * @evidence contracts/common.md#principled-implementation The manifest and descriptor remain inside each consumer package, while their source points to the same immutable authored backend used by configured-plugin cases; discovery ownership changes without changing backend behavior.
- * @evidence contracts/common.md#clear-and-simple-design One helper owns dependency/manifest/descriptor materialization and delegates backend lifetime to writeSharedCompilerPlugin instead of rewriting an identical Go module per consumer.
+ * @evidence contracts/common.md#clear-and-simple-design One helper owns dependency/manifest/descriptor materialization and delegates backend lifetime to getSharedCompilerPluginSource instead of rewriting an identical Go module per consumer.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts This shares fixture preparation only; the real loader resolves the project package and builds/executes the authored Go backend, with no substituted product result or changed assertion.
  * @evidence contracts/common.md#meaningful-documentation Native prose identifies immutable inputs and the private-source exceptions, separating those grounds from acknowledgment tags.
  * @evidence contracts/performance.md#efficient-algorithms Consumer preparation writes three fixed-size metadata files rather than the backend module again; the initial shared source writer owns the fixed Go source materialization.
@@ -201,7 +201,7 @@ function writePackageSourcePlugin(root: string, packageName: string) {
  * @evidence contracts/performance.md#bound-retention-and-release-resources One shared source directory is retained for this runner process and owned by TestProject cleanup; each consumer retains only its registered project package files and synchronous command result.
  */
 function writePackageCompilerPlugin(root: string, packageName: string) {
-  const source = writeSharedCompilerPlugin(root);
+  const source = getSharedCompilerPluginSource();
   const packageRoot = path.join(root, "node_modules", packageName);
   writeProjectDependency(root, packageName);
   fs.mkdirSync(packageRoot, { recursive: true });
@@ -301,13 +301,13 @@ function writeCompilerPlugin(root: string) {
 let sharedCompilerPluginSource: string | undefined;
 
 /**
- * Write a private descriptor for the process-owned immutable compiler producer.
+ * Materialize the process-owned immutable compiler producer once.
  *
  * These consumers vary project inputs and descriptor options, not Go source.
  * Mutation, source-path and cold-build cases keep writeCompilerPlugin instead.
  * TestProject owns the shared source until all this process's consumers finish.
  */
-function writeSharedCompilerPlugin(root: string): string {
+function getSharedCompilerPluginSource(): string {
   if (sharedCompilerPluginSource === undefined) {
     const source = TestProject.physicalPath(
       TestProject.tmpdir("ttsc-api-compiler-producer-"),
@@ -315,7 +315,12 @@ function writeSharedCompilerPlugin(root: string): string {
     writeCompilerPluginBackend(source);
     sharedCompilerPluginSource = source;
   }
-  const source = sharedCompilerPluginSource;
+  return sharedCompilerPluginSource;
+}
+
+/** Write this configured-plugin consumer's descriptor for the shared producer. */
+function writeSharedCompilerPlugin(root: string): string {
+  const source = getSharedCompilerPluginSource();
   fs.writeFileSync(
     path.join(root, "plugin.cjs"),
     `module.exports = { name: "compile-fixture", source: ${JSON.stringify(source)} };\n`,

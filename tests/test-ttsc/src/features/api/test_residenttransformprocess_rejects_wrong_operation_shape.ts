@@ -3,14 +3,14 @@ import assert from "node:assert/strict";
 import { ResidentTransformProcess } from "../../../../../packages/ttsc/lib/compiler/internal/ResidentTransformProcess.js";
 
 /**
- * A stub serve host that answers every request line with one fixed JSON reply
- * object. `reply` is a plain object serialized to one line, so the reply is a
- * well-formed JSON object whose _shape_ may not match the operation requested.
+ * A stub serve host that sends the next authored JSON object per request line.
+ * All replies have valid framing; their operation shapes differ deliberately.
  */
-function jsonReplyStub(reply: unknown): string {
+function jsonReplyStub(replies: unknown[]): string {
   return `
 process.stdin.setEncoding("utf8");
 let buf = "";
+const replies = ${JSON.stringify(replies)};
 process.stdin.on("data", (chunk) => {
   buf += chunk;
   let i;
@@ -18,7 +18,7 @@ process.stdin.on("data", (chunk) => {
     const line = buf.slice(0, i);
     buf = buf.slice(i + 1);
     if (line.trim().length === 0) continue;
-    process.stdout.write(JSON.stringify(${JSON.stringify(reply)}) + "\\n");
+    process.stdout.write(JSON.stringify(replies.shift()) + "\\n");
   }
 });
 `;
@@ -54,46 +54,34 @@ function spawnStub(stub: string): ResidentTransformProcess {
  * @evidence contracts/testing.md#distinguishing-cases Three well-formed-object negatives isolate operation shape from malformed JSON; valid found:false and updated:false are covered separately.
  * @evidence contracts/testing.md#execution-ownership The named API feature runs actual Node peer processes and ResidentTransformProcess request/line settlement through TestExecutor.
  * @evidence contracts/e2e.md#necessary-boundary Operation-kind validation must reach request promises through actual pipe transport. These shape semantics could transfer to an extracted pure validator, but the present client owns no such public seam.
- * @evidence contracts/e2e.md#shared-execution Three private peers currently send fixed reply shapes; session reuse or a direct validation seam could remove repeated startup, so this is an outstanding consolidation cost rather than a minimal-session claim.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each object scenario owns a private client and disposes it in finally; this prevents one invalid reply or child termination from determining another shape result.
- * @evidence contracts/e2e.md#preserved-coverage Every original operation-specific rejection remains. The fixture peers do not exercise a real Go host, and this entry does not check a healthy request after an invalid object.
+ * @evidence contracts/e2e.md#shared-execution One queued-reply peer serves all three invalid shapes and a legal negative reply, reducing three startups to one while proving recovery.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The ordered reply fixture belongs to one private client disposed in finally; each settled FIFO slot must leave the next request healthy.
+ * @evidence contracts/e2e.md#preserved-coverage Every original operation-specific rejection remains. The fixture peers do not exercise a real Go host, and a legal found:false reply after all three errors additionally proves the session remains usable.
  */
 export const test_residenttransformprocess_rejects_wrong_operation_shape =
   async () => {
-    // A transform request answered with an update-shaped reply.
-    {
-      const proc = spawnStub(jsonReplyStub({ updated: true }));
-      try {
-        await assert.rejects(
-          () => proc.request({ file: "a.ts" }, "transform"),
-          /invalid transform reply/,
-        );
-      } finally {
-        proc.dispose();
-      }
-    }
-    // A transform reply that claims the file was found but omits its text.
-    {
-      const proc = spawnStub(jsonReplyStub({ found: true }));
-      try {
-        await assert.rejects(
-          () => proc.request({ file: "a.ts" }, "transform"),
-          /invalid transform reply/,
-        );
-      } finally {
-        proc.dispose();
-      }
-    }
-    // An update request answered with a transform-shaped reply.
-    {
-      const proc = spawnStub(jsonReplyStub({ found: true, typescript: "x" }));
-      try {
-        await assert.rejects(
-          () => proc.request({ content: "x", update: "a.ts" }, "update"),
-          /invalid update reply/,
-        );
-      } finally {
-        proc.dispose();
-      }
+    const proc = spawnStub(jsonReplyStub([
+      { updated: true },
+      { found: true },
+      { found: true, typescript: "x" },
+      { found: false },
+    ]));
+    try {
+      await assert.rejects(
+        () => proc.request({ file: "a.ts" }, "transform"),
+        /invalid transform reply/,
+      );
+      await assert.rejects(
+        () => proc.request({ file: "a.ts" }, "transform"),
+        /invalid transform reply/,
+      );
+      await assert.rejects(
+        () => proc.request({ content: "x", update: "a.ts" }, "update"),
+        /invalid update reply/,
+      );
+      const healthy = await proc.request({ file: "missing.ts" }, "transform");
+      assert.equal(healthy.found, false);
+    } finally {
+      proc.dispose();
     }
   };

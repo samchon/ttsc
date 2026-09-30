@@ -74,9 +74,9 @@ function delay(ms: number): Promise<void> {
  * @evidence contracts/testing.md#behavioral-verification Exercises delayed reply acceptance, pre-enqueue abort without host damage, post-enqueue abort with distinct collateral retirement, empty pending queue and ignored late line after retirement.
  * @evidence contracts/testing.md#independent-expectations The independent delayed/silent peers determine whether replies can arrive; explicit abort reasons and filenames establish caller ownership without deriving expectations from queue internals.
  * @evidence contracts/testing.md#distinguishing-cases Pre-write and in-flight cancellation intentionally differ; delayed success distinguishes latency from failure, and synthetic late delivery checks the terminal reader branch.
- * @evidence contracts/testing.md#execution-ownership The named API feature runs four actual Node sessions through ResidentTransformProcess; one late-line probe also invokes the private reader boundary directly.
+ * @evidence contracts/testing.md#execution-ownership The named API feature runs three actual Node sessions through ResidentTransformProcess; one late-line probe also invokes the private reader boundary directly.
  * @evidence contracts/e2e.md#necessary-boundary Real pending requests, live pipes and abort delivery must settle without shifting FIFO ownership; the direct late-line injection isolates a race branch without claiming an actual OS kill ordering.
- * @evidence contracts/e2e.md#shared-execution Four terminal/lifecycle scenarios currently use separate peers because queued abort retires a session; delayed success and preabort healthy reuse could share a peer, leaving a disclosed consolidation cost.
+ * @evidence contracts/e2e.md#shared-execution Delayed success and preabort healthy reuse share one delayed peer; queued abort and late-tail terminal checks each require their own lifetime.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Every private client is disposed in finally, including repeated disposal in the late-tail branch. AbortControllers and pending slots are case-local; no shared host survives retirement.
  * @evidence contracts/e2e.md#preserved-coverage All delay, abort-name/reason, collateral-error, empty-pending and later-request rejection assertions remain. The pending-array check couples to internal storage, while settlement predicates provide observable failure ownership.
  */
@@ -87,18 +87,9 @@ export const test_residenttransformprocess_request_bounds = async () => {
     try {
       const reply = await proc.request({ file: "slow.ts" }, "transform");
       assert.equal(reply.typescript, "slow.ts");
-    } finally {
-      proc.dispose();
-    }
-  }
-
-  // An already-aborted signal is never written into the FIFO. It rejects only
-  // that call and leaves the still-healthy host available to another caller.
-  {
-    const proc = spawnStub(delayedReplyStub(0));
-    const controller = new AbortController();
-    controller.abort("caller stopped before write");
-    try {
+      // Pre-write cancellation rejects only this caller; the same peer remains healthy.
+      const controller = new AbortController();
+      controller.abort("caller stopped before write");
       await assert.rejects(
         () =>
           proc.request({ file: "cancelled.ts" }, "transform", {
@@ -108,8 +99,8 @@ export const test_residenttransformprocess_request_bounds = async () => {
           error.name === "AbortError" &&
           /caller stopped before write/.test(error.message),
       );
-      const reply = await proc.request({ file: "healthy.ts" }, "transform");
-      assert.equal(reply.typescript, "healthy.ts");
+      const healthy = await proc.request({ file: "healthy.ts" }, "transform");
+      assert.equal(healthy.typescript, "healthy.ts");
     } finally {
       proc.dispose();
     }

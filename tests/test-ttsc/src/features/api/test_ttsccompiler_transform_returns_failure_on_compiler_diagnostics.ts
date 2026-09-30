@@ -22,6 +22,7 @@ import {
  * 2. Call `transform()` via the programmatic API.
  * 3. Assert the result is `failure` with the error code and the typescript map is
  *    populated.
+ *
  * @evidence contracts/testing.md#behavioral-verification Transforms the string-to-number error and checks failure with diagnostic 2322 while the typescript map still contains the bad source and dist remains absent.
  * @evidence contracts/testing.md#independent-expectations The literal not-a-number initializer violates its number annotation; source-mode failure retains source text for consumers, independently of whether emitted JavaScript would be allowed.
  * @evidence contracts/testing.md#distinguishing-cases This failure retains source alongside diagnostics, unlike successful transform and compile's emitted-output contract. Exact diagnostic locations are checked by compile_returns_structured_diagnostics.

@@ -58,8 +58,8 @@ function spawnStub(stub: string): ResidentTransformProcess {
  * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this named API feature; ResidentTransformProcess starts real Node children and exchanges stdin/stdout protocol lines.
  * @evidence contracts/e2e.md#necessary-boundary Real pipes can close or emit unhandled errors independently of promise/JSON logic; the abrupt-host case protects consumer survival, while the echo fixture supplies a controlled peer rather than a real Go transform oracle.
  * @evidence contracts/e2e.md#shared-execution One echo host handles both concurrent requests; a second handles dispose-after-warmup and a third intentionally dies. These terminal states require distinct lifetimes, with no native build or installation per peer.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each client owns one fixture child and disposal ends its session; no reply or queue is shared across terminal-state scenarios. The first session uses finally, while later simple sessions dispose after their assertions.
- * @evidence contracts/e2e.md#preserved-coverage Original FIFO identities, disposal rejection and host-death rejection remain. The latter two blocks can leak a child until runner exit if a pre-disposal assertion fails, an unresolved cleanup limitation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each client owns one fixture child and disposal ends its session; no reply or queue is shared across terminal-state scenarios. Every session disposes in finally, including failures before the intended terminal transition.
+ * @evidence contracts/e2e.md#preserved-coverage Original FIFO identities, disposal rejection and host-death rejection remain. All three peer lifetimes are released on assertion failure as well as success.
  */
 export const test_residenttransformprocess_lifecycle = async () => {
   // 1. FIFO: two concurrent requests each resolve to their own ordered reply.
@@ -81,18 +81,24 @@ export const test_residenttransformprocess_lifecycle = async () => {
   // 2. dispose() rejects any later request.
   {
     const proc = spawnStub(ECHO_STUB);
-    const warm = await proc.request({ file: "warm.ts" }, "transform");
-    assert.equal(warm.typescript, "echo:warm.ts");
-    proc.dispose();
-    await assert.rejects(() => proc.request({ file: "after.ts" }, "transform"));
-    proc.dispose(); // idempotent
+    try {
+      const warm = await proc.request({ file: "warm.ts" }, "transform");
+      assert.equal(warm.typescript, "echo:warm.ts");
+      proc.dispose();
+      await assert.rejects(() => proc.request({ file: "after.ts" }, "transform"));
+    } finally {
+      proc.dispose(); // idempotent
+    }
   }
 
   // 3. A host that dies mid-session rejects the in-flight request and does not
   //    crash the consumer; the stream "error" handlers swallow the broken pipe.
   {
     const proc = spawnStub(DIE_STUB);
-    await assert.rejects(() => proc.request({ file: "x.ts" }, "transform"));
-    proc.dispose(); // safe on an already-dead host
+    try {
+      await assert.rejects(() => proc.request({ file: "x.ts" }, "transform"));
+    } finally {
+      proc.dispose(); // safe on an already-dead host
+    }
   }
 };

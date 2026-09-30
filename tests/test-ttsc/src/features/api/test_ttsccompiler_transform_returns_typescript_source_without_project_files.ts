@@ -23,6 +23,7 @@ import {
  * 2. Call `transform()` via the programmatic API.
  * 3. Assert the typescript map contains the source and no JS/declaration keys
  *    exist.
+ *
  * @evidence contracts/testing.md#behavioral-verification Calls transform and asserts the authored typed declaration and console call in src/main.ts, no JavaScript or declaration output keys and no dist directory.
  * @evidence contracts/testing.md#independent-expectations createProject authors the api-ok TypeScript fixture independently; source-only transform preserves that spelling rather than producing emitted JavaScript or declaration artifacts.
  * @evidence contracts/testing.md#distinguishing-cases The no-plugin singleton source pins the minimum source-only path and both forbidden emit-key forms. Multi-file membership and plugin-changed sources are owned by adjacent transform entries.
