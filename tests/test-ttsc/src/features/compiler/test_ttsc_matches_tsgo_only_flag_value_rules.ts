@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { resolveSingleFileOutput } from "../../../../../packages/ttsc/lib/launcher/internal/resolveSingleFileOutput.js";
 
 /**
  * Verifies tsgo remains authoritative for syntax of forwarded compiler flags.
@@ -12,14 +11,14 @@ import { resolveSingleFileOutput } from "../../../../../packages/ttsc/lib/launch
  * `composite` is also tsconfig-only and can only be disabled or cleared from
  * the command line.
  *
- * @evidence contracts/testing.md#behavioral-verification Executes inline outFile/jsx rejection, false/null declaration clearing, uppercase FALSE rejection and composite enable/disable; directly checks jsx output extension selection.
+ * @evidence contracts/testing.md#behavioral-verification Executes inline outFile/jsx rejection, false/null declaration clearing, uppercase FALSE rejection and composite enable/disable.
  * @evidence contracts/testing.md#independent-expectations The tsgo argv grammar accepts separate values rather than equals spellings for these flags, lower false/null clear booleans and uppercase FALSE becomes a positional token; authored config requires declarations by default.
  * @evidence contracts/testing.md#distinguishing-cases Inline/separate JSX forms, two disabling literals, uppercase nonliteral and enabled/disabled composite distinguish arity and spelling decisions, retaining positive and negative command outcomes.
- * @evidence contracts/testing.md#execution-ownership The named compiler feature runs six actual launcher commands plus two direct resolveSingleFileOutput calls through TestExecutor.
- * @evidence contracts/e2e.md#necessary-boundary Real CLI forwarding must preserve native rejection and declaration publication decisions; direct output-extension semantics are mixed here and remain eligible for unit transfer.
+ * @evidence contracts/testing.md#execution-ownership The named compiler feature runs seven actual launcher commands through TestExecutor.
+ * @evidence contracts/e2e.md#necessary-boundary Real CLI forwarding must preserve native rejection and declaration publication decisions.
  * @evidence contracts/e2e.md#shared-execution All commands reuse one two-source project and built executables; false/null emit into separate output directories so neither can supply the other result.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fresh physical registered project owns source/config and distinct dist-false/dist-null results. Synchronous commands complete before filesystem checks; TestProject owns cleanup.
- * @evidence contracts/e2e.md#preserved-coverage Every original rejection text/status, direct extension expectation, declaration absence, JavaScript existence and composite result remains. Portable extension checks remain mixed with boundary commands.
+ * @evidence contracts/e2e.md#preserved-coverage Every original rejection text/status, declaration absence, JavaScript existence and composite result remains. The two original portable extension expectations execute in the named source unit test_resolvesinglefileoutput_distinguishes_inline_and_separate_jsx_values.
  */
 export const test_ttsc_matches_tsgo_only_flag_value_rules = (): void => {
   const root = TestProject.physicalPath(
@@ -47,23 +46,6 @@ export const test_ttsc_matches_tsgo_only_flag_value_rules = (): void => {
     /Unknown compiler option '--outFile=dist\/bundle\.js'/i,
   );
 
-  const tsx = path.join(root, "src", "view.tsx");
-  assert.equal(
-    resolveSingleFileOutput({
-      cwd: root,
-      file: tsx,
-      passthrough: ["--jsx=preserve"],
-    }),
-    path.join(root, "dist", "view.js"),
-  );
-  assert.equal(
-    resolveSingleFileOutput({
-      cwd: root,
-      file: tsx,
-      passthrough: ["--jsx", "preserve"],
-    }),
-    path.join(root, "dist", "view.jsx"),
-  );
   const inlineJsx = TestProject.spawn(
     TestProject.TTSC_BIN,
     ["--jsx=preserve", "--cwd", root, "src/view.tsx"],
