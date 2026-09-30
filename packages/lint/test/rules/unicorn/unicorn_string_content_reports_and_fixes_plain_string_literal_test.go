@@ -20,6 +20,11 @@ import (
 //     complete literal including quotes, carrying one whole-literal edit.
 //  3. Apply the fix, compare the rewritten source, and assert the fixed
 //     source produces zero findings under the same options.
+//
+// @evidence contracts/testing.md#behavioral-verification runRuleFindingsSnapshot checks the literal message, complete quoted range and one fix with no suggestions; exact rewritten bytes and a clean second run distinguish an incorrect basic replacement.
+// @evidence contracts/testing.md#independent-expectations The public no-to-yes configured replacement and official Unicorn default message determine the authored yes literal and range, without deriving expectations from findings.
+// @evidence contracts/testing.md#distinguishing-cases The matching no literal changes to yes and the authored canonical yes source remains clean; suggestion-only behavior belongs to FixFalseReportsSuggestionOnly.
+// @evidence contracts/testing.md#execution-ownership TestUnicornStringContentReportsAndFixesPlainStringLiteral is the owning discoverable Go unit entry; its explicit variants and named t.Run cases preserve failure identity while engine, parser and fix operations share one Go process. Fixture files use t.TempDir; no installed consumer, native build or product child host runs.
 func TestUnicornStringContentReportsAndFixesPlainStringLiteral(t *testing.T) {
   source := "const foo = 'no';\n"
   options := `{"patterns":{"no":"yes"}}`

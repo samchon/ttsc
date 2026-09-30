@@ -14,6 +14,11 @@ import "testing"
 //  1. Configure `selectors: ["TaggedTemplateExpression TemplateElement"]`.
 //  2. Lint an `html` tagged template next to a `notIgnoredTag` one.
 //  3. Assert only the unlisted tag's quasi is rewritten.
+//
+// @evidence contracts/testing.md#behavioral-verification The configured exact fix snapshot verifies an explicit tagged-template selector still preserves html content while rewriting the unlisted tag.
+// @evidence contracts/testing.md#independent-expectations The public foreign-language quasi exemption and official Unicorn shared tag guard establish the authored mixed unchanged/changed output.
+// @evidence contracts/testing.md#distinguishing-cases Both tagged quasis match no and the selector; only the tag identity changes eligibility, so an explicit selector cannot bypass the html exemption.
+// @evidence contracts/testing.md#execution-ownership TestUnicornStringContentSelectorMatchesKeepIgnoredTagExemption is the owning discoverable Go unit entry; its explicit variants and named t.Run cases preserve failure identity while engine, parser and fix operations share one Go process. Fixture files use t.TempDir; no installed consumer, native build or product child host runs.
 func TestUnicornStringContentSelectorMatchesKeepIgnoredTagExemption(t *testing.T) {
   source := "declare function html(strings: TemplateStringsArray): string;\n" +
     "declare function notIgnoredTag(strings: TemplateStringsArray): string;\n" +

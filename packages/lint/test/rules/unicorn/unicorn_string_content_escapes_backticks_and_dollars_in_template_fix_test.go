@@ -16,6 +16,11 @@ import "testing"
 //  2. Compare each rewritten source with the upstream oracle.
 //  3. Assert an already-escaped “ \` “ template stays silent under a
 //     non-matching pattern (no double escaping ever happens).
+//
+// @evidence contracts/testing.md#behavioral-verification Exact fix snapshots, reparsing and a zero-finding second run distinguish delimiter escaping from a malformed or repeatedly changed template.
+// @evidence contracts/testing.md#independent-expectations Official Unicorn template-escape examples and JavaScript template delimiter grammar determine the authored backslash/backtick/dollar output bytes.
+// @evidence contracts/testing.md#distinguishing-cases Backticks, substitution openers, bare dollars and even preceding backslashes require different raw escapes; already-escaped nonmatching text remains accepted.
+// @evidence contracts/testing.md#execution-ownership TestUnicornStringContentEscapesBackticksAndDollarsInTemplateFix is the owning discoverable Go unit entry; its explicit variants and named t.Run cases preserve failure identity while engine, parser and fix operations share one Go process. Fixture files use t.TempDir; no installed consumer, native build or product child host runs.
 func TestUnicornStringContentEscapesBackticksAndDollarsInTemplateFix(t *testing.T) {
   cases := []struct {
     name     string

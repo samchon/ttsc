@@ -16,6 +16,11 @@ import "testing"
 //  2. Lint `0`, `true`, a regex literal, and an identifier whose spelling
 //     matches the pattern.
 //  3. Assert zero findings for every arm.
+//
+// @evidence contracts/testing.md#behavioral-verification assertRuleSkipsSourceWithOptions executes the actual engine for every named source and requires zero findings, rejecting token-spelling-only matches.
+// @evidence contracts/testing.md#independent-expectations The documented string-content target/value contract and official truthy-string guard exclude empty values and non-string AST nodes.
+// @evidence contracts/testing.md#distinguishing-cases Empty strings, empty templates and empty boundary quasis stay accepted even under an empty-matching regex; numeric/boolean/regex/identifier spellings cannot substitute for string values.
+// @evidence contracts/testing.md#execution-ownership TestUnicornStringContentSkipsEmptyAndNonStringLiterals is the owning discoverable Go unit entry; its explicit variants and named t.Run cases preserve failure identity while the lint engine parses and checks authored sources in one Go process. Fixture files use t.TempDir; no installed consumer, native build or product child host runs.
 func TestUnicornStringContentSkipsEmptyAndNonStringLiterals(t *testing.T) {
   cases := []struct {
     name    string

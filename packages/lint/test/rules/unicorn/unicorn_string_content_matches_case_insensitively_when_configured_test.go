@@ -14,6 +14,11 @@ import "testing"
 //  2. Fix `"End of Day"`, `"END OF DAY"`, the multi-variant `"no No NO"`,
 //     and a template “ `NO` “ under `caseSensitive: false` patterns.
 //  3. Compare each rewritten source with the upstream oracle.
+//
+// @evidence contracts/testing.md#behavioral-verification Configured exact fix snapshots and the default zero-finding control distinguish ignored caseSensitive options from matching every case variant.
+// @evidence contracts/testing.md#independent-expectations The documented default case sensitivity and official gu/giu matching contract establish literal EOD/yes outputs independently of the Go rule.
+// @evidence contracts/testing.md#distinguishing-cases Uppercase NO is clean by default; mixed/uppercase phrases, multiple no variants and raw template text rewrite under caseSensitive:false.
+// @evidence contracts/testing.md#execution-ownership TestUnicornStringContentMatchesCaseInsensitivelyWhenConfigured is the owning discoverable Go unit entry; its explicit variants and named t.Run cases preserve failure identity while engine, parser and fix operations share one Go process. Fixture files use t.TempDir; no installed consumer, native build or product child host runs.
 func TestUnicornStringContentMatchesCaseInsensitivelyWhenConfigured(t *testing.T) {
   assertRuleSkipsSourceWithOptions(
     t,

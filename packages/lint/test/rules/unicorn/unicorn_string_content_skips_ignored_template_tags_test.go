@@ -15,6 +15,11 @@ import "testing"
 //  2. Assert each near-miss tag shape still reports and fixes.
 //  3. Assert a string literal inside an ignored template's substitution is
 //     still rewritten (the exemption is quasi-only).
+//
+// @evidence contracts/testing.md#behavioral-verification Configured zero-finding and exact fix snapshots distinguish foreign-language quasi exemptions from overbroad exemptions reaching unrelated tags or substitutions.
+// @evidence contracts/testing.md#independent-expectations The documented gql/html/sql/svg and styled member exemptions and official Unicorn tag identity policy determine each authored unchanged or yes-replaced output.
+// @evidence contracts/testing.md#distinguishing-cases Identifier/member/computed/parenthesized exempt tags remain clean; unlisted and non-styled member tags report, and a plain string inside an ignored substitution must still rewrite.
+// @evidence contracts/testing.md#execution-ownership TestUnicornStringContentSkipsIgnoredTemplateTags is the owning discoverable Go unit entry; its explicit variants and named t.Run cases preserve failure identity while engine, parser and fix operations share one Go process. Fixture files use t.TempDir; no installed consumer, native build or product child host runs.
 func TestUnicornStringContentSkipsIgnoredTemplateTags(t *testing.T) {
   options := `{"patterns":{"no":"yes"}}`
   declarations := "declare function gql(strings: TemplateStringsArray, ...values: unknown[]): string;\n" +

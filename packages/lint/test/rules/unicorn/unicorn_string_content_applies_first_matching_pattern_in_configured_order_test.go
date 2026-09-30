@@ -16,6 +16,11 @@ import "testing"
 //  2. Assert the first spelling yields `"AA"` and the reverse `"aa"`.
 //  3. Fix `"b1"` under `{b:"bee", "1":"one"}` and assert the integer key
 //     wins (`"bone"`), pinning JS property-enumeration order.
+//
+// @evidence contracts/testing.md#behavioral-verification runRuleFindingsSnapshot and applyFindingFixes, reached through exact fix snapshots, distinguish configured pattern precedence on aA and b1.
+// @evidence contracts/testing.md#independent-expectations The official Unicorn Object.entries/first-match contract and ECMAScript integer-key enumeration determine the literal AA, aa and bone outputs.
+// @evidence contracts/testing.md#distinguishing-cases Reversing a/A order changes the winning replacement; integer key 1 precedes the spelled-first b key.
+// @evidence contracts/testing.md#execution-ownership TestUnicornStringContentAppliesFirstMatchingPatternInConfiguredOrder is the owning discoverable Go unit entry; its explicit variants and named t.Run cases preserve failure identity while engine, parser and fix operations share one Go process. Fixture files use t.TempDir; no installed consumer, native build or product child host runs.
 func TestUnicornStringContentAppliesFirstMatchingPatternInConfiguredOrder(t *testing.T) {
   cases := []struct {
     name     string

@@ -20,6 +20,11 @@ import (
 //  3. Assert the escaped pattern's message interpolates the `\.` source.
 //  4. Fix an astral-emoji subject under `.` and an astral pattern key,
 //     pinning the `u`-flag code-point (not code-unit) matching model.
+//
+// @evidence contracts/testing.md#behavioral-verification Exact fix snapshots and a literal diagnostic message distinguish regex matching from substring matching, code-unit replacement and use of matched text instead of configured pattern text.
+// @evidence contracts/testing.md#independent-expectations ECMAScript Unicode regex semantics and official Unicorn gu matching define seven underscores for dot, only-dot replacement for escaped dot and one replacement per astral symbol.
+// @evidence contracts/testing.md#distinguishing-cases Dot and escaped dot act differently on foo.bar; the message preserves escaped pattern spelling, and both astral subject and astral pattern keys exercise code-point boundaries.
+// @evidence contracts/testing.md#execution-ownership TestUnicornStringContentTreatsPatternAsRegularExpression is the owning discoverable Go unit entry; its explicit variants and named t.Run cases preserve failure identity while engine, parser and fix operations share one Go process. Fixture files use t.TempDir; no installed consumer, native build or product child host runs.
 func TestUnicornStringContentTreatsPatternAsRegularExpression(t *testing.T) {
   source := `const foo = "foo.bar";` + "\n"
 

@@ -20,6 +20,11 @@ import "testing"
 //  2. Compare each rewritten literal with the upstream escape spelling.
 //  3. Re-parse the fixed source, assert it stays parse-valid, and assert the
 //     canonical output no longer fires.
+//
+// @evidence contracts/testing.md#behavioral-verification Exact fix snapshots, reparsing and zero findings on canonical results detect raw control bytes or ambiguous escapes introduced by the string fixer.
+// @evidence contracts/testing.md#independent-expectations Independent quote-js-string control spelling and JavaScript literal grammar establish named escapes and braced NUL/C0/DEL expectations.
+// @evidence contracts/testing.md#distinguishing-cases Named controls, terminal NUL, NUL before letters/digits and C0/DEL retain their values as no becomes yes; the before-digit case guards octal ambiguity.
+// @evidence contracts/testing.md#execution-ownership TestUnicornStringContentPreservesControlEscapesInLiteralFix is the owning discoverable Go unit entry; its explicit variants and named t.Run cases preserve failure identity while engine, parser and fix operations share one Go process. Fixture files use t.TempDir; no installed consumer, native build or product child host runs.
 func TestUnicornStringContentPreservesControlEscapesInLiteralFix(t *testing.T) {
   options := `{"patterns":{"no":"yes"}}`
   cases := []struct {

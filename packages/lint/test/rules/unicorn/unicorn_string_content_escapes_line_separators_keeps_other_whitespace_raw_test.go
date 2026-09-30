@@ -21,6 +21,11 @@ import "testing"
 //  2. Compare each rewritten literal with the upstream quote-js-string spelling.
 //  3. Re-parse the fixed source, assert it stays parse-valid, and assert the
 //     canonical output no longer fires.
+//
+// @evidence contracts/testing.md#behavioral-verification Exact rewritten source, parse validity and zero findings on the result distinguish line-separator escapes from unwanted rewriting of safe Unicode text.
+// @evidence contracts/testing.md#independent-expectations The independent quote-js-string spelling contract escapes U+2028/U+2029 with braced code points while leaving the authored safe whitespace and Unicode characters raw.
+// @evidence contracts/testing.md#distinguishing-cases Line/paragraph separators differ from NBSP, hair space and narrow NBSP; accented and astral characters must remain intact while no becomes yes.
+// @evidence contracts/testing.md#execution-ownership TestUnicornStringContentEscapesLineSeparatorsKeepsOtherWhitespaceRaw is the owning discoverable Go unit entry; its explicit variants and named t.Run cases preserve failure identity while engine, parser and fix operations share one Go process. Fixture files use t.TempDir; no installed consumer, native build or product child host runs.
 func TestUnicornStringContentEscapesLineSeparatorsKeepsOtherWhitespaceRaw(t *testing.T) {
   const (
     lineSeparator      = "\u2028"

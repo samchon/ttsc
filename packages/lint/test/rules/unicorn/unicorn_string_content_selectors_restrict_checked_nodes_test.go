@@ -19,6 +19,11 @@ import (
 //     literal selector and assert only `description` is rewritten.
 //  2. Repeat with a `TemplateElement` selector over template declarations.
 //  3. Lint with two overlapping selectors and assert exactly one finding.
+//
+// @evidence contracts/testing.md#behavioral-verification Configured exact fix snapshots and finding count/start assertions distinguish ignored selectors, duplicate reports and non-string false positives.
+// @evidence contracts/testing.md#independent-expectations The documented AST-selector targeting contract and official Unicorn checked-node deduplication determine independently authored description-only rewrites.
+// @evidence contracts/testing.md#distinguishing-cases Literal, template and property selectors leave title untouched; overlapping selectors report once, while a selector matching numeric description produces no findings.
+// @evidence contracts/testing.md#execution-ownership TestUnicornStringContentSelectorsRestrictCheckedNodes is the owning discoverable Go unit entry; its explicit variants and named t.Run cases preserve failure identity while engine, parser and fix operations share one Go process. Fixture files use t.TempDir; no installed consumer, native build or product child host runs.
 func TestUnicornStringContentSelectorsRestrictCheckedNodes(t *testing.T) {
   t.Run("literal selector", func(t *testing.T) {
     source := "const description = 'no';\nconst title = 'no';\n"

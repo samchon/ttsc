@@ -19,6 +19,11 @@ import (
 //  2. Lint the same source under a message carrying both known and unknown
 //     placeholders.
 //  3. Assert known terms interpolate and the unknown `{{other}}` survives.
+//
+// @evidence contracts/testing.md#behavioral-verification runRuleFindingsSnapshot compares exact configured and interpolated messages, detecting ignored custom text or accidental removal of unknown placeholders.
+// @evidence contracts/testing.md#independent-expectations The public custom-message contract and ESLint message interpolation establish the authored bar/foo text and preserved other placeholder.
+// @evidence contracts/testing.md#distinguishing-cases A plain message and one containing spaced known and unknown placeholders exercise distinct paths; the default message is covered by ReportsAndFixesPlainStringLiteral.
+// @evidence contracts/testing.md#execution-ownership TestUnicornStringContentHonorsCustomMessageAndPlaceholders is the owning discoverable Go unit entry; its explicit variants and named t.Run cases preserve failure identity while the lint engine parses and checks authored sources in one Go process. Fixture files use t.TempDir; no installed consumer, native build or product child host runs.
 func TestUnicornStringContentHonorsCustomMessageAndPlaceholders(t *testing.T) {
   source := `const foo = "foo";` + "\n"
 

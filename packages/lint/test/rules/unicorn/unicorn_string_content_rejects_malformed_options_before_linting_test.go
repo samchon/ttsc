@@ -19,6 +19,11 @@ import (
 //  1. Build an engine with each malformed options payload.
 //  2. Assert ConfigError is non-nil and names the offending piece.
 //  3. Keep one well-formed control arm that must NOT error.
+//
+// @evidence contracts/testing.md#behavioral-verification NewEngineWithResolver.ConfigError must reject each malformed options payload with its authored explanation fragment and accept one fully populated valid control.
+// @evidence contracts/testing.md#independent-expectations The documented option surface and official Unicorn additionalProperties/required/type/uniqueItems schema define accepted shapes; regex and selector grammars define malformed executable strings.
+// @evidence contracts/testing.md#distinguishing-cases Arrays/scalars, unknown keys, invalid pattern values, missing suggest, wrongly typed switches/messages, malformed regex and selector variants remain separately named; the complete valid object must not fail.
+// @evidence contracts/testing.md#execution-ownership TestUnicornStringContentRejectsMalformedOptionsBeforeLinting is the owning discoverable Go unit entry; its explicit variants and named t.Run cases preserve failure identity while engine construction and option/schema/regex/selector validation share one Go process. No source fixtures are materialized; no installed consumer, native build or product child host runs.
 func TestUnicornStringContentRejectsMalformedOptionsBeforeLinting(t *testing.T) {
   cases := []struct {
     name    string

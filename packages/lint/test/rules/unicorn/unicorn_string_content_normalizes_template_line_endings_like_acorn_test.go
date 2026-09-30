@@ -17,6 +17,11 @@ import "testing"
 //  2. Assert line terminators outside the quasi (and non-matching CRLF
 //     templates) keep their original bytes.
 //  3. Assert each fixed source stays parse-valid and no longer fires.
+//
+// @evidence contracts/testing.md#behavioral-verification Exact fix snapshots, parse checks and accepted outputs distinguish missed cross-newline matching and unintended changes outside a template quasi.
+// @evidence contracts/testing.md#independent-expectations ECMAScript template raw-value newline normalization and the official parser-based matching contract establish authored LF quasi outputs while preserving surrounding CRLF bytes.
+// @evidence contracts/testing.md#distinguishing-cases Matching CRLF and lone CR normalize inside rewritten quasis; cross-newline patterns match normalized text, while an untouched CRLF template stays byte-preserved.
+// @evidence contracts/testing.md#execution-ownership TestUnicornStringContentNormalizesTemplateLineEndingsLikeAcorn is the owning discoverable Go unit entry; its explicit variants and named t.Run cases preserve failure identity while engine, parser and fix operations share one Go process. Fixture files use t.TempDir; no installed consumer, native build or product child host runs.
 func TestUnicornStringContentNormalizesTemplateLineEndingsLikeAcorn(t *testing.T) {
   cases := []struct {
     name     string

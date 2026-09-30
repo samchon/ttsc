@@ -19,6 +19,11 @@ import (
 //     ranges, each with a one-edit fix confined to the raw payload.
 //  3. Apply the fixes, compare with the upstream output, and assert the
 //     fixed source no longer fires.
+//
+// @evidence contracts/testing.md#behavioral-verification runRuleFindingsSnapshot verifies three delimiter-inclusive finding ranges and payload-only edits; exact output and a clean rerun detect substitutions accidentally rewritten or merged.
+// @evidence contracts/testing.md#independent-expectations JavaScript head/middle/tail quasi boundaries and official per-TemplateElement reporting establish literal ranges calculated from authored source positions, not finding output.
+// @evidence contracts/testing.md#distinguishing-cases Three matching quasis surround two untouched foo substitutions; each edit must select only no, and the authored all-yes result remains clean.
+// @evidence contracts/testing.md#execution-ownership TestUnicornStringContentReportsEachTemplateQuasiAtExactRanges is the owning discoverable Go unit entry; its explicit variants and named t.Run cases preserve failure identity while engine, parser and fix operations share one Go process. Fixture files use t.TempDir; no installed consumer, native build or product child host runs.
 func TestUnicornStringContentReportsEachTemplateQuasiAtExactRanges(t *testing.T) {
   source := "declare const foo: string;\nconst bar = `no${foo}no${foo}no`;\n"
   options := `{"patterns":{"no":"yes"}}`

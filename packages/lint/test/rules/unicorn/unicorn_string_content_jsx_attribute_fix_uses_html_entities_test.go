@@ -18,6 +18,11 @@ import (
 //     replacement containing both quote characters.
 //  2. Fix the single- and double-quoted attribute variants.
 //  3. Compare each rewritten attribute with the upstream entity spelling.
+//
+// @evidence contracts/testing.md#behavioral-verification runRuleFindingsSnapshotFile plus applyFindingFixes compares complete TSX bytes and reparses direct attributes, distinguishing invalid backslash escaping from delimiter entities.
+// @evidence contracts/testing.md#independent-expectations JSX quoted-attribute grammar and official Unicorn entity replacement establish the literal single/double delimiter outputs; ordinary expression strings use JavaScript escapes.
+// @evidence contracts/testing.md#distinguishing-cases Direct single- and double-quoted attributes require different entities, while a string inside an expression container must retain the ordinary string escape path.
+// @evidence contracts/testing.md#execution-ownership TestUnicornStringContentJsxAttributeFixUsesHtmlEntities is the owning discoverable Go unit entry; its explicit variants and named t.Run cases preserve failure identity while engine, parser and fix operations share one Go process. Fixture files use t.TempDir; no installed consumer, native build or product child host runs.
 func TestUnicornStringContentJsxAttributeFixUsesHtmlEntities(t *testing.T) {
   options := `{"patterns":{"quote":{"suggest":"'\""}}}`
   cases := []struct {

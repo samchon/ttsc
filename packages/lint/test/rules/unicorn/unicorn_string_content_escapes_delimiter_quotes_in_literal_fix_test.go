@@ -15,6 +15,11 @@ import "testing"
 //  2. Fix single- and double-quoted literals, with and without surrounding
 //     `\\` escapes.
 //  3. Compare each rewritten source byte-for-byte with the upstream oracle.
+//
+// @evidence contracts/testing.md#behavioral-verification Exact fix snapshots and parser diagnostics distinguish quote/backslash corruption in single- and double-quoted string replacements.
+// @evidence contracts/testing.md#independent-expectations Official Unicorn quote-escape examples establish the four literal expected sources; delimiter grammar explains why only the owning quote is escaped.
+// @evidence contracts/testing.md#distinguishing-cases Both delimiter choices execute with and without surrounding backslashes. Plain matching and canonical nonmatching controls belong to ReportsAndFixesPlainStringLiteral.
+// @evidence contracts/testing.md#execution-ownership TestUnicornStringContentEscapesDelimiterQuotesInLiteralFix is the owning discoverable Go unit entry; its explicit variants and named t.Run cases preserve failure identity while engine, parser and fix operations share one Go process. Fixture files use t.TempDir; no installed consumer, native build or product child host runs.
 func TestUnicornStringContentEscapesDelimiterQuotesInLiteralFix(t *testing.T) {
   options := `{"patterns":{"quote":{"suggest":"'\""}}}`
   cases := []struct {
