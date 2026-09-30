@@ -37,10 +37,10 @@ import {
  * @evidence contracts/testing.md#behavioral-verification A paused fake build reads the proven overlay copy as FIRST, restoring it reuses the binary, and a module edit after key reading rejects publication.
  * @evidence contracts/testing.md#independent-expectations The wrapper writes the workspace-selected overlay bytes into output, allowing direct FIRST comparison independently of the key.
  * @evidence contracts/testing.md#distinguishing-cases Overlay edit during compile is isolated, restored content is reusable, and module edit before copying is refused; fake output does not prove native code semantics.
- * @evidence contracts/testing.md#execution-ownership The exported test_buildsourceplugin_publishes_no_binary_built_from_a_source_edited_during_its_build entry is discovered by TestExecutor from source-plugin in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
+ * @evidence contracts/testing.md#execution-ownership The exported test_buildsourceplugin_publishes_no_binary_built_from_a_source_edited_during_its_build entry is discovered by TestExecutor from features/source-plugin in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
  * @evidence contracts/e2e.md#necessary-boundary buildSourcePlugin passes actual executable arguments, cwd, environment and copied workspace inputs through a child process before publication. The fake Go script can fail or record those inputs independently; it proves build orchestration at this process boundary and does not certify native Go compilation.
  * @evidence contracts/e2e.md#shared-execution One case-local source/workspace and tool fixture supplies all observations in this named case; the suite built libraries are reused. Barrier-driven builds must retain their own initially cold publication state; the subsequent stable/reuse call consumes the same case cache. Mutations require another proof and cannot borrow a warm binary from a different case.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns temporary directories through process exit. Any ambient environment writes are restored by the case's finally block; explicit environments remain call-local. Case-local toolchain/source identities keep memoized readings and publication paths separate from other cases. Barrier files establish the race before assertions; auxiliary editors are killed at their existing cleanup points. Cancellation cleanup is not stronger than those points.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns temporary directories through process exit. Any ambient environment writes are restored by the case's finally block; explicit environments remain call-local. Case-local toolchain/source identities keep memoized readings and publication paths separate from other cases. Barrier files establish the race before assertions; each auxiliary editor receives kill in finally even if its build or assertion throws; actual kernel termination still follows Node process semantics.
  * @evidence contracts/e2e.md#preserved-coverage A paused fake build reads the proven overlay copy as FIRST, restoring it reuses the binary, and a module edit after key reading rejects publication. These assertions stay in test_buildsourceplugin_publishes_no_binary_built_from_a_source_edited_during_its_build with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_buildsourceplugin_publishes_no_binary_built_from_a_source_edited_during_its_build =
@@ -135,7 +135,7 @@ export const test_buildsourceplugin_publishes_no_binary_built_from_a_source_edit
             `fs.writeFileSync(${JSON.stringify(release)}, "");`,
           ].join("\n"),
         ],
-        { stdio: "ignore" },
+        { stdio: "ignore", windowsHide: true },
       );
     const build = (env: NodeJS.ProcessEnv): string =>
       buildSourcePlugin({
@@ -166,11 +166,15 @@ export const test_buildsourceplugin_publishes_no_binary_built_from_a_source_edit
       overlayFile,
       "package overlay // SECOND\n",
     );
-    const snapshot = build({
-      FAKE_GO_BUILD_BARRIER_FILE: buildBarrier,
-      FAKE_GO_BUILD_RELEASE_FILE: buildRelease,
-    });
-    overlayEditor.kill();
+    let snapshot: string;
+    try {
+      snapshot = build({
+        FAKE_GO_BUILD_BARRIER_FILE: buildBarrier,
+        FAKE_GO_BUILD_RELEASE_FILE: buildRelease,
+      });
+    } finally {
+      overlayEditor.kill();
+    }
     assert.equal(
       fs.readFileSync(snapshot, "utf8"),
       "package overlay // FIRST\n",
@@ -194,18 +198,21 @@ export const test_buildsourceplugin_publishes_no_binary_built_from_a_source_edit
       path.join(plugin, "main.go"),
       "package main\n\n// edited\n",
     );
-    assert.throws(
-      () =>
-        build({
-          PAUSE_KEY_READ_BARRIER: keyBarrier,
-          PAUSE_KEY_READ_RELEASE: keyRelease,
-        }),
-      (error: unknown) =>
-        String(error instanceof Error ? error.message : error).includes(
-          `source ${plugin} changed while it was being built`,
-        ),
-    );
-    moduleEditor.kill();
+    try {
+      assert.throws(
+        () =>
+          build({
+            PAUSE_KEY_READ_BARRIER: keyBarrier,
+            PAUSE_KEY_READ_RELEASE: keyRelease,
+          }),
+        (error: unknown) =>
+          String(error instanceof Error ? error.message : error).includes(
+            `source ${plugin} changed while it was being built`,
+          ),
+      );
+    } finally {
+      moduleEditor.kill();
+    }
   };
 
 function write(file: string, content: string): void {

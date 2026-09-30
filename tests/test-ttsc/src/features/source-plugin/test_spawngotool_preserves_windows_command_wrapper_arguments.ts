@@ -2,7 +2,6 @@ import { TestProject } from "@ttsc/testing";
 
 import { computeCacheKey } from "../../../../../packages/ttsc/lib/plugin/internal/source/computeCacheKey.js";
 import { spawnGoTool } from "../../../../../packages/ttsc/lib/plugin/internal/source/spawnGoTool.js";
-import { windowsGoCommandArgs } from "../../../../../packages/ttsc/lib/plugin/internal/source/windowsGoCommandArgs.js";
 import { assert, fs, path } from "../../internal/source-build";
 
 /**
@@ -13,15 +12,15 @@ import { assert, fs, path } from "../../internal/source-build";
  * disable delayed expansion and pass every volatile value through one-pass
  * environment indirection without mutating the caller's environment.
  *
- * 1. Assert the production cmd argument plan explicitly contains `/v:off`.
+ * 1. Preserve the cmd plan assertion in its named source unit.
  * 2. Put fake wrappers under hostile, whitespace, and quoted-semicolon paths.
  * 3. Run absolute, PATH-resolved, and relative wrappers with hostile argv.
  * 4. Assert native precedence, search-policy fidelity, and missing ENOENT.
  *
  * @evidence contracts/testing.md#behavioral-verification spawnGoTool preserves literal Windows wrapper argv and env across PATH selection variants and distinguishes tool identities and missing wrappers.
  * @evidence contracts/testing.md#independent-expectations A separate Node capture script serializes received argv/env; the handwritten command vectors and native selection sentinel are independent expectations.
- * @evidence contracts/testing.md#distinguishing-cases Command metacharacters, quotes, empty/whitespace/semicolon PATH entries, cwd policy, relative paths, PATHEXT and env casing remain covered; non-Windows returns after the command-construction assertion.
- * @evidence contracts/testing.md#execution-ownership The exported test_spawngotool_preserves_windows_command_wrapper_arguments entry is discovered by TestExecutor from source-plugin in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
+ * @evidence contracts/testing.md#distinguishing-cases Command metacharacters, quotes, empty/whitespace/semicolon PATH entries, cwd policy, relative paths, PATHEXT and env casing remain covered; non-Windows returns without claiming the wrapper matrix; the named source unit test_windowsgocommandargs_disables_delayed_expansion owns the portable cmd plan assertion.
+ * @evidence contracts/testing.md#execution-ownership The exported test_spawngotool_preserves_windows_command_wrapper_arguments entry is discovered by TestExecutor from features/source-plugin in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
  * @evidence contracts/e2e.md#necessary-boundary spawnGoTool meets the operating system executable/wrapper boundary. Captured arguments or Node-native missing-process errors distinguish an incorrect shell selection, quoting or lookup result that a direct argument formatter cannot detect. The Windows wrapper matrix is conditional and ordinary Linux execution does not prove that branch.
  * @evidence contracts/e2e.md#shared-execution One case-local source/workspace and tool fixture supplies all observations in this named case; the suite built libraries are reused. One capture wrapper or native missing-executable reference serves the argument/name matrix; changing lookup inputs needs another spawn, without rebuilding or installing a product host.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns temporary directories through process exit. Any ambient environment writes are restored by the case's finally block; explicit environments remain call-local. Case-local toolchain/source identities keep memoized readings and publication paths separate from other cases.
@@ -29,13 +28,6 @@ import { assert, fs, path } from "../../internal/source-build";
  */
 export const test_spawngotool_preserves_windows_command_wrapper_arguments =
   () => {
-    assert.deepEqual(windowsGoCommandArgs("payload"), [
-      "/d",
-      "/v:off",
-      "/s",
-      "/c",
-      "payload",
-    ]);
     if (process.platform !== "win32") return;
 
     const root = TestProject.tmpdir("ttsc-go-command-shim-");
