@@ -123,7 +123,9 @@ export namespace TestExecutor {
           ? `No tests matched --include=${include.join(",")}`
           : `No tests were discovered under ${locations.join(", ")}`,
       );
-      process.exit(1);
+      finished = true;
+      process.exitCode = 1;
+      return;
     }
 
     const exceptions: Error[] = executions
@@ -137,7 +139,7 @@ export namespace TestExecutor {
       "ms",
     );
     finished = true;
-    if (exceptions.length) process.exit(1);
+    if (exceptions.length) process.exitCode = 1;
   };
 
   /** Select a layer without importing modules excluded by the CLI filters. */
