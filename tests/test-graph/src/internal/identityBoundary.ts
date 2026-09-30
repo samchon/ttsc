@@ -9,7 +9,7 @@ let projectPreparation: Promise<string> | undefined;
 let rawDump: GraphDump | undefined;
 let preparation: Promise<{ client: TtsgraphClient; root: string; initialization: unknown }> | undefined;
 
-/** Borrow the compiler identity project shared by twenty-five named cases. */
+/** Borrow the compiler identity project shared by twenty-eight named cases. */
 export async function withIdentityBoundary(
   body: (client: TtsgraphClient, root: string, initialization: unknown) => Promise<void>,
   include?: string[],

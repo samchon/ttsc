@@ -1,6 +1,8 @@
-import { TestProject } from "@ttsc/testing";
+import fs from "node:fs";
+import path from "node:path";
+import { withIdentityBoundary } from "../internal/identityBoundary";
 
-import { TtsgraphClient, assert } from "../internal/ttsgraph";
+import { assert } from "../internal/ttsgraph";
 
 interface ToolResult {
   content: { type: string; text: string }[];
@@ -37,39 +39,15 @@ const tourOf = (result: ToolResult): TourResult => {
   return value.result;
 };
 
-const TSCONFIG = JSON.stringify(
-  {
-    compilerOptions: {
-      target: "ES2022",
-      module: "commonjs",
-      strict: true,
-      rootDir: "src",
-      outDir: "dist",
-    },
-    include: ["src"],
-  },
-  null,
-  2,
-);
-
 /** Ask the resident server for a tour of `source`, seeded on `names`. */
 const tourOfProject = async (
   source: string,
   names: string[],
 ): Promise<TourResult> => {
-  const root = TestProject.createProject({
-    "tsconfig.json": TSCONFIG,
-    "src/app.ts": source,
-  });
-  const client = TtsgraphClient.start(root);
-  try {
-    await client.request("initialize", {
-      protocolVersion: "2025-06-18",
-      capabilities: {},
-      clientInfo: { name: "test-graph", version: "0.0.0" },
-    });
-    client.notify("notifications/initialized", {});
-    return tourOf(
+  let result!: TourResult;
+  await withIdentityBoundary(async (client, root) => {
+    fs.writeFileSync(path.join(root, "src", "recursive-tour.ts"), source, "utf8");
+    result = tourOf(
       (await client.request("tools/call", {
         name: "inspect_typescript_graph",
         arguments: graphArguments({
@@ -78,10 +56,8 @@ const tourOfProject = async (
         }),
       })) as ToolResult,
     );
-  } finally {
-    client.endStdin();
-    await client.waitForExit();
-  }
+  }, ["src/recursive-tour.ts"]);
+  return result;
 };
 
 const SELF_RECURSIVE = [
@@ -132,8 +108,8 @@ const REAL_FLOW = [
  * @evidence contracts/testing.md#distinguishing-cases A self-only first candidate contrasts a moving flow and a no-recursion project; every returned flow must reach something and work must survive.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_tour_keeps_flows_after_a_self_recursive_seed starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Native recursive call edges and ranking facts must reach tour composition so a self-edge cannot consume its flow search budget at the real boundary.
- * @evidence contracts/e2e.md#shared-execution Two projects/clients share the suite compiler but preserve conflicting recursive versus nonrecursive source populations. They could be a controlled refresh batch; that session consolidation has not been implemented.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Separate projects isolate recursive and nonrecursive populations; each helper ends stdin and awaits exit in finally without asserting its code. The client observes close from construction, rejects pending requests on child failure, and terminates a child that exceeds its exit timeout.
+ * @evidence contracts/e2e.md#shared-execution Thirty-one native graph entries share one project: twenty-eight borrow one initialized MCP/native session, and four immutable producer assertions borrow one cached public CLI dump (checker uses both). Raw-only selections prepare no MCP. MCP ranking, exact tag queries and recursive/terminal/dispatch-threshold contrasts select closed source universes; edits and config restoration advance actual generations without fresh clients.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Disjoint files, contracts, citations, aliases, external declarations and a physical workspace link preserve distinctions. MCP/tag scopes and invalid-config recovery restore config bytes finally; tour/hub variants overwrite only their own source and scope include to that file, retaining exact population/order/topology before each native request. Cached CLI facts serve unchanged assertions, and suite finally joins its client after complete collection.
  * @evidence contracts/e2e.md#preserved-coverage Work reachability, nonempty reached sets and exact normalized flow-shape comparison remain; no recursion fixture or comparative assertion is removed.
  */
 export const test_ttscgraph_tour_keeps_flows_after_a_self_recursive_seed =

@@ -1,6 +1,8 @@
-import { TestProject } from "@ttsc/testing";
+import fs from "node:fs";
+import path from "node:path";
+import { withIdentityBoundary } from "../internal/identityBoundary";
 
-import { TtsgraphClient, assert } from "../internal/ttsgraph";
+import { assert } from "../internal/ttsgraph";
 
 interface ToolResult {
   content: { type: string; text: string }[];
@@ -36,22 +38,7 @@ const traceOf = (result: ToolResult): TraceResult => {
 };
 
 const project = (implementations: number): string =>
-  TestProject.createProject({
-    "tsconfig.json": JSON.stringify(
-      {
-        compilerOptions: {
-          target: "ES2022",
-          module: "commonjs",
-          strict: true,
-          rootDir: "src",
-          outDir: "dist",
-        },
-        include: ["src"],
-      },
-      null,
-      2,
-    ),
-    "src/app.ts": [
+[
       "export abstract class Hub {",
       "  public abstract execute(): void;",
       "}",
@@ -72,19 +59,13 @@ const project = (implementations: number): string =>
       "  }",
       "}",
       "",
-    ].join("\n"),
-  });
+    ].join("\n");
 
-const trace = async (root: string): Promise<TraceResult> => {
-  const client = TtsgraphClient.start(root);
-  try {
-    await client.request("initialize", {
-      protocolVersion: "2025-06-18",
-      capabilities: {},
-      clientInfo: { name: "test-graph", version: "0.0.0" },
-    });
-    client.notify("notifications/initialized", {});
-    const result = (await client.request("tools/call", {
+const trace = async (source: string): Promise<TraceResult> => {
+  let result!: TraceResult;
+  await withIdentityBoundary(async (client, root) => {
+    fs.writeFileSync(path.join(root, "src", "dispatch-hub.ts"), source, "utf8");
+    const response = (await client.request("tools/call", {
       name: "inspect_typescript_graph",
       arguments: graphArguments({
         thinking: "What does a run actually execute?",
@@ -98,11 +79,9 @@ const trace = async (root: string): Promise<TraceResult> => {
         },
       }),
     })) as ToolResult;
-    return traceOf(result);
-  } finally {
-    client.endStdin();
-    await client.waitForExit();
-  }
+    result = traceOf(response);
+  }, ["src/dispatch-hub.ts"]);
+  return result;
 };
 
 /**
@@ -126,8 +105,8 @@ const trace = async (root: string): Promise<TraceResult> => {
  * @evidence contracts/testing.md#distinguishing-cases One below the hub bound contrasts exactly the hub bound, distinguishing a genuine omitted fan-out from an empty declaration.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_trace_reports_a_suppressed_dispatch_hub_as_truncated starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Real compiler heritage facts must arrive in the graph before native-to-MCP traversal can report that withheld implementations were present.
- * @evidence contracts/e2e.md#shared-execution Two isolated population fixtures share the suite producer artifact but use separate project/session lifetimes. A resettable threshold batch is possible and not yet implemented.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Separate projects isolate eleven and twelve implementations; each helper ends stdin and awaits exit in finally without asserting its code. The client observes close from construction, rejects pending requests on child failure, and terminates a child that exceeds its exit timeout.
+ * @evidence contracts/e2e.md#shared-execution Thirty-one native graph entries share one project: twenty-eight borrow one initialized MCP/native session, and four immutable producer assertions borrow one cached public CLI dump (checker uses both). Raw-only selections prepare no MCP. MCP ranking, exact tag queries and recursive/terminal/dispatch-threshold contrasts select closed source universes; edits and config restoration advance actual generations without fresh clients.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Disjoint files, contracts, citations, aliases, external declarations and a physical workspace link preserve distinctions. MCP/tag scopes and invalid-config recovery restore config bytes finally; tour/hub variants overwrite only their own source and scope include to that file, retaining exact population/order/topology before each native request. Cached CLI facts serve unchanged assertions, and suite finally joins its client after complete collection.
  * @evidence contracts/e2e.md#preserved-coverage Exact eleven/zero dispatch counts and false/true truncation assertions remain; no threshold, fixture size or omission flag has been weakened.
  */
 export const test_ttscgraph_trace_reports_a_suppressed_dispatch_hub_as_truncated =

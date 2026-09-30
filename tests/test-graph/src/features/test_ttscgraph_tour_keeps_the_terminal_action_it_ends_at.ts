@@ -1,6 +1,8 @@
-import { TestProject } from "@ttsc/testing";
+import fs from "node:fs";
+import path from "node:path";
+import { withIdentityBoundary } from "../internal/identityBoundary";
 
-import { TtsgraphClient, assert } from "../internal/ttsgraph";
+import { assert } from "../internal/ttsgraph";
 
 interface ToolResult {
   content: { type: string; text: string }[];
@@ -37,21 +39,6 @@ const tourOf = (result: ToolResult): TourResult => {
   return value.result;
 };
 
-const TSCONFIG = JSON.stringify(
-  {
-    compilerOptions: {
-      target: "ES2022",
-      module: "commonjs",
-      strict: true,
-      rootDir: "src",
-      outDir: "dist",
-    },
-    include: ["src"],
-  },
-  null,
-  2,
-);
-
 /** Eleven callers, so a twelfth call site puts the target at the threshold. */
 const callersOf = (name: string, target: string): string[] =>
   Array.from({ length: 11 }, (_unused, index) =>
@@ -68,19 +55,10 @@ const tourOfProject = async (
   source: string,
   names: string[],
 ): Promise<TourResult> => {
-  const root = TestProject.createProject({
-    "tsconfig.json": TSCONFIG,
-    "src/app.ts": source,
-  });
-  const client = TtsgraphClient.start(root);
-  try {
-    await client.request("initialize", {
-      protocolVersion: "2025-06-18",
-      capabilities: {},
-      clientInfo: { name: "test-graph", version: "0.0.0" },
-    });
-    client.notify("notifications/initialized", {});
-    return tourOf(
+  let result!: TourResult;
+  await withIdentityBoundary(async (client, root) => {
+    fs.writeFileSync(path.join(root, "src", "terminal-tour.ts"), source, "utf8");
+    result = tourOf(
       (await client.request("tools/call", {
         name: "inspect_typescript_graph",
         arguments: graphArguments({
@@ -89,10 +67,8 @@ const tourOfProject = async (
         }),
       })) as ToolResult,
     );
-  } finally {
-    client.endStdin();
-    await client.waitForExit();
-  }
+  }, ["src/terminal-tour.ts"]);
+  return result;
 };
 
 /** Every symbol every flow says it reached, plus every flow's start. */
@@ -117,7 +93,7 @@ const reachedNames = (tour: TourResult): string[] =>
  * - A flow the cut would empty is demoted rather than deleted — held back, and
  *   told only when the tour finishes with nothing else to say.
  *
- * Each shape needs its own project, which is the point of demotion: a sole-hop
+ * Each shape needs its own complete compiler universe, which is the point of demotion: a sole-hop
  * terminal action is told **because** its tour has no other flow, and it must
  * not displace one. The negative twin is in
  * `test_ttscgraph_serves_graph_tools_over_mcp`, where a `log` helper with these
@@ -134,8 +110,8 @@ const reachedNames = (tour: TourResult): string[] =>
  * @evidence contracts/testing.md#distinguishing-cases A terminal hub-only flow contrasts a mid-chain hub with downstream work. The step-handle check covers its source endpoint, not both endpoints.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_tour_keeps_the_terminal_action_it_ends_at starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Native fan-in/call edges and tour's hub demotion must interact over actual snapshot transport; a graph-free string/layout assertion cannot establish these flows.
- * @evidence contracts/e2e.md#shared-execution Two incompatible terminal and mid-chain fixtures use separate clients but share the suite compiler. They can become controlled project variants in a shared batch; current lifetimes are not yet minimized.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Separate projects isolate terminal and mid-chain fan-in; each helper ends stdin and awaits exit in finally without asserting its code. The client observes close from construction, rejects pending requests on child failure, and terminates a child that exceeds its exit timeout.
+ * @evidence contracts/e2e.md#shared-execution Thirty-one native graph entries share one project: twenty-eight borrow one initialized MCP/native session, and four immutable producer assertions borrow one cached public CLI dump (checker uses both). Raw-only selections prepare no MCP. MCP ranking, exact tag queries and recursive/terminal/dispatch-threshold contrasts select closed source universes; edits and config restoration advance actual generations without fresh clients.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Disjoint files, contracts, citations, aliases, external declarations and a physical workspace link preserve distinctions. MCP/tag scopes and invalid-config recovery restore config bytes finally; tour/hub variants overwrite only their own source and scope include to that file, retaining exact population/order/topology before each native request. Cached CLI facts serve unchanged assertions, and suite finally joins its client after complete collection.
  * @evidence contracts/e2e.md#preserved-coverage Original terminal flow, retained entering step and source-name handle checks remain. The negative logger-hub control is separately exercised by serves_graph_tools_over_mcp.
  */
 export const test_ttscgraph_tour_keeps_the_terminal_action_it_ends_at =
