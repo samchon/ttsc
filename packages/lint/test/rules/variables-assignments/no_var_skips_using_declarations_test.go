@@ -20,6 +20,11 @@ import (
 //     `for (using … of …)` header.
 //  2. Run noVar over the file.
 //  3. Assert no finding is emitted.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine emits no no-var finding for using, await using or a for-of using declaration list.
+// @evidence contracts/testing.md#independent-expectations Resource-management declaration flags identify lexical resource bindings, not var declarations; the complete zero-finding oracle follows that language distinction.
+// @evidence contracts/testing.md#distinguishing-cases Synchronous, asynchronous and loop resource lists stay clean; TestRuleCorpusNoVarLoopHeaders owns reportable var loop lists.
+// @evidence contracts/testing.md#execution-ownership TestNoVarSkipsUsingDeclarations owns the original fixture, its assertions and any added control in the unit population. The shared Go unit runner invokes parsed-source Engine operations and direct edit application, with disposable fixture files where needed; no installed consumer, native build or product host runs.
 func TestNoVarSkipsUsingDeclarations(t *testing.T) {
   file := parseTS(
     t,

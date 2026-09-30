@@ -14,6 +14,11 @@ import (
 //  1. Create partial declaration and assignment patterns plus one wholly stable pattern.
 //  2. Run prefer-const under the default and `destructuring: "all"` policies.
 //  3. Assert the finding counts are five and two respectively.
+//
+// @evidence contracts/testing.md#behavioral-verification The command preserves default five and all-policy two findings and compares their exact identifier sites, exposing missing or swapped stable leaves.
+// @evidence contracts/testing.md#independent-expectations Authored sites identify second, stableFirst, stableSecond, assignedSecond and mixedAssigned under any; only both stable declaration leaves remain under all. Cross-scope var and parameter siblings prevent declaration conversion.
+// @evidence contracts/testing.md#distinguishing-cases Partial declaration and assignment patterns differ from wholly stable patterns; initialized mutable, hoisted var and parameter siblings preserve the original excluded controls.
+// @evidence contracts/testing.md#execution-ownership TestPreferConstHonorsDestructuringOption owns the original fixture, its assertions and any added control in the unit population. The shared Go unit runner invokes the owning operation with a real Program and Checker and isolated fixture files, without a consumer install, native artifact build or product host.
 func TestPreferConstHonorsDestructuringOption(t *testing.T) {
   source := `const input = { first: 1, second: 2 };
 let { first, second } = input;
@@ -67,4 +72,6 @@ keepParameter(0);
   if allCode != 2 || allStdout != "" || strings.Count(allStderr, "[prefer-const]") != 2 {
     t.Fatalf("prefer-const destructuring all mismatch: code=%d stdout=%q stderr=%q", allCode, allStdout, allStderr)
   }
+  assertBindingDiagnosticSites(t, defaultStderr, [][2]int{{2, 14}, {5, 14}, {5, 35}, {8, 34}, {13, 2}})
+  assertBindingDiagnosticSites(t, allStderr, [][2]int{{5, 14}, {5, 35}})
 }

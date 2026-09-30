@@ -15,6 +15,11 @@ import "testing"
 // 1. Load the annotated TypeScript fixture source embedded below.
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine compares both same-scope variable and function redeclaration diagnostics while leaving the nested let shadow clean.
+// @evidence contracts/testing.md#independent-expectations The independent fixture annotations encode scope ownership: repeated var and function names collide in one scope, unlike a fresh inner let binding.
+// @evidence contracts/testing.md#distinguishing-cases Two duplicate declaration kinds report; the same-spelled inner block binding does not. Related-location fidelity belongs to TestNoRedeclareRelatesFirstDefinition.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusNoRedeclare owns the original fixture, its assertions and any added control in the unit population. The shared Go unit runner invokes parsed-source Engine operations and direct edit application, with disposable fixture files where needed; no installed consumer, native build or product host runs.
 func TestRuleCorpusNoRedeclare(t *testing.T) {
   assertRuleCorpusCase(t, "no-redeclare.ts", "// Positive: two `var` declarations of the same name share the script scope.\nvar sample: number = 1;\n// expect: no-redeclare error\nvar sample: number = 2;\nvoid sample;\n\n// Positive: redeclaring a function in the same scope silently overwrites.\nfunction shared(): number {\n  return 1;\n}\n// expect: no-redeclare error\nfunction shared(): number {\n  return 2;\n}\nvoid shared;\n\n// Negative: `let` in an inner block shadows the outer binding rather than\n// redeclaring it — the rule must leave nested-scope reuse alone.\nlet outerLet: number = 1;\n{\n  let outerLet: number = 2;\n  void outerLet;\n}\nvoid outerLet;\n")
 }

@@ -14,6 +14,11 @@ import (
 //  1. Reassign separate `let` bindings through each supported write shape.
 //  2. Keep one initialized binding unchanged beside the negative controls.
 //  3. Assert the unchanged binding produces the sole finding.
+//
+// @evidence contracts/testing.md#behavioral-verification The command must report only stable at 1:5, retaining existing count, status and stdout assertions while rejecting findings substituted onto mutable siblings.
+// @evidence contracts/testing.md#independent-expectations The literal stable identifier site is authored from the fixture: every other initialized candidate is visibly reassigned by compound, update, destructuring, loop or closure writes.
+// @evidence contracts/testing.md#distinguishing-cases Five write surfaces remain mutable beside the stable binding; the exact identifier oracle distinguishes a missed write from over-suppression with the same finding count.
+// @evidence contracts/testing.md#execution-ownership TestPreferConstCountsWriteFormsBySymbol owns the original fixture, its assertions and any added control in the unit population. The shared Go unit runner invokes the owning operation with a real Program and Checker and isolated fixture files, without a consumer install, native artifact build or product host.
 func TestPreferConstCountsWriteFormsBySymbol(t *testing.T) {
   root := seedLintProject(t, `let stable = 1;
 
@@ -48,4 +53,5 @@ console.log(stable, compound, updated, arrayLeft, arrayRight, objectTarget, incr
   if code != 2 || stdout != "" || strings.Count(stderr, "[prefer-const]") != 1 {
     t.Fatalf("prefer-const write-form diagnostics mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
+  assertBindingDiagnosticSites(t, stderr, [][2]int{{1, 5}})
 }

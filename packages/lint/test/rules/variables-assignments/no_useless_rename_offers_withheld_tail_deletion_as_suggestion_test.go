@@ -15,6 +15,11 @@ import "testing"
 //  1. Report on `import { a as /* keep */ a }` and assert nothing auto-applies.
 //  2. Assert the single suggestion collapses the specifier to `import { a }`.
 //  3. Assert the comment-free twin is still autofixed without asking.
+//
+// @evidence contracts/testing.md#behavioral-verification Exactly one titled suggestion removes the commented redundant alias while the automatic pass changes nothing; the no-comment twin still auto-fixes.
+// @evidence contracts/testing.md#independent-expectations The literal warning title identifies comment loss and the authored import { a } target independently defines the opted-in result.
+// @evidence contracts/testing.md#distinguishing-cases Commented alias is suggestion-only; the same alias without the comment remains automatically fixable.
+// @evidence contracts/testing.md#execution-ownership TestNoUselessRenameOffersWithheldTailDeletionAsSuggestion owns the original fixture, its assertions and any added control in the unit population. The shared Go unit runner invokes parsed-source Engine operations and direct edit application, with disposable fixture files where needed; no installed consumer, native build or product host runs.
 func TestNoUselessRenameOffersWithheldTailDeletionAsSuggestion(t *testing.T) {
   assertSuggestionSnapshot(
     t,

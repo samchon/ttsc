@@ -14,6 +14,11 @@ import (
 //  1. Assign two declaration-only bindings through computed-key and default patterns.
 //  2. Put member access in the read-only portion of each pattern.
 //  3. Assert both bindings are reported and no read is mistaken for a target.
+//
+// @evidence contracts/testing.md#behavioral-verification The owning command with a real Checker reports exactly the computed and defaulted target identifier sites, retaining status and empty stdout assertions.
+// @evidence contracts/testing.md#independent-expectations Authored sites 5:20 and 8:12 identify sole writes to declaration-only let bindings; member reads in key/default expressions do not mutate those targets.
+// @evidence contracts/testing.md#distinguishing-cases Computed keys and default expressions both contain member reads but permit conversion. The write-forms test owns actual destructuring reassignments.
+// @evidence contracts/testing.md#execution-ownership TestPreferConstAllowsReadsInDestructuringPattern owns the original fixture, its assertions and any added control in the unit population. The shared Go unit runner invokes the owning operation with a real Program and Checker and isolated fixture files, without a consumer install, native artifact build or product host.
 func TestPreferConstAllowsReadsInDestructuringPattern(t *testing.T) {
   root := seedLintProject(t, `const input = { first: 1, second: 2 };
 const keys = { current: "first" as const };
@@ -34,4 +39,5 @@ console.log(computed, defaulted);
   if code != 2 || stdout != "" || strings.Count(stderr, "[prefer-const]") != 2 {
     t.Fatalf("prefer-const destructuring-read diagnostics mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
+  assertBindingDiagnosticSites(t, stderr, [][2]int{{5, 20}, {8, 12}})
 }

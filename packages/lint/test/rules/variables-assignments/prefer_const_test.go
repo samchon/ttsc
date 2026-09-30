@@ -14,6 +14,11 @@ import (
 //  1. Seed initialized, updated, loop, and destructuring-assignment bindings.
 //  2. Run check with only prefer-const enabled.
 //  3. Assert only the stable declaration and fresh for-of binding are reported.
+//
+// @evidence contracts/testing.md#behavioral-verification The real command must report stable at 1:5 and the fresh for-of item at 9:10, preserving exact count, error status and empty stdout checks.
+// @evidence contracts/testing.md#independent-expectations The literal sites identify immutable bindings from the authored source; changing, numeric-loop, swap and reassigned picked bindings each visibly receive additional writes.
+// @evidence contracts/testing.md#distinguishing-cases Initialized stable and fresh per-iteration binding report; assignment, increment and array/object destructuring controls stay mutable. The lexical-identity companion owns same-spelled scopes.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusPreferConst owns the original fixture, its assertions and any added control in the unit population. The shared Go unit runner invokes the owning operation with a real Program and Checker and isolated fixture files, without a consumer install, native artifact build or product host.
 func TestRuleCorpusPreferConst(t *testing.T) {
   root := seedLintProject(t, `let stable = 1;
 let changing = 1;
@@ -48,4 +53,5 @@ JSON.stringify([stable, changing, swapLeft, swapRight, picked]);
   if code != 2 || stdout != "" || strings.Count(stderr, "[prefer-const]") != 2 {
     t.Fatalf("prefer-const diagnostics mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
+  assertBindingDiagnosticSites(t, stderr, [][2]int{{1, 5}, {9, 10}})
 }
