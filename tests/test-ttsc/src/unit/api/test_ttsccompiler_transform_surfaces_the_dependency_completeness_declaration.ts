@@ -1,10 +1,7 @@
-import {
-  TtscCompiler,
-  assert,
-  createProject,
-  tsgo,
-  writeCompilerPlugin,
-} from "../../internal/compiler";
+import assert from "node:assert/strict";
+
+import { parseNativeTransformOutput } from "../../../../../packages/ttsc/src/compiler/internal/parseNativeTransformOutput";
+import { NativeTransformEnvelopeFixture } from "../../internal/NativeTransformEnvelopeFixture";
 
 /**
  * Verifies TtscCompiler.transform surfaces the envelope's
@@ -17,23 +14,17 @@ import {
  * dropped the field would silently keep every adopting plugin on the coarse
  * baseline, with no error to point at.
  *
- * 1. Create a project whose fixture plugin reports `dependencies` for
- *    `src/main.ts` and declares that list complete.
- * 2. Call `transform()` via the programmatic API.
- * 3. Assert the success result carries both fields unchanged.
+ * 1. Decode the original native wire input directly through the production decoder.
+ * 2. Assert the retained fields or exact rejection below.
+ * 3. The real Go transport batch retains API result and no-publication boundaries.
  */
 export const test_ttsccompiler_transform_surfaces_the_dependency_completeness_declaration =
   () => {
-    const root = createProject({
-      plugins: [{ transform: "./plugin.cjs" }],
-      source: 'export const value = goUpper("plugin");\nconsole.log(value);\n',
-    });
-    writeCompilerPlugin(root);
-    const compiler = new TtscCompiler({ binary: tsgo, cwd: root });
+    const result = parseNativeTransformOutput(
+      JSON.stringify(NativeTransformEnvelopeFixture.valid),
+      "",
+    );
 
-    const result = compiler.transform();
-
-    assert.equal(result.type, "success");
     assert.deepEqual(result.dependencies, {
       "src/main.ts": ["src/consulted.d.ts"],
     });

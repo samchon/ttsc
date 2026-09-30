@@ -275,114 +275,6 @@ function writeMinimalGoPlugin(root: string) {
   );
 }
 
-function writeBrokenTransformPlugin(root: string) {
-  fs.writeFileSync(
-    path.join(root, "plugin.cjs"),
-    'module.exports = { name: "broken-transform-fixture", source: "./plugin-go" };\n',
-    "utf8",
-  );
-  fs.mkdirSync(path.join(root, "plugin-go"), { recursive: true });
-  fs.writeFileSync(
-    path.join(root, "plugin-go", "go.mod"),
-    "module example.com/brokentransformfixture\n\ngo 1.26\n",
-    "utf8",
-  );
-  fs.writeFileSync(
-    path.join(root, "plugin-go", "main.go"),
-    [
-      "package main",
-      "",
-      "import (",
-      '\t"fmt"',
-      '\t"os"',
-      ")",
-      "",
-      "func main() {",
-      '\tif len(os.Args) > 1 && os.Args[1] == "transform" {',
-      '\t\tfmt.Println(`{"output":{"dist/main.js":"console.log(\\"wrong\\");\\n"}}`)',
-      "\t\treturn",
-      "\t}",
-      "}",
-      "",
-    ].join("\n"),
-    "utf8",
-  );
-}
-
-function writeArrayTransformPlugin(root: string) {
-  fs.writeFileSync(
-    path.join(root, "plugin.cjs"),
-    'module.exports = { name: "array-transform-fixture", source: "./plugin-go" };\n',
-    "utf8",
-  );
-  fs.mkdirSync(path.join(root, "plugin-go"), { recursive: true });
-  fs.writeFileSync(
-    path.join(root, "plugin-go", "go.mod"),
-    "module example.com/arraytransformfixture\n\ngo 1.26\n",
-    "utf8",
-  );
-  fs.writeFileSync(
-    path.join(root, "plugin-go", "main.go"),
-    [
-      "package main",
-      "",
-      "import (",
-      '\t"fmt"',
-      '\t"os"',
-      ")",
-      "",
-      "func main() {",
-      '\tif len(os.Args) > 1 && os.Args[1] == "transform" {',
-      '\t\tfmt.Println(`{"typescript":["not-a-source-map"]}`)',
-      "\t\treturn",
-      "\t}",
-      "}",
-      "",
-    ].join("\n"),
-    "utf8",
-  );
-}
-
-/**
- * Write a transform plugin whose envelope mixes malformed and well-formed
- * advisory fields (`graph`, including proof-failure reasons,
- * `dependenciesComplete`, and `volatile`), so API tests can pin the
- * drop-malformed-keep-valid tolerance the protocol requires.
- */
-function writeMalformedAdvisoryTransformPlugin(root: string) {
-  fs.writeFileSync(
-    path.join(root, "plugin.cjs"),
-    'module.exports = { name: "malformed-advisory-fixture", source: "./plugin-go" };\n',
-    "utf8",
-  );
-  fs.mkdirSync(path.join(root, "plugin-go"), { recursive: true });
-  fs.writeFileSync(
-    path.join(root, "plugin-go", "go.mod"),
-    "module example.com/malformedadvisoryfixture\n\ngo 1.26\n",
-    "utf8",
-  );
-  fs.writeFileSync(
-    path.join(root, "plugin-go", "main.go"),
-    [
-      "package main",
-      "",
-      "import (",
-      '\t"fmt"',
-      '\t"os"',
-      ")",
-      "",
-      "func main() {",
-      '\tif len(os.Args) > 1 && os.Args[1] == "transform" {',
-      '\t\tfmt.Println(`{"typescript":{"src/main.ts":"export const value = 1;\\n","src/extra.ts":"export {};\\n"},"sourceMaps":{"src/main.ts":{"version":3,"file":"main.ts","sources":["main.ts"],"sourcesContent":["export const value = 1\\n"],"names":[],"mappings":"AAAA"},"src/extra.ts":{"version":2,"sources":["extra.ts"],"names":[],"mappings":""},"src/elsewhere.ts":{"version":3,"sources":["elsewhere.ts"],"names":[],"mappings":""}},"graph":{"edges":{"":[],"src/main.ts":["src/good.d.ts"],"src/bad.ts":"not-a-list","src/worse.ts":[1,2]},"globals":"not-a-list","configs":["tsconfig.json",42],"inputHashes":{"src/good.d.ts":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","src/missing.d.ts":null,"src/bad.d.ts":"not-a-hash","":null},"inputObservations":{"src/good.d.ts":{"fileExists":true},"src/missing.d.ts":{"fileExists":false,"directoryExists":true},"src/bad.d.ts":{"fileExists":"not-a-boolean"},"src/worse.d.ts":{"fileExists":true,"directoryExists":true}},"inputProofFailures":{"src/missing.d.ts":"content-unavailable","src/bad.d.ts":"NOT SAFE","src/worse.d.ts":42,"":"unobserved"},"inputRealpaths":{"src/good.d.ts":null,"src/missing.d.ts":null,"src/bad.d.ts":"relative/path","":null}},"dependenciesComplete":["src/main.ts",42,""],"volatile":{"not":"a-list"}}`)',
-      "\t\treturn",
-      "\t}",
-      "}",
-      "",
-    ].join("\n"),
-    "utf8",
-  );
-}
-
 function writeCompilerPlugin(root: string) {
   fs.writeFileSync(
     path.join(root, "plugin.cjs"),
@@ -546,11 +438,8 @@ export {
   tsgo,
   ttscPackageRoot,
   writeBasicProject,
-  writeArrayTransformPlugin,
-  writeBrokenTransformPlugin,
   writeCompilerPlugin,
   writeCompilerPluginBackend,
-  writeMalformedAdvisoryTransformPlugin,
   writeMinimalGoPlugin,
   writePackageCompilerPlugin,
   writePackageSourcePlugin,

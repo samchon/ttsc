@@ -1,10 +1,7 @@
-import {
-  TtscCompiler,
-  assert,
-  createProject,
-  tsgo,
-  writeMalformedAdvisoryTransformPlugin,
-} from "../../internal/compiler";
+import assert from "node:assert/strict";
+
+import { parseNativeTransformOutput } from "../../../../../packages/ttsc/src/compiler/internal/parseNativeTransformOutput";
+import { NativeTransformEnvelopeFixture } from "../../internal/NativeTransformEnvelopeFixture";
 
 /**
  * Verifies TtscCompiler.transform forwards the envelope's `sourceMaps` entries
@@ -16,23 +13,17 @@ import {
  * cannot describe any output and must not reach a consumer. Dropping it
  * degrades that file to having no map, exactly as a host that writes none.
  *
- * 1. Create a project whose fixture plugin prints one valid map, one map with the
- *    wrong version, and one map for a file without text.
- * 2. Call `transform()` via the programmatic API.
- * 3. Assert success and that only the valid map survives.
+ * 1. Decode the original native wire input directly through the production decoder.
+ * 2. Assert the retained fields or exact rejection below.
+ * 3. The real Go transport batch retains API result and no-publication boundaries.
  */
 export const test_ttsccompiler_transform_keeps_only_well_formed_source_maps =
   () => {
-    const root = createProject({
-      plugins: [{ transform: "./plugin.cjs" }],
-      source: 'export const value = goUpper("plugin");\nconsole.log(value);\n',
-    });
-    writeMalformedAdvisoryTransformPlugin(root);
-    const compiler = new TtscCompiler({ binary: tsgo, cwd: root });
+    const result = parseNativeTransformOutput(
+      JSON.stringify(NativeTransformEnvelopeFixture.malformedAdvisory),
+      "",
+    );
 
-    const result = compiler.transform();
-
-    assert.equal(result.type, "success");
     assert.deepEqual(result.sourceMaps, {
       "src/main.ts": {
         file: "main.ts",

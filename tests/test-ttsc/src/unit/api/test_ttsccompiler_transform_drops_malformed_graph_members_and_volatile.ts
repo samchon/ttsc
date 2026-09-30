@@ -1,10 +1,7 @@
-import {
-  TtscCompiler,
-  assert,
-  createProject,
-  tsgo,
-  writeMalformedAdvisoryTransformPlugin,
-} from "../../internal/compiler";
+import assert from "node:assert/strict";
+
+import { parseNativeTransformOutput } from "../../../../../packages/ttsc/src/compiler/internal/parseNativeTransformOutput";
+import { NativeTransformEnvelopeFixture } from "../../internal/NativeTransformEnvelopeFixture";
 
 /**
  * Verifies TtscCompiler.transform tolerates malformed `graph` and `volatile`
@@ -17,23 +14,17 @@ import {
  * Whole-field validation would also be wrong — one malformed edge must not
  * discard the sound remainder of the graph.
  *
- * 1. Create a project whose fixture plugin prints an envelope mixing valid and
- *    malformed graph members plus an object-shaped volatile field.
- * 2. Call `transform()` via the programmatic API.
- * 3. Assert success, the surviving graph members, and no volatile list.
+ * 1. Decode the original native wire input directly through the production decoder.
+ * 2. Assert the retained fields or exact rejection below.
+ * 3. The real Go transport batch retains API result and no-publication boundaries.
  */
 export const test_ttsccompiler_transform_drops_malformed_graph_members_and_volatile =
   () => {
-    const root = createProject({
-      plugins: [{ transform: "./plugin.cjs" }],
-      source: 'export const value = goUpper("plugin");\nconsole.log(value);\n',
-    });
-    writeMalformedAdvisoryTransformPlugin(root);
-    const compiler = new TtscCompiler({ binary: tsgo, cwd: root });
+    const result = parseNativeTransformOutput(
+      JSON.stringify(NativeTransformEnvelopeFixture.malformedAdvisory),
+      "",
+    );
 
-    const result = compiler.transform();
-
-    assert.equal(result.type, "success");
     assert.deepEqual(result.graph, {
       configs: ["tsconfig.json"],
       edges: {
