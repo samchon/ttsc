@@ -44,6 +44,7 @@ export const test_ttsx_dependency_cache_reader_never_mixes_metadata_with_a_parti
       JSON.stringify({
         generation: genA,
         moduleOptions: { module: "commonjs" },
+        emittedSources: {},
         outputs: ["index.js"],
         rootDir: "/root",
       }),
@@ -76,7 +77,8 @@ export const test_ttsx_dependency_cache_reader_never_mixes_metadata_with_a_parti
         `  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);`,
         `}`,
         `const tmp = metaPath + ".tmp";`,
-        `fs.writeFileSync(tmp, JSON.stringify({ generation: genB, moduleOptions: { module: "commonjs" }, outputs: ["index.js"], rootDir: "/root" }), "utf8");`,
+        `fs.writeFileSync(tmp, JSON.stringify({ generation: genB, moduleOptions: { module: "commonjs" },
+        emittedSources: {}, outputs: ["index.js"], rootDir: "/root" }), "utf8");`,
         `fs.renameSync(tmp, metaPath);`,
         ``,
       ].join("\n"),
@@ -84,6 +86,8 @@ export const test_ttsx_dependency_cache_reader_never_mixes_metadata_with_a_parti
     );
 
     const builder = spawnNodeWorker({ script: builderScript });
+    let built: Awaited<typeof builder>;
+    try {
     await waitForCondition(
       () => fs.existsSync(barrierFile),
       "generation B partial emit",
@@ -95,8 +99,10 @@ export const test_ttsx_dependency_cache_reader_never_mixes_metadata_with_a_parti
     assert.notEqual(midRebuild, null, "reader should still hit generation A");
     assert.equal(midRebuild!.emitDir, genADir);
 
-    fs.writeFileSync(releaseFile, "publish\n", "utf8");
-    const built = await builder;
+    } finally {
+      fs.writeFileSync(releaseFile, "publish\n", "utf8");
+      built = await builder;
+    }
     assert.equal(built.status, 0, built.stderr);
 
     // After the atomic swap the reader observes the complete B.
@@ -113,6 +119,7 @@ export const test_ttsx_dependency_cache_reader_never_mixes_metadata_with_a_parti
       JSON.stringify({
         generation: genC,
         moduleOptions: { module: "commonjs" },
+        emittedSources: {},
         outputs: ["index.js"],
         rootDir: "/root",
       }),

@@ -34,7 +34,7 @@ if (index < 0 || index + 1 >= args.length) {
   process.stderr.write("the loader spawned this launcher without --binary\n");
   process.exit(3);
 }
-process.stdout.write(JSON.stringify({ binary: args[index + 1] }));
+process.stdout.write(JSON.stringify({ complete: true, inputs: [], hashes: {}, realpaths: {}, value: { binary: args[index + 1] } }));
 `)
 
   config := filepath.Join(root, "strip.config.ts")

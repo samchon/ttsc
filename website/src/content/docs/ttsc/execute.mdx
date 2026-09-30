@@ -18,7 +18,7 @@ Type errors stop execution. So do `@ttsc/lint` errors (warnings don't).
 
 The entry can also be a JavaScript host that loads TypeScript, such as `npx ttsx tools/run.js`. A JavaScript entry has no project to check up front. It runs as it would under `node --require ttsc/register`, and each TypeScript file it reaches is checked and built through its own project before it runs. The options that only configure the up-front build (`-P`, `--cache-dir`, `--checkers`, `--singleThreaded`, `--no-plugins`, and forwarded compiler options) are refused before a JavaScript entry; set compiler options in the `tsconfig.json` that owns the TypeScript it loads.
 
-`ttsx` requires Node's synchronous `module.registerHooks` API and a CommonJS resolver that sends `require.resolve()` through those hooks. API presence alone is insufficient: the runtime checks that resolution capability and rejects a host that bypasses it. Several Node releases provide the API while bypassing hooks for `require.resolve()`, so Node 22.15 alone does not establish runtime support.
+`ttsx` requires Node.js 22.15 or later with the synchronous `module.registerHooks` API. The runtime probes whether native `require.resolve()` reaches these hooks. Where it does not, the CommonJS modules served by ttsx receive their own source-aware `require.resolve` through the public load boundary.
 
 Bun and Deno report a Node.js version but do not implement the native loading capabilities required here. `ttsx` and `ttsc/register` reject unsupported runtimes with a Node.js diagnostic before running the entry. `bunx ttsx` uses Node.js unless `--bun` is given.
 
@@ -115,9 +115,9 @@ The type-check covers your whole program, but at runtime your dependencies are l
 
 Both reaches cover the CommonJS `require` graph and the ESM graph through `module.registerHooks`. When a runtime's ESM loading of CommonJS source bypasses those hooks, `ttsx` supplies an ESM bridge that loads the module through Node's CommonJS loader. The bridge preserves Node's default and statically detected named exports. The entry itself remains Node's main module.
 
-`require.resolve()` must use the registered hooks. Runtime initialization rejects a resolver that bypasses them; it does not replace Node's private CommonJS resolver to compensate.
+A CommonJS module served by ttsx receives a module-local `require` that preserves Node's shared module cache and native resolution precedence. Its `require.resolve()` also finds supported TypeScript source spellings on Node releases whose native resolver bypasses the hooks. Separately created native require functions keep their native resolution behavior.
 
-The runtime does not add TypeScript handlers to `require.extensions`. A tool that treats that registry as proof that a TypeScript loader is installed needs a compatible loader integration of its own. Preloading `ttsc/register` alone does not satisfy registry checks made by tools such as `rechoir`.
+The module-local `require.extensions` advertises TypeScript extensions using Node's JavaScript handler, so registry checks made by tools such as `rechoir` can detect the installed runtime. Actual TypeScript loading still goes through the compile gate and public hooks. Node's global extension registry and private resolver remain unchanged.
 
 These hooks are runtime-only and never weaken the compile gate: the up-front tsgo build still deep-checks the whole program, imported workspace neighbours included, so a type error in a dependency's source fails the run before anything executes. A missing module still throws `ERR_MODULE_NOT_FOUND`, or `MODULE_NOT_FOUND` with its require stack on the CommonJS graph.
 

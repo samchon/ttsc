@@ -25,7 +25,7 @@ func TestTypeScriptConfigLoader(t *testing.T) {
   config := filepath.Join(root, "banner.config.ts")
   writeFile(t, config, `export default { text: "ignored by fake ttsx" };`)
 
-  nodeLauncher := writeExecutable(t, filepath.Join(root, "fake-ttsx.mjs"), `process.stdout.write(JSON.stringify({ text: "from ts" }));`+"\n")
+  nodeLauncher := writeExecutable(t, filepath.Join(root, "fake-ttsx.mjs"), `process.stdout.write(JSON.stringify({ complete: true, inputs: [], hashes: {}, realpaths: {}, value: { text: "from ts" } }));`+"\n")
   t.Setenv("TTSC_TTSX_BINARY", nodeLauncher)
   t.Setenv("TTSC_TSGO_BINARY", filepath.Join(root, "tsgo"))
   raw, err := bannerLoadBannerTypeScriptConfigFile(config, root)
@@ -45,7 +45,7 @@ func TestTypeScriptConfigLoader(t *testing.T) {
     t.Fatalf("dispatcher ts config mismatch: %#v", raw)
   }
 
-  directLauncher := writeDirectLauncher(t, filepath.Join(root, "fake-ttsx"), `{"text":"from direct"}`, "", 0)
+  directLauncher := writeDirectLauncher(t, filepath.Join(root, "fake-ttsx"), `{"complete":true,"inputs":[],"hashes":{},"realpaths":{},"value":{"text":"from direct"}}`, "", 0)
   t.Setenv("TTSC_TTSX_BINARY", directLauncher)
   raw, err = bannerLoadBannerTypeScriptConfigFile(filepath.Join(root, "banner.config.mts"), root)
   if err != nil {

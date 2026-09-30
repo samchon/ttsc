@@ -43,6 +43,7 @@ export const test_ttsx_dependency_cache_rejects_a_marker_without_an_output_recor
         JSON.stringify({
           generation,
           moduleOptions: { module: "commonjs" },
+        emittedSources: {},
           ...(outputs === undefined ? {} : { outputs }),
           rootDir: root,
         }),

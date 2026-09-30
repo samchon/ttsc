@@ -1,7 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
-import { RuntimeLoaderCapabilities } from "../../../../../packages/ttsc/lib/launcher/internal/runtime/RuntimeLoaderCapabilities.js";
 
 /**
  * Verifies ttsx serves a CommonJS TypeScript graph an ESM import reaches
@@ -68,6 +67,6 @@ export const test_ttsx_serves_commonjs_typescript_through_the_supported_hooks_al
       resolved: true,
       resolvedFromPaths: true,
       target: "SERVED",
-      wrapped: !RuntimeLoaderCapabilities.requireResolveConsultsHooks(),
+      wrapped: false,
     });
   };

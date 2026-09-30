@@ -22,7 +22,7 @@ export const PLUGIN_DESCRIPTOR_SHIM_SOURCE = [
   // both — "Cannot find module ./missing" is as actionable as anything the
   // factory could have said.
   `try {`,
-  `  const { PluginDescriptorInputObservation } = createRequire(import.meta.url)(${JSON.stringify(PLUGIN_INPUT_OBSERVATION_PATH)});`,
+  `  const { PluginDescriptorInputObservation } = createRequire(import.meta.url).cache[${JSON.stringify(PLUGIN_INPUT_OBSERVATION_PATH)}].exports;`,
   // Runtime hooks are installed before this shim loads. Arm their internal
   // side channel only for the descriptor import itself, after this shim's own
   // imports have resolved, so ttsc implementation files never become project

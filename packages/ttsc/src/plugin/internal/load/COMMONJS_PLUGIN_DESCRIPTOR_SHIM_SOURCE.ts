@@ -19,7 +19,7 @@ export const COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE = [
   `const Module = require("node:module");`,
   `const path = require("node:path");`,
   `const vm = require("node:vm");`,
-  `const { PluginDescriptorInputObservation } = require(${JSON.stringify(PLUGIN_INPUT_OBSERVATION_PATH)});`,
+  `const { PluginDescriptorInputObservation } = require.cache[${JSON.stringify(PLUGIN_INPUT_OBSERVATION_PATH)}]?.exports ?? require(${JSON.stringify(PLUGIN_INPUT_OBSERVATION_PATH)});`,
   `const { fileURLToPath } = require("node:url");`,
   `const { createResolutionInputRecorder, requireResolveConsultsHooks } = (() => {`,
   `  const file = ${JSON.stringify(RESOLUTION_INPUT_RECORDER_PATH)};`,

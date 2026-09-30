@@ -40,6 +40,7 @@ import { RuntimeManifestRegistry } from "./RuntimeManifestRegistry";
 import { RuntimeModuleFormat } from "./RuntimeModuleFormat";
 import { RuntimeEmitProvenance } from "./RuntimeEmitProvenance";
 import { PluginDescriptorInputObservation } from "./PluginDescriptorInputObservation";
+import { CommonJsRuntimeSource } from "./CommonJsRuntimeSource";
 import { acquireDependencyBuildLock } from "./acquireDependencyBuildLock";
 import { checkNodeRuntimeSupport } from "./checkNodeRuntimeSupport";
 import { commonJsImportFacade } from "./commonJsImportFacade";
@@ -88,16 +89,16 @@ import { restoreStrippedNodeBuiltinScheme } from "./restoreStrippedNodeBuiltinSc
  * loader with source, the module's own `require()` bypasses the hooks on some
  * releases, so a nested `require("./x.js")` backed only by `x.ts` failed there
  * (samchon/ttsc#1280). The one reach the API lacks on some releases is
- * `require.resolve`, which is probed before installation. A host that bypasses
- * public resolve hooks is rejected with an actionable error; foreign resolver
- * methods and extension registries are never replaced. Ecosystem tools must use
- * the registered loader rather than require a `require.extensions`
- * advertisement.
+ * `require.resolve`, which is probed before installation. Served CommonJS
+ * bodies receive an owned require function whose resolve member applies the
+ * same source policy on those releases. Its copied extension registry
+ * advertises the supported source extensions; foreign resolver methods and
+ * global extension registries are never replaced.
  *
- * @evidence contracts/common.md#principled-implementation Resolution preserves successful Node decisions, rescues source spellings only after documented resolution fails, and serves only outputs whose ownership index names the exact source. CommonJS facades retain Node's own evaluation and binding semantics; hosts whose require.resolve bypasses the public hooks are rejected before installation.
+ * @evidence contracts/common.md#principled-implementation Resolution preserves successful Node decisions, rescues source spellings only after documented resolution fails, and serves only outputs whose ownership index names the exact source. CommonJS facades retain Node's own evaluation and binding semantics; an owned module-local require supplies source resolution when native require.resolve bypasses public hooks.
  * @evidence contracts/common.md#clear-and-simple-design One synchronous hook owner coordinates source selection, emission ownership and descriptor observation; the entry, owning-project and orphan lanes remain explicit because they have distinct compilation premises. Private helpers carry those policies without a second foreign-resolver layer.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Public registerHooks handles resolution and loading; installation no longer mutates Module._resolveFilename or require.extensions. Source-extension recovery implements emitted-to-source spelling under the runtime contract, while incapable hosts fail instead of preserving an unsupported resolver beneath patches.
- * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe the three serving lanes, compile gates, source identity, capability failure and the absence of extension-registry advertising; helper comments state ownership and failure effects with descriptive prose separated from tags.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Public registerHooks handles resolution and loading; installation no longer mutates Module._resolveFilename or require.extensions. Source-extension recovery implements emitted-to-source spelling under the runtime contract, and module-local require adaptation addresses the probed public-hook difference without replacing Node methods.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe the three serving lanes, compile gates, source identity, capability-based local adaptation and extension-registry ownership; helper comments state ownership and failure effects with descriptive prose separated from tags.
  * @evidence contracts/portability.md#os-neutral-implementation Node URL conversion, native filesystem paths and physical resolution preserve OS spelling boundaries. Actual public-hook probes select runtime capabilities, native emit uses executable arguments without shell interpolation, and unresolved filesystem observation refuses reusable descriptor proof.
  * @evidence contracts/performance.md#efficient-algorithms Source ownership indexes avoid a complete emit scan on each load; export discovery visits each graph node once per traversal, and config-chain validation scans its discovered inputs. Compiler identity validation streams B executable bytes per lookup because metadata cannot certify unchanged bytes. Native compilation is required for a new project or orphan; recursive graphs remain subject to the JavaScript stack limit.
  * @evidence contracts/performance.md#reuse-equivalent-work Entry emits and dependency generations are shared within the current run; root keys include source bytes and orphan keys include source bytes, format, lowering policy and content-proven compiler identity. Nearest-config selection revalidates candidate existence. Project and failed-build memos still use a per-process module-evaluation snapshot and do not certify arbitrary mid-run config or dependency edits.
@@ -113,13 +114,8 @@ export function installRuntimeHooks(options: RuntimeHookOptions = {}): void {
   assertNodeRuntimeSupport();
   // Probed before the runtime's hooks exist, so nothing the probes load is
   // served or recorded as an input of the program.
-  if (!RuntimeLoaderCapabilities.requireResolveConsultsHooks()) {
-    throw new Error(
-      `ttsx: Node.js ${process.versions.node} bypasses module.registerHooks in require.resolve. ` +
-        "Upgrade to a Node.js release whose synchronous hooks cover require.resolve " +
-        "(Node.js 24.18.0 is verified). The runtime does not patch Node's private resolver.",
-    );
-  }
+  nativeRequireResolveHooks = RuntimeLoaderCapabilities.requireResolveConsultsHooks();
+  CommonJsRuntimeSource.configure(resolveCommonJsRequest);
   RuntimeLoaderCapabilities.commonJsNamespaceCarriesModuleExports();
   // Error stacks use the served source maps. This supported switch is applied
   // only after the required public loader capabilities have been established.
@@ -129,6 +125,48 @@ export function installRuntimeHooks(options: RuntimeHookOptions = {}): void {
   registerHooks({ load, resolve });
   PluginDescriptorInputObservation.begin();
   installed = true;
+}
+
+/** Actual public-hook coverage determines whether module-local resolve needs adaptation. */
+let nativeRequireResolveHooks = true;
+
+/** Preserve native resolution first and apply the existing source policy to an owned require. */
+function resolveCommonJsRequest(
+  native: NodeJS.RequireResolve,
+  specifier: string,
+  options: { paths?: string[] } | undefined,
+  filename: string,
+): string {
+  if (nativeRequireResolveHooks || typeof specifier !== "string")
+    return native(specifier, options);
+  const parents = path.isAbsolute(specifier)
+    ? [undefined]
+    : options?.paths === undefined
+      ? [pathToFileURL(filename).href]
+      : Array.isArray(options.paths) && options.paths.every((entry) => typeof entry === "string")
+        ? options.paths.map((entry) => pathToFileURL(path.join(path.resolve(entry), "index.js")).href)
+        : [];
+  const observations = parents.map((parent) => observePluginDescriptorResolutionCandidates(specifier, parent));
+  let selected: string | undefined;
+  try {
+    try {
+      const resolved = native(specifier, options);
+      if (path.isAbsolute(resolved)) selected = pathToFileURL(resolved).href;
+      if (selected !== undefined) recordPluginDescriptorResolution(specifier, parents[0], selected);
+      return resolved;
+    } catch (error) {
+      for (const parent of parents) {
+        const rescued = probeRescuableSpecifier(specifier, parent);
+        if (rescued === null) continue;
+        selected = rescued;
+        recordPluginDescriptorResolution(specifier, parent, rescued);
+        return fileURLToPath(rescued);
+      }
+      throw error;
+    }
+  } finally {
+    for (const observation of observations) observation.commit(selected);
+  }
 }
 
 /**
@@ -801,7 +839,7 @@ function load(
   // every release (`commonJsImportFacade`, samchon/ttsc#1517).
   if (format === "commonjs" && !hasCondition(context, "require")) {
     if (servesCommonJsFromSource(url))
-      return { format, shortCircuit: true, source: served.source };
+      return { format, shortCircuit: true, source: CommonJsRuntimeSource.prepare(served.source, filename) };
     return {
       format: "module",
       shortCircuit: true,
@@ -817,7 +855,7 @@ function load(
       ),
     };
   }
-  return { format, shortCircuit: true, source: served.source };
+  return { format, shortCircuit: true, source: format === "commonjs" ? CommonJsRuntimeSource.prepare(served.source, filename) : served.source };
 }
 
 /**
@@ -837,10 +875,7 @@ function loadJavaScript(
 ): LoadResult {
   const loaded = nextLoad(url, context);
   if (
-    loaded.format !== "commonjs" ||
-    hasCondition(context, "require") ||
-    RuntimeLoaderCapabilities.hookedCommonJsImportKeepsRequire() ||
-    servesCommonJsFromSource(url)
+    loaded.format !== "commonjs"
   )
     return loaded;
   const source =
@@ -850,6 +885,15 @@ function loadJavaScript(
         ? Buffer.from(loaded.source as Uint8Array).toString("utf8")
         : readFileOrNull(filename);
   if (source === null) return loaded;
+  if (
+    hasCondition(context, "require") ||
+    RuntimeLoaderCapabilities.hookedCommonJsImportKeepsRequire() ||
+    servesCommonJsFromSource(url)
+  ) return {
+    ...loaded,
+    shortCircuit: true,
+    source: CommonJsRuntimeSource.prepare(inlineServedSourceMap(source, filename, filename), filename),
+  };
   return {
     format: "module",
     shortCircuit: true,

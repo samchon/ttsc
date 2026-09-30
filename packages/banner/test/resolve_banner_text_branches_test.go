@@ -77,7 +77,7 @@ func TestResolveBannerTextBranches(t *testing.T) {
     t.Fatalf("expected explicit empty-text export error, got %v", err)
   }
 
-  fakeTtsx := writeDirectLauncher(t, filepath.Join(root, "fake-ttsx"), "{}", "", 0)
+  fakeTtsx := writeDirectLauncher(t, filepath.Join(root, "fake-ttsx"), `{"complete":true,"inputs":[],"hashes":{},"realpaths":{},"value":{}}`, "", 0)
   t.Setenv("TTSC_TTSX_BINARY", fakeTtsx)
   noTextTS := filepath.Join(project, "ts", "banner.config.ts")
   writeFile(t, noTextTS, `export default {};`)
