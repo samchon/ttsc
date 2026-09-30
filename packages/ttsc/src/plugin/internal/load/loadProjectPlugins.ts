@@ -32,6 +32,10 @@ import { PluginDescriptorEvaluationCache } from "./PluginDescriptorEvaluationCac
 import { PluginPackageResolution } from "./PluginPackageResolution";
 import { ProjectPluginEntries } from "./ProjectPluginEntries";
 import { composePluginSources } from "./composePluginSources";
+import { rejectJsTransformFunctions } from "./rejectJsTransformFunctions";
+import { validatePluginSource } from "./validatePluginSource";
+import { requirePluginSource } from "./requirePluginSource";
+import { validatePluginContributors } from "./validatePluginContributors";
 import { collectProjectHostInputs } from "./collectProjectHostInputs";
 import { declaresHostInputReads } from "./declaresHostInputReads";
 import { hashHostInputPaths } from "./hashHostInputPaths";
@@ -1960,17 +1964,7 @@ function isTtscPlugin(value: unknown): value is ITtscPlugin {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function rejectJsTransformFunctions(
-  specifier: string,
-  candidate: object,
-): void {
-  if ("transformSource" in candidate || "transformOutput" in candidate) {
-    throw new Error(
-      `ttsc: plugin "${specifier}" declares unsupported JS transform functions; ` +
-        "declare a native backend instead",
-    );
-  }
-}
+
 
 function resolvePluginStage(plugin: ITtscPlugin): TtscPluginStage {
   if (plugin.stage === undefined) {
@@ -1990,11 +1984,7 @@ function resolvePluginStage(plugin: ITtscPlugin): TtscPluginStage {
   return plugin.stage;
 }
 
-function validatePluginSource(plugin: ITtscPlugin): void {
-  if (typeof plugin.source !== "string" || plugin.source.length === 0) {
-    throw new Error(`ttsc: plugin must declare source`);
-  }
-}
+
 
 function pluginLabel(
   plugin: ITtscPlugin,
@@ -2097,25 +2087,7 @@ function reportsPluginSource(directory: string): boolean {
   return !isPathWithin(directory, ttscPackageRoot());
 }
 
-function requirePluginSource(source: string, label: string): void {
-  if (!fs.existsSync(source)) {
-    // A descriptor factory runs without CommonJS globals when ttsc loads it
-    // through ttsx or as ESM — `__dirname`/`__filename`/`require` are undefined,
-    // so a `source` derived from them mis-resolves (often against cwd) and lands
-    // here. Name that failure mode explicitly instead of leaving a bare
-    // not-found path: the breakage is otherwise silent. (See #248.)
-    throw new Error(
-      `ttsc: plugin "${label}" source does not exist: ${source}\n` +
-        `  Plugin descriptors run without CommonJS globals: __dirname, __filename, ` +
-        `and require are undefined when ttsc loads a descriptor through ttsx or as ESM. ` +
-        `If this path was derived from one of them, use context.dirname / ` +
-        `context.filename (the descriptor's own directory and file, populated in ` +
-        `every load mode), or resolve it from context.projectRoot, e.g. ` +
-        `createRequire(path.join(context.projectRoot, "package.json"))` +
-        `.resolve("<your-package>/package.json").`,
-    );
-  }
-}
+
 
 function readGoPackageName(dir: string): string | null {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -2137,72 +2109,8 @@ function readGoPackageName(dir: string): string | null {
   return null;
 }
 
-const CONTRIBUTOR_NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
 
-function validatePluginContributors(
-  plugin: ITtscPlugin,
-): readonly { name: string; source: string }[] | undefined {
-  const contributors = plugin.contributors;
-  if (contributors === undefined) return undefined;
-  if (!Array.isArray(contributors)) {
-    throw new Error(
-      `ttsc: plugin "${plugin.name}" "contributors" must be an array of { name, source } entries`,
-    );
-  }
-  if (contributors.length === 0) return undefined;
-  const seen = new Set<string>();
-  const out: { name: string; source: string }[] = [];
-  for (const [index, entry] of contributors.entries()) {
-    if (typeof entry !== "object" || entry === null) {
-      throw new Error(
-        `ttsc: plugin "${plugin.name}" contributors[${index}] must be an object`,
-      );
-    }
-    const { name, source } = entry as { name?: unknown; source?: unknown };
-    if (typeof name !== "string" || !CONTRIBUTOR_NAME_PATTERN.test(name)) {
-      throw new Error(
-        `ttsc: plugin "${plugin.name}" contributors[${index}].name must match /^[a-z][a-z0-9_]*$/; ` +
-          `got ${JSON.stringify(name)}`,
-      );
-    }
-    if (seen.has(name)) {
-      throw new Error(
-        `ttsc: plugin "${plugin.name}" contributors[${index}] duplicate name ${JSON.stringify(name)}`,
-      );
-    }
-    seen.add(name);
-    if (typeof source !== "string" || source.length === 0) {
-      throw new Error(
-        `ttsc: plugin "${plugin.name}" contributors[${index}].source must be a non-empty string`,
-      );
-    }
-    if (!path.isAbsolute(source)) {
-      throw new Error(
-        `ttsc: plugin "${plugin.name}" contributors[${index}].source must be an absolute path; ` +
-          `got ${JSON.stringify(source)}`,
-      );
-    }
-    if (!fs.existsSync(source) || !fs.statSync(source).isDirectory()) {
-      throw new Error(
-        `ttsc: plugin "${plugin.name}" contributors[${index}].source must be an existing directory: ${source}`,
-      );
-    }
-    // Pre-flight check that the directory actually carries a buildable
-    // contributor package. Without this, an accidentally-empty directory
-    // (or a directory containing only `_test.go` files, which `go build`
-    // silently skips) reaches the synthesized blank-import step and Go's
-    // compile error surfaces with a scratch-tempdir path that doesn't
-    // name the contributor entry. Catching it here lets us name the
-    // entry the user actually authored.
-    if (!hasBuildableGoSource(source)) {
-      throw new Error(
-        `ttsc: plugin "${plugin.name}" contributors[${index}].source must contain at least one non-test ".go" file: ${source}`,
-      );
-    }
-    out.push({ name, source: PluginPackageResolution.resolveRealPath(source) });
-  }
-  return out;
-}
+
 
 function mergeContributors(
   first: readonly ITtscPluginContributor[] | undefined,
@@ -2216,25 +2124,7 @@ function isPluginStage(value: string): value is TtscPluginStage {
   return value === "transform" || value === "check";
 }
 
-function hasBuildableGoSource(dir: string): boolean {
-  // `go build` consumes `.go` files but silently ignores `_test.go`. A
-  // contributor whose source dir holds only test files would compile to
-  // an empty package and surface as an opaque scratch-tempdir error;
-  // require at least one production `.go` file so the validator can
-  // name the contributor entry instead.
-  let entries: fs.Dirent[];
-  try {
-    entries = fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return false;
-  }
-  return entries.some(
-    (entry) =>
-      entry.isFile() &&
-      entry.name.endsWith(".go") &&
-      !entry.name.endsWith("_test.go"),
-  );
-}
+
 
 function ttscPackageRoot(): string {
   return path.resolve(__dirname, "..", "..", "..", "..");
