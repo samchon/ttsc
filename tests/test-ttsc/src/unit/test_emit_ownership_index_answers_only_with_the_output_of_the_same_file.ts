@@ -24,6 +24,11 @@ import { EmitOwnershipIndex } from "../../../../packages/ttsc/src/compiler/inter
  *    directory link and, where permitted, a file symlink.
  * 2. Index captured physical source ownership, with and without an output list.
  * 3. Assert each lookup returns its own output or `null`.
+ *
+ * @evidence contracts/testing.md#behavioral-verification EmitOwnershipIndex pairs captured source coordinates with their recorded output, rejects unrecorded or external writes, and preserves a recorded output after its file disappears. Output-directory aliases must resolve to the same writer without changing the source owner.
+ * @evidence contracts/testing.md#independent-expectations Authored source-to-output records define each owner independently of the index. Native realpath identifies equivalent writer aliases; distinct realpaths remain different files, and literal null/error expectations forbid guessed ownership.
+ * @evidence contracts/testing.md#distinguishing-cases Same-stem siblings, declaration files, outside-root sources, linked directories, extension pairs, absent recorded outputs and unrecorded late writes retain their original controls. A linked output-directory spelling must match its physical record; case spellings are equivalent only when the native filesystem confirms identity.
+ * @evidence contracts/testing.md#execution-ownership This exported source unit calls the authored index directly on an isolated filesystem fixture. It creates source/output records and links but never builds, installs or starts a compiler; each original assertion and the writer-alias controls execute in this one entry.
  */
 export const test_emit_ownership_index_answers_only_with_the_output_of_the_same_file =
   () => {
@@ -76,6 +81,53 @@ export const test_emit_ownership_index_answers_only_with_the_output_of_the_same_
     const found = (source: string): string | null =>
       index.find(path.join(root, source));
     const emitted = (output: string): string => path.join(emit, output);
+
+    const linkedEmit = path.join(base, "linked-emit");
+    fs.symlinkSync(emit, linkedEmit, "junction");
+    const physicalOutput = fs.realpathSync.native(emitted("a/index.js"));
+    const sourceOwner = fs.realpathSync.native(path.join(root, "a/index.ts"));
+    const writerAliases = [path.join(linkedEmit, "a/index.js")];
+    const caseAlias = emitted("a/INDEX.js");
+    if (fs.existsSync(caseAlias) && fs.realpathSync.native(caseAlias) === physicalOutput)
+      writerAliases.push(caseAlias);
+    const volumeAlias = physicalOutput.replace(/^[A-Z]:/, (root) => root.toLowerCase());
+    if (volumeAlias !== physicalOutput && fs.realpathSync.native(volumeAlias) === physicalOutput)
+      writerAliases.push(volumeAlias);
+    for (const writer of writerAliases) {
+      assert.equal(fs.realpathSync.native(writer), physicalOutput);
+      const aliased = new EmitOwnershipIndex({
+        emitDir: linkedEmit,
+        rootDir: root,
+        outputs: ["a/index.js"],
+        emittedSources: { [writer]: [sourceOwner] },
+      });
+      assert.equal(aliased.find(path.join(root, "a/index.ts")), physicalOutput);
+    }
+    const outsideOutput = path.join(base, "outside-output.js");
+    write(outsideOutput);
+    assert.throws(() => new EmitOwnershipIndex({
+      emitDir: emit,
+      rootDir: root,
+      outputs: ["a/index.js"],
+      emittedSources: { [outsideOutput]: [sourceOwner] },
+    }), /provenance escapes its output directory/);
+    assert.throws(() => new EmitOwnershipIndex({
+      emitDir: emit,
+      rootDir: root,
+      outputs: ["a/index.js"],
+      emittedSources: { [emitted("modules/esm.mjs")]: [sourceOwner] },
+    }), /provenance names an unrecorded output/);
+    // A sensitive filesystem keeps this second writer distinct. The native
+    // identity observation, rather than the host OS name, owns that premise.
+    if (!fs.existsSync(caseAlias)) write(caseAlias, "// distinct writer\n");
+    if (fs.realpathSync.native(caseAlias) !== physicalOutput) {
+      assert.throws(() => new EmitOwnershipIndex({
+        emitDir: emit,
+        rootDir: root,
+        outputs: ["a/index.js"],
+        emittedSources: { [caseAlias]: [sourceOwner] },
+      }), /provenance names an unrecorded output/);
+    }
 
     assert.equal(found("a/index.ts"), emitted("a/index.js"));
     assert.equal(found("b/index.ts"), null, "a same-named file elsewhere");

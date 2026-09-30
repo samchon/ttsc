@@ -19,6 +19,11 @@ const digest = (value: string | Buffer): string => createHash("sha256").update(v
  * 1. Build one digest-approved reader for each of the five terminators.
  * 2. Read the two documented declarations through the immutable source cache.
  * 3. Assert every spelling yields the same logical lines and trailing empty line.
+ *
+ * @evidence contracts/testing.md#behavioral-verification TtscGraphSourceReader.lines and docOf return identical logical source lines and both JSDoc values for each ECMAScript newline spelling.
+ * @evidence contracts/testing.md#independent-expectations ECMAScript line terminators LF, CRLF, CR, LS and PS define the independent literal line arrays; node:crypto SHA-256 supplies input provenance rather than borrowing the reader digest implementation.
+ * @evidence contracts/testing.md#distinguishing-cases All five spellings include two separately positioned documented declarations and a trailing empty line. The batched native source-snapshot boundary owns compiler-origin signature heads; snapshot identity rejection is owned by the graph snapshot-identity unit.
+ * @evidence contracts/testing.md#execution-ownership test_ttscgraph_source_reader_matches_ecmascript_line_terminators is the exported source-unit entry; injected immutable bytes and direct graph model/server helper calls need no installed artifact, native producer or process protocol.
  */
 export const test_ttscgraph_source_reader_matches_ecmascript_line_terminators =
   async (): Promise<void> => {

@@ -10,7 +10,7 @@ import { artifactsAreStale, fingerprintInputs, type IPublishedArtifacts, type IA
  * and only on those.
  *
  * A resident session is invalidated by the compiler's build universe, and the
- * documents behind an artifact are deliberately not in it — that is the
+ * documents behind an artifact are deliberately not in it ??that is the
  * property that keeps renaming a Markdown heading from costing a typecheck. The
  * cost is that no compiler input moves when the heading does, so unless
  * something else watches those paths, the graph answers with the heading the
@@ -23,7 +23,7 @@ import { artifactsAreStale, fingerprintInputs, type IPublishedArtifacts, type IA
  *
  * The added and deleted cases are why directories are walked rather than files
  * listed: a per-file state cannot notice a document that did not exist when the
- * list was taken. The shallow case is the other half of that — a pattern that
+ * list was taken. The shallow case is the other half of that ??a pattern that
  * does not descend must not drag its subdirectories into a walk taken before
  * every request.
  *
@@ -33,6 +33,11 @@ import { artifactsAreStale, fingerprintInputs, type IPublishedArtifacts, type IA
  * 4. Require each to read stale, and an unrelated file's edit not to.
  * 5. Require a non-recursive directory to ignore what lies below it.
  * 6. Delete the published file itself and require that to read stale too.
+ *
+ * @evidence contracts/testing.md#behavioral-verification artifactsAreStale checks the actual published-input fingerprint and discovery authority; document/config changes withdraw reuse while unrelated source edits and nested edits below a shallow scope retain reuse.
+ * @evidence contracts/testing.md#independent-expectations Independently authored filesystem edits and declared recursive/shallow inputs define expected freshness transitions. fingerprintInputs establishes each baseline; the test does not independently certify its hash encoding, but stale/fresh differences distinguish omitted or overbroad inputs.
+ * @evidence contracts/testing.md#distinguishing-cases Fresh baseline, stale discovery/unavailable legacy authority, edited/added/deleted docs, changed config, missing/restored publication, unrelated source edits and shallow-versus-recursive directories retain separate failure identities.
+ * @evidence contracts/testing.md#execution-ownership test_ttscgraph_artifacts_notice_a_document_or_config_edit directly invokes graph model owners in the shared source-unit process using isolated fixture files; it spawns no publisher, compiler or native host.
  */
 export const test_ttscgraph_artifacts_notice_a_document_or_config_edit =
   (): void => {
@@ -96,8 +101,8 @@ export const test_ttscgraph_artifacts_notice_a_document_or_config_edit =
       write(config, "export default { rules: { evidence: {} } };\n"),
     );
 
-    // The published file is swept by a machine no session has a say in — a tmp
-    // cleaner, a disk-cleanup pass — and the server is handed its path on every
+    // The published file is swept by a machine no session has a say in ??a tmp
+    // cleaner, a disk-cleanup pass ??and the server is handed its path on every
     // request. Gone, and read as fresh, every later request fails as a broken
     // exchange and the only cure is restarting the editor; read as stale, the
     // next request writes it again and the session repairs itself.
@@ -116,7 +121,7 @@ export const test_ttscgraph_artifacts_notice_a_document_or_config_edit =
 
     // A pattern such as `docs/*.md` names one directory's files. Walking below
     // it anyway is not merely extra work: on a pattern whose fixed prefix is the
-    // project root — a bare `*.md` — it is every file in the repository, stated
+    // project root ??a bare `*.md` ??it is every file in the repository, stated
     // before every graph request.
     const shallowInputs: IArtifactInputs = {
       directories: [{ path: docs, recursive: false }],
