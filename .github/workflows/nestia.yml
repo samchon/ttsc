@@ -2,32 +2,6 @@ name: nestia
 
 on:
   pull_request:
-    paths:
-      - ".github/workflows/nestia.yml"
-      - "scripts/ci/consumer-tarballs.cjs"
-      - "scripts/ci/consumer-pnpmfile.cjs"
-      - "experimental/native-host-provenance/**"
-      - "patches/typia@15.0.0.patch"
-      - "experimental/tarballs/**"
-      - "config/**"
-      - "scripts/assert-platform-package.cjs"
-      - "scripts/build-current.cjs"
-      - "scripts/build-platform-package.cjs"
-      - "scripts/go-build-cache.cjs"
-      - "scripts/go-sdk-extraction.cjs"
-      - "scripts/go-sdk-integrity.cjs"
-      - "scripts/go-work.cjs"
-      - "scripts/ci/consumer-go-workspace.cjs"
-      - "scripts/platform-target.cjs"
-      - "packages/ttsc/**"
-      - "packages/banner/**"
-      - "packages/lint/**"
-      - "packages/paths/**"
-      - "packages/strip/**"
-      - "packages/ttsc-*/**"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
   workflow_dispatch:
 
 concurrency:

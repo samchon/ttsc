@@ -2,31 +2,6 @@ name: typia
 
 on:
   pull_request:
-    paths:
-      - ".github/workflows/typia.yml"
-      - "scripts/ci/consumer-tarballs.cjs"
-      - "scripts/ci/consumer-pnpmfile.cjs"
-      - "experimental/native-host-provenance/**"
-      - "experimental/source-map/**"
-      - "website/compiler-dependencies/package.json"
-      - "experimental/tarballs/**"
-      - "config/**"
-      - "scripts/assert-platform-package.cjs"
-      - "scripts/build-current.cjs"
-      - "scripts/build-platform-package.cjs"
-      - "scripts/go-build-cache.cjs"
-      - "scripts/go-sdk-extraction.cjs"
-      - "scripts/go-sdk-integrity.cjs"
-      - "scripts/platform-target.cjs"
-      - "packages/ttsc/**"
-      - "packages/banner/**"
-      - "packages/lint/**"
-      - "packages/paths/**"
-      - "packages/strip/**"
-      - "packages/ttsc-*/**"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
   workflow_dispatch:
 
 concurrency:
