@@ -13,6 +13,11 @@ import "testing"
 //     a normally completing finally.
 //  2. Run the engine with no-fallthrough enabled.
 //  3. Assert zero findings.
+//
+// @evidence contracts/testing.md#behavioral-verification Zero findings for returning try, rethrowing catch and normally completing finally.
+// @evidence contracts/testing.md#independent-expectations Every authored try/catch path closes and the ordinary finalizer preserves each abrupt completion.
+// @evidence contracts/testing.md#distinguishing-cases RejectsNormallyCompletingCatch and RejectsOpenTryWithNormalFinally retain the two ordinary-completion boundaries.
+// @evidence contracts/testing.md#execution-ownership TestNoFallthroughAcceptsTerminatingTryAndCatchWithNormalFinally is selected in the shared Go unit population and invokes assertNoFallthroughClean and the owning AST Engine. Every original source/options/expected line/message and in-source counterpart remains owned by this declaration; no CLI child, installed consumer, native artifact build or real product host runs.
 func TestNoFallthroughAcceptsTerminatingTryAndCatchWithNormalFinally(t *testing.T) {
   assertNoFallthroughClean(t, `declare const foo: number;
 declare function maybeThrow(): void;

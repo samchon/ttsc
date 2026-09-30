@@ -13,6 +13,11 @@ import "testing"
 // 1. End a case with `while (!0) { console.log(0); }`.
 // 2. Run the engine with no-fallthrough enabled.
 // 3. Assert exactly one finding at the next case label.
+//
+// @evidence contracts/testing.md#behavioral-verification Exactly one no-fallthrough error reports on target line seven for while !0.
+// @evidence contracts/testing.md#independent-expectations Supported literal-only folding deliberately treats a unary expression as unknown even if JavaScript can evaluate it statically; this is a compatibility limit, not runtime reachability proof.
+// @evidence contracts/testing.md#distinguishing-cases AcceptsWhileNumericOneLiteral retains a bare truthy literal and stays clean.
+// @evidence contracts/testing.md#execution-ownership TestNoFallthroughRejectsNonLiteralConstantCondition is selected in the shared Go unit population and invokes assertNoFallthroughReportsAtLines and the owning AST Engine. Every original source/options/expected line/message and in-source counterpart remains owned by this declaration; no CLI child, installed consumer, native artifact build or real product host runs.
 func TestNoFallthroughRejectsNonLiteralConstantCondition(t *testing.T) {
   assertNoFallthroughReportsAtLines(t, `declare const foo: number;
 switch (foo) {

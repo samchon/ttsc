@@ -14,6 +14,11 @@ import "testing"
 // 1. Put a dead `break target` inside `while (false)`, followed by a throw.
 // 2. Run the engine with no-fallthrough enabled.
 // 3. Assert zero findings.
+//
+// @evidence contracts/testing.md#behavioral-verification Zero findings when literal-false while hides a block-targeted break before an unconditional throw.
+// @evidence contracts/testing.md#independent-expectations Literal false independently makes the break unreachable; collecting its syntactic presence would incorrectly reopen the block.
+// @evidence contracts/testing.md#distinguishing-cases RejectsLabeledBlockBrokenByOwnLabel retains a reachable self-targeted break.
+// @evidence contracts/testing.md#execution-ownership TestNoFallthroughAcceptsUnreachableLabeledBreakInWhileFalse is selected in the shared Go unit population and invokes assertNoFallthroughClean and the owning AST Engine. Every original source/options/expected line/message and in-source counterpart remains owned by this declaration; no CLI child, installed consumer, native artifact build or real product host runs.
 func TestNoFallthroughAcceptsUnreachableLabeledBreakInWhileFalse(t *testing.T) {
   assertNoFallthroughClean(t, `declare const foo: number;
 function f(): void {

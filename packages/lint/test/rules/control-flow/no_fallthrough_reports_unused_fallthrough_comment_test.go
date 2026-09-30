@@ -12,6 +12,11 @@ import "testing"
 // 1. Put a marker between a breaking case and the next label.
 // 2. Run the engine with options {"reportUnusedFallthroughComment":true}.
 // 3. Assert one finding at the comment's line with the unused-comment message.
+//
+// @evidence contracts/testing.md#behavioral-verification One no-fallthrough error at original comment line six carries the exact unused-marker message.
+// @evidence contracts/testing.md#independent-expectations The authored preceding break makes fallthrough impossible; enabling reportUnusedFallthroughComment independently changes policy for the marker itself.
+// @evidence contracts/testing.md#distinguishing-cases UnusedCommentIgnoredByDefault uses the same break/marker shape with the option absent.
+// @evidence contracts/testing.md#execution-ownership TestNoFallthroughReportsUnusedFallthroughComment is selected in the shared Go unit population and invokes lintNoFallthrough through the owning AST Engine. Every original source/options/expected line/message and in-source counterpart remains owned by this declaration; no CLI child, installed consumer, native artifact build or real product host runs.
 func TestNoFallthroughReportsUnusedFallthroughComment(t *testing.T) {
   file, findings := lintNoFallthrough(t, `declare const foo: number;
 switch (foo) {
@@ -24,7 +29,7 @@ switch (foo) {
 }
 `, `{"reportUnusedFallthroughComment":true}`)
   actual := normalizeRuleFindings(file, findings)
-  if len(actual) != 1 || actual[0].Line != 6 {
+  if len(actual) != 1 || actual[0].Rule != "no-fallthrough" || actual[0].Severity != SeverityError || actual[0].Line != 6 {
     t.Fatalf("expected one finding at line 6, got %+v", actual)
   }
   if findings[0].Message != "Found a comment that would permit fallthrough, but case cannot fall through." {

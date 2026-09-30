@@ -48,7 +48,7 @@ func assertNoFallthroughReportsAtLines(t *testing.T, source string, options stri
     t.Fatalf("expected %d finding(s) at lines %v, got %+v", len(lines), lines, actual)
   }
   for i, line := range lines {
-    if actual[i].Rule != "no-fallthrough" || actual[i].Line != line {
+    if actual[i].Rule != "no-fallthrough" || actual[i].Severity != SeverityError || actual[i].Line != line {
       t.Fatalf("finding[%d]: expected no-fallthrough at line %d, got %+v", i, line, actual)
     }
   }

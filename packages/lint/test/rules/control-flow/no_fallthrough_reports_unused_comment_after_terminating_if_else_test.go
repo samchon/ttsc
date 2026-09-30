@@ -13,6 +13,11 @@ import "testing"
 // 1. Terminate a case through an exhaustive if/else-if chain, then add a marker.
 // 2. Run the engine with options {"reportUnusedFallthroughComment":true}.
 // 3. Assert one finding at the marker's line.
+//
+// @evidence contracts/testing.md#behavioral-verification One no-fallthrough error reports on original marker line fourteen after an exhaustive abrupt branch chain.
+// @evidence contracts/testing.md#independent-expectations Authored throw, break and return branches each close case completion, making the otherwise eligible marker unused under its enabled option.
+// @evidence contracts/testing.md#distinguishing-cases UnusedCheckAcceptsRealFallthroughMarker retains an actually open marked case.
+// @evidence contracts/testing.md#execution-ownership TestNoFallthroughReportsUnusedCommentAfterTerminatingIfElse is selected in the shared Go unit population and invokes lintNoFallthrough through the owning AST Engine. Every original source/options/expected line/message and in-source counterpart remains owned by this declaration; no CLI child, installed consumer, native artifact build or real product host runs.
 func TestNoFallthroughReportsUnusedCommentAfterTerminatingIfElse(t *testing.T) {
   file, findings := lintNoFallthrough(t, `declare const foo: number;
 declare const a: boolean;
@@ -35,7 +40,7 @@ function f(): void {
 JSON.stringify(f);
 `, `{"reportUnusedFallthroughComment":true}`)
   actual := normalizeRuleFindings(file, findings)
-  if len(actual) != 1 || actual[0].Line != 14 {
+  if len(actual) != 1 || actual[0].Rule != "no-fallthrough" || actual[0].Severity != SeverityError || actual[0].Line != 14 {
     t.Fatalf("expected one finding at line 14, got %+v", actual)
   }
 }

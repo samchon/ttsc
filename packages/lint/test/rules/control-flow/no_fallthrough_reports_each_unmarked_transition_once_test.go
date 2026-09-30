@@ -12,6 +12,11 @@ import "testing"
 // 1. Chain three cases where the first two fall through unmarked.
 // 2. Run the engine with no-fallthrough enabled.
 // 3. Assert exactly two findings at the second and third labels.
+//
+// @evidence contracts/testing.md#behavioral-verification Exactly two no-fallthrough errors report on authored target lines five and seven.
+// @evidence contracts/testing.md#independent-expectations Three consecutive clauses contain exactly two open transitions; the literal line list independently detects duplicates or skipped pairs.
+// @evidence contracts/testing.md#distinguishing-cases NeverReportsLastOpenCase retains the no-next-label boundary and marker cases retain explicit suppression.
+// @evidence contracts/testing.md#execution-ownership TestNoFallthroughReportsEachUnmarkedTransitionOnce is selected in the shared Go unit population and invokes assertNoFallthroughReportsAtLines and the owning AST Engine. Every original source/options/expected line/message and in-source counterpart remains owned by this declaration; no CLI child, installed consumer, native artifact build or real product host runs.
 func TestNoFallthroughReportsEachUnmarkedTransitionOnce(t *testing.T) {
   assertNoFallthroughReportsAtLines(t, `declare const foo: number;
 switch (foo) {

@@ -10,6 +10,11 @@ import "testing"
 // 1. Return intrinsic and member JSX elements with syntax-only names.
 // 2. Pair literal attributes with embedded and spread identifier expressions.
 // 3. Assert only evaluated JSX expressions can make the catch reachable.
+//
+// @evidence contracts/testing.md#behavioral-verification The in-process TSX check reports only authored embedded/spread expression markers.
+// @evidence contracts/testing.md#independent-expectations JSX identifiers/member tag names are syntax under the supported CodePath classifier while braces evaluate ordinary expressions; this does not certify emitted JSX runtime behavior.
+// @evidence contracts/testing.md#distinguishing-cases Intrinsic/member tags and literal attributes remain clean while identifier-valued attributes and spread expressions report.
+// @evidence contracts/testing.md#execution-ownership TestNoFallthroughCommandPreservesJSXCodePathBoundaries is selected in the shared Go unit population and invokes assertNoFallthroughCommandMarkersForFile and run(check) with the actual TSX Program. Every original source/options/expected line/message and in-source counterpart remains owned by this declaration; no CLI child, installed consumer, native artifact build or real product host runs.
 func TestNoFallthroughCommandPreservesJSXCodePathBoundaries(t *testing.T) {
   assertNoFallthroughCommandMarkersForFile(t, "main.tsx", `declare namespace JSX {
   interface Element {}

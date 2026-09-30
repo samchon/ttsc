@@ -12,6 +12,11 @@ import "testing"
 // 1. End a case with `do { throw ...; } while (a);`.
 // 2. Run the engine with no-fallthrough enabled.
 // 3. Assert zero findings.
+//
+// @evidence contracts/testing.md#behavioral-verification Zero findings for a do-while whose first body execution throws.
+// @evidence contracts/testing.md#independent-expectations Do-while enters its body before testing the condition; the unconditional throw independently closes every case path.
+// @evidence contracts/testing.md#distinguishing-cases RejectsForOfWithAlwaysThrowingBody retains the zero-iteration counterpart.
+// @evidence contracts/testing.md#execution-ownership TestNoFallthroughAcceptsDoWhileWithAlwaysThrowingBody is selected in the shared Go unit population and invokes assertNoFallthroughClean and the owning AST Engine. Every original source/options/expected line/message and in-source counterpart remains owned by this declaration; no CLI child, installed consumer, native artifact build or real product host runs.
 func TestNoFallthroughAcceptsDoWhileWithAlwaysThrowingBody(t *testing.T) {
   assertNoFallthroughClean(t, `declare const foo: number;
 declare const a: boolean;

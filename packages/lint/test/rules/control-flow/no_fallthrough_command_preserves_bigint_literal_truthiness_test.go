@@ -10,6 +10,11 @@ import "testing"
 // 1. Put truthy and falsy BigInt loop tests in adjacent switch-case pairs.
 // 2. Include lower/upper prefixes, separators, nesting, and a unary boundary.
 // 3. Assert only zero and unary-boundary transitions report.
+//
+// @evidence contracts/testing.md#behavioral-verification The in-process check matches exactly every authored zero and unary-boundary marker.
+// @evidence contracts/testing.md#independent-expectations Literal BigInt zero/nonzero values in each authored radix and width independently define the supported truthiness oracle; unary minus stays outside literal folding.
+// @evidence contracts/testing.md#distinguishing-cases Decimal, lower/upper radix, separator, parentheses and arbitrary-width twins retain both reporting and clean outcomes.
+// @evidence contracts/testing.md#execution-ownership TestNoFallthroughCommandPreservesBigIntLiteralTruthiness is selected in the shared Go unit population and invokes assertNoFallthroughCommandMarkers and run(check) with the actual Program. Every original source/options/expected line/message and in-source counterpart remains owned by this declaration; no CLI child, installed consumer, native artifact build or real product host runs.
 func TestNoFallthroughCommandPreservesBigIntLiteralTruthiness(t *testing.T) {
   assertNoFallthroughCommandMarkers(t, `function inspect(value: number): void {
   switch (value) {

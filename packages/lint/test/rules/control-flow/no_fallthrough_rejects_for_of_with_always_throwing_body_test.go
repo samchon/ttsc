@@ -12,6 +12,11 @@ import "testing"
 // 1. End a case with `for (const item of items) { throw ...; }`.
 // 2. Run the engine with no-fallthrough enabled.
 // 3. Assert exactly one finding at the next case label.
+//
+// @evidence contracts/testing.md#behavioral-verification Exactly one no-fallthrough error reports on target line eight despite a throwing for-of body.
+// @evidence contracts/testing.md#independent-expectations The authored collection may be empty; a body throw cannot guarantee that the case terminates before the next label.
+// @evidence contracts/testing.md#distinguishing-cases AcceptsDoWhileWithAlwaysThrowingBody retains the guaranteed-first-body-execution counterpart.
+// @evidence contracts/testing.md#execution-ownership TestNoFallthroughRejectsForOfWithAlwaysThrowingBody is selected in the shared Go unit population and invokes assertNoFallthroughReportsAtLines and the owning AST Engine. Every original source/options/expected line/message and in-source counterpart remains owned by this declaration; no CLI child, installed consumer, native artifact build or real product host runs.
 func TestNoFallthroughRejectsForOfWithAlwaysThrowingBody(t *testing.T) {
   assertNoFallthroughReportsAtLines(t, `declare const foo: number;
 declare const items: string[];

@@ -12,6 +12,11 @@ import "testing"
 // 1. End a case with `if (a) { break; }` and no else.
 // 2. Run the engine with no-fallthrough enabled.
 // 3. Assert exactly one finding at the next case label.
+//
+// @evidence contracts/testing.md#behavioral-verification Exactly one no-fallthrough error reports on target line eight for an if without else.
+// @evidence contracts/testing.md#independent-expectations The authored condition may be false; a then-only break cannot close that bypass path.
+// @evidence contracts/testing.md#distinguishing-cases AcceptsIfElseTerminatingEveryPath supplies the exhaustive abrupt-branch twin.
+// @evidence contracts/testing.md#execution-ownership TestNoFallthroughRejectsIfWithoutElse is selected in the shared Go unit population and invokes assertNoFallthroughReportsAtLines and the owning AST Engine. Every original source/options/expected line/message and in-source counterpart remains owned by this declaration; no CLI child, installed consumer, native artifact build or real product host runs.
 func TestNoFallthroughRejectsIfWithoutElse(t *testing.T) {
   assertNoFallthroughReportsAtLines(t, `declare const foo: number;
 declare const a: boolean;

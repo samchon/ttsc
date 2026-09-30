@@ -2,6 +2,8 @@ package linthost
 
 import (
   "fmt"
+  "regexp"
+  "strconv"
   "strings"
   "testing"
 )
@@ -48,6 +50,19 @@ func assertNoFallthroughCommandMarkersForFile(t *testing.T, fileName, source str
     location := fmt.Sprintf("%s:%d:", fileName, line)
     if !diagnosticOutputContains(stderr, location) {
       t.Fatalf("missing no-fallthrough diagnostic at %s: %s", location, stderr)
+    }
+  }
+
+  rendered := ansiControlSequencePattern.ReplaceAllString(stderr, "")
+  pattern := regexp.MustCompile(`(?m)` + regexp.QuoteMeta(fileName) + `:(\d+):\d+\s+-\s+(error|warning)\s+TS\d+:\s*\[no-fallthrough\]`)
+  matches := pattern.FindAllStringSubmatch(rendered, -1)
+  if len(matches) != len(expectedLines) {
+    t.Fatalf("rendered no-fallthrough diagnostic count mismatch: want=%v matches=%+v stderr=%s", expectedLines, matches, stderr)
+  }
+  for index, match := range matches {
+    line, err := strconv.Atoi(match[1])
+    if err != nil || line != expectedLines[index] || match[2] != "error" {
+      t.Fatalf("rendered no-fallthrough diagnostic[%d]: want error at line %d, got %+v: %s", index, expectedLines[index], match, stderr)
     }
   }
 }

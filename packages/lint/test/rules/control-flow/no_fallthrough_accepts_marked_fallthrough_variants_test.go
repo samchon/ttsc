@@ -13,6 +13,11 @@ import "testing"
 // 1. Build a switch whose every transition carries a different marker spelling.
 // 2. Run the engine with no-fallthrough enabled.
 // 3. Assert zero findings.
+//
+// @evidence contracts/testing.md#behavioral-verification Zero findings for all five authored default-marker spelling and case variants.
+// @evidence contracts/testing.md#independent-expectations Independent literal spellings cover optional s, optional whitespace and case-insensitive marker policy.
+// @evidence contracts/testing.md#distinguishing-cases RejectsUnrelatedTrailingComment preserves a trailing comment outside that pattern.
+// @evidence contracts/testing.md#execution-ownership TestNoFallthroughAcceptsMarkedFallthroughVariants is selected in the shared Go unit population and invokes assertNoFallthroughClean and the owning AST Engine. Every original source/options/expected line/message and in-source counterpart remains owned by this declaration; no CLI child, installed consumer, native artifact build or real product host runs.
 func TestNoFallthroughAcceptsMarkedFallthroughVariants(t *testing.T) {
   assertNoFallthroughClean(t, `declare const foo: number;
 switch (foo) {

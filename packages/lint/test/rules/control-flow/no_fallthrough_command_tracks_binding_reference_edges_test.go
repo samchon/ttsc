@@ -10,6 +10,11 @@ import "testing"
 // 1. Exercise shorthand and aliased object bindings.
 // 2. Pair them with array/rest bindings and for-of assignment patterns.
 // 3. Assert only the object property reads make the catch reachable.
+//
+// @evidence contracts/testing.md#behavioral-verification The in-process check reports exactly the authored object-binding edge markers.
+// @evidence contracts/testing.md#independent-expectations Supported Identifier-reference policy treats shorthand/aliased object property reads differently from array/rest declarations; the oracle is syntactic compatibility, not a proof of runtime iterator safety.
+// @evidence contracts/testing.md#distinguishing-cases Original object/array/rest and for-of object/array assignment pairs retain positive and clean boundaries.
+// @evidence contracts/testing.md#execution-ownership TestNoFallthroughCommandTracksBindingReferenceEdges is selected in the shared Go unit population and invokes assertNoFallthroughCommandMarkers and run(check) with the actual Program. Every original source/options/expected line/message and in-source counterpart remains owned by this declaration; no CLI child, installed consumer, native artifact build or real product host runs.
 func TestNoFallthroughCommandTracksBindingReferenceEdges(t *testing.T) {
   assertNoFallthroughCommandMarkers(t, `function inspect(value: number): unknown {
   switch (value) {

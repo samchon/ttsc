@@ -12,6 +12,11 @@ import "testing"
 // 1. Put `// eslint-enable no-fallthrough` in the trailing comment position.
 // 2. Run the engine with no-fallthrough enabled.
 // 3. Assert exactly one finding at the next case label.
+//
+// @evidence contracts/testing.md#behavioral-verification Exactly one no-fallthrough error reports on target line six despite eslint-enable text.
+// @evidence contracts/testing.md#independent-expectations An enable directive configures suppression rather than documenting intentional transition; its rule-name substring independently must not become a marker.
+// @evidence contracts/testing.md#distinguishing-cases DirectiveSuppressionStillWins keeps the actual disable-next-line operation functional.
+// @evidence contracts/testing.md#execution-ownership TestNoFallthroughRejectsDirectiveCommentAsMarker is selected in the shared Go unit population and invokes assertNoFallthroughReportsAtLines and the owning AST Engine. Every original source/options/expected line/message and in-source counterpart remains owned by this declaration; no CLI child, installed consumer, native artifact build or real product host runs.
 func TestNoFallthroughRejectsDirectiveCommentAsMarker(t *testing.T) {
   assertNoFallthroughReportsAtLines(t, `declare const foo: number;
 switch (foo) {

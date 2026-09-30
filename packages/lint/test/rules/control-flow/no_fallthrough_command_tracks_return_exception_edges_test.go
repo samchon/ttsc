@@ -10,6 +10,11 @@ import "testing"
 // 1. Place each return shape in a try followed by an empty catch.
 // 2. Pair non-throwing returns with every first-throwable expression family.
 // 3. Assert only catches reachable during operand evaluation fall through.
+//
+// @evidence contracts/testing.md#behavioral-verification The in-process check reports every authored operand-reference/call/construction/throw marker and no literal-return marker.
+// @evidence contracts/testing.md#independent-expectations Bare and literal returns contain no supported first-throwable node; identifier, member, call and new operands introduce one before return completion.
+// @evidence contracts/testing.md#distinguishing-cases Original bare/number/string returns stay clean while reference/member/call/new and explicit throw reach a normally completing catch.
+// @evidence contracts/testing.md#execution-ownership TestNoFallthroughCommandTracksReturnExceptionEdges is selected in the shared Go unit population and invokes assertNoFallthroughCommandMarkers and run(check) with the actual Program. Every original source/options/expected line/message and in-source counterpart remains owned by this declaration; no CLI child, installed consumer, native artifact build or real product host runs.
 func TestNoFallthroughCommandTracksReturnExceptionEdges(t *testing.T) {
   assertNoFallthroughCommandMarkers(t, `declare const identifier: number;
 declare const holder: { value: number };

@@ -10,6 +10,11 @@ import "testing"
 // 1. Nest return and throw paths through catches and ordinary finalizers.
 // 2. Exercise finalizers, a non-completing try, and catch binding evaluation.
 // 3. Assert only throws that escape the nested construct reach the outer catch.
+//
+// @evidence contracts/testing.md#behavioral-verification The in-process check matches exactly every authored diagnostic marker across nested try/catch/finally joins.
+// @evidence contracts/testing.md#independent-expectations Marker lines independently label reachable normal catches; bare return and closed infinite-path finalizers cannot introduce first-throwable edges under supported CodePath policy.
+// @evidence contracts/testing.md#distinguishing-cases Original paired returns, throws, ordinary/overriding finalizers and catch-binding evaluation retain positive and empty marker outcomes.
+// @evidence contracts/testing.md#execution-ownership TestNoFallthroughCommandComposesNestedTryFinally is selected in the shared Go unit population and invokes assertNoFallthroughCommandMarkers and run(check) with the actual Program. Every original source/options/expected line/message and in-source counterpart remains owned by this declaration; no CLI child, installed consumer, native artifact build or real product host runs.
 func TestNoFallthroughCommandComposesNestedTryFinally(t *testing.T) {
   assertNoFallthroughCommandMarkers(t, `declare const identifier: number;
 declare function call(): void;
