@@ -1,5 +1,5 @@
-import { installPlaygroundDependencies } from "../../../../packages/playground/lib/src/index.js";
-import type { IPlaygroundDependencyInstallOptions } from "../../../../packages/playground/lib/src/index.js";
+import { installPlaygroundDependencies } from "../../../../packages/playground/src/npm/installPlaygroundDependencies";
+import type { IPlaygroundDependencyInstallOptions } from "../../../../packages/playground/src/structures/IPlaygroundDependencyInstallOptions";
 import { createTarball } from "./tarball";
 
 /** Minimal fixture package archive accepted by the browser npm installer. */

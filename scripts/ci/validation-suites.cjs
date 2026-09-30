@@ -30,7 +30,7 @@ const LANES = [
   },
   {
     "id": "package-defenses",
-    "run": `node --test ${discoverNodeTests(path.resolve(__dirname, '../..'), 'package-defenses').join(' ')} && pnpm --filter @ttsc/test-banner start && pnpm --filter @ttsc/test-paths start && pnpm --filter @ttsc/test-strip start && pnpm --filter @ttsc/test-playground start && pnpm --filter @ttsc/test-wasm start && pnpm --filter @ttsc/test-factory start`
+    "run": `node --test ${discoverNodeTests(path.resolve(__dirname, '../..'), 'package-defenses').join(' ')} && pnpm --filter @ttsc/test-banner start && pnpm --filter @ttsc/test-paths start && pnpm --filter @ttsc/test-strip start && pnpm --filter @ttsc/test-playground start && pnpm --filter @ttsc/test-wasm start`
   },
   {
     "id": "ttsc-core",

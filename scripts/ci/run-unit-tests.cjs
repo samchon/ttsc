@@ -26,6 +26,26 @@ async function main() {
       cwd: path.join(root, "tests", "test-unplugin"),
     },
     {
+      name: "factory function units",
+      args: [
+        "--import",
+        pathToFileURL(path.join(root, "scripts", "register-unit-loader.mjs"))
+          .href,
+        "./src/index.ts",
+      ],
+      cwd: path.join(root, "tests", "test-factory"),
+    },
+    ...["test-ttsc", "test-wasm", "test-playground"].map((suite) => ({
+      name: `${suite} source units`,
+      args: [
+        "--import",
+        pathToFileURL(path.join(root, "scripts", "register-unit-loader.mjs"))
+          .href,
+        path.join(root, "scripts", "ci", "run-source-units.mts"),
+      ],
+      cwd: path.join(root, "tests", suite),
+    })),
+    {
       name: "lint harness units",
       args: [
         "--import",
