@@ -5,18 +5,16 @@ import "testing"
 // TestFormatTrailingCommaInsertsAfterLastArrowParameter verifies the rule
 // reaches multi-line parameter lists on arrow functions.
 //
-// Arrow functions are the only parameter-bearing Kind where the parens are
-// optional (`a => ...`); the rule's `Visits()` arm only dispatches when an
-// `ArrowFunction` AST node exists, and `findCloseTokenAfter` then walks the
-// source to locate the `)`. Pinning the multi-line, fully-parenthesized arrow
-// shape keeps both the dispatch arm and the close-paren scanner regression-safe
-// — a future refactor that assumed `parameters.End()` was the close paren
-// (mirroring the FunctionDeclaration test's stated trap) would silently miss
-// the arrow case otherwise.
+// A parenthesized arrow has a real parameter-list closer before its return annotation and arrow token. The comma belongs after the last parameter, not at a later body parenthesis.
 //
 // 1. Parse a source file with one multi-line arrow function.
 // 2. Apply the rule's finding through the disk-backed fixer.
 // 3. Assert the rewritten file contains the trailing comma after the last parameter.
+//
+// @evidence contracts/testing.md#behavioral-verification The parenthesized arrow must gain a comma after right:number while retaining its return annotation and left+right body.
+// @evidence contracts/testing.md#independent-expectations Prettier all-mode permits terminal commas in broken arrow parameter lists. The authored literal output preserves both parameters and the arrow grammar independently of the close-token scanner.
+// @evidence contracts/testing.md#distinguishing-cases The fully parenthesized two-parameter arrow is positive; ES5 removal and unparenthesized-arrow hosts distinguish option policy and absence of list parentheses.
+// @evidence contracts/testing.md#execution-ownership TestFormatTrailingCommaInsertsAfterLastArrowParameter owns its authored literal source and complete expected edit output in the public Go unit population. The syntax-only owning rule and edit application execute in one Go process without consumer installation, native artifact building or product-host children.
 func TestFormatTrailingCommaInsertsAfterLastArrowParameter(t *testing.T) {
   assertFixSnapshot(
     t,
