@@ -41,6 +41,7 @@ function main() {
   if (requestedLayer && requestedLayer !== "unit" && requestedLayer !== "e2e")
     throw new Error(`unknown TTSC_TEST_LAYER: ${requestedLayer}`);
   const sdk = windowsBoundary ? installedCandidateSdk() : undefined;
+  const testDirectory = sdk ? fs.realpathSync.native(packageDir) : packageDir;
   const layer = windowsBoundary ? "windows" : requestedLayer;
   if (
     layer &&
@@ -64,7 +65,10 @@ function main() {
   try {
     const env = { ...process.env };
     if (sdk) {
-      const modules = [packageDir, path.join(root, "packages", "lint")];
+      const modules = [
+        testDirectory,
+        fs.realpathSync.native(path.join(root, "packages", "lint")),
+      ];
       const sdkModules = [sdk];
       function findModules(directory) {
         if (fs.existsSync(path.join(directory, "go.mod")))
@@ -101,9 +105,13 @@ function main() {
       }
       console.log(`Evidence Windows SDK: ${identities.size} authoritative installed module bindings`);
       env.GOWORK = path.join(scratch, "go.work");
+      // Go compares main-module roots with its native absolute cwd spelling.
+      // Absolute slash paths and 8.3 aliases fail that membership comparison
+      // even when they name the same directory. Dependency replacements are
+      // resolved separately and keep their existing installed SDK bindings.
       writeGoWork(
         env.GOWORK,
-        `use (\n${modules.map((directory) => JSON.stringify(directory.split(path.sep).join("/"))).join("\n")}\n)\nreplace (\n${bindings.join("\n")}\n)\n`,
+        `use (\n${modules.map((directory) => JSON.stringify(directory)).join("\n")}\n)\nreplace (\n${bindings.join("\n")}\n)\n`,
         env,
       );
     }
@@ -120,7 +128,7 @@ function main() {
       replace[target] = captured;
       inputs.push({ file: path.basename(file), source, layer: owner });
     };
-    for (const file of walkForGoFiles(path.join(packageDir, "native"))) {
+    for (const file of walkForGoFiles(path.join(testDirectory, "native"))) {
       if (!file.endsWith("_test.go")) continue;
       capture(
         file,
@@ -131,7 +139,7 @@ function main() {
     for (const file of walkForGoFiles(
       path.join(root, "tests", "test-evidence", "go"),
     )) {
-      const target = path.join(packageDir, "native", path.basename(file));
+      const target = path.join(testDirectory, "native", path.basename(file));
       if (fs.existsSync(target) || Object.hasOwn(replace, target))
         throw new Error(`evidence Go overlay collision: ${target}`);
       const relative = path
@@ -156,7 +164,7 @@ function main() {
         "evidence_layer_selection_test.go",
       );
       fs.writeFileSync(wrapperFile, generated.source);
-      replace[path.join(packageDir, "native", path.basename(wrapperFile))] =
+      replace[path.join(testDirectory, "native", path.basename(wrapperFile))] =
         wrapperFile;
       selection.push(`-run=^${generated.wrapper}$`);
     }
@@ -175,7 +183,7 @@ function main() {
           .filter((argument) => argument !== "--os-boundaries"),
         "./native/",
       ],
-      { cwd: packageDir, env, stdio: "inherit", windowsHide: true },
+      { cwd: testDirectory, env, stdio: "inherit", windowsHide: true },
     );
     if (result.error) throw result.error;
     process.exitCode = result.status ?? 1;
