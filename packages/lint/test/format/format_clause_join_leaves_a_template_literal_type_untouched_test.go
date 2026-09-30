@@ -18,6 +18,11 @@ import (
 //  1. Seed a project with a labeled block declaring a multi-line template type.
 //  2. Run `ttsc format`.
 //  3. Assert the label joins and the type's interior spacing is byte-identical.
+//
+// @evidence contracts/testing.md#behavioral-verification The direct formatter must join and outdent a labeled block while preserving multiline text inside its template literal type. Complete source and successful quiet command assertions catch protecting value templates but corrupting type-position payload.
+// @evidence contracts/testing.md#independent-expectations Type template text carries its own newline and spaces; those bytes remain literal unchanged expected content while the block and const declaration adopt the supported two-space layout.
+// @evidence contracts/testing.md#distinguishing-cases This positive places an interpolated template in a type annotation within an actual labeled Block. HoistsAcrossAMultilineTemplateWithoutMovingIt covers the value-position counterpart, and whitespace-family tests cover shared protected-range use.
+// @evidence contracts/testing.md#execution-ownership TestFormatClauseJoinLeavesATemplateLiteralTypeUntouched owns the fixture, direct run(format) cascade and full status/streams/file assertions in the public Go unit population. It performs all operations in process with no consumer install, native artifact build or child product host.
 func TestFormatClauseJoinLeavesATemplateLiteralTypeUntouched(t *testing.T) {
   root := seedLintProject(
     t,

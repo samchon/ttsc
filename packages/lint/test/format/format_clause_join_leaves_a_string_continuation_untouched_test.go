@@ -16,6 +16,11 @@ import (
 //  1. Seed a project with a label whose body holds a line-continued string.
 //  2. Run `ttsc format`.
 //  3. Assert the label joins and the string's interior spacing is byte-identical.
+//
+// @evidence contracts/testing.md#behavioral-verification The direct formatter must join the label while retaining the line-continued string interior bytes. Full source, successful status and quiet streams detect an outdent that changes spaces belonging to the string value.
+// @evidence contracts/testing.md#independent-expectations An escaped newline continues the string and the following spaces belong to its value; only the label-to-run gap is layout. The literal oracle preserves those spaces exactly and does not reuse the reindent implementation.
+// @evidence contracts/testing.md#distinguishing-cases The multiline string is protected while its surrounding labeled call changes. Value-template and template-type hosts cover distinct syntax forms with the same content-preservation obligation.
+// @evidence contracts/testing.md#execution-ownership TestFormatClauseJoinLeavesAStringContinuationUntouched owns its fixture config, direct run(format) invocation and file/stream/status assertions in the public Go unit population. No consumer installation, native artifact builder or child product host is used.
 func TestFormatClauseJoinLeavesAStringContinuationUntouched(t *testing.T) {
   root := seedLintProject(t, "outer:\n  run(\"a\\\n   b\");\n")
   seedLintConfig(t, root, map[string]any{"format": map[string]any{}})

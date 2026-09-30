@@ -9,9 +9,14 @@ import "testing"
 // and multi-line-body abstentions must not apply, and getting it wrong leaves
 // `outer:` stranded on its own line forever.
 //
-//  1. Parse a label whose loop body spans several lines.
+//  1. Parse labels controlling a multiline loop and an actual block.
 //  2. Apply format/clause-join with printWidth 80.
-//  3. Assert the loop joins the label line and its interior is untouched.
+//  3. Assert each body joins its label line and its interior is untouched.
+//
+// @evidence contracts/testing.md#behavioral-verification Clause-join must attach both a multiline for-of statement and an actual block to outer:. Complete literal outputs detect applying ordinary block or multiline exclusions to labeled statements while preserving the bodies.
+// @evidence contracts/testing.md#independent-expectations The supported label policy and installed Prettier reference put label: statement on the same line, including label: {. Expected loop, break and run tokens are literal unchanged content.
+// @evidence contracts/testing.md#distinguishing-cases The original loop-with-braces input is retained and a direct Block body is added to distinguish the actual Block exception. Both bodies start at the label column; the reindent host covers indented bodies.
+// @evidence contracts/testing.md#execution-ownership TestFormatClauseJoinJoinsLabeledBlockBody owns both literal label fixtures in the public Go unit population. The owning syntax-only rule and edit application run in process without a consumer install, native product build or actual product host.
 func TestFormatClauseJoinJoinsLabeledBlockBody(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,
@@ -20,4 +25,7 @@ func TestFormatClauseJoinJoinsLabeledBlockBody(t *testing.T) {
     `{"printWidth":80,"tabWidth":2}`,
     "outer: for (const item of items) {\n  break outer;\n}\n",
   )
+  assertFixSnapshotWithOptions(t, "format/clause-join",
+    "outer:\n{\n  run();\n}\n", `{"printWidth":80,"tabWidth":2}`,
+    "outer: {\n  run();\n}\n")
 }

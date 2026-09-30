@@ -14,6 +14,11 @@ import "testing"
 //  1. Run format/clause-join on the same source at printWidth 22 and 21.
 //  2. Assert the join lands at 22.
 //  3. Assert nothing is reported at 21.
+//
+// @evidence contracts/testing.md#behavioral-verification The owning clause-join rule must join else stopEverything(); at width 22 and report nothing at 21; complete output and no-finding assertions detect charging the wrong anchor column.
+// @evidence contracts/testing.md#independent-expectations The ASCII line else stopEverything(); has 22 columns, and installed Prettier 3.8.3 makes the same adjacent-width decision. Expected output retains the if branch and call spelling.
+// @evidence contracts/testing.md#distinguishing-cases The identical else input is a positive at its exact limit and a negative one column below. Ordinary if joining is covered by JoinsSingleIfBody.
+// @evidence contracts/testing.md#execution-ownership TestFormatClauseJoinChargesTheElseWidthBudgetAtItsLimit owns both literal width fixtures in the public Go unit population. The syntax-only harness executes the owning rule and applies edits in process without installing a consumer, building a native artifact or starting a product host.
 func TestFormatClauseJoinChargesTheElseWidthBudgetAtItsLimit(t *testing.T) {
   const source = "if (ready) run();\nelse\n  stopEverything();\n"
   assertFixSnapshotWithOptions(

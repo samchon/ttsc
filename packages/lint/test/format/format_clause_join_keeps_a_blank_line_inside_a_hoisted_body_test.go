@@ -16,6 +16,11 @@ import (
 //  1. Seed a project with a labeled loop whose body holds a blank line.
 //  2. Run `ttsc format`.
 //  3. Assert the label joins, the body outdents, and the blank line survives.
+//
+// @evidence contracts/testing.md#behavioral-verification The direct format operation must join and outdent the labeled loop while retaining its internal empty line. Status, streams and full file bytes detect a blank line blocking the hoist or acquiring unwanted indentation.
+// @evidence contracts/testing.md#independent-expectations The expected label and two-space block layout follows the supported formatter policy; the original separation between a(); and b(); remains a literal empty line and both calls remain intact.
+// @evidence contracts/testing.md#distinguishing-cases This positive combines a nonzero outdent with a truly empty continuation line. The zero-delta host covers unchanged columns, and protected-content hosts cover nonempty lines that must not move.
+// @evidence contracts/testing.md#execution-ownership TestFormatClauseJoinKeepsABlankLineInsideAHoistedBody owns the project fixture, direct run(format) call and observable status/stream/file assertions in the public Go unit population. The filesystem and cascade are used in process without consumer installation, native building or a child host.
 func TestFormatClauseJoinKeepsABlankLineInsideAHoistedBody(t *testing.T) {
   root := seedLintProject(t, "outer:\n  for (const x of xs) {\n    a();\n\n    b();\n  }\n")
   seedLintConfig(t, root, map[string]any{"format": map[string]any{}})

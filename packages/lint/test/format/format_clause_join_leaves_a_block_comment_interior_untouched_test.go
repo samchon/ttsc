@@ -15,6 +15,11 @@ import (
 //  1. Seed a project with a labeled loop whose body holds a multi-line block comment.
 //  2. Run `ttsc format`.
 //  3. Assert the label joins and the comment's own lines keep their columns.
+//
+// @evidence contracts/testing.md#behavioral-verification The direct formatter must hoist the labeled loop and outdent structural lines while preserving the non-star block-comment interior. Complete source plus successful quiet command assertions distinguish changing authored comment spacing from moving surrounding layout.
+// @evidence contracts/testing.md#independent-expectations The literal expected output follows the supported label indentation and the verbatim non-indentable block-comment policy. The interior b */ column is retained independently of the computed reindent delta.
+// @evidence contracts/testing.md#distinguishing-cases This positive contains a non-indentable multiline comment inside a shifted loop. ReindentsAnIndentableBlockComment supplies the adjacent star-led comment form that must move, and string/template hosts cover other protected payloads.
+// @evidence contracts/testing.md#execution-ownership TestFormatClauseJoinLeavesABlockCommentInteriorUntouched owns its fixture and direct run(format) status/stream/file assertions in the public Go unit population. All formatter work stays in process without a consumer install, native build or real product host.
 func TestFormatClauseJoinLeavesABlockCommentInteriorUntouched(t *testing.T) {
   root := seedLintProject(t, "outer:\n  for (const x of xs) {\n    /* a\n       b */\n    visit(x);\n  }\n")
   seedLintConfig(t, root, map[string]any{"format": map[string]any{}})

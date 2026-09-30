@@ -15,6 +15,11 @@ import "testing"
 //  1. Parse a label whose body passes a multi-line template literal.
 //  2. Apply format/clause-join with printWidth 80.
 //  3. Assert the label joins and the template's own bytes are unchanged.
+//
+// @evidence contracts/testing.md#behavioral-verification The owning clause-join rule must move run onto the label line while preserving every byte of the multiline template. Complete literal output catches either abandoning the join or shifting template content.
+// @evidence contracts/testing.md#independent-expectations Template interior newlines are string payload, while the label-to-call gap is layout. The supported label layout and unchanged a-newline-b payload independently determine the expected source.
+// @evidence contracts/testing.md#distinguishing-cases This positive joins a multiline labeled expression whose continuation starts inside a value template. LeavesATemplateLiteralTypeUntouched covers the separate type-position form, and LeavesAStringContinuationUntouched covers ordinary strings.
+// @evidence contracts/testing.md#execution-ownership TestFormatClauseJoinHoistsAcrossAMultilineTemplateWithoutMovingIt owns the literal transformation fixture in the public Go unit population. The syntax-only harness runs clause-join and applies its edits in the same process without installation, native artifact production or a real product host.
 func TestFormatClauseJoinHoistsAcrossAMultilineTemplateWithoutMovingIt(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,

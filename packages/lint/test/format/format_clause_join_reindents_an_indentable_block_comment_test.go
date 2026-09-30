@@ -18,6 +18,11 @@ import (
 //  1. Seed a project with a labeled loop whose body opens with a JSDoc block.
 //  2. Run `ttsc format`.
 //  3. Assert the comment's `*` lines move with the body.
+//
+// @evidence contracts/testing.md#behavioral-verification The direct formatter must hoist a labeled loop and realign every star-led JSDoc continuation with its new block column. Complete output and quiet successful status catch overprotecting all block comments and leaving this one misaligned.
+// @evidence contracts/testing.md#independent-expectations The supported comment formatting policy aligns star-led continuation lines relative to the comment opening. Literal expected a text and comment delimiters retain their content while only leading layout changes.
+// @evidence contracts/testing.md#distinguishing-cases The comment has every continuation line starting with a star after indentation, including its closing delimiter. LeavesABlockCommentInteriorUntouched supplies the non-star negative that retains interior columns.
+// @evidence contracts/testing.md#execution-ownership TestFormatClauseJoinReindentsAnIndentableBlockComment owns the fixture and direct run(format) status/stream/file checks in the public Go unit population. The rule cascade executes in the same process without consumer installation, native compilation or a real product host.
 func TestFormatClauseJoinReindentsAnIndentableBlockComment(t *testing.T) {
   root := seedLintProject(
     t,
