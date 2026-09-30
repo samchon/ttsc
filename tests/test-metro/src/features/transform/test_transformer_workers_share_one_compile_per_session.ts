@@ -23,6 +23,15 @@ import { TestMetroRuntime } from "../../internal/metro-runtime";
  *    then fork two workers that transform the entry through the built
  *    transformer at the same time.
  * 2. Assert both received the plugin-transformed source from one compile.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The real built config forks two actual worker processes; both receive native plugin output and their shared compile log is exactly one byte.
+ * @evidence contracts/testing.md#independent-expectations The count-runs plugin appends one byte per actual compile; literal two outputs and the independent log width distinguish shared compilation from two correct but redundant builds.
+ * @evidence contracts/testing.md#distinguishing-cases Concurrent workers with one inherited session contrast ordinary single-worker transforms; each worker output is validated, not just the aggregate count.
+ * @evidence contracts/testing.md#execution-ownership This named features export test_transformer_workers_share_one_compile_per_session executes the built adapter and actual producer/process connection in the E2E runner; its inline body retains every named assertion.
+ * @evidence contracts/e2e.md#necessary-boundary Separate process workers must inherit and consume a shared transform session; an in-process cache test cannot prove that transport and contention connection.
+ * @evidence contracts/e2e.md#shared-execution One config process opens one session and forks exactly two workers concurrently for one project/native plugin generation. Both reuse the suite immutable source/build cache; separate processes are required to exercise cross-worker sharing.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity All children complete through execFile callbacks and the outer synchronous process; its temporary environment isolates the session from previous tests and tracked directories end with runner cleanup. The runLog belongs only to this project.
+ * @evidence contracts/e2e.md#preserved-coverage Original two-output, per-output plugin marker and one-compile-byte assertions remain. Portable cache reuse and admission source tests cannot replace this actual concurrency boundary.
  */
 export const test_transformer_workers_share_one_compile_per_session =
   async () => {

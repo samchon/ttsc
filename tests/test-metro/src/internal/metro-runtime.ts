@@ -4,19 +4,19 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 /**
- * Runtime import helpers for the built `@ttsc/metro` package.
+ * Runtime import helpers for the Metro test layers.
  *
- * Tests load the compiled ESM output through file URLs so they validate the
- * package exactly as Node loads it after a build, the same approach the
- * `@ttsc/unplugin` suite uses for its adapters.
+ * Boundary entries load emitted ESM/CJS output. The source-unit layer loads
+ * authored owners under the unit loader, preserving the same fresh worker
+ * module and environment reset without starting native compilation.
  */
 export namespace TestMetroRuntime {
   /** Environment variable `withTtsc` sets to its workers' transform session. */
   const SESSION_ENV = "TTSC_UNPLUGIN_TRANSFORM_SESSION";
 
   /**
-   * Run `body` with a temporary directory of its own, then close any transform
-   * session a `withTtsc` call inside it opened (samchon/ttsc#1390).
+   * Run `body` with a temporary directory of its own, then restore the transform
+   * session environment a `withTtsc` call inside it changed (samchon/ttsc#1390).
    *
    * `withTtsc` opens the session Metro's workers inherit by setting a
    * process-wide variable. This suite shares one process among every case, so a
@@ -62,9 +62,20 @@ export namespace TestMetroRuntime {
     return pathToFileURL(libPath(entry, "mjs")).href;
   }
 
+  /** Source units load authored owners; boundary entries load emitted modules. */
+  function runtimeUrl(entry: string): string {
+    return process.env.TTSC_TEST_LAYER === "unit"
+      ? pathToFileURL(path.resolve(
+          TestProject.WORKSPACE_ROOT,
+          "packages/metro/src",
+          `${entry}.ts`,
+        )).href
+      : libUrl(entry);
+  }
+
   /** Load the package entry (`withTtsc`, types). */
   export async function loadIndex(): Promise<any> {
-    return import(libUrl("index"));
+    return import(runtimeUrl("index"));
   }
 
   /**
@@ -72,12 +83,12 @@ export namespace TestMetroRuntime {
    * `resolveOptionsFromEnv`, `ENV_KEY`).
    */
   export async function loadOptions(): Promise<any> {
-    return import(libUrl("core/options"));
+    return import(runtimeUrl("core/options"));
   }
 
   /** Load the internal upstream-resolution module. */
   export async function loadUpstream(): Promise<any> {
-    return import(libUrl("core/upstream"));
+    return import(runtimeUrl("core/upstream"));
   }
 
   /**
@@ -85,7 +96,7 @@ export namespace TestMetroRuntime {
    * `computeProjectFingerprint`, `readSnapshotState`).
    */
   export async function loadFingerprint(): Promise<any> {
-    return import(libUrl("core/fingerprint"));
+    return import(runtimeUrl("core/fingerprint"));
   }
 
   // The transformer keeps module-level singletons (resolved options + transform
@@ -100,7 +111,7 @@ export namespace TestMetroRuntime {
    */
   export async function loadFreshTransformer(): Promise<any> {
     freshCounter += 1;
-    return import(`${libUrl("transformer")}?case=${freshCounter}`);
+    return import(`${runtimeUrl("transformer")}?case=${freshCounter}`);
   }
 
   let fakeUpstreamPath: string | undefined;

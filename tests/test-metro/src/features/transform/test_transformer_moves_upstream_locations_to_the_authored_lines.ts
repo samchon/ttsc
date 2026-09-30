@@ -19,6 +19,15 @@ import { TestMetroRuntime } from "../../internal/metro-runtime";
  *    `value` in the text it receives.
  * 2. Transform the entry and assert the upstream saw a shifted `value`.
  * 3. Assert the returned node's location is `value`'s authored line and column.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Actual banner compilation shifts the upstream parsed value location, then Metro remaps the returned AST start exactly to authored line1 and preserves a valid same-line end.
+ * @evidence contracts/testing.md#independent-expectations Literal authored source locates value at source.indexOf(value) on line1; the shifted-line control proves the native transformation actually changed the upstream coordinate system.
+ * @evidence contracts/testing.md#distinguishing-cases Positive banner shift contrasts exact restored start and valid end; source-only map reducers retain their separate decision matrix.
+ * @evidence contracts/testing.md#execution-ownership This named features export test_transformer_moves_upstream_locations_to_the_authored_lines executes the built adapter and actual producer/process connection in the E2E runner; its inline body retains every named assertion.
+ * @evidence contracts/e2e.md#necessary-boundary The real linked banner host must emit both changed code and a usable map which the built adapter applies to its upstream AST; fabricated mapping pairs cannot establish producer assembly.
+ * @evidence contracts/e2e.md#shared-execution One project and banner native host produce code/map together, using the suite shared cache. One locating upstream module and one transform supply all location assertions, without per-node compilation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The banner config and linked package belong to the tracked project; the upstream module occupies its own tracked directory. Fresh worker options restore after the call and runner cleanup owns temporary/link/cache resources.
+ * @evidence contracts/e2e.md#preserved-coverage Original shifted-line, exact start and bounded same-line end assertions remain. Source remapping units own portable map behavior; this boundary retains the real producer-to-AST connection.
  */
 export const test_transformer_moves_upstream_locations_to_the_authored_lines =
   async () => {

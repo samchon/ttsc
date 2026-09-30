@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { TestMetroRuntime } from "./metro-runtime";
+import * as options from "../../../../packages/metro/src/core/options";
 
 /**
  * Run `body` with `TTSC_METRO_OPTIONS` set to `raw` (or cleared when
@@ -10,7 +10,7 @@ async function withEnv(
   raw: string | undefined,
   body: (mod: any) => Promise<void>,
 ): Promise<void> {
-  const mod = await TestMetroRuntime.loadOptions();
+  const mod = options;
   const previous = process.env[mod.ENV_KEY];
   if (raw === undefined) {
     delete process.env[mod.ENV_KEY];
@@ -42,7 +42,7 @@ export async function assertOptionsRoundTripThroughEnv(): Promise<void> {
     exclude: ["test"],
     upstreamTransformer: "custom-upstream",
   };
-  const mod = await TestMetroRuntime.loadOptions();
+  const mod = options;
   await withEnv(mod.serializeOptions(source), async (m) => {
     const resolved = m.resolveOptionsFromEnv();
     assert.equal(resolved.ttsc.project, source.project);
@@ -78,7 +78,7 @@ export async function assertOptionsDefaultWhenEnvAbsent(): Promise<void> {
  * resolver must preserve the explicit `false`.
  */
 export async function assertOptionsPreservePluginsFalse(): Promise<void> {
-  const mod = await TestMetroRuntime.loadOptions();
+  const mod = options;
   await withEnv(mod.serializeOptions({ plugins: false }), async (m) => {
     const resolved = m.resolveOptionsFromEnv();
     assert.equal(resolved.ttsc.plugins, false);

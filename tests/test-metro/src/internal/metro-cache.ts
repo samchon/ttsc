@@ -170,8 +170,9 @@ async function cacheKeyForRun(
   root: string,
   options: Record<string, unknown> = {},
 ): Promise<string> {
-  return TestMetroRuntime.withTransformerEnv(options, (mod) =>
-    mod.getCacheKey({ projectRoot: root }),
+  return TestMetroRuntime.withTransformerEnv(
+    { upstreamTransformer: TestMetroRuntime.fakeUpstreamPathOnDisk(), ...options },
+    (mod) => mod.getCacheKey({ projectRoot: root }),
   );
 }
 
@@ -586,7 +587,8 @@ export async function assertCacheKeyFoldsNonceAfterSnapshotCompactionFailure(): 
       files: [external],
       tainted: false,
       trees: [],
-      version: 3,
+      accessibleEntries: [],
+      version: 4,
       volatile: false,
     }),
     "utf8",
@@ -688,7 +690,8 @@ export async function assertCacheKeyFoldsNonceWhileSnapshotVolatile(): Promise<v
       files: [],
       tainted: false,
       trees: [],
-      version: 3,
+      accessibleEntries: [],
+      version: 4,
       volatile: true,
     }),
     "utf8",
@@ -707,46 +710,27 @@ export async function assertCacheKeyFoldsNonceWhileSnapshotVolatile(): Promise<v
 export async function assertCompactionDoesNotMergeALeftoverClaimedFileAgain(): Promise<void> {
   const root = createBareProject();
   await prepareSnapshot(root);
-  fs.writeFileSync(
-    path.join(snapshotDirectory(root), "graph-inputs.worker-test.json"),
-    JSON.stringify({
-      files: [],
-      tainted: true,
-      trees: [],
-      version: 3,
-      volatile: false,
-    }),
-    "utf8",
-  );
-  // Removing a claimed file fails the way a held file fails on Windows.
-  const rmSync = fs.rmSync;
-  const replaceRmSync = (value: typeof fs.rmSync): void => {
-    Object.defineProperty(fs, "rmSync", {
-      configurable: true,
-      value,
-      writable: true,
-    });
-  };
-  replaceRmSync(((target: fs.PathLike, options?: fs.RmOptions) => {
-    if (
-      path.basename(String(target)).startsWith("graph-inputs.worker-claimed-")
-    ) {
-      throw Object.assign(new Error("EBUSY: resource busy or locked"), {
-        code: "EBUSY",
-      });
-    }
-    return rmSync(target, options);
-  }) as typeof fs.rmSync);
-  try {
-    await prepareSnapshot(root);
-  } finally {
-    replaceRmSync(rmSync);
-  }
+  const mergedMain = readMainSnapshot(root);
+  const claimed = "graph-inputs.worker-claimed-retained.json";
+  // Model the published state after main commit and before successful unlink.
+  // Both readers must honor the compacted identity rather than replay taint.
+  fs.writeFileSync(mainSnapshotPath(root), JSON.stringify({
+    ...mergedMain,
+    compacted: [claimed],
+  }), "utf8");
+  fs.writeFileSync(path.join(snapshotDirectory(root), claimed), JSON.stringify({
+    accessibleEntries: [],
+    files: [],
+    tainted: true,
+    trees: [],
+    version: 4,
+    volatile: false,
+  }), "utf8");
   const merged = readMainSnapshot(root).id;
   assert.equal(
     listWorkerSnapshots(root).length,
     1,
-    "the claimed file stays where its removal failed",
+    "the committed claimed document is available to the reader",
   );
   const observed = (await TestMetroRuntime.loadFingerprint()).readSnapshotState(
     root,
@@ -784,7 +768,8 @@ export async function assertPrepareSnapshotCompactsWorkerFiles(): Promise<void> 
       files: [recorded],
       tainted: false,
       trees: [],
-      version: 3,
+      accessibleEntries: [],
+      version: 4,
       volatile: false,
     }),
     "utf8",
@@ -893,7 +878,8 @@ export async function assertPrepareSnapshotHealsCorruptWorkerFile(): Promise<voi
           files: [absolute, 7],
           tainted: false,
           trees: [],
-          version: 3,
+          accessibleEntries: [],
+          version: 4,
           volatile: false,
         }),
     },
@@ -904,7 +890,8 @@ export async function assertPrepareSnapshotHealsCorruptWorkerFile(): Promise<voi
           files: [absolute],
           tainted: 0,
           trees: [],
-          version: 3,
+          accessibleEntries: [],
+          version: 4,
           volatile: false,
         }),
     },
@@ -915,7 +902,8 @@ export async function assertPrepareSnapshotHealsCorruptWorkerFile(): Promise<voi
           files: [absolute],
           tainted: false,
           trees: [],
-          version: 3,
+          accessibleEntries: [],
+          version: 4,
           volatile: "true",
         }),
     },
@@ -927,7 +915,8 @@ export async function assertPrepareSnapshotHealsCorruptWorkerFile(): Promise<voi
           id: "not-a-snapshot-identity",
           tainted: false,
           trees: [],
-          version: 3,
+          accessibleEntries: [],
+          version: 4,
           volatile: false,
         }),
     },
@@ -949,7 +938,8 @@ export async function assertPrepareSnapshotHealsCorruptWorkerFile(): Promise<voi
           files: ["src/app.ts"],
           tainted: false,
           trees: [],
-          version: 3,
+          accessibleEntries: [],
+          version: 4,
           volatile: false,
         }),
     },
@@ -960,7 +950,8 @@ export async function assertPrepareSnapshotHealsCorruptWorkerFile(): Promise<voi
           files: [absolute, absolute],
           tainted: false,
           trees: [],
-          version: 3,
+          accessibleEntries: [],
+          version: 4,
           volatile: false,
         }),
     },
@@ -971,7 +962,8 @@ export async function assertPrepareSnapshotHealsCorruptWorkerFile(): Promise<voi
           files: [absolute, secondary].sort().reverse(),
           tainted: false,
           trees: [],
-          version: 3,
+          accessibleEntries: [],
+          version: 4,
           volatile: false,
         }),
     },
@@ -982,7 +974,8 @@ export async function assertPrepareSnapshotHealsCorruptWorkerFile(): Promise<voi
           files: [absolute],
           tainted: false,
           trees: [secondary],
-          version: 3,
+          accessibleEntries: [],
+          version: 4,
           volatile: false,
         }),
     },
@@ -993,7 +986,8 @@ export async function assertPrepareSnapshotHealsCorruptWorkerFile(): Promise<voi
           files: [absolute],
           tainted: false,
           trees: [7],
-          version: 3,
+          accessibleEntries: [],
+          version: 4,
           volatile: false,
         }),
     },
@@ -1004,7 +998,8 @@ export async function assertPrepareSnapshotHealsCorruptWorkerFile(): Promise<voi
           files: [absolute, secondary].sort(),
           tainted: false,
           trees: [absolute, secondary].sort().reverse(),
-          version: 3,
+          accessibleEntries: [],
+          version: 4,
           volatile: false,
         }),
     },
@@ -1016,7 +1011,8 @@ export async function assertPrepareSnapshotHealsCorruptWorkerFile(): Promise<voi
           foreign: true,
           tainted: false,
           trees: [],
-          version: 3,
+          accessibleEntries: [],
+          version: 4,
           volatile: false,
         }),
     },
@@ -1069,7 +1065,8 @@ export async function assertPrepareSnapshotHealsCorruptWorkerFile(): Promise<voi
       id: mainIdentity,
       tainted: "true",
       trees: [],
-      version: 3,
+      accessibleEntries: [],
+      version: 4,
       volatile: false,
     }),
     "utf8",
@@ -1100,7 +1097,8 @@ export async function assertPrepareSnapshotHealsCorruptWorkerFile(): Promise<voi
       files: [path.join(recoveryRoot, "src", "app.ts")],
       tainted: false,
       trees: [],
-      version: 3,
+      accessibleEntries: [],
+      version: 4,
       volatile: "true",
     }),
     "utf8",
@@ -1132,7 +1130,6 @@ export async function assertPrepareSnapshotHealsCorruptWorkerFile(): Promise<voi
  * project inputs, while a mismatch rotates the epoch.
  */
 export async function assertTransformerRecordsImplicitDependencyGuards(): Promise<void> {
-  const unplugin = await TestUnpluginRuntime.loadUnpluginApi();
   const shared = TestProject.tmpdir("ttsc-metro-shared-");
   const external = path.join(shared, "types.d.ts");
   fs.writeFileSync(external, "declare const marker: string;\n", "utf8");
@@ -1216,6 +1213,11 @@ export async function assertTransformerRecordsImplicitDependencyGuards(): Promis
     stabilizedEpoch,
     "an unchanged proven run must preserve its snapshot epoch",
   );
+}
+
+/** Verify recorder-only config, topology and malformed-baseline transitions. */
+export async function assertRecorderGuardsImplicitDependencyTransitions(): Promise<void> {
+  const unplugin = await import("../../../../packages/unplugin/src/api");
   const fingerprint = await TestMetroRuntime.loadFingerprint();
 
   // The static project map enumerates config candidates at and below Metro's
@@ -1748,7 +1750,7 @@ export async function assertCacheKeyChangesWhenTheTsconfigChanges(): Promise<voi
  */
 export async function assertMetroAsksTheAdaptersPolicy(): Promise<void> {
   const fingerprint = await TestMetroRuntime.loadFingerprint();
-  const unplugin = await TestUnpluginRuntime.loadUnpluginApi();
+  const unplugin = await import("../../../../packages/unplugin/src/api");
   const root = createBareProject();
   const leaf = path.join(root, "tsconfig.json");
   const app = path.join(root, "packages", "app");

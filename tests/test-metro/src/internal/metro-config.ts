@@ -2,6 +2,7 @@ import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { createRequire } from "node:module";
 
 import { TestMetroRuntime } from "./metro-runtime";
 
@@ -77,7 +78,10 @@ export async function assertWithTtscSetsBabelTransformerPath(): Promise<void> {
     assert.equal(typeof target, "string");
     assert.equal(path.isAbsolute(target), true);
     assert.match(target, /transformer\.js$/);
-    assert.equal(fs.existsSync(target), true);
+    const loaded = createRequire(import.meta.url)(target) as {
+      getCacheKey: (...args: unknown[]) => string;
+    };
+    assert.match(loaded.getCacheKey({ projectRoot: config.projectRoot }), /^[a-f0-9]{64}$/);
   });
 }
 
