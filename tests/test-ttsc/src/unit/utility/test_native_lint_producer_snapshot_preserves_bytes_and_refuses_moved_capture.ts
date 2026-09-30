@@ -1,0 +1,113 @@
+import assert from "node:assert/strict";
+import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+
+import { captureNativeLintProducer, selectNativeLintSourceFiles, linkNativeLintPackage } from "../../../../utils/src/NativeLintProducer";
+import { TestProject } from "../../../../utils/src/TestProject";
+
+/**
+ * @evidence contracts/testing.md#behavioral-verification Calls the owning snapshot capture against authored file fixtures, requiring exact Go/descriptor/embedded/nested-cache bytes, a signed sorted manifest and the real installation link; corrupt copy, concurrent source edit, unexpected source link, wrong package metadata and a preexisting link to a foreign producer must refuse publication or reuse.
+ * @evidence contracts/testing.md#independent-expectations Literal distinct file contents and independently calculated SHA-256 values establish the copied population and manifest signature; expected refusal messages are literal contracts rather than values derived from capture output.
+ * @evidence contracts/testing.md#distinguishing-cases Compares complete regular assets and a nested .cache asset against root installation/cache boundaries, positive copy against corrupted destination and changed source, and an owned package against an external source link, non-lint metadata, exact selected test declarations versus embedded test declarations, and same-target links versus foreign or regular occupants.
+ * @evidence contracts/testing.md#execution-ownership The named utility unit exercises the real filesystem-copy owner with an explicit copier boundary, without building Go, spawning product CLIs or replacing filesystem globals; TestProject owns all temporary fixture roots.
+ */
+export function test_native_lint_producer_snapshot_preserves_bytes_and_refuses_moved_capture(): void {
+  const seed = () => {
+    const sourceRoot = TestProject.tmpdir("ttsc-lint-snapshot-input-");
+    const destinationRoot = TestProject.tmpdir("ttsc-lint-snapshot-copy-");
+    const files = {
+      "package.json": '{"name":"@ttsc/lint","main":"lib/index.js"}\n',
+      "go.mod": "module example.test/lint\n\ngo 1.26\n",
+      "plugin/main.go": "package main\n//go:embed assets/data.txt\n",
+      "plugin/assets/data.txt": "embedded\n",
+      "lib/index.js": "module.exports = { native: true };\n",
+      "src/createTtscPlugin.ts": "export const descriptor = 'authored';\n",
+      "plugin/.cache/embedded.txt": "nested asset is not an installation cache\n",
+    };
+    for (const [name, contents] of Object.entries(files)) {
+      const target = path.join(sourceRoot, name);
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, contents);
+    }
+    fs.mkdirSync(path.join(sourceRoot, "node_modules"));
+    fs.mkdirSync(path.join(sourceRoot, ".cache"));
+    fs.writeFileSync(path.join(sourceRoot, ".cache", "unrelated"), "cache");
+    return { sourceRoot, destinationRoot, files };
+  };
+  const fixture = seed();
+  const result = captureNativeLintProducer(fixture);
+  const manifestBytes = fs.readFileSync(result.manifestPath);
+  const manifest = JSON.parse(manifestBytes.toString());
+  assert.equal(result.manifestSha256, crypto.createHash("sha256").update(manifestBytes).digest("hex"));
+  assert.equal(result.sourceRoot, fs.realpathSync.native(fixture.sourceRoot));
+  assert.deepEqual(manifest.files.map((file: { name: string }) => file.name), Object.keys(fixture.files).sort());
+  for (const [name, contents] of Object.entries(fixture.files)) {
+    assert.equal(fs.readFileSync(path.join(result.packageRoot, name), "utf8"), contents);
+    assert.equal(manifest.files.find((file: { name: string }) => file.name === name).sha256,
+      crypto.createHash("sha256").update(contents).digest("hex"));
+  }
+  assert.equal(fs.existsSync(path.join(result.packageRoot, ".cache")), false);
+  assert.equal(fs.realpathSync.native(path.join(result.packageRoot, "node_modules")),
+    fs.realpathSync.native(path.join(fixture.sourceRoot, "node_modules")));
+  assert.equal(Object.isFrozen(result), true);
+  const linkRoot = TestProject.tmpdir("ttsc-lint-snapshot-link-");
+  const packageLink = path.join(linkRoot, "lint");
+  linkNativeLintPackage(result.packageRoot, packageLink);
+  linkNativeLintPackage(result.packageRoot, packageLink);
+  assert.equal(fs.realpathSync.native(packageLink), fs.realpathSync.native(result.packageRoot));
+  assert.throws(() => linkNativeLintPackage(fixture.sourceRoot, packageLink),
+    /Existing native lint package link does not identify the requested producer/);
+  const occupied = path.join(linkRoot, "occupied");
+  fs.mkdirSync(occupied);
+  assert.throws(() => linkNativeLintPackage(result.packageRoot, occupied),
+    /Existing native lint package link does not identify the requested producer/);
+
+  const selected = seed();
+  fs.writeFileSync(path.join(selected.sourceRoot, "plugin", "semantic_test.go"), "package main\n");
+  fs.writeFileSync(path.join(selected.sourceRoot, "plugin", "embedded_test.go"), "embedded Go declaration\n");
+  const records = [{ Dir: path.join(selected.sourceRoot, "plugin"), GoFiles: ["main.go"],
+    TestGoFiles: ["semantic_test.go", "embedded_test.go"], EmbedFiles: ["embedded_test.go", "assets/data.txt"] }];
+  const selection = selectNativeLintSourceFiles(selected.sourceRoot, records);
+  assert.deepEqual(selection.excludedGoTestFiles, ["plugin/semantic_test.go"]);
+  const selectedResult = captureNativeLintProducer({ ...selected, selection });
+  assert.equal(fs.existsSync(path.join(selectedResult.packageRoot, "plugin", "semantic_test.go")), false);
+  assert.equal(fs.readFileSync(path.join(selectedResult.packageRoot, "plugin", "embedded_test.go"), "utf8"),
+    "embedded Go declaration\n");
+  for (const invalid of [{ ...records[0]!, Incomplete: true }, { ...records[0]!, Error: { Err: "invalid embed pattern" } },
+    { ...records[0]!, InvalidGoFiles: ["broken.go"] }, { ...records[0]!, DepsErrors: [{ Err: "unresolved" }] }])
+    assert.throws(() => selectNativeLintSourceFiles(selected.sourceRoot, [invalid]), /selection is incomplete/);
+  assert.throws(() => selectNativeLintSourceFiles(selected.sourceRoot, []), /selection has no packages/);
+  assert.throws(() => selectNativeLintSourceFiles(selected.sourceRoot, [{ Dir: path.dirname(selected.sourceRoot) }]),
+    /selection escapes its package/);
+  assert.throws(() => selectNativeLintSourceFiles(selected.sourceRoot, [{ ...records[0]!, TestGoFiles: ["../foreign.go"] }]),
+    /invalid source name/);
+  const forged = seed();
+  assert.throws(() => captureNativeLintProducer({ ...forged, selection: {
+    metadata: [{ Dir: forged.sourceRoot, GoFiles: ["go.mod"] }], excludedGoTestFiles: ["go.mod"],
+  } }), /selection proof does not match/);
+
+  for (const moved of [false, true]) {
+    const input = seed();
+    let changed = false;
+    assert.throws(() => captureNativeLintProducer({ ...input, copyFile: (source, target) => {
+      fs.copyFileSync(source, target);
+      if (!changed) {
+        fs.appendFileSync(moved ? source : target, "different bytes");
+        changed = true;
+      }
+    } }), { message: "Native lint producer changed during capture or its copied bytes differ" });
+  }
+  const linked = seed();
+  const outside = TestProject.tmpdir("ttsc-lint-snapshot-external-");
+  fs.symlinkSync(outside, path.join(linked.sourceRoot, "unexpected"), process.platform === "win32" ? "junction" : "dir");
+  assert.throws(() => captureNativeLintProducer(linked), /unaccounted source link/);
+  const wrong = seed();
+  fs.writeFileSync(path.join(wrong.sourceRoot, "package.json"), '{"name":"another-package"}');
+  assert.throws(() => captureNativeLintProducer(wrong), {
+    message: "Native lint producer capture requires the authored @ttsc/lint package",
+  });
+  assert.throws(() => captureNativeLintProducer(fixture), {
+    message: "Native lint producer capture requires an empty destination",
+  });
+}

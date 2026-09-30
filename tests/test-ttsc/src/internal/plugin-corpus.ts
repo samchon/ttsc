@@ -4,7 +4,7 @@
  * parsing, and re-exports of the ttsc CLI paths and workspace constants used
  * across the plugin-corpus feature suite.
  */
-import { TestProject } from "@ttsc/testing";
+import { TestProject, getNativeLintProducer, linkNativeLintPackage } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import child_process from "node:child_process";
 import fs from "node:fs";
@@ -213,19 +213,19 @@ function parseDiagnostics(stderr: string, filePath: string): ILintDiagnostic[] {
 // `node_modules/@ttsc/lint` symlink pointing at the workspace package, so
 // `require("@ttsc/lint")` resolves the same way it would for a published
 // install. Using a real symlink (instead of writing a relay file) keeps the
-// plugin's `__dirname` pointed at the workspace go-plugin source dir.
-function setupLintProject(name: string): string {
+// plugin's `__dirname` pointed at its actual workspace or captured package root.
+function setupLintProject(
+  name: string,
+  options: { nativeProducer?: "workspace" | "snapshot" } = {},
+): string {
   const root = TestProject.copyProject(name);
   const linkDir = path.join(root, "node_modules", "@ttsc");
   fs.mkdirSync(linkDir, { recursive: true });
-  const target = path.join(TestProject.WORKSPACE_ROOT, "packages", "lint");
+  const target = options.nativeProducer === "snapshot"
+    ? getNativeLintProducer().packageRoot
+    : path.join(TestProject.WORKSPACE_ROOT, "packages", "lint");
   const link = path.join(linkDir, "lint");
-  try {
-    fs.symlinkSync(target, link, "junction");
-  } catch (err) {
-    const code = (err as NodeJS.ErrnoException).code;
-    if (code !== "EEXIST") throw err;
-  }
+  linkNativeLintPackage(target, link);
   return root;
 }
 

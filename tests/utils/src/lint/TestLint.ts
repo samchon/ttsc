@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { TestProject } from "../TestProject";
+import { getNativeLintProducer, linkNativeLintPackage } from "../NativeLintProducer";
 
 // Spawn the real `ttsc` binary against an isolated TypeScript fixture
 // and parse the rendered stderr diagnostics into structured records.
@@ -132,6 +133,8 @@ export namespace TestLint {
     sourcePath?: string;
     /** Optional nonexistent or empty disposable root under the OS temp dir. */
     projectRoot?: string;
+    /** Explicit immutable producer reuse; source/cache mutation cases use workspace. */
+    nativeProducer?: "workspace" | "snapshot";
     rules?: Record<string, LintRuleConfigEntry>;
     pluginConfig?: Record<string, unknown>;
     extraSources?: Record<string, string>;
@@ -223,7 +226,7 @@ export namespace TestLint {
           "utf8",
         );
       }
-      seedNodeModulesLink(tmpdir);
+      seedNodeModulesLink(tmpdir, options.nativeProducer);
       for (const linkedNodeModule of linkedNodeModules) {
         linkNodeModulePackage(tmpdir, linkedNodeModule);
       }
@@ -576,16 +579,15 @@ export namespace TestLint {
   }
 
   /** Link the workspace @ttsc/lint package as if the fixture had installed it. */
-  function seedNodeModulesLink(tmpdir: string): void {
+  function seedNodeModulesLink(
+    tmpdir: string,
+    nativeProducer?: "workspace" | "snapshot",
+  ): void {
     const linkParent = path.join(tmpdir, "node_modules", "@ttsc");
     fs.mkdirSync(linkParent, { recursive: true });
     const link = path.join(linkParent, "lint");
-    try {
-      fs.symlinkSync(LINT_PACKAGE_DIR, link, "junction");
-    } catch (err) {
-      const code = (err as NodeJS.ErrnoException).code;
-      if (code !== "EEXIST") throw err;
-    }
+    const source = nativeProducer === "snapshot" ? getNativeLintProducer().packageRoot : LINT_PACKAGE_DIR;
+    linkNativeLintPackage(source, link);
   }
 
   /** Link optional runtime dependencies used by ESLint-backed config tests. */
