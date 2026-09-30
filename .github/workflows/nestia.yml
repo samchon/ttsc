@@ -91,6 +91,7 @@ jobs:
           const text = fs.readFileSync(file, "utf8");
           const entries = [
             "  ttsc: file:../tarballs/ttsc.tgz",
+            "  \"@ttsc/unplugin\": file:../tarballs/unplugin.tgz",
             "  \"@ttsc/linux-x64\": file:../tarballs/ttsc-linux-x64.tgz",
           ].join("\n");
           let merged = text.includes("file:../tarballs/ttsc.tgz")
@@ -111,6 +112,28 @@ jobs:
               : merged.replace(/\s*$/, "") + "\n\npatchedDependencies:\n" + patchEntry + "\n";
           }
           fs.writeFileSync(file, merged);
+
+          // An auto-installed peer can resolve the registry build with the
+          // same version instead of the candidate tarball. Bind each importer
+          // that consumes a compiler host directly to the candidate compiler.
+          const ttscTarball = path.resolve("../tarballs/ttsc.tgz");
+          const sections = ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"];
+          const visit = (directory) => {
+            for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+              if (entry.name === ".git" || entry.name === "node_modules") continue;
+              const target = path.join(directory, entry.name);
+              if (entry.isDirectory()) visit(target);
+              else if (entry.name === "package.json") {
+                const manifest = JSON.parse(fs.readFileSync(target, "utf8"));
+                const has = (name) => sections.some((section) => manifest[section]?.[name] !== undefined);
+                if (!["typia", "@ttsc/factory", "@ttsc/unplugin"].some(has) || has("ttsc")) continue;
+                manifest.devDependencies ??= {};
+                manifest.devDependencies.ttsc = "file:" + path.relative(path.dirname(target), ttscTarball).replaceAll(path.sep, "/");
+                fs.writeFileSync(target, JSON.stringify(manifest, null, 2) + "\n");
+              }
+            }
+          };
+          visit(".");
           '
 
       - name: Install nestia dependencies

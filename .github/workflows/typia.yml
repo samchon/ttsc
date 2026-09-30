@@ -108,7 +108,7 @@ jobs:
           fs.writeFileSync(file, merged);
 
           // pnpm 10 does not apply a file override to an auto-installed exact
-          // peer. Give importers that consume only @ttsc/unplugin an explicit
+          // peer. Give importers that consume a compiler host an explicit
           // local ttsc so they cannot resolve the unpublished candidate from npm.
           const ttscTarball = path.resolve("../tarballs/ttsc.tgz");
           const dependencySections = [
@@ -130,7 +130,7 @@ jobs:
             const has = (name) => dependencySections.some(
               (section) => manifest[section]?.[name] !== undefined,
             );
-            if (!has("@ttsc/unplugin") || has("ttsc")) return;
+            if (!["typia", "@ttsc/factory", "@ttsc/unplugin"].some(has) || has("ttsc")) return;
             manifest.devDependencies ??= {};
             const relative = path.relative(path.dirname(manifestFile), ttscTarball)
               .replaceAll(path.sep, "/");
