@@ -14,6 +14,11 @@ import assert from "node:assert/strict";
  *    `true`/`false`/`null` value or none.
  * 2. Build payloads for an inline `=` spelling and an uppercase value.
  * 3. Assert only the well-formed occurrences and their values are removed.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls TsgoArguments.createNativeTsgoArgs and decodes its JSON to check timing-option removal, unrelated argv order, an empty payload and preservation of malformed inline spelling and uppercase trailing value.
+ * @evidence contracts/testing.md#independent-expectations The compiler boolean grammar recognizes case-insensitive dashed option names but only separate lowercase true/false/null values, with no inline equals splitting. Literal payload arrays and undefined establish that boundary independently of the composer.
+ * @evidence contracts/testing.md#distinguishing-cases Mixed case, one dash, absent values and lowercase false/null/true are removal controls. --diagnostics=false stays intact; --diagnostics TRUE removes the valid option but leaves TRUE for compiler diagnosis; strict and noImplicitAny adjacency remains unchanged.
+ * @evidence contracts/testing.md#execution-ownership This exported source-unit entry calls the actual argv-to-JSON composer through its local payload wrapper. JSON.parse only observes transport data; no native sidecar, compiler process or installation executes.
  */
 export const test_ttsc_native_payload_keeps_malformed_diagnostics_tokens =
   () => {
