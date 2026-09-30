@@ -1,6 +1,6 @@
 import { TRANSFORM_CACHE_EPOCHS } from "./TRANSFORM_CACHE_EPOCHS";
 import type { TtscTransformCache } from "./TtscTransformCache";
-import { disposeCachedTransform } from "./disposeCachedTransform";
+import { withdrawTtscTransformGenerations } from "./withdrawTtscTransformGenerations";
 
 /**
  * Discard every generation, dispose its watchers, and return the cache to
@@ -19,15 +19,6 @@ import { disposeCachedTransform } from "./disposeCachedTransform";
  * @evidence contracts/performance.md#bound-retention-and-release-resources Entries and epoch are removed immediately; generations finishing later still release their watchers and probes through scheduled disposal.
  */
 export function resetTtscTransformCache(cache: TtscTransformCache): void {
-  clearTtscTransformCache(cache);
+  withdrawTtscTransformGenerations(cache);
   TRANSFORM_CACHE_EPOCHS.delete(cache);
-}
-
-/** Dispose generation-owned filesystem resources before clearing a cache. */
-function clearTtscTransformCache(cache: TtscTransformCache): void {
-  const generations = [...cache.values()];
-  cache.clear();
-  for (const generation of generations) {
-    void generation.then(disposeCachedTransform, () => undefined);
-  }
 }

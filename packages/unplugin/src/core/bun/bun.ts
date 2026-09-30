@@ -8,6 +8,7 @@ import { typescriptTransformBunLoader } from "../source/typescriptTransformBunLo
 import { beginTtscTransformBuild } from "../transform/cache/beginTtscTransformBuild";
 import { createTtscTransformCache } from "../transform/cache/createTtscTransformCache";
 import { resetTtscTransformCache } from "../transform/cache/resetTtscTransformCache";
+import { withdrawTtscTransformGenerations } from "../transform/cache/withdrawTtscTransformGenerations";
 import { transformTtsc } from "../transform/transformTtsc";
 import { inlineSourceMap } from "../transform/utils/inlineSourceMap";
 import type { BunLikeBuild } from "./BunLikeBuild";
@@ -131,7 +132,7 @@ export function bun(options?: TtscBunOptions): BunLikePlugin {
             cache,
             {
               watching: false,
-              markVolatile: () => resetTtscTransformCache(cache),
+              markVolatile: () => withdrawTtscTransformGenerations(cache),
             },
           );
           if (result !== undefined) {
