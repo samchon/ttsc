@@ -1,24 +1,14 @@
 const assert = require("node:assert/strict");
 const { test } = require("node:test");
-const { PLATFORM, SCOPES, selectBuild, buildDependencies, runBuildPlan } = require("../build-current.cjs");
+const { PLATFORM, selectBuild, buildDependencies, runBuildPlan } = require("../../../../scripts/build-current.cjs");
 
-test("build unions preserve dependency order and link only needed native commands", () => {
-  const combined = selectBuild("go-tests,test-lint,test-evidence,test-graph,test-lint");
-  assert.equal(combined.plan.length, new Set(combined.plan).size);
-  assert.ok(combined.plan.indexOf(PLATFORM) < combined.plan.indexOf("@ttsc/graph"));
-  assert.ok(combined.plan.indexOf(PLATFORM) < combined.plan.indexOf("lint-contributor-demo"));
-  for (const name of ["ttsc", "@ttsc/lint", "@ttsc/banner", "@ttsc/evidence", "@ttsc/graph", "@ttsc/unplugin", "lint-contributor-demo"])
-    assert.ok(combined.plan.includes(name), name);
-  assert.deepEqual(combined.platformTargets, ["ttsc", "ttscgraph"]);
-  assert.equal(selectBuild("test-ttsc,test-lint").platformTargets, undefined);
-  assert.ok(!selectBuild("go-tests").plan.includes(PLATFORM));
-  assert.deepEqual(selectBuild("full").plan, SCOPES.full);
-  assert.deepEqual(selectBuild("install-smoke").plan, ["ttsc", PLATFORM]);
-  assert.equal(selectBuild("install-smoke").platformTargets, undefined);
-  assert.throws(() => selectBuild("test-lint,unknown"), /Unknown TTSC_BUILD_SCOPE/);
-});
-
-test("bounded build workers preserve prerequisites and finish independent failures", async () => {
+/**
+ * @evidence contracts/testing.md#behavioral-verification Calls real buildDependencies and runBuildPlan; checks package prerequisite policy, bounded concurrency, independent completion and transitive failure propagation.
+ * @evidence contracts/testing.md#independent-expectations Authored root/independent/dependent/last graph and independently tracked completed callbacks determine legal start order and exact failures.
+ * @evidence contracts/testing.md#distinguishing-cases Failed root must block two descendants but not independent work; all-success control must execute every node with prerequisites already completed.
+ * @evidence contracts/testing.md#execution-ownership The actual asynchronous scheduler invokes private deterministic callbacks with short timers in one Node process; no package build is executed.
+ */
+const test_bounded_build_workers_preserve_prerequisites_and_collect_failures = async () => {
   const plan = selectBuild("full").plan;
   const dependencies = buildDependencies(plan);
   assert.ok(dependencies.get("@ttsc/graph").includes(PLATFORM));
@@ -57,4 +47,8 @@ test("bounded build workers preserve prerequisites and finish independent failur
   }, 2);
   assert.deepEqual(clean, []);
   assert.deepEqual([...successful].sort(), [...sample].sort());
-});
+};
+
+module.exports = { test_bounded_build_workers_preserve_prerequisites_and_collect_failures };
+
+test("bounded build workers preserve prerequisites and finish independent failures", test_bounded_build_workers_preserve_prerequisites_and_collect_failures);
