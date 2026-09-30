@@ -26,6 +26,11 @@ import (
 //  5. Restore a generated wrapper's explicit semantic config owner.
 //  6. Carry that owner from an LSP invocation through cold and resident loads.
 //  7. Prove ambient-only and relative owner values cannot affect later loads.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual compiler loading preserves configured Checkers=4 while a nonnil standalone rule checker differs from the borrowed Program checker; close releases the lint checker and single-threaded loading remains explicit. Generated JSON wrapper ownership is observed through direct, cold LSP and resident Programs.
+// @evidence contracts/testing.md#independent-expectations Literal checker counts and pointer inequality specify independent ownership, not runtime pool cardinality; authored absolute semantic config versus generated wrapper fixes each expected ConfigFilePath and the literal relative-path error.
+// @evidence contracts/testing.md#distinguishing-cases Parallel configuration versus single-threaded mode, explicit semantic owner versus ambient-only environment, and absolute versus rejected relative ownership isolate checker and wrapper channels; original parse diagnostics and cleanup assertions remain.
+// @evidence contracts/testing.md#execution-ownership Supported Go compiler/checker APIs, JSON extends parsing and in-process cold/resident cache acquisition execute directly on temporary sources; environment parsing does not spawn a script evaluator, native build or installed compiler.
 func TestLoadProgramKeepsCheckerPoolForTypeAwareRules(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -171,5 +176,8 @@ func TestLoadProgramKeepsCheckerPoolForTypeAwareRules(t *testing.T) {
   }
   if err == nil {
     t.Fatal("relative semantic config path was accepted")
+  }
+  if err.Error() != "linthost: semantic config path must be absolute: relative.json" {
+    t.Fatalf("relative semantic owner failed for an unrelated reason: %v", err)
   }
 }

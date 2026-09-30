@@ -14,7 +14,12 @@ import (
 //
 //  1. Materialize a tiny TypeScript project.
 //  2. Load it with eight Program checkers and no rule checker request.
-//  3. Assert the pool stays at eight and no lint checker was created.
+//  3. Assert the configured count stays at eight and no lint checker was created.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual AST-only compiler loading retains configured Checkers=8 while the separate lint checker stays nil and parse diagnostics stay empty; the test observes the option rather than claiming eight runtime pool objects.
+// @evidence contracts/testing.md#independent-expectations The authored strict CommonJS source project and literal count eight specify expected configuration independently of the produced Program; nil standalone checker is the resource-ownership oracle.
+// @evidence contracts/testing.md#distinguishing-cases A requested Program checker count without needsRuleChecker contrasts with the type-aware counterpart that requires a distinct standalone checker, rejecting unconditional lint checker construction.
+// @evidence contracts/testing.md#execution-ownership Direct in-process loadProgram and supported compiler APIs read temporary JSON/TypeScript fixtures and release the Program via deferred close; no Node evaluator, native producer, installation or compiler subprocess runs.
 func TestLoadProgramSkipsCheckerForAstOnlyRules(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{
