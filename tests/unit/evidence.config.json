@@ -200,6 +200,24 @@
         "symbol": "h2",
         "checklist": true
       }
+    },
+    {
+      "name": "Go runtime emit profile units",
+      "type": "go",
+      "root": "../..",
+      "files": [
+        "packages/ttsc/test/driver-unit/runtime_decorator_target_profiles_test.go"
+      ],
+      "symbol": "function",
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": [
+          "contracts/testing.md"
+        ],
+        "symbol": "h2",
+        "checklist": true
+      }
     }
   ]
 }
