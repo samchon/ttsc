@@ -1,5 +1,5 @@
-import { dumpGraph, findEdge } from "../internal/graphDump";
-import { withIdentityBoundary } from "../internal/identityBoundary";
+import { findEdge } from "../internal/graphDump";
+import { getIdentityDump, withIdentityBoundary } from "../internal/identityBoundary";
 import { assert } from "../internal/ttsgraph";
 
 interface ToolResult {
@@ -38,14 +38,14 @@ const traceOf = (result: ToolResult): TraceResult => {
  * @evidence contracts/testing.md#distinguishing-cases Valid and incompatible methods share one contract, so name equality cannot pass the negative control; the graph remains usable despite the compiler diagnostic.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_member_relations_follow_checker_dispatch starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Actual checker assignability, dump diagnostics and subsequent MCP traversal must agree; a synthetic implements edge cannot test whether the producer rejected Bad.
- * @evidence contracts/e2e.md#shared-execution Twenty-five display, citation, DTO/audit, traversal, MCP protocol and config/source/root/tag invalidation entries share one project, initialized MCP session and native compiler. MCP ranking and exact tag-target queries temporarily select their original closed source universes, restoring config bytes finally; all transitions advance actual generations. Checker rejection also executes public dump CLI once for diagnostic/raw-edge delivery.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique files, names, contracts, chain topologies and citation targets preserve fixture distinctions; spec/test suffixes, decorators and real external declarations remain. MCP ranking selects its two sources and tag refresh selects its one source, then restores exact config bytes; invalid-config recovery also restores them on assertion failure. Mutations touch named fixture inputs only and serial requests synchronize each generation. Suite finally joins the shared client after complete collection.
+ * @evidence contracts/e2e.md#shared-execution Twenty-eight native graph entries share one project: twenty-five borrow an initialized MCP/native session, and four immutable producer assertions borrow one cached public CLI dump (the checker case uses both). Raw-only selections prepare no MCP client. Closed MCP/tag source scopes preserve original ranking/query universes; named edits advance actual generations.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Disjoint files, contracts, chains and citation targets preserve distinctions; spec/test roles, decorators, exact/wildcard aliases, real external declarations and a physical workspace link remain. MCP/tag scopes and invalid-config recovery restore config bytes finally. The cached CLI dump serves only unchanged producer assertions; serial MCP requests synchronize named edits, and suite finally joins its owned client after full collection.
  * @evidence contracts/e2e.md#preserved-coverage TS2416, retained members, valid-edge positive, invalid-edge negative, Good dispatch/accepted and Bad/rejected exclusions all remain executable.
  */
 export const test_ttscgraph_member_relations_follow_checker_dispatch =
   async () => {
     await withIdentityBoundary(async (client, root) => {
-    const dump = dumpGraph(root, "tsconfig.json");
+    const dump = await getIdentityDump();
     assert.ok(
       dump.diagnostics.some((diagnostic) => diagnostic.code === 2416),
       "the same dump retains TS2416: " + JSON.stringify(dump.diagnostics),

@@ -2,8 +2,11 @@ import { TestProject } from "@ttsc/testing";
 import fs from "node:fs";
 import path from "node:path";
 
+import { GraphDump, dumpGraph } from "./graphDump";
 import { TtsgraphClient, assert } from "./ttsgraph";
 
+let projectPreparation: Promise<string> | undefined;
+let rawDump: GraphDump | undefined;
 let preparation: Promise<{ client: TtsgraphClient; root: string; initialization: unknown }> | undefined;
 
 /** Borrow the compiler identity project shared by twenty-five named cases. */
@@ -30,8 +33,17 @@ export async function withIdentityBoundary(
   }
 }
 
+/** Borrow the one public CLI dump used by immutable producer assertions. */
+export async function getIdentityDump(): Promise<GraphDump> {
+  projectPreparation ??= prepareProject();
+  rawDump ??= dumpGraph(await projectPreparation, "tsconfig.json");
+  return rawDump;
+}
+
 /** The suite releases its borrowed MCP process after every selected case runs. */
 export async function closeIdentityBoundary(): Promise<void> {
+  projectPreparation = undefined;
+  rawDump = undefined;
   if (preparation === undefined) return;
   const pending = preparation;
   preparation = undefined;
@@ -41,7 +53,7 @@ export async function closeIdentityBoundary(): Promise<void> {
   assert.equal(code, 0, client.stderrText());
 }
 
-async function prepare(): Promise<{ client: TtsgraphClient; root: string; initialization: unknown }> {
+async function prepareProject(): Promise<string> {
   const members = Array.from(
       { length: 20 },
       (_, i) => `  m${String(i)}(): void {}`,
@@ -123,11 +135,15 @@ async function prepare(): Promise<{ client: TtsgraphClient; root: string; initia
         target: "ES2022",
         module: "commonjs",
         experimentalDecorators: true,
+        paths: {
+          "@core/*": ["./src/core/*"],
+          "@models": ["./src/models/index.ts"],
+        },
         strict: true,
         rootDir: "src",
         outDir: "dist",
       },
-      include: ["src"],
+      include: ["src", "packages/app/src"],
     }),
       "src/addresses.ts": [
         "/** @evidence docs/pricing.md#sale Implements the pricing rule. */",
@@ -751,6 +767,90 @@ async function prepare(): Promise<{ client: TtsgraphClient; root: string; initia
       "export function subject(): void {}",
       "",
     ].join("\n"),
+    "src/core/helper.ts": [
+      "export function helper(value: string): string {",
+      "  return value.toUpperCase();",
+      "}",
+      "",
+    ].join("\n"),
+    "src/models/index.ts": [
+      "export interface Payload {",
+      "  value: string;",
+      "}",
+      "",
+    ].join("\n"),
+    "src/alias-main.ts": [
+      'import { helper } from "@core/helper";',
+      'import type { Payload } from "@models";',
+      "export function run(input: Payload): string {",
+      "  return helper(input.value);",
+      "}",
+      "",
+    ].join("\n"),
+    "node_modules/external-leaves/package.json": JSON.stringify({
+      name: "external-leaves",
+      version: "1.0.0",
+      types: "index.d.ts",
+    }),
+    "node_modules/external-leaves/index.d.ts": [
+      "export interface ExternalPayload {",
+      "  value: string;",
+      "}",
+      "export declare function externalHelper(input: ExternalPayload): string;",
+      "export declare class ExternalService {",
+      "  run(input: ExternalPayload): string;",
+      "}",
+      "export declare class UnusedDependencyDetail {",
+      "  value: string;",
+      "}",
+      "",
+    ].join("\n"),
+    "src/external-main.ts": [
+      'import { ExternalService, externalHelper, type ExternalPayload } from "external-leaves";',
+      "export function run(input: ExternalPayload): string {",
+      "  return externalHelper(input);",
+      "}",
+      "export class LocalService extends ExternalService {}",
+      "",
+    ].join("\n"),
+    "pnpm-workspace.yaml": "packages:\n  - packages/*\n",
+    "packages/shared/package.json": JSON.stringify({
+      name: "@scope/shared",
+      version: "1.0.0",
+      main: "src/index.ts",
+      types: "src/index.ts",
+    }),
+    "packages/shared/src/index.ts": [
+      "export interface SharedInput {",
+      "  value: string;",
+      "}",
+      "export function sharedHelper(input: SharedInput): string {",
+      "  return input.value;",
+      "}",
+      "export class SharedService {",
+      "  run(input: SharedInput): string {",
+      "    return sharedHelper(input);",
+      "  }",
+      "}",
+      "",
+    ].join("\n"),
+    "packages/app/package.json": JSON.stringify({
+      name: "@scope/app",
+      version: "1.0.0",
+      dependencies: { "@scope/shared": "workspace:*" },
+    }),
+    "packages/app/src/main.ts": [
+      'import { SharedService, sharedHelper, type SharedInput } from "@scope/shared";',
+      "export function run(input: SharedInput): string {",
+      "  return sharedHelper(input);",
+      "}",
+      "export class AppService extends SharedService {",
+      "  override run(input: SharedInput): string {",
+      "    return super.run(input);",
+      "  }",
+      "}",
+      "",
+    ].join("\n"),
     "src/object-outline.ts": before,
     "src/identity0.ts": [
         "export enum Colors {",
@@ -842,6 +942,16 @@ async function prepare(): Promise<{ client: TtsgraphClient; root: string; initia
     for (const [name, terminator] of [["Lf", "\n"], ["CrLf", "\r\n"], ["Cr", "\r"], ["Ls", "\u2028"], ["Ps", "\u2029"]] as const) {
       fs.writeFileSync(path.join(root, "src", `${name}.ts`), source(name, terminator));
     }
+  const workspaceLink = path.join(root, "node_modules", "@scope", "shared");
+  fs.mkdirSync(path.dirname(workspaceLink), { recursive: true });
+  fs.symlinkSync(path.join(root, "packages", "shared"), workspaceLink,
+    process.platform === "win32" ? "junction" : "dir");
+  return root;
+}
+
+async function prepare(): Promise<{ client: TtsgraphClient; root: string; initialization: unknown }> {
+  projectPreparation ??= prepareProject();
+  const root = await projectPreparation;
   const client = TtsgraphClient.start(root);
   try {
     const initialization = await client.request("initialize", {

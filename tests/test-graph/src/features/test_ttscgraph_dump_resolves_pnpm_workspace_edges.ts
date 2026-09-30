@@ -1,8 +1,5 @@
-import { TestProject } from "@ttsc/testing";
-import fs from "node:fs";
-import path from "node:path";
-
-import { dumpGraph, findEdge, findNode } from "../internal/graphDump";
+import { findEdge, findNode } from "../internal/graphDump";
+import { getIdentityDump } from "../internal/identityBoundary";
 import { assert } from "../internal/ttsgraph";
 
 /**
@@ -24,72 +21,12 @@ import { assert } from "../internal/ttsgraph";
  * @evidence contracts/testing.md#distinguishing-cases A linked workspace dependency must remain local, unlike ordinary external node_modules leaves; the actual junction/symlink exercises kernel resolution.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_dump_resolves_pnpm_workspace_edges runs the actual native dump producer on its fixture project; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Native resolver/checker output must cross the real workspace link and preserve canonical paths; a path string or mocked symlink predicate cannot prove that filesystem connection.
- * @evidence contracts/e2e.md#shared-execution One app/shared workspace fixture and real dump reuse the suite compiler. Link setup is shared within this case; cross-case project/load batching remains unfinished.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The link and both source roots belong to this fixture, preventing another package's cache identity from substituting; dump is synchronous and tracked fixture removal owns cleanup.
+ * @evidence contracts/e2e.md#shared-execution Twenty-eight native graph entries share one project: twenty-five borrow an initialized MCP/native session, and four immutable producer assertions borrow one cached public CLI dump (the checker case uses both). Raw-only selections prepare no MCP client. Closed MCP/tag source scopes preserve original ranking/query universes; named edits advance actual generations.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Disjoint files, contracts, chains and citation targets preserve distinctions; spec/test roles, decorators, exact/wildcard aliases, real external declarations and a physical workspace link remain. MCP/tag scopes and invalid-config recovery restore config bytes finally. The cached CLI dump serves only unchanged producer assertions; serial MCP requests synchronize named edits, and suite finally joins its owned client after full collection.
  * @evidence contracts/e2e.md#preserved-coverage All app/shared node checks, nonexternal flags, alias-path exclusions and three relation-kind assertions remain; real link capability is not replaced by a no-op fixture.
  */
-export const test_ttscgraph_dump_resolves_pnpm_workspace_edges = () => {
-  const root = TestProject.tmpdir("ttsc-graph-workspace-");
-  TestProject.writeFiles(root, {
-    "package.json": JSON.stringify({
-      private: true,
-      name: "workspace-root",
-    }),
-    "pnpm-workspace.yaml": "packages:\n  - packages/*\n",
-    "packages/shared/package.json": JSON.stringify({
-      name: "@scope/shared",
-      version: "1.0.0",
-      main: "src/index.ts",
-      types: "src/index.ts",
-    }),
-    "packages/shared/src/index.ts": [
-      "export interface SharedInput {",
-      "  value: string;",
-      "}",
-      "export function sharedHelper(input: SharedInput): string {",
-      "  return input.value;",
-      "}",
-      "export class SharedService {",
-      "  run(input: SharedInput): string {",
-      "    return sharedHelper(input);",
-      "  }",
-      "}",
-      "",
-    ].join("\n"),
-    "packages/app/package.json": JSON.stringify({
-      name: "@scope/app",
-      version: "1.0.0",
-      dependencies: { "@scope/shared": "workspace:*" },
-    }),
-    "packages/app/tsconfig.json": JSON.stringify({
-      compilerOptions: {
-        target: "ES2022",
-        module: "commonjs",
-        moduleResolution: "node",
-        strict: true,
-        skipLibCheck: true,
-      },
-      include: ["src"],
-    }),
-    "packages/app/src/main.ts": [
-      'import { SharedService, sharedHelper, type SharedInput } from "@scope/shared";',
-      "export function run(input: SharedInput): string {",
-      "  return sharedHelper(input);",
-      "}",
-      "export class AppService extends SharedService {",
-      "  override run(input: SharedInput): string {",
-      "    return super.run(input);",
-      "  }",
-      "}",
-      "",
-    ].join("\n"),
-  });
-  linkWorkspacePackage(
-    path.join(root, "packages", "shared"),
-    path.join(root, "node_modules", "@scope", "shared"),
-  );
-
-  const dump = dumpGraph(root, "packages/app/tsconfig.json");
+export const test_ttscgraph_dump_resolves_pnpm_workspace_edges = async () => {
+  const dump = await getIdentityDump();
   const run = findNode(dump, {
     file: "packages/app/src/main.ts",
     name: "run",
@@ -145,12 +82,3 @@ export const test_ttscgraph_dump_resolves_pnpm_workspace_edges = () => {
     "app class heritage resolves to the sibling package class",
   );
 };
-
-function linkWorkspacePackage(target: string, link: string): void {
-  fs.mkdirSync(path.dirname(link), { recursive: true });
-  fs.symlinkSync(
-    target,
-    link,
-    process.platform === "win32" ? "junction" : "dir",
-  );
-}
