@@ -17,6 +17,11 @@ import { expectFsError } from "../../internal/callbackFs";
  * 2. Attempt every invalid rename and record its rejection code.
  * 3. Assert each expected code and that the whole tree is still intact with no
  *    stray destination nodes.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createMemFS.fs.rename rejects missing source, root move, descendant cycle, invalid parent and incompatible destination without changing seeded bytes or inventing nodes. Exact codes and remaining tree distinguish partial failed moves.
+ * @evidence contracts/testing.md#independent-expectations The rename contract assigns ENOENT, EBUSY, EINVAL, ENOTDIR, EISDIR and ENOTEMPTY to the authored invalid classes. Literal AAA/BBB/FILE, empty-directory presence and absent targets independently represent the pre-operation state.
+ * @evidence contracts/testing.md#distinguishing-cases Eight named failures span source, destination-parent, type compatibility and nonempty replacement. File/directory success and same-path success are retained by their separate sibling entries.
+ * @evidence contracts/testing.md#execution-ownership test_memfs_rename_rejects_invalid_targets_without_partial_state calls fs.rename through expectFsError for all eight object keys on one createMemFS host and compares the complete literal code object and preserved tree. No dynamic test registration hides individual failure identities.
  */
 export const test_memfs_rename_rejects_invalid_targets_without_partial_state =
   async (): Promise<void> => {

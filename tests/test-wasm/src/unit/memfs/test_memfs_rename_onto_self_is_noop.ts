@@ -16,6 +16,11 @@ import { callMutation } from "../../internal/callbackFs";
  * 1. Seed `/keep.txt` with "same".
  * 2. Rename `/keep.txt` onto itself (via a non-normalized alias `/./keep.txt`).
  * 3. Assert the callback succeeded and the file and its bytes still exist.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createMemFS.fs.rename accepts two spellings of the same normalized file path without deleting the node or changing its bytes. Presence and literal same text detect destructive delete/reinsert handling.
+ * @evidence contracts/testing.md#independent-expectations POSIX same-path rename is successful without mutation. Authored keep.txt and ./keep.txt identify the same normalized name, and independently seeded same bytes must remain.
+ * @evidence contracts/testing.md#distinguishing-cases The non-normalized destination alias exercises the identity boundary rather than an ordinary move. The file-move sibling verifies changed names and the invalid-target sibling verifies rejected moves.
+ * @evidence contracts/testing.md#execution-ownership test_memfs_rename_onto_self_is_noop directly awaits fs.rename through callMutation over one createMemFS host and owns exists/readFileText assertions. The source-unit runner discovers this one no-op entry.
  */
 export const test_memfs_rename_onto_self_is_noop = async (): Promise<void> => {
   const host = createMemFS();

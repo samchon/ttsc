@@ -20,6 +20,11 @@ const O_RDWR = 2;
  * 2. Write past end-of-file to force a zero-filled gap.
  * 3. Assert each write landed at its offset, the gap is NUL-filled, and a
  *    following cursor read still starts at byte 0.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createMemFS.fs.write honors explicit offsets, zero-fills a beyond-EOF gap and leaves the sequential cursor unchanged. Exact byte arrays detect append substitution, ESPIPE on files or accidental cursor advancement.
+ * @evidence contracts/testing.md#independent-expectations Positioned writes alter the requested file range without seeking the descriptor. Authored Z at zero, YY at two and ! at eight independently yield the bytes ZbYYef, two NUL bytes and !, with a next cursor read ZbY.
+ * @evidence contracts/testing.md#distinguishing-cases Zero offset, interior offset and beyond-EOF offset cover overwrite and sparse growth; the final null-position read checks the cursor boundary. Append-specific offset override is owned by the append sibling.
+ * @evidence contracts/testing.md#execution-ownership test_memfs_write_honors_explicit_positions runs createMemFS.fs.open/read/write through the callbackFs adapters and compares code/count, complete bytes and cursor read. This source-unit entry executes no real filesystem or Go host.
  */
 export const test_memfs_write_honors_explicit_positions =
   async (): Promise<void> => {

@@ -33,6 +33,11 @@ function fstatMtime(fs: IWasmExecFS, fd: number): Promise<number> {
  * 1. Open the same file read-only, write-only, and read-write.
  * 2. Reject read-only write and truncate plus write-only read operations.
  * 3. Assert `EBADF`, unchanged bytes, mtime, and cursor, plus permitted mutations.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createMemFS.fs rejects writes and ftruncate through read-only descriptors and reads through write-only descriptors before bytes, mtime or cursor change. Writable controls and directory open errors detect permission checks that reject everything or occur after mutation.
+ * @evidence contracts/testing.md#independent-expectations Node-style descriptor access grants and POSIX EBADF/EISDIR establish the expected outcomes. Literal abc, bc and Xb bytes and fd -1 are authored oracles; unchanged mtime compares pre-operation state after a clock tick, not a recomputed timestamp.
+ * @evidence contracts/testing.md#distinguishing-cases Read-only, write-only and read-write modes cover rejected and granted directions. The read cursor advances before rejected truncate; writable truncate succeeds; directory write-only/read-write/truncate modes all reject.
+ * @evidence contracts/testing.md#execution-ownership test_memfs_descriptors_enforce_their_access_mode directly calls createMemFS callback open/read/write/ftruncate/fstat through callbackFs adapters and local fstatMtime. Its clock wait separates mtime observations; all state remains in the Node unit, with no native filesystem or runtime host.
  */
 export const test_memfs_descriptors_enforce_their_access_mode =
   async (): Promise<void> => {

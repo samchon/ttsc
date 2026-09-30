@@ -29,6 +29,11 @@ const O_APPEND = 1024;
  * 2. Rename the file and write again through the same descriptor.
  * 3. Assert the gap was zero-filled, the write followed the rename, and an
  *    `O_APPEND` descriptor still appends after its file moves.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createMemFS retains descriptor cursor and append flag across ftruncate and rename. Zero-byte write must not grow a shrunken file; a later cursor write zero-fills the gap and subsequent writes target the moved node.
+ * @evidence contracts/testing.md#independent-expectations Resizing changes file size rather than the descriptor offset, and rename preserves an open node. The literal byte sequence a,NUL,NUL,NUL,Z,! and appended LM follow authored read lengths and writes independently of the implementation.
+ * @evidence contracts/testing.md#distinguishing-cases The cursor lies past EOF after shrink; empty write and nonempty write distinguish no-op from sparse growth. Ordinary cursor continuation and an O_APPEND descriptor after rename cover both retained flags.
+ * @evidence contracts/testing.md#execution-ownership test_memfs_descriptor_state_survives_ftruncate_and_rename calls createMemFS, openFd/readFdText/writeFdText and callMutation for ftruncate/rename directly. It owns the exact byte and old-path checks inside the source-unit process without a Wasm producer.
  */
 export const test_memfs_descriptor_state_survives_ftruncate_and_rename =
   async (): Promise<void> => {

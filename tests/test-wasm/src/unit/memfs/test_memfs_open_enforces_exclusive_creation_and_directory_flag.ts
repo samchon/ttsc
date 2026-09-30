@@ -24,6 +24,11 @@ const O_DIRECTORY = 65536;
  * 2. Open a regular file with `O_DIRECTORY`, and a directory with and without it.
  * 3. Assert the second exclusive create is `EEXIST`, `O_DIRECTORY` on a file is
  *    `ENOTDIR`, both allocate no descriptor, and the tree is unchanged.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createMemFS.fs.open enforces exclusive creation and O_DIRECTORY before allocating handles or mutating nodes. Exact conflict codes and tree contents distinguish ignored flags from correctly permitted directory opens.
+ * @evidence contracts/testing.md#independent-expectations O_CREAT|O_EXCL requires an absent path and O_DIRECTORY requires a directory. Literal EEXIST/ENOTDIR with fd -1, abc bytes and the empty newly created file derive from that flag contract and authored tree.
+ * @evidence contracts/testing.md#distinguishing-cases A new exclusive path and actual directory open succeed. Existing file/fresh-created file/directory exclusive requests, directory-only file and directory-only missing creation each reject without mutation.
+ * @evidence contracts/testing.md#execution-ownership test_memfs_open_enforces_exclusive_creation_and_directory_flag calls fs.open through openResult on one createMemFS host, then checks readFileText and readdir. Its source-unit entry owns every distinct flag/path result; no artifact installation executes.
  */
 export const test_memfs_open_enforces_exclusive_creation_and_directory_flag =
   async (): Promise<void> => {

@@ -24,6 +24,11 @@ import {
  * 3. Assert the old prefix is fully gone, the new prefix holds the file and its
  *    bytes (via `readdir` + `stat`, which scan the node map by prefix and would
  *    expose an orphan), and the pre-existing descriptor still reads "abcdef".
+ *
+ * @evidence contracts/testing.md#behavioral-verification createMemFS.fs.rename moves the complete directory subtree and preserves a pre-opened descriptor. Old/new namespace, bytes, listings and size assertions detect orphaned keys or a stranded open node.
+ * @evidence contracts/testing.md#independent-expectations Atomic rename changes names while preserving node data and open identity. Authored abcdef, size six, child file.txt and sole root entry new are independent literal expectations for the old/child subtree move.
+ * @evidence contracts/testing.md#distinguishing-cases A nested directory with a file and pre-existing read descriptor exercises successful subtree movement. Invalid target collisions have a separate negative test; same-path no-op is covered separately.
+ * @evidence contracts/testing.md#execution-ownership test_memfs_rename_directory_reparents_descendants_and_descriptors directly calls fs.rename via callMutation and reads through host/readFdText/readdir/stat on createMemFS. This unit entry owns every old-prefix and preserved-node observation.
  */
 export const test_memfs_rename_directory_reparents_descendants_and_descriptors =
   async (): Promise<void> => {

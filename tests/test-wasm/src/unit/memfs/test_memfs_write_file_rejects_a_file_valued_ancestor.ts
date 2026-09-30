@@ -18,6 +18,11 @@ import { expectHostError, readdir } from "../../internal/callbackFs";
  *    `/parent/a/b.ts`.
  * 3. Assert both are rejected with `ENOTDIR`, no node was added, and `/parent`
  *    still holds its original bytes.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createMemFS.writeFile creates missing parent directories but rejects file-valued ancestors before adding descendants or changing the file. Literal parent bytes and absent intermediate nodes detect success in an unwalkable tree.
+ * @evidence contracts/testing.md#independent-expectations A regular file cannot contain descendants; the MemFS convenience operation may create missing directories but must reject existing file segments with ENOTDIR. Literal OK/PARENT and false child/directory presence are independent authored expectations.
+ * @evidence contracts/testing.md#distinguishing-cases Nested convenience creation succeeds; direct child, deeper child and normalized alias beneath an existing file reject. Directory-target refusal is owned by the sibling write-file test.
+ * @evidence contracts/testing.md#execution-ownership test_memfs_write_file_rejects_a_file_valued_ancestor invokes createMemFS.writeFile directly and expectHostError, then observes readdir/exists/readFileText. The discoverable source-unit entry owns both convenience success and all three ancestor failures.
  */
 export const test_memfs_write_file_rejects_a_file_valued_ancestor =
   async (): Promise<void> => {

@@ -18,6 +18,11 @@ import { withBootStubs } from "../../internal/bootHarness";
  * 2. Boot it.
  * 3. Assert the boot rejects and the message names the early exit before
  *    readiness.
+ *
+ * @evidence contracts/testing.md#behavioral-verification bootTtsc rejects an unsignaled fulfilled go.run with BootTtscWorkerTerminationError naming pre-readiness exit. A missing rejection or an unrelated error cannot satisfy the predicates.
+ * @evidence contracts/testing.md#independent-expectations A runtime that exits before Ready cannot provide an API; the boot contract requires an actionable terminal failure. The independently literal message fragment and error class establish that outcome without reproducing the promise-race implementation.
+ * @evidence contracts/testing.md#distinguishing-cases Immediate go.run fulfillment without either bridge is the negative readiness case. test_boot_ttsc_resolves_normal_host supplies Ready with a still-running runtime; explicit Failed is covered separately.
+ * @evidence contracts/testing.md#execution-ownership test_boot_ttsc_rejects_before_readiness calls authored bootTtsc with withBootStubs.onRun returning Promise.resolve and owns both rejection predicates in the source-unit runner. Only environmental globals are doubled; no real runtime artifact executes.
  */
 export const test_boot_ttsc_rejects_before_readiness =
   async (): Promise<void> => {

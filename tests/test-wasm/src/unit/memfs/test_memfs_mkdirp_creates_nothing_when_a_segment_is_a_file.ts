@@ -18,6 +18,11 @@ import { expectHostError, readdir } from "../../internal/callbackFs";
  * 2. Seed a file at `/blocked` and call `mkdirp` below it and onto it.
  * 3. Assert both rejections are `ENOTDIR`, no directory was created, and the file
  *    still holds its bytes.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createMemFS.mkdirp creates a complete directory chain and rejects file-valued segments without inventing descendants or altering the blocking file. Literal directory listings detect partial creation masked by an error.
+ * @evidence contracts/testing.md#independent-expectations The documented MemFS convenience contract validates the chain before mutation. Authored ENOTDIR, FILE bytes, absent blocked/a and blocked/a/b, and exact root entries establish atomicity independently of the ancestor-walk algorithm.
+ * @evidence contracts/testing.md#distinguishing-cases A deep chain and repeat call succeed; below-file, onto-file and normalized-alias calls reject. The low-level mkdir sibling owns missing-parent refusal without convenience parent creation.
+ * @evidence contracts/testing.md#execution-ownership test_memfs_mkdirp_creates_nothing_when_a_segment_is_a_file calls host.mkdirp directly and uses expectHostError plus readdir/exists/readFileText for observations. This source-unit entry owns each literal tree and failure result in memory.
  */
 export const test_memfs_mkdirp_creates_nothing_when_a_segment_is_a_file =
   async (): Promise<void> => {

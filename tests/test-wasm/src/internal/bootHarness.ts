@@ -1,4 +1,4 @@
-// Node-side lifecycle harness for the real, built `bootTtsc`.
+// Node-side source-unit lifecycle harness for authored `bootTtsc`.
 //
 // `bootTtsc` runs in a Web Worker and reaches for `importScripts`, `fetch`,
 // `WebAssembly.instantiateStreaming`, and the `Go` constructor that

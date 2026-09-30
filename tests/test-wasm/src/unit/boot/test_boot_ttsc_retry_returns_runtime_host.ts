@@ -19,6 +19,11 @@ import { openFd, readFdText } from "../../internal/callbackFs";
  * 2. The successful runtime records the `globalThis.fs` it captured at start.
  * 3. Assert the returned `host.fs` is that captured fs and a file written through
  *    the returned host is readable via that same fs.
+ *
+ * @evidence contracts/testing.md#behavioral-verification bootTtsc restores failed default-host installation so the same-key retry returns the runtime-visible filesystem. Host identity and reading an authored mounted file detect a stale global fs disconnected from the returned host.
+ * @evidence contracts/testing.md#independent-expectations The successful runtime independently records globalThis.fs at startup. Literal TypeScript bytes written after boot must be readable through that same filesystem; the expected text is authored rather than copied from a MemFS result.
+ * @evidence contracts/testing.md#distinguishing-cases HTTP 503 followed by 200 exercises pre-runtime recovery for an omitted host, with a post-retry mount/read check. The explicit-host sibling verifies caller identity; started-runtime retry rejection is separate.
+ * @evidence contracts/testing.md#execution-ownership test_boot_ttsc_retry_returns_runtime_host calls bootTtsc through withBootStubs, then result.host.writeFile and openFd/readFdText over its callback fs. This one source-unit entry owns both reference identity and byte visibility without a real Go runtime.
  */
 export const test_boot_ttsc_retry_returns_runtime_host =
   async (): Promise<void> => {

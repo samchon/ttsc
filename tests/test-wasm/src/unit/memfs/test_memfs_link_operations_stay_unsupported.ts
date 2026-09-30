@@ -15,6 +15,11 @@ import { expectFsError, readdir } from "../../internal/callbackFs";
  * 1. Seed a file and a directory.
  * 2. Call `link`, `symlink`, and `readlink` against them.
  * 3. Assert `EPERM`, `EPERM`, and `EINVAL`, and that no node was created.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createMemFS.fs refuses link, symlink and readlink without adding namespace nodes. Exact errors and root children detect a false success or a partial unsupported link creation.
+ * @evidence contracts/testing.md#independent-expectations MemFS deliberately has no link indirection: link/symlink return EPERM and reading an ordinary file as a link returns EINVAL. Literal root entries dir and f.txt are the independent seeded tree.
+ * @evidence contracts/testing.md#distinguishing-cases File hardlink, directory hardlink, file symlink and ordinary-file readlink each retain their error identity. Supported ordinary file and directory seeding supplies the unchanged namespace baseline.
+ * @evidence contracts/testing.md#execution-ownership test_memfs_link_operations_stay_unsupported calls createMemFS, invokes fs.link/symlink/readlink through expectFsError, and observes fs.readdir through readdir. All four operations execute in memory in the source-unit process.
  */
 export const test_memfs_link_operations_stay_unsupported =
   async (): Promise<void> => {

@@ -22,6 +22,11 @@ const O_CREAT = 64;
  *    normalized alias of the missing chain.
  * 3. Assert each rejection carries its code with `fd` -1, and that no directory or
  *    file node was invented anywhere.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createMemFS.fs.open with O_CREAT creates only beneath an existing directory and rejects impossible parents with no fd or invented nodes. Exact fd/error/tree assertions distinguish low-level open from recursive host seeding.
+ * @evidence contracts/testing.md#independent-expectations Low-level creation requires an existing directory parent: file ancestors are ENOTDIR and missing chains are ENOENT. Literal fd -1, BASE bytes and root [base,dir] establish unchanged rejected state independently.
+ * @evidence contracts/testing.md#distinguishing-cases Creation inside dir succeeds; file parent, missing a/b chain and its normalized alias reject. host.writeFile convenience parent creation is covered by the file-ancestor sibling.
+ * @evidence contracts/testing.md#execution-ownership test_memfs_open_create_requires_an_existing_directory_parent calls createMemFS and fs.open through openResult, then exists/readFileText/readdir. It owns successful allocation and three rejected creation observations entirely in the source-unit process.
  */
 export const test_memfs_open_create_requires_an_existing_directory_parent =
   async (): Promise<void> => {
