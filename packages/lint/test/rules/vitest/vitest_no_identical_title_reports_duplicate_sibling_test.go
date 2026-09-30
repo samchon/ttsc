@@ -14,6 +14,11 @@ import (
 // 1. Parse two sibling tests with the same static title.
 // 2. Enable vitest/no-identical-title.
 // 3. Assert one diagnostic is emitted for the duplicate.
+//
+// @evidence contracts/testing.md#behavioral-verification NewEngine.Run verifies the second duplicate sibling title is reported for vitest/no-identical-title; the count and exact rule identity distinguish the intended diagnostic from an unrelated report.
+// @evidence contracts/testing.md#independent-expectations Sibling titles must distinguish filtered runs and failure identities. The expected single finding and independently authored accepted control follow that supported policy, not engine-generated snapshots.
+// @evidence contracts/testing.md#distinguishing-cases The original violation is paired with the adjacent accepted source: describe("math", () => { test("adds", () => expect(add()).toBe(1)); test("subtracts", () => expect(subtract()).toBe(2)); }); Both execute, preserving the original input and adding a zero-finding boundary.
+// @evidence contracts/testing.md#execution-ownership TestVitestNoIdenticalTitleReportsDuplicateSibling owns these virtual TypeScript inputs as a Go unit entry; actual lint operations execute in-process without a Vitest installation or product child host.
 func TestVitestNoIdenticalTitleReportsDuplicateSibling(t *testing.T) {
   file := parseTS(t, `describe("math", () => {
   test("adds", () => expect(add()).toBe(1));
@@ -21,8 +26,10 @@ func TestVitestNoIdenticalTitleReportsDuplicateSibling(t *testing.T) {
 });
 `)
   findings := NewEngine(RuleConfig{"vitest/no-identical-title": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
-  if len(findings) != 1 {
+  assertVitestOrdinaryRuleErrors(t, "vitest/no-identical-title", findings)
+  if len(findings) != 1 || findings[0].Rule != "vitest/no-identical-title" {
     t.Fatalf("expected one finding, got %v", findingRules(findings))
   }
   recordFindingBehavioralWitnesses(t, findings, behavioralWitnessEngine)
+  assertRuleSkipsSource(t, "vitest/no-identical-title", "describe(\"math\", () => { test(\"adds\", () => expect(add()).toBe(1)); test(\"subtracts\", () => expect(subtract()).toBe(2)); });\n")
 }
