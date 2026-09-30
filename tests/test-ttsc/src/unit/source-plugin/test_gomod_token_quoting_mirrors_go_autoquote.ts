@@ -1,8 +1,7 @@
-import {
-  assert,
-  autoQuoteGoModToken,
-  formatGoWorkPath,
-} from "../../internal/source-build";
+import assert from "node:assert/strict";
+
+import { autoQuoteGoModToken } from "../../../../../packages/ttsc/src/plugin/internal/source/autoQuoteGoModToken";
+import { formatGoWorkPath } from "../../../../../packages/ttsc/src/plugin/internal/source/formatGoWorkPath";
 
 /**
  * Verifies go.work/go.mod token quoting mirrors Go's modfile.AutoQuote.
@@ -19,8 +18,12 @@ import {
  *    every forced-quote trigger, and every escape form.
  * 2. Feed `formatGoWorkPath` Windows/POSIX paths with and without spaces.
  * 3. Assert each output equals the value Go would emit for the same token.
+ * @evidence contracts/testing.md#behavioral-verification Calls authored autoQuoteGoModToken and formatGoWorkPath; literal output assertions detect invalid workspace tokens and incorrect Go escape sequences.
+ * @evidence contracts/testing.md#independent-expectations The table literals follow golang.org/x/mod/modfile.AutoQuote and strconv.Quote grammar, independently of the TypeScript implementation.
+ * @evidence contracts/testing.md#distinguishing-cases Covers unquoted clean tokens, empty input, spaces, quotes, comments, Unicode separators and control escapes; path cases distinguish ordinary Windows, UNC, device and POSIX spellings.
+ * @evidence contracts/testing.md#execution-ownership The named source-unit entry directly executes two portable quoting functions; the retained writeGoWork integration separately validates a real Go workspace consumer.
  */
-export const test_gomod_token_quoting_mirrors_go_autoquote = () => {
+export function test_gomod_token_quoting_mirrors_go_autoquote() {
   const NBSP = String.fromCodePoint(0x00a0);
   const IDEOGRAPHIC_SPACE = String.fromCodePoint(0x3000);
 
@@ -85,9 +88,9 @@ export const test_gomod_token_quoting_mirrors_go_autoquote = () => {
   const formatCases: readonly [string, string][] = [
     ["C:\\Users\\John Smith\\proj", '"C:/Users/John Smith/proj"'],
     ["C:\\Users\\jsmith\\proj", "C:/Users/jsmith/proj"],
-    [String.raw`\\server\share\proj`, '"//server/share/proj"'],
-    [String.raw`\\?\C:\Users\x\proj`, '"//?/C:/Users/x/proj"'],
-    [String.raw`C:\Users\x\\y\proj`, '"C:/Users/x//y/proj"'],
+    ["\\\\server\\share\\proj", '"//server/share/proj"'],
+    ["\\\\?\\C:\\Users\\x\\proj", '"//?/C:/Users/x/proj"'],
+    ["C:\\Users\\x\\\\y\\proj", '"C:/Users/x//y/proj"'],
     ["/Users/John Smith/x", '"/Users/John Smith/x"'],
     ["/home/user/x", "/home/user/x"],
     [".", "."],
@@ -99,4 +102,4 @@ export const test_gomod_token_quoting_mirrors_go_autoquote = () => {
       `formatGoWorkPath(${JSON.stringify(input)})`,
     );
   }
-};
+}

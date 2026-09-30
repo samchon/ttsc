@@ -1,6 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 
-import { assert, computeCacheKey, fs, path } from "../../internal/source-build";
+import { assert, computeCacheKey, fs, path } from "../../internal/source-build-unit";
 
 /**
  * Verifies computeCacheKey separates cache keys by its injected `env` argument,
@@ -22,8 +22,13 @@ import { assert, computeCacheKey, fs, path } from "../../internal/source-build";
  * 2. Compute it again with `env.GOFLAGS = "-tags=beta"`, then a third time
  *    re-using the first `env`.
  * 3. Assert the first two differ and the first and third match.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Contradictory GOFLAGS alpha/beta must differ without mutating ambient process.env; repeating alpha must reproduce its key.
+ * @evidence contracts/testing.md#independent-expectations The programmatic compiler contract uses its injected effective environment; distinct GOFLAGS affect the build while equal effective options denote equivalent input.
+ * @evidence contracts/testing.md#distinguishing-cases Contradictory GOFLAGS alpha/beta must differ without mutating ambient process.env; repeating alpha must reproduce its key.
+ * @evidence contracts/testing.md#execution-ownership This matching named source-unit entry directly executes the authored hashing owner over fixture bytes without a Go executable, native artifact or consumer host; actual build and toolchain probes remain separate boundaries.
  */
-export const test_computecachekey_separates_keys_by_injected_env = () => {
+export function test_computecachekey_separates_keys_by_injected_env() {
   const root = TestProject.tmpdir("ttsc-source-plugin-");
   const plugin = path.join(root, "plugin");
   fs.mkdirSync(plugin, { recursive: true });
@@ -61,4 +66,4 @@ export const test_computecachekey_separates_keys_by_injected_env = () => {
 
   assert.notEqual(alpha, beta);
   assert.equal(alpha, alphaAgain);
-};
+}

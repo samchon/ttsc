@@ -1,4 +1,6 @@
-import { assert, formatDuration } from "../../internal/source-build";
+import assert from "node:assert/strict";
+
+import { formatDuration } from "../../../../../packages/ttsc/src/plugin/internal/source/formatDuration";
 
 /**
  * Verifies formatDuration renders non-finite input without NaN tokens.
@@ -14,9 +16,12 @@ import { assert, formatDuration } from "../../internal/source-build";
  *    `Infinity`/`NaN` substring.
  * 3. Assert the finite boundaries (0, sub-second, second, minute, negative) still
  *    render exactly as before.
+ * @evidence contracts/testing.md#behavioral-verification Calls authored formatDuration and asserts literal finite and non-finite diagnostic strings, rejecting Infinity/NaN leakage.
+ * @evidence contracts/testing.md#independent-expectations Unknown durations have the documented human-readable phrase; literal millisecond, second and minute expectations follow elapsed-time arithmetic.
+ * @evidence contracts/testing.md#distinguishing-cases Covers positive/negative infinity and NaN plus negative, zero, 999ms, 1000ms, 59999ms, 60000ms and a multi-minute remainder.
+ * @evidence contracts/testing.md#execution-ownership The matching exported entry runs in source units and imports formatDuration directly without building or launching a compiler.
  */
-export const test_formatduration_renders_nonfinite_input_without_nan_tokens =
-  () => {
+export function test_formatduration_renders_nonfinite_input_without_nan_tokens() {
     for (const value of [
       Number.POSITIVE_INFINITY,
       Number.NEGATIVE_INFINITY,
@@ -34,4 +39,4 @@ export const test_formatduration_renders_nonfinite_input_without_nan_tokens =
     assert.equal(formatDuration(59_999), "59s");
     assert.equal(formatDuration(60_000), "1m 0s");
     assert.equal(formatDuration(123_456), "2m 3s");
-  };
+  }

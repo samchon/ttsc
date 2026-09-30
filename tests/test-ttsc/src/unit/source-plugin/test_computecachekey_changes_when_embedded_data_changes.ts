@@ -6,7 +6,7 @@ import {
   fs,
   os,
   path,
-} from "../../internal/source-build";
+} from "../../internal/source-build-unit";
 
 /**
  * Verifies computeCacheKey changes when embedded data changes.
@@ -19,8 +19,13 @@ import {
  * 1. Create a plugin with a `//go:embed rules.json` directive.
  * 2. Compute the cache key, then update the embedded file.
  * 3. Assert the cache key changes.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Embedded rules.json bytes are part of the artifact input even though they are not Go source; the unchanged plugin then changed version data must produce distinct keys.
+ * @evidence contracts/testing.md#independent-expectations Go embed includes rules.json bytes in the binary, so a different rules version cannot reuse the original artifact even with unchanged Go source.
+ * @evidence contracts/testing.md#distinguishing-cases Embedded rules.json bytes are part of the artifact input even though they are not Go source; the unchanged plugin then changed version data must produce distinct keys.
+ * @evidence contracts/testing.md#execution-ownership This matching named source-unit entry directly executes the authored hashing owner over fixture bytes without a Go executable, native artifact or consumer host; actual build and toolchain probes remain separate boundaries.
  */
-export const test_computecachekey_changes_when_embedded_data_changes = () => {
+export function test_computecachekey_changes_when_embedded_data_changes() {
   const root = TestProject.tmpdir("ttsc-source-plugin-");
   const plugin = path.join(root, "plugin");
   fs.mkdirSync(plugin, { recursive: true });
@@ -52,4 +57,4 @@ export const test_computecachekey_changes_when_embedded_data_changes = () => {
   });
 
   assert.notEqual(first, second);
-};
+}

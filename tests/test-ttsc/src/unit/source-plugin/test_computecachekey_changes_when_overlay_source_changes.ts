@@ -6,7 +6,7 @@ import {
   fs,
   os,
   path,
-} from "../../internal/source-build";
+} from "../../internal/source-build-unit";
 
 /**
  * Verifies computeCacheKey changes when overlay source changes.
@@ -19,8 +19,13 @@ import {
  * 1. Create a source plugin and an overlay directory with one Go file.
  * 2. Compute the cache key, then modify the overlay file.
  * 3. Assert the cache key changes.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Changing only overlay host.go Value moves the key while plugin source and compiler versions stay fixed.
+ * @evidence contracts/testing.md#independent-expectations Overlay Go sources participate in the linked binary, so changing only their Value must change artifact identity.
+ * @evidence contracts/testing.md#distinguishing-cases Changing only overlay host.go Value moves the key while plugin source and compiler versions stay fixed.
+ * @evidence contracts/testing.md#execution-ownership This matching named source-unit entry directly executes the authored hashing owner over fixture bytes without a Go executable, native artifact or consumer host; actual build and toolchain probes remain separate boundaries.
  */
-export const test_computecachekey_changes_when_overlay_source_changes = () => {
+export function test_computecachekey_changes_when_overlay_source_changes() {
   const root = TestProject.tmpdir("ttsc-source-plugin-");
   const plugin = path.join(root, "plugin");
   const overlay = path.join(root, "overlay");
@@ -57,4 +62,4 @@ export const test_computecachekey_changes_when_overlay_source_changes = () => {
   });
 
   assert.notEqual(first, second);
-};
+}
