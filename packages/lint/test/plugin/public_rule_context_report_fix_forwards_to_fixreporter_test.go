@@ -13,8 +13,8 @@ import (
 //
 // The positive path of `rule.Context.ReportFix` — host implements `FixReporter`,
 // contributor emits one or more edits, the edits land on the host with order and
-// payload preserved — has no coverage today even though every contributor that
-// ships a fixer depends on it. This test pins the contract so a future refactor
+// payload preserved — is required by contributors that ship fixers. This test
+// pins the contract so a future refactor
 // of the unexported assertion site at `rule.go::ReportFix` cannot silently
 // downgrade the call to the diagnostic-only path.
 //
@@ -24,6 +24,11 @@ import (
 //     rule.Context.
 //  3. Assert the fixReporter received both edits in order with no fallback to
 //     the diagnostic-only `Report` method.
+//
+// @evidence contracts/testing.md#behavioral-verification Public Context.ReportFix selects the available FixReporter exactly once and preserves the actual node, message and two authored edits in order, without invoking the ordinary Report fallback.
+// @evidence contracts/testing.md#independent-expectations The literal msg, parsed fixture node identity and authored nonoverlapping edits supply expected callback payloads independently of the public context's delegation. Callback counts distinguish selecting the right capability from emitting duplicates.
+// @evidence contracts/testing.md#distinguishing-cases Two edits with different ranges and replacement lengths expose truncation or reordering; an available FixReporter contrasts with zero-edit and legacy-host fallbacks covered by neighboring units.
+// @evidence contracts/testing.md#execution-ownership A real public rule.Context invokes an observing reporter implementation directly in the Go process. The reporter captures arguments rather than implementing the forwarding decision, and this unit does not claim the internal host adapter or native linkage ran.
 func TestPublicRuleContextReportFixForwardsToFixReporter(t *testing.T) {
   reporter := &captureReporter{}
   ctx := rule.NewContext(nil, nil, rule.SeverityError, nil, reporter)
@@ -33,7 +38,7 @@ func TestPublicRuleContextReportFixForwardsToFixReporter(t *testing.T) {
     {Pos: 5, End: 10, Text: "bcdef"},
   }
   ctx.ReportFix(node, "msg", edits...)
-  if reporter.reports != 0 {
+  if reporter.reports != 0 || reporter.ranges != 0 || reporter.rangeFixCall != 0 {
     t.Fatalf("Report fallback should not fire when FixReporter is available, got %d", reporter.reports)
   }
   if reporter.fixCalls != 1 {
@@ -42,6 +47,7 @@ func TestPublicRuleContextReportFixForwardsToFixReporter(t *testing.T) {
   if !reflect.DeepEqual(reporter.lastEdits, edits) {
     t.Fatalf("edits round-trip mismatch: want %+v, got %+v", edits, reporter.lastEdits)
   }
+  if reporter.lastNode != node || reporter.lastMessage != "msg" { t.Fatalf("fix diagnostic payload lost: %+v", reporter) }
 }
 
 // captureReporter implements both the legacy `rule.Reporter` surface and the
@@ -54,23 +60,31 @@ type captureReporter struct {
   fixCalls     int
   rangeFixCall int
   lastEdits    []rule.TextEdit
+  lastNode     *shimast.Node
+  lastPos      int
+  lastEnd      int
+  lastMessage  string
 }
 
-func (r *captureReporter) Report(_ *shimast.Node, _ string) {
+func (r *captureReporter) Report(node *shimast.Node, message string) {
   r.reports++
+  r.lastNode, r.lastMessage = node, message
 }
 
-func (r *captureReporter) ReportRange(_, _ int, _ string) {
+func (r *captureReporter) ReportRange(pos, end int, message string) {
   r.ranges++
+  r.lastPos, r.lastEnd, r.lastMessage = pos, end, message
 }
 
-func (r *captureReporter) ReportFix(_ *shimast.Node, _ string, edits ...rule.TextEdit) {
+func (r *captureReporter) ReportFix(node *shimast.Node, message string, edits ...rule.TextEdit) {
   r.fixCalls++
+  r.lastNode, r.lastMessage = node, message
   r.lastEdits = append([]rule.TextEdit(nil), edits...)
 }
 
-func (r *captureReporter) ReportRangeFix(_, _ int, _ string, edits ...rule.TextEdit) {
+func (r *captureReporter) ReportRangeFix(pos, end int, message string, edits ...rule.TextEdit) {
   r.rangeFixCall++
+  r.lastPos, r.lastEnd, r.lastMessage = pos, end, message
   r.lastEdits = append([]rule.TextEdit(nil), edits...)
 }
 

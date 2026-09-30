@@ -17,6 +17,11 @@ import (
 // 1. Construct a Context with a FixReporter-implementing reporter.
 // 2. Call `ReportFix(nil, "msg", edit)`.
 // 3. Assert no reporter method fired and no panic occurred.
+//
+// @evidence contracts/testing.md#behavioral-verification Public Context.ReportFix with a nil node invokes neither ordinary node/range reporting nor fix node/range reporting despite active severity, a capable reporter and a nonempty edit.
+// @evidence contracts/testing.md#independent-expectations A node-anchored diagnostic requires a real node; the supplied edit cannot manufacture that missing diagnostic anchor. Literal zero counts across every reporter callback define the inert result independently of the implementation guard.
+// @evidence contracts/testing.md#distinguishing-cases Active error severity and an available fix-capable reporter isolate nil-node rejection from disabled severity, missing reporter and zero-edit downgrade; the adjacent parsed-node positive case validates this reporter fixture.
+// @evidence contracts/testing.md#execution-ownership The public method is called directly in-process on a real Context and observing reporter. The unit owns node-anchor guarding without native registration, artifact building, consumer installation or filesystem assertions.
 func TestPublicRuleContextReportFixSkipsNilNode(t *testing.T) {
   reporter := &captureReporter{}
   ctx := rule.NewContext(nil, nil, rule.SeverityError, nil, reporter)
