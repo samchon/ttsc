@@ -1,6 +1,5 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import fs from "node:fs";
 import path from "node:path";
 
 import { TestBanner } from "../../internal/TestBanner";
@@ -20,17 +19,17 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
  *    then use `loadProjectPlugins` to obtain the compiled native binary path.
  * 2. Invoke the binary's `transform` subcommand directly, passing an unrecognised
  *    `--future-optional-flag` alongside valid required flags.
- * 3. Assert zero exit status and that stdout contains valid JSON output (the
- *    `"typescript"` version field).
+ * 3. Assert zero exit status, parse stdout as a JSON transform envelope and
+ *    verify the original source value in its relative-keyed TypeScript map.
  *
- * @evidence contracts/testing.md#behavioral-verification The resolved native transform binary must accept the future optional flag, exit zero and return the typescript envelope marker.
- * @evidence contracts/testing.md#independent-expectations Host compatibility permits unknown optional flags while retaining the transform response contract.
- * @evidence contracts/testing.md#distinguishing-cases A valid project plus an unrecognized flag rejects a strict unknown-flag parser; this marker check alone does not validate every response field.
+ * @evidence contracts/testing.md#behavioral-verification The resolved native transform binary must accept the future optional flag, exit zero and return a parseable transform envelope whose src/main.ts text retains future-flag.
+ * @evidence contracts/testing.md#independent-expectations Host compatibility permits unknown optional flags; the transform envelope contract requires relative-keyed source text, and the authored future-flag literal must survive printing.
+ * @evidence contracts/testing.md#distinguishing-cases A valid project plus an unrecognized flag rejects a strict unknown-flag parser. JSON parsing and the literal source-value check reject malformed marker-only output or a lost source; this case does not validate every optional envelope field.
  * @evidence contracts/testing.md#execution-ownership This named test_banner_shared_host_ignores_future_optional_flags entry runs through TestExecutor and the real built launcher or native host; portable decisions are separate Go units.
  * @evidence contracts/e2e.md#necessary-boundary The actual native executable argument parser and transform protocol must accept launcher-forwarded optional arguments.
  * @evidence contracts/e2e.md#shared-execution The shared native artifact is resolved once and executed directly once; ordinary launcher emit cannot supply this future flag. Other unchanged native preparations reuse TestProject.sharedPluginCache, whose identity covers compiler, SDK, sources and overlays.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns fresh fixture directories until process exit, including failure; synchronous child processes finish before assertions. Sources/config remain fixed for their compilation, and only unchanged artifact inputs share the cache, never consumer results.
- * @evidence contracts/e2e.md#preserved-coverage The resolved native transform binary must accept the future optional flag, exit zero and return the typescript envelope marker. All original assertions remain in this named entry. Direct preamble/config/map unit cases do not claim this launcher and serialization connection.
+ * @evidence contracts/e2e.md#preserved-coverage The resolved native transform binary must accept the future optional flag, exit zero and return a parseable transform envelope whose src/main.ts text retains future-flag. All original assertions remain in this named entry. Direct preamble/config/map unit cases do not claim this launcher and serialization connection.
  */
 export function test_banner_shared_host_ignores_future_optional_flags() {
   const root = TestProject.createProject({
@@ -116,4 +115,7 @@ export function test_banner_shared_host_ignores_future_optional_flags() {
 
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /"typescript"/);
+  const envelope = JSON.parse(result.stdout);
+  assert.equal(typeof envelope.typescript?.["src/main.ts"], "string");
+  assert.match(envelope.typescript["src/main.ts"], /future-flag/);
 }
