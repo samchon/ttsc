@@ -25,85 +25,93 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
  * 2. Run the entry through ttsx.
  * 3. Assert the run fails naming the package's diagnostic, and the entry's success
  *    line never prints.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Actual ttsx must fail with the imported package TS6133 diagnostic and never print the entry success effect.
+ * @evidence contracts/testing.md#independent-expectations The dependency alone sets noUnusedLocals and declares an unused local; TS6133, the physical dependency source path and absent entry ran establish failure independently from runtime admission.
+ * @evidence contracts/testing.md#distinguishing-cases Owns dynamically imported symlinked raw-TypeScript workspace package with its own transform plugin and stricter diagnostic options, contrasting entry-only diagnostics and successful plugin runtime cases.
+ * @evidence contracts/testing.md#execution-ownership The matching named utility export runs actual ttsx entry execution and dependency plugin compilation in the shared Linux boundary batch.
+ * @evidence contracts/e2e.md#necessary-boundary The runtime must compile the imported package using its owning project, propagate that native build failure through dynamic import and stop the entry success effect; direct ownership or option units cannot prove this chain.
+ * @evidence contracts/e2e.md#shared-execution The unchanged banner producer shares the batch plugin cache and Go objects with other banner boundaries; no custom contributor or new plugin installation is created for the diagnostic input.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The entry/dependency project pair and symlink are isolated, only the dependency owns noUnusedLocals, and fixture cleanup is TestProject-owned; reused native artifacts do not contain source diagnostics.
+ * @evidence contracts/e2e.md#preserved-coverage Original failed status, TS6133, dependency filename and absent entry ran assertions remain. The dependency error is deliberately invisible to the entry project options.
  */
-export const test_ttsx_reports_a_type_error_in_an_imported_workspace_package_its_plugins_build =
-  () => {
-    const root = TestProject.createProject({
-      "package.json": JSON.stringify({ name: "workspace-cli", private: true }),
-      "tsconfig.json": JSON.stringify({
-        compilerOptions: {
-          module: "CommonJS",
-          target: "ES2022",
-          strict: true,
-          skipLibCheck: true,
-          types: [],
-          rootDir: "src",
-          outDir: "lib",
-        },
-        include: ["src"],
-      }),
-      "src/main.ts": [
-        "declare const process: { exitCode: number | undefined };",
-        "async function main(): Promise<void> {",
-        '  const dependency = await import("workspace-dep");',
-        '  console.log("entry ran", dependency.hello());',
-        "}",
-        "main().catch((error: unknown) => {",
-        "  console.error(error instanceof Error ? error.message : String(error));",
-        "  process.exitCode = 1;",
-        "});",
-        "",
-      ].join("\n"),
-      "packages/dep/package.json": JSON.stringify({
-        name: "workspace-dep",
-        version: "1.0.0",
-        main: "src/index.ts",
-      }),
-      "packages/dep/banner.config.cjs": `module.exports = { text: "dep" };\n`,
-      "packages/dep/tsconfig.json": JSON.stringify({
-        compilerOptions: {
-          module: "CommonJS",
-          target: "ES2022",
-          strict: true,
-          skipLibCheck: true,
-          types: [],
-          noUnusedLocals: true,
-          rootDir: "src",
-          outDir: "lib",
-          plugins: [
-            { transform: "@ttsc/banner", configFile: "banner.config.cjs" },
-          ],
-        },
-        include: ["src"],
-      }),
-      "packages/dep/src/index.ts": [
-        "export function hello(): string {",
-        "  const unused = 1;",
-        '  return "hello";',
-        "}",
-        "",
-      ].join("\n"),
-    });
-    TestUtilityPlugins.seedPackages(root, ["banner"]);
-    fs.symlinkSync(
-      path.join(root, "packages", "dep"),
-      path.join(root, "node_modules", "workspace-dep"),
-      "junction",
-    );
-
-    const result = TestProject.spawn(
-      TestProject.TTSX_BIN,
-      ["--cwd", root, "src/main.ts"],
-      {
-        cwd: root,
-        env: {
-          PATH: TestUtilityPlugins.goPath(),
-          TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
-        },
+export function test_ttsx_reports_a_type_error_in_an_imported_workspace_package_its_plugins_build(): void {
+  const root = TestProject.createProject({
+    "package.json": JSON.stringify({ name: "workspace-cli", private: true }),
+    "tsconfig.json": JSON.stringify({
+      compilerOptions: {
+        module: "CommonJS",
+        target: "ES2022",
+        strict: true,
+        skipLibCheck: true,
+        types: [],
+        rootDir: "src",
+        outDir: "lib",
       },
-    );
-    assert.notEqual(result.status, 0, result.stdout);
-    assert.match(result.stderr, /TS6133/, result.stderr);
-    assert.match(result.stderr, /packages[\\/]dep[\\/]src[\\/]index\.ts/);
-    assert.doesNotMatch(result.stdout, /entry ran/);
-  };
+      include: ["src"],
+    }),
+    "src/main.ts": [
+      "declare const process: { exitCode: number | undefined };",
+      "async function main(): Promise<void> {",
+      '  const dependency = await import("workspace-dep");',
+      '  console.log("entry ran", dependency.hello());',
+      "}",
+      "main().catch((error: unknown) => {",
+      "  console.error(error instanceof Error ? error.message : String(error));",
+      "  process.exitCode = 1;",
+      "});",
+      "",
+    ].join("\n"),
+    "packages/dep/package.json": JSON.stringify({
+      name: "workspace-dep",
+      version: "1.0.0",
+      main: "src/index.ts",
+    }),
+    "packages/dep/banner.config.cjs": `module.exports = { text: "dep" };\n`,
+    "packages/dep/tsconfig.json": JSON.stringify({
+      compilerOptions: {
+        module: "CommonJS",
+        target: "ES2022",
+        strict: true,
+        skipLibCheck: true,
+        types: [],
+        noUnusedLocals: true,
+        rootDir: "src",
+        outDir: "lib",
+        plugins: [
+          { transform: "@ttsc/banner", configFile: "banner.config.cjs" },
+        ],
+      },
+      include: ["src"],
+    }),
+    "packages/dep/src/index.ts": [
+      "export function hello(): string {",
+      "  const unused = 1;",
+      '  return "hello";',
+      "}",
+      "",
+    ].join("\n"),
+  });
+  TestUtilityPlugins.seedPackages(root, ["banner"]);
+  fs.symlinkSync(
+    path.join(root, "packages", "dep"),
+    path.join(root, "node_modules", "workspace-dep"),
+    "junction",
+  );
+
+  const result = TestProject.spawn(
+    TestProject.TTSX_BIN,
+    ["--cwd", root, "src/main.ts"],
+    {
+      cwd: root,
+      env: {
+        PATH: TestUtilityPlugins.goPath(),
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+      },
+    },
+  );
+  assert.notEqual(result.status, 0, result.stdout);
+  assert.match(result.stderr, /TS6133/, result.stderr);
+  assert.match(result.stderr, /packages[\\/]dep[\\/]src[\\/]index\.ts/);
+  assert.doesNotMatch(result.stdout, /entry ran/);
+}

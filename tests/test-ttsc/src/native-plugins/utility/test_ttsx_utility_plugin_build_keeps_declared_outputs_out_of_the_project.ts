@@ -24,56 +24,64 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
  *    `tsBuildInfoFile`, with `@ttsc/banner` as its transform plugin.
  * 2. Run its entry through ttsx.
  * 3. Assert the entry ran and no output location appeared in the project.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Actual banner-plugin ttsx execution prints entry ran while types, build and lib output directories never appear inside the consumer project.
+ * @evidence contracts/testing.md#independent-expectations The explicit declarationDir, tsBuildInfoFile and outDir destinations establish forbidden consumer outputs; literal entry output proves execution rather than silent skipped compilation.
+ * @evidence contracts/testing.md#distinguishing-cases Owns incremental/declaration project options reset by runtime compilation through a real transform host, with three separate output-negative controls and a successful entry effect.
+ * @evidence contracts/testing.md#execution-ownership The matching named utility export invokes the actual ttsx launcher and driver-backed linked banner producer in the shared Linux native batch.
+ * @evidence contracts/e2e.md#necessary-boundary Runtime forwarding of null output-option resets must survive native raw-option merging and publication; direct argument parsing cannot prove the driver honors those resets when tsconfig also supplies locations.
+ * @evidence contracts/e2e.md#shared-execution The banner producer shares the batch content-addressed cache and compiler objects with other banner consumers; the declared-output project is loaded once for all three negative assertions.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only this isolated project declares types/build/lib targets; the runtime owns its private emitted directory and handles, while TestProject owns the consumer fixture and shared immutable native cache lifetime.
+ * @evidence contracts/e2e.md#preserved-coverage Original successful exit, exact entry ran output and all three absent types/build/lib directory assertions remain; no output assertion is replaced by a cache or source-text check.
  */
-export const test_ttsx_utility_plugin_build_keeps_declared_outputs_out_of_the_project =
-  () => {
-    const root = TestProject.createProject({
-      "package.json": JSON.stringify({
-        name: "declared-outputs",
-        private: true,
-      }),
-      "banner.config.cjs": `module.exports = { text: "banner-ran" };\n`,
-      "tsconfig.json": JSON.stringify({
-        compilerOptions: {
-          module: "CommonJS",
-          target: "ES2022",
-          strict: true,
-          skipLibCheck: true,
-          types: [],
-          rootDir: "src",
-          outDir: "lib",
-          declaration: true,
-          declarationDir: "types",
-          incremental: true,
-          tsBuildInfoFile: "build/app.tsbuildinfo",
-          plugins: [
-            { transform: "@ttsc/banner", configFile: "banner.config.cjs" },
-          ],
-        },
-        include: ["src"],
-      }),
-      "src/main.ts": `export const value: string = "entry ran";\nconsole.log(value);\n`,
-    });
-    TestUtilityPlugins.seedPackages(root, ["banner"]);
-
-    const result = TestProject.spawn(
-      TestProject.TTSX_BIN,
-      ["--cwd", root, "src/main.ts"],
-      {
-        cwd: root,
-        env: {
-          PATH: TestUtilityPlugins.goPath(),
-          TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
-        },
+export function test_ttsx_utility_plugin_build_keeps_declared_outputs_out_of_the_project(): void {
+  const root = TestProject.createProject({
+    "package.json": JSON.stringify({
+      name: "declared-outputs",
+      private: true,
+    }),
+    "banner.config.cjs": `module.exports = { text: "banner-ran" };\n`,
+    "tsconfig.json": JSON.stringify({
+      compilerOptions: {
+        module: "CommonJS",
+        target: "ES2022",
+        strict: true,
+        skipLibCheck: true,
+        types: [],
+        rootDir: "src",
+        outDir: "lib",
+        declaration: true,
+        declarationDir: "types",
+        incremental: true,
+        tsBuildInfoFile: "build/app.tsbuildinfo",
+        plugins: [
+          { transform: "@ttsc/banner", configFile: "banner.config.cjs" },
+        ],
       },
+      include: ["src"],
+    }),
+    "src/main.ts": `export const value: string = "entry ran";\nconsole.log(value);\n`,
+  });
+  TestUtilityPlugins.seedPackages(root, ["banner"]);
+
+  const result = TestProject.spawn(
+    TestProject.TTSX_BIN,
+    ["--cwd", root, "src/main.ts"],
+    {
+      cwd: root,
+      env: {
+        PATH: TestUtilityPlugins.goPath(),
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+      },
+    },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "entry ran");
+  for (const location of ["types", "build", "lib"]) {
+    assert.equal(
+      fs.existsSync(path.join(root, location)),
+      false,
+      `the plugin build wrote ${location}/ into the project`,
     );
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stdout.trim(), "entry ran");
-    for (const location of ["types", "build", "lib"]) {
-      assert.equal(
-        fs.existsSync(path.join(root, location)),
-        false,
-        `the plugin build wrote ${location}/ into the project`,
-      );
-    }
-  };
+  }
+}
