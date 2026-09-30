@@ -15,6 +15,15 @@ import assert from "node:assert/strict";
  * 1. Build an emitting project with a nested source and no `rootDir`.
  * 2. Run the pinned tsgo with `--outDir`, then ttsc with the same `--outDir`.
  * 3. Assert ttsc agrees with tsgo on success and on naming `rootDir`.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Runs direct tsgo and ttsc with separate output directories on the same no-rootDir project, comparing success versus failure and rootDir diagnostic presence.
+ * @evidence contracts/testing.md#independent-expectations The direct upstream compiler invocation supplies the independent layout-policy oracle; expectations compare outcomes rather than duplicate ttsc rootDir inference.
+ * @evidence contracts/testing.md#distinguishing-cases Explicit outDir with absent rootDir is the boundary layout condition; ordinary configured rootDir/outDir publication is covered by neighboring entries.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this compiler feature and runs both the upstream reference command and product launcher.
+ * @evidence contracts/e2e.md#necessary-boundary The launcher must preserve the upstream compiler answer for its actual project/argv, a connection unit inference cannot prove.
+ * @evidence contracts/e2e.md#shared-execution One project is shared by both commands; distinct oracle-dist/ttsc-dist roots prevent output overlap, while the upstream reference invocation is necessary for the chosen independent oracle.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject registers the project and owns both result roots; each synchronous command completes before boolean/status comparison and suite cleanup removes all fixture state.
+ * @evidence contracts/e2e.md#preserved-coverage Original outcome agreement and rootDir-diagnostic agreement remain. Two equally successful commands with differently wrong emitted contents are not distinguished by this limited layout oracle.
  */
 export const test_ttsc_outdir_flag_keeps_the_tsgo_answer_for_a_project_without_rootdir =
   () => {

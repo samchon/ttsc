@@ -20,6 +20,15 @@ import {
  * 2. Run `ttsc --emit` on a project with no ttsc plugins.
  * 3. Assert one tsgo invocation, the internal `--noEmitOnError` guard, and one
  *    emitted JavaScript file.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Runs --emit against a scripted consumer-local compiler and requires exactly one logged invocation, --noEmitOnError and an actual dist/main.js artifact.
+ * @evidence contracts/testing.md#independent-expectations The authored peer appends one argv record per process call and writes a controlled output only when noEmit is false; the literal count independently detects a duplicate check-plus-emit call.
+ * @evidence contracts/testing.md#distinguishing-cases This explicit emit case complements configured noEmit, distinguishing the guarded one-pass emit policy from double compiler execution.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers the named process feature; the launcher calls an actual scripted consumer-local compiler rather than building a native contributor.
+ * @evidence contracts/e2e.md#necessary-boundary Real consumer executable discovery and argv transport must reach the scripted peer once; this fixture proves invocation count and host policy, not native JavaScript correctness.
+ * @evidence contracts/e2e.md#shared-execution One launcher lifetime must create one peer record and one artifact, reusing built package preparation. The peer is separately authored per case, with no installation/build side effects.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The private registered consumer/log/output start empty, and spawnWithoutTsgoOverride selects its preview binary. Synchronous process completion precedes count and file checks; suite cleanup releases fixture state.
+ * @evidence contracts/e2e.md#preserved-coverage Original status, exact call count, guarded-emit flag and output existence remain. Canned output content is not used to claim compiler semantics.
  */
 export const test_ttsc_no_plugin_emit_invokes_tsgo_once = () => {
   const root = createProject({

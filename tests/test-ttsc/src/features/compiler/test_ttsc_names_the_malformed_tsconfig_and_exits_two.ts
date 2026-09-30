@@ -19,6 +19,15 @@ import {
  * 1. Create a project whose `tsconfig.json` is left unterminated.
  * 2. Run `ttsc` against it.
  * 3. Assert exit 2 and a `ttsc:`-prefixed message naming that exact file.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Runs the launcher on an unclosed tsconfig object and requires status2, failed-to-parse wording and the exact authored config path in output.
+ * @evidence contracts/testing.md#independent-expectations The deliberately truncated JSON is invalid independently of the compiler; the fixture filename supplies the diagnostic location oracle.
+ * @evidence contracts/testing.md#distinguishing-cases This malformed-config negative differs from a missing config and from later watch repair. The specific error prevents a unrelated process failure from satisfying status2.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this named feature and executes actual CLI startup.
+ * @evidence contracts/e2e.md#necessary-boundary Real config-read failure must be reported through the launcher streams and exit status with its originating path; parser throw tests alone cannot prove command presentation.
+ * @evidence contracts/e2e.md#shared-execution One launcher attempt supplies status/text/path checks using shared built artifacts and no plugin/native preparation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A fresh registered malformed-config project owns the bytes and expected path; synchronous failure completes before assertions and suite cleanup removes it.
+ * @evidence contracts/e2e.md#preserved-coverage All original status2, error-prefix and config-path assertions remain. Exact parser offset and absence of disk output are not checked.
  */
 export const test_ttsc_names_the_malformed_tsconfig_and_exits_two = () => {
   const root = createProject({

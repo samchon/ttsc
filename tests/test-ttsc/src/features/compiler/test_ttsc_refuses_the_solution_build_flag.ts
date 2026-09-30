@@ -24,6 +24,15 @@ import {
  * 2. Run the flag leading, trailing, aliased as `-b`, and under `ttsc check`.
  * 3. Assert exit 2 with ttsc's refusal on stderr, no TS6369 anywhere, and no
  *    emitted output under either referenced package.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Runs four --build/-b forms including check against a two-reference solution, requiring ttsc status2/refusal/help and no tsgo first-argument diagnostic or child dist.
+ * @evidence contracts/testing.md#independent-expectations The ttsc contract rejects solution mode and directs callers to explicit -p; authored reference projects establish that refusal must precede any solution compilation.
+ * @evidence contracts/testing.md#distinguishing-cases Build flag before/after cwd, short alias and check subcommand exercise admission variants; neighboring non-solution spellings have separate coverage.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this feature and executes real launcher command admission for each argv form.
+ * @evidence contracts/e2e.md#necessary-boundary The real launcher must intercept solution mode before forwarding it to tsgo or writing referenced outputs; direct parser rejection cannot prove command routing or publication absence.
+ * @evidence contracts/e2e.md#shared-execution All four calls reuse one solution/two-child fixture and shared executables; no native plugin build or independent install is needed.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The registered project starts with no child dist. Synchronous refusal commands finish before output checks and TestProject owns all reference-fixture cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage All original refusal/status/advice/forbidden-native-error predicates and both no-dist checks remain. Ordinary project-reference compilation is not claimed here.
  */
 export const test_ttsc_refuses_the_solution_build_flag = () => {
   const packageConfig = JSON.stringify({

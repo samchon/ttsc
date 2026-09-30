@@ -16,6 +16,15 @@ import {
  * 1. Create a minimal project.
  * 2. Run `ttsc --emit --listEmittedFiles`.
  * 3. Assert a zero exit and a `TSFILE:` listing line in stdout.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Runs emit with --listEmittedFiles and requires success plus TSFILE main.js output on stdout.
+ * @evidence contracts/testing.md#independent-expectations The authored main.ts source maps to main.js under the project emit contract; the tsgo listing protocol prefixes emitted paths with TSFILE.
+ * @evidence contracts/testing.md#distinguishing-cases The canonical mixed-case flag exercises forwarding and real emit listing; lowercase spelling is checked by its separate complementary entry.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this named compiler feature and runs actual ttsc/tsgo emission.
+ * @evidence contracts/e2e.md#necessary-boundary The launcher must preserve native emitted-path stdout instead of consuming it for its own summary; direct argv parser tests cannot prove stream forwarding.
+ * @evidence contracts/e2e.md#shared-execution One emit command supplies success/listing checks from the shared executables with no contributor build.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity createProject registers fresh source/config and initially absent output; synchronous process completion precedes stdout inspection and suite exit owns cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Original success and TSFILE regex remain. The regex does not establish exact path identity or actual output contents.
  */
 export const test_ttsc_listemittedfiles_flag_surfaces_emitted_paths = () => {
   const root = createProject({

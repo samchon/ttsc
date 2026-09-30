@@ -28,6 +28,15 @@ import { WatchSession } from "../../internal/watch";
  *    cache relative to the cwd.
  * 3. Start `ttsc --watch` with the link as the cwd, and assert it announces it is
  *    watching `.`.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Runs clean and one WatchSession through a junction cwd, requiring project-relative legacy-cache removal and [ttsc] watching . transcript lines.
+ * @evidence contracts/testing.md#independent-expectations The link resolves to the authored project, so its root-relative cache and watching-root spellings must stay relative rather than being misreported as an external physical directory.
+ * @evidence contracts/testing.md#distinguishing-cases Linked versus physical cwd identity differs while content/config are shared; actual Windows short-name spelling is owned by the installed OS boundary.
+ * @evidence contracts/testing.md#execution-ownership The exported TestExecutor feature performs native clean plus an actual watch process on a real junction fixture.
+ * @evidence contracts/e2e.md#necessary-boundary Real alias resolution must reach launcher cleanup and watch presentation consistently; pure path-string units cannot prove a kernel junction selects the same project.
+ * @evidence contracts/e2e.md#shared-execution One linked project supplies both commands. Clean and watch are separate required lifetimes; WatchSession reuses its initial build for the watching-root assertion without contributor builds.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The registered physical/link roots isolate alias state, isolatedCacheEnvironment confines clean, and finally closes the WatchSession before fixture cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Both original relative transcript assertions and clean success remain. The test does not modify a source through the link or assert a subsequent rebuild.
  */
 export const test_ttsc_names_paths_relative_to_a_linked_cwd =
   async (): Promise<void> => {

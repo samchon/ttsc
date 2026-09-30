@@ -19,6 +19,15 @@ import {
  * 1. Materialize a directory with no config and assert no ancestor carries one.
  * 2. Run `ttsc --all`, `ttsc -?`, and the `build --all` subcommand form there.
  * 3. Assert each exits 0 with tsgo's help and no project-resolution error.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Runs --all, -? and build --all outside any project; requires successful TypeScript Compiler help without missing-config errors.
+ * @evidence contracts/testing.md#independent-expectations Terminal help describes the compiler independently of a project; authored argv forms establish which calls must bypass project lookup.
+ * @evidence contracts/testing.md#distinguishing-cases Long flag, short alias and explicit build command share the nonproject state. Project-describing terminal flags have the opposite expectation in another entry.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this compiler feature and runs three actual ttsc command invocations.
+ * @evidence contracts/e2e.md#necessary-boundary Help flags must reach tsgo through the launcher before project resolution rejects the cwd; direct option classification cannot prove actual forwarded help output.
+ * @evidence contracts/e2e.md#shared-execution All three commands share one nonproject fixture and built executables. Separate argv entrypoints require separate command lifetimes but no install or native build.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity assertNoProjectAbove validates the fresh fixture ancestry, preventing repository or ambient configs from satisfying lookup; synchronous commands complete and suite cleanup owns the directory.
+ * @evidence contracts/e2e.md#preserved-coverage All three status/help/forbidden-error checks remain. Exact full help text and version are deliberately not asserted.
  */
 export const test_ttsc_help_terminal_flags_print_tsgo_help_outside_a_project =
   () => {

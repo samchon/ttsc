@@ -22,6 +22,15 @@ import {
  * 1. Materialize a directory with no config and assert no ancestor carries one.
  * 2. Run `ttsc --init` there.
  * 3. Assert a zero exit and a `tsconfig.json` written into that directory.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Runs --init outside any project and requires success plus a newly created tsconfig.json.
+ * @evidence contracts/testing.md#independent-expectations Init is the CLI operation that creates the otherwise-required config; existence after execution is a behavioral output assertion, not a committed-file arrangement check.
+ * @evidence contracts/testing.md#distinguishing-cases The absent-config positive complements the existing-config byte-preservation negative. This entry checks creation rather than generated-config content.
+ * @evidence contracts/testing.md#execution-ownership The named compiler feature is executed by TestExecutor through a real launcher process.
+ * @evidence contracts/e2e.md#necessary-boundary No-project initialization must bypass discovery failure and reach the compiler writer; unit argv classification does not establish real file creation.
+ * @evidence contracts/e2e.md#shared-execution One command supplies status and publication checks, sharing built launcher/compiler artifacts without plugin preparation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity assertNoProjectAbove verifies no ancestor config exists, and the registered fixture starts without tsconfig; child completion precedes observation and fixture cleanup is suite-owned.
+ * @evidence contracts/e2e.md#preserved-coverage Original success and new config existence remain. Parsing or validating the generated options is an acknowledged assertion limitation.
  */
 export const test_ttsc_init_writes_a_tsconfig_outside_a_project = () => {
   const root = createProject({ "src/main.ts": `export const value = 1;\n` });
