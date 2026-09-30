@@ -59,6 +59,8 @@ tsconfig.json
 
 `paths` applies to the type-check as it does for `src`, but aliases still need runtime module resolution. The entry is type-checked, and the project is built first: an error in either `clear.ts` or the project's sources stops the run.
 
+A successful project build that writes no JavaScript, such as a solution config with no sources of its own, still takes this checked entry lane. The empty build supplies no executable output; the entry's own build must prove which JavaScript it emitted before that code runs.
+
 A project whose sources lie under its `tsconfig.json` directory needs no explicit `rootDir`. `ttsx` pins that config directory as the source root and emits into its private cache directory, so a check-only project with `noEmit: true` and sources under `src/` runs without JavaScript appearing beside them. An explicit `rootDir` is used as written. Sources above the config directory require a `rootDir` that contains them.
 
 Positional `ttsc <file.ts>` resolves the same source root but accepts only a file included by its project. Otherwise it reports the file and tsconfig rather than assigning another file's output to that entry.
@@ -72,6 +74,8 @@ Projects that enable `allowImportingTsExtensions` are supported. During the runt
 ## Files the program reaches at run time
 
 The up-front build covers what the compiler can see: the entry and everything it imports. A program can also reach TypeScript the compiler never saw. It can `require()` a file by path, load a file outside `include`, or write a `.ts` file and then import it. `ttsx` serves such a file through its own project: the nearest `tsconfig.json` above it, or, under a [solution-style config](#solution-style-configs), the referenced project that contains it. That project is built once per run, emit-only like any dependency, and serves every file it compiled. A file that build did not compile either is a root of its own. It is compiled alone through the project's options and plugins before it runs:
+
+This also applies when the owning config has `files: []` and its project build writes nothing. The requested file still inherits that project's compiler options and plugins; an empty project build does not send it through isolated type stripping.
 
 - In your own tree, the root is type-checked. A type error stops the run before any of that file's statements execute, just like a type error in the entry.
 - Inside `node_modules`, the root is emitted without the type gate, the same way the rest of that package is served. A workspace package linked into `node_modules` is your own tree, because its files live outside it.
