@@ -194,6 +194,7 @@
         "packages/ttsc/test/driver-unit/runtime_decorator_target_profiles_test.go",
         "packages/ttsc/test/driver-unit/runtime_jsx_profiles_test.go",
         "packages/ttsc/test/driver-unit/source_sdk_program_checker_test.go",
+        "packages/ttsc/test/driver-unit/source_sdk_citation_import_usage_test.go",
         "packages/ttsc/test/driver-unit/source_sdk_interface_properties_test.go",
         "packages/ttsc/test/driver-unit/source_sdk_factory_printer_test.go"
       ],
