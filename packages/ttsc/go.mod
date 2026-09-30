@@ -2,10 +2,9 @@ module github.com/samchon/ttsc/packages/ttsc
 
 go 1.26
 
-// Every shim sub-module is wired up via the sibling go.work file together
-// with the local typescript-go checkout under ../../third_party/typescript-go.
-// Tagged upstream versions can replace these local wires when the shim API
-// stabilizes.
+// Maintained shim sub-modules are resolved by these package-local replacements.
+// Their pinned typescript-go dependency is resolved through the Go module cache;
+// a sibling go.work or local upstream checkout is not required.
 replace (
 	github.com/microsoft/typescript-go/shim/ast => ./shim/ast
 	github.com/microsoft/typescript-go/shim/astnav => ./shim/astnav

@@ -45,8 +45,8 @@ export function readUpstreamOptionTable(): ReadonlyMap<string, UpstreamOption> |
     }
   }
   // A help that parsed into no option at all is not a table. A partial one is
-  // still what the compiler printed: the kind check reports every schema row it
-  // lacks, and the generated table's diff shows what moved.
+  // still what the compiler printed: the kind check skips schema rows missing
+  // from that table or lacking a type, and the generated diff shows what moved.
   if (out.size === 0) {
     process.stderr.write(
       `ttsc flag schema: upstream option table unusable (parsed ${out.size} options).\n`,

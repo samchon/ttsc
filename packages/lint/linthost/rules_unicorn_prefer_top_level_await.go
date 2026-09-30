@@ -1,9 +1,10 @@
 // unicorn/prefer-top-level-await: ES modules support top-level `await`,
 // which produces a flat synchronous-looking sequence and surfaces
 // rejections through the host. A `.then(cb)` continuation at the module
-// scope re-introduces the callback shape the host could have flattened
-// for free, and silently swallows rejections unless the author wires up
-// an explicit `.catch`.
+// scope re-introduces a callback shape. Without a rejection handler, `.then`
+// propagates rejection to its returned promise; an unhandled rejection follows
+// the host's policy rather than being silently swallowed. This rule prefers
+// the module body's direct await form.
 //
 // AST-only minimum-viable port: visit `CallExpression` and fire when the
 // callee is `PropertyAccess(_, then)` AND the call sits at the top

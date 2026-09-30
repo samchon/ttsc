@@ -144,11 +144,11 @@ export interface ITtscLintSecurityRules {
   "security/detect-possible-timing-attacks"?: TtscLintRuleSetting;
 
   /**
-   * Detect `crypto.pseudoRandomBytes`, which produces values that are not
-   * cryptographically secure.
+   * Detect `crypto.pseudoRandomBytes`, Node's deprecated alias of
+   * `crypto.randomBytes`.
    *
-   * Tokens, session ids, and key material must use `crypto.randomBytes` (or Web
-   * Crypto's `getRandomValues`) instead.
+   * Use the supported `crypto.randomBytes` name. The alias uses the same
+   * cryptographically secure generator; this rule reports the deprecated name.
    *
    * Type-aware via the Checker, which resolves the object at the use site so an
    * automatic rewrite is never applied to a shadowed binding. Enabling this
