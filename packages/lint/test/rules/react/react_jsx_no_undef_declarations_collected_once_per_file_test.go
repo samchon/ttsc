@@ -20,6 +20,11 @@ import (
 //  1. Build three files with wildly different undeclared-tag counts (50/500/2000).
 //  2. Run react/jsx-no-undef over them with the walk counter zeroed.
 //  3. Assert the collector ran once per file (== file count), never per tag.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual React rule engine operations verify 2550 undeclared JSX tags across three files are reported while the declaration collector runs exactly three times; complete finding counts/identities, message assertions or authored ranges distinguish the defect owned here.
+// @evidence contracts/testing.md#independent-expectations Each authored Missing tag lacks a declaration, establishing exact finding count independently; one per-file shared collection is the expected reuse boundary.
+// @evidence contracts/testing.md#distinguishing-cases 50, 500 and 2000 tags vary element population without varying the per-file collection count; declared-component tests own binding forms.
+// @evidence contracts/testing.md#execution-ownership TestReactJSXNoUndefDeclarationsCollectedOncePerFile is a named Go unit entry operating on TypeScript/TSX ASTs in the shared engine process without a React installation or product child host.
 func TestReactJSXNoUndefDeclarationsCollectedOncePerFile(t *testing.T) {
   makeFile := func(name string, tags int) *shimast.SourceFile {
     var sb strings.Builder
@@ -42,7 +47,10 @@ func TestReactJSXNoUndefDeclarationsCollectedOncePerFile(t *testing.T) {
 
   reactDeclaredNamesCollectCount.Store(0)
   findings := engine.Run(files, nil)
-  if len(findings) == 0 {
+  if err := validateSemanticRuleFindings(RuleConfig{"react/jsx-no-undef": SeverityError}, findings); err != nil {
+    t.Fatalf("invalid undeclared-component findings: %v", err)
+  }
+  if len(findings) != totalTags {
     t.Fatalf("expected react/jsx-no-undef to report the undeclared <Missing /> tags")
   }
   if got := reactDeclaredNamesCollectCount.Load(); got != int64(len(files)) {

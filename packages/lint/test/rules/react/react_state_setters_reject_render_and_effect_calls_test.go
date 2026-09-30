@@ -15,6 +15,11 @@ import (
 // 1. Parse a component that calls one setter in render and one inside useEffect.
 // 2. Enable react/set-state-in-render and react/set-state-in-effect.
 // 3. Assert each rule reports exactly its own call site.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual React rule engine operations verify render and synchronous effect setter calls each report their own rule; complete finding counts/identities, message assertions or authored ranges distinguish the defect owned here.
+// @evidence contracts/testing.md#independent-expectations The state-update context determines whether render or effect policy applies, rather than only the setter name.
+// @evidence contracts/testing.md#distinguishing-cases One actual useState setter is reused in both contexts; a deferred event callback is added as the accepted control.
+// @evidence contracts/testing.md#execution-ownership TestReactStateSettersRejectRenderAndEffectCalls is a named Go unit entry operating on TypeScript/TSX ASTs in the shared engine process without a React installation or product child host.
 func TestReactStateSettersRejectRenderAndEffectCalls(t *testing.T) {
   source := `
 function Widget() {
@@ -31,6 +36,12 @@ function Widget() {
     "react/set-state-in-render": SeverityError,
     "react/set-state-in-effect": SeverityError,
   }).Run([]*shimast.SourceFile{file}, nil)
+  if err := validateSemanticRuleFindings(RuleConfig{
+    "react/set-state-in-render": SeverityError,
+    "react/set-state-in-effect": SeverityError,
+  }, findings); err != nil {
+    t.Fatalf("invalid React findings: %v", err)
+  }
 
   rules := findingRules(findings)
   expected := []string{
@@ -46,4 +57,6 @@ function Widget() {
     }
   }
   recordFindingBehavioralWitnesses(t, findings, behavioralWitnessEngine)
+  assertReactRuleSkips(t, "react/set-state-in-render", "function Widget() { const [count, setCount] = useState(0); const onClick = () => { setCount(count + 1); }; return onClick; }")
+  assertReactRuleSkips(t, "react/set-state-in-effect", "function Widget() { const [count, setCount] = useState(0); const onClick = () => { setCount(count + 1); }; return onClick; }")
 }

@@ -16,6 +16,11 @@ import (
 //  1. Parse a TSX module with a component, a literal constant, and route metadata.
 //  2. Enable allowConstantExport and allowExportNames.
 //  3. Assert the native Engine emits no findings.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual React rule engine operations verify literal answer and named metadata exports remain clean beside App when both allow options are enabled; complete finding counts/identities, message assertions or authored ranges distinguish the defect owned here.
+// @evidence contracts/testing.md#independent-expectations allowConstantExport exempts the literal constant and allowExportNames exempts metadata, while App is a component export.
+// @evidence contracts/testing.md#distinguishing-cases Two different option exemptions are active; TestReactOnlyExportComponentsReportsNonComponentExport owns the default rejection.
+// @evidence contracts/testing.md#execution-ownership TestReactOnlyExportComponentsHonorsAllowOptions is a named Go unit entry operating on TypeScript/TSX ASTs in the shared engine process without a React installation or product child host.
 func TestReactOnlyExportComponentsHonorsAllowOptions(t *testing.T) {
   const ruleName = "react/only-export-components"
   source := `export const answer = 42;

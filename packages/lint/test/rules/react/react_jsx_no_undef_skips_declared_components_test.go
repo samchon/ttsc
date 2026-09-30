@@ -15,6 +15,11 @@ import "testing"
 //  1. Declare one uppercase component through each recognized form.
 //  2. Use every one as a JSX tag with only react/jsx-no-undef enabled.
 //  3. Assert the rule reports nothing.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual React rule engine operations verify all eight recognized declaration forms remain free of undeclared-component findings; complete finding counts/identities, message assertions or authored ranges distinguish the defect owned here.
+// @evidence contracts/testing.md#independent-expectations Imports, function/class/variable/enum declarations and a callback parameter are actual bindings under the supported source-level lookup.
+// @evidence contracts/testing.md#distinguishing-cases Default/named/namespace imports and local declarations distinguish positive bindings from TestReactJSXNoUndefReportsUndeclaredComponent.
+// @evidence contracts/testing.md#execution-ownership TestReactJSXNoUndefSkipsDeclaredComponents is a named Go unit entry operating on TypeScript/TSX ASTs in the shared engine process without a React installation or product child host.
 func TestReactJSXNoUndefSkipsDeclaredComponents(t *testing.T) {
   assertReactRuleSkips(t, "react/jsx-no-undef", `import Imported from "imported";
 import { Named } from "named";

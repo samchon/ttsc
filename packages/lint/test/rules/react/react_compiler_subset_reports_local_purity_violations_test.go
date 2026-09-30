@@ -16,6 +16,11 @@ import (
 // 1. Parse a component containing one violation for each implemented compiler-era subset.
 // 2. Enable component-hook-factories, immutability, refs, and use-memo.
 // 3. Assert the native Engine reports the expected rule names and counts.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual React rule engine operations verify four distinct reports identify nested hook factory, props mutation, render ref access and missing useMemo return; complete finding counts/identities, message assertions or authored ranges distinguish the defect owned here.
+// @evidence contracts/testing.md#independent-expectations React purity and hook/compiler contracts independently disallow these four authored operations; expected rule identities retain each meaning.
+// @evidence contracts/testing.md#distinguishing-cases All four local syntax forms share one component; the source-only subset does not prove whole-program React Compiler equivalence.
+// @evidence contracts/testing.md#execution-ownership TestReactCompilerSubsetReportsLocalPurityViolations is a named Go unit entry operating on TypeScript/TSX ASTs in the shared engine process without a React installation or product child host.
 func TestReactCompilerSubsetReportsLocalPurityViolations(t *testing.T) {
   source := `
 function Widget(props: { item: { count: number } }) {
@@ -39,6 +44,14 @@ function Widget(props: { item: { count: number } }) {
     "react/refs":                     SeverityError,
     "react/use-memo":                 SeverityError,
   }).Run([]*shimast.SourceFile{file}, nil)
+  if err := validateSemanticRuleFindings(RuleConfig{
+    "react/component-hook-factories": SeverityError,
+    "react/immutability":             SeverityError,
+    "react/refs":                     SeverityError,
+    "react/use-memo":                 SeverityError,
+  }, findings); err != nil {
+    t.Fatalf("invalid React findings: %v", err)
+  }
 
   rules := findingRules(findings)
   expected := []string{

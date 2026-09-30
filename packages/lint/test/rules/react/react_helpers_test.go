@@ -11,6 +11,9 @@ func assertReactRuleFinds(t *testing.T, ruleName, source, messagePart string) {
   t.Helper()
   file := parseTSXFile(t, "/virtual/component.tsx", source)
   findings := NewEngine(RuleConfig{ruleName: SeverityError}).Run([]*shimast.SourceFile{file}, nil)
+  if err := validateSemanticRuleFindings(RuleConfig{ruleName: SeverityError}, findings); err != nil {
+    t.Fatalf("%s: invalid React findings: %v", ruleName, err)
+  }
   if len(findings) != 1 {
     t.Fatalf("%s: expected one finding, got %d: %+v", ruleName, len(findings), findings)
   }

@@ -15,6 +15,11 @@ import (
 // 1. Parse a component with useEffect and useMemo callbacks that read count.
 // 2. Enable only react/exhaustive-deps.
 // 3. Assert both empty dependency arrays are reported.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual React rule engine operations verify effect and memo callbacks reading count with empty dependencies both report; complete finding counts/identities, message assertions or authored ranges distinguish the defect owned here.
+// @evidence contracts/testing.md#independent-expectations The captured changing count must be represented in the dependency list.
+// @evidence contracts/testing.md#distinguishing-cases Two hook kinds own separate captured reads; a callback with count included is added as the accepted control.
+// @evidence contracts/testing.md#execution-ownership TestReactExhaustiveDepsReportsMissingIdentifiers is a named Go unit entry operating on TypeScript/TSX ASTs in the shared engine process without a React installation or product child host.
 func TestReactExhaustiveDepsReportsMissingIdentifiers(t *testing.T) {
   source := `
 function Widget(count: number) {
@@ -29,6 +34,11 @@ function Widget(count: number) {
   findings := NewEngine(RuleConfig{
     "react/exhaustive-deps": SeverityWarn,
   }).Run([]*shimast.SourceFile{file}, nil)
+  if err := validateSemanticRuleFindings(RuleConfig{
+    "react/exhaustive-deps": SeverityWarn,
+  }, findings); err != nil {
+    t.Fatalf("invalid React findings: %v", err)
+  }
 
   rules := findingRules(findings)
   expected := []string{
@@ -44,4 +54,5 @@ function Widget(count: number) {
     }
   }
   recordFindingBehavioralWitnesses(t, findings, behavioralWitnessEngine)
+  assertReactRuleSkips(t, "react/exhaustive-deps", "function Widget(count: number) { useEffect(() => { console.log(count); }, [count]); const label = useMemo(() => count.toString(), [count]); return label; }")
 }
