@@ -14,10 +14,10 @@ import (
  *  1. Mark the only matching TypeScript inventory as failed and unitless.
  *  2. Apply the activation filter to the configured claim.
  *  3. Assert the failed claim remains present for normal failure handling.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification activeGraphConfig is exercised with the scenario below; the assertions require the failed claim remains present for normal failure handling.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Loader failure and healthy emptiness have opposite meanings for coverage. A partial population may be missing the selected export, so filtering that claim would hide both the direct failure and every repair signal behind it.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Mark the only matching TypeScript inventory as failed and unitless. Apply the activation filter to the configured claim. Assert the failed claim remains present for normal failure handling.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestFailedTypeScriptClaimPopulationDoesNotBecomeInactive is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
+ * @evidence contracts/testing.md#behavioral-verification activeGraphConfig is exercised with the scenario below; the assertions require the failed claim remains present for normal failure handling.
+ * @evidence contracts/testing.md#independent-expectations Loader failure and healthy emptiness have opposite meanings for coverage. A partial population may be missing the selected export, so filtering that claim would hide both the direct failure and every repair signal behind it.
+ * @evidence contracts/testing.md#distinguishing-cases Mark the only matching TypeScript inventory as failed and unitless. Apply the activation filter to the configured claim. Assert the failed claim remains present for normal failure handling.
+ * @evidence contracts/testing.md#execution-ownership TestFailedTypeScriptClaimPopulationDoesNotBecomeInactive is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
  */
 func TestFailedTypeScriptClaimPopulationDoesNotBecomeInactive(t *testing.T) {
   root := t.TempDir()

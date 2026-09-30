@@ -16,10 +16,10 @@ import (
  *  1. Let a disabled claim acknowledge the shared requirement.
  *  2. Leave an enabled sibling that cites the same requirement unacknowledged.
  *  3. Assert the enabled obligation still fails.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule is exercised with the scenario below; the assertions require the enabled obligation still fails.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Evidence coverage is claim-local even when references select the same target. A declaration that exists only in a disabled claim must disappear with that claim rather than covering an enabled sibling by accident.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Let a disabled claim acknowledge the shared requirement. Leave an enabled sibling that cites the same requirement unacknowledged. Assert the enabled obligation still fails.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestDisabledClaimCannotCoverAnEnabledSibling is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule is exercised with the scenario below; the assertions require the enabled obligation still fails.
+ * @evidence contracts/testing.md#independent-expectations Evidence coverage is claim-local even when references select the same target. A declaration that exists only in a disabled claim must disappear with that claim rather than covering an enabled sibling by accident.
+ * @evidence contracts/testing.md#distinguishing-cases Let a disabled claim acknowledge the shared requirement. Leave an enabled sibling that cites the same requirement unacknowledged. Assert the enabled obligation still fails.
+ * @evidence contracts/testing.md#execution-ownership TestDisabledClaimCannotCoverAnEnabledSibling is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
  */
 func TestDisabledClaimCannotCoverAnEnabledSibling(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

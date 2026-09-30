@@ -17,10 +17,10 @@ import (
  *  1. Root a Prisma population at a directory the process may not list.
  *  2. Collect the configured addresses and their health.
  *  3. Assert the root is named once and the base is recorded failed.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification configuredPrismaAddressesWithHealth is exercised with the scenario below; the assertions require the root is named once and the base is recorded failed.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Both walkers held the same guard and the same dead handler, so repairing one would decide an identical filesystem state by artifact kind. The Prisma half runs through its address collector, because the bridge below it needs a linked feature suite this question does not depend on.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Root a Prisma population at a directory the process may not list. Collect the configured addresses and their health. Assert the root is named once and the base is recorded failed.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestAnUnlistablePrismaRootIsReportedAtItsCause is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
+ * @evidence contracts/testing.md#behavioral-verification configuredPrismaAddressesWithHealth is exercised with the scenario below; the assertions require the root is named once and the base is recorded failed.
+ * @evidence contracts/testing.md#independent-expectations Both walkers held the same guard and the same dead handler, so repairing one would decide an identical filesystem state by artifact kind. The Prisma half runs through its address collector, because the bridge below it needs a linked feature suite this question does not depend on.
+ * @evidence contracts/testing.md#distinguishing-cases Root a Prisma population at a directory the process may not list. Collect the configured addresses and their health. Assert the root is named once and the base is recorded failed.
+ * @evidence contracts/testing.md#execution-ownership TestAnUnlistablePrismaRootIsReportedAtItsCause is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
  */
 func TestAnUnlistablePrismaRootIsReportedAtItsCause(t *testing.T) {
   workspace := t.TempDir()

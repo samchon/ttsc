@@ -16,10 +16,10 @@ import (
  *  1. Materialize one failed and one healthy TypeScript claim inventory.
  *  2. Give each claim its own healthy Markdown reference.
  *  3. Assert only the healthy claim derives a missing acknowledgement.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification evaluateEvidenceGraph, materializeClaimStates is exercised with the scenario below; the assertions require only the healthy claim derives a missing acknowledgement.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Coverage requires the complete set of declarations in a claim population. If one selected file cannot be read, reporting every reference unit as missing is unsupported, but a separate healthy claim still has a complete numerator and denominator and must continue to fail normally.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Materialize one failed and one healthy TypeScript claim inventory. Give each claim its own healthy Markdown reference. Assert only the healthy claim derives a missing acknowledgement.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestClaimLoaderFailureSuppressesOnlyItsOwnCoverage is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
+ * @evidence contracts/testing.md#behavioral-verification evaluateEvidenceGraph, materializeClaimStates is exercised with the scenario below; the assertions require only the healthy claim derives a missing acknowledgement.
+ * @evidence contracts/testing.md#independent-expectations Coverage requires the complete set of declarations in a claim population. If one selected file cannot be read, reporting every reference unit as missing is unsupported, but a separate healthy claim still has a complete numerator and denominator and must continue to fail normally.
+ * @evidence contracts/testing.md#distinguishing-cases Materialize one failed and one healthy TypeScript claim inventory. Give each claim its own healthy Markdown reference. Assert only the healthy claim derives a missing acknowledgement.
+ * @evidence contracts/testing.md#execution-ownership TestClaimLoaderFailureSuppressesOnlyItsOwnCoverage is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
  */
 func TestClaimLoaderFailureSuppressesOnlyItsOwnCoverage(t *testing.T) {
   root := t.TempDir()

@@ -18,10 +18,10 @@ import (
  *  2. Read each one.
  *  3. Assert the declared spelling is used, and the project root where there is
  *     no declared spelling to use.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification unlistableBaseProblem, resolvePopulationBase is exercised with the scenario below; the assertions require the declared spelling is used, and the project root where there is no declared spelling to use.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations A base the walk could not list costs every unit there is, so it is a finding about the population and names the property that selected it. The per-entry message beside it names a path a reader opens, and the two would be indistinguishable if this one spelled a location too.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Compose the message for a declared root and for the default base. Read each one. Assert the declared spelling is used, and the project root where there is no declared spelling to use.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestAnUnlistableBaseIsNamedAsAPopulation is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
+ * @evidence contracts/testing.md#behavioral-verification unlistableBaseProblem, resolvePopulationBase is exercised with the scenario below; the assertions require the declared spelling is used, and the project root where there is no declared spelling to use.
+ * @evidence contracts/testing.md#independent-expectations A base the walk could not list costs every unit there is, so it is a finding about the population and names the property that selected it. The per-entry message beside it names a path a reader opens, and the two would be indistinguishable if this one spelled a location too.
+ * @evidence contracts/testing.md#distinguishing-cases Compose the message for a declared root and for the default base. Read each one. Assert the declared spelling is used, and the project root where there is no declared spelling to use.
+ * @evidence contracts/testing.md#execution-ownership TestAnUnlistableBaseIsNamedAsAPopulation is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
  */
 func TestAnUnlistableBaseIsNamedAsAPopulation(t *testing.T) {
   root := filepath.Join(t.TempDir(), "project")

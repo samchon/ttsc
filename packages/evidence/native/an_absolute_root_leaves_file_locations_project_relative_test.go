@@ -17,10 +17,10 @@ import (
  *  1. Root a Markdown reference at an absolute directory holding one document.
  *  2. Leave its selected section uncited.
  *  3. Assert the location ascends project-relatively and the target does not.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runRootedGraphIn is exercised with the scenario below; the assertions require the location ascends project-relatively and the target does not.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Only the name of the configuration property moved. A file's location is derived from `Display`, which this change deliberately leaves alone, so the repair must be invisible to a reader who is opening files rather than editing configuration; and the two spellings now legitimately differ in one message.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Root a Markdown reference at an absolute directory holding one document. Leave its selected section uncited. Assert the location ascends project-relatively and the target does not.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestAnAbsoluteRootLeavesFileLocationsProjectRelative is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
+ * @evidence contracts/testing.md#behavioral-verification runRootedGraphIn is exercised with the scenario below; the assertions require the location ascends project-relatively and the target does not.
+ * @evidence contracts/testing.md#independent-expectations Only the name of the configuration property moved. A file's location is derived from `Display`, which this change deliberately leaves alone, so the repair must be invisible to a reader who is opening files rather than editing configuration; and the two spellings now legitimately differ in one message.
+ * @evidence contracts/testing.md#distinguishing-cases Root a Markdown reference at an absolute directory holding one document. Leave its selected section uncited. Assert the location ascends project-relatively and the target does not.
+ * @evidence contracts/testing.md#execution-ownership TestAnAbsoluteRootLeavesFileLocationsProjectRelative is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
  */
 func TestAnAbsoluteRootLeavesFileLocationsProjectRelative(t *testing.T) {
   workspace := t.TempDir()

@@ -17,10 +17,10 @@ import (
  *     enabled Markdown reference.
  *  2. Assert only the enabled dependency is declared.
  *  3. Flip `disabled` to false and assert every staged dependency returns.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.ProjectInputs returns only docs/live/**/*.md while the staged claim is disabled. Enabling that same claim restores staged-docs/claims/**/*.md, staged-schema/**/*.prisma and the exact staged/swagger.json file input while preserving the live glob.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Project inputs run before a Program exists, so filtering only inside `Check` would leave staged Markdown, Prisma, and Swagger populations live in watch mode. Re-enabling the same claim must restore every dependency.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Disable a Markdown claim with Prisma and Swagger references beside one enabled Markdown reference. Assert only the enabled dependency is declared. Flip `disabled` to false and assert every staged dependency returns.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestDisabledClaimsDeclareNoProjectInputsUntilEnabled is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
+ * @evidence contracts/testing.md#behavioral-verification graphRule.ProjectInputs returns only the live Markdown glob while the staged claim is disabled. Enabling that same claim restores the staged-docs Markdown glob, staged-schema Prisma glob and the exact staged/swagger.json file input while preserving the live glob.
+ * @evidence contracts/testing.md#independent-expectations Project inputs run before a Program exists, so filtering only inside `Check` would leave staged Markdown, Prisma, and Swagger populations live in watch mode. Re-enabling the same claim must restore every dependency.
+ * @evidence contracts/testing.md#distinguishing-cases Disable a Markdown claim with Prisma and Swagger references beside one enabled Markdown reference. Assert only the enabled dependency is declared. Flip `disabled` to false and assert every staged dependency returns.
+ * @evidence contracts/testing.md#execution-ownership TestDisabledClaimsDeclareNoProjectInputsUntilEnabled is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
  */
 func TestDisabledClaimsDeclareNoProjectInputsUntilEnabled(t *testing.T) {
   configuration := func(disabled string) string {

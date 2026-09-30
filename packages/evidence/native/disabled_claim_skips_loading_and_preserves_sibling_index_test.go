@@ -17,10 +17,10 @@ import (
  *  1. Disable Claim 1 behind an unreadable population root.
  *  2. Leave Claim 2 active with one unacknowledged Markdown section.
  *  3. Assert only the Claim 2 coverage failure survives.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule is exercised with the scenario below; the assertions require only the Claim 2 coverage failure survives.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Filtering after graph loading would still report the disabled claim's unreadable root. Rebuilding the claim slice with new indexes would instead report the enabled sibling as Claim 1, sending the author to the wrong configuration entry.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Disable Claim 1 behind an unreadable population root. Leave Claim 2 active with one unacknowledged Markdown section. Assert only the Claim 2 coverage failure survives.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestDisabledClaimSkipsLoadingAndPreservesSiblingIndex is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule is exercised with the scenario below; the assertions require only the Claim 2 coverage failure survives.
+ * @evidence contracts/testing.md#independent-expectations Filtering after graph loading would still report the disabled claim's unreadable root. Rebuilding the claim slice with new indexes would instead report the enabled sibling as Claim 1, sending the author to the wrong configuration entry.
+ * @evidence contracts/testing.md#distinguishing-cases Disable Claim 1 behind an unreadable population root. Leave Claim 2 active with one unacknowledged Markdown section. Assert only the Claim 2 coverage failure survives.
+ * @evidence contracts/testing.md#execution-ownership TestDisabledClaimSkipsLoadingAndPreservesSiblingIndex is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
  */
 func TestDisabledClaimSkipsLoadingAndPreservesSiblingIndex(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

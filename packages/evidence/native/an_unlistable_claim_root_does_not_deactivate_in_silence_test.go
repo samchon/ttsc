@@ -19,10 +19,10 @@ import (
  *     with a segment-leading glob, which is the shape that produced the silence.
  *  2. Run the rule.
  *  3. Assert the root is named rather than the claim vanishing.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runRootedGraphIn is exercised with the scenario below; the assertions require the root is named rather than the claim vanishing.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The claim side is the worse half. A reference at least prints something misleading, while a claim whose population came back healthy and empty deactivates without a word and takes its whole obligation with it, so the build goes green over code nobody is answering for.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Root a Markdown claim at a directory the process may not list, selecting with a segment-leading glob, which is the shape that produced the silence. Run the rule. Assert the root is named rather than the claim vanishing.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestAnUnlistableClaimRootDoesNotDeactivateInSilence is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
+ * @evidence contracts/testing.md#behavioral-verification runRootedGraphIn is exercised with the scenario below; the assertions require the root is named rather than the claim vanishing.
+ * @evidence contracts/testing.md#independent-expectations The claim side is the worse half. A reference at least prints something misleading, while a claim whose population came back healthy and empty deactivates without a word and takes its whole obligation with it, so the build goes green over code nobody is answering for.
+ * @evidence contracts/testing.md#distinguishing-cases Root a Markdown claim at a directory the process may not list, selecting with a segment-leading glob, which is the shape that produced the silence. Run the rule. Assert the root is named rather than the claim vanishing.
+ * @evidence contracts/testing.md#execution-ownership TestAnUnlistableClaimRootDoesNotDeactivateInSilence is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
  */
 func TestAnUnlistableClaimRootDoesNotDeactivateInSilence(t *testing.T) {
   workspace := t.TempDir()

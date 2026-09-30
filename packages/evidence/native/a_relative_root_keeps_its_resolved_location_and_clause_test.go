@@ -17,10 +17,10 @@ import (
  *  1. Declare the same claim with an ascending relative root.
  *  2. Read the root diagnostic.
  *  3. Assert the resolved location and the resolution clause are both present.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runRootedGraph is exercised with the scenario below; the assertions require the resolved location and the resolution clause are both present.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The negative twin of the complementary case, and the one the repair could most easily overrun. A relative root is the form where the derived spelling is the author's own and where the project root actually is composed into it, so every clause the absolute case drops has to survive here.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Declare the same claim with an ascending relative root. Read the root diagnostic. Assert the resolved location and the resolution clause are both present.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestARelativeRootKeepsItsResolvedLocationAndClause is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
+ * @evidence contracts/testing.md#behavioral-verification runRootedGraph is exercised with the scenario below; the assertions require the resolved location and the resolution clause are both present.
+ * @evidence contracts/testing.md#independent-expectations The negative twin of the complementary case, and the one the repair could most easily overrun. A relative root is the form where the derived spelling is the author's own and where the project root actually is composed into it, so every clause the absolute case drops has to survive here.
+ * @evidence contracts/testing.md#distinguishing-cases Declare the same claim with an ascending relative root. Read the root diagnostic. Assert the resolved location and the resolution clause are both present.
+ * @evidence contracts/testing.md#execution-ownership TestARelativeRootKeepsItsResolvedLocationAndClause is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
  */
 func TestARelativeRootKeepsItsResolvedLocationAndClause(t *testing.T) {
   messages := runRootedGraph(t, map[string]string{
