@@ -6,7 +6,6 @@ import (
   "os"
   "os/exec"
   "path/filepath"
-  "runtime"
   "strings"
   "testing"
 )
@@ -126,9 +125,10 @@ func TestLSPFormatBufferRealBinaryE2E(t *testing.T) {
 // ./plugin main package) into a temp binary and returns its path.
 //
 // The scratch layout produced by scripts/test-go-lint.cjs flattens this test
-// into scratch/linthost/<file>.go, so runtime.Caller points there and the
-// scratch module root (which contains plugin/main.go and the go.work resolving
-// the shims) is one directory up. Mirrors the go-build-into-tempdir idiom in
+// into scratch/linthost/<file>.go. Go runs this package from scratch/linthost,
+// so its owned working directory identifies the scratch module independently
+// of compiler debug paths. The module containing plugin/main.go and go.work
+// is one directory up. Mirrors the go-build-into-tempdir idiom in
 // packages/ttsc/test/ttscserver/helpers_test.go.
 //
 // One wrinkle is unique to the lint scratch layout: copyGoTestsFlat flattens
@@ -145,11 +145,11 @@ func TestLSPFormatBufferRealBinaryE2E(t *testing.T) {
 // the runner-provided TTSC_TTSX_BINARY).
 func buildLintSidecarBinaryForTest(t *testing.T) string {
   t.Helper()
-  _, thisFile, _, ok := runtime.Caller(0)
-  if !ok {
-    t.Fatal("runtime.Caller(0) returned ok=false; cannot locate scratch module root")
+  packageRoot, err := os.Getwd()
+  if err != nil {
+    t.Fatalf("read Go test package working directory: %v", err)
   }
-  scratchRoot := filepath.Dir(filepath.Dir(thisFile))
+  scratchRoot := filepath.Dir(packageRoot)
 
   buildRoot := t.TempDir()
   if err := copyTree(scratchRoot, buildRoot); err != nil {
@@ -169,7 +169,7 @@ func buildLintSidecarBinaryForTest(t *testing.T) string {
   if filepath.Separator == '\\' {
     bin += ".exe"
   }
-  build := exec.Command("go", "build", "-o", bin, "./plugin")
+  build := exec.Command("go", "build", "-trimpath", "-o", bin, "./plugin")
   build.Dir = buildRoot
   if output, err := build.CombinedOutput(); err != nil {
     t.Fatalf("go build ./plugin failed: %v\n%s", err, output)

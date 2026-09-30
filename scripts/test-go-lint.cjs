@@ -184,6 +184,7 @@ try {
     "go",
     [
       "test",
+      "-trimpath",
       "-count=1",
       "-timeout=20m",
       ...selection,

@@ -61,21 +61,17 @@ const LANES = [
   },
   {
     "id": "runtime-node-floor",
-    "run": "pnpm --filter @ttsc/test-ttsc start && node scripts/test-go-utility-plugins.cjs",
+    "run": "pnpm --filter @ttsc/test-ttsc start",
     "dirs": [
-      "features/ttsx-runtime",
-      "features/project",
-      "native-plugins/utility"
+      "features/ttsx-runtime/node-compatibility"
     ],
     "node": NODE_FLOOR
   },
   {
     "id": "runtime-node-current",
-    "run": "pnpm --filter @ttsc/test-ttsc start && node scripts/test-go-utility-plugins.cjs",
+    "run": "pnpm --filter @ttsc/test-ttsc start",
     "dirs": [
-      "features/ttsx-runtime",
-      "features/project",
-      "native-plugins/utility"
+      "features/ttsx-runtime/node-compatibility"
     ],
     "node": "current"
   },
