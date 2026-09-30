@@ -1,4 +1,4 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 import {
   assert,
@@ -6,7 +6,7 @@ import {
   fs,
   os,
   path,
-} from "../../internal/source-build";
+} from "../../internal/source-build-unit";
 
 /**
  * Verifies buildSourcePlugin rejects non-directory and non-go.mod sources.
@@ -19,6 +19,11 @@ import {
  * 1. Create a plain text file as the source path.
  * 2. Call `buildSourcePlugin` with that file path.
  * 3. Assert it throws an error matching `Go package directory or go.mod file`.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls the authored buildSourcePlugin with a text-file source and requires the precise package-directory/go.mod admission diagnostic, before any toolchain or producer is resolved.
+ * @evidence contracts/testing.md#independent-expectations A plugin source must name a Go package directory or go.mod; a plain text file is independently outside that supported input contract.
+ * @evidence contracts/testing.md#distinguishing-cases The file-source negative owns early target rejection; valid directory/go.mod and actual cold builds remain owned by the real native workspace/module cases.
+ * @evidence contracts/testing.md#execution-ownership test_buildsourceplugin_rejects_non_directory_and_non_go_mod_sources is the named src/unit/source-plugin entry; the production target admission precedes Go compiler resolution and returns by throwing, so the direct filesystem fixture executes no installation, Go build or product host.
  */
 export const test_buildsourceplugin_rejects_non_directory_and_non_go_mod_sources =
   () => {
