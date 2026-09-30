@@ -21,6 +21,15 @@ import {
  * 2. Wait for a line that only ttsc's watch loop prints (`[ttsc] watching …`).
  * 3. Assert that line appeared, tsgo's own watch banner did not, and terminate the
  *    session.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Spawns ttsc with mixed-case Watch, stops after a build marker and asserts its watching banner is present while tsgo Starting compilation in watch mode is absent.
+ * @evidence contracts/testing.md#independent-expectations Case-insensitive launcher flags must select the plugin-aware loop. Independently distinct host banners identify ownership; this oracle does not prove a plugin ran or a later rebuild applied transforms.
+ * @evidence contracts/testing.md#distinguishing-cases Owns mixed-case startup routing and the negative tsgo-banner check. Source edits and native plugin rebuilds have separate watch entries.
+ * @evidence contracts/testing.md#execution-ownership E2E export test_ttsc_watch_flag_in_mixed_case_enters_the_ttsc_watch_loop is discovered under src/features/compiler by TestExecutor; it owns its local child/WatchSession/helper assertions and uses the built launcher with suite-selected real native binaries.
+ * @evidence contracts/e2e.md#necessary-boundary Forwarding an unrecognized Watch flag can start a working native watcher under the wrong owner. Only actual host output distinguishes that dispatch error from correct startup.
+ * @evidence contracts/e2e.md#shared-execution One watch child combines startup, initial build and banner observations. Built launcher/native compiler installation is shared; no plugin binary is built.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A unique valid project and terminated flag gate one SIGTERM. Close/error clear the 120-second timer, timeout sends SIGKILL and TestProject removes the root at exit.
+ * @evidence contracts/e2e.md#preserved-coverage Both host-banner assertions remain after child termination. The scenario does not certify changed-source or plugin behavior from a startup banner.
  */
 export const test_ttsc_watch_flag_in_mixed_case_enters_the_ttsc_watch_loop =
   async (): Promise<void> => {

@@ -19,6 +19,15 @@ import {
  * 2. Spawn the real `ttsc --watch` launcher and wait for one build pass to report
  *    failure, then terminate the watcher with SIGTERM.
  * 3. Assert the watch process exits with a non-zero code.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Spawns ttsc watch on a number-valued export initialized by a string, waits for a complete/failed build banner, sends SIGTERM and asserts the observed exit code differs from zero.
+ * @evidence contracts/testing.md#independent-expectations The latest failed build must govern watch-session shutdown status. The authored assignability error establishes failure independently; code not-equal-zero also accepts null from signal termination, so it does not distinguish a propagated numeric failure from forced termination.
+ * @evidence contracts/testing.md#distinguishing-cases Owns initially invalid watch build followed by termination. It has no successful-session or failure-then-repair status counterpart and does not assert the diagnostic text.
+ * @evidence contracts/testing.md#execution-ownership E2E export test_ttsc_watch_exits_nonzero_on_failed_build is discovered under src/features/compiler; it owns its child/WatchSession assertions and uses the built launcher plus suite-selected real native compiler, without dynamic case registration.
+ * @evidence contracts/e2e.md#necessary-boundary Native compile failure must cross a live launcher watch loop into process shutdown status; direct build or status-calculation units cannot verify that connection.
+ * @evidence contracts/e2e.md#shared-execution One watch process combines the initial failed compile and shutdown. Built launcher/native compiler overrides are shared with the suite; no plugin binary is produced.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A unique project and one terminated flag prevent repeated SIGTERM. The close/error handlers clear the 120-second timer and timeout sends SIGKILL; TestProject owns the root at worker exit. There is no separate finally cleanup path for unexpected callback failure.
+ * @evidence contracts/e2e.md#preserved-coverage The existing post-build termination and nonzero-code assertion remain intact. The signal-null ambiguity is disclosed rather than treating any killed watcher as proof of numeric status propagation.
  */
 export const test_ttsc_watch_exits_nonzero_on_failed_build =
   async (): Promise<void> => {

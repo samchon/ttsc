@@ -22,6 +22,15 @@ import { WatchSession } from "../../internal/watch";
  *    suffix, which only the new binary writes.
  * 3. Edit the module's `go.mod`, and require another rebuild.
  * 4. Write below the module's `node_modules`, and require no rebuild.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Runs relocated cmd/plugin importing internal/mark; asserts PLUGIN initially, PLUGIN-SIBLING after sibling edit, another rebuild on go.mod edit and quiet after node_modules change.
+ * @evidence contracts/testing.md#independent-expectations The Go module files copied into a native plugin determine its identity while skipped dependency trees do not. Authored suffix literals independently expose which rebuilt transform binary executes.
+ * @evidence contracts/testing.md#distinguishing-cases Owns package-below-module, sibling Go code, go.mod and ignored node_modules. patch assertions establish deliberate fixture inputs before the real transformed-output assertions.
+ * @evidence contracts/testing.md#execution-ownership E2E export test_ttsc_watch_rebuilds_for_a_plugin_module_outside_its_package is discovered under src/native-plugins/compiler by TestExecutor; it owns its local child/WatchSession/helper assertions and uses the built launcher with suite-selected real native binaries.
+ * @evidence contracts/e2e.md#necessary-boundary The module-root watch must invalidate/build/select a real Go plugin and deliver changed output, which source-hash or watch-classifier units cannot establish.
+ * @evidence contracts/e2e.md#shared-execution One watch session/private artifact cache batches initial and changed binaries plus an ignored edit. Changed module bytes require a new artifact; suite Go object cache and built host are reusable preparations.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Owned root/cache and child-only PATH/TTSC_CACHE_DIR isolate artifacts. finally closes WatchSession; TestProject cleans directories at worker exit after Windows descendants release them. Ignored edit uses a 3000ms quiet observation.
+ * @evidence contracts/e2e.md#preserved-coverage Both literal outputs, go.mod rebuild and ignored-directory quiet remain unchanged at src/native-plugins/compiler. patch/writeMark remain owned by the named entry and CI must include the native compiler lane.
  */
 export const test_ttsc_watch_rebuilds_for_a_plugin_module_outside_its_package =
   async (): Promise<void> => {

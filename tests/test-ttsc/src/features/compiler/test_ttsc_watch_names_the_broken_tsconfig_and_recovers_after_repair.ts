@@ -34,6 +34,15 @@ const VALID_TSCONFIG = JSON.stringify({
  * 2. Overwrite tsconfig.json with invalid JSON and wait for the failed rebuild.
  * 3. Assert the failure names that tsconfig, then restore it and assert the
  *    session rebuilds cleanly.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Spawns watch, changes config to invalid JSON after a clean build, observes failure, restores config and edits source; asserts ttsc failed-to-parse voice, exact config path and repaired done phase.
+ * @evidence contracts/testing.md#independent-expectations Config errors must identify their file and a live watcher must recover. Authored broken/restored bytes and phase-local transcripts independently distinguish attribution and later recovery.
+ * @evidence contracts/testing.md#distinguishing-cases Owns clean/broken/repaired states with exact path attribution. Source edits accompany config writes, so config-only event handling is not isolated.
+ * @evidence contracts/testing.md#execution-ownership E2E export test_ttsc_watch_names_the_broken_tsconfig_and_recovers_after_repair is discovered under src/features/compiler by TestExecutor; it owns its local child/WatchSession/helper assertions and uses the built launcher with suite-selected real native binaries.
+ * @evidence contracts/e2e.md#necessary-boundary The live debounce path must catch config-reader failure and remain responsive to a later valid rebuild. Cold reader calls cannot prove process recovery.
+ * @evidence contracts/e2e.md#shared-execution One watch lifetime shares project load/subscriptions across all three phases; built native compiler/launcher are reused and no plugin binary is produced.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Phase labels keep earlier banners out of recovery assertions; done sends SIGTERM once. Close/error clear the 180-second timer, timeout kills the child and TestProject owns root cleanup; unexpected callback exceptions have no finally teardown.
+ * @evidence contracts/e2e.md#preserved-coverage Both attribution assertions and done recovery remain. Final numeric exit status and config-only invalidation are not asserted.
  */
 export const test_ttsc_watch_names_the_broken_tsconfig_and_recovers_after_repair =
   async (): Promise<void> => {

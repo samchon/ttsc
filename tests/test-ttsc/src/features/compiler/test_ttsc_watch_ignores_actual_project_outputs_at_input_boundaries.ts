@@ -12,6 +12,19 @@ import { WatchSession } from "../../internal/watch";
  * project root and an `allowJs` `.jsx` source both live outside the ordinary
  * TypeScript source assumptions. The incremental bundle case pins tsgo's
  * config-based default build-info path.
+ *
+ * 1. Watch external declaration-only output and require quiet.
+ * 2. Repeat for allowJs JSX adjacent JavaScript.
+ * 3. Check incremental default build-info placement and require quiet.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Runs three WatchSessions: external declaration-only source, allowJs JSX and incremental outFile; asserts their actual adjacent/config-default outputs, wrong bundle build-info absence and no additional build/start during quiet.
+ * @evidence contracts/testing.md#independent-expectations TypeScript emission rules independently determine adjacent d.ts/JS and config-based build-info paths. Authored paths plus build/start counts distinguish native output inference from guessed names.
+ * @evidence contracts/testing.md#distinguishing-cases Owns outside-root declaration output, JSX output and default/incorrect build-info locations. Each quiet observation lasts 900ms and does not prove permanent silence.
+ * @evidence contracts/testing.md#execution-ownership E2E export test_ttsc_watch_ignores_actual_project_outputs_at_input_boundaries is discovered under src/features/compiler by TestExecutor; it owns its local child/WatchSession/helper assertions and uses the built launcher with suite-selected real native binaries.
+ * @evidence contracts/e2e.md#necessary-boundary Native producer output must pass the running watcher exclusion so actual filesystem callbacks do not feed an emit loop. Pure filename inference cannot establish producer-to-watch transport.
+ * @evidence contracts/e2e.md#shared-execution Three incompatible option/input layouts use three sessions; each batches actual emit-path and idle assertions in one child. Shared launcher/compiler preparation avoids native producer rebuilding.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each session closes in finally with WatchSession 30-second escalation; TestProject owns the external and project roots until exit. Distinct roots prevent adjacent products contaminating another layout.
+ * @evidence contracts/e2e.md#preserved-coverage All three output presence checks, wrong build-info absence and quiet assertions remain. The sequential local batch skips later layouts after a failure and does not inspect output content.
  */
 export const test_ttsc_watch_ignores_actual_project_outputs_at_input_boundaries =
   async (): Promise<void> => {

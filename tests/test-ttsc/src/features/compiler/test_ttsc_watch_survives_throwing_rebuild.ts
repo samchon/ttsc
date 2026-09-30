@@ -26,6 +26,15 @@ import {
  *    watcher debounces a rebuild whose config load throws.
  * 3. Assert the watcher reports a failed build (did not crash), then SIGTERM it
  *    and assert it exits on signal rather than dying on an uncaught throw.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Spawns watch, corrupts config and edits source after initial completion, waits for post-mutation failed marker, terminates and asserts survival marker, nonzero/signaled shutdown and no runOnce/uncaught/unhandled stack.
+ * @evidence contracts/testing.md#independent-expectations A config-reader exception must be reported as a failed cycle without escaping its asynchronous callback. Phase-local failure text and independent no-uncaught regex distinguish survival from crash.
+ * @evidence contracts/testing.md#distinguishing-cases Owns clean startup then throwing rebuild and shutdown. Config/source change together; repair/recovery and attributed diagnostics have a separate sibling owner.
+ * @evidence contracts/testing.md#execution-ownership E2E export test_ttsc_watch_survives_throwing_rebuild is discovered under src/features/compiler by TestExecutor; it owns its local child/WatchSession/helper assertions and uses the built launcher with suite-selected real native binaries.
+ * @evidence contracts/e2e.md#necessary-boundary The actual debounce callback must catch a real config throw while the process remains responsive to termination. A direct reader unit cannot exercise asynchronous host ownership.
+ * @evidence contracts/e2e.md#shared-execution One watch lifetime batches valid build, malformed rebuild and shutdown with shared native compiler/launcher preparation and no Go plugin producer.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity mutated/terminated flags distinguish the failure phase and send SIGTERM once. Close/error clear the 120-second timer, timeout kills the child and TestProject owns root cleanup; unexpected data-callback exceptions lack finally teardown.
+ * @evidence contracts/e2e.md#preserved-coverage The post-mutation failed witness, nonzero/signaled termination and no-uncaught assertion remain. A later repaired valid build is not claimed by this shutdown-focused entry.
  */
 export const test_ttsc_watch_survives_throwing_rebuild =
   async (): Promise<void> => {
