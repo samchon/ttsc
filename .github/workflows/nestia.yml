@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/nestia.yml"
+      - "experimental/native-host-provenance/**"
       - "experimental/tarballs/**"
       - "config/**"
       - "scripts/assert-platform-package.cjs"
@@ -74,6 +75,9 @@ jobs:
           repository: samchon/nestia
           ref: 3b27e69b69dea3f102315042dce87c18d81be74a
           path: experimental/nestia
+
+      - name: Add native host output ownership reporting
+        run: git -C experimental/nestia apply --directory=packages/core "$GITHUB_WORKSPACE/experimental/native-host-provenance/nestia.patch"
 
       - name: Use local ttsc tarballs
         working-directory: experimental/nestia

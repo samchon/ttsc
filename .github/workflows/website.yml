@@ -6,6 +6,7 @@ on:
       - master
     paths:
       - ".github/workflows/website.yml"
+      - "patches/**"
       - "config/**"
       - "packages/ttsc/**"
       - "packages/lint/**"
@@ -24,6 +25,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/website.yml"
+      - "patches/**"
       - "config/**"
       - "packages/ttsc/**"
       - "packages/lint/**"

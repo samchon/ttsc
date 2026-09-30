@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/typia.yml"
+      - "experimental/native-host-provenance/**"
       - "experimental/source-map/**"
       - "website/compiler-dependencies/package.json"
       - "experimental/tarballs/**"
@@ -67,6 +68,9 @@ jobs:
         run: |
           rm -rf experimental/typia
           git clone --depth=1 https://github.com/samchon/typia experimental/typia
+
+      - name: Add native host output ownership reporting
+        run: git -C experimental/typia apply --directory=packages/typia "$GITHUB_WORKSPACE/experimental/native-host-provenance/typia.patch"
 
       - name: Use local ttsc tarballs
         working-directory: experimental/typia

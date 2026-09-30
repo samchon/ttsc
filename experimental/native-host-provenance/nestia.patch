@@ -1,0 +1,76 @@
+diff --git a/native/transform/build.go b/native/transform/build.go
+index 2262755..fff6cf4 100644
+--- a/native/transform/build.go
++++ b/native/transform/build.go
+@@ -16,7 +16,7 @@ import (
+ 	typiaadapter "github.com/samchon/typia/packages/typia/native/adapter"
+ )
+ 
+-func runBuild(args []string) int {
++func runBuild(args []string) (code int) {
+ 	profile := os.Getenv("TTSC_NESTIA_PROFILE") != ""
+ 	var totalStarted time.Time
+ 	if profile {
+@@ -32,10 +32,15 @@ func runBuild(args []string) int {
+ 	noEmit := fs.Bool("noEmit", false, "force analysis-only run with no file writes")
+ 	outDir := fs.String("outDir", "", "override compilerOptions.outDir")
+ 	manifestPath := fs.String("manifest", "", "write emitted file list as JSON")
++	provenancePath := fs.String("emit-provenance-json", "", "write successful emitted JavaScript ownership as JSON")
+ 	pluginsJSON := fs.String("plugins-json", "", "ordered ttsc plugin payload")
+ 	if err := fs.Parse(args); err != nil {
+ 		return 2
+ 	}
++	if *provenancePath != "" && !filepath.IsAbs(*provenancePath) {
++		fmt.Fprintln(stderr, "emit provenance destination must be an absolute path")
++		return 2
++	}
+ 	if *emit && *noEmit {
+ 		fmt.Fprintln(stderr, "ttsc-nestia build: --emit and --noEmit are mutually exclusive")
+ 		return 2
+@@ -72,6 +77,25 @@ func runBuild(args []string) int {
+ 		return 2
+ 	}
+ 	defer prog.Close()
++	// Successful physical writes publish ownership even before a later
++	// diagnostic; compiler exit status remains independent of this metadata.
++	commitOutput := shimcompiler.WriteFile(func(name, text string, _ *shimcompiler.WriteFileData) error {
++		return driver.DefaultWriteFile(name, text)
++	})
++	if *provenancePath != "" {
++		recorded, snapshot, err := prog.NewEmitProvenanceRecorder(commitOutput)
++		if err != nil {
++			fmt.Fprintf(stderr, "emit provenance recorder: %v\n", err)
++			return 3
++		}
++		commitOutput = recorded
++		defer func() {
++			if err := driver.WriteEmitProvenanceJSON(*provenancePath, snapshot()); err != nil {
++				fmt.Fprintf(stderr, "emit provenance publication: %v\n", err)
++				code = 3
++			}
++		}()
++	}
+ 	if profile {
+ 		started = time.Now()
+ 	}
+@@ -133,7 +157,7 @@ func runBuild(args []string) int {
+ 	writeFile := shimcompiler.WriteFile(func(fileName, text string, data *shimcompiler.WriteFileData) error {
+ 		_ = data
+ 		emitted = append(emitted, fileName)
+-		return driver.DefaultWriteFile(fileName, text)
++		return commitOutput(fileName, text, data)
+ 	})
+ 
+ 	// Declaration emit: ttsc delegates the whole emit of a transform-plugin
+diff --git a/native/transform.cjs b/native/transform.cjs
+index 07f9646..ae7d5c5 100644
+--- a/native/transform.cjs
++++ b/native/transform.cjs
+@@ -18,6 +18,7 @@ const path = require("node:path");
+ function createTtscPlugin(context) {
+   const plugin = {
+     name: "@nestia/core",
++    capabilities: { emitProvenance: true },
+     source: path.resolve(__dirname, "cmd", "ttsc-nestia"),
+     composes: ["typia/lib/transform"],
+   };
