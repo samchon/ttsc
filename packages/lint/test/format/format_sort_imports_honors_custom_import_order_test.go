@@ -23,6 +23,11 @@ import (
 //  1. Parse a source file with mixed import classes.
 //  2. Apply the custom order and separators with unsafe runtime sorting.
 //  3. Assert the rewritten file has the imports laid out per the spec.
+//
+// @evidence contracts/testing.md#behavioral-verification Custom order must produce alpha, the api request, then local-a/local-b, with exactly two blank group separators and unchanged bindings/body. Applying and reparsing fixes must converge within the existing four-pass cap.
+// @evidence contracts/testing.md#independent-expectations The supported order array assigns third-party, api-regex and relative groups in that sequence. A separately authored whole-file literal pins both separators, within-relative order and all preserved use bytes beyond the original substring assertions.
+// @evidence contracts/testing.md#distinguishing-cases All three groups are populated here, contrasting the empty-middle-group separator host. Default group-order and CRLF hosts cover distinct options; the final zero-edit pass distinguishes oscillation.
+// @evidence contracts/testing.md#execution-ownership TestFormatSortImportsHonorsCustomImportOrder directly owns its literal source, InlineRuleResolver, engine/fixer/reparse loop, final complete file and retained original ordering assertions. These filesystem-backed owning functions execute in one Go process without consumer installation, native building or product-host children.
 func TestFormatSortImportsHonorsCustomImportOrder(t *testing.T) {
   root := t.TempDir()
   filePath := filepath.Join(root, "src", "main.ts")
@@ -42,10 +47,7 @@ func TestFormatSortImportsHonorsCustomImportOrder(t *testing.T) {
       ),
     },
   }
-  // The block reorder + specifier sort cascade may need a second pass to
-  // settle (block first, specifiers second). The Go-side test does a
-  // single Run; the engine returns whatever fires this iteration. The
-  // assertion below tolerates either resolution order.
+  // Apply and reparse each fix until a pass makes no changes.
   const maxPasses = 4
   converged := false
   for pass := 0; pass < maxPasses; pass++ {
@@ -76,8 +78,16 @@ func TestFormatSortImportsHonorsCustomImportOrder(t *testing.T) {
   if err != nil {
     t.Fatalf("ReadFile: %v", err)
   }
+  expected := "import alpha from \"alpha\";\n\n" +
+    "import { request } from \"@api/http\";\n\n" +
+    "import { x } from \"./local-a\";\n" +
+    "import { reduce } from \"./local-b\";\n" +
+    "JSON.stringify({ reduce, request, alpha, x });\n"
+  if string(got) != expected {
+    t.Fatalf("custom-order full output mismatch:\nwant:\n%s\ngot:\n%s", expected, got)
+  }
   // Verify group ordering: alpha (third-party) before request (@api)
-  // before reduce (relative).
+  // before x/reduce (relative).
   alphaIdx := strings.Index(string(got), "alpha")
   apiIdx := strings.Index(string(got), "@api/http")
   localIdx := strings.Index(string(got), "./local-")
@@ -85,7 +95,7 @@ func TestFormatSortImportsHonorsCustomImportOrder(t *testing.T) {
     t.Fatalf("group ordering wrong: alpha=%d api=%d local=%d\nsource:\n%s",
       alphaIdx, apiIdx, localIdx, got)
   }
-  // Confirm a blank line separator survives between each group.
+  // Retain the original check for the first group separator.
   if !strings.Contains(string(got), "\"alpha\";\n\nimport") {
     t.Fatalf("missing blank line after third-party group:\n%s", got)
   }
