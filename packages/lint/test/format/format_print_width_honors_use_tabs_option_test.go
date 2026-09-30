@@ -2,17 +2,18 @@ package linthost
 
 import "testing"
 
-// TestFormatPrintWidthHonorsUseTabsOption verifies the `useTabs: true`
-// option swaps space indentation for tab characters.
+// TestFormatPrintWidthHonorsUseTabsOption pins tab output when useTabs is
+// enabled. The literal three-property output detects an ignored option while
+// preserving the same property values, ordering and commas as the space form.
 //
-// Some projects (Linux kernel, parts of the Node.js core) require tab
-// indentation. The case pins the option-honoring path so a project
-// that sets `useTabs: true` does not silently get space indentation on
-// `ttsc format`.
+//  1. Configure printWidth=20 and useTabs=true.
+//  2. Reflow the aa/bb/cc object.
+//  3. Compare the entire output with one tab per child line.
 //
-//  1. Configure printWidth=20, useTabs=true.
-//  2. Feed `const x = { aa: 1, bb: 2 };`.
-//  3. Assert the broken form uses one tab per child indent.
+// @evidence contracts/testing.md#behavioral-verification format/print-width must emit tab-indented children for the overflowing three-property object while retaining its keys, values and statement suffix.
+// @evidence contracts/testing.md#independent-expectations Installed Prettier 3.8.3 independently yields the literal tab-indented output for this source and options. Full-string equality distinguishes spaces, misplaced braces or lost members.
+// @evidence contracts/testing.md#distinguishing-cases This host owns the enabled-tab positive. TestFormatPrintWidthBreaksLongObjectLiteral supplies the identical source with default space indentation; TestFormatPrintWidthHonorsTabLeadingSource owns input tabs rather than only output tabs.
+// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthHonorsUseTabsOption invokes the registered owning rule through assertFixSnapshotWithOptions and the same-process engine. Its selected public Go entry owns the literal case without installation, native build or product-host children.
 func TestFormatPrintWidthHonorsUseTabsOption(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,

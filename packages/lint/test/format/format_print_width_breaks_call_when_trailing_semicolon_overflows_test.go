@@ -2,22 +2,18 @@ package linthost
 
 import "testing"
 
-// TestFormatPrintWidthBreaksCallWhenTrailingSemicolonOverflows verifies
-// the rule charges the statement's trailing `;` against the printWidth
-// budget, breaking a call whose flat form ends exactly at printWidth
-// but whose terminator would spill onto column printWidth+1.
+// TestFormatPrintWidthBreaksCallWhenTrailingSemicolonOverflows charges the
+// statement suffix against the call budget. The flat call ends at column 26
+// and its semicolon lands at 27; ignoring the untouched suffix would miss
+// the required break at width 26.
 //
-// The rule reflows only the call's own byte range; the `;` that follows
-// it stays put. Measuring the call in isolation let the engine keep it
-// flat at exactly printWidth, after which the `;` overflowed by one
-// column — the regression where `ttsc format` produced an over-width
-// line. trailingLineWidth feeds that suffix into both the fast path and
-// the layout budget so the call breaks instead.
+//  1. Reflow the statement at width 26 and compare the complete argument layout.
+//  2. Preserve the same statement when width 27 admits its terminator.
 //
-//  1. Configure printWidth=26.
-//  2. Feed `const x = run((v) => v.ok);` — the call ends at column 26,
-//     so the `;` would land on column 27.
-//  3. Assert the argument list breaks so every line fits 26 columns.
+// @evidence contracts/testing.md#behavioral-verification The owning rule must break run's arrow argument at width 26 while preserving v.ok, the declaration and semicolon. The same input at width 27 must remain silent.
+// @evidence contracts/testing.md#independent-expectations Installed Prettier 3.8.3 independently produces the literal broken output at width 26. The input's call/declaration prefix is 26 columns and semicolon makes 27, so adjacent budgets test suffix charging independently of the helper implementation.
+// @evidence contracts/testing.md#distinguishing-cases Widths 26/27 with identical source distinguish suffix overflow from a fitting call. The trailing-line-comment host supplies an excluded comment suffix, while this host requires the real terminator to count.
+// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthBreaksCallWhenTrailingSemicolonOverflows owns both literal cases via same-process rule-engine helpers. This selected public Go unit starts no product process and builds or installs no artifact.
 func TestFormatPrintWidthBreaksCallWhenTrailingSemicolonOverflows(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,
@@ -26,4 +22,5 @@ func TestFormatPrintWidthBreaksCallWhenTrailingSemicolonOverflows(t *testing.T) 
     `{"printWidth": 26}`,
     "const x = run(\n  (v) => v.ok,\n);\n",
   )
+  assertRuleSkipsSourceWithOptions(t, "format/print-width", "const x = run((v) => v.ok);\n", `{"printWidth": 27}`)
 }
