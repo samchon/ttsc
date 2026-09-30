@@ -32,6 +32,15 @@ import { createRealNativeEnvelopeFixture } from "../../internal/real-native-enve
  *    project is spelled physically, none under the link.
  * 4. Break a declaration so the compile fails, deliver through the link again, and
  *    assert the failed registration is spelled the same way.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Real native linked and physical deliveries register project inputs only under the host spelling with identity; config appears once, and failed linked delivery preserves spelling.
+ * @evidence contracts/testing.md#independent-expectations Actual physical root/link topology defines allowed/forbidden prefixes; authored broken declaration independently forces failure.
+ * @evidence contracts/testing.md#distinguishing-cases Healthy linked, healthy physical and failed linked requests each own fresh caches; identities survive lexical rewriting.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_transformttsc_hands_the_host_its_own_project_spelling in native-plugins/transform in the E2E population. Its local callbacks and helper-driven module matrix execute under this named entry; embedded native operations are fixture inputs, not separately selectable test hosts.
+ * @evidence contracts/e2e.md#necessary-boundary The public transform API connects to the actual linked utility host and its compiler-produced program envelope. Filesystem identity, membership and registration assertions require that real producer-consumer agreement; direct envelope selector units cannot prove native graph delivery.
+ * @evidence contracts/e2e.md#shared-execution One real-envelope contributor source and content-addressed native build cache are shared by suite consumers. This case owns its project/run log and uses the same native producer for its deliveries; changed declaration or membership state requires a new program invocation, not another consumer installation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Consumer, source edits, hook counters and transform cache belong to this case; shared producer inputs remain equivalent or their changed content selects a new build key. TestProject owns its managed temporary roots through runner cleanup. This case does not explicitly reset every retained transform cache; generation disposal and runner termination bound native observer lifetime, rather than a claimed per-case cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Real native linked and physical deliveries register project inputs only under the host spelling with identity; config appears once, and failed linked delivery preserves spelling. These assertions remain in test_transformttsc_hands_the_host_its_own_project_spelling, with their stated fixture/oracle limits; portable decisions are not claimed covered by an unnamed unit or by a synthetic envelope alone.
  */
 export async function test_transformttsc_hands_the_host_its_own_project_spelling(): Promise<void> {
   const api = await TestUnpluginRuntime.loadUnpluginApi();

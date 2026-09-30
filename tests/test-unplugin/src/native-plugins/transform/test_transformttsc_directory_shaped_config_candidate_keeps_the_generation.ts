@@ -28,6 +28,15 @@ import { createNestedUtilityPluginProject } from "../../internal/transform-utili
  * 3. Replace the directory with a real nearer config and require one new
  *    generation with the nearer banner.
  * 4. Deliver once more and retain that replacement generation.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Outer banner remains reusable with a nearer config-shaped directory and complete directory proof, then replacing it with a config file produces one reusable NEARER generation.
+ * @evidence contracts/testing.md#independent-expectations Authored OUTER/NEARER texts and the documented directory-kind digest literal establish meaning independently of generated envelope values; native realpath supplies identity.
+ * @evidence contracts/testing.md#distinguishing-cases Existing directory is distinct from absent candidate; unchanged directory reuses, directory-to-file changes discovery and replacement then reuses.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_transformttsc_directory_shaped_config_candidate_keeps_the_generation in native-plugins/transform in the E2E population. Its local callbacks and helper-driven module matrix execute under this named entry; embedded native operations are fixture inputs, not separately selectable test hosts.
+ * @evidence contracts/e2e.md#necessary-boundary The real linked utility plugin reads consumer configuration and produces code, completeness, graph or source-map fields consumed by the built adapter. The asserted selection/output/registration cannot be established by an in-memory config or dependency-list unit alone.
+ * @evidence contracts/e2e.md#shared-execution The utility fixture seeds the workspace plugin package and shares the native Go build cache; each distinct plugin/contributor set retains its own content-keyed host artifact. This case reuses its consumer and cache across configuration/content transitions where supplied; changed config options are inputs, not repeated package installations.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Consumer, source edits, hook counters and transform cache belong to this case; shared producer inputs remain equivalent or their changed content selects a new build key. TestProject owns its managed temporary roots through runner cleanup. This case does not explicitly reset every retained transform cache; generation disposal and runner termination bound native observer lifetime, rather than a claimed per-case cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Outer banner remains reusable with a nearer config-shaped directory and complete directory proof, then replacing it with a config file produces one reusable NEARER generation. These assertions remain in test_transformttsc_directory_shaped_config_candidate_keeps_the_generation, with their stated fixture/oracle limits; portable decisions are not claimed covered by an unnamed unit or by a synthetic envelope alone.
  */
 export async function test_transformttsc_directory_shaped_config_candidate_keeps_the_generation(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =

@@ -19,6 +19,15 @@ import { startMembershipSession } from "../../internal/transform-program-members
  * 2. Edit the tsconfig, then the package manifest, then the plugin descriptor,
  *    each in its own pass.
  * 3. Assert each edit costs exactly one compile.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Unchanged passes reuse one compile; separate tsconfig, manifest and descriptor edits each cost exactly one further compile.
+ * @evidence contracts/testing.md#independent-expectations Authored option/version/comment edits are distinct host-input states and the native run log independently counts work.
+ * @evidence contracts/testing.md#distinguishing-cases Three non-source input classes remain proven after the project walk narrows; emitted noninput files are the negative controls.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_transformttsc_non_source_host_inputs_are_still_proven in native-plugins/transform in the E2E population. Its local callbacks and helper-driven module matrix execute under this named entry; embedded native operations are fixture inputs, not separately selectable test hosts.
+ * @evidence contracts/e2e.md#necessary-boundary A real native producer captures program inputs while repeated adapter passes observe actual filesystem output/membership changes. Direct membership calculations do not prove the persistent generation receives those producer inputs and remains current across host passes.
+ * @evidence contracts/e2e.md#shared-execution One membership session owns the consumer project, native producer, transform cache and repeated passes; the shared fixture/build cache supplies its producer. Output or host-input mutations reuse that session so the invocation count distinguishes gratuitous compilation from necessary invalidation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Consumer, source edits, hook counters and transform cache belong to this case; shared producer inputs remain equivalent or their changed content selects a new build key. TestProject owns its managed temporary roots through runner cleanup. The existing finally reset/close path releases retained cache or session observers on success and assertion failure; no prior case supplies this generation.
+ * @evidence contracts/e2e.md#preserved-coverage Unchanged passes reuse one compile; separate tsconfig, manifest and descriptor edits each cost exactly one further compile. These assertions remain in test_transformttsc_non_source_host_inputs_are_still_proven, with their stated fixture/oracle limits; portable decisions are not claimed covered by an unnamed unit or by a synthetic envelope alone.
  */
 export async function test_transformttsc_non_source_host_inputs_are_still_proven(): Promise<void> {
   const session = await startMembershipSession({ fileCount: 2 });

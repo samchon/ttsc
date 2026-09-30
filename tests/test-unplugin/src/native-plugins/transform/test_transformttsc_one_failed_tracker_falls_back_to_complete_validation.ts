@@ -19,6 +19,15 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  * 2. Deliver modules and assert the generation survives with neither tracker
  *    attached.
  * 3. Edit an input and assert the fallback still invalidates.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Refused postcompile watcher registrations leave neither tracker attached but keep one compile; later source edit recompiles once.
+ * @evidence contracts/testing.md#independent-expectations Native run-log existence controls refusal only after first compile; tracker fields and invocation counts independently expose authority/fallback.
+ * @evidence contracts/testing.md#distinguishing-cases One unusable tracker withdraws its healthy sibling too, contrasted with all-watchers-fail cases.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_transformttsc_one_failed_tracker_falls_back_to_complete_validation in native-plugins/transform in the E2E population. Its local callbacks and helper-driven module matrix execute under this named entry; embedded native operations are fixture inputs, not separately selectable test hosts.
+ * @evidence contracts/e2e.md#necessary-boundary The built transform API must hand an actual native fixture envelope to generation capture/validation and then serve the selected modules. The native run log and reported graph/proofs expose that connection; synthetic graph options test envelope transport and admission, not correctness of TypeScript-Go graph construction.
+ * @evidence contracts/e2e.md#shared-execution createCacheProject reuses the materialized cache Go fixture and content-addressed build cache unless this case requests isolatedPluginSource; unique consumer and run-log roots keep mutable inputs private. Within each consumer/cache scenario, repeated deliveries reuse that scenario's transform cache; distinct consumers or policies keep separate caches. Changed declared inputs or rejected capture require the counted new invocation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Consumer, source edits, hook counters and transform cache belong to this case; shared producer inputs remain equivalent or their changed content selects a new build key. TestProject owns its managed temporary roots through runner cleanup. This case does not explicitly reset every retained transform cache; generation disposal and runner termination bound native observer lifetime, rather than a claimed per-case cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Refused postcompile watcher registrations leave neither tracker attached but keep one compile; later source edit recompiles once. These assertions remain in test_transformttsc_one_failed_tracker_falls_back_to_complete_validation, with their stated fixture/oracle limits; portable decisions are not claimed covered by an unnamed unit or by a synthetic envelope alone.
  */
 export async function test_transformttsc_one_failed_tracker_falls_back_to_complete_validation(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =

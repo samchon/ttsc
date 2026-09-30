@@ -32,6 +32,15 @@ import path from "node:path";
  * 3. Give a host with no fallback a record that is there but read-only, deliver in
  *    a watching session, and assert that record is handed over all the same: it
  *    stands for the last state written until a write lands.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Fallback writes/registers one record with no volatility/warning; no-place watching rejects, one-shot marks volatile and warns once, and read-only existing record remains registered.
+ * @evidence contracts/testing.md#independent-expectations Literal writable-blocker file, expected fallback directory and registered-record lists independently establish host capability outcomes.
+ * @evidence contracts/testing.md#distinguishing-cases Fallback-capable watch, fallback-less watch, fallback-less one-shot and existing read-only record retain all four delivery branches.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_transformttsc_hands_a_fallback_record_or_refuses_a_watching_delivery in native-plugins/transform in the E2E population. Its local callbacks and helper-driven module matrix execute under this named entry; embedded native operations are fixture inputs, not separately selectable test hosts.
+ * @evidence contracts/e2e.md#necessary-boundary The built transform API loads the actual consumer descriptor and passes generated options through the native fixture host into returned output and adapter hooks. The fixture validates received paths/options or publishes deliberate effects; direct option derivation cannot prove that process connection.
+ * @evidence contracts/e2e.md#shared-execution TestUnpluginProject reuses its immutable Go fixture source and shared content-addressed producer build cache while allocating this consumer independently. Its module requests reuse the supplied transform cache where present; different aliases or producer options legitimately select another transform, without reinstalling the workspace packages.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Consumer, source edits, hook counters and transform cache belong to this case; shared producer inputs remain equivalent or their changed content selects a new build key. TestProject owns its managed temporary roots through runner cleanup. This case does not explicitly reset every retained transform cache; generation disposal and runner termination bound native observer lifetime, rather than a claimed per-case cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Fallback writes/registers one record with no volatility/warning; no-place watching rejects, one-shot marks volatile and warns once, and read-only existing record remains registered. These assertions remain in test_transformttsc_hands_a_fallback_record_or_refuses_a_watching_delivery, with their stated fixture/oracle limits; portable decisions are not claimed covered by an unnamed unit or by a synthetic envelope alone.
  */
 export async function test_transformttsc_hands_a_fallback_record_or_refuses_a_watching_delivery(): Promise<void> {
   const {

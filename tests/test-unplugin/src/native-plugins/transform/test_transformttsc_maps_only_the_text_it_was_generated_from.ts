@@ -25,6 +25,15 @@ import { createLinkedPluginProject } from "../../internal/transform-linked-compl
  *    transformed, without a map.
  * 3. Transform through a sidecar host that supplies no maps and assert the code
  *    comes without one.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Real banner source maps name source/text and map generated value back to authored coordinates; divergent delivered text receives code without map, and mapless sidecar receives code only.
+ * @evidence contracts/testing.md#independent-expectations An independent source-map decoder and source position search establish expected location from authored text rather than adapter calculations.
+ * @evidence contracts/testing.md#distinguishing-cases Matching delivered/disk text, divergent delivered text and a producer with no map are three distinct mapping permissions.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_transformttsc_maps_only_the_text_it_was_generated_from in native-plugins/transform in the E2E population. Its local callbacks and helper-driven module matrix execute under this named entry; embedded native operations are fixture inputs, not separately selectable test hosts.
+ * @evidence contracts/e2e.md#necessary-boundary The real linked utility plugin reads consumer configuration and produces code, completeness, graph or source-map fields consumed by the built adapter. The asserted selection/output/registration cannot be established by an in-memory config or dependency-list unit alone.
+ * @evidence contracts/e2e.md#shared-execution The utility fixture seeds the workspace plugin package and shares the native Go build cache; each distinct plugin/contributor set retains its own content-keyed host artifact. This case reuses its consumer and cache across configuration/content transitions where supplied; changed config options are inputs, not repeated package installations.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Consumer, source edits, hook counters and transform cache belong to this case; shared producer inputs remain equivalent or their changed content selects a new build key. TestProject owns its managed temporary roots through runner cleanup. This case does not explicitly reset every retained transform cache; generation disposal and runner termination bound native observer lifetime, rather than a claimed per-case cleanup. The stderr hook is restored in finally.
+ * @evidence contracts/e2e.md#preserved-coverage Real banner source maps name source/text and map generated value back to authored coordinates; divergent delivered text receives code without map, and mapless sidecar receives code only. These assertions remain in test_transformttsc_maps_only_the_text_it_was_generated_from, with their stated fixture/oracle limits; portable decisions are not claimed covered by an unnamed unit or by a synthetic envelope alone.
  */
 export async function test_transformttsc_maps_only_the_text_it_was_generated_from(): Promise<void> {
   const { resolveOptions, transformTtsc } =

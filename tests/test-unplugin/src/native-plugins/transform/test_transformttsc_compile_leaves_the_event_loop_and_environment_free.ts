@@ -27,6 +27,15 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  *    timer queue until the compile resolves.
  * 2. Assert no stall came near the hold, and `TEMP`, `TMP`, and `TMPDIR` are as
  *    the compile found them.
+ *
+ * @evidence contracts/testing.md#behavioral-verification A 1500-ms native hold leaves sampled event-loop gaps including the final resolution gap below 750 ms and preserves TEMP/TMP/TMPDIR afterward.
+ * @evidence contracts/testing.md#independent-expectations A real fixture delay and independent performance-clock samples establish responsiveness; saved environment values establish post-call equality.
+ * @evidence contracts/testing.md#distinguishing-cases Cold whole-project compilation must remain asynchronous; this observation does not prove no transient variable write between samples, which the worker-environment owner case addresses.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_transformttsc_compile_leaves_the_event_loop_and_environment_free in native-plugins/transform in the E2E population. Its local callbacks and helper-driven module matrix execute under this named entry; embedded native operations are fixture inputs, not separately selectable test hosts.
+ * @evidence contracts/e2e.md#necessary-boundary The built transform API must hand an actual native fixture envelope to generation capture/validation and then serve the selected modules. The native run log and reported graph/proofs expose that connection; synthetic graph options test envelope transport and admission, not correctness of TypeScript-Go graph construction.
+ * @evidence contracts/e2e.md#shared-execution createCacheProject reuses the materialized cache Go fixture and content-addressed build cache unless this case requests isolatedPluginSource; unique consumer and run-log roots keep mutable inputs private. Within each consumer/cache scenario, repeated deliveries reuse that scenario's transform cache; distinct consumers or policies keep separate caches. Changed declared inputs or rejected capture require the counted new invocation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Consumer, source edits, hook counters and transform cache belong to this case; shared producer inputs remain equivalent or their changed content selects a new build key. TestProject owns its managed temporary roots through runner cleanup. This case does not explicitly reset every retained transform cache; generation disposal and runner termination bound native observer lifetime, rather than a claimed per-case cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage A 1500-ms native hold leaves sampled event-loop gaps including the final resolution gap below 750 ms and preserves TEMP/TMP/TMPDIR afterward. These assertions remain in test_transformttsc_compile_leaves_the_event_loop_and_environment_free, with their stated fixture/oracle limits; portable decisions are not claimed covered by an unnamed unit or by a synthetic envelope alone.
  */
 export async function test_transformttsc_compile_leaves_the_event_loop_and_environment_free(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =
@@ -54,10 +63,12 @@ export async function test_transformttsc_compile_leaves_the_event_loop_and_envir
   } finally {
     clearInterval(timer);
   }
-  let longestStall = (ticks[0] ?? performance.now()) - started;
+  const ended = performance.now();
+  let longestStall = (ticks[0] ?? ended) - started;
   for (let index = 1; index < ticks.length; index += 1) {
     longestStall = Math.max(longestStall, ticks[index]! - ticks[index - 1]!);
   }
+  longestStall = Math.max(longestStall, ended - (ticks.at(-1) ?? started));
   assert.ok(
     longestStall < hold / 2,
     `the loop ran throughout the compile: longest stall ${longestStall.toFixed(0)} ms`,

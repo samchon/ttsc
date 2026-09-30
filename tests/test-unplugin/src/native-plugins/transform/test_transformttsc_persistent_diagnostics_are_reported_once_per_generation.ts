@@ -20,6 +20,15 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  *    generation with one carrying a warning.
  * 2. Deliver every module while capturing stderr.
  * 3. Assert the warning was written once.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Persistent deliveries across four modules write the deliberately attached warning exactly once.
+ * @evidence contracts/testing.md#independent-expectations Literal warning marker and independent stderr-write counter establish reporting count; the warning is a planted envelope, not a native diagnostic production test.
+ * @evidence contracts/testing.md#distinguishing-cases Undefined persistent epoch must still report its first warning and suppress subsequent same-generation duplicates.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_transformttsc_persistent_diagnostics_are_reported_once_per_generation in native-plugins/transform in the E2E population. Its local callbacks and helper-driven module matrix execute under this named entry; embedded native operations are fixture inputs, not separately selectable test hosts.
+ * @evidence contracts/e2e.md#necessary-boundary The built transform API must hand an actual native fixture envelope to generation capture/validation and then serve the selected modules. The native run log and reported graph/proofs expose that connection; synthetic graph options test envelope transport and admission, not correctness of TypeScript-Go graph construction.
+ * @evidence contracts/e2e.md#shared-execution createCacheProject reuses the materialized cache Go fixture and content-addressed build cache unless this case requests isolatedPluginSource; unique consumer and run-log roots keep mutable inputs private. Within each consumer/cache scenario, repeated deliveries reuse that scenario's transform cache; distinct consumers or policies keep separate caches. Changed declared inputs or rejected capture require the counted new invocation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Consumer, source edits, hook counters and transform cache belong to this case; shared producer inputs remain equivalent or their changed content selects a new build key. TestProject owns its managed temporary roots through runner cleanup. The existing finally reset/close path releases retained cache or session observers on success and assertion failure; no prior case supplies this generation. The stderr hook is restored in finally.
+ * @evidence contracts/e2e.md#preserved-coverage Persistent deliveries across four modules write the deliberately attached warning exactly once. These assertions remain in test_transformttsc_persistent_diagnostics_are_reported_once_per_generation, with their stated fixture/oracle limits; portable decisions are not claimed covered by an unnamed unit or by a synthetic envelope alone.
  */
 export async function test_transformttsc_persistent_diagnostics_are_reported_once_per_generation(): Promise<void> {
   const api = await TestUnpluginRuntime.loadUnpluginApi();
