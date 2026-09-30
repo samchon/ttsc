@@ -8,6 +8,7 @@ package linthost
 
 import (
   "encoding/json"
+  "fmt"
   "net/url"
   "os"
   "path/filepath"
@@ -966,6 +967,8 @@ func markedIdentifierRanges(t *testing.T, source string, marker string) [][2]int
 // Program/checker lifecycle from the configured engine's requirements. Both
 // paths materialize the caller's exact filename and project directory so the
 // returned findings can flow through the same disk-backed edit assertions.
+// The named file rule must bind successfully before either path executes;
+// an unknown identity or invalid options cannot establish a zero-finding control.
 func runRuleFindingsSnapshotFile(
   t *testing.T,
   ruleName string,
@@ -974,14 +977,9 @@ func runRuleFindingsSnapshotFile(
   options json.RawMessage,
 ) (string, string, []*Finding) {
   t.Helper()
-  var engine *Engine
-  if len(options) == 0 {
-    engine = NewEngine(RuleConfig{ruleName: SeverityError})
-  } else {
-    engine = NewEngineWithResolver(InlineRuleResolver{
-      Rules:   RuleConfig{ruleName: SeverityError},
-      Options: RuleOptionsMap{ruleName: options},
-    })
+  engine, err := newRuleSnapshotEngine(ruleName, options)
+  if err != nil {
+    t.Fatalf("%s: snapshot engine configuration: %v", ruleName, err)
   }
 
   needsRuleChecker := engine.NeedsTypeChecker()
@@ -1030,4 +1028,30 @@ func runRuleFindingsSnapshotFile(
   findings := program.runLintCycle(engine)
   recordFindingBehavioralWitnesses(t, findings, behavioralWitnessChecker)
   return root, filePath, findings
+}
+
+// newRuleSnapshotEngine binds one file rule for semantic finding/fixer fixtures.
+// Unlike tests of intentional configuration failure, these callers require a
+// usable active rule even when their expected finding count is zero.
+func newRuleSnapshotEngine(ruleName string, options json.RawMessage) (*Engine, error) {
+  var engine *Engine
+  if len(options) == 0 {
+    engine = NewEngine(RuleConfig{ruleName: SeverityError})
+  } else {
+    engine = NewEngineWithResolver(InlineRuleResolver{
+      Rules:   RuleConfig{ruleName: SeverityError},
+      Options: RuleOptionsMap{ruleName: options},
+    })
+  }
+
+  if err := engine.ConfigError(); err != nil {
+    return nil, err
+  }
+  if unknown := engine.UnknownRules(); len(unknown) != 0 {
+    return nil, fmt.Errorf("unknown snapshot rule identities: %v", unknown)
+  }
+  if severity, enabled := engine.EnabledRules()[ruleName]; !enabled || severity != SeverityError {
+    return nil, fmt.Errorf("snapshot file rule %q did not bind at error severity", ruleName)
+  }
+  return engine, nil
 }
