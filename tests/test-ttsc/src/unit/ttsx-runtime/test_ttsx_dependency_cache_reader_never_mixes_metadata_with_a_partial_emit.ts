@@ -1,14 +1,8 @@
 import { TestProject } from "@ttsc/testing";
-
-import {
-  assert,
-  dependencyCacheLibraryPath,
-  fs,
-  path,
-  readDependencyCache,
-  spawnNodeWorker,
-  waitForCondition,
-} from "../../internal/dependency-cache";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { readDependencyCache } from "../../../../../packages/ttsc/src/launcher/internal/runtime/readDependencyCache";
 
 /**
  * Verifies a cache reader never combines an old generation's metadata with a
@@ -22,13 +16,16 @@ import {
  * files.
  *
  * 1. Seed a complete generation A with a published marker.
- * 2. A holder builds generation B, writes its first file, and halts at a barrier
- *    before publishing B's marker; the reader observes A only.
- * 3. Release the holder to swap the marker atomically; the reader now observes the
+ * 2. Seed generation B without publishing its marker; the reader observes A only.
+ * 3. Atomically swap the fixture marker; the reader now observes the
  *    complete B and never a directory that lacks emitted JavaScript.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Actual readDependencyCache returns published complete A while B exists without a marker, then B after an atomic fixture marker rename; a marker naming C with no emitted output misses.
+ * @evidence contracts/testing.md#independent-expectations Literal distinct generation ids and authored output files define publication identity. A marker names exactly one generation, so an unpublished sibling cannot supply emitted sources and an absent advertised output cannot be a hit.
+ * @evidence contracts/testing.md#distinguishing-cases Complete A with unpublished B, complete B after marker replacement and advertised-but-absent C output retain all three original reader distinctions. The writer's native protocol and real owner contention are owned by the fenced dependency-cache E2Es rather than claimed by this fixture writer.
+ * @evidence contracts/testing.md#execution-ownership This named source unit invokes the authored reader directly at the same quiescent filesystem stages formerly produced by a barrier child. That child executed fixture writes rather than a product publisher, so removing it preserves every original observation without building artifacts, installing a consumer or starting a product host.
  */
-export const test_ttsx_dependency_cache_reader_never_mixes_metadata_with_a_partial_emit =
-  async () => {
+export function test_ttsx_dependency_cache_reader_never_mixes_metadata_with_a_partial_emit() {
     const root = TestProject.tmpdir("ttsx-depcache-publish-");
     const cacheDir = path.join(root, "entry");
     const metaPath = path.join(root, "entry.json");
@@ -51,47 +48,9 @@ export const test_ttsx_dependency_cache_reader_never_mixes_metadata_with_a_parti
       "utf8",
     );
 
-    const barrierFile = path.join(root, "partial-b");
-    const releaseFile = path.join(root, "publish-b");
-    const builderScript = path.join(root, "builder.cjs");
-    // The library is required only so the worker fails loudly if the built
-    // module is missing; the atomic swap it performs mirrors
-    // `publishDependencyMeta` exactly.
-    fs.writeFileSync(
-      builderScript,
-      [
-        `const fs = require("node:fs");`,
-        `const path = require("node:path");`,
-        `require(${JSON.stringify(dependencyCacheLibraryPath("readDependencyCache"))});`,
-        `const cacheDir = ${JSON.stringify(cacheDir)};`,
-        `const metaPath = ${JSON.stringify(metaPath)};`,
-        `const genB = ${JSON.stringify(genB)};`,
-        `const genBDir = path.join(cacheDir, "gen-" + genB);`,
-        `fs.mkdirSync(genBDir, { recursive: true });`,
-        // First file of generation B, marker not yet published.
-        `fs.writeFileSync(path.join(genBDir, "index.js"), "exports.value = 'B';\\n");`,
-        `fs.writeFileSync(${JSON.stringify(barrierFile)}, "partial\\n", "utf8");`,
-        `const deadline = Date.now() + 120000;`,
-        `while (!fs.existsSync(${JSON.stringify(releaseFile)})) {`,
-        `  if (Date.now() > deadline) throw new Error("timed out waiting to publish");`,
-        `  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);`,
-        `}`,
-        `const tmp = metaPath + ".tmp";`,
-        `fs.writeFileSync(tmp, JSON.stringify({ generation: genB, moduleOptions: { module: "commonjs" },
-        emittedSources: {}, outputs: ["index.js"], rootDir: "/root" }), "utf8");`,
-        `fs.renameSync(tmp, metaPath);`,
-        ``,
-      ].join("\n"),
-      "utf8",
-    );
-
-    const builder = spawnNodeWorker({ script: builderScript });
-    let built: Awaited<typeof builder>;
-    try {
-    await waitForCondition(
-      () => fs.existsSync(barrierFile),
-      "generation B partial emit",
-    );
+    const genBDir = path.join(cacheDir, `gen-${genB}`);
+    fs.mkdirSync(genBDir, { recursive: true });
+    fs.writeFileSync(path.join(genBDir, "index.js"), "exports.value = 'B';\n");
 
     // Marker still names A: the reader must return the complete A, never a
     // BuiltProject pointing at the partially-written B directory.
@@ -99,11 +58,12 @@ export const test_ttsx_dependency_cache_reader_never_mixes_metadata_with_a_parti
     assert.notEqual(midRebuild, null, "reader should still hit generation A");
     assert.equal(midRebuild!.emitDir, genADir);
 
-    } finally {
-      fs.writeFileSync(releaseFile, "publish\n", "utf8");
-      built = await builder;
-    }
-    assert.equal(built.status, 0, built.stderr);
+    const temporaryMarker = metaPath + ".tmp";
+    fs.writeFileSync(temporaryMarker, JSON.stringify({
+      generation: genB, moduleOptions: { module: "commonjs" },
+      emittedSources: {}, outputs: ["index.js"], rootDir: "/root",
+    }));
+    fs.renameSync(temporaryMarker, metaPath);
 
     // After the atomic swap the reader observes the complete B.
     const afterPublish = readDependencyCache(cacheDir, metaPath);
@@ -126,4 +86,4 @@ export const test_ttsx_dependency_cache_reader_never_mixes_metadata_with_a_parti
       "utf8",
     );
     assert.equal(readDependencyCache(cacheDir, metaPath), null);
-  };
+  }
