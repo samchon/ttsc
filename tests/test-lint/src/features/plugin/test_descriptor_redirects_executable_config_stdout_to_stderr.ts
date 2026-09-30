@@ -19,9 +19,17 @@ import { createLintProject } from "../../internal/config-file";
  *    to that process's stdout.
  * 3. Assert stdout is pure JSON and the config log was preserved on stderr.
  * 4. Repeat through a JSON string contributor that logs while being required.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The real built factory evaluates a logging typed config and loads a logging JSON string contributor; both outer stdout payloads must parse as the exact contributor array and their logs must survive on stderr.
+ * @evidence contracts/testing.md#independent-expectations Each fixture independently declares demo with one explicit source path and literal stream markers; JSON.parse and exact array comparison expose any extra machine-output bytes.
+ * @evidence contracts/testing.md#distinguishing-cases Typed config top-level logging and JSON package require-time logging cover two different redirection connections; failure forwarding and envelope-less exit have separate owners.
+ * @evidence contracts/testing.md#execution-ownership This named entry spawns the descriptor through the actual built package and supplied real launcher/compiler pair; each result's status, parsed payload and stderr are asserted.
+ * @evidence contracts/e2e.md#necessary-boundary Real module-load logs must be redirected before the host machine protocol starts; source units cannot establish child stdout isolation or package require-time side effects.
+ * @evidence contracts/e2e.md#shared-execution Both logging routes share one project, contributor source and emitted factory artifacts. Two separately captured outer stdout payloads preserve independent protocol assertions; neither invocation builds a Go binary or starts a native host.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The second route names a separate JSON config and logging package, preventing the first config's module cache from deciding its logs; fixture ownership ends in finally and stream buffers remain invocation-local.
+ * @evidence contracts/e2e.md#preserved-coverage Both original successful statuses, exact JSON contributor arrays and four preserved log markers remain executable, including JSON string package loading.
  */
-export const test_descriptor_redirects_executable_config_stdout_to_stderr =
-  (): void => {
+export function test_descriptor_redirects_executable_config_stdout_to_stderr(): void {
     const project = createLintProject({
       name: "descriptor-machine-stdout",
       pluginConfig: { configFile: "./lint.config.ts" },
@@ -102,7 +110,7 @@ export const test_descriptor_redirects_executable_config_stdout_to_stderr =
     } finally {
       project.cleanup();
     }
-  };
+  }
 
 function runDescriptor(context: Record<string, unknown>) {
   const script = `

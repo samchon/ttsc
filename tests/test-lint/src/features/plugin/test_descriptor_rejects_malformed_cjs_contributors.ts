@@ -11,8 +11,17 @@ import { createLintProject } from "../../internal/config-file";
  * 1. Reject a scalar contributor instead of silently omitting its namespace.
  * 2. Reject an object without a source path at the declaring config.
  * 3. Reject a string specifier whose loaded module has no plugin source.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The built descriptor evaluates real CJS configs and rejects scalar, source-less object and source-less required module entries with the declaring demo contributor named in the error.
+ * @evidence contracts/testing.md#independent-expectations Contributor registration requires a source path; the three authored invalid values deliberately omit that requirement and the literal contributor/source error pattern is independent of validation code.
+ * @evidence contracts/testing.md#distinguishing-cases Scalar 42, empty object and a relative string loading an empty module exercise distinct CJS evaluator registration paths; namespace normalization cases have direct source-unit ownership.
+ * @evidence contracts/testing.md#execution-ownership This named entry calls the emitted factory with the exact subdirectory configFile and original declaring project context, then asserts each actual failure.
+ * @evidence contracts/e2e.md#necessary-boundary CJS isolated evaluation and relative module loading must return actionable contributor errors through the real result protocol; direct normalization tests do not establish this connection.
+ * @evidence contracts/e2e.md#shared-execution The three invalid config inputs reuse the emitted factory and compiler artifacts and never compile contributors or run a native host. Each evaluator must observe a distinct module/config population rather than retain prior require state.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each case has a fresh project and config subdirectory removed in finally; the malformed relative module is created only for its case, with no cached successful descriptor reused.
+ * @evidence contracts/e2e.md#preserved-coverage All three original invalid shapes, the relative string module and contributor/source diagnostic assertion remain executable; none is replaced by a generic namespace collision result.
  */
-export const test_descriptor_rejects_malformed_cjs_contributors = (): void => {
+export function test_descriptor_rejects_malformed_cjs_contributors(): void {
   for (const [name, pluginValue, moduleBody] of [
     ["scalar", "42", undefined],
     ["missing-source", "{}", undefined],
@@ -45,7 +54,7 @@ export const test_descriptor_rejects_malformed_cjs_contributors = (): void => {
       project.cleanup();
     }
   }
-};
+}
 
 function loadContributors(projectRoot: string): void {
   const factory = TestLintPlugin.loadFactory();

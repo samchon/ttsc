@@ -18,9 +18,17 @@ import { TestLintPlugin } from "../../internal/TestLintPlugin";
  * 2. Call it with a minimal context supplying `transform: "@ttsc/lint"`.
  * 3. Assert `typeof factory === "function"`, `descriptor.name === "@ttsc/lint"`,
  *    `descriptor.stage === "check"`, and both host capabilities are set.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The built package entry is required and called; exact name, stage, TypeScript diagnostic ownership and project-input capability are asserted on the returned descriptor.
+ * @evidence contracts/testing.md#independent-expectations The public plugin descriptor contract requires a callable check-stage @ttsc/lint factory with the two stated host capabilities; these literal expectations are not read from its implementation.
+ * @evidence contracts/testing.md#distinguishing-cases The installed-entry positive detects an object export, wrong pipeline stage, missing diagnostic ownership or missing project-input capability; authored-source units own entry variation and source computation.
+ * @evidence contracts/testing.md#execution-ownership This named boundary entry loads the emitted package through TestLintPlugin; source units do not substitute for this emitted-entry check.
+ * @evidence contracts/e2e.md#necessary-boundary Requiring the built package checks JS package assembly and factory export interoperation, which authored TypeScript factory calls cannot establish.
+ * @evidence contracts/e2e.md#shared-execution The existing test process requires the shared emitted entry once through Node module caching; there is no consumer install, Go build or child host in this case.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The minimal context has no executable config or contributor and descriptor creation does not mutate the loaded entry; package bytes stay unchanged within the suite.
+ * @evidence contracts/e2e.md#preserved-coverage All original callable/name/stage/diagnostic/project-input assertions remain executable against the built entry.
  */
-export const test_lib_index_js_is_a_factory_that_returns_a_native_source_descriptor =
-  () => {
+export function test_lib_index_js_is_a_factory_that_returns_a_native_source_descriptor() {
     const factory = TestLintPlugin.loadFactory();
     assert.equal(typeof factory, "function");
     const descriptor = factory(
@@ -30,4 +38,4 @@ export const test_lib_index_js_is_a_factory_that_returns_a_native_source_descrip
     assert.equal(descriptor.stage, "check");
     assert.equal(descriptor.reportsTypeScriptDiagnostics, true);
     assert.equal(descriptor.capabilities?.projectInputs, true);
-  };
+  }
