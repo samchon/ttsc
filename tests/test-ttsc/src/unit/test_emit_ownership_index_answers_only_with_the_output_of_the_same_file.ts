@@ -27,7 +27,7 @@ import { EmitOwnershipIndex } from "../../../../packages/ttsc/src/compiler/inter
  *
  * @evidence contracts/testing.md#behavioral-verification EmitOwnershipIndex pairs captured source coordinates with their recorded output, rejects unrecorded or external writes, and preserves a recorded output after its file disappears. Output-directory aliases must resolve to the same writer without changing the source owner.
  * @evidence contracts/testing.md#independent-expectations Authored source-to-output records define each owner independently of the index. Native realpath identifies equivalent writer aliases; distinct realpaths remain different files, and literal null/error expectations forbid guessed ownership.
- * @evidence contracts/testing.md#distinguishing-cases Same-stem siblings, declaration files, outside-root sources, linked directories, extension pairs, absent recorded outputs and unrecorded late writes retain their original controls. A linked output-directory spelling must match its physical record; case spellings are equivalent only when the native filesystem confirms identity.
+ * @evidence contracts/testing.md#distinguishing-cases Same-stem siblings, declaration files, outside-root sources, linked directories, extension pairs, absent recorded outputs and unrecorded late writes retain their original controls. A linked writer alias with the same captured owner is accepted; conflicting owner rows for that same native writer reject both lookups. Case spellings are equivalent only when the native filesystem confirms identity.
  * @evidence contracts/testing.md#execution-ownership This exported source unit calls the authored index directly on an isolated filesystem fixture. It creates source/output records and links but never builds, installs or starts a compiler; each original assertion and the writer-alias controls execute in this one entry.
  */
 export const test_emit_ownership_index_answers_only_with_the_output_of_the_same_file =
@@ -103,6 +103,29 @@ export const test_emit_ownership_index_answers_only_with_the_output_of_the_same_
       });
       assert.equal(aliased.find(path.join(root, "a/index.ts")), physicalOutput);
     }
+    const sharedWriter = writerAliases[0]!;
+    const repeatedOwner = new EmitOwnershipIndex({
+      emitDir: emit,
+      rootDir: root,
+      outputs: ["a/index.js"],
+      emittedSources: {
+        [physicalOutput]: [sourceOwner],
+        [sharedWriter]: [sourceOwner],
+      },
+    });
+    assert.equal(repeatedOwner.find(path.join(root, "a/index.ts")), physicalOutput);
+    const contradictoryOwners = new EmitOwnershipIndex({
+      emitDir: emit,
+      rootDir: root,
+      outputs: ["a/index.js"],
+      emittedSources: {
+        [physicalOutput]: [sourceOwner],
+        [sharedWriter]: [fs.realpathSync.native(path.join(root, "b/index.ts"))],
+      },
+    });
+    for (const source of ["a/index.ts", "b/index.ts"])
+      assert.throws(() => contradictoryOwners.find(path.join(root, source)),
+        /multiple source owners|ownership is ambiguous/);
     const outsideOutput = path.join(base, "outside-output.js");
     write(outsideOutput);
     assert.throws(() => new EmitOwnershipIndex({
