@@ -10,8 +10,14 @@ import "testing"
 // 1. Parse an interface with a mutable property.
 // 2. Enable only functional/type-declaration-immutability.
 // 3. Assert the declaration reports and offers no autofix.
+//
+// @evidence contracts/testing.md#behavioral-verification runFunctionalRule executes the actual engine and verifies mutable State property reports; exact count/rule/message and no-autofix assertions distinguish policy reports from unrelated findings.
+// @evidence contracts/testing.md#independent-expectations Public declaration policy requires readonly members and readonly array contents. The literal source and configured option express the supported policy independently of rule output.
+// @evidence contracts/testing.md#distinguishing-cases The original violating input remains intact and a separately authored accepted source is checked for zero findings. This case owns its explicit source/option distinction rather than certifying the whole family.
+// @evidence contracts/testing.md#execution-ownership TestFunctionalTypeDeclarationImmutabilityRejectsMutableInterface is a named Go unit entry running actual TypeScript AST policy operations in the shared engine process; no consumer install, native build or real product host is used.
 func TestFunctionalTypeDeclarationImmutabilityRejectsMutableInterface(t *testing.T) {
   const ruleName = "functional/type-declaration-immutability"
   findings := runFunctionalRule(t, ruleName, `interface State { values: string[]; }`)
   assertFunctionalFinding(t, ruleName, findings, "readonly")
+  assertNoFunctionalFinding(t, ruleName, runFunctionalRule(t, ruleName, "interface State { readonly values: readonly string[]; }"))
 }

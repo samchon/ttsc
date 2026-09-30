@@ -10,8 +10,14 @@ import "testing"
 // 1. Parse an interface method signature.
 // 2. Enable only functional/prefer-property-signatures.
 // 3. Assert the method signature reports and offers no autofix.
+//
+// @evidence contracts/testing.md#behavioral-verification runFunctionalRule executes the actual engine and verifies interface method signature reports; exact count/rule/message and no-autofix assertions distinguish policy reports from unrelated findings.
+// @evidence contracts/testing.md#independent-expectations The policy prefers an explicit function-valued property signature. The literal source and configured option express the supported policy independently of rule output.
+// @evidence contracts/testing.md#distinguishing-cases The original violating input remains intact and a separately authored accepted source is checked for zero findings. This case owns its explicit source/option distinction rather than certifying the whole family.
+// @evidence contracts/testing.md#execution-ownership TestFunctionalPreferPropertySignaturesRejectsMethodSignature is a named Go unit entry running actual TypeScript AST policy operations in the shared engine process; no consumer install, native build or real product host is used.
 func TestFunctionalPreferPropertySignaturesRejectsMethodSignature(t *testing.T) {
   const ruleName = "functional/prefer-property-signatures"
   findings := runFunctionalRule(t, ruleName, `interface Api { run(): void; }`)
   assertFunctionalFinding(t, ruleName, findings, "property signature")
+  assertNoFunctionalFinding(t, ruleName, runFunctionalRule(t, ruleName, "interface Api { run: () => void; }"))
 }

@@ -40,7 +40,14 @@ func runFunctionalRuleWithResolver(
 ) []*Finding {
   t.Helper()
   file := parseTSFile(t, "/virtual/functional.ts", source)
-  findings := NewEngineWithResolver(resolver).Run([]*shimast.SourceFile{file}, nil)
+  engine := NewEngineWithResolver(resolver)
+  if unknown := engine.UnknownRules(); len(unknown) != 0 {
+    t.Fatalf("unknown functional rules: %v", unknown)
+  }
+  findings := engine.Run([]*shimast.SourceFile{file}, nil)
+  if err := validateSemanticRuleFindings(engine.EnabledRules(), findings); err != nil {
+    t.Fatalf("invalid functional findings: %v", err)
+  }
   recordFindingBehavioralWitnessesByRule(t, findings, func(ruleName string) behavioralWitnessKind {
     return behavioralWitnessKindForOptions(ruleName, options)
   })

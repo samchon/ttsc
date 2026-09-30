@@ -10,6 +10,11 @@ import "testing"
 // 1. Parse an arrow that forwards its parameter to a bare identifier call.
 // 2. Enable only functional/prefer-tacit with `checkMemberExpressions: false`.
 // 3. Assert the wrapper still reports.
+//
+// @evidence contracts/testing.md#behavioral-verification runFunctionalRuleWithOptions executes the actual engine and verifies identifier forwarding wrapper still reports with member checking disabled; exact count/rule/message and no-autofix assertions distinguish policy reports from unrelated findings.
+// @evidence contracts/testing.md#independent-expectations A member-only switch cannot exempt bare identifier callees. The literal source and configured option express the supported policy independently of rule output.
+// @evidence contracts/testing.md#distinguishing-cases CheckMemberExpressionsFalseSkipsMemberCallee owns the accepted receiver shape. This case owns its explicit source/option distinction rather than certifying the whole family.
+// @evidence contracts/testing.md#execution-ownership TestFunctionalPreferTacitCheckMemberExpressionsFalseKeepsIdentifierCallee is a named Go unit entry running actual TypeScript AST policy operations in the shared engine process; no consumer install, native build or real product host is used.
 func TestFunctionalPreferTacitCheckMemberExpressionsFalseKeepsIdentifierCallee(t *testing.T) {
   const ruleName = "functional/prefer-tacit"
   findings := runFunctionalRuleWithOptions(

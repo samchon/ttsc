@@ -11,6 +11,11 @@ import "testing"
 // 1. Parse a function whose declared return type is `undefined`.
 // 2. Enable only functional/no-return-void with no options.
 // 3. Assert nothing reports.
+//
+// @evidence contracts/testing.md#behavioral-verification runFunctionalRule executes the actual engine and verifies declared undefined return is accepted by default; an exact zero-finding comparison rejects both unwanted reports and recovered engine failures.
+// @evidence contracts/testing.md#independent-expectations allowUndefined defaults to true. The literal source and configured option express the supported policy independently of rule output.
+// @evidence contracts/testing.md#distinguishing-cases AllowUndefinedFalseRejectsUndefinedReturnType owns the explicit-false rejection. This case owns its explicit source/option distinction rather than certifying the whole family.
+// @evidence contracts/testing.md#execution-ownership TestFunctionalNoReturnVoidAllowsUndefinedReturnTypeByDefault is a named Go unit entry running actual TypeScript AST policy operations in the shared engine process; no consumer install, native build or real product host is used.
 func TestFunctionalNoReturnVoidAllowsUndefinedReturnTypeByDefault(t *testing.T) {
   const ruleName = "functional/no-return-void"
   findings := runFunctionalRule(t, ruleName, "function run(): undefined { return undefined; }")
