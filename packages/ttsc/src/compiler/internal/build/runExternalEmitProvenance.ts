@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { TextDecoder } from "node:util";
 
 import { COMPILER_OPTION_KINDS } from "../../../flags/COMPILER_OPTION_KINDS";
 import { normalizeFlagToken } from "../../../flags/normalizeFlagToken";
@@ -19,13 +20,16 @@ import { PassthroughFlags } from "./PassthroughFlags";
  *
  * Admission requires stable effective options, identical source selection and
  * stable physical paths, file identities and bytes before and after emission,
- * including the selected executable itself. The executable's change time is
- * excluded from cross-command equality because that metadata changed in real
- * executions without changing the executable object or bytes; source change
- * times remain proof premises and each read brackets its full metadata. This is
- * an external observation, not an atomic compiler-generation ledger; a
- * concurrent change restored between observations can remain invisible.
- * Unsupported layouts and ambiguous outputs carry an empty ownership list.
+ * including response files and the selected executable itself. Response
+ * inspection preserves native argument-frame boundaries and operand positions;
+ * the producer and its probes receive the original argv. The executable's
+ * change time is excluded from cross-command equality because that metadata
+ * changed in real executions without changing the executable object or bytes;
+ * source change times remain proof premises and each read brackets its full
+ * metadata. This is an external observation, not an atomic compiler-generation
+ * ledger; a concurrent change restored between observations can remain
+ * invisible. Unsupported layouts and ambiguous outputs carry an empty ownership
+ * list.
  *
  * A nonzero compiler status can still carry proved writes for an unchecked
  * consumer. Ownership metadata never changes that status or its diagnostics.
@@ -41,9 +45,9 @@ import { PassthroughFlags } from "./PassthroughFlags";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The selected executable and original arguments remain authoritative. Unknown layouts are reported unknown instead of switching compilers, guessing same-stem ownership or consulting source maps.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain producer preservation, unknown states and the non-atomic observation limitation; the investigation record documents the supported upstream naming subset.
  * @evidence contracts/portability.md#os-neutral-implementation Native node:path and filesystem realpath/stat separate writer spelling from physical source identity. Executables receive separate argv entries through spawnNative, without a shell or OS-based case folding.
- * @evidence contracts/performance.md#efficient-algorithms Source and output indexes avoid cross-product matching; processing is linear in observed bytes and paths, plus compiler probes and physical filesystem operations.
+ * @evidence contracts/performance.md#efficient-algorithms Source and output indexes avoid cross-product matching. Response inspection uses an iterative frame stack and active physical-path set; processing scales with expanded argv occurrences and observed source/response bytes and paths, plus compiler probes and physical filesystem operations.
  * @evidence contracts/performance.md#reuse-equivalent-work Each source observation and predicted output index is shared by all outputs in this invocation. Cross-build reuse is unavailable because arbitrary external producer and filesystem dependencies have no invalidation contract.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Probe processes complete synchronously through spawnNative's capture owner; hashes and indexes live only for this call and scale with selected paths, while transient read buffers scale with the largest observed file, including the executable.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Probe processes complete synchronously through spawnNative's capture owner; hashes, response-frame tokens, observations and indexes live only for this call and scale with expanded arguments and selected paths, while transient read buffers scale with the largest observed file, including the executable.
  */
 export function runExternalEmitProvenance(options: {
   /** Complete original compiler argv, including project selection. */
@@ -120,8 +124,15 @@ export function runExternalEmitProvenance(options: {
   let failure = sameSelection
     ? undefined
     : `Emitting source selection differs from its inspection (${probe.files.length} inspected, ${listed.length} reported); first differing inspected path ${JSON.stringify(probe.files[firstDifference])}, reported path ${JSON.stringify(listed[firstDifference === -1 ? probe.files.length : firstDifference])}.`;
-  let stage = "effective configuration reinspection";
+  let stage = "response-file reinspection";
   try {
+    for (const [file, before] of probe.responseObservations) {
+      if (!stable) break;
+      stable = observeFile(file) === before;
+      if (!stable)
+        failure = `Compiler response file changed across emission: ${JSON.stringify(file)}.`;
+    }
+    stage = "effective configuration reinspection";
     if (stable && readConfig(options)?.text !== probe.text) {
       stable = false;
       failure =
@@ -142,6 +153,12 @@ export function runExternalEmitProvenance(options: {
       stable = after === before;
       if (!stable)
         failure = `Selected source changed across emission: ${JSON.stringify(source)} (${observationDifference(before, after)}).`;
+    }
+    for (const [file, before] of probe.responseObservations) {
+      if (!stable) break;
+      stable = observeFile(file) === before;
+      if (!stable)
+        failure = `Compiler response file changed during post-emission inspection: ${JSON.stringify(file)}.`;
     }
     if (stable && written.length !== 0) {
       stage = "output prediction";
@@ -202,7 +219,8 @@ function prepareProbe(
     return undefined;
   };
   try {
-    const last = options.args.at(-1);
+    const inspected = inspectResponseArguments(options.args, options.cwd);
+    const last = inspected.args.at(-1);
     // A native string option consumes even a following dash token as its value.
     // Appending --showConfig to a missing value can therefore cause emission
     // instead of inspection. Wrapper schema and the compiler-owned arity table
@@ -217,19 +235,18 @@ function prepareProbe(
         );
     }
     if (
-      PassthroughFlags.forwardsTerminalTsgoFlag({ passthrough: options.args })
+      PassthroughFlags.forwardsTerminalTsgoFlag({ passthrough: inspected.args })
     )
       return unavailable(
         "Original argv selects an effective terminal compiler command; provenance inspection would change its command behavior.",
       );
-    const unsupportedArg = options.args.find((arg) => {
+    const unsupportedArg = inspected.args.find((arg) => {
       const flag = resolveFlagSpec(arg);
       const name = arg.startsWith("-")
         ? normalizeFlagToken(arg.split("=", 1)[0]!)
         : undefined;
       return (
         flag?.name === "--build" ||
-        arg.startsWith("@") ||
         name === "pprofdir" ||
         name === "generatecpuprofile" ||
         name === "generatetrace"
@@ -237,7 +254,7 @@ function prepareProbe(
     });
     if (unsupportedArg !== undefined)
       return unavailable(
-        `Original argv contains ${JSON.stringify(unsupportedArg)}, selecting a build command, response file, or profiling/tracing artifact option unsupported by read-only provenance inspection.`,
+        `Original argv contains ${JSON.stringify(unsupportedArg)}, selecting a build command or profiling/tracing artifact option unsupported by read-only provenance inspection.`,
       );
     const binaryPath = path.resolve(options.cwd, options.binary);
     stage = `initial executable preparation and observation of ${JSON.stringify(binaryPath)}`;
@@ -274,7 +291,7 @@ function prepareProbe(
         `Effective configuration selects unsupported provenance layout or reporting: ${JSON.stringify({ references: config.references?.length, outFile: compilerOptions.outFile, rootDir: compilerOptions.rootDir, outDir: compilerOptions.outDir, jsx: compilerOptions.jsx, explainFiles: compilerOptions.explainFiles, generateTrace: compilerOptions.generateTrace, generateCpuProfile: compilerOptions.generateCpuProfile, pprofDir: compilerOptions.pprofDir })}.`,
       );
     stage = "selected configuration anchor";
-    const base = projectBase(options.args, options.cwd);
+    const base = projectBase(inspected.args, options.cwd);
     if (base === undefined)
       return unavailable(
         "Original argv does not establish a supported selected configuration directory.",
@@ -315,6 +332,11 @@ function prepareProbe(
       stage = `initial source observation of ${JSON.stringify(source)}`;
       observations.set(source, observeFile(source));
     }
+    for (const [file, before] of inspected.observations)
+      if (observeFile(file) !== before)
+        return unavailable(
+          `Compiler response file changed during inspection: ${JSON.stringify(file)}.`,
+        );
     return {
       ...parsed,
       base,
@@ -322,12 +344,136 @@ function prepareProbe(
       binaryPath,
       files,
       observations,
+      responseObservations: inspected.observations,
     };
   } catch (error) {
     return unavailable(
       `Provenance inspection failed during ${stage}: ${error instanceof Error ? error.message : String(error)}.`,
     );
   }
+}
+
+/**
+ * Inspect response tokens while the producer keeps its original argv. Native
+ * response parsing recursively parses each file as a separate argument frame:
+ * an option value in that frame never consumes a token from its parent.
+ * Explicit boolean values in this inspection projection preserve that
+ * boundary.
+ *
+ * This is admission, not a replacement compiler parser. Known value operands
+ * are skipped without expanding an operand beginning with @. Ambiguous arity,
+ * malformed response text and physical cycles refuse inspection; the emitting
+ * producer remains responsible for their diagnostics. Each response read is
+ * bracketed by native identity/content observations, with no cross-call reuse.
+ */
+function inspectResponseArguments(args: readonly string[], cwd: string) {
+  const observations = new Map<string, string>();
+  if (!args.some((arg) => arg.startsWith("@"))) return { args, observations };
+  const projected: string[] = [];
+  const active = new Set<string>();
+  const frames: {
+    args: readonly string[];
+    index: number;
+    physical?: string;
+  }[] = [{ args, index: 0 }];
+  while (frames.length !== 0) {
+    const frame = frames[frames.length - 1]!;
+    if (frame.index === frame.args.length) {
+      if (frame.physical !== undefined) active.delete(frame.physical);
+      frames.pop();
+      continue;
+    }
+    const token = frame.args[frame.index++]!;
+    if (token.startsWith("@")) {
+      const file = path.resolve(cwd, token.slice(1));
+      const before = observeFile(file);
+      const physical = (JSON.parse(before) as [string])[0];
+      if (active.has(physical))
+        throw new Error(`Cyclic compiler response file: ${file}`);
+      const text = responseText(fs.readFileSync(file));
+      if (observeFile(file) !== before)
+        throw new Error(
+          `Compiler response file changed during reading: ${file}`,
+        );
+      const previous = observations.get(file);
+      if (previous !== undefined && previous !== before)
+        throw new Error(
+          `Compiler response file changed between reads: ${file}`,
+        );
+      observations.set(file, before);
+      active.add(physical);
+      frames.push({ args: responseTokens(text), index: 0, physical });
+      continue;
+    }
+    projected.push(token);
+    if (!token.startsWith("-")) continue;
+    if (token.includes("="))
+      throw new Error(`Unsupported inline compiler response option: ${token}`);
+    const kind =
+      resolveFlagSpec(token)?.kind ??
+      COMPILER_OPTION_KINDS.get(normalizeFlagToken(token));
+    const next = frame.args[frame.index];
+    if (kind === "boolean") {
+      if (next === "true" || next === "false" || next === "null") {
+        projected.push(next);
+        frame.index++;
+      } else projected.push("true");
+    } else {
+      if (
+        kind === undefined ||
+        next === undefined ||
+        next === "" ||
+        next.startsWith("-")
+      )
+        throw new Error(
+          `Unsupported or incomplete compiler response option: ${token}`,
+        );
+      projected.push(next);
+      frame.index++;
+    }
+  }
+  return { args: projected, observations };
+}
+
+/** Native filesystem decoding strips UTF-8/UTF-16 BOMs before tokenization. */
+function responseText(bytes: Buffer): string {
+  if (bytes.length >= 2) {
+    const littleEndian = bytes[0] === 0xff && bytes[1] === 0xfe;
+    const bigEndian = bytes[0] === 0xfe && bytes[1] === 0xff;
+    if (littleEndian || bigEndian) {
+      if (bytes.length % 2 !== 0)
+        throw new Error("Incomplete UTF-16 compiler response text.");
+      return new TextDecoder(littleEndian ? "utf-16le" : "utf-16be", {
+        ignoreBOM: true,
+      }).decode(bytes.subarray(2));
+    }
+  }
+  const start =
+    bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf ? 3 : 0;
+  return bytes.subarray(start).toString("utf8");
+}
+
+/** Native response grammar: ASCII control/space separators and whole quotes. */
+function responseTokens(text: string): string[] {
+  const args: string[] = [];
+  let position = 0;
+  while (position < text.length) {
+    while (position < text.length && text.charCodeAt(position) <= 32)
+      position++;
+    if (position === text.length) break;
+    if (text[position] === '"') {
+      const end = text.indexOf('"', position + 1);
+      if (end === -1) throw new Error("Unterminated compiler response quote.");
+      args.push(text.slice(position + 1, end));
+      position = end + 1;
+    } else {
+      const start = position;
+      while (position < text.length && text.charCodeAt(position) > 32)
+        position++;
+      args.push(text.slice(start, position));
+    }
+  }
+  return args;
 }
 
 /**
