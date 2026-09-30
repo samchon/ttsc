@@ -21,6 +21,11 @@ const isEntry = (token: string): boolean =>
  * 2. Assert the entry is the only positional and the two forwarded pairs keep
  *    their order in `passthrough`.
  * 3. Assert the post-entry tokens are the program `tail`, never forwarded to tsgo.
+ *
+ * @evidence contracts/testing.md#behavioral-verification parseFlags partitions compiler option pairs, the first TypeScript entry and the following program argv without swallowing the entry.
+ * @evidence contracts/testing.md#independent-expectations Literal positional, passthrough and tail arrays specify argv ownership and exact order independently of parser output.
+ * @evidence contracts/testing.md#distinguishing-cases Spaced target/module pairs retain their values, while the unknown-option no-predicate twin demonstrates the sentinel boundary the entry predicate owns.
+ * @evidence contracts/testing.md#execution-ownership The named source unit calls the authored parser directly with explicit options; native compiler acceptance and program execution remain E2E boundaries.
  */
 export const test_parseflags_keeps_the_ttsx_entry_after_a_spaced_flag_value =
   () => {

@@ -24,6 +24,11 @@ import { inlineServedSourceMap } from "../../../../../packages/ttsc/src/launcher
  * 3. Assert an already-inline `data:` map is rewritten to one trailer with an
  *    absolute source.
  * 4. Assert a two-source map absolutizes both entries against the map directory.
+ *
+ * @evidence contracts/testing.md#behavioral-verification inlineServedSourceMap preserves plain code, removes a dangling external trailer, and absolutizes inline or multi-source maps without altering executable body or map payload.
+ * @evidence contracts/testing.md#independent-expectations Base64-decoded JSON is compared to literal names/mappings and independently constructed file URLs; unchanged code and a single trailer constrain the rewrite.
+ * @evidence contracts/testing.md#distinguishing-cases Absent, missing, already-inline and two-source external maps distinguish passthrough, dangling cleanup and both source-anchor branches.
+ * @evidence contracts/testing.md#execution-ownership The source unit invokes the authored inliner against private fixture map files; it does not emit a native program or start Node under the ttsx loader.
  */
 export const test_ttsx_inline_source_map_handles_absent_inline_and_multi_source_maps =
   () => {
@@ -79,6 +84,13 @@ export const test_ttsx_inline_source_map_handles_absent_inline_and_multi_source_
       "an already-inline single-source map must be absolutized",
     );
 
+    const inlineDecoded = decodeInlineMap(reinlined);
+    assert.equal(inlineDecoded.version, 3);
+    assert.equal(inlineDecoded.file, "a.js");
+    assert.deepEqual(inlineDecoded.names, []);
+    assert.equal(inlineDecoded.mappings, "AAAA");
+    assert.ok(reinlined.startsWith("exports.x = 1;\n//# sourceMappingURL=data:"));
+
     // 4. Multi-source map → each relative source absolutized against map dir.
     const multiEmitted = path.join(dir, "multi.js");
     fs.mkdirSync(dir, { recursive: true });
@@ -98,8 +110,14 @@ export const test_ttsx_inline_source_map_handles_absent_inline_and_multi_source_
       multiEmitted,
       undefined,
     );
+    const multiDecoded = decodeInlineMap(multiOut);
+    assert.equal(multiDecoded.version, 3);
+    assert.equal(multiDecoded.file, "multi.js");
+    assert.deepEqual(multiDecoded.names, []);
+    assert.equal(multiDecoded.mappings, "AAAA");
+    assert.ok(multiOut.startsWith("exports.x = 1;\n//# sourceMappingURL=data:"));
     assert.deepEqual(
-      decodeInlineMap(multiOut).sources,
+      multiDecoded.sources,
       [
         pathToFileURL(path.resolve(dir, "../src/a.ts")).href,
         pathToFileURL(path.resolve(dir, "../src/b.ts")).href,

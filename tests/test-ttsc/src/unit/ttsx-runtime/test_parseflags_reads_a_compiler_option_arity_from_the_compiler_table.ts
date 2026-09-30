@@ -20,6 +20,11 @@ import { parseFlags } from "../../../../../packages/ttsc/src/flags/parseFlags";
  * 3. Assert an `@file` response file goes to the compiler, not to the entry.
  * 4. Negative twin: after an option the table does not know, the next bare token
  *    is the entry, since nothing says the option takes a value.
+ *
+ * @evidence contracts/testing.md#behavioral-verification parseFlags uses compiler option arity to retain target and explicit boolean values while selecting a JavaScript entry and its program tail.
+ * @evidence contracts/testing.md#independent-expectations Literal arrays specify target, strict and noEmitOnError forwarding plus the entry/tail split without reading the production arity table for expectations.
+ * @evidence contracts/testing.md#distinguishing-cases A JavaScript entry, response-file token and unrecognized option distinguish table-owned values from an extension guess or indiscriminate value consumption.
+ * @evidence contracts/testing.md#execution-ownership The actual parser runs directly in one source unit; response-file forwarding is observed as tokens, without opening the response file or launching a compiler.
  */
 export const test_parseflags_reads_a_compiler_option_arity_from_the_compiler_table =
   () => {

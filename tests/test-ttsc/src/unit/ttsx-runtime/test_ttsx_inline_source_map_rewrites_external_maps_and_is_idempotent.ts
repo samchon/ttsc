@@ -22,6 +22,11 @@ import { inlineServedSourceMap } from "../../../../../packages/ttsc/src/launcher
  *    map lists the real absolute source and carries no `sourceRoot`.
  * 2. Feed the output back through a fresh emit key; assert the bytes are equal.
  * 3. Inline a CRLF-terminated emit; assert it too becomes a `data:` trailer.
+ *
+ * @evidence contracts/testing.md#behavioral-verification inlineServedSourceMap inlines external metadata, removes sourceRoot, retains source payload and emitted code, and preserves LF/CRLF rewrites across repeated calls.
+ * @evidence contracts/testing.md#independent-expectations The decoded version/file/names/mappings literals and independently constructed source URL constrain correctness before byte-equal idempotence is tested.
+ * @evidence contracts/testing.md#distinguishing-cases Initial external rewrite, a fresh emitted-path repeated pass and a CRLF emit distinguish first transformation, reuse equivalence and line-ending preservation.
+ * @evidence contracts/testing.md#execution-ownership This named unit calls the real source inliner with private file fixtures; runtime stack-frame consumption remains owned by surviving process boundaries.
  */
 export const test_ttsx_inline_source_map_rewrites_external_maps_and_is_idempotent =
   () => {
@@ -50,6 +55,10 @@ export const test_ttsx_inline_source_map_rewrites_external_maps_and_is_idempoten
       "the rewrite must leave exactly one sourceMappingURL trailer",
     );
     const decoded = decodeInlineMap(out);
+    assert.equal(decoded.version, 3);
+    assert.equal(decoded.file, "lib.js");
+    assert.deepEqual(decoded.names, []);
+    assert.equal(decoded.mappings, "AAAA");
     assert.deepEqual(
       decoded.sources,
       [pathToFileURL(sourceFile).href],
