@@ -16,6 +16,11 @@ import "testing"
 //  2. Print with PrintWidth=0 (the Go zero value).
 //  3. Assert the group collapses flat ("foo bar"), proving the engine
 //     applied the 80-column default rather than the literal 0.
+//
+// @evidence contracts/testing.md#behavioral-verification Print must leave foo bar flat when PrintWidth is omitted.
+// @evidence contracts/testing.md#independent-expectations The documented eighty-column default admits the seven-column literal; expected output is not obtained from another Print call.
+// @evidence contracts/testing.md#distinguishing-cases The zero option is checked here; negative width is not covered by this historical test despite its introductory prose.
+// @evidence contracts/testing.md#execution-ownership TestEnginePrintWidthDefaultsWhenZero is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
 func TestEnginePrintWidthDefaultsWhenZero(t *testing.T) {
   doc := Group(Text("foo"), Line(), Text("bar"))
   opts := PrintOptions{TabWidth: 2, EndOfLine: "lf"} // PrintWidth intentionally zero

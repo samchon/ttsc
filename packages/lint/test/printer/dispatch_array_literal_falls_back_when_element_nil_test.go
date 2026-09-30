@@ -20,6 +20,11 @@ import (
 //  2. Use NodeFactory to build an ArrayLiteralExpression whose Elements
 //     NodeList contains a single nil entry.
 //  3. Call printArrayLiteral directly and assert it does not panic.
+//
+// @evidence contracts/testing.md#behavioral-verification printArrayLiteral must preserve [a, b] when Elements.Nodes contains nil instead of synthesizing a corrupt list.
+// @evidence contracts/testing.md#independent-expectations The original source literal independently fixes element spelling and order; the synthetic zero-range expected output is empty.
+// @evidence contracts/testing.md#distinguishing-cases The malformed entry differs from absent Elements and valid flat/broken arrays, each owned by sibling cases.
+// @evidence contracts/testing.md#execution-ownership TestDispatchArrayLiteralFallsBackWhenElementNil is a selected public Go unit under TestSelectedLintUnits. It parses or constructs an AST and calls its owning printer directly in the shared Go process; no consumer installation, native compilation or product host executes.
 func TestDispatchArrayLiteralFallsBackWhenElementNil(t *testing.T) {
   file := parseTS(t, "\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())
@@ -30,5 +35,16 @@ func TestDispatchArrayLiteralFallsBackWhenElementNil(t *testing.T) {
   // Should not panic; the nil-element guard triggers verbatim fallback.
   doc, _ := printArrayLiteral(ctx, node)
   got := Print(doc, ctx.Opts)
-  _ = got
+  if got != "" {
+    t.Fatalf("synthetic zero-range fallback must be empty, got %q", got)
+  }
+
+  parsed := parseTS(t, "const values = [a, b];\n")
+  parsedNode := firstNodeOfKind(t, parsed, shimast.KindArrayLiteralExpression)
+  parsedNode.AsArrayLiteralExpression().Elements.Nodes = []*shimast.Node{nil}
+  parsedContext := NewPrintContext(parsed, DefaultPrintOptions())
+  preserved, _ := printArrayLiteral(parsedContext, parsedNode)
+  if output := Print(preserved, parsedContext.Opts); output != "[a, b]" {
+    t.Fatalf("malformed list must retain its original source: got %q, want %q", output, "[a, b]")
+  }
 }

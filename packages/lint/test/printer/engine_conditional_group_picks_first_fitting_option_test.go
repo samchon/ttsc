@@ -14,6 +14,11 @@ import "testing"
 //     whose second is far wider.
 //  2. Print it.
 //  3. Assert the first option was rendered.
+//
+// @evidence contracts/testing.md#behavioral-verification Print must emit short, the first fitting alternative, rather than the wider fallback.
+// @evidence contracts/testing.md#independent-expectations Five literal columns fit within ten; ordered first-fit selection establishes short independently of the renderer.
+// @evidence contracts/testing.md#distinguishing-cases A fitting first choice complements the over-budget and zero-alternative cases.
+// @evidence contracts/testing.md#execution-ownership TestEngineConditionalGroupPicksFirstFittingOption is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
 func TestEngineConditionalGroupPicksFirstFittingOption(t *testing.T) {
   doc := ConditionalGroup(Text("short"), Text("the-much-longer-fallback"))
   opts := DefaultPrintOptions()

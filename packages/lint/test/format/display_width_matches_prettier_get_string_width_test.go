@@ -18,7 +18,13 @@ import "testing"
 // glyphs, before changing any of them. `＀`, `⺚`, and `꓇` measure
 // 1 precisely BECAUSE they are unassigned, so replacing one with its assigned
 // neighbour inverts the assertion silently.
+//
+// @evidence contracts/testing.md#behavioral-verification displayWidth must reproduce the frozen Prettier width corpus, including complete versus incomplete emoji sequences, combining code points and the documented one-column tab deviation.
+// @evidence contracts/testing.md#independent-expectations Each named literal width was measured independently on Prettier 3.8.3, as the native prose records. Range shape checks run as prerequisites; they do not establish installed-version agreement.
+// @evidence contracts/testing.md#distinguishing-cases The named matrix retains empty/control, assigned/unassigned, text versus emoji, combining marks, lone selectors, ASCII fast-path DEL and mixed lines. Each t.Run case keeps its name and assertion.
+// @evidence contracts/testing.md#execution-ownership TestDisplayWidthMatchesPrettierGetStringWidth is a public format unit selected by TestSelectedLintUnits. It directly calls the width operation in the shared Go process; named t.Run rows remain individually identified, and the main corpus calls its private table-precondition helper. No formatter child or consumer artifact is executed.
 func TestDisplayWidthMatchesPrettierGetStringWidth(t *testing.T) {
+  assertDisplayWidthOraclePreconditions(t)
   for _, tc := range []struct {
     name  string
     input string
@@ -117,102 +123,5 @@ func TestDisplayWidthMatchesPrettierGetStringWidth(t *testing.T) {
         t.Fatalf("displayWidth(%q) = %d, want %d", tc.input, got, tc.want)
       }
     })
-  }
-}
-
-// TestDisplayWidthAfterLastNewlineMeasuresTail verifies the column-reset helper
-// measures only the text after the final newline, with the same rules.
-func TestDisplayWidthAfterLastNewlineMeasuresTail(t *testing.T) {
-  for _, tc := range []struct {
-    name  string
-    input string
-    want  int
-  }{
-    {"no-newline", "⭐", 2},
-    {"tail-after-newline", "aaaa\n⭐⭐", 4},
-    {"empty-tail", "aaaa\n", 0},
-    {"crlf-tail", "aaaa\r\nab", 2},
-  } {
-    t.Run(tc.name, func(t *testing.T) {
-      if got := displayWidthAfterLastNewline(tc.input); got != tc.want {
-        t.Fatalf("displayWidthAfterLastNewline(%q) = %d, want %d", tc.input, got, tc.want)
-      }
-    })
-  }
-}
-
-// TestDisplayWidthFromColumnExpandsTabsToStops verifies the tab-aware form used
-// by the source-measuring rules advances to the next tab stop, and that it
-// measures each segment between tabs whole rather than per rune.
-func TestDisplayWidthFromColumnExpandsTabsToStops(t *testing.T) {
-  for _, tc := range []struct {
-    name   string
-    input  string
-    width  int
-    start  int
-    expect int
-  }{
-    {"tab-at-column-zero", "\t", 4, 0, 4},
-    {"tab-mid-stop", "ab\t", 4, 0, 4},
-    {"tab-from-offset-start", "\t", 4, 3, 1},
-    {"wide-then-tab", "가\t", 4, 0, 4},
-    {"two-tabs", "\t\t", 4, 0, 8},
-    {"no-tab-matches-display-width", "⭐a", 4, 0, 3},
-    // A complete RGI sequence is measured whole (2), so the tab that follows
-    // advances from column 2 to 4. Splitting the sequence would charge its
-    // parts, which is what walking per rune used to do.
-    {"complete-emoji-then-tab", "\U0001F468\u200D\U0001F469\u200D\U0001F467\t", 4, 0, 4},
-    // The negative twin, and the reason the case above proves anything: an
-    // INCOMPLETE ZWJ sequence is not an RGI emoji, so Prettier charges its
-    // parts \u2014 2 + 1 + 2 \u2014 and measures 5, putting the tab stop at 8. Measured,
-    // not assumed; an implementation that segmented by grapheme cluster would
-    // answer 2 here and look correct on the case above.
-    {"incomplete-emoji-then-tab", "\U0001F468\u200D\U0001F469\t", 4, 0, 8},
-    {"zero-tab-width-falls-back", "\t", 0, 0, 2},
-  } {
-    t.Run(tc.name, func(t *testing.T) {
-      got := displayWidthFromColumn(tc.input, tc.width, tc.start)
-      if got != tc.expect {
-        t.Fatalf(
-          "displayWidthFromColumn(%q, %d, %d) = %d, want %d",
-          tc.input, tc.width, tc.start, got, tc.expect,
-        )
-      }
-    })
-  }
-}
-
-// TestPrettierWidthTablesArePinnedToTheInstalledOracle guards the generated
-// tables against silently describing a different Prettier than the one the
-// repository installs.
-//
-// The tables are transcribed from `node_modules/prettier`, so if the pin moves
-// and nobody regenerates, `displayWidth` keeps measuring the old Prettier while
-// the conformance corpus compares against the new one. The version travels with
-// the tables so that mismatch has a name.
-func TestPrettierWidthTablesArePinnedToTheInstalledOracle(t *testing.T) {
-  if prettierWidthVersion == "" {
-    t.Fatal("width tables carry no Prettier version")
-  }
-  if len(prettierWideRanges) == 0 || len(prettierFullWidthRanges) == 0 {
-    t.Fatal("width tables are empty, so every character would measure one column")
-  }
-  if len(prettierNarrowEmojiRanges) == 0 {
-    t.Fatal("narrow-emoji table is empty, so every emoji would measure two columns")
-  }
-  // Sorted and disjoint, which is what the binary search assumes.
-  for name, ranges := range map[string][]unicodeRange{
-    "wide":         prettierWideRanges[:],
-    "fullwidth":    prettierFullWidthRanges[:],
-    "narrow-emoji": prettierNarrowEmojiRanges[:],
-  } {
-    for i, r := range ranges {
-      if r.lo > r.hi {
-        t.Fatalf("%s range %d is descending: %04X..%04X", name, i, r.lo, r.hi)
-      }
-      if i > 0 && r.lo <= ranges[i-1].hi {
-        t.Fatalf("%s ranges %d and %d overlap", name, i-1, i)
-      }
-    }
   }
 }

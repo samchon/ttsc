@@ -19,6 +19,11 @@ import (
 //  1. Seed the source.
 //  2. Run `ttsc format`.
 //  3. Assert the file is unchanged.
+//
+// @evidence contracts/testing.md#behavioral-verification The format command must leave each canonical empty, inline-type, else/catch/finally and commented-brace fixture byte-identical and converge successfully.
+// @evidence contracts/testing.md#independent-expectations These literals record the supported canonical shapes; comparing full source preserves statements, comments and brace placement instead of merely checking idempotency.
+// @evidence contracts/testing.md#distinguishing-cases Eight named subcases distinguish empty bodies, inline types, canonical chained braces and comments. The stranded-brace CRLF sibling owns an input that must change.
+// @evidence contracts/testing.md#execution-ownership TestCommandFormatBraceOwnershipNegativeTwins is a public format unit selected by TestSelectedLintUnits. The isolated fixture filesystem feeds the actual Go command entry in the shared process. This verifies command semantics without compiling or launching a native artifact or installing a consumer.
 func TestCommandFormatBraceOwnershipNegativeTwins(t *testing.T) {
   for _, tc := range []struct {
     name   string
@@ -85,64 +90,5 @@ func TestCommandFormatBraceOwnershipNegativeTwins(t *testing.T) {
         t.Fatalf("source must survive unchanged:\ngot  %q\nwant %q", string(got), tc.source)
       }
     })
-  }
-}
-
-// TestCommandCheckReportsTheMalformedBraceItUsedToBless pins the second
-// invariant #856 states: `ttsc check` must not call a formatting state clean
-// that `ttsc format` would not produce.
-//
-// While the stranded brace had no owner, the mangled form was `ttsc format`'s
-// own fixed point, so `check` with `format.severity: "error"` exited 0 on it —
-// a CI job that ran `format` then `check` stayed green on a malformed tree.
-// Now that a rule owns the brace, the same input is a finding.
-func TestCommandCheckReportsTheMalformedBraceItUsedToBless(t *testing.T) {
-  root := seedLintProject(t, "export function go(n: number) {\n  if (n > 0) {\n    return 1; } else {\n    return 2; }\n}\n")
-  seedLintConfig(t, root, map[string]any{
-    "format": map[string]any{"severity": "error"},
-  })
-  code, _, stderr := captureCommandOutput(t, func() int {
-    return run([]string{"check", "--cwd", root, "--plugins-json", lintManifest(t)})
-  })
-  if code == 0 || !strings.Contains(stderr, "format/indent") {
-    t.Fatalf("check must report the stranded brace: code=%d stderr=%q", code, stderr)
-  }
-}
-
-// TestCommandFormatStrandedBraceHonorsCRLF verifies the line break inserted
-// before a claimed brace uses the file's end-of-line, not a bare LF.
-//
-// The brace pass inserts a break where no rule inserted one before, so it is a
-// new way to reintroduce the mixed-ending defect #616 fixed. The expected
-// output is the same shape as the LF case with `\r\n` throughout.
-//
-//  1. Seed a CRLF one-line block.
-//  2. Run `ttsc format`.
-//  3. Assert every inserted break is `\r\n` and no lone `\n` survives.
-func TestCommandFormatStrandedBraceHonorsCRLF(t *testing.T) {
-  source := "export function f(n: number) { return n; }\r\n"
-  want := "export function f(n: number) {\r\n  return n;\r\n}\r\n"
-
-  root := seedLintProject(t, source)
-  seedLintConfig(t, root, map[string]any{
-    "format": map[string]any{"endOfLine": "crlf"},
-  })
-  main := filepath.Join(root, "src", "main.ts")
-
-  code, _, stderr := captureCommandOutput(t, func() int {
-    return run([]string{"format", "--cwd", root, "--plugins-json", lintManifest(t)})
-  })
-  if code != 0 || strings.Contains(stderr, "did not converge") {
-    t.Fatalf("format did not converge: code=%d stderr=%q", code, stderr)
-  }
-  got, err := os.ReadFile(main)
-  if err != nil {
-    t.Fatalf("ReadFile: %v", err)
-  }
-  if string(got) != want {
-    t.Fatalf("inserted break must honor CRLF:\ngot  %q\nwant %q", string(got), want)
-  }
-  if strings.Contains(strings.ReplaceAll(string(got), "\r\n", ""), "\n") {
-    t.Fatalf("lone LF survived a CRLF file: %q", string(got))
   }
 }

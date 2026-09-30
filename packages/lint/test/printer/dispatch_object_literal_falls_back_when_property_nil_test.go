@@ -20,6 +20,11 @@ import (
 //  2. Use NodeFactory to build an ObjectLiteralExpression whose Properties
 //     NodeList contains a single nil entry.
 //  3. Call printObjectLiteral directly and assert it does not panic.
+//
+// @evidence contracts/testing.md#behavioral-verification printObjectLiteral must preserve the original key/value source when Properties.Nodes contains nil.
+// @evidence contracts/testing.md#independent-expectations The literal { a: 1, b: 2 } prevents an empty or partly reconstructed object from passing; the original synthetic empty output is also asserted.
+// @evidence contracts/testing.md#distinguishing-cases A malformed entry complements absent Properties and valid property lists in the flat/broken object cases.
+// @evidence contracts/testing.md#execution-ownership TestDispatchObjectLiteralFallsBackWhenPropertyNil is a selected public Go unit under TestSelectedLintUnits. It parses or constructs an AST and calls its owning printer directly in the shared Go process; no consumer installation, native compilation or product host executes.
 func TestDispatchObjectLiteralFallsBackWhenPropertyNil(t *testing.T) {
   file := parseTS(t, "\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())
@@ -29,5 +34,16 @@ func TestDispatchObjectLiteralFallsBackWhenPropertyNil(t *testing.T) {
   // Should not panic; the nil-property guard triggers verbatim fallback.
   doc, _ := printObjectLiteral(ctx, node)
   got := Print(doc, ctx.Opts)
-  _ = got
+  if got != "" {
+    t.Fatalf("synthetic zero-range fallback must be empty, got %q", got)
+  }
+
+  parsed := parseTS(t, "const values = { a: 1, b: 2 };\n")
+  parsedNode := firstNodeOfKind(t, parsed, shimast.KindObjectLiteralExpression)
+  parsedNode.AsObjectLiteralExpression().Properties.Nodes = []*shimast.Node{nil}
+  parsedContext := NewPrintContext(parsed, DefaultPrintOptions())
+  preserved, _ := printObjectLiteral(parsedContext, parsedNode)
+  if output := Print(preserved, parsedContext.Opts); output != "{ a: 1, b: 2 }" {
+    t.Fatalf("malformed list must retain its original source: got %q, want %q", output, "{ a: 1, b: 2 }")
+  }
 }

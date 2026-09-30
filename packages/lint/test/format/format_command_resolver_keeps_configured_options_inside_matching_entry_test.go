@@ -9,6 +9,11 @@ import (
 // scoped format tuple cannot be promoted into a file merely because that file
 // matches some other config entry. The synthetic default set remains global,
 // but a user-authored format block follows normal files/ignores scoping.
+//
+// @evidence contracts/testing.md#behavioral-verification formatCommandResolver.ResolveRules must promote only reachable format severities and preserve matching tuples without leaking tests-only options into src.
+// @evidence contracts/testing.md#independent-expectations Explicit ConfigStore entries and literal warn/off and JSON tuple expectations follow entry files scoping, independently of the resolver fold.
+// @evidence contracts/testing.md#distinguishing-cases The same entries are resolved for nonmatching src and matching tests paths, distinguishing severity-only global promotion from scoped tuple promotion.
+// @evidence contracts/testing.md#execution-ownership TestFormatCommandResolverKeepsConfiguredOptionsInsideMatchingEntry is a public format unit selected by TestSelectedLintUnits. It calls the resolver directly on authored entries in the shared Go process, without consumer installation, building a native product artifact or starting a product host.
 func TestFormatCommandResolverKeepsConfiguredOptionsInsideMatchingEntry(t *testing.T) {
   store := &ConfigStore{entries: []ConfigEntry{
     {
@@ -55,21 +60,5 @@ func TestFormatCommandResolverKeepsConfiguredOptionsInsideMatchingEntry(t *testi
     string(testFile.RuleOptions("format/quotes")) != `{"prefer":"single"}` {
     t.Fatalf("matching scoped format rule was not promoted intact: %+v options=%s",
       testFile.Rules, testFile.RuleOptions("format/quotes"))
-  }
-}
-
-// TestFormatCommandResolverVariantsReplaceBareOptionsWithReachableDefaults
-// keeps eager validation aligned with runtime binding. A nil inner payload is
-// not reachable when the format command supplies a synthetic default.
-func TestFormatCommandResolverVariantsReplaceBareOptionsWithReachableDefaults(t *testing.T) {
-  resolver := formatCommandResolver{
-    inner: RuleConfig{"format/semi": SeverityOff},
-    defaultOptions: RuleOptionsMap{
-      "format/semi": json.RawMessage(`{"prefer":"always"}`),
-    },
-  }
-  variants := resolver.RuleOptionsVariants("format/semi")
-  if len(variants) != 1 || string(variants[0]) != `{"prefer":"always"}` {
-    t.Fatalf("validation variants do not match reachable defaults: %q", variants)
   }
 }

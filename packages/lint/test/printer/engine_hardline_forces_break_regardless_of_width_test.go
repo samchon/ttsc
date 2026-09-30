@@ -15,6 +15,11 @@ import "testing"
 //  1. Build a Group with `foo`, Hardline, `bar`.
 //  2. Print under printWidth=80 (plenty of room).
 //  3. Assert the Hardline produced a newline despite the slack.
+//
+// @evidence contracts/testing.md#behavioral-verification Print must retain a newline between foo and bar inside a generously sized Group.
+// @evidence contracts/testing.md#independent-expectations Hardline is unconditional in the Doc algebra, giving the literal foo\nbar.
+// @evidence contracts/testing.md#distinguishing-cases An ample budget distinguishes Hardline from the ordinary Line fit case.
+// @evidence contracts/testing.md#execution-ownership TestEngineHardlineForcesBreakRegardlessOfWidth is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
 func TestEngineHardlineForcesBreakRegardlessOfWidth(t *testing.T) {
   doc := Group(Text("foo"), Hardline(), Text("bar"))
   got := Print(doc, DefaultPrintOptions())

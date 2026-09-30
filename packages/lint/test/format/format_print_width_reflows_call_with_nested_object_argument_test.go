@@ -23,6 +23,11 @@ import "testing"
 //  2. Run formatPrintWidth at printWidth=30.
 //  3. Assert the object hugs the parens and the over-wide nested object breaks
 //     under it, both matching the oracle.
+//
+// @evidence contracts/testing.md#behavioral-verification format/print-width must fix the outer object indentation and break its nested opts object at width thirty.
+// @evidence contracts/testing.md#independent-expectations The full expected source was measured independently on pinned Prettier 3.8.3; it retains the svc argument, property names and numeric values while changing only layout.
+// @evidence contracts/testing.md#distinguishing-cases The changed width-thirty case complements the identical source at width eighty, where the nested object must remain flat.
+// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthReflowsCallWithNestedObjectArgument is a public format unit selected by TestSelectedLintUnits. The snapshot harness calls the owning rule through the Go engine and applies real edits to isolated fixture source. It retains this case identity and does not start a consumer or native product host.
 func TestFormatPrintWidthReflowsCallWithNestedObjectArgument(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,
@@ -30,21 +35,5 @@ func TestFormatPrintWidthReflowsCallWithNestedObjectArgument(t *testing.T) {
     "register(\"svc\", {\n      name: \"alpha\",\n  opts: { retries: 3, timeout: 1000 },\n});\n",
     `{"printWidth": 30}`,
     "register(\"svc\", {\n  name: \"alpha\",\n  opts: {\n    retries: 3,\n    timeout: 1000,\n  },\n});\n",
-  )
-}
-
-// TestFormatPrintWidthKeepsNestedObjectThatFits is the negative twin the case
-// above lacked: the same source at a width the nested object fits within keeps
-// it on one line, so the break is width-driven and not a consequence of the
-// member printer existing.
-//
-// Expected output measured on the pinned Prettier 3.8.3.
-func TestFormatPrintWidthKeepsNestedObjectThatFits(t *testing.T) {
-  assertFixSnapshotWithOptions(
-    t,
-    "format/print-width",
-    "register(\"svc\", {\n      name: \"alpha\",\n  opts: { retries: 3, timeout: 1000 },\n});\n",
-    `{"printWidth": 80}`,
-    "register(\"svc\", {\n  name: \"alpha\",\n  opts: { retries: 3, timeout: 1000 },\n});\n",
   )
 }

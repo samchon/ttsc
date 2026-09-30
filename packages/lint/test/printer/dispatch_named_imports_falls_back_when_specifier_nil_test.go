@@ -21,6 +21,11 @@ import (
 //  2. Use NodeFactory to build a NamedImports node whose Elements list
 //     contains a single nil entry.
 //  3. Call printNamedImports directly and assert it does not panic.
+//
+// @evidence contracts/testing.md#behavioral-verification printNamedImports must retain both bindings verbatim when a parsed Elements list contains a nil specifier.
+// @evidence contracts/testing.md#independent-expectations The literal { a, b } determines binding names and order without rerendering the expected source.
+// @evidence contracts/testing.md#distinguishing-cases A missing entry complements absent Elements; valid named import lists are owned by flat/broken siblings.
+// @evidence contracts/testing.md#execution-ownership TestDispatchNamedImportsFallsBackWhenSpecifierNil is a selected public Go unit under TestSelectedLintUnits. It parses or constructs an AST and calls its owning printer directly in the shared Go process; no consumer installation, native compilation or product host executes.
 func TestDispatchNamedImportsFallsBackWhenSpecifierNil(t *testing.T) {
   file := parseTS(t, "\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())
@@ -31,5 +36,16 @@ func TestDispatchNamedImportsFallsBackWhenSpecifierNil(t *testing.T) {
   // Should not panic; the nil-spec guard triggers verbatim fallback.
   doc, _ := printNamedImports(ctx, node)
   got := Print(doc, ctx.Opts)
-  _ = got
+  if got != "" {
+    t.Fatalf("synthetic zero-range fallback must be empty, got %q", got)
+  }
+
+  parsed := parseTS(t, "import { a, b } from \"x\";\n")
+  parsedNode := firstNodeOfKind(t, parsed, shimast.KindNamedImports)
+  parsedNode.AsNamedImports().Elements.Nodes = []*shimast.Node{nil}
+  parsedContext := NewPrintContext(parsed, DefaultPrintOptions())
+  preserved, _ := printNamedImports(parsedContext, parsedNode)
+  if output := Print(preserved, parsedContext.Opts); output != "{ a, b }" {
+    t.Fatalf("malformed list must retain its original source: got %q, want %q", output, "{ a, b }")
+  }
 }

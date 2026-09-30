@@ -19,6 +19,11 @@ import "testing"
 //  2. Print under default options.
 //  3. Assert the output is "a // end", confirming the drain path ran
 //     and the suffix was appended inline.
+//
+// @evidence contracts/testing.md#behavioral-verification Print must retain the final queued comment in a // end despite the absence of a following break.
+// @evidence contracts/testing.md#independent-expectations The suffix contributes real text that must survive end-of-output, giving the independently authored literal.
+// @evidence contracts/testing.md#distinguishing-cases This final-drain path complements flushing at a subsequent Hardline.
+// @evidence contracts/testing.md#execution-ownership TestEngineLineSuffixDrainsInlineWhenNoBreakFollows is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
 func TestEngineLineSuffixDrainsInlineWhenNoBreakFollows(t *testing.T) {
   doc := Concat(Text("a"), LineSuffix(Text(" // end")))
   got := Print(doc, DefaultPrintOptions())

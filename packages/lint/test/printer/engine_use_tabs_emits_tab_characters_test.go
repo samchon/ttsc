@@ -15,6 +15,11 @@ import "testing"
 //  1. Build Indent(2, Hardline, Text("x")).
 //  2. Print with UseTabs=true.
 //  3. Assert the indented line is `\tx`.
+//
+// @evidence contracts/testing.md#behavioral-verification Print must emit a tab instead of two spaces after the hard break when UseTabs is true.
+// @evidence contracts/testing.md#independent-expectations Default TabWidth two makes Indent two one tab; the literal newline-tab-x checks exact bytes.
+// @evidence contracts/testing.md#distinguishing-cases A whole indent step complements the three-column remainder-space case.
+// @evidence contracts/testing.md#execution-ownership TestEngineUseTabsEmitsTabCharacters is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
 func TestEngineUseTabsEmitsTabCharacters(t *testing.T) {
   doc := Indent(2, Hardline(), Text("x"))
   opts := DefaultPrintOptions()

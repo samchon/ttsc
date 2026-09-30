@@ -20,6 +20,11 @@ import (
 // 1. Parse any source file to obtain a valid PrintContext.
 // 2. Use NodeFactory to build a NamedImports node with nil Elements.
 // 3. Call printNamedImports directly and assert it does not panic.
+//
+// @evidence contracts/testing.md#behavioral-verification printNamedImports must retain { a, b } instead of losing the bindings when Elements is nil.
+// @evidence contracts/testing.md#independent-expectations The independently supplied import source determines the exact binding clause; empty synthetic range remains an empty-output boundary.
+// @evidence contracts/testing.md#distinguishing-cases The absent list complements malformed specifier and valid flat/broken named imports.
+// @evidence contracts/testing.md#execution-ownership TestDispatchNamedImportsFallsBackWhenElementsNil is a selected public Go unit under TestSelectedLintUnits. It parses or constructs an AST and calls its owning printer directly in the shared Go process; no consumer installation, native compilation or product host executes.
 func TestDispatchNamedImportsFallsBackWhenElementsNil(t *testing.T) {
   file := parseTS(t, "\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())
@@ -30,5 +35,16 @@ func TestDispatchNamedImportsFallsBackWhenElementsNil(t *testing.T) {
   got := Print(doc, ctx.Opts)
   // The synthetic node has Pos==End==0 on an empty source, so verbatim
   // emits the empty slice — which renders as the empty string.
-  _ = got
+  if got != "" {
+    t.Fatalf("synthetic zero-range fallback must be empty, got %q", got)
+  }
+
+  parsed := parseTS(t, "import { a, b } from \"x\";\n")
+  parsedNode := firstNodeOfKind(t, parsed, shimast.KindNamedImports)
+  parsedNode.AsNamedImports().Elements = nil
+  parsedContext := NewPrintContext(parsed, DefaultPrintOptions())
+  preserved, _ := printNamedImports(parsedContext, parsedNode)
+  if output := Print(preserved, parsedContext.Opts); output != "{ a, b }" {
+    t.Fatalf("malformed list must retain its original source: got %q, want %q", output, "{ a, b }")
+  }
 }

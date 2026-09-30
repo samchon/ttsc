@@ -19,6 +19,11 @@ import (
 //  2. Use NodeFactory to build a NamedExports node whose Elements list
 //     contains a single nil entry.
 //  3. Call printNamedExports directly and assert it does not panic.
+//
+// @evidence contracts/testing.md#behavioral-verification printNamedExports must preserve { a, b } when a parsed specifier list contains nil, avoiding missing or invented export bindings.
+// @evidence contracts/testing.md#independent-expectations The export fixture literal fixes both names and their order independently; the synthetic range contributes no source bytes.
+// @evidence contracts/testing.md#distinguishing-cases A malformed specifier complements missing Elements and valid flat/broken export lists.
+// @evidence contracts/testing.md#execution-ownership TestDispatchNamedExportsFallsBackWhenSpecifierNil is a selected public Go unit under TestSelectedLintUnits. It parses or constructs an AST and calls its owning printer directly in the shared Go process; no consumer installation, native compilation or product host executes.
 func TestDispatchNamedExportsFallsBackWhenSpecifierNil(t *testing.T) {
   file := parseTS(t, "\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())
@@ -29,5 +34,16 @@ func TestDispatchNamedExportsFallsBackWhenSpecifierNil(t *testing.T) {
   // Should not panic; the nil-spec guard triggers verbatim fallback.
   doc, _ := printNamedExports(ctx, node)
   got := Print(doc, ctx.Opts)
-  _ = got
+  if got != "" {
+    t.Fatalf("synthetic zero-range fallback must be empty, got %q", got)
+  }
+
+  parsed := parseTS(t, "export { a, b };\n")
+  parsedNode := firstNodeOfKind(t, parsed, shimast.KindNamedExports)
+  parsedNode.AsNamedExports().Elements.Nodes = []*shimast.Node{nil}
+  parsedContext := NewPrintContext(parsed, DefaultPrintOptions())
+  preserved, _ := printNamedExports(parsedContext, parsedNode)
+  if output := Print(preserved, parsedContext.Opts); output != "{ a, b }" {
+    t.Fatalf("malformed list must retain its original source: got %q, want %q", output, "{ a, b }")
+  }
 }

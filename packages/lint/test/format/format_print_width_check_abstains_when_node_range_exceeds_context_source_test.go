@@ -27,6 +27,11 @@ import (
 //     whose End offset overflows file1's byte length.
 //  3. Call Check directly with ctx.File=file1, node from file2.
 //  4. Assert no findings are collected (the guard fires and returns early).
+//
+// @evidence contracts/testing.md#behavioral-verification formatPrintWidth.Check must abstain when a parsed object ends beyond the separate context source length.
+// @evidence contracts/testing.md#independent-expectations The independently constructed short and long source literals establish the invalid range; zero findings is the safety contract.
+// @evidence contracts/testing.md#distinguishing-cases The fixture range is required rather than skipped if construction changes; valid reflows and other missing-context guards live in sibling cases.
+// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthCheckAbstainsWhenNodeRangeExceedsContextSource is a public Go unit selected by TestSelectedLintUnits. It calls Check directly with isolated fixture source and a collector, without installing a consumer or starting a host.
 func TestFormatPrintWidthCheckAbstainsWhenNodeRangeExceedsContextSource(t *testing.T) {
   root := t.TempDir()
 
@@ -44,7 +49,7 @@ func TestFormatPrintWidthCheckAbstainsWhenNodeRangeExceedsContextSource(t *testi
 
   node := firstNodeOfKind(t, file2, shimast.KindObjectLiteralExpression)
   if node.End() <= len(file1Src) {
-    t.Skipf("file2 node End=%d does not exceed len(file1)=%d; skip", node.End(), len(file1Src))
+    t.Fatalf("fixture must exceed the context source: file2 node End=%d does not exceed len(file1)=%d; skip", node.End(), len(file1Src))
   }
 
   // Build a context pointing at file1 but visiting a node from file2.

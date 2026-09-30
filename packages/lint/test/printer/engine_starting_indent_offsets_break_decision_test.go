@@ -18,6 +18,11 @@ import "testing"
 //  2. Set printWidth=10, StartingColumn=5, BaseIndent=2.
 //  3. Assert the group breaks and the continuation line aligns to
 //     column 2.
+//
+// @evidence contracts/testing.md#behavioral-verification Print must break foo bar and align bar to BaseIndent two when StartingColumn five consumes the width-ten budget.
+// @evidence contracts/testing.md#independent-expectations Seven flat columns exceed the five remaining; the literal two-space continuation follows BaseIndent independently.
+// @evidence contracts/testing.md#distinguishing-cases Nonzero starting geometry distinguishes this from the same doc fitting at column zero.
+// @evidence contracts/testing.md#execution-ownership TestEngineStartingIndentOffsetsBreakDecision is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
 func TestEngineStartingIndentOffsetsBreakDecision(t *testing.T) {
   doc := Group(Text("foo"), Line(), Text("bar"))
   opts := DefaultPrintOptions()

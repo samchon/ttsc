@@ -13,6 +13,11 @@ import "testing"
 //  1. Build Group(Text("a"), Hardline(), Text("b")).
 //  2. Print with EndOfLine="crlf".
 //  3. Assert the boundary is `\r\n`.
+//
+// @evidence contracts/testing.md#behavioral-verification Print must join a and b with CRLF when EndOfLine is crlf.
+// @evidence contracts/testing.md#independent-expectations The explicit line-ending option requires the literal a\r\nb; no expected string is rendered by Print.
+// @evidence contracts/testing.md#distinguishing-cases This Hardline CRLF case complements the empty-option LF default case.
+// @evidence contracts/testing.md#execution-ownership TestEngineCRLFTerminatorEmitsCarriageReturns is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
 func TestEngineCRLFTerminatorEmitsCarriageReturns(t *testing.T) {
   doc := Group(Text("a"), Hardline(), Text("b"))
   opts := DefaultPrintOptions()

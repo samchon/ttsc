@@ -20,6 +20,11 @@ import "testing"
 //     accounting for Indent.
 //  3. Assert the group stays flat. A buggy fits() that charged the
 //     Indent width would render broken (`foo\n    bar`).
+//
+// @evidence contracts/testing.md#behavioral-verification Print must preserve the flat foo bar output despite Indent four under width ten.
+// @evidence contracts/testing.md#independent-expectations The seven literal columns fit; Indent adds columns only after a broken separator.
+// @evidence contracts/testing.md#distinguishing-cases Flat indentation neutrality complements the broken indentation case. The fixture exercises Indent, not an Align operand despite the historical name.
+// @evidence contracts/testing.md#execution-ownership TestEngineFitsTreatsIndentAlignAsTransparentInFlat is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
 func TestEngineFitsTreatsIndentAlignAsTransparentInFlat(t *testing.T) {
   doc := Group(Indent(4, Text("foo"), Line(), Text("bar")))
   opts := DefaultPrintOptions()
