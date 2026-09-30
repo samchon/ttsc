@@ -7,24 +7,18 @@ import {
 } from "../../internal/toolchain";
 
 /**
- * Verifies the release preflight rejects incoherent tags and package versions.
+ * Verifies the release command connects coherent and incoherent workspaces to success and failure exits.
  *
- * Locks `scripts/release-preflight.cjs::runPreflight`, the gate that must fail
- * a release before the workflow reaches Marketplace or npm publication. The
- * workflow triggers on every pushed tag, so a malformed tag or a tag whose
- * version disagrees with the workspace manifests could otherwise publish
- * irreversible releases and only then fail a post-publish smoke test. Each case
- * has a negative twin so an over-permissive check cannot hide.
- *
- * 1. Materialize synthetic workspaces (canonical, prerelease, per-package
- *    mismatch, missing vscode) under a temp root.
- * 2. Spawn the preflight script with a tag against each root.
- * 3. Assert exit 0 only for the coherent canonical and prerelease releases, and
- *    exit 1 with the offending reason for every malformed or mismatched input,
- *    proving the private package is skipped and no case mutates state.
+ * @evidence contracts/testing.md#behavioral-verification The real release-preflight CLI accepts a coherent fixture with an off-version private package and rejects a different tag with exit 1 and the original mismatch reason.
+ * @evidence contracts/testing.md#independent-expectations Authored public versions 0.19.0 require success for v0.19.0 and rejection for v0.20.0; the private package remains intentionally 0.0.0.
+ * @evidence contracts/testing.md#distinguishing-cases Positive and negative command exits remain observable; all eight parsing, selection and package-coherence scenarios are exercised in the same-named direct source unit.
+ * @evidence contracts/testing.md#execution-ownership This named features/platform entry invokes the real script command twice; portable workspace decisions are owned separately by src/unit/platform.
+ * @evidence contracts/e2e.md#necessary-boundary The command must map operation success to exit 0 and failure to exit 1 plus stderr; direct runPreflight calls cannot verify require.main dispatch or exit wiring.
+ * @evidence contracts/e2e.md#shared-execution Both command requests share one immutable workspace and no installation or native producer; separate process lifetimes are required to observe both actual exit states.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The private fixture is immutable after creation, synchronous completion owns both command lifetimes and finally removes the workspace on normal return or assertion failure.
+ * @evidence contracts/e2e.md#preserved-coverage Original canonical exit and mismatch exit/diagnostic survive here; all original prerelease, malformed, missing-v, public package, VSIX and absent-extension distinctions survive in the direct source unit.
  */
-export const test_release_preflight_rejects_incoherent_tag_and_versions =
-  () => {
+export function test_release_preflight_rejects_incoherent_tag_and_versions() {
     const script = path.join(workspaceRoot, "scripts", "release-preflight.cjs");
     const root = fs.mkdtempSync(
       path.join(process.cwd(), ".tmp-release-preflight-"),
@@ -49,21 +43,6 @@ export const test_release_preflight_rejects_incoherent_tag_and_versions =
       const okCanonical = run(canonical, "v0.19.0");
       assert.equal(okCanonical.status, 0, okCanonical.stderr);
 
-      // Positive twin: a valid semver prerelease tag matching prerelease manifests.
-      const prerelease = writeWorkspace(root, "prerelease", "0.19.0-rc.1");
-      const okPrerelease = run(prerelease, "v0.19.0-rc.1");
-      assert.equal(okPrerelease.status, 0, okPrerelease.stderr);
-
-      // Malformed tag matching the workflow's `*` trigger but not `v${semver}`.
-      const malformed = run(canonical, "release-test");
-      assert.equal(malformed.status, 1, malformed.stdout);
-      assert.match(malformed.stderr, /must be exactly v\$\{version\}/);
-
-      // Missing leading `v`.
-      const noV = run(canonical, "0.19.0");
-      assert.equal(noV.status, 1, noV.stdout);
-      assert.match(noV.stderr, /missing leading 'v'/);
-
       // Well-formed tag whose version differs from every manifest.
       const wrongVersion = run(canonical, "v0.20.0");
       assert.equal(wrongVersion.status, 1, wrongVersion.stdout);
@@ -72,40 +51,10 @@ export const test_release_preflight_rejects_incoherent_tag_and_versions =
         /does not match tag version "0\.20\.0"/,
       );
 
-      // Cross-artifact npm mismatch: a single package off the release version.
-      const npmSkew = writeWorkspace(root, "npm-skew", "0.19.0", {
-        lint: { name: "@ttsc/lint", version: "0.19.1" },
-      });
-      const npmSkewResult = run(npmSkew, "v0.19.0");
-      assert.equal(npmSkewResult.status, 1, npmSkewResult.stdout);
-      assert.match(
-        npmSkewResult.stderr,
-        /@ttsc\/lint version "0\.19\.1" does not match tag version "0\.19\.0"/,
-      );
-
-      // VSIX/Marketplace mismatch: the extension manifest naming the VSIX is skewed.
-      const vsixSkew = writeWorkspace(root, "vsix-skew", "0.19.0", {
-        vscode: { name: "@ttsc/vscode", version: "0.19.2" },
-      });
-      const vsixSkewResult = run(vsixSkew, "v0.19.0");
-      assert.equal(vsixSkewResult.status, 1, vsixSkewResult.stdout);
-      assert.match(
-        vsixSkewResult.stderr,
-        /@ttsc\/vscode version "0\.19\.2" does not match tag version "0\.19\.0"/,
-      );
-
-      // The VSIX artifact source must exist for the cross-artifact check to mean
-      // anything; a workspace without @ttsc/vscode must fail rather than pass.
-      const noVscode = writeWorkspace(root, "no-vscode", "0.19.0", {
-        dropVscode: true,
-      });
-      const noVscodeResult = run(noVscode, "v0.19.0");
-      assert.equal(noVscodeResult.status, 1, noVscodeResult.stdout);
-      assert.match(noVscodeResult.stderr, /@ttsc\/vscode manifest not found/);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
-  };
+  }
 
 interface Override {
   name: string;
