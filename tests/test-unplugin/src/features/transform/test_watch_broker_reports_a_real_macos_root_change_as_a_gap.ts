@@ -20,6 +20,15 @@ import { watchBrokerSource } from "../../../../../packages/unplugin/lib/core/tra
  *
  * 1. Start the broker with the installed binding, and register a directory.
  * 2. Move the directory away, and assert the registration receives a gap.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Spawns watchBrokerSource with installed fsevents, waits for readiness, renames the watched root and asserts a gap reaches registration 1 through actual binding IPC.
+ * @evidence contracts/testing.md#independent-expectations FSEvents RootChanged is a real system flag and must invalidate silent-watch authority. The deliberate directory move provides an external cause for the expected gap; it is a transport proxy for dropped flags, not an induced overflow.
+ * @evidence contracts/testing.md#distinguishing-cases Owns one ready stream followed by an actual root identity change. Scripted dropped/root/outside flags and absent binding counterexamples execute in the transferred macOS drop unit entry.
+ * @evidence contracts/testing.md#execution-ownership macOS E2E entry owns the binding-backed broker process and root rename; other platforms return. TestExecutor discovers this named feature and the binding-presence assertion prevents silently falling back.
+ * @evidence contracts/e2e.md#necessary-boundary Actual system flags must survive the installed binding and broker IPC rather than libuv discarding them. Moving the root makes that native transport observable without attempting an unreliable queue overflow.
+ * @evidence contracts/e2e.md#shared-execution One child/root registration combines readiness and root-change transport. Shared package/binding installation supplies the producer; no compiler build or second process is needed.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The watched directory belongs to a unique parent and the gap wait is armed before rename. Finally disconnects/kills the child and TestProject removes both original/moved paths at worker exit; timed-out wait listeners remain until teardown.
+ * @evidence contracts/e2e.md#preserved-coverage The readiness-to-rename gap assertion remains unchanged. Scripted flag-kind and missing-binding semantics retain their unit owner, while genuine dropped-event generation remains untested and is not inferred from the root-change proxy.
  */
 export async function test_watch_broker_reports_a_real_macos_root_change_as_a_gap(): Promise<void> {
   if (process.platform !== "darwin") return;

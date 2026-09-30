@@ -30,6 +30,15 @@ import { matchesUniversalHostInputs } from "../../../../../packages/unplugin/lib
  * 2. Name one file changed, and assert that file alone is read, and the proof
  *    still holds on its metadata.
  * 3. Prove the plugin source too, and assert nothing at all is touched.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls matchesUniversalHostInputs with counted filesystem operations; asserts an unproven source does not touch two proven files, a changed manifest alone is read, and all-proven inputs touch no file.
+ * @evidence contracts/testing.md#independent-expectations Tracker authority is per input rather than an all-or-nothing verdict. Literal empty/package.json/empty touch lists follow that contract independently of validation iteration; source state uses the same provider and is not a digest oracle.
+ * @evidence contracts/testing.md#distinguishing-cases Owns covered files beside an unproven tree, a changed covered manifest and removal of the unproven set. It measures file operations, not the internal number of tree/toolchain probes.
+ * @evidence contracts/testing.md#execution-ownership E2E entry calls built universal validation while pluginSourceState consults real Go environment state. Its tracker is authored, and no actual watch, native binary or host is started.
+ * @evidence contracts/e2e.md#necessary-boundary Universal validation must accept the actual external source-state provider while retaining per-file tracker authority. The per-input decision is portable and remains mixed with Go discovery because that provider is not independently injected.
+ * @evidence contracts/e2e.md#shared-execution One source, two files and one cached generation serve the three authority transitions. Existing packages/toolchain are shared, source environment memoization remains valid for equivalent inputs and no compiler preparation repeats.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The counted filesystem is case-local; the changed set is cleared after its phase and unproven is removed only for the final phase. TestProject owns temporary paths at exit; maps and trackers retain no native handles.
+ * @evidence contracts/e2e.md#preserved-coverage All three hold assertions and exact file-touch lists remain in this entry. No portable assertion has been deleted or moved to an unexecuted owner; pure provider-seamed coverage is still absent.
  */
 export async function test_universal_inputs_their_tracker_proves_are_not_read_beside_one_it_cannot(): Promise<void> {
   const root = fs.realpathSync.native(

@@ -38,6 +38,15 @@ import { createClockRollbackFixture } from "../../internal/clock-rollback/create
  *    bytes while the clock is where it was.
  * 3. Step the filesystem's clock back, and assert the confirmation now reads the
  *    files and finds the change.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls failedGenerationEnvironmentChanged in separate event-loop turns over a recorded failure; asserts unchanged and metadata-held edited source replay as unchanged, then a rolled-back filesystem forces changed true.
+ * @evidence contracts/testing.md#independent-expectations Rollback destroys the premise that recorded timestamps distinguish later writes. Controlled bytes and clock offset supply the expected transition independently of replay; the initial pluginSourceState oracle shares source hashing and cannot validate its encoding.
+ * @evidence contracts/testing.md#distinguishing-cases Owns terminal-failure replay across unchanged, edited-under-held-metadata and rollback states; project-record and out-of-program entries own the other proof consumers.
+ * @evidence contracts/testing.md#execution-ownership E2E entry uses createClockRollbackFixture and real plugin-source environment probing through the built ttsc package, with the replay algorithm called directly. No compiler or plugin binary is built.
+ * @evidence contracts/e2e.md#necessary-boundary The plugin source state depends on actual Go tool/environment identity supplied outside the adapter filesystem seam. This connects failed replay to that state provider; the clock ordering itself is portable semantics and lacks a fully isolated environment-provider seam here.
+ * @evidence contracts/e2e.md#shared-execution One source/project fixture and earlier clock mint feed all three replay states. Built packages and toolchain installation are shared; processPluginBuildEnvironment memoizes equivalent source/environment probes rather than starting a compiler for each state.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The filesystem object owns held metadata and rollback offset, and each confirmation deliberately gets its own turn. TestProject removes fixture directories at exit; the production process clock directory persists to process exit and environment memoization is process-owned.
+ * @evidence contracts/e2e.md#preserved-coverage All three replay assertions remain unchanged in this entry. It still mixes portable replay semantics with a real Go environment probe; no pure-unit ownership of those assertions is claimed.
  */
 export async function test_failed_generation_replay_reads_a_plugin_source_after_a_clock_rollback(): Promise<void> {
   const fixture = createClockRollbackFixture();

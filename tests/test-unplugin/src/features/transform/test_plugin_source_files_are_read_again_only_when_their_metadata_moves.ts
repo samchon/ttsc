@@ -40,6 +40,15 @@ import { pluginSourceFilesDigest } from "../../../../../packages/unplugin/lib/co
  *    failed refresh does, and assert the unchanged signature is not reused: a
  *    reference minted now is what rules out a write that a clock rollback put
  *    into a recorded stamp's tick.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls pluginSourceFilesDigest against controlled lstat and compares current digests with ttsc pluginSourceDigest; checks retained old bytes, rereads after edits, nonseparable stamps, refreshed clock, file addition/removal and absent clock reference.
+ * @evidence contracts/testing.md#independent-expectations ttsc pluginSourceDigest reads current file content independently of the adapter metadata memo; changed bytes must disagree with a retained old digest. Shared upstream source discovery remains an oracle limitation for omissions common to both digest providers.
+ * @evidence contracts/testing.md#distinguishing-cases Owns old/separable versus current/nonseparable stamps, metadata-held byte changes, a newer reference, changed file set and reference removal. Explicit old/new digest disagreement distinguishes reread from accidental identical content.
+ * @evidence contracts/testing.md#execution-ownership E2E entry invokes the built adapter and ttsc plugin-source API over a real source tree; the reference digest discovers the actual Go environment. No plugin binary is built and no product host starts.
+ * @evidence contracts/e2e.md#necessary-boundary The adapter digest must agree with the real source provider whose Go identity contributes to state. Portable metadata reuse is exercised through the seam, but the independent current-content oracle presently requires that provider connection.
+ * @evidence contracts/e2e.md#shared-execution One source fixture and one clock directory serve all five phases. Built artifacts and toolchain installation are shared; repeated unchanged environment probes may reuse provider metadata, while byte/stamp/file-set mutations require fresh digest decisions.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Held metadata is released between phases and each remint deliberately establishes a new separability frontier. Fixture directories are TestProject-owned until worker exit; the filesystem-specific digest/reference state remains associated with its case object.
+ * @evidence contracts/e2e.md#preserved-coverage Every existing digest equality/inequality and file-set/reference transition stays in this entry. It remains a mixed content-provider integration and metadata-semantics case; no pure-unit transfer or native compile coverage is claimed.
  */
 export async function test_plugin_source_files_are_read_again_only_when_their_metadata_moves(): Promise<void> {
   const root = fs.realpathSync.native(

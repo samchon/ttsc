@@ -22,6 +22,15 @@ import path from "node:path";
  *    the same store, which still exists after both exited, with no permission
  *    for anyone but its owner where the platform has owners.
  * 3. Assert the dead process's store is gone and the live one's is kept.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Runs openTtscTransformSession in two sequential Node processes and inspects real store files; asserts the same persistent directory, post-exit existence, owner-only permissions where supported, dead legacy cleanup and preservation of live/foreign directories.
+ * @evidence contracts/testing.md#independent-expectations A restarted session must name the same per-user store while reclaiming only recognized terminated legacy owners. Literal equality/existence and OS mode bits specify that lifetime contract independently of directory naming logic.
+ * @evidence contracts/testing.md#distinguishing-cases Owns repeated fresh processes with no inherited session variable, persistent versus legacy paths, dead/live/foreign legacy names and POSIX permission bits. It does not exercise adoption of a compiled publication.
+ * @evidence contracts/testing.md#execution-ownership E2E entry owns two API subprocesses plus one short-lived PID fixture and discovers through src/features/transform; all commands are synchronous and no native compiler/plugin is built.
+ * @evidence contracts/e2e.md#necessary-boundary Cross-process environment initialization, persistence after creator exit and OS-owner permissions cannot be established by an in-memory session unit. This API boundary complements Next worker inheritance without starting another bundler host.
+ * @evidence contracts/e2e.md#shared-execution One private per-user root serves both API processes and all legacy fixtures. A second fresh process is necessary to distinguish persistence from process-local reuse; built package preparation and installation are shared.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Child environments point TEMP/TMP/TMPDIR to the owned root and clear TTSC_UNPLUGIN_TRANSFORM_SESSION. Children finish before assertions, and TestProject removes the root at worker exit; live and foreign directories remain only within that owned fixture.
+ * @evidence contracts/e2e.md#preserved-coverage All existing same-store, owner-mode, dead/live/foreign and post-exit assertions remain in this process batch. Store publication/adoption contents are tested by shared-claim owners, not inferred from directory existence.
  */
 export async function test_transform_session_store_outlives_its_process(): Promise<void> {
   const temporary = fs.realpathSync.native(

@@ -26,6 +26,15 @@ import { matchesUniversalHostInputTrees } from "../../../../../packages/unplugin
  * 2. Record the current environment as the one it was last proven under, and
  *    assert the silent tree is skipped.
  * 3. Record another environment, and assert the tree is proven again and fails.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls matchesUniversalHostInputTrees with an intentionally wrong recorded source state and a silent covering tracker; expects acceptance under the current environment reading and rejection under a different reading.
+ * @evidence contracts/testing.md#independent-expectations A silent file tracker certifies files, not the external build environment. The impossible tree-state literal makes revalidation observable: false proves it was reread, while the current environment permits the documented skip.
+ * @evidence contracts/testing.md#distinguishing-cases Owns same versus different recorded environment with identical silent tracker and source bytes. Actual in-place toolchain changes and races during proof are complementary tree/producer scenarios.
+ * @evidence contracts/testing.md#execution-ownership E2E entry connects built tree validation to processPluginBuildEnvironment and pluginSourceState, which inspect the real Go tool/environment. The tracker is a fixture and no native watcher or binary is produced.
+ * @evidence contracts/e2e.md#necessary-boundary The source validator consumes the external toolchain reading even when source watchers are silent. This verifies that real provider connection; the two-environment state decision itself is portable but the provider has no isolated seam in this case.
+ * @evidence contracts/e2e.md#shared-execution One source and tracker are reused for the two validations; built artifacts/toolchain installation are shared and the process provider caches equivalent readings. No host or native compile is started per environment label.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Case-local validation maps differ only in the recorded environment and retain no watcher handle. Unique source paths separate memo keys; TestProject removes the source tree at exit and provider environment witnesses remain process-owned.
+ * @evidence contracts/e2e.md#preserved-coverage Both acceptance and rejection assertions remain intact. The environment mismatch decision has not been split into a pure-unit provider seam, and this entry does not prove native watch delivery.
  */
 export async function test_silent_plugin_source_tracker_proves_nothing_once_the_environment_moved(): Promise<void> {
   const root = fs.realpathSync.native(

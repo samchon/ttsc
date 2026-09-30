@@ -35,6 +35,15 @@ import { createClockRollbackFixture } from "../../internal/clock-rollback/create
  *    is: its metadata stands for the bytes while the clock is where it was.
  * 3. Step the filesystem's clock back, and assert the proof now reads the files
  *    and no longer proves the program unchanged.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls notificationsProveProgramUnchanged on a generation whose program tracker is silent and whose source tracker is unproven; checks true before/after a metadata-held edit and false after clock rollback.
+ * @evidence contracts/testing.md#independent-expectations A source write inside a rolled-back timestamp tick must invalidate notification-only reuse. Authored tracker authority and controlled file bytes establish the expected booleans; initial tree-state hashing is shared with the provider and is not a hash-format oracle.
+ * @evidence contracts/testing.md#distinguishing-cases Owns the out-of-program shortcut with an unproven source, held metadata and rollback; failed replay and build-start record proofs remain separate consumers.
+ * @evidence contracts/testing.md#execution-ownership E2E entry calls the built adapter proof and real ttsc source/environment provider. Its trackers are stand-ins; it builds no compiler/plugin and measures no native watch events.
+ * @evidence contracts/e2e.md#necessary-boundary The built adapter consumes source state from actual Go environment discovery beyond its supplied filesystem seam. That integration remains real, while a future provider seam could isolate the portable out-of-program proof instead of retaining this mixed case.
+ * @evidence contracts/e2e.md#shared-execution One generation, source fixture and generation probe directory carry all three transitions. Existing built artifacts/toolchain are reused and equivalent environment readings use the provider memo; no project host session is opened.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Case-local result/filesystem and cached/probe mappings separate this generation from others. Held stamps and the later rollback are intentional; TestProject owns temporary directory cleanup at worker exit, and production weak mappings follow their case objects.
+ * @evidence contracts/e2e.md#preserved-coverage Unchanged, held-edit and rollback assertions remain in this entry without alteration; tracker/native-event transport is covered elsewhere. The portable proof remains mixed with environment integration, not transferred to pure units.
  */
 export function test_out_of_program_proof_reads_a_plugin_source_after_a_clock_rollback(): void {
   const fixture = createClockRollbackFixture();

@@ -29,6 +29,15 @@ import { watchBrokerSource } from "../../../../../packages/unplugin/lib/core/tra
  *    opening probe, which came after that write.
  * 3. Write a file below the location and ask for a drain at once, and assert the
  *    file's event was received before the drain's answer.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Spawns watchBrokerSource with the installed fsevents binding; asserts a pre-registration write emits no event after ready/drain, the probed stream reports no unproven locations, and a later synchronous write arrives before its drain reply.
+ * @evidence contracts/testing.md#independent-expectations Ordered FSEvents probes delimit opening and drain frontiers. Authored before.ts/after.ts writes and receive-order indices supply the oracle independently of probe bookkeeping; no dropped-event overflow is induced.
+ * @evidence contracts/testing.md#distinguishing-cases Owns pre-ready historical suppression, proved opening, empty unproven list and post-ready write/drain ordering. Scripted probe sharing and closure counterexamples remain in the transferred probe unit case.
+ * @evidence contracts/testing.md#execution-ownership macOS E2E entry owns one real binding-backed broker process and IPC/watch lifetime; other platforms return before execution. The installed binding is asserted present and no compiler/plugin is built.
+ * @evidence contracts/e2e.md#necessary-boundary Actual binding latency and stream order must make the probe frontier meaningful. A scripted stream cannot establish that native connection; this entry complements the portable probe state-machine unit.
+ * @evidence contracts/e2e.md#shared-execution One root, stream and child jointly exercise opening and both drains. The existing binding/package installation is reused; changed write timing requires another drain, not another stream build.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A private root contains source and probe paths; ready occurs after the intentionally earlier write and message IDs separate drains. Finally disconnects/kills the child and TestProject owns roots at exit; timeout listeners are bounded by child teardown.
+ * @evidence contracts/e2e.md#preserved-coverage Historical-event absence, empty-unproven and after-write-before-drain assertions remain intact. Portable probe preparation/sharing/removal distinctions moved unchanged to the unit probe entry; this platform case cannot execute on Windows/Linux.
  */
 export async function test_watch_broker_drains_a_real_macos_stream_through_its_probe(): Promise<void> {
   if (process.platform !== "darwin") return;

@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import type { ChildProcess } from "node:child_process";
 import path from "node:path";
 
-import { LINUX_DIRECTORY_WATCHES } from "../../../../../packages/unplugin/lib/core/transform/tracker/linux/LINUX_DIRECTORY_WATCHES.mjs";
-import { LINUX_WATCH_HELPER } from "../../../../../packages/unplugin/lib/core/transform/tracker/linux/LINUX_WATCH_HELPER.mjs";
-import type { LinuxWatchHelper } from "../../../../../packages/unplugin/lib/core/transform/tracker/linux/LinuxWatchHelper.mjs";
-import { routeLinuxWatchHelperLine } from "../../../../../packages/unplugin/lib/core/transform/tracker/linux/routeLinuxWatchHelperLine.mjs";
-import { subscribeLinuxDirectoryWatch } from "../../../../../packages/unplugin/lib/core/transform/tracker/linux/subscribeLinuxDirectoryWatch.mjs";
+import { LINUX_DIRECTORY_WATCHES } from "../../../../../packages/unplugin/src/core/transform/tracker/linux/LINUX_DIRECTORY_WATCHES";
+import { LINUX_WATCH_HELPER } from "../../../../../packages/unplugin/src/core/transform/tracker/linux/LINUX_WATCH_HELPER";
+import type { LinuxWatchHelper } from "../../../../../packages/unplugin/src/core/transform/tracker/linux/LinuxWatchHelper";
+import { routeLinuxWatchHelperLine } from "../../../../../packages/unplugin/src/core/transform/tracker/linux/routeLinuxWatchHelperLine";
+import { subscribeLinuxDirectoryWatch } from "../../../../../packages/unplugin/src/core/transform/tracker/linux/subscribeLinuxDirectoryWatch";
 
 /**
  * Verifies a subscriber joining a shared Linux directory watch hears only the
@@ -35,6 +35,11 @@ import { subscribeLinuxDirectoryWatch } from "../../../../../packages/unplugin/l
  * 5. Join once more and never answer the sync, and assert the joiner is not live,
  *    is told of the error once, and hears nothing more, while the others still
  *    do; then close every subscriber, and assert the watches are removed.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls subscribeLinuxDirectoryWatch and routeLinuxWatchHelperLine with a scripted helper; asserts one underlying watch, sync-gated joining, exact subscribers before/after sync, unanswered-join failure and final watch removal.
+ * @evidence contracts/testing.md#independent-expectations A join cannot inherit events queued before its own sync acknowledgment. Explicit line ordering and literal subscriber lists specify the temporal contract independently of subscription state computation.
+ * @evidence contracts/testing.md#distinguishing-cases Owns joining a ready and not-yet-ready watch, the first event in the sync turn, never-answered sync and closure. LINUX_WATCH_HELPER.current is restored; this case does not launch the Linux native helper.
+ * @evidence contracts/testing.md#execution-ownership Unit entry test_linux_watch_join_hears_only_what_follows_it is discovered under src/unit/transform by TestExecutor. It invokes the owning operations in the test process against controlled fixture inputs; the assertions moved from features and source imports replace built package imports and this entry owns no dynamically registered cases.
  */
 export async function test_linux_watch_join_hears_only_what_follows_it(): Promise<void> {
   const previous = LINUX_WATCH_HELPER.current;

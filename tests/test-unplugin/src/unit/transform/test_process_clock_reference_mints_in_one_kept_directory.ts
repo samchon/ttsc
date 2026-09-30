@@ -1,14 +1,14 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { filesystemClockReferences } from "../../../../../packages/unplugin/lib/core/transform/clock/filesystemClockReferences.mjs";
-import { refreshProcessClockReference } from "../../../../../packages/unplugin/lib/core/transform/clock/refreshProcessClockReference.mjs";
-import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/lib/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS.mjs";
-import type { TtscTransformFilesystemOperations } from "../../../../../packages/unplugin/lib/core/transform/filesystem/TtscTransformFilesystemOperations.mjs";
-import { userStateDirectory } from "../../../../../packages/unplugin/lib/core/transform/filesystem/userStateDirectory.mjs";
+import { filesystemClockReferences } from "../../../../../packages/unplugin/src/core/transform/clock/filesystemClockReferences";
+import { refreshProcessClockReference } from "../../../../../packages/unplugin/src/core/transform/clock/refreshProcessClockReference";
+import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
+import type { TtscTransformFilesystemOperations } from "../../../../../packages/unplugin/src/core/transform/filesystem/TtscTransformFilesystemOperations";
+import { userStateDirectory } from "../../../../../packages/unplugin/src/core/transform/filesystem/userStateDirectory";
 
 /**
  * Verifies a proof that holds no generation mints its clock reference in the
@@ -32,6 +32,11 @@ import { userStateDirectory } from "../../../../../packages/unplugin/lib/core/tr
  *    root, outside the project, and that the directory is kept.
  * 2. Mint for a root that holds the state root, and assert no reference is left,
  *    the earlier one included.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls refreshProcessClockReference through counted lstat operations; asserts two mints rewrite one process-owned probe outside the project and a root enclosing the state directory clears even an earlier reference.
+ * @evidence contracts/testing.md#independent-expectations A clock proof must avoid mutating the project it proves and must fail closed when no outside probe can exist. Native path relationships and reference count are independent of the refreshed timestamp.
+ * @evidence contracts/testing.md#distinguishing-cases Owns repeated valid mints and an enclosing-root refusal with prior state. The supplied filesystem is case-local; the process-owned probe is deliberately retained by production until process exit, beyond TestProject directory cleanup.
+ * @evidence contracts/testing.md#execution-ownership Unit entry test_process_clock_reference_mints_in_one_kept_directory is discovered under src/unit/transform by TestExecutor. It invokes the owning operations in the test process against controlled fixture inputs; the assertions moved from features and source imports replace built package imports and this entry owns no dynamically registered cases.
  */
 export function test_process_clock_reference_mints_in_one_kept_directory(): void {
   const project = fs.realpathSync.native(

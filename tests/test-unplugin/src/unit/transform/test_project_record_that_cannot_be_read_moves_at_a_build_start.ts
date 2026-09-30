@@ -1,14 +1,14 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { openHostWatchBridge } from "../../../../../packages/unplugin/lib/core/bridge/openHostWatchBridge.js";
-import { projectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/projectRecordFile.js";
-import { readProjectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/readProjectRecordFile.js";
-import { refreshProjectRecordFiles } from "../../../../../packages/unplugin/lib/core/bridge/refreshProjectRecordFiles.js";
-import { signalProjectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/signalProjectRecordFile.js";
-import { writeProjectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/writeProjectRecordFile.js";
+import { openHostWatchBridge } from "../../../../../packages/unplugin/src/core/bridge/openHostWatchBridge";
+import { projectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/projectRecordFile";
+import { readProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/readProjectRecordFile";
+import { refreshProjectRecordFiles } from "../../../../../packages/unplugin/src/core/bridge/refreshProjectRecordFiles";
+import { signalProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/signalProjectRecordFile";
+import { writeProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/writeProjectRecordFile";
 
 /**
  * Verifies a build start moves a project record it cannot read, with a watching
@@ -30,6 +30,11 @@ import { writeProjectRecordFile } from "../../../../../packages/unplugin/lib/cor
  *    again, which still read as no record.
  * 3. Remove the file and signal it, as a start that listed it before another
  *    process removed it does, and assert it stays removed.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls record writing, signaling and refresh with and without openHostWatchBridge; asserts truncated records become bare signals, both refresh paths change those bytes while remaining unreadable, and signaling a removed file does not recreate it.
+ * @evidence contracts/testing.md#independent-expectations An unreadable record cannot establish cache validity, so the watched signal must move at the next build start. Distinct raw bytes and undefined decoded records express that requirement without reconstructing the signal algorithm.
+ * @evidence contracts/testing.md#distinguishing-cases Owns half-written, bare-signal, bridge/no-bridge and removed-record states. Quiet watch/poll seams retain no native handles and the bridge closes in finally; actual host cache replay belongs to adapter boundaries.
+ * @evidence contracts/testing.md#execution-ownership Unit entry test_project_record_that_cannot_be_read_moves_at_a_build_start is discovered under src/unit/transform by TestExecutor. It invokes the owning operations in the test process against controlled fixture inputs; the assertions moved from features and source imports replace built package imports and this entry owns no dynamically registered cases.
  */
 export async function test_project_record_that_cannot_be_read_moves_at_a_build_start(): Promise<void> {
   const root = fs.realpathSync.native(

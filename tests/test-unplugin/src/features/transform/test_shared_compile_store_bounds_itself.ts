@@ -28,6 +28,15 @@ import { claimSharedCompile } from "../../../../../packages/unplugin/lib/core/tr
  * 3. Leave a lock and a partial write of a dead process, and a lock and a long
  *    running partial write of a live one, publish once more, and assert the
  *    dead process's are removed and the live one's stay.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls claimSharedCompile publish/adopt over a real store; asserts four most-recent states per identity, 32 store publications, deletion of a terminated process lock/partial write and preservation of this live process state.
+ * @evidence contracts/testing.md#independent-expectations Published limits are explicit store policy and authored timestamps independently establish recency. A synchronous child provides a dead PID while process.pid supplies a live counterexample; these inputs do not derive cleanup expectations from its implementation.
+ * @evidence contracts/testing.md#distinguishing-cases Owns fifth-state and thirty-third-publication eviction boundaries, adoption refreshing recency, live/dead ownership and an old still-live partial write.
+ * @evidence contracts/testing.md#execution-ownership E2E entry connects built store cleanup with real OS PID liveness and filesystem timestamps, using one exited child. It builds no compiler/plugin and currently retains portable eviction assertions in that connection batch.
+ * @evidence contracts/e2e.md#necessary-boundary Reclamation must consult actual process liveness, especially an old partial write that still belongs to a live writer. This real child/live-parent distinction is a necessary OS connection; recency calculations remain mixed portable semantics.
+ * @evidence contracts/e2e.md#shared-execution One store batches all state/identity publications and one synchronous child supplies both dead lock and dead-write identities. Existing built packages are reused, and no per-publication installation or native host starts.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Authored monotonic stamps order publications and adopting the oldest deliberately refreshes its actual use time. Claims normally release each lock; live/dead leftovers have distinct names and TestProject removes the store at exit. Failed assertions can retain a claim until worker termination.
+ * @evidence contracts/e2e.md#preserved-coverage Per-identity/global recency sets and every live/dead cleanup assertion remain. No eviction distinction is discarded; direct unit transfer of portable recency semantics remains outstanding rather than being certified by the liveness boundary.
  */
 export async function test_shared_compile_store_bounds_itself(): Promise<void> {
   const store = TestProject.tmpdir("ttsc-unplugin-shared-bounds-");

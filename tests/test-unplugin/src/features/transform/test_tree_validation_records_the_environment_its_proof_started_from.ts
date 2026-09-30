@@ -23,6 +23,15 @@ import { createMovingEnvironmentFixture } from "../../internal/moving-environmen
  * 2. Assert the proof held and recorded the reading from before the move.
  * 3. Validate again with a tracker that heard nothing, and assert the tree was
  *    read again rather than skipped.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls matchesUniversalHostInputTrees twice while first source metadata access changes GOENV; asserts successful proof records the pre-move label and the next silent validation reads the source again.
+ * @evidence contracts/testing.md#independent-expectations A proof starting under one environment cannot retroactively certify a move arriving during it. Before/moved fixture labels and the injected write determine the expected label independently of recording order; nonzero reads detect a stale skip.
+ * @evidence contracts/testing.md#distinguishing-cases Owns an environment race during revalidation, followed by silent next validation. The capture sibling owns initialization of a fresh manifest under the same race.
+ * @evidence contracts/testing.md#execution-ownership E2E entry uses built tree validation and real Go environment discovery over a privately rewritten GOENV file. Trackers and metadata timing are controlled; no watcher or plugin compiler is started.
+ * @evidence contracts/e2e.md#necessary-boundary The real environment-file/provider connection makes a move during source proof visible across adapter and ttsc state ownership. The recording decision is portable, but without an isolated provider seam the scenario remains mixed integration.
+ * @evidence contracts/e2e.md#shared-execution One source fixture and its two prepared environment labels serve both validations. Existing packages/toolchain are shared; a changed GOENV causes the necessary new provider reading instead of a per-case binary build.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only the first metadata access mutates the fixture environment; resetReads preserves the moved state while zeroing counts. dispose restores GOENV in finally and TestProject removes temporary roots at process exit; case-local maps cannot leak an accepted tree to another entry.
+ * @evidence contracts/e2e.md#preserved-coverage Both successful validations, the pre-proof label and the second read-count assertion remain unchanged. Pure recording-order coverage remains coupled to provider integration rather than being claimed as transferred unit coverage.
  */
 export function test_tree_validation_records_the_environment_its_proof_started_from(): void {
   const fixture = createMovingEnvironmentFixture();

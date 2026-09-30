@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { watchBrokerSource } from "../../../../../packages/unplugin/lib/core/transform/tracker/broker/watchBrokerSource.mjs";
+import { watchBrokerSource } from "../../../../../packages/unplugin/src/core/transform/tracker/broker/watchBrokerSource";
 import { runWatchBrokerProgram } from "../../internal/watch-broker/runWatchBrokerProgram";
 
 /**
@@ -33,6 +33,11 @@ import { runWatchBrokerProgram } from "../../internal/watch-broker/runWatchBroke
  *    it reaches its registration placed against the location; then ask for a
  *    drain and remove the registration before its probe is heard, and assert
  *    the drain is answered at once with the closed watch unproven.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Runs watchBrokerSource with a scripted FSEvents binding; asserts stream roots, opening readiness, old-event suppression, drain waiting, unproven names, shared probes, exact event routing and removal-before-proof completion.
+ * @evidence contracts/testing.md#independent-expectations Ordered FSEvents probes establish a stream frontier; loop turns alone cannot. Explicit flag values, event sequence and literal drain messages provide an oracle independent of probe state tracking.
+ * @evidence contracts/testing.md#distinguishing-cases Owns probed/unprobed streams, two streams sharing a probe directory, pre/post-opening events and a closed pending stream. Mock streams and probe arrays have no native lifetime; real installed-binding ordering remains in the macOS boundary case.
+ * @evidence contracts/testing.md#execution-ownership Unit entry test_watch_broker_proves_a_macos_drain_with_a_probe is discovered under src/unit/transform by TestExecutor. It invokes the owning operations in the test process against controlled fixture inputs; the assertions moved from features and source imports replace built package imports and this entry owns no dynamically registered cases.
  */
 export async function test_watch_broker_proves_a_macos_drain_with_a_probe(): Promise<void> {
   const streams: {

@@ -1,15 +1,15 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { TRANSFORM_RESULT_MEMBERSHIP } from "../../../../../packages/unplugin/lib/core/transform/cache/TRANSFORM_RESULT_MEMBERSHIP.js";
-import { envelopeDerivation } from "../../../../../packages/unplugin/lib/core/transform/envelope/envelopeDerivation.js";
-import { envelopeGraphIndexes } from "../../../../../packages/unplugin/lib/core/transform/envelope/envelopeGraphIndexes.js";
-import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/lib/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS.js";
-import { createHostPathIdentityContext } from "../../../../../packages/unplugin/lib/core/transform/filesystem/createHostPathIdentityContext.js";
-import { graphInputObservationFailures } from "../../../../../packages/unplugin/lib/core/transform/inputs/graphInputObservationFailures.js";
-import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/lib/core/tsconfig/readProjectMembershipPolicy.js";
+import { TRANSFORM_RESULT_MEMBERSHIP } from "../../../../../packages/unplugin/src/core/transform/cache/TRANSFORM_RESULT_MEMBERSHIP";
+import { envelopeDerivation } from "../../../../../packages/unplugin/src/core/transform/envelope/envelopeDerivation";
+import { envelopeGraphIndexes } from "../../../../../packages/unplugin/src/core/transform/envelope/envelopeGraphIndexes";
+import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
+import { createHostPathIdentityContext } from "../../../../../packages/unplugin/src/core/transform/filesystem/createHostPathIdentityContext";
+import { graphInputObservationFailures } from "../../../../../packages/unplugin/src/core/transform/inputs/graphInputObservationFailures";
+import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
 
 /**
  * Verifies the graph index leaves the listing of a directory the project walk
@@ -33,6 +33,11 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/li
  *    listing, and that an envelope captured without a membership keeps all.
  * 3. Write a framework's files beside the project, and assert the root's indexed
  *    observation still holds.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls envelopeGraphIndexes and graphInputObservationFailures on authored envelopes; asserts walked directory listings are omitted only with membership evidence, excluded/universal/listing-only observations survive, and unrelated framework writes do not invalidate the root.
+ * @evidence contracts/testing.md#independent-expectations The project membership walk establishes membership rather than every directory entry. Fixture categories independently specify which listing still contributes meaning; the no-membership envelope is the counterexample to unsafe omission.
+ * @evidence contracts/testing.md#distinguishing-cases Owns root and nested walked directories, excluded dist, universal types, listing-only src/only, absent membership and later unrelated writes. No compiler envelope producer runs; producer correspondence is outside this direct-index case.
+ * @evidence contracts/testing.md#execution-ownership Unit entry test_graph_index_leaves_a_walked_directory_listing_to_the_walk is discovered under src/unit/transform by TestExecutor. It invokes the owning operations in the test process against controlled fixture inputs; the assertions moved from features and source imports replace built package imports and this entry owns no dynamically registered cases.
  */
 export async function test_graph_index_leaves_a_walked_directory_listing_to_the_walk(): Promise<void> {
   const root = fs.realpathSync.native(

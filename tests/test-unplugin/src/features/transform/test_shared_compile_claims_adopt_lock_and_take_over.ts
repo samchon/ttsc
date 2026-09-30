@@ -32,6 +32,15 @@ import { sharedCompileIdentity } from "../../../../../packages/unplugin/lib/core
  * 4. Decide identities and external-input mismatches for each changed field, a
  *    project resolving another TypeScript-Go among them, since a compile is
  *    adopted across processes and versions (samchon/ttsc#1483).
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls claimSharedCompile on real store files and a dead child PID; checks publication adoption, refused/malformed adoption, dead-lock takeover, displaced release fencing, unusable-store fallback, identity changes and external-input mismatches.
+ * @evidence contracts/testing.md#independent-expectations Exclusive locks and valid matching publication state define adoption; authored payloads, independent dead-process creation and literal mismatched input names distinguish incorrect reuse. Hash identity shape alone does not prove collision resistance.
+ * @evidence contracts/testing.md#distinguishing-cases Owns empty/published/malformed/unusable stores, waiting adoption, dead owner, displaced token, all compile identity fields and missing/extra/changed external inputs.
+ * @evidence contracts/testing.md#execution-ownership E2E entry executes real Node child lifetime plus filesystem lock/store ownership through built claim APIs. The child creates a genuinely terminated PID; portable identity/mismatch decisions currently remain in the same entry.
+ * @evidence contracts/e2e.md#necessary-boundary The OS liveness check must distinguish a terminated process from this live holder while retaining lock fencing. A fake liveness answer cannot prove that process connection; the other portable assertions are still mixed and need a future direct transfer.
+ * @evidence contracts/e2e.md#shared-execution One short-lived child supplies the dead PID and one store batches all lock/publication states. No native producer or host is built; separate claims are necessary for ownership transitions, while shared packages are prepared once.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Every claim uses an explicit identity/state in a unique store; malformed and unusable states have separate paths. Normal claims release locks/timers, the child is synchronous and exited, and TestProject removes the store at worker exit; assertion failures may leave timers until that exit.
+ * @evidence contracts/e2e.md#preserved-coverage All prior lock, adoption, identity and mismatch assertions remain unchanged. This minimal liveness connection survives, but identity/mismatch semantics have not yet gained separate pure-unit owners in this change.
  */
 export async function test_shared_compile_claims_adopt_lock_and_take_over(): Promise<void> {
   const store = TestProject.tmpdir("ttsc-unplugin-shared-claims-");

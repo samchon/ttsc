@@ -22,6 +22,15 @@ import { watchBrokerSource } from "../../../../../packages/unplugin/lib/core/tra
  * 1. Register a recursive watch on a directory and await ready.
  * 2. Two hundred times: write a new file below it and ask for a drain at once, and
  *    assert the file's event was received before the drain's answer.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Spawns watchBrokerSource and performs 200 synchronous writes, each followed immediately by an IPC drain; asserts every unique file event exists and precedes its matching drain acknowledgment.
+ * @evidence contracts/testing.md#independent-expectations Windows completion ordering is the premise behind the drain frontier. Independently authored file names and receive-order indices detect an early reply; 200 observations test repeated ordering, not a universal kernel proof.
+ * @evidence contracts/testing.md#distinguishing-cases Owns Windows recursive-watch ready and 200 unique immediate write/drain transitions. The scripted queued-callback unit case pins scheduling on every host; this entry returns without executing on other platforms.
+ * @evidence contracts/testing.md#execution-ownership Windows E2E entry owns one real broker process, native watch and IPC channel; TestExecutor discovers it under features. No compiler/plugin producer runs.
+ * @evidence contracts/e2e.md#necessary-boundary The real ReadDirectoryChangesW completion frontier cannot be certified by a stand-in callback. This is the minimal repeated connection measurement between synchronous filesystem writes and broker drain messages.
+ * @evidence contracts/e2e.md#shared-execution One child and one recursive registration serve all 200 rounds; only filenames and drain IDs change. Package preparation is shared, with no per-round rebuild or new process.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The unique directory and per-round IDs prevent prior events satisfying later assertions. Ready precedes writes; finally disconnects/kills the child and TestProject removes paths at process exit. A failed wait retains its listener until child teardown and timeout completion.
+ * @evidence contracts/e2e.md#preserved-coverage All 200 event-exists and event-before-reply assertions remain in this batch. Portable scheduler checks have an unchanged unit owner; macOS stream ordering has a separate real-binding entry.
  */
 export async function test_watch_broker_drains_a_real_windows_watch_after_a_synchronous_write(): Promise<void> {
   if (process.platform !== "win32") return;

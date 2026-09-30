@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { watchBrokerSource } from "../../../../../packages/unplugin/lib/core/transform/tracker/broker/watchBrokerSource.mjs";
+import { watchBrokerSource } from "../../../../../packages/unplugin/src/core/transform/tracker/broker/watchBrokerSource";
 import { runWatchBrokerProgram } from "../../internal/watch-broker/runWatchBrokerProgram";
 
 /**
@@ -15,6 +15,11 @@ import { runWatchBrokerProgram } from "../../internal/watch-broker/runWatchBroke
  * 1. Open a recursive watch through the actual broker child program.
  * 2. In 200 rounds, request a drain and queue a backend event in the first turn.
  * 3. Assert no early reply, then exact event-before-reply order and one reply.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Runs watchBrokerSource in-process with controlled fs.watch callbacks; across 200 rounds asserts no inline/first-turn reply, exact event-before-drain messages and one backend close after removal.
+ * @evidence contracts/testing.md#independent-expectations The drain scheduling contract requires queued backend callbacks before its acknowledgment. Authored Windows paths and literal message order are independent of broker scheduling; real kernel completion ordering is owned by the Windows boundary case.
+ * @evidence contracts/testing.md#distinguishing-cases Owns a recursive watch, repeated uniquely named writes, first-turn callback delivery and teardown. The harness retains only arrays and scheduled immediates, with no child process or actual watcher.
+ * @evidence contracts/testing.md#execution-ownership Unit entry test_watch_broker_defers_fs_watch_drains_through_queued_callbacks is discovered under src/unit/transform by TestExecutor. It invokes the owning operations in the test process against controlled fixture inputs; the assertions moved from features and source imports replace built package imports and this entry owns no dynamically registered cases.
  */
 export async function test_watch_broker_defers_fs_watch_drains_through_queued_callbacks(): Promise<void> {
   let deliver: (event: string, filename: string) => void = () => {

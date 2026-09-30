@@ -25,6 +25,15 @@ import { watchBrokerSource } from "../../../../../packages/unplugin/lib/core/tra
  * 3. Where the broker watches in production, Windows and macOS, register the
  *    directory recursively and assert a nested entry is reported by its path
  *    below the directory, and never to the non-recursive registrations.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Spawns watchBrokerSource with the platform backend; asserts two registrations hear an immediate post-ready write, production recursive backends hear nested paths while nonrecursive ones do not, and opening watches reports no gap.
+ * @evidence contracts/testing.md#independent-expectations Ready authorizes trusting silence from that point, so an immediate authored filename must reach both registrations. Literal directory/filename identities and absence of gap are independent IPC observations, not predicted broker messages.
+ * @evidence contracts/testing.md#distinguishing-cases Owns first/overlapping readiness, immediate writes, production recursive versus nonrecursive delivery and opening a second watch without disturbing the first. Nested production coverage runs only on Windows/macOS.
+ * @evidence contracts/testing.md#execution-ownership E2E entry owns a real broker subprocess, filesystem watches and IPC messages; TestExecutor discovers it under features and the built binding is required on macOS.
+ * @evidence contracts/e2e.md#necessary-boundary Native watcher readiness and overlapping-stream transport can lose events despite correct scripted classification. This connects actual backend callbacks to parent IPC, complementing controlled broker unit cases.
+ * @evidence contracts/e2e.md#shared-execution One broker and directory batch two overlapping and one recursive registration; no install or compiler preparation repeats. Recursive registration is added only on production broker platforms; message waits reuse the child.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A unique root separates filenames; waits start before commands and ready precedes each write. broker.close in finally disconnects/kills the child; TestProject removes directories at exit. Timed-out wait cleanup remains bounded by the fixture timeout rather than proving graceful cancellation.
+ * @evidence contracts/e2e.md#preserved-coverage All immediate-write, nested/nonrecursive and no-gap assertions remain with the real broker. Scripted overflow/drop/probe decisions moved to unit entries; their inputs and assertions are retained there.
  */
 export async function test_watch_broker_hears_what_follows_ready(): Promise<void> {
   const root = fs.realpathSync.native(

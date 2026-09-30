@@ -1,13 +1,13 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import type { ChildProcess } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/lib/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS.mjs";
-import { WATCH_BROKER } from "../../../../../packages/unplugin/lib/core/transform/tracker/broker/WATCH_BROKER.mjs";
-import type { WatchBroker } from "../../../../../packages/unplugin/lib/core/transform/tracker/broker/WatchBroker.mjs";
-import { openBrokeredWatch } from "../../../../../packages/unplugin/lib/core/transform/tracker/broker/openBrokeredWatch.mjs";
+import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
+import { WATCH_BROKER } from "../../../../../packages/unplugin/src/core/transform/tracker/broker/WATCH_BROKER";
+import type { WatchBroker } from "../../../../../packages/unplugin/src/core/transform/tracker/broker/WatchBroker";
+import { openBrokeredWatch } from "../../../../../packages/unplugin/src/core/transform/tracker/broker/openBrokeredWatch";
 
 /**
  * Verifies a brokered watch names a probe only where the watch process's
@@ -29,6 +29,11 @@ import { openBrokeredWatch } from "../../../../../packages/unplugin/lib/core/tra
  *    file, and assert it opens with no probe instead of failing.
  * 3. With a probing backend and a writable project, assert the location names a
  *    probe below the project's tool cache.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls openBrokeredWatch with a scripted broker; asserts a nonprobing backend leaves the project cache untouched, an obstructed probe root still registers, and a writable probing root supplies the expected probe location.
+ * @evidence contracts/testing.md#independent-expectations The backend capability controls whether probes have meaning; inability to prepare an optional proof must not fail the watch. Literal absent/present probe expectations follow that contract, independently of message construction.
+ * @evidence contracts/testing.md#distinguishing-cases Owns nonprobing, probing-but-obstructed and probing-and-writable roots. Each watch closes and WATCH_BROKER.current is restored; these assertions do not prove a native stream receives its probe.
+ * @evidence contracts/testing.md#execution-ownership Unit entry test_brokered_watch_probes_only_where_its_backend_proves_one is discovered under src/unit/transform by TestExecutor. It invokes the owning operations in the test process against controlled fixture inputs; the assertions moved from features and source imports replace built package imports and this entry owns no dynamically registered cases.
  */
 export async function test_brokered_watch_probes_only_where_its_backend_proves_one(): Promise<void> {
   const previous = WATCH_BROKER.current;

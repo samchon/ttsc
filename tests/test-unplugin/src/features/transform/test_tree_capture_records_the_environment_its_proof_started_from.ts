@@ -25,6 +25,15 @@ import { createMovingEnvironmentFixture } from "../../internal/moving-environmen
  * 2. Assert the capture held and recorded the reading from before the move.
  * 3. Validate the captured manifest with a tracker that heard nothing, and assert
  *    the tree was read again rather than skipped.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls captureUniversalHostInputValidation then matchesUniversalHostInputTrees while the first source metadata read changes GOENV; asserts capture success, the pre-proof environment label and a later source reread despite silence.
+ * @evidence contracts/testing.md#independent-expectations A proof can certify only the environment it started under. The fixture independently captures before/moved labels and injects the write at first metadata access; positive read count distinguishes reproof from a stale skip, though labels share the real environment provider.
+ * @evidence contracts/testing.md#distinguishing-cases Owns capture-time environment movement and next-delivery reproof under a silent tracker. The delivery-validation sibling owns movement when revalidating an existing manifest.
+ * @evidence contracts/testing.md#execution-ownership E2E entry invokes built capture and tree validation against the real Go environment file/provider with a metadata-read seam. It produces no plugin binary and opens no native watcher.
+ * @evidence contracts/e2e.md#necessary-boundary An actual GOENV write must reach the external provider while adapter capture reads its source tree. That connection detects a stale provider reading; portable before/after recording is mixed here because the provider lacks a pure fixture injection.
+ * @evidence contracts/e2e.md#shared-execution One moving-environment fixture prepares both labels and feeds capture plus subsequent validation. Toolchain installation/built packages are shared; changed GOENV genuinely needs a distinct environment read, without compiling native output.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fixture owns a private GOENV file, writes its move once at first source access, and resetReads clears only observation counts. dispose restores process.env.GOENV in finally; TestProject owns project/source/scratch cleanup at worker exit.
+ * @evidence contracts/e2e.md#preserved-coverage Capture success, pre-move recorded environment and subsequent nonzero reads remain executable here. The portable order assertion has not been transferred to a provider-seamed unit; native source compilation is outside the case.
  */
 export function test_tree_capture_records_the_environment_its_proof_started_from(): void {
   const fixture = createMovingEnvironmentFixture();

@@ -1,11 +1,11 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/lib/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS.mjs";
-import type { TtscTrackedInputScope } from "../../../../../packages/unplugin/lib/core/transform/tracker/TtscTrackedInputScope.mjs";
-import { createHostInputMutationTracker } from "../../../../../packages/unplugin/lib/core/transform/tracker/createHostInputMutationTracker.mjs";
+import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
+import type { TtscTrackedInputScope } from "../../../../../packages/unplugin/src/core/transform/tracker/TtscTrackedInputScope";
+import { createHostInputMutationTracker } from "../../../../../packages/unplugin/src/core/transform/tracker/createHostInputMutationTracker";
 
 /**
  * Verifies the host-input tracker records exactly the events that can change
@@ -29,6 +29,11 @@ import { createHostInputMutationTracker } from "../../../../../packages/unplugin
  * 3. Verify two trackers of one project through one shared read and assert the
  *    root they both watch is read once, then replace a watched directory and
  *    assert the tracker withdraws its authority.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls createHostInputMutationTracker through controlled listeners; checks each event row records exactly change, mutation or nothing, rename-only filtering, unnamed-event invalidation, one shared root identity read and withdrawal after directory replacement.
+ * @evidence contracts/testing.md#independent-expectations Presence, children and content scopes require different event evidence. The authored row table supplies expectations independently of the classifier, while identity-read counts distinguish duplicate validation from shared work.
+ * @evidence contracts/testing.md#distinguishing-cases Owns external/internal scopes, content/rename/unnamed events, irrelevant cache writes and replaced watch roots. Every fire resets witness state; the watch seam owns no handles and native delivery ordering is outside this case.
+ * @evidence contracts/testing.md#execution-ownership Unit entry test_host_input_tracker_relevance_follows_observed_scopes is discovered under src/unit/transform by TestExecutor. It invokes the owning operations in the test process against controlled fixture inputs; the assertions moved from features and source imports replace built package imports and this entry owns no dynamically registered cases.
  */
 export async function test_host_input_tracker_relevance_follows_observed_scopes(): Promise<void> {
   const root = fs.realpathSync.native(

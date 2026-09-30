@@ -1,10 +1,10 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import type { TtscSharedCompilePublication } from "../../../../../packages/unplugin/lib/core/transform/session/TtscSharedCompilePublication.mjs";
-import { claimSharedCompile } from "../../../../../packages/unplugin/lib/core/transform/session/claimSharedCompile.mjs";
+import type { TtscSharedCompilePublication } from "../../../../../packages/unplugin/src/core/transform/session/TtscSharedCompilePublication";
+import { claimSharedCompile } from "../../../../../packages/unplugin/src/core/transform/session/claimSharedCompile";
 
 /**
  * Verifies a holder whose lock was taken over neither publishes over its
@@ -23,6 +23,11 @@ import { claimSharedCompile } from "../../../../../packages/unplugin/lib/core/tr
  * 3. Assert B's publication and B's lock remain.
  * 4. Age a lock again and let two claims race to reclaim it: one holds the lock,
  *    the other waits for it, and takes it only once it is released.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls claimSharedCompile directly; ages real lock directories, publishes successor then former-holder payloads, and asserts only the successor publication/token survive, with one winner among two reclaimers and final removal.
+ * @evidence contracts/testing.md#independent-expectations Exclusive ownership requires a displaced token to authorize neither publication nor release. Literal successor scratch path and unequal owner tokens establish fencing independently of takeover computation.
+ * @evidence contracts/testing.md#distinguishing-cases Owns stale takeover, late publication/release, two simultaneous reclaimers and subsequent acquisition after release. Claims release their timers on the normal path; an assertion failure can leave a holder until worker exit. No native host or cross-process contention is exercised.
+ * @evidence contracts/testing.md#execution-ownership Unit entry test_shared_compile_former_holder_neither_publishes_nor_touches_its_successor is discovered under src/unit/transform by TestExecutor. It invokes the owning operations in the test process against controlled fixture inputs; the assertions moved from features and source imports replace built package imports and this entry owns no dynamically registered cases.
  */
 export async function test_shared_compile_former_holder_neither_publishes_nor_touches_its_successor(): Promise<void> {
   const store = TestProject.tmpdir("ttsc-unplugin-shared-fence-");
