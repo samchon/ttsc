@@ -5,6 +5,12 @@ packages:
   - "tests/*"
   - "website"
 overrides:
+  # Patch releases retain each installed major's API while clearing the
+  # severe advisories reported by the locked dependency graph.
+  "undici@7.29.0": 7.29.1
+  "brace-expansion@2.1.4": 2.1.6
+  "brace-expansion@5.0.9": 5.0.11
+  "next@16.3.4": 16.3.6
   # mathjax-full pins speech-rule-engine 4, which pins this vulnerable exact
   # version; Marp and Nextra do not yet have released upgrade paths to v5.
   "@xmldom/xmldom": 0.9.12
