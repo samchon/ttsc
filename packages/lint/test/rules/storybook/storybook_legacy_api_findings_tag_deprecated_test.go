@@ -24,6 +24,11 @@ import (
 //     live alias or title property.
 //  3. Assert the negative twin `storybook/no-renderer-packages` reports
 //     untagged, and a same-named import from an application module is silent.
+//
+// @evidence contracts/testing.md#behavioral-verification runRuleFindingsSnapshot verifies Deprecated tags and exact ranges for storiesOf and pipe-title forms; renderer-package misuse stays untagged.
+// @evidence contracts/testing.md#independent-expectations DiagnosticTagDeprecated denotes still-working legacy APIs; literal markers locate obsolete constructs, while a wrong integration-layer import has a different meaning.
+// @evidence contracts/testing.md#distinguishing-cases Ordinary/aliased imports and literal/four escaped pipe spellings pin ranges; a same-named application import stays clean and renderer-package reports lack Deprecated.
+// @evidence contracts/testing.md#execution-ownership TestStorybookLegacyApiFindingsTagDeprecated owns these explicit variants as one Go unit entry; actual parsed-source engine operations run in the shared Go process without an installed Storybook host.
 func TestStorybookLegacyApiFindingsTagDeprecated(t *testing.T) {
   cases := []struct {
     rule   string

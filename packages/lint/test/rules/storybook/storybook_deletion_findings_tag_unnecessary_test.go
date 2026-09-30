@@ -26,6 +26,11 @@ import (
 //     story name shadowed in a nested scope silent because a rule-wide
 //     Unnecessary tag would be false.
 //  4. Assert the negative twin `storybook/csf-component` reports untagged.
+//
+// @evidence contracts/testing.md#behavioral-verification runRuleFindingsSnapshot verifies Unnecessary tags and exact deletion spans for title and redundant story-name findings, then compares the remaining source with authored strings.
+// @evidence contracts/testing.md#independent-expectations DiagnosticTagUnnecessary means removable dead source; a missing csf-component property is unfinished information and must remain untagged. Literal markers and remaining-source strings establish deletion meaning independently.
+// @evidence contracts/testing.md#distinguishing-cases First/last properties and standalone assignments retain their surrounding source; value-producing assignments, private locals and shadowed names stay clean, while the missing-component finding has no tag.
+// @evidence contracts/testing.md#execution-ownership TestStorybookDeletionFindingsTagUnnecessary owns these explicit variants as one Go unit entry; actual parsed-source engine operations run in the shared Go process without an installed Storybook host.
 func TestStorybookDeletionFindingsTagUnnecessary(t *testing.T) {
   cases := []struct {
     rule      string
