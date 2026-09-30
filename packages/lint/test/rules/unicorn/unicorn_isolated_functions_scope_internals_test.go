@@ -16,6 +16,11 @@ import "testing"
 //  1. Exercise nested closure/function, object-method params+locals+global,
 //     destructuring params, and a shadowing local.
 //  2. Assert nothing is reported.
+//
+// @evidence contracts/testing.md#behavioral-verification runUnicornIsolatedFunctions and its exact finding assertion verify nested closures, local function/method bindings, destructured parameters and shadowing locals remain clean; rule identity, source ranges, messages and absence of fixes/suggestions are checked by the owning helper.
+// @evidence contracts/testing.md#independent-expectations The authored empty oracle expresses upstream scope-through resolution for bindings introduced within the isolated boundary. No diagnostic message interpolation is used by this zero-finding host.
+// @evidence contracts/testing.md#distinguishing-cases Nested helper reads, method parameters/locals/ambient console, destructured a/b and shadowed local references do not escape; TestRuleCorpusUnicornIsolatedFunctions owns outer-binding positives.
+// @evidence contracts/testing.md#execution-ownership TestUnicornIsolatedFunctionsScopeInternals is a discoverable Go unit host; its literal option/source cases run the owning checker-backed lint operation in the shared Go process, without browser execution, installation, native builds or product children. Each failure retains line, target and reason identity.
 func TestUnicornIsolatedFunctionsScopeInternals(t *testing.T) {
   source := `declare function makeSynchronous<T>(fn: T): T;
 

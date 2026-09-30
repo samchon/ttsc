@@ -16,6 +16,11 @@ import "testing"
 //     "off", and "readonly".
 //  2. Assert `overrideGlobals: {foo: true}` still reports a captured module
 //     `foo`.
+//
+// @evidence contracts/testing.md#behavioral-verification runUnicornIsolatedFunctions and its exact finding assertion verify ambient console read/write outcomes change with writable/off/readonly and captured module foo remains rejected; rule identity, source ranges, messages and absence of fixes/suggestions are checked by the owning helper.
+// @evidence contracts/testing.md#independent-expectations Authored line/target/message records express upstream global-writability overrides, with a literal empty result for writable. Test-owned message interpolation composes the authored upstream sentence and does not call the production reason builder.
+// @evidence contracts/testing.md#distinguishing-cases Default and readonly permit reads only, writable permits writes, off reports both; an override cannot whitelist a module capture.
+// @evidence contracts/testing.md#execution-ownership TestUnicornIsolatedFunctionsOverrideGlobals is a discoverable Go unit host; its literal option/source cases run the owning checker-backed lint operation in the shared Go process, without browser execution, installation, native builds or product children. Each failure retains line, target and reason identity.
 func TestUnicornIsolatedFunctionsOverrideGlobals(t *testing.T) {
   reason := `callee of function named "makeSynchronous"`
   writeSource := `makeSynchronous(function () {

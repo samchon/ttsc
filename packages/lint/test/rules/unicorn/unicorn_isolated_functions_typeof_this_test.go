@@ -14,6 +14,11 @@ import "testing"
 //
 // 1. Reference `typeof this` and `typeof this.foo` inside an isolated function.
 // 2. Assert one `this` context report per occurrence and no variable report.
+//
+// @evidence contracts/testing.md#behavioral-verification runUnicornIsolatedFunctions and its exact finding assertion verify typeof this and typeof this.foo each yield one this-context report instead of duplicate variable reports; rule identity, source ranges, messages and absence of fixes/suggestions are checked by the owning helper.
+// @evidence contracts/testing.md#independent-expectations The authored two exact targets/lines and this-specific reason messages specify supported TypeScript type-query treatment. Test-owned message interpolation composes the authored upstream sentence and does not call the production reason builder.
+// @evidence contracts/testing.md#distinguishing-cases Bare and qualified type-query heads report once; TestUnicornIsolatedFunctionsTypeScriptTypes owns ordinary outer-type reference exclusions and ThisAndSuper owns context boundaries.
+// @evidence contracts/testing.md#execution-ownership TestUnicornIsolatedFunctionsTypeofThis is a discoverable Go unit host; its literal option/source cases run the owning checker-backed lint operation in the shared Go process, without browser execution, installation, native builds or product children. Each failure retains line, target and reason identity.
 func TestUnicornIsolatedFunctionsTypeofThis(t *testing.T) {
   reason := `callee of function named "makeSynchronous"`
   source := `declare function makeSynchronous<T>(fn: T): T;

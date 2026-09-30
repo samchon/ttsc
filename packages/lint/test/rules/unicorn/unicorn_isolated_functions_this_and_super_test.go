@@ -16,6 +16,11 @@ import "testing"
 //     method, and both through a nested arrow are reported.
 //  2. Assert a nested regular function's `this` and a nested class method's
 //     `this` stay clean.
+//
+// @evidence contracts/testing.md#behavioral-verification runUnicornIsolatedFunctions and its exact finding assertion verify direct and arrow-inherited this/super report but nested non-arrow and class-owned contexts remain clean; rule identity, source ranges, messages and absence of fixes/suggestions are checked by the owning helper.
+// @evidence contracts/testing.md#independent-expectations Exact authored this/super targets and reason messages follow upstream lexical context boundaries independently of the product traversal. Test-owned message interpolation composes the authored upstream sentence and does not call the production reason builder.
+// @evidence contracts/testing.md#distinguishing-cases Direct this, direct super and nested-arrow pair report in source order; regular nested function and class method establish clean own contexts.
+// @evidence contracts/testing.md#execution-ownership TestUnicornIsolatedFunctionsThisAndSuper is a discoverable Go unit host; its literal option/source cases run the owning checker-backed lint operation in the shared Go process, without browser execution, installation, native builds or product children. Each failure retains line, target and reason identity.
 func TestUnicornIsolatedFunctionsThisAndSuper(t *testing.T) {
   comment := `follows comment "@isolated"`
 

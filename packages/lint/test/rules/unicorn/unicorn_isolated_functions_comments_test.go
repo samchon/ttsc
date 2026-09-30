@@ -16,6 +16,11 @@ import "testing"
 //     export const/default, object method, and object property forms report.
 //  2. Assert a non-matching marker and a marker separated by another statement
 //     stay clean.
+//
+// @evidence contracts/testing.md#behavioral-verification runUnicornIsolatedFunctions and its exact finding assertion verify twelve declared/comment-marked capture sites report and nonmatching/separated comments stay clean; rule identity, source ranges, messages and absence of fixes/suggestions are checked by the owning helper.
+// @evidence contracts/testing.md#independent-expectations The authored line/target/reason records specify upstream marker attachment and exact reason text independently of the comment scanner. Test-owned message interpolation composes the authored upstream sentence and does not call the production reason builder.
+// @evidence contracts/testing.md#distinguishing-cases Declaration/arrow/export/object forms, line/block/JSDoc comments and explanation prefixes match; custom remote markers replace isolated defaults.
+// @evidence contracts/testing.md#execution-ownership TestUnicornIsolatedFunctionsComments is a discoverable Go unit host; its literal option/source cases run the owning checker-backed lint operation in the shared Go process, without browser execution, installation, native builds or product children. Each failure retains line, target and reason identity.
 func TestUnicornIsolatedFunctionsComments(t *testing.T) {
   reason := `follows comment "@isolated"`
   captured := func(line int) unicornIsolatedFunctionsFinding {

@@ -15,6 +15,11 @@ import "testing"
 //     `this` usage are reported with their isolation reasons.
 //  3. Assert the clean twin using parameters, locals, and ambient globals
 //     stays silent.
+//
+// @evidence contracts/testing.md#behavioral-verification runUnicornIsolatedFunctions and its exact finding assertion verify four exact outer-capture/hoisted-recursion/this findings report while the parameter/local/global callback stays clean; rule identity, source ranges, messages and absence of fixes/suggestions are checked by the owning helper.
+// @evidence contracts/testing.md#independent-expectations Authored exact line/target/upstream reason tuples independently specify the supported scope-escape behavior. Test-owned message interpolation composes the authored upstream sentence and does not call the production reason builder.
+// @evidence contracts/testing.md#distinguishing-cases Bare makeSynchronous capture, comment-marked value and own recursive name, and direct this report; callback parameter/local/console/Array remain usable.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusUnicornIsolatedFunctions is a discoverable Go unit host; its literal option/source cases run the owning checker-backed lint operation in the shared Go process, without browser execution, installation, native builds or product children. Each failure retains line, target and reason identity.
 func TestRuleCorpusUnicornIsolatedFunctions(t *testing.T) {
   source := `declare function makeSynchronous<T>(fn: T): T;
 

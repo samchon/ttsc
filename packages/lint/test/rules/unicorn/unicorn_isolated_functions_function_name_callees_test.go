@@ -18,6 +18,11 @@ import "testing"
 //  2. Assert unlisted callees, member callees, and object arguments are clean.
 //  3. Re-run with functions ["myIsolate"] and assert the defaults stop
 //     matching while the custom name reports.
+//
+// @evidence contracts/testing.md#behavioral-verification runUnicornIsolatedFunctions and its exact finding assertion verify configured bare callees report six capture sites and a custom callee replaces defaults; rule identity, source ranges, messages and absence of fixes/suggestions are checked by the owning helper.
+// @evidence contracts/testing.md#independent-expectations The authored lines/targets and interpolated upstream reason sentences are independent of the production matcher. Test-owned message interpolation composes the authored upstream sentence and does not call the production reason builder.
+// @evidence contracts/testing.md#distinguishing-cases Arrow/async/function/named recursion/later argument/parentheses match; member/unlisted callee and object method do not; custom myIsolate disables makeSynchronous.
+// @evidence contracts/testing.md#execution-ownership TestUnicornIsolatedFunctionsFunctionNameCallees is a discoverable Go unit host; its literal option/source cases run the owning checker-backed lint operation in the shared Go process, without browser execution, installation, native builds or product children. Each failure retains line, target and reason identity.
 func TestUnicornIsolatedFunctionsFunctionNameCallees(t *testing.T) {
   source := `declare function makeSynchronous(...args: unknown[]): unknown;
 declare function workerize(...args: unknown[]): unknown;
