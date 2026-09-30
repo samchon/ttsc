@@ -37,4 +37,13 @@ export namespace NativeTransformEnvelopeFixture {
 
   export const missingSource = { output: { "dist/main.js": 'console.log("wrong");\n' } };
   export const arraySource = { typescript: ["not-a-source-map"] };
+  export const resolutionCandidates = {
+    typescript: { "src/main.ts": 'export const value = "PLUGIN";\nconsole.log(value);\n' },
+    graph: {
+      candidates: { "src/main.ts": ["src/mytype.ts", "src/mytype.tsx"] },
+      configs: ["tsconfig.json"],
+      edges: { "src/main.ts": ["src/mytype.ts"] },
+      globals: ["src/ambient.d.ts"],
+    },
+  };
 }

@@ -19,9 +19,17 @@ import { NativeTransformEnvelopeFixture } from "../../internal/NativeTransformEn
  * 1. Build one Go producer that reads the owning project's response file.
  * 2. Transform valid and malformed advisory responses and check their API fields.
  * 3. Transform both rejected source shapes and verify exceptions without emit.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Five response shapes cross the actual compiled Go stdout transport into TtscCompiler.transform: valid metadata, malformed optional metadata, resolution candidates and two rejected source shapes. Exact API maps and rejection/no-dist assertions distinguish lost fields or publication after malformed output.
+ * @evidence contracts/testing.md#independent-expectations Authored literal response fields and the decoder's supported wire contract determine the expected maps and exception message. Source-only decoder units separately own every advisory validator branch; no native result is used to manufacture expectations.
+ * @evidence contracts/testing.md#distinguishing-cases Valid source and advisory subsets remain accepted, malformed optional fields are filtered, candidates remain ordered and distinct from selected edges, while missing or array-valued source maps reject without emission. All five cases execute even after an earlier assertion fails.
+ * @evidence contracts/testing.md#execution-ownership This named API E2E owns the real Go producer-to-transform connection; NativeTransformEnvelopeFixture holds inputs and decoder units own portable shape decisions. One invocation registers all five independently reported response cases.
+ * @evidence contracts/e2e.md#necessary-boundary Direct decoder calls cannot detect Go compilation, transform command flags, stdout transport or API exception/publication wiring. This single producer retains that assembly boundary for the former envelope and candidate consumers.
+ * @evidence contracts/e2e.md#shared-execution One immutable Go program and one compiler/project serve five response files. Only runtime JSON changes between requests, so the source build remains identical; no installation or compiler fixture is recreated per wire shape.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each transform overwrites the complete response file before synchronous execution. The producer owns no persistent mutable state and transform does not emit; the fresh project has no dist output, so rejected responses cannot inherit another case's output. The existing project harness owns fixture/cache cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Original valid, malformed advisory, missing-source and array-source assertions remain. The exact candidate graph assertion is retained here as a fifth real transport response and in its independent decoder unit, allowing the former separate Go candidate producer to be removed.
  */
-export const test_ttsccompiler_transform_roundtrips_native_envelopes_in_one_project =
-  () => {
+export function test_ttsccompiler_transform_roundtrips_native_envelopes_in_one_project() {
     const root = createProject({
       plugins: [{ transform: "./plugin.cjs" }],
       source: 'export const value = goUpper("plugin");\nconsole.log(value);\n',
@@ -64,6 +72,12 @@ export const test_ttsccompiler_transform_roundtrips_native_envelopes_in_one_proj
       return compiler.transform();
     };
 
+    const failures: Error[] = [];
+    const check = (name: string, verify: () => void) => {
+      try { verify(); }
+      catch (error) { failures.push(new Error(name, { cause: error })); }
+    };
+    check("valid metadata", () => {
     const valid = transform(NativeTransformEnvelopeFixture.valid);
     assert.equal(valid.type, "success");
     if (valid.type !== "success") throw new Error("native envelope transport failed");
@@ -76,7 +90,9 @@ export const test_ttsccompiler_transform_roundtrips_native_envelopes_in_one_proj
       globals: ["src/ambient.d.ts"],
     });
     assert.deepEqual(valid.volatile, ["src/volatile.ts"]);
+    });
 
+    check("malformed advisory metadata", () => {
     const advisory = transform(NativeTransformEnvelopeFixture.malformedAdvisory);
     assert.equal(advisory.type, "success");
     if (advisory.type !== "success") throw new Error("advisory envelope transport failed");
@@ -104,11 +120,20 @@ export const test_ttsccompiler_transform_roundtrips_native_envelopes_in_one_proj
         sourcesContent: ["export const value = 1\n"], version: 3,
       },
     });
+    });
+
+    check("resolution candidates", () => {
+      const candidates = transform(NativeTransformEnvelopeFixture.resolutionCandidates);
+      assert.equal(candidates.type, "success");
+      if (candidates.type !== "success") throw new Error("candidate envelope transport failed");
+      assert.deepEqual(candidates.graph, NativeTransformEnvelopeFixture.resolutionCandidates.graph);
+    });
 
     for (const response of [
       NativeTransformEnvelopeFixture.missingSource,
       NativeTransformEnvelopeFixture.arraySource,
     ]) {
+      check(response === NativeTransformEnvelopeFixture.missingSource ? "missing sources" : "array sources", () => {
       const rejected = transform(response);
       assert.equal(rejected.type, "exception");
       if (rejected.type !== "exception") throw new Error("invalid envelope accepted");
@@ -117,5 +142,7 @@ export const test_ttsccompiler_transform_roundtrips_native_envelopes_in_one_proj
         /did not return a TypeScript source map/,
       );
       assert.equal(fs.existsSync(path.join(root, "dist")), false);
+      });
     }
-  };
+    if (failures.length) throw new AggregateError(failures, "native envelope cases failed");
+  }
