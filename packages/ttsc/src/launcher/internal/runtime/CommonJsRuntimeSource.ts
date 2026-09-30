@@ -28,6 +28,7 @@ export namespace CommonJsRuntimeSource {
    * @evidence contracts/common.md#clear-and-simple-design Installation stores one policy; per-module factories do not duplicate runtime project or descriptor-observation logic.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The callback is owned state and does not replace any Node method.
    * @evidence contracts/common.md#meaningful-documentation The native purpose states the ordering prerequisite and policy owner.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation Storing the supplied callback accesses no filesystem, process or path representation; the resolver and per-module factory own those boundaries.
    * @evidenceExclude contracts/performance.md#efficient-algorithms Assigning a callback selects no input-processing algorithm.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Policy installation does not authorize sharing a compiled result.
    * @evidence contracts/performance.md#bound-retention-and-release-resources One callback lives with the process-installed hooks and is replaced on configuration, without per-request history or handles.
