@@ -24,6 +24,15 @@ const rollup = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("rollup").rollup;
  * 2. Bundle and generate with the Rollup adapter.
  * 3. Assert the output is transformed, `watchFiles` contains the record and no
  *    compiler input, and the record names the dependency.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Bundle output has PLUGIN; watchFiles contains one record, omits types.d.ts itself, and written record names it.
+ * @evidence contracts/testing.md#independent-expectations Whole-project record contract requires record channel rather than raw input; production path/read helper means encoding bugs may be shared.
+ * @evidence contracts/testing.md#distinguishing-cases Native plugin-reported type dependency versus ordinary module watch files.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_rollup_build_registers_plugin_dependencies_as_watch_files is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/e2e.md#necessary-boundary Actual Rollup watchFiles assembly joins native plugin dependency metadata to adapter handover.
+ * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Bundles close in finally; mutable sources and retained caches belong to this fixture. Tracked roots end at process exit.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: bundle output has PLUGIN; watchFiles contains one record, omits types.d.ts itself, and written record names it. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
 export async function test_rollup_build_registers_plugin_dependencies_as_watch_files(): Promise<void> {
   const unpluginRollup =

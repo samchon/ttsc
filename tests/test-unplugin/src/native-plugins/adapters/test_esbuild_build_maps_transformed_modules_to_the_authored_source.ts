@@ -22,6 +22,15 @@ const esbuild = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("esbuild");
  *    map.
  * 2. Assert the output's `value` maps back to the entry's authored line and
  *    column, and the map carries the authored text.
+ *
+ * @evidence contracts/testing.md#behavioral-verification External output map maps generated value to main.ts authored coordinates and embeds original source text.
+ * @evidence contracts/testing.md#independent-expectations positionOf uses original authored bytes; independent map decoder checks composed output, not adapter-generated expectations.
+ * @evidence contracts/testing.md#distinguishing-cases Banner-shifted TypeScript with external map and sourcesContent; other host map cases are complementary.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_esbuild_build_maps_transformed_modules_to_the_authored_source is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/e2e.md#necessary-boundary Real esbuild composes inline adapter map into external output map through onLoad.
+ * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Normal end hooks close modeled owners where invoked; failure/cancellation cleanup lacks a finally guarantee here. Runner exit bounds remaining sessions and tracked roots.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: external output map maps generated value to main.ts authored coordinates and embeds original source text. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
 export async function test_esbuild_build_maps_transformed_modules_to_the_authored_source(): Promise<void> {
   const unpluginEsbuild =

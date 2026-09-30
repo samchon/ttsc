@@ -17,6 +17,15 @@ import type { CapturedPlugin } from "../../internal/adapter-bun-register/Capture
  * 2. Install a `Bun` stub and call `register()`.
  * 3. Assert exactly one `ttsc-unplugin` plugin with a `setup` function reached
  *    `Bun.plugin`.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Explicit registration off Bun throws; under a temporary Bun global exactly one named plugin with setup is registered.
+ * @evidence contracts/testing.md#independent-expectations Explicit register requires Bun; literal ttsc-unplugin name and setup callable identify the forwarded plugin.
+ * @evidence contracts/testing.md#distinguishing-cases Absent global versus present plugin API.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_bun_register_preloads_the_runtime_transform_plugin is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/e2e.md#necessary-boundary Built ESM runtime entry import/registration is exercised; no native compile or actual Bun process runs in this case.
+ * @evidence contracts/e2e.md#shared-execution Built ESM/CJS entries reuse captured runtime within each order; separate scopes isolate registration histories.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Fresh module-entry helpers and local captured arrays separate runtime histories; temporary Bun globals are restored in finally. Transform fixtures use private tracked roots. Captured loader sessions have no per-case disposal assertion; process exit bounds their lifetime.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: explicit registration off Bun throws; under a temporary Bun global exactly one named plugin with setup is registered. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
 export async function test_bun_register_preloads_the_runtime_transform_plugin(): Promise<void> {
   const register = registerBunRuntime as unknown as BunRegister;

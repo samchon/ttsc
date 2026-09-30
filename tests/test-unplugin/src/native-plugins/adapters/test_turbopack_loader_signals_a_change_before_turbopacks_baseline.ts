@@ -23,6 +23,15 @@ import { runTurbopackLoaderWithContext } from "../../internal/adapter-turbopack/
  *    any baseline Turbopack takes.
  * 4. Run the loader again, which delivers the changed state, and assert the moves
  *    stop.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Declaration edit moves the registered record twice; another delivery transforms and stops movement for five seconds.
+ * @evidence contracts/testing.md#independent-expectations Changed declaration bytes require a new signal until consumed; fixed waits assert both ongoing and stopped notification.
+ * @evidence contracts/testing.md#distinguishing-cases Initial registration, pre-baseline edit, repeated signal and acknowledgment on redelivery.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_turbopack_loader_signals_a_change_before_turbopacks_baseline is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/e2e.md#necessary-boundary Built loader/native observer writes real records; actual Turbopack baseline timing is modelled by withholding redelivery.
+ * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Normal end hooks close modeled owners where invoked; failure/cancellation cleanup lacks a finally guarantee here. Runner exit bounds remaining sessions and tracked roots.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: declaration edit moves the registered record twice; another delivery transforms and stops movement for five seconds. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
 export async function test_turbopack_loader_signals_a_change_before_turbopacks_baseline(): Promise<void> {
   const root = TestUnpluginProject.createProject({ plugins: [] });

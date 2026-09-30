@@ -24,6 +24,15 @@ import { promisify } from "node:util";
  * 2. Run it under Bun and assert both passes transform and each compiles once.
  * 3. Run a module under the `bun-register` preload and assert it is transformed by
  *    one more compile.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Two real Bun.build passes each produce PLUGIN and total two compiles; separate preload process prints PLUGIN and raises count to three.
+ * @evidence contracts/testing.md#independent-expectations Literal transformed output and fixture byte count establish build disposal and distinct runtime session.
+ * @evidence contracts/testing.md#distinguishing-cases Repeated completed builds versus fresh preload runtime process.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_bun_native_host_owns_build_and_runtime_sessions is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/e2e.md#necessary-boundary Actual Bun processes test IPC shutdown and preload ordering that captured setup cannot prove.
+ * @evidence contracts/e2e.md#shared-execution One Bun process runs both builds; second preload process is required for independent runtime ownership. Native build artifacts can remain shared.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Child completion is awaited or collected synchronously; sessions and consumers have private tracked roots. Abrupt cancellation is not explicitly verified.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: two real Bun.build passes each produce PLUGIN and total two compiles; separate preload process prints PLUGIN and raises count to three. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
 export async function test_bun_native_host_owns_build_and_runtime_sessions(): Promise<void> {
   const root = fs.realpathSync.native(TestUnpluginProject.createProject());

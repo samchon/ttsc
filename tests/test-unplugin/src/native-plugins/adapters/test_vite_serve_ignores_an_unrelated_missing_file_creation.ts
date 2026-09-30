@@ -20,6 +20,15 @@ import { startViteServer } from "../../internal/adapter-vite-serve/startViteServ
  * 2. Create an unrelated TypeScript file beside the project, outside its root.
  * 3. Wait several fallback poll intervals.
  * 4. Assert the entry module's cached transform is still present.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Creating unrelated.ts outside app root leaves importer transform cached after 1.6 seconds; the case does not inspect reload events.
+ * @evidence contracts/testing.md#independent-expectations Unrelated path is outside recorded candidate predicate; no invalidation is the independently required result.
+ * @evidence contracts/testing.md#distinguishing-cases Nearby unrecorded creation versus preferred candidate creation in companion test.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_vite_serve_ignores_an_unrelated_missing_file_creation is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/e2e.md#necessary-boundary Real Vite watcher and HMR events distinguish overly broad private compiler subscriptions.
+ * @evidence contracts/e2e.md#shared-execution One server and fixture serve requests and mutations, with replacement only for restart assertions; shared native artifacts do not replace the cold request.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Server closes in finally on success/failure; restart reuses only this fixture. Tracked roots end at process exit.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: creating unrelated.ts outside app root leaves importer transform cached after 1.6 seconds; the case does not inspect reload events. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
 export async function test_vite_serve_ignores_an_unrelated_missing_file_creation(): Promise<void> {
   const fixture = createLinkedWorkspaceFixture();

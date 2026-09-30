@@ -21,6 +21,15 @@ import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
  * 2. Create the superseding TypeScript candidate.
  * 3. Assert the importer is invalidated and a full reload reaches the client.
  * 4. Request the entry module again.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Preferred candidate creation clears cached importer, sends full-reload and permits another entry request.
+ * @evidence contracts/testing.md#independent-expectations Resolver priority of fixture supersedingSource fixes invalidation requirement; literal HMR event type checks notification.
+ * @evidence contracts/testing.md#distinguishing-cases Missing preferred path becoming real, cached importer invalidation and subsequent request.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_vite_serve_retransforms_the_importer_when_a_superseding_candidate_appears is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/e2e.md#necessary-boundary Actual Vite server/compiler watcher/HMR client connection detects missing-candidate subscription loss.
+ * @evidence contracts/e2e.md#shared-execution One server and fixture serve requests and mutations, with replacement only for restart assertions; shared native artifacts do not replace the cold request.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Server closes in finally on success/failure; restart reuses only this fixture. Tracked roots end at process exit.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: preferred candidate creation clears cached importer, sends full-reload and permits another entry request. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
 export async function test_vite_serve_retransforms_the_importer_when_a_superseding_candidate_appears(): Promise<void> {
   const fixture = createLinkedWorkspaceFixture();

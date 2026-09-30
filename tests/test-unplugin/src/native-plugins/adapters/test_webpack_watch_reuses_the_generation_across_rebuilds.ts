@@ -24,6 +24,15 @@ import { createWebpackConfig } from "../../internal/adapter-webpack/createWebpac
  *    project, and assert the cold build compiles once.
  * 2. Rewrite the type-only input with its own bytes.
  * 3. Wait for a rebuild that re-ran the loader and assert it compiled nothing.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Cold polling build compiles once; same-byte type rewrite produces a compilation whose builtModules proves loader reran while compile count remains one.
+ * @evidence contracts/testing.md#independent-expectations Native byte counter plus independent webpack builtModules prevents a no-delivery false positive.
+ * @evidence contracts/testing.md#distinguishing-cases Changed timestamp with unchanged bytes and actual entry rebuild; changed content has the separate watch test.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_webpack_watch_reuses_the_generation_across_rebuilds is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/e2e.md#necessary-boundary Actual webpack timestamp watcher/make hook and native content proof distinguish host rebuild from native recompilation.
+ * @evidence contracts/e2e.md#shared-execution One real compiler/watch session serves initial and later compilations; native artifacts can be shared while timestamp/content transitions remain local.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Watcher closes via finish and compiler closes in finally. Persistent cache is disabled so it cannot bypass loader redelivery. Tracked roots end at process exit.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: cold polling build compiles once; same-byte type rewrite produces a compilation whose builtModules proves loader reran while compile count remains one. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
 export async function test_webpack_watch_reuses_the_generation_across_rebuilds(): Promise<void> {
   const runLog = path.join(

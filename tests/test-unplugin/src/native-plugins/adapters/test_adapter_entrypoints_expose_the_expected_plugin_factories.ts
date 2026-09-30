@@ -22,6 +22,15 @@ import path from "node:path";
  * 3. Deliver the entry module and assert one compile. Shut the webpack compiler
  *    down, let the grace pass, and assert the Rspack compiler keeps the
  *    generation. Shut it down too and assert the next delivery compiles again.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Four built entries are callable; webpack/Rspack tap named hooks and source-map rules, share one compile until both shut down, then next delivery compiles twice.
+ * @evidence contracts/testing.md#independent-expectations Literal factory types/hook names and fixture byte counter fix expected wiring and ownership independently.
+ * @evidence contracts/testing.md#distinguishing-cases Two equal-option compilers, one shuts down with survivor, final shutdown and grace expiry.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_adapter_entrypoints_expose_the_expected_plugin_factories is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/e2e.md#necessary-boundary Built entries/native generation connect to captured webpack/Rspack compilers; actual host hook dispatch is simulated.
+ * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Normal end hooks close modeled owners where invoked; failure/cancellation cleanup lacks a finally guarantee here. Runner exit bounds remaining sessions and tracked roots.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: four built entries are callable; webpack/Rspack tap named hooks and source-map rules, share one compile until both shut down, then next delivery compiles twice. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
 export async function test_adapter_entrypoints_expose_the_expected_plugin_factories(): Promise<void> {
   const unpluginFarm = await TestUnpluginRuntime.loadUnpluginAdapter("farm");

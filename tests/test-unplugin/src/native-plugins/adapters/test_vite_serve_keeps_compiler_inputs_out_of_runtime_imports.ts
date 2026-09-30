@@ -21,6 +21,15 @@ import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
  * 1. Serve a type-only consumer with a resolver that rejects compiler inputs.
  * 2. Edit, remove, and restore its dependency without touching the consumer.
  * 3. Assert client/SSR invalidation, recovery, and restart on the same plugin.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Client and SSR start INITIAL with zero runtime resolution edges; edits yield UPDATED, external/asset changes invalidate, deletion rejects, recreation and restart yield RECOVERED/RESTARTED.
+ * @evidence contracts/testing.md#independent-expectations Authored secret type literals fix output; a pre-resolver throws if compiler-only paths become runtime imports.
+ * @evidence contracts/testing.md#distinguishing-cases Client/SSR, node_modules declaration, non-module asset, delete/failure/recreate and server restart.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_vite_serve_keeps_compiler_inputs_out_of_runtime_imports is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/e2e.md#necessary-boundary Actual Vite module graphs, HMR and native plugin inputs connect without fabricated runtime edges.
+ * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Server closes in finally on success/failure; restart reuses only this fixture. Tracked roots end at process exit.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: client and SSR start INITIAL with zero runtime resolution edges; edits yield UPDATED, external/asset changes invalidate, deletion rejects, recreation and restart yield RECOVERED/RESTARTED. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
 export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_imports(): Promise<void> {
   const { createServer } = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("vite");

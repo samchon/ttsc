@@ -30,6 +30,15 @@ import { createRealNativeEnvelopeFixture } from "../../internal/real-native-enve
  *    write failed, and the module was handed the fallback's record, written.
  * 3. Make the record writable and deliver another module of that generation:
  *    assert it hands the record over and writes the generation's state.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Read-only record retains old bytes after declaration edit, delivery hands written changed fallback, and restored write permission makes second module update primary record.
+ * @evidence contracts/testing.md#independent-expectations Byte preservation demonstrates write actually failed; changed declaration requires changed generation record.
+ * @evidence contracts/testing.md#distinguishing-cases Writable first pass, chmod failure, fallback handover, restored permission and second delivery.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_a_record_that_cannot_be_written_gives_way_to_the_fallback is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/e2e.md#necessary-boundary Real native envelope, filesystem permissions and built Rollup hook file handover; host context is captured.
+ * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. chmod is restored and case-created fallback record/root removed in finally. Primary record has private project identity. Runner removes .ttsc at exit; tracked roots end at process exit.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: read-only record retains old bytes after declaration edit, delivery hands written changed fallback, and restored write permission makes second module update primary record. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
 export async function test_a_record_that_cannot_be_written_gives_way_to_the_fallback(): Promise<void> {
   const fixture = createRealNativeEnvelopeFixture();

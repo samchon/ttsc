@@ -27,6 +27,15 @@ import { withBunRuntime } from "../../internal/adapter-bun-register/withBunRunti
  *    options.
  * 3. Assert the explicit options transform, and a later `register` cannot change
  *    the running session.
+ *
+ * @evidence contracts/testing.md#behavioral-verification ESM/CJS evaluation captures one loader; pre-load B options beat A without later object mutation, equal locked calls succeed, C changes throw, and missing load rejects ENOENT.
+ * @evidence contracts/testing.md#independent-expectations Literal B:plugin versus MUTATED:/C output and locked-options error follow last-write-before-first-load contract.
+ * @evidence contracts/testing.md#distinguishing-cases Two module conditions, pending missing load, detached option snapshot, equal and different locked registrations.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_bun_register_explicit_options_are_not_shadowed_in_same_runtime_order is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/e2e.md#necessary-boundary Built module conditions and native loader execute under a temporary Bun global; actual Bun plugin precedence remains simulated.
+ * @evidence contracts/e2e.md#shared-execution Built ESM/CJS entries reuse captured runtime within each order; separate scopes isolate registration histories.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Fresh module-entry helpers and local captured arrays separate runtime histories; temporary Bun globals are restored in finally. Transform fixtures use private tracked roots. Captured loader sessions have no per-case disposal assertion; process exit bounds their lifetime.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: eSM/CJS evaluation captures one loader; pre-load B options beat A without later object mutation, equal locked calls succeed, C changes throw, and missing load rejects ENOENT. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
 export async function test_bun_register_explicit_options_are_not_shadowed_in_same_runtime_order(): Promise<void> {
   const preservationCaptured: CapturedPlugin[] = [];

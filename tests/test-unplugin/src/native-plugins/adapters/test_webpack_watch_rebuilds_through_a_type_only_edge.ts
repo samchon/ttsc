@@ -20,6 +20,15 @@ import { createWebpackConfig } from "../../internal/adapter-webpack/createWebpac
  *    producer.
  * 2. After the first build, rewrite the type file with a new interface.
  * 3. Assert a rebuild embeds the new interface within the timeout.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Real polling watch first embeds ID: STRING then rebuild eventually embeds AGE: NUMBER after type edit, with persistent cache disabled.
+ * @evidence contracts/testing.md#independent-expectations Authored declaration literals fix old/new output; timeout rejects missing observable watch rebuild.
+ * @evidence contracts/testing.md#distinguishing-cases Type-only edge edit while running watcher; persistent-cache twin tests a separate channel.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_webpack_watch_rebuilds_through_a_type_only_edge is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/e2e.md#necessary-boundary Actual webpack watch registration, loader redelivery and native transform must connect across erased type import.
+ * @evidence contracts/e2e.md#shared-execution One real compiler/watch session serves initial and later compilations; native artifacts can be shared while timestamp/content transitions remain local.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Watcher closes via finish and compiler closes in finally. Persistent cache is disabled so it cannot bypass loader redelivery. Tracked roots end at process exit.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: real polling watch first embeds ID: STRING then rebuild eventually embeds AGE: NUMBER after type edit, with persistent cache disabled. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
 export async function test_webpack_watch_rebuilds_through_a_type_only_edge(): Promise<void> {
   const root = createTypeEdgeProject(true);

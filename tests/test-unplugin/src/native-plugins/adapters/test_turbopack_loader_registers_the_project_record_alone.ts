@@ -29,6 +29,15 @@ import { runTurbopackLoaderWithContext } from "../../internal/adapter-turbopack/
  * 2. Run it with a plugin reporting a relative entry, an absolute entry, a
  *    duplicate, and the module itself, and assert the record is still the one
  *    dependency and names the two reported paths, absolutized, once each.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Plain and reporting plugins each register one record without directory dependencies; written record names normalized reported paths and project identity.
+ * @evidence contracts/testing.md#independent-expectations One project-record channel follows whole-project generation contract; path oracle uses production naming helper so naming defects alone may escape.
+ * @evidence contracts/testing.md#distinguishing-cases No plugin dependencies versus relative, absolute, duplicate and self reporting.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_turbopack_loader_registers_the_project_record_alone is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/e2e.md#necessary-boundary Native envelope reaches built loader and its file channel; record contents are observed on disk.
+ * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Normal end hooks close modeled owners where invoked; failure/cancellation cleanup lacks a finally guarantee here. Runner exit bounds remaining sessions and tracked roots.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: plain and reporting plugins each register one record without directory dependencies; written record names normalized reported paths and project identity. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
 export async function test_turbopack_loader_registers_the_project_record_alone(): Promise<void> {
   const root = TestUnpluginProject.createProject();

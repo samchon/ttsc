@@ -35,6 +35,15 @@ import { runTurbopackLoaderWithContext } from "../../internal/adapter-turbopack/
  *    same error.
  * 3. Run it with a project option that names no config, with `emitError` offered,
  *    and assert the run fails and nothing is emitted.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Compile failure emits one helper.ts error and executable throw module with the same message; lacking emitError rejects, and absent config rejects before compilation.
+ * @evidence contracts/testing.md#independent-expectations Missing helper and config are deliberate failures; evaluated throw must reproduce emitted message rather than silently succeed.
+ * @evidence contracts/testing.md#distinguishing-cases Compiler verdict with/without error channel versus adapter failure before any verdict.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_turbopack_loader_keeps_its_worker_through_a_failed_compile is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/e2e.md#necessary-boundary Built loader connects native failure to callback/error channels; worker survival itself is inferred from successful callback, not measured in Turbopack.
+ * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Normal end hooks close modeled owners where invoked; failure/cancellation cleanup lacks a finally guarantee here. Runner exit bounds remaining sessions and tracked roots.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: compile failure emits one helper.ts error and executable throw module with the same message; lacking emitError rejects, and absent config rejects before compilation. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
 export async function test_turbopack_loader_keeps_its_worker_through_a_failed_compile(): Promise<void> {
   const root = TestUnpluginProject.createProject({

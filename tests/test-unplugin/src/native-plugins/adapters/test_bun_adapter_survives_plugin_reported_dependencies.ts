@@ -19,6 +19,15 @@ import { captureBunLoader } from "../../internal/adapter-bun/captureBunLoader";
  * 1. Configure a plugin that reports those four dependency shapes.
  * 2. Load the entry module twice, a fresh transform and a cache hit.
  * 3. Assert both return transformed contents with the `ts` parser.
+ *
+ * @evidence contracts/testing.md#behavioral-verification First and repeated loads both return transformed contents and ts despite relative, absolute, duplicate and self dependencies.
+ * @evidence contracts/testing.md#independent-expectations Fixture rewrite fixes PLUGIN; Bun has no per-module dependency channel, so notifications must not throw.
+ * @evidence contracts/testing.md#distinguishing-cases Cold delivery and replay with all four reported path shapes.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_bun_adapter_survives_plugin_reported_dependencies is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/e2e.md#necessary-boundary Captured Bun receiver reaches native plugin dependency reporting; no live Bun watch behavior is claimed.
+ * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Normal end hooks close modeled owners where invoked; failure/cancellation cleanup lacks a finally guarantee here. Runner exit bounds remaining sessions and tracked roots.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: first and repeated loads both return transformed contents and ts despite relative, absolute, duplicate and self dependencies. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
 export async function test_bun_adapter_survives_plugin_reported_dependencies(): Promise<void> {
   const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");

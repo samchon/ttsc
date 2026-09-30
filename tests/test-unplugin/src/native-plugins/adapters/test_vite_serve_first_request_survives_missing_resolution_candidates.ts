@@ -24,6 +24,15 @@ import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
  * 3. Create a new package under the automatic type root.
  * 4. Assert the importer is invalidated, a full reload is announced, and the
  *    module can be requested again.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Cold server request caches nonempty code; adding generated/index.d.ts under automatic type root invalidates importer, announces full-reload and permits refetch.
+ * @evidence contracts/testing.md#independent-expectations Fixture graph proves missing candidate and new automatic type package changes visible declarations independently of source edits.
+ * @evidence contracts/testing.md#distinguishing-cases Cold startup with missing candidates followed by automatic type-root membership creation.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_vite_serve_first_request_survives_missing_resolution_candidates is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/e2e.md#necessary-boundary Real Vite server/native watcher/HMR connection observes type-root membership absent from runtime imports.
+ * @evidence contracts/e2e.md#shared-execution One server and fixture serve requests and mutations, with replacement only for restart assertions; shared native artifacts do not replace the cold request.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Server closes in finally on success/failure; restart reuses only this fixture. Tracked roots end at process exit.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: cold server request caches nonempty code; adding generated/index.d.ts under automatic type root invalidates importer, announces full-reload and permits refetch. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
 export async function test_vite_serve_first_request_survives_missing_resolution_candidates(): Promise<void> {
   const fixture = createLinkedWorkspaceFixture();

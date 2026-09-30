@@ -21,6 +21,15 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  * 2. Start the replacement, end the old container, and assert the replacement's
  *    generation survives a later input change.
  * 3. End the replacement and assert the next delivery compiles again.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Unstarted and old lifecycle buildEnd keep live generation at counts one and two; replacement buildEnd forces count three.
+ * @evidence contracts/testing.md#independent-expectations Fixture compile log counts native executions; deliberate plugin edits would expose an incorrectly cleared build scope.
+ * @evidence contracts/testing.md#distinguishing-cases Unstarted owner, overlapping replacement, old end, final end and later delivery.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_vite_build_end_disposes_the_last_overlapping_cache_owner is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/e2e.md#necessary-boundary Built Vite lifecycle hooks drive native generations with simulated container identities; real restart scheduling is complementary.
+ * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. The finally block releases modeled lifecycle owner; tracked roots end at process exit. Captured host does not establish live-host cancellation cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: unstarted and old lifecycle buildEnd keep live generation at counts one and two; replacement buildEnd forces count three. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
 export async function test_vite_build_end_disposes_the_last_overlapping_cache_owner(): Promise<void> {
   const plugin = await loadViteAdapterPlugin();

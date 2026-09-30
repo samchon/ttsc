@@ -27,6 +27,15 @@ import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
  *    and a removal after a rename re-probes.
  * 4. Delete importers and assert their inputs and fallback work are released while
  *    another importer's remain.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Watcher invalidates changed importers while preserving unchanged aliases and file predicates, closes compile races, polls hardlinks and releases fallback at last importer.
+ * @evidence contracts/testing.md#independent-expectations Authored filesystem transitions and literal predicate states define expected invalidation; host hash helper is used for baseline encoding, not expected callback sets.
+ * @evidence contracts/testing.md#distinguishing-cases Deletion before subscribe, retargeted junction, ancestor rename, conditional case aliases, external symlink, directory/file/listing predicates, restored-byte race, hardlinks and cleanup.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_vite_compiler_watch_tracks_subscription_and_alias_boundaries is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/e2e.md#necessary-boundary Real filesystem watcher boundary plus injected race/poll scheduling; module graph is captured and most helpers need no native compile.
+ * @evidence contracts/e2e.md#shared-execution One temporary filesystem corpus supports subcases; fresh watchers are required for subscription, fallback and identity-policy lifetimes. No compiler is built.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Local importer identities, invalidation sets and race callbacks separate subcases; watcher.dispose runs in finally and last-importer assertions verify scheduler close. Tracked roots end at process exit.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: watcher invalidates changed importers while preserving unchanged aliases and file predicates, closes compile races, polls hardlinks and releases fallback at last importer. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
 export async function test_vite_compiler_watch_tracks_subscription_and_alias_boundaries(): Promise<void> {
   const root = fs.realpathSync.native(

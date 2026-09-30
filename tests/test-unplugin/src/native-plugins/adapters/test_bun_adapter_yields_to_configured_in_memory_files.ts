@@ -18,6 +18,15 @@ import { captureBunLoader } from "../../internal/adapter-bun/captureBunLoader";
  * 2. Assert both are left to Bun, across separator and working-directory changes.
  * 3. Assert differently cased, relative, and dot-segment keys do not claim a disk
  *    path, while Windows-equivalent spellings stay owned by Bun.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Captured loaders leave virtual and relative files to Bun, but resolve disk options for differing case and spelling; Windows-equivalent drive/separator spellings bypass disk transform.
+ * @evidence contracts/testing.md#independent-expectations Configured in-memory ownership forbids reading absent virtual paths; option counters expose entry into disk transformation.
+ * @evidence contracts/testing.md#distinguishing-cases Relative/absolute keys, cwd changes, case difference, dot segments and conditional Windows equivalence.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_bun_adapter_yields_to_configured_in_memory_files is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/e2e.md#necessary-boundary Published Bun adapter interprets captured BuildConfig.files against actual filesystem; live Bun key matching is not executed.
+ * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. cwd is restored in finally; Windows ownership assertions are conditional. Tracked roots end at process exit; captured loader teardown is not asserted.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: captured loaders leave virtual and relative files to Bun, but resolve disk options for differing case and spelling; Windows-equivalent drive/separator spellings bypass disk transform. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
 export async function test_bun_adapter_yields_to_configured_in_memory_files(): Promise<void> {
   const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");

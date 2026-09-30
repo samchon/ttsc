@@ -19,6 +19,15 @@ import { startViteBuildSession } from "../../internal/adapter-vite-lifecycle/sta
  * 2. Resolve the same plugin as an ordinary build and run a pass.
  * 3. Let the release grace pass, and assert the following pass compiles again, so
  *    `buildEnd` disposal still works (samchon/ttsc#1396).
+ *
+ * @evidence contracts/testing.md#behavioral-verification Mid-pass close then late buildEnd permits ordinary-build release and raises compile counts one, two, three.
+ * @evidence contracts/testing.md#independent-expectations Counts after the fixed grace expose stranded negative ownership; identical output alone would miss it.
+ * @evidence contracts/testing.md#distinguishing-cases Open watch pass interrupted, late end, configuration switch and subsequent non-watch release.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_vite_close_watcher_mid_pass_keeps_the_counter_sound is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/e2e.md#necessary-boundary Built Vite hooks/native ownership execute with explicit interruption order; Ctrl+C itself is not sent.
+ * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Session closes in finally, including assertion failure; its changed inputs and compile log remain private. Tracked roots end at process exit.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: mid-pass close then late buildEnd permits ordinary-build release and raises compile counts one, two, three. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
 export async function test_vite_close_watcher_mid_pass_keeps_the_counter_sound(): Promise<void> {
   const session = await startViteBuildSession(true);
