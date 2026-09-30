@@ -1,9 +1,9 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { linkVirtualEntry } from "../../../../../packages/ttsc/lib/launcher/internal/linkVirtualEntry.js";
+import { linkVirtualEntry } from "../../../../../packages/ttsc/src/launcher/internal/linkVirtualEntry";
 
 /**
  * Verifies `linkVirtualEntry` never fails on a dangling symlink entry.
@@ -22,9 +22,13 @@ import { linkVirtualEntry } from "../../../../../packages/ttsc/lib/launcher/inte
  *    assertion.
  * 3. Assert the outcome is one of the two correct ones: re-linked as a symlink, or
  *    skipped entirely.
+ *
+ * @evidence contracts/testing.md#behavioral-verification linkVirtualEntry completes for a dangling fixture and either mirrors the link or skips it without clobbering the virtual entry.
+ * @evidence contracts/testing.md#independent-expectations The supported dangling-entry contract independently permits mirror or skip and rejects a materialized ordinary entry.
+ * @evidence contracts/testing.md#distinguishing-cases An existing link whose directory target was removed exercises the unavailable-target branch; occupied file fallback belongs to the adjacent case.
+ * @evidence contracts/testing.md#execution-ownership This named src/unit/api entry calls the authored filesystem operation directly on private fixtures, with no installed consumer, native compilation or product host; every original observable assertion is retained.
  */
-export const test_linkvirtualentry_never_fails_on_a_dangling_symlink_entry =
-  () => {
+export function test_linkvirtualentry_never_fails_on_a_dangling_symlink_entry() {
     const realDir = TestProject.tmpdir("ttsc-linkvirtualentry-dangling-");
     const target = path.join(realDir, "target");
     fs.mkdirSync(target);
@@ -60,4 +64,4 @@ export const test_linkvirtualentry_never_fails_on_a_dangling_symlink_entry =
       outcome === "mirrored" || outcome === "skipped",
       `dangling entry must be re-linked or skipped, got ${outcome}`,
     );
-  };
+}

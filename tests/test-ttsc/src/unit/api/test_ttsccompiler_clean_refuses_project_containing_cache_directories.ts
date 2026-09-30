@@ -1,12 +1,12 @@
-import { resolveSafeCacheCleanupTargets } from "../../../../../packages/ttsc/lib/internal/resolveSafeCacheCleanupTargets.js";
+import os from "node:os";
+import { TestProject } from "../../../../utils/src/TestProject";
+import { TtscCompiler } from "../../../../../packages/ttsc/src/TtscCompiler";
+import { resolveSafeCacheCleanupTargets } from "../../../../../packages/ttsc/src/internal/resolveSafeCacheCleanupTargets";
 import {
-  TtscCompiler,
   assert,
   fs,
-  os,
   path,
-  writeBasicProject,
-} from "../../internal/compiler";
+} from "../../internal/script-unit";
 
 /**
  * Verifies TtscCompiler.clean validates every cache cleanup target before
@@ -20,9 +20,13 @@ import {
  * 1. Reject explicit project and ancestor cache roots without removing data.
  * 2. Reject a physical alias and an environment-selected project ancestor.
  * 3. Reject a filesystem root and assert every earlier sentinel still exists.
+ *
+ * @evidence contracts/testing.md#behavioral-verification TtscCompiler.clean and resolveSafeCacheCleanupTargets reject project, ancestor, alias, environment-selected ancestor and filesystem-root targets before removing any sentinel.
+ * @evidence contracts/testing.md#independent-expectations Literal project, sibling and plugin sentinels independently establish what must survive an invalid cleanup request.
+ * @evidence contracts/testing.md#distinguishing-cases Direct project and ancestor requests, physical alias, instance environment and filesystem root are all rejected while earlier data remains intact.
+ * @evidence contracts/testing.md#execution-ownership This named src/unit/api entry calls the authored filesystem operation directly on private fixtures, with no installed consumer, native compilation or product host; every original observable assertion is retained.
  */
-export const test_ttsccompiler_clean_refuses_project_containing_cache_directories =
-  () => {
+export function test_ttsccompiler_clean_refuses_project_containing_cache_directories() {
     const parent = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-clean-safety-"));
     const project = path.join(parent, "project");
     const projectSentinel = path.join(project, "src", "main.ts");
@@ -39,7 +43,10 @@ export const test_ttsccompiler_clean_refuses_project_containing_cache_directorie
       path.join(os.tmpdir(), "ttsc-clean-safety-alias-"),
     );
     try {
-      writeBasicProject(project, 'export const keep = "project";\n');
+      TestProject.writeFiles(project, {
+        "src/main.ts": 'export const keep = "project";\n',
+        "tsconfig.json": JSON.stringify({ compilerOptions: { target: "ES2022", module: "commonjs", strict: true, outDir: "dist", declaration: true, declarationMap: true, rootDir: "src", sourceMap: true }, include: ["src"] }, null, 2),
+      });
       fs.writeFileSync(siblingSentinel, "sibling", "utf8");
       fs.mkdirSync(path.dirname(pluginSentinel), { recursive: true });
       fs.writeFileSync(pluginSentinel, "plugin", "utf8");
@@ -97,4 +104,4 @@ export const test_ttsccompiler_clean_refuses_project_containing_cache_directorie
       fs.rmSync(aliasRoot, { force: true, recursive: true });
       fs.rmSync(parent, { force: true, recursive: true });
     }
-  };
+}

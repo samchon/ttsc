@@ -1,6 +1,6 @@
-import { type CanonicalTempDirectoryOperations } from "../../../../../packages/ttsc/lib/internal/CanonicalTempDirectoryOperations.js";
-import { createCanonicalTempDirectory } from "../../../../../packages/ttsc/lib/internal/createCanonicalTempDirectory.js";
-import { assert, fs, path } from "../../internal/compiler";
+import { type CanonicalTempDirectoryOperations } from "../../../../../packages/ttsc/src/internal/CanonicalTempDirectoryOperations";
+import { createCanonicalTempDirectory } from "../../../../../packages/ttsc/src/internal/createCanonicalTempDirectory";
+import { assert, fs, path } from "../../internal/script-unit";
 
 /**
  * Verifies temporary cleanup retains the directory's physical spelling.
@@ -14,9 +14,13 @@ import { assert, fs, path } from "../../internal/compiler";
  * 1. Retarget a real parent alias while the helper creates its child.
  * 2. Assert writes and cleanup remain below the original physical parent.
  * 3. Assert non-directory parents and escaped postflights fail closed.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createCanonicalTempDirectory pins its physical parent across alias retargeting, preserves the victim sentinel and rejects non-directory or escaped postflights.
+ * @evidence contracts/testing.md#independent-expectations The explicitly observed operation order, physical parent and literal victim sentinel independently define safe creation and deletion.
+ * @evidence contracts/testing.md#distinguishing-cases Successful alias handoff contrasts with non-directory and escaped-child failures; the original physical child is removed while the retargeted victim survives.
+ * @evidence contracts/testing.md#execution-ownership This named src/unit/api entry calls the authored filesystem operation directly on private fixtures, with no installed consumer, native compilation or product host; every original observable assertion is retained.
  */
-export const test_createcanonicaltempdirectory_retains_physical_cleanup_path =
-  (): void => {
+export function test_createcanonicaltempdirectory_retains_physical_cleanup_path() {
     const root = createCanonicalTempDirectory("ttsc-canonical-temp-test-");
     const safeParent = path.join(root, "safe");
     const project = path.join(root, "project");
@@ -95,4 +99,4 @@ export const test_createcanonicaltempdirectory_retains_physical_cleanup_path =
     } finally {
       fs.rmSync(root, { force: true, recursive: true });
     }
-  };
+}
