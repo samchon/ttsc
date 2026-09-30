@@ -19,6 +19,10 @@ import (
  *
  *  1. One exported interface carries an `@evidenceExclude` and no review.
  *  2. Assert the finding is reported and spells `@evidenceExclude`.
+ * @evidence contracts/testing.md#behavioral-verification runReviewRule sees an exported ISale exclusion without a review; assertReported requires exactly one tax finding spelling evidenceExclude.
+ * @evidence contracts/testing.md#independent-expectations Exclusions owe a separately named review because they state non-applicability rather than implementation.
+ * @evidence contracts/testing.md#distinguishing-cases This entry owns the missing-exclusion-review arm; correct and mismatched kinds are covered by ReviewSeparatesTheTwoReviewTags and ReviewReportsAMismatchedReviewTag.
+ * @evidence contracts/testing.md#execution-ownership TestReviewReportsAnUnreviewedExclusion is a selectable native Go unit entry. runReviewRule parses one supplied source and calls reviewRule.Check in-process with a captured reporter; no target artifact, installed consumer or real compiler host is needed.
  */
 func TestReviewReportsAnUnreviewedExclusion(t *testing.T) {
   assertReported(

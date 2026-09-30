@@ -21,6 +21,10 @@ import (
  *  2. Put the citation on the interface and its review, with the expected
  *     fingerprint, on the namespace.
  *  3. Assert the graph is clean.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule obtains a token for an interface citation and accepts its review on namespace ISale in the same merged symbol.
+ * @evidence contracts/testing.md#independent-expectations Review matching follows semantic host identity across interface/namespace declarations. The rule-produced token is setup and does not certify fingerprint correctness.
+ * @evidence contracts/testing.md#distinguishing-cases Citation and review reside on different physical declaration blocks of one identity; another identity's refusal belongs to RequireReviewRefusesAReviewOnAnotherIdentity.
+ * @evidence contracts/testing.md#execution-ownership TestRequireReviewMatchesAMergedIdentity is a selectable native Go unit entry. Its graph helper parses fixture TypeScript and calls graphRule.Check in the same Go process; temporary Markdown/TypeScript files are resolver inputs, without an installed consumer or product host.
  */
 func TestRequireReviewMatchesAMergedIdentity(t *testing.T) {
   document := "## Pricing\n\nThe rate is capped at 30%.\n"
@@ -53,36 +57,4 @@ export namespace ISale {
 }
 `,
   }, requireReviewConfig))
-}
-
-/**
- * Verifies a review on an unrelated identity does not answer another's citation.
- *
- * The negative twin. Widening the match from a source position to a semantic
- * identity must not widen it to the whole file, or one review would discharge
- * every citation of that target anywhere in the module and the rule would be
- * satisfied by reviewing the easiest host.
- *
- *  1. Cite the target from one exported interface.
- *  2. Write the review on a different exported interface in the same file.
- *  3. Assert the citation is still reported as unreviewed.
- */
-func TestRequireReviewRefusesAReviewOnAnotherIdentity(t *testing.T) {
-  assertProblemContains(t, runIndexRule(t, map[string]string{
-    "docs/spec.md": "## Pricing\n\nThe rate is capped at 30%.\n",
-    "src/ISale.ts": `/**
- * @evidence docs/spec.md#pricing Derives the sale price from this section.
- */
-export interface ISale {
-  price: number;
-}
-
-/**
- * @evidenceReview docs/spec.md#pricing Checked the cap from somewhere else.
- */
-export interface IOther {
-  label: string;
-}
-`,
-  }, requireReviewConfig), "Unreviewed @evidence for 'docs/spec.md#pricing'")
 }

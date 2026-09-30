@@ -4,18 +4,6 @@ import (
   "testing"
 )
 
-const withdrawalConfig = `{"claims":[{
-  "type":"typescript",
-  "files":["src/claim/**"],
-  "symbol":"type",
-  "reference":{
-    "type":"typescript",
-    "files":["src/spec/**"],
-    "symbol":["type","property"],
-    "requireReview":true
-  }
-}]}`
-
 /**
  * Verifies withdrawing a member of a cited scope expires its review, and that
  * churn behind the tag expires it too.
@@ -41,6 +29,10 @@ const withdrawalConfig = `{"claims":[{
  *  2. Withdraw that property with `@internal` and assert the review is stale.
  *  3. Change the withdrawn property's type and assert the fingerprint moves again,
  *     which is the documented cost of a digest that is a declaration's own text.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule accepts a reviewed ISale baseline, then @internal on audit must stale the review and move the token; changing withdrawn audit's type must move it again.
+ * @evidence contracts/testing.md#independent-expectations A subtree withdrawal affects its review scope; TypeScript's whole declaration text also conservatively includes hidden-member executable churn. Diagnostic-derived tokens cannot certify the hash algorithm.
+ * @evidence contracts/testing.md#distinguishing-cases Documentation-only withdrawal and later hidden-member number/string churn are distinct transitions; the latter intentionally does not prove hidden text is excluded.
+ * @evidence contracts/testing.md#execution-ownership TestFingerprintRecordsAWithdrawal is a selectable native Go unit entry. Its graph helper parses fixture TypeScript and calls graphRule.Check in the same Go process; temporary Markdown/TypeScript files are resolver inputs, without an installed consumer or product host.
  */
 func TestFingerprintRecordsAWithdrawal(t *testing.T) {
   citing := func(fingerprint string) string {

@@ -20,6 +20,10 @@ import (
  *  2. Put the citation on the interface and its review on the namespace.
  *  3. Assert nothing is reported, so neither an unreviewed citation nor an
  *     orphan review was derived from the split.
+ * @evidence contracts/testing.md#behavioral-verification runReviewRule invokes reviewRule.Check on an interface citation and namespace review of the same ISale; assertSilent requires no findings.
+ * @evidence contracts/testing.md#independent-expectations One merged semantic identity may pair its citation and review across physical declaration blocks.
+ * @evidence contracts/testing.md#distinguishing-cases Separated interface/namespace blocks challenge position-only pairing; this rule checks review pairing without loading or resolving the Markdown target.
+ * @evidence contracts/testing.md#execution-ownership TestReviewJudgesOneMergedIdentity is a selectable native Go unit entry. runReviewRule parses one supplied source and calls reviewRule.Check in-process with a captured reporter; no target artifact, installed consumer or real compiler host is needed.
  */
 func TestReviewJudgesOneMergedIdentity(t *testing.T) {
   assertSilent(t, runReviewRule(t, "src/ISale.ts", `

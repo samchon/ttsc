@@ -16,35 +16,13 @@ import (
  *
  *  1. Read the rule's `AcceptsTtscLintOptions` declaration.
  *  2. Assert it refuses.
+ * @evidence contracts/testing.md#behavioral-verification reviewRule.AcceptsTtscLintOptions must return false.
+ * @evidence contracts/testing.md#independent-expectations The rule's option marker contract explicitly refuses payloads; the false expectation is independent of host construction.
+ * @evidence contracts/testing.md#distinguishing-cases This pins the contributor marker only; it does not execute the host's configured-payload rejection path.
+ * @evidence contracts/testing.md#execution-ownership TestReviewTakesNoOptions is a selectable native Go unit entry exercising the owning operations named in its behavioral answer in-process. Its direct fixture values and local comparisons require no installed artifact or product process.
  */
 func TestReviewTakesNoOptions(t *testing.T) {
   if (reviewRule{}).AcceptsTtscLintOptions() {
     t.Fatal("evidence/review must refuse options so the host rejects a configured payload")
   }
-}
-
-/**
- * Verifies a declaration withdrawn from the public surface owes no review.
- *
- * `@internal`, `@hidden`, and `@ignore` each materialize no unit, and neither
- * does anything nested inside one. A withdrawn declaration is therefore not a
- * claim host and cannot carry a citation the graph will read, so demanding a
- * review there would send an author to write one for a tag that discharges
- * nothing. The rule inherits the withdrawal by collecting hosts through the same
- * collector the graph uses rather than walking exports itself.
- *
- *  1. Export an interface whose block carries `@internal` and an unreviewed
- *     citation.
- *  2. Assert the rule reports nothing.
- */
-func TestReviewSkipsWithdrawnDeclarations(t *testing.T) {
-  assertSilent(t, runReviewRule(t, "src/ISale.ts", `
-/**
- * @internal
- * @evidence docs/spec.md#pricing Derives the sale price from this section.
- */
-export interface ISale {
-  price: number;
-}
-`))
 }
