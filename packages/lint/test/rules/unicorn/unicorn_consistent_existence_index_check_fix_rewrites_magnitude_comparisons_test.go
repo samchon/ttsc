@@ -22,6 +22,11 @@ import "testing"
 //     decimal spellings of the same two values.
 //  2. Apply the collected fixes through the real disk-backed fix applier.
 //  3. Assert the rewritten file byte for byte.
+//
+// @evidence contracts/testing.md#behavioral-verification The actual disk-backed fix applier must match the complete independently authored expected source, exposing incorrect token spans or changed trivia.
+// @evidence contracts/testing.md#independent-expectations The supported index-sentinel rewrite table determines literal operators/values; original comments, parentheses and line breaks are copied as deliberate preserved input bytes.
+// @evidence contracts/testing.md#distinguishing-cases Three magnitude forms, internal comments, parentheses, wrapped lines and hex/scientific/decimal spellings exercise distinct edit boundaries; > -1.0 changes only its operator.
+// @evidence contracts/testing.md#execution-ownership TestUnicornConsistentExistenceIndexCheckFixRewritesMagnitudeComparisons owns this authored source matrix as one discoverable Go unit entry. The owning checker-backed engine and disk-backed fix applier execute in the shared Go process; failed source comparisons retain input and expected output identity. No installed consumer, native build or child product host runs.
 func TestUnicornConsistentExistenceIndexCheckFixRewritesMagnitudeComparisons(t *testing.T) {
   source := `declare const array: number[];
 

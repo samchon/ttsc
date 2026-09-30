@@ -23,6 +23,11 @@ import "testing"
 //     that stacks every upstream-valid form.
 //  2. Run the checker-backed snapshot path.
 //  3. Assert the rule reports nothing.
+//
+// @evidence contracts/testing.md#behavioral-verification Checker-backed zero-finding assertions detect overmatching comparisons with unrelated initializers, unstable bindings or noncanonical decision shapes.
+// @evidence contracts/testing.md#independent-expectations Official Unicorn const-reference/index-method policy and its operator/literal table establish the authored accepted forms independently of findings.
+// @evidence contracts/testing.md#distinguishing-cases let/var, different calls, computed/private/optional methods, reversed/direct-call operands, sentinel comparisons, neighboring literals including -0/BigInt, shadows and noncomparison uses remain clean.
+// @evidence contracts/testing.md#execution-ownership TestUnicornConsistentExistenceIndexCheckSkipsUpstreamValidForms owns this authored source matrix as one discoverable Go unit entry. The owning checker-backed engine executes in the shared Go process; failed source/count or indexed range/edit comparisons retain the authored case identity. No installed consumer, native build or child product host runs.
 func TestUnicornConsistentExistenceIndexCheckSkipsUpstreamValidForms(t *testing.T) {
   source := `declare const array: number[];
 declare const collection: { indexOf(value: number): number };

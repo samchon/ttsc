@@ -14,9 +14,19 @@ import "testing"
 //  1. Fix `< 0`, `>= 0`, and `> -1` on a const-bound index.
 //  2. Re-lint each rewritten source.
 //  3. Assert no further diagnostics and no further edits.
+//
+// @evidence contracts/testing.md#behavioral-verification runFixSnapshot must equal independently authored sentinel source and apply a fix; re-linting must produce no findings, detecting both wrong output and failure to converge.
+// @evidence contracts/testing.md#independent-expectations Index methods return -1 for absence; the documented magnitude-to-sentinel policy determines literal === -1 or !== -1 outputs before the fixer runs.
+// @evidence contracts/testing.md#distinguishing-cases Less-than-zero, at-least-zero and above-minus-one inputs all change once and their exact independently authored canonical results remain accepted.
+// @evidence contracts/testing.md#execution-ownership TestUnicornConsistentExistenceIndexCheckFixIsIdempotent owns this authored source matrix as one discoverable Go unit entry. The owning checker-backed engine and disk-backed fix applier execute in the shared Go process; failed source comparisons retain input and expected output identity. No installed consumer, native build or child product host runs.
 func TestUnicornConsistentExistenceIndexCheckFixIsIdempotent(t *testing.T) {
   const ruleName = "unicorn/consistent-existence-index-check"
-  for _, source := range []string{
+  expected := []string{
+    "declare const array: number[];\nconst index = array.indexOf(1);\nvoid (index === -1);\n",
+    "declare const array: number[];\nconst index = array.indexOf(1);\nvoid (index !== -1);\n",
+    "declare const array: number[];\nconst index = array.indexOf(1);\nvoid (index !== -1);\n",
+  }
+  for index, source := range []string{
     "declare const array: number[];\nconst index = array.indexOf(1);\nvoid (index < 0);\n",
     "declare const array: number[];\nconst index = array.indexOf(1);\nvoid (index >= 0);\n",
     "declare const array: number[];\nconst index = array.indexOf(1);\nvoid (index > -1);\n",
@@ -24,6 +34,9 @@ func TestUnicornConsistentExistenceIndexCheckFixIsIdempotent(t *testing.T) {
     fixed, applied := runFixSnapshot(t, ruleName, source)
     if applied == 0 {
       t.Fatalf("expected a fix for %q", source)
+    }
+    if fixed != expected[index] {
+      t.Fatalf("fixed source mismatch for %q:\nwant %q\ngot %q", source, expected[index], fixed)
     }
     _, _, findings := runRuleFindingsSnapshot(t, ruleName, fixed, nil)
     if len(findings) != 0 {
