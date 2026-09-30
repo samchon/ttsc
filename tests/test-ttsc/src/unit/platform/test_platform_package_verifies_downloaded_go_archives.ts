@@ -1,4 +1,4 @@
-import { TestProject } from "@ttsc/testing";
+import os from "node:os";
 import { createHash } from "node:crypto";
 
 import {
@@ -7,7 +7,7 @@ import {
   path,
   requireFromTest,
   workspaceRoot,
-} from "../../internal/toolchain";
+} from "../../internal/script-unit";
 
 /**
  * Verifies platform package: authenticates downloaded Go SDK archives.
@@ -18,8 +18,13 @@ import {
  *
  * 1. Resolve official metadata and replace a corrupt cache through SHA-256.
  * 2. Pin replacement failure cleanup and checksum-bound extraction markers.
+ *
+ * @evidence contracts/testing.md#behavioral-verification integrity functions select official metadata, authenticate replacement bytes and bind extraction markers to their checksum.
+ * @evidence contracts/testing.md#independent-expectations SHA-256 of independently authored fixture bytes establishes the expected archive digest.
+ * @evidence contracts/testing.md#distinguishing-cases valid replacement and marker reuse contrast with absent metadata, checksum mismatch cleanup and missing marker.
+ * @evidence contracts/testing.md#execution-ownership The named test_platform_package_verifies_downloaded_go_archives export is discovered under src/unit/platform and calls the owning authored operation without installation, native compilation or a product host.
  */
-export const test_platform_package_verifies_downloaded_go_archives = () => {
+export function test_platform_package_verifies_downloaded_go_archives() {
   const integrity = requireFromTest(
     path.join(workspaceRoot, "scripts", "go-sdk-integrity.cjs"),
   ) as {
@@ -42,7 +47,7 @@ export const test_platform_package_verifies_downloaded_go_archives = () => {
       download: (target: string) => void,
     ) => boolean;
   };
-  const root = TestProject.tmpdir("ttsc-go-sdk-integrity-");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-go-sdk-integrity-"));
   const archive = path.join(root, "go-sdk.archive");
   const temporary = path.join(root, "go-sdk.archive.download");
   const contents = "verified Go SDK archive fixture";
@@ -116,4 +121,4 @@ export const test_platform_package_verifies_downloaded_go_archives = () => {
   } finally {
     fs.rmSync(root, { force: true, recursive: true });
   }
-};
+}

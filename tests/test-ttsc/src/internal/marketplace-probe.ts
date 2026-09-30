@@ -1,4 +1,4 @@
-import { path, requireFromTest, workspaceRoot } from "./toolchain";
+import { path, requireFromTest, workspaceRoot } from "./script-unit";
 
 interface MarketplaceProbeResult {
   attempts: number;

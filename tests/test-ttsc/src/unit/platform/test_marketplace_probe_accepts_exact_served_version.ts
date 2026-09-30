@@ -3,7 +3,7 @@ import {
   jsonResponse,
   marketplaceProbe,
 } from "../../internal/marketplace-probe";
-import { assert } from "../../internal/toolchain";
+import { assert } from "../../internal/script-unit";
 
 /**
  * Verifies an exact public Marketplace version is a repeatable success.
@@ -15,8 +15,13 @@ import { assert } from "../../internal/toolchain";
  * 1. Serve one exact publisher/name record with two valid versions.
  * 2. Query readiness and the tagged version twice against the same response.
  * 3. Assert every query succeeds with the exact public identity and version.
+ *
+ * @evidence contracts/testing.md#behavioral-verification queryMarketplace returns exact identity, requested older version and all advertised versions across retries.
+ * @evidence contracts/testing.md#independent-expectations the release requires returned publisher and name to equal the literal requested extension and version.
+ * @evidence contracts/testing.md#distinguishing-cases readiness versus two exact-version retries; every query must request all versions.
+ * @evidence contracts/testing.md#execution-ownership The named test_marketplace_probe_accepts_exact_served_version export is discovered under src/unit/platform and calls the owning authored operation without installation, native compilation or a product host.
  */
-export const test_marketplace_probe_accepts_exact_served_version = async () => {
+export async function test_marketplace_probe_accepts_exact_served_version() {
   const queryBodies: any[] = [];
   const fetchImpl: typeof fetch = async (_input, init) => {
     queryBodies.push(JSON.parse(String(init?.body)));
@@ -50,4 +55,4 @@ export const test_marketplace_probe_accepts_exact_served_version = async () => {
       1,
       "the query must include all versions, not only the latest",
     );
-};
+}

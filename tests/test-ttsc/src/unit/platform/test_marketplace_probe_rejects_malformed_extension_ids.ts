@@ -2,7 +2,7 @@ import {
   marketplaceProbe,
   silentLogger,
 } from "../../internal/marketplace-probe";
-import { assert } from "../../internal/toolchain";
+import { assert } from "../../internal/script-unit";
 
 /**
  * Verifies malformed Marketplace extension identifiers fail before querying.
@@ -14,9 +14,13 @@ import { assert } from "../../internal/toolchain";
  * 1. Pass malformed publisher/name combinations to the bounded waiter.
  * 2. Supply a fetch implementation that records any attempted request.
  * 3. Assert every identifier fails validation without network access.
+ *
+ * @evidence contracts/testing.md#behavioral-verification waitForMarketplace rejects malformed identifiers with no fetch call.
+ * @evidence contracts/testing.md#independent-expectations the publisher.name contract forbids empty components, whitespace, separators and extra components.
+ * @evidence contracts/testing.md#distinguishing-cases eight malformed spellings contrast with the served-version unit owning the valid identity.
+ * @evidence contracts/testing.md#execution-ownership The named test_marketplace_probe_rejects_malformed_extension_ids export is discovered under src/unit/platform and calls the owning authored operation without installation, native compilation or a product host.
  */
-export const test_marketplace_probe_rejects_malformed_extension_ids =
-  async () => {
+export async function test_marketplace_probe_rejects_malformed_extension_ids() {
     let attempts = 0;
     for (const extensionId of [
       "",

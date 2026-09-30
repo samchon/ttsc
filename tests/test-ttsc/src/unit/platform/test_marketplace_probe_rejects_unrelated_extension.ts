@@ -4,7 +4,7 @@ import {
   marketplaceProbe,
   silentLogger,
 } from "../../internal/marketplace-probe";
-import { assert } from "../../internal/toolchain";
+import { assert } from "../../internal/script-unit";
 
 /**
  * Verifies an exact-name query cannot pass on an unrelated extension.
@@ -16,8 +16,13 @@ import { assert } from "../../internal/toolchain";
  * 1. Query `samchon.ttsc` while returning another publisher/name record.
  * 2. Give the waiter a deadline that would otherwise permit retries.
  * 3. Assert the identity mismatch fails terminally after one request.
+ *
+ * @evidence contracts/testing.md#behavioral-verification waitForMarketplace rejects an unrelated record after exactly one request.
+ * @evidence contracts/testing.md#independent-expectations the public extension must independently match both literal publisher and name.
+ * @evidence contracts/testing.md#distinguishing-cases wrong publisher and name contrast with the exact record in the served-version unit.
+ * @evidence contracts/testing.md#execution-ownership The named test_marketplace_probe_rejects_unrelated_extension export is discovered under src/unit/platform and calls the owning authored operation without installation, native compilation or a product host.
  */
-export const test_marketplace_probe_rejects_unrelated_extension = async () => {
+export async function test_marketplace_probe_rejects_unrelated_extension() {
   let attempts = 0;
   await assert.rejects(
     marketplaceProbe.waitForMarketplace({
@@ -35,4 +40,4 @@ export const test_marketplace_probe_rejects_unrelated_extension = async () => {
     /returned unrelated extension/,
   );
   assert.equal(attempts, 1);
-};
+}

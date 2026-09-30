@@ -1,6 +1,6 @@
-import { parseJsonc } from "ttsc/tsconfig";
+import { parseJsonc } from "../../../../../packages/ttsc/src/compiler/internal/project/parseJsonc";
 
-import { assert } from "../../internal/compiler";
+import assert from "node:assert/strict";
 
 /**
  * Verifies `parseJsonc` accepts and rejects the config text TypeScript-Go
@@ -18,9 +18,13 @@ import { assert } from "../../internal/compiler";
  * 1. Parse text using each accepted lexical form.
  * 2. Parse text using each form the compiler reports.
  * 3. Assert the accepted values and a positioned failure for each rejection.
+ *
+ * @evidence contracts/testing.md#behavioral-verification parseJsonc returns literal lexical values and positioned SyntaxErrors across the full original matrix.
+ * @evidence contracts/testing.md#independent-expectations each accepted and rejected row was previously verified against the pinned compiler grammar; expected values do not come from this parser.
+ * @evidence contracts/testing.md#distinguishing-cases comments, Unicode whitespace, numbers, escapes, trailing commas, duplicate and __proto__ keys contrast with malformed and unterminated input.
+ * @evidence contracts/testing.md#execution-ownership The named test_parsejsonc_reads_the_config_grammar_typescript_go_reads export is discovered under src/unit/api and calls the owning authored operation without installation, native compilation or a product host.
  */
-export const test_parsejsonc_reads_the_config_grammar_typescript_go_reads =
-  (): void => {
+export function test_parsejsonc_reads_the_config_grammar_typescript_go_reads(): void {
     const B = "\\";
     const accepted: [string, unknown][] = [
       ['{\r// cr comment\r"a": 1\r}', { a: 1 }],

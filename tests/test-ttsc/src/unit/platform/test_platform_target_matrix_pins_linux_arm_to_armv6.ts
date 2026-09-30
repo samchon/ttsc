@@ -3,7 +3,7 @@ import {
   path,
   requireFromTest,
   workspaceRoot,
-} from "../../internal/toolchain";
+} from "../../internal/script-unit";
 
 /**
  * Verifies the platform build target matrix pins linux-arm to the ARMv6
@@ -21,8 +21,13 @@ import {
  *    GOARM=6, and archiveTarget=linux-armv6l.
  * 2. Resolve the negative twins (linux-arm64, linux-x64, darwin-arm64, win32-x64)
  *    and assert none carries a GOARM and each keeps its own archive.
+ *
+ * @evidence contracts/testing.md#behavioral-verification resolveGoTarget selects compiler and SDK coordinates without leaking GOARM.
+ * @evidence contracts/testing.md#independent-expectations linux-arm supports the ARMv6 SDK baseline; independent literal target coordinates pin the contract.
+ * @evidence contracts/testing.md#distinguishing-cases linux-arm contrasts with linux-arm64, linux-x64, darwin-arm64 and win32-x64.
+ * @evidence contracts/testing.md#execution-ownership The named test_platform_target_matrix_pins_linux_arm_to_armv6 export is discovered under src/unit/platform and calls the owning authored operation without installation, native compilation or a product host.
  */
-export const test_platform_target_matrix_pins_linux_arm_to_armv6 = () => {
+export function test_platform_target_matrix_pins_linux_arm_to_armv6() {
   const { resolveGoTarget } = requireFromTest(
     path.join(workspaceRoot, "scripts", "platform-target.cjs"),
   ) as {
@@ -68,4 +73,4 @@ export const test_platform_target_matrix_pins_linux_arm_to_armv6 = () => {
   assert.equal(win.goos, "windows");
   assert.equal(win.goarm, undefined);
   assert.equal(win.archiveTarget, "windows-amd64");
-};
+}

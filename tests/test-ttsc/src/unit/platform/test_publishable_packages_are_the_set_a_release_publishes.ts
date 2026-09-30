@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 
-import { assert, fs, path, workspaceRoot } from "../../internal/toolchain";
+import { assert, fs, path, workspaceRoot } from "../../internal/script-unit";
 
 const { isPlatformPackage, listPublishablePackages } = createRequire(
   import.meta.url,
@@ -30,8 +30,13 @@ const { isPlatformPackage, listPublishablePackages } = createRequire(
  * 2. List the publishable packages.
  * 3. Assert the public and platform packages are listed, the private one and the
  *    manifest-less directory are not, and the malformed one is reported.
+ *
+ * @evidence contracts/testing.md#behavioral-verification listPublishablePackages interprets synthetic manifests and reports publication candidates and malformed entries.
+ * @evidence contracts/testing.md#independent-expectations the public/private manifest contract and platform os/cpu identity establish the literal expected population.
+ * @evidence contracts/testing.md#distinguishing-cases public, private, new platform, absent manifest and malformed JSON all retain their separate outcomes.
+ * @evidence contracts/testing.md#execution-ownership The named test_publishable_packages_are_the_set_a_release_publishes export is discovered under src/unit/platform and calls the owning authored operation without installation, native compilation or a product host.
  */
-export const test_publishable_packages_are_the_set_a_release_publishes = () => {
+export function test_publishable_packages_are_the_set_a_release_publishes() {
   const root = fs.mkdtempSync(path.join(process.cwd(), ".tmp-publishable-"));
   try {
     const write = (entry: string, manifest: unknown): void => {
@@ -66,4 +71,4 @@ export const test_publishable_packages_are_the_set_a_release_publishes = () => {
   } finally {
     fs.rmSync(root, { force: true, recursive: true });
   }
-};
+}

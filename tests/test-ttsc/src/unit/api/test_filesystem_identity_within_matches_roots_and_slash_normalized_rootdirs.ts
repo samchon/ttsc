@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import type { FilesystemPathIdentityContext } from "../../../../../packages/ttsc/lib/internal/pathIdentity/FilesystemPathIdentityContext.js";
-import { createFilesystemPathIdentityContext } from "../../../../../packages/ttsc/lib/internal/pathIdentity/createFilesystemPathIdentityContext.js";
+import type { FilesystemPathIdentityContext } from "../../../../../packages/ttsc/src/internal/pathIdentity/FilesystemPathIdentityContext";
+import { createFilesystemPathIdentityContext } from "../../../../../packages/ttsc/src/internal/pathIdentity/createFilesystemPathIdentityContext";
 
 /**
  * Verifies filesystem-identity containment matches root directories and
@@ -21,9 +21,13 @@ import { createFilesystemPathIdentityContext } from "../../../../../packages/tts
  * 3. On Windows, assert slash-form and differently-cased directories still match
  *    native real paths.
  * 4. Inject both Windows directory semantics and reject a case-distinct sibling.
+ *
+ * @evidence contracts/testing.md#behavioral-verification filesystem identity containment matches roots and descendants without admitting sibling prefixes.
+ * @evidence contracts/testing.md#independent-expectations directory containment includes the root itself and descendants; independently injected Windows semantics establish ordinary and sensitive directory identities.
+ * @evidence contracts/testing.md#distinguishing-cases native and volume roots, sibling prefixes, separator normalization, ordinary case folding and sensitive case-distinct siblings retain the complete prior matrix.
+ * @evidence contracts/testing.md#execution-ownership The named test_filesystem_identity_within_matches_roots_and_slash_normalized_rootdirs export is discovered under src/unit/api and calls the owning authored operation without installation, native compilation or a product host.
  */
-export const test_filesystem_identity_within_matches_roots_and_slash_normalized_rootdirs =
-  () => {
+export function test_filesystem_identity_within_matches_roots_and_slash_normalized_rootdirs() {
     const base = path.resolve(path.sep, "a", "b");
     assert.equal(isWithin(path.join(base, "c.ts"), base), true);
     assert.equal(isWithin(base, base), true);
