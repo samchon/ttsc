@@ -14,6 +14,11 @@ import "testing"
 //  1. Parse a CRLF class with a two-parameter-property constructor.
 //  2. Apply format/parameter-properties with {"endOfLine":"crlf"}.
 //  3. Assert each parameter breaks with "\r\n" and no lone LF remains.
+//
+// @evidence contracts/testing.md#behavioral-verification The owning parameter-properties rule must break the constructor with CRLF at every synthesized line. Full expected source and the explicit no-lone-LF guard detect introducing mixed endings while preserving both parameter declarations.
+// @evidence contracts/testing.md#independent-expectations The supported endOfLine:crlf option independently fixes every new line separator to CRLF. Literal expected indentation follows the two-space option contract, with the final comma still outside this rule scope.
+// @evidence contracts/testing.md#distinguishing-cases The original CRLF source gains multiple new parameter lines; both their exact bytes and the entire output are checked. BreaksMultiParamConstructor supplies the LF counterpart.
+// @evidence contracts/testing.md#execution-ownership TestFormatParameterPropertiesHonorsCRLFEndOfLine owns its literal CRLF fixture and byte/newline assertions in the public Go unit population. The owning rule and edit harness execute in process without consumer installation, native artifact building or starting a product host.
 func TestFormatParameterPropertiesHonorsCRLFEndOfLine(t *testing.T) {
   assertFixCRLFConsistentWithOptions(
     t,
