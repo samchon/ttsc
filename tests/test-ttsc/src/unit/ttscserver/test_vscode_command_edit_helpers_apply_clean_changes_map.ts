@@ -1,7 +1,5 @@
-import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import path from "node:path";
+import * as mod from "../../../../../packages/vscode/src/commandEdits";
 
 /**
  * Verifies VS Code command edit helpers recognize clean changes-map edits.
@@ -11,23 +9,23 @@ import path from "node:path";
  * entries and suppress application when either command arguments or returned
  * edit targets are dirty.
  *
- * 1. Import the pure command edit helper through Node's TypeScript loader.
+ * 1. Call the authored command edit helper directly.
  * 2. Convert a `changes`-map result with valid and invalid edits.
  * 3. Check null/non-object results are ignored.
  * 4. Assert dirty command arguments and dirty edit targets are detected.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The edit helpers retain four valid edits, reject malformed ranges/maps and distinguish dirty arguments, dirty targets and command prefixes.
+ * @evidence contracts/testing.md#independent-expectations Authored edit records and literal restart/fallback results and counters independently define the supported policy.
+ * @evidence contracts/testing.md#distinguishing-cases Same-line, insertion and multiline edits contrast with malformed, negative and reversed positions; null and invalid maps, clean/dirty URIs and foreign/empty command prefixes remain covered.
+ * @evidence contracts/testing.md#execution-ownership The named src/unit/ttscserver entry calls the authored pure module directly, retaining the original serialized result view and every behavioral assertion without an editor host or child process.
  */
-export const test_vscode_command_edit_helpers_apply_clean_changes_map = () => {
-  const repo = TestProject.WORKSPACE_ROOT;
+export async function test_vscode_command_edit_helpers_apply_clean_changes_map() {
   const cleanUri = "file:///clean.ts";
   const dirtyUri = "file:///dirty.ts";
-  const script = `
-    import { pathToFileURL } from "node:url";
-    const mod = await import(pathToFileURL(${JSON.stringify(
-      path.join(repo, "packages", "vscode", "src", "commandEdits.ts"),
-    )}).href);
+  const actual = JSON.parse(JSON.stringify(await (async () => {
     const edit = {
       changes: {
-        [${JSON.stringify(cleanUri)}]: [
+        [cleanUri]: [
           {
             range: {
               start: { line: 0, character: 1 },
@@ -61,7 +59,7 @@ export const test_vscode_command_edit_helpers_apply_clean_changes_map = () => {
             newText: "skip-same-line-reversed",
           },
         ],
-        [${JSON.stringify(dirtyUri)}]: [
+        [dirtyUri]: [
           {
             range: {
               start: { line: 1, character: 0 },
@@ -92,23 +90,25 @@ export const test_vscode_command_edit_helpers_apply_clean_changes_map = () => {
       },
     };
     const changes = mod.collectWorkspaceEditChanges(edit);
-    console.log(JSON.stringify({
+    assert.notEqual(changes, undefined);
+    if (changes === undefined) throw new Error("Valid authored edits were not collected");
+    return {
       changes,
       nullResult: mod.collectWorkspaceEditChanges(null),
       invalidResult: mod.collectWorkspaceEditChanges({ changes: [] }),
       dirtyArg: mod.commandArgumentsContainDirtyURI([
-        { nested: [${JSON.stringify(dirtyUri)}] },
-      ], new Set([${JSON.stringify(dirtyUri)}])),
+        { nested: [dirtyUri] },
+      ], new Set([dirtyUri])),
       cleanArg: mod.commandArgumentsContainDirtyURI([
-        ${JSON.stringify(cleanUri)},
-      ], new Set([${JSON.stringify(dirtyUri)}])),
+        cleanUri,
+      ], new Set([dirtyUri])),
       dirtyEdit: mod.workspaceEditChangesTouchDirtyURI(
         changes,
-        new Set([${JSON.stringify(dirtyUri)}]),
+        new Set([dirtyUri]),
       ),
       cleanEdit: mod.workspaceEditChangesTouchDirtyURI(
-        changes.filter((entry) => entry.uri !== ${JSON.stringify(dirtyUri)}),
-        new Set([${JSON.stringify(dirtyUri)}]),
+        changes.filter((entry) => entry.uri !== dirtyUri),
+        new Set([dirtyUri]),
       ),
       prefixedCommand: mod.shouldApplyCommandWorkspaceEdit(
         "ttsc.vscode.root.ttsc.custom.fix",
@@ -122,21 +122,8 @@ export const test_vscode_command_edit_helpers_apply_clean_changes_map = () => {
         "ttsc.vscode.root.ttsc.custom.fix",
         "",
       ),
-    }));
-  `;
-  const result = spawnSync(
-    process.execPath,
-    [
-      "--disable-warning=ExperimentalWarning",
-      "--experimental-strip-types",
-      "--input-type=module",
-      "--eval",
-      script,
-    ],
-    { cwd: repo, encoding: "utf8" },
-  );
-  assert.equal(result.status, 0, result.stderr);
-  const actual = JSON.parse(result.stdout) as {
+    };
+  })())) as {
     changes: Array<{
       newText: string;
       range: {
@@ -198,4 +185,4 @@ export const test_vscode_command_edit_helpers_apply_clean_changes_map = () => {
   assert.equal(actual.prefixedCommand, true);
   assert.equal(actual.unprefixedCommand, false);
   assert.equal(actual.emptyPrefixCommand, false);
-};
+}

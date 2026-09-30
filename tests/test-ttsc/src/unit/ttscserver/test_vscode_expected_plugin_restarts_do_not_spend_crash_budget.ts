@@ -1,7 +1,5 @@
-import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import path from "node:path";
+import * as mod from "../../../../../packages/vscode/src/expectedServerRestart";
 
 /**
  * Verifies VS Code expected plugin restarts do not spend crash budget.
@@ -15,21 +13,14 @@ import path from "node:path";
  * 2. Announce and consume six consecutive expected closes.
  * 3. Assert every close restarts without invoking the fallback crash handler.
  * 4. Send one unannounced close and one error and assert both delegate.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The restart controller consumes six announced closes without fallback and delegates the later unexpected close and error.
+ * @evidence contracts/testing.md#independent-expectations Authored edit records and literal restart/fallback results and counters independently define the supported policy.
+ * @evidence contracts/testing.md#distinguishing-cases Six expected closes contrast with unexpected close/error and exact restart/fallback values and counters.
+ * @evidence contracts/testing.md#execution-ownership The named src/unit/ttscserver entry calls the authored pure module directly, retaining the original serialized result view and every behavioral assertion without an editor host or child process.
  */
-export const test_vscode_expected_plugin_restarts_do_not_spend_crash_budget =
-  () => {
-    const repo = TestProject.WORKSPACE_ROOT;
-    const script = `
-      import { pathToFileURL } from "node:url";
-      const mod = await import(pathToFileURL(${JSON.stringify(
-        path.join(
-          repo,
-          "packages",
-          "vscode",
-          "src",
-          "expectedServerRestart.ts",
-        ),
-      )}).href);
+export async function test_vscode_expected_plugin_restarts_do_not_spend_crash_budget() {
+  const actual = JSON.parse(JSON.stringify(await (async () => {
       let closes = 0;
       let errors = 0;
       const fallback = {
@@ -43,8 +34,8 @@ export const test_vscode_expected_plugin_restarts_do_not_spend_crash_budget =
         },
       };
       const controller = mod.createExpectedServerRestartHandler(
-        fallback,
-        { action: "restart", handled: true },
+        fallback as unknown as Parameters<typeof mod.createExpectedServerRestartHandler>[0],
+        { action: "restart", handled: true } as unknown as Parameters<typeof mod.createExpectedServerRestartHandler>[1],
       );
       const expected = [];
       for (let index = 0; index < 6; index++) {
@@ -57,27 +48,14 @@ export const test_vscode_expected_plugin_restarts_do_not_spend_crash_budget =
         undefined,
         1,
       );
-      console.log(JSON.stringify({
+      return {
         closes,
         connectionError,
         errors,
         expected,
         unexpected,
-      }));
-    `;
-    const result = spawnSync(
-      process.execPath,
-      [
-        "--disable-warning=ExperimentalWarning",
-        "--experimental-strip-types",
-        "--input-type=module",
-        "--eval",
-        script,
-      ],
-      { cwd: repo, encoding: "utf8" },
-    );
-    assert.equal(result.status, 0, result.stderr);
-    const actual = JSON.parse(result.stdout) as {
+      };
+  })())) as {
       closes: number;
       connectionError: { action: string };
       errors: number;
@@ -94,4 +72,4 @@ export const test_vscode_expected_plugin_restarts_do_not_spend_crash_budget =
     assert.deepEqual(actual.unexpected, { action: "fallback-close" });
     assert.equal(actual.errors, 1);
     assert.deepEqual(actual.connectionError, { action: "fallback-error" });
-  };
+  }
