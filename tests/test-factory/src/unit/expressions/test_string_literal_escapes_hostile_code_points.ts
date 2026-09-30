@@ -1,7 +1,7 @@
 import { TestValidator } from "@nestia/e2e";
 import factory from "../../../../../packages/factory/src/index";
 
-import { print } from "../../internal/helpers";
+import { cook, print } from "../../internal/helpers";
 
 /**
  * Verifies a string literal prints a value a JavaScript engine reads back
@@ -22,6 +22,11 @@ import { print } from "../../internal/helpers";
  * 1. Print literals holding each hazardous code point.
  * 2. Assert each is escaped, and that a well-formed astral pair is not.
  * 3. Assert the inactive quote stays as written under both quote styles.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Hostile control/separator/surrogate characters escape to source that survives UTF-8 encoding and V8 evaluation unchanged.
+ * @evidence contracts/testing.md#independent-expectations Explicit escape strings and original input code units are independent oracles; cook reads encoded output rather than another printer.
+ * @evidence contracts/testing.md#distinguishing-cases Ten hazardous code points contrast with a well-formed astral pair and active/inactive quotes, detecting over- and under-escaping.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_string_literal_escapes_hostile_code_points. Calls createStringLiteral, print, Buffer UTF-8 roundtrip and in-process cook for each owned escape row.
  */
 export const test_string_literal_escapes_hostile_code_points = (): void => {
   const lit = (text: string, singleQuote?: boolean): string =>
@@ -40,8 +45,11 @@ export const test_string_literal_escapes_hostile_code_points = (): void => {
     ["lone high surrogate", 0xd800, "\\ud800"],
     ["lone low surrogate", 0xdc00, "\\udc00"],
   ];
-  for (const [name, code, escape] of escapes)
+  for (const [name, code, escape] of escapes) {
     TestValidator.equals(name, lit(around(code)), `"a${escape}b"`);
+    const recovered = Buffer.from(lit(around(code)), "utf8").toString("utf8");
+    TestValidator.equals(`${name} survives UTF-8 and evaluation`, cook(recovered), around(code));
+  }
 
   // A well-formed astral pair is one character and needs no escape.
   TestValidator.equals("astral pair", lit("a\u{1f600}b"), '"a\u{1f600}b"');

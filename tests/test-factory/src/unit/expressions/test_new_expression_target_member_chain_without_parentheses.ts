@@ -23,6 +23,11 @@ const construct = (target: Expression): Expression =>
  *    `ts.Printer`.
  * 3. Re-parse each output with the legacy compiler and assert the top-level
  *    expression is still a `NewExpression`.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Pure identifier/member and already-argumented inner new targets stay bare.
+ * @evidence contracts/testing.md#independent-expectations Exact sources and reparsed NewExpression identity establish grammar without redundant parentheses.
+ * @evidence contracts/testing.md#distinguishing-cases Identifier, property chain and explicit-argument new are negative twins of call and argumentless-new target wrapping.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_new_expression_target_member_chain_without_parentheses. Calls member/new constructors, TsPrinter.print and TypeScript reparse directly.
  */
 export const test_new_expression_target_member_chain_without_parentheses =
   (): void => {

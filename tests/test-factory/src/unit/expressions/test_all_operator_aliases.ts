@@ -7,11 +7,19 @@ const a = () => id("a");
 const b = () => id("b");
 
 /**
- * Exhaustively print every convenience operator alias.
+ * Verifies Exhaustively print every convenience operator alias.
  *
  * Each binary / prefix / postfix helper is exercised once, confirming it
  * delegates to the right operator token — full structural coverage of the alias
  * surface.
+ *
+ * 1. All binary, prefix and postfix convenience aliases emit the operator assigned to that alias while retaining a/b operands.
+ * 2. The explicit alias-to-source table specifies operator tokens independently; no expected text is obtained by printing a generic binary node.
+ *
+ * @evidence contracts/testing.md#behavioral-verification All binary, prefix and postfix convenience aliases emit the operator assigned to that alias while retaining a/b operands.
+ * @evidence contracts/testing.md#independent-expectations The explicit alias-to-source table specifies operator tokens independently; no expected text is obtained by printing a generic binary node.
+ * @evidence contracts/testing.md#distinguishing-cases Arithmetic, equality, logical, bitwise, shift, assignment, prefix and postfix rows distinguish wrong alias wiring; comma spacing has a separate case.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_all_operator_aliases. Calls each listed factory alias and print, with each alias name retained in the assertion label.
  */
 export const test_all_operator_aliases = (): void => {
   const binary: [(l: Expression, r: Expression) => Expression, string][] = [

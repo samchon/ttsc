@@ -71,6 +71,11 @@ const legacyPartial = (expression: ts.Expression): ts.Expression =>
  *    compare JSX output with the legacy printer in TSX mode.
  * 2. Place partial wrappers in left-side, precedence, statement, and new-target
  *    contexts, then compare parsed structures with the legacy oracle.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Expression statements retain their node form, JSX variants parse as TSX, and partially emitted wrappers preserve contextual grouping.
+ * @evidence contracts/testing.md#independent-expectations Independently constructed ts-legacy trees supply assertOracle expectations; explicit parsed ExpressionStatement kinds verify statement classification.
+ * @evidence contracts/testing.md#distinguishing-cases Element/self-closing/fragment forms and seven partial-wrapper consumers contrast optional-chain boundaries, comma, object/function and new-target contexts.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_expression_union_coverage. Runs the labeled expression tables with TsPrinter.print, parseClean and assertOracle in this source unit export.
  */
 export const test_expression_union_coverage = (): void => {
   const expressions: readonly Expression[] = [

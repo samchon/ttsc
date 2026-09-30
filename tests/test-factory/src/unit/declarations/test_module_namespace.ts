@@ -4,10 +4,18 @@ import factory, { NodeFlags, SyntaxKind } from "../../../../../packages/factory/
 import { id, mod, num, print } from "../../internal/helpers";
 
 /**
- * Print namespace / module declarations and a class `static` block.
+ * Verifies printing of namespace / module declarations and a class `static` block.
  *
- * An exported `namespace` with a body, an ambient `module "name"` with an empty
+ * An exported identifier `module` with a body, a string-named module with an empty
  * body, and a standalone `static { ... }` class initialization block.
+ *
+ * 1. Module declarations print module without the namespace flag, including string-named modules and a static class block.
+ * 2. Explicit export module App, module "mod" and static block literals specify the supplied forms.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Module declarations print module without the namespace flag, including string-named modules and a static class block.
+ * @evidence contracts/testing.md#independent-expectations Explicit export module App, module "mod" and static block literals specify the supplied forms.
+ * @evidence contracts/testing.md#distinguishing-cases Identifier versus string module name and populated versus empty blocks complement namespace_flag.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_module_namespace. Calls createModuleDeclaration, createModuleBlock and createClassStaticBlockDeclaration, then TsPrinter.print.
  */
 export const test_module_namespace = (): void => {
   const constX = factory.createVariableStatement(

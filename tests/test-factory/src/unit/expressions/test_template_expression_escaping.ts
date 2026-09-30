@@ -22,6 +22,11 @@ import { cook, id, print, str } from "../../internal/helpers";
  * 3. Re-parse the printed source and assert the concatenated cooked value.
  * 4. Print a `TaggedTemplateExpression` over an escaped literal and assert the
  *    exact output.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Head/middle/tail template text escapes metacharacters without changing the evaluated concatenation.
+ * @evidence contracts/testing.md#independent-expectations Explicit printed literals and cook compared with original text plus substitutions independently establish bytes and runtime value.
+ * @evidence contracts/testing.md#distinguishing-cases Backtick, interpolation opener, backslash and CR/CRLF across three template slots plus tagged output cover positional escape differences.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_template_expression_escaping. Calls createTemplateExpression and segment constructors, print and in-process cook; tagged text has an exact-source assertion.
  */
 export const test_template_expression_escaping = (): void => {
   const head: string = "a`b${c\\d\r";

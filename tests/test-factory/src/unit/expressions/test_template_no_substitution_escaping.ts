@@ -17,6 +17,11 @@ import { cook, print } from "../../internal/helpers";
  *    lone backslash, `\u`-lookalike, trailing backslash, CR, CRLF.
  * 2. Print each and assert the exact escaped output.
  * 3. Re-parse the printed source and assert the cooked value is unchanged.
+ *
+ * @evidence contracts/testing.md#behavioral-verification No-substitution templates escape backticks/interpolation/backslashes and preserve cooked CR/newline values.
+ * @evidence contracts/testing.md#independent-expectations Exact source spellings and V8 cook compared to the supplied original value are independent of escapeTemplateText.
+ * @evidence contracts/testing.md#distinguishing-cases Seven metacharacter rows distinguish emitted byte policy and runtime reconstruction; legal unchanged text is covered by template_escaping_negative.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_template_no_substitution_escaping. Calls createNoSubstitutionTemplateLiteral, print and cook for each labeled input in one unit export.
  */
 export const test_template_no_substitution_escaping = (): void => {
   const cases: [title: string, cooked: string, printed: string][] = [

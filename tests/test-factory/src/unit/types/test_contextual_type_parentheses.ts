@@ -14,6 +14,11 @@ import { id, print, ref } from "../../internal/helpers";
  * 1. Print postfix type operands around union, function, type query, and keyof.
  * 2. Print type-operator operands around unions and nested type operators.
  * 3. Assert parentheses appear only where the context requires them.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Postfix array/index/tuple operators and keyof/readonly wrappers preserve their lower-binding operands.
+ * @evidence contracts/testing.md#independent-expectations Explicit parenthesized type sources independently establish which postfix or prefix operator owns each operand.
+ * @evidence contracts/testing.md#distinguishing-cases Union/function/type-query/nested operator inputs across array/index/optional/rest/keyof/readonly contexts cover different parenthesizer consumers.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_contextual_type_parentheses. Calls the labeled type constructors and TsPrinter.print directly.
  */
 export const test_contextual_type_parentheses = (): void => {
   TestValidator.equals(

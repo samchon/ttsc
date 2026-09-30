@@ -42,6 +42,11 @@ const construct = (target: Expression): Expression =>
  *    expression is still a `NewExpression`.
  * 4. Assert the chain-head target re-parses with `.bar` outside the optional
  *    chain, which is what the parentheses are there to preserve.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Nonnull, tagged and optional chains over calls retain the outer new and terminate optional membership correctly.
+ * @evidence contracts/testing.md#independent-expectations Exact sources plus independent parsed NewExpression and optional-chain boundary checks specify the required constructor target.
+ * @evidence contracts/testing.md#distinguishing-cases Call under nonnull/tag, optional call/access and a bare identifier-tag negative expose traversal and chain termination distinctions.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_new_expression_target_spine_operator_parentheses. Calls new-target wrapper constructors then print and the independent parsed-node checks in this export.
  */
 export const test_new_expression_target_spine_operator_parentheses =
   (): void => {

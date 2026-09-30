@@ -19,6 +19,11 @@ import { id } from "../../internal/helpers";
  * 2. Assert both layouts transpile without syntax diagnostics.
  * 3. Parse both back and assert each yields exactly the two named binding elements
  *    — identical arity regardless of layout.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Flat and broken array bindings ending in an elision retain the same two named bindings without an extra hole.
+ * @evidence contracts/testing.md#independent-expectations The independent TS parser/transpiler and explicit first/second name array specify binding meaning rather than comparing only printer texts.
+ * @evidence contracts/testing.md#distinguishing-cases Wide80 and narrow20 layouts must differ in line breaks but agree on binding names/arity; literal-array holes are covered separately.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_array_binding_break_trailing_elision. Calls declare, both printers and bindingNames parser/transpiler within this one source unit export.
  */
 export const test_array_binding_break_trailing_elision = (): void => {
   const declare = () =>

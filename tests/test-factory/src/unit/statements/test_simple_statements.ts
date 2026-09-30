@@ -4,9 +4,17 @@ import factory from "../../../../../packages/factory/src/index";
 import { id, num, print, str } from "../../internal/helpers";
 
 /**
- * Print expression, return, and throw statements.
+ * Verifies printing of expression, return, and throw statements.
  *
  * `run();`, `return;`, `return 1;`, and `throw new Error("boom");`.
+ *
+ * 1. Expression, bare/value return and throw statements retain call/value payload and semicolons.
+ * 2. Literal run();, return;, return value and throw-new Error sources specify the requested syntax independently.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Expression, bare/value return and throw statements retain call/value payload and semicolons.
+ * @evidence contracts/testing.md#independent-expectations Literal run();, return;, return value and throw-new Error sources specify the requested syntax independently.
+ * @evidence contracts/testing.md#distinguishing-cases Bare versus operand return contrasts with throw and expression statements, catching lost optional expressions.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_simple_statements. Calls createExpressionStatement/createReturnStatement/createThrowStatement and print directly.
  */
 export const test_simple_statements = (): void => {
   TestValidator.equals(

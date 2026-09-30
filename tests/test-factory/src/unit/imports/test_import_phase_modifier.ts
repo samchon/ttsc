@@ -16,6 +16,11 @@ import { id, print } from "../../internal/helpers";
  * 2. Assert each prints its own keyword, and that the ordinary one prints none.
  * 3. Assert the modifier survives alongside a default binding and named bindings
  *    together, which is the shape that has something to be placed before.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Absent, type and defer import phases print in the prescribed position before the binding clause.
+ * @evidence contracts/testing.md#independent-expectations Literal import lines are the expected printer shape for the supplied phase nodes; this case does not claim semantic compilation of every combination.
+ * @evidence contracts/testing.md#distinguishing-cases No phase, type phase, defer phase and default+named clause distinguish ignored or misplaced phase modifiers.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_import_phase_modifier. Calls createImportClause with each phase modifier and TsPrinter.print on its declaration.
  */
 export const test_import_phase_modifier = (): void => {
   const clause = (

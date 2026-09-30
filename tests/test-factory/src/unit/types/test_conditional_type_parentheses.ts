@@ -13,6 +13,11 @@ import { print, ref } from "../../internal/helpers";
  * 1. Use a function type as the outer conditional check type.
  * 2. Use another conditional type as the outer extends type.
  * 3. Assert both operands are wrapped before `extends`.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Function check types and conditional extends types are parenthesized so the outer conditional retains its intended operands.
+ * @evidence contracts/testing.md#independent-expectations Literal (() => R) extends Fn and nested-conditional extends expectations encode TypeScript binding independently.
+ * @evidence contracts/testing.md#distinguishing-cases Function check and conditional extends occupy different slots; bare reference branches remain unchanged.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_conditional_type_parentheses. Calls createConditionalTypeNode with function/conditional subtypes then print.
  */
 export const test_conditional_type_parentheses = (): void => {
   TestValidator.equals(

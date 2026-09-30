@@ -13,9 +13,10 @@ import ts from "ts-legacy";
  *
  * Comparing the two texts byte for byte would compare formatting, not meaning
  * (the legacy printer writes `class A extends B {\n}` and a space before a
- * template tag). {@link structure} therefore reduces printed text to what the
- * program _means_: the parsed node-kind tree, with parentheses removed and
- * optional-chain membership recorded, so `a?.b()` and `(a?.b)()` — the same
+ * template tag). {@link structure} therefore reduces printed text to parsed
+ * syntax: node kinds, semantic scalar fields and literal values, with
+ * parentheses removed and optional-chain membership recorded, so `a?.b()` and
+ * `(a?.b)()` — the same
  * characters modulo one pair of parentheses, but different programs — do not
  * compare equal.
  *
@@ -52,8 +53,9 @@ export const parseDiagnostics = (file: ts.SourceFile): string[] =>
   ).map((d) => ts.flattenDiagnosticMessageText(d.messageText, " "));
 
 /**
- * Structural signature of printed source: the node-kind tree with
- * `ParenthesizedExpression` elided and optional-chain membership marked.
+ * Structural signature of printed source, including operators, declaration
+ * modes and literal text, with expression parentheses elided and optional-chain
+ * membership marked. This compares parsed syntax, not evaluated equivalence.
  *
  * Eliding parentheses is what makes the comparison a _meaning_ comparison
  * rather than a formatting one; marking chain membership is what keeps it from
@@ -74,11 +76,32 @@ export const signature = (node: ts.Node): string => {
   if (isOptionalChain(node)) name += "?";
   if (
     ts.isIdentifier(node) ||
-    ts.isNumericLiteral(node) ||
-    ts.isStringLiteral(node) ||
+    ts.isPrivateIdentifier(node) ||
+    ts.isLiteralExpression(node) ||
+    ts.isTemplateLiteralToken(node) ||
     ts.isJsxText(node)
   )
     name += `(${JSON.stringify(node.text)})`;
+  if (ts.isTemplateLiteralToken(node)) {
+    const template: ts.Node = node.parent && ts.isTemplateExpression(node.parent)
+      ? node.parent
+      : node.parent && ts.isTemplateSpan(node.parent)
+        ? node.parent.parent
+        : node;
+    if (template.parent && ts.isTaggedTemplateExpression(template.parent))
+      name += `{raw:${JSON.stringify(node.rawText)}}`;
+  }
+  if (ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node) || ts.isTypeOperatorNode(node))
+    name += `{operator:${ts.SyntaxKind[node.operator]}}`;
+  if (ts.isHeritageClause(node)) name += `{token:${ts.SyntaxKind[node.token]}}`;
+  if (ts.isMetaProperty(node)) name += `{keyword:${ts.SyntaxKind[node.keywordToken]}}`;
+  if (ts.isVariableDeclarationList(node))
+    name += `{mode:${node.flags & (ts.NodeFlags.Let | ts.NodeFlags.Const | ts.NodeFlags.Using | ts.NodeFlags.AwaitUsing)}}`;
+  if (ts.isImportClause(node)) name += `{phase:${node.phaseModifier ?? (node.isTypeOnly ? ts.SyntaxKind.TypeKeyword : undefined)}}`;
+  if (ts.isImportSpecifier(node) || ts.isExportSpecifier(node) || ts.isExportDeclaration(node))
+    name += `{typeOnly:${node.isTypeOnly}}`;
+  if (ts.isExportAssignment(node)) name += `{exportEquals:${node.isExportEquals}}`;
+  if (ts.isImportTypeNode(node)) name += `{typeof:${node.isTypeOf}}`;
   return parts.length === 0 ? name : `${name}[${parts.join(",")}]`;
 };
 

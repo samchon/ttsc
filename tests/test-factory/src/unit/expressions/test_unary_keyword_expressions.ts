@@ -4,10 +4,18 @@ import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 import { id, kw, print, ref } from "../../internal/helpers";
 
 /**
- * Print the assertion / keyword expressions.
+ * Verifies printing of the assertion / keyword expressions.
  *
  * `as`, `satisfies`, non-null `!`, spread `...`, `await`, value-space `typeof`,
  * and a parenthesized expression.
+ *
+ * 1. As, satisfies, nonnull, spread, await, typeof and explicit parentheses retain their token syntax.
+ * 2. The individual literal sources independently fix the supplied type/expression and operator markers.
+ *
+ * @evidence contracts/testing.md#behavioral-verification As, satisfies, nonnull, spread, await, typeof and explicit parentheses retain their token syntax.
+ * @evidence contracts/testing.md#independent-expectations The individual literal sources independently fix the supplied type/expression and operator markers.
+ * @evidence contracts/testing.md#distinguishing-cases Distinct keyword/postfix/spread node forms are sampled here; precedence-sensitive nesting is owned by assertion/context parenthesizer tests.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_unary_keyword_expressions. Calls the corresponding expression constructors and TsPrinter.print in the source unit process.
  */
 export const test_unary_keyword_expressions = (): void => {
   TestValidator.equals(

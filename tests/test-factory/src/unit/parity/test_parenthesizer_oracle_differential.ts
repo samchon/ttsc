@@ -568,6 +568,11 @@ const requiredProductions: readonly string[] = [
  *    grammar gap fails rather than passing vacuously.
  * 3. Assert each printed text parses cleanly and reduces to the same structure as
  *    the oracle's text.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The consumer-by-operand cross-product preserves parsed grouping and optional-chain membership, and exercises required node productions.
+ * @evidence contracts/testing.md#independent-expectations Separately built ts-legacy trees define each expected structure; the one legacy object-literal generic-heritage defect has an explicit independent literal expectation instead.
+ * @evidence contracts/testing.md#distinguishing-cases Call/new/member/unary/heritage/statement/arrow consumers combine with optional/plain calls, assertions, comma, function/object and new operands; the known unfaithful legacy cell is checked by literal outside the differential loop.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_parenthesizer_oracle_differential. This export owns every labeled cross-product cell, runs TsPrinter.print/structure and collects all differences before failing; kindsOf guards actual generated node variety.
  */
 export const test_parenthesizer_oracle_differential = (): void => {
   const generated: Set<string> = new Set();

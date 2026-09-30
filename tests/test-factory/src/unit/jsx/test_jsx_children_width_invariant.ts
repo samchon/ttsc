@@ -44,6 +44,11 @@ const expression = (name: string) =>
  *    in an element.
  * 2. Print each at `printWidth` 200, 80, 40 and 10 and transpile every layout.
  * 3. Assert all four widths yield one and the same `children` argument.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Width changes preserve the runtime children for text edges, whitespace separators, fragments and nested fragments.
+ * @evidence contracts/testing.md#independent-expectations Each original JSX literal is independently transpiled; comparison to that fixed fixture catches the same wrong children at all four widths.
+ * @evidence contracts/testing.md#distinguishing-cases Five child shapes at widths 200/80/40/10 distinguish edge spaces and whitespace-only siblings, not merely equality among printer outputs.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_jsx_children_width_invariant. Constructs each JSX tree and runs TsPrinter.print then jsxChildren; this export owns all five labeled shape rows and four widths.
  */
 export const test_jsx_children_width_invariant = (): void => {
   const cases: [string, JsxChild][] = [
@@ -89,10 +94,34 @@ export const test_jsx_children_width_invariant = (): void => {
       ]),
     ],
   ];
+  const independent = new Map<string, string>([
+  [
+    "text before an expression",
+    "<div>aaaaaaaaaaaaaaaaaaaa {bbbbbbbbbbbbbbbbbbbb}</div>"
+  ],
+  [
+    "whitespace-only separator",
+    "<div>{alphaAlphaAlphaAlpha} {bravoBravoBravoBravo}</div>"
+  ],
+  [
+    "whitespace-only separator in a fragment",
+    "<>{alphaAlphaAlphaAlpha} {bravoBravoBravoBravo}</>"
+  ],
+  [
+    "text on both sides of an expression",
+    "<div>Hello there, {nameOfTheCurrentlySignedInVisitor}!</div>"
+  ],
+  [
+    "a fragment nested in an element",
+    "<div><>{alphaAlphaAlphaAlpha} {bravoBravoBravoBravo}</></div>"
+  ]
+]);
   for (const [title, node] of cases) {
     const rendered: string[] = [200, 80, 40, 10].map((printWidth) =>
       jsxChildren(new TsPrinter({ printWidth }).print(node)),
     );
+    for (const value of rendered)
+      TestValidator.equals(`${title} preserves independent JSX children`, value, jsxChildren(independent.get(title)!));
     TestValidator.equals(
       `${title} renders the same at every width`,
       new Set(rendered).size,

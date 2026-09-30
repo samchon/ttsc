@@ -32,6 +32,11 @@ const target = (multiLine?: boolean): Expression =>
  *    `multiLine: true`, flat and broken.
  * 2. Assert every layout compiles in V8.
  * 3. Assert the rvalue twin keeps its trailing comma when it breaks.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Object destructuring targets compile without rest commas while the identical rvalue spread keeps its legal comma.
+ * @evidence contracts/testing.md#independent-expectations V8 compilation supplies grammar authority and the independently checked rvalue spread comma establishes positional scope.
+ * @evidence contracts/testing.md#distinguishing-cases Assignment/for-in/nested property/spread target/forced multiline run flat and broken; rvalue is the negative twin.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_object_target_break_rest_no_trailing_comma. Runs labeled targets with wide/tiny TsPrinter.print and syntaxErrorOf, retaining each case failure title.
  */
 export const test_object_target_break_rest_no_trailing_comma = (): void => {
   const cases: [string, Node][] = [

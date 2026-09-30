@@ -4,10 +4,18 @@ import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 import { id, print } from "../../internal/helpers";
 
 /**
- * Print the remaining import forms.
+ * Verifies printing of the remaining import forms.
  *
  * Default-plus-named, namespace `* as ns`, type-only named, type-only default,
  * and a side-effect-only import.
+ *
+ * 1. Default/named, namespace, type-only and side-effect imports preserve each supplied clause combination.
+ * 2. Each literal import line independently fixes clause spelling, aliases and the module string.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Default/named, namespace, type-only and side-effect imports preserve each supplied clause combination.
+ * @evidence contracts/testing.md#independent-expectations Each literal import line independently fixes clause spelling, aliases and the module string.
+ * @evidence contracts/testing.md#distinguishing-cases Absent bindings, default+named, namespace and type-only combinations pin different clause branches; fragment printing does not promise type-checkable imports.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_import_combinations. Calls createImportDeclaration and binding constructors then TsPrinter.print in process.
  */
 export const test_import_combinations = (): void => {
   TestValidator.equals(

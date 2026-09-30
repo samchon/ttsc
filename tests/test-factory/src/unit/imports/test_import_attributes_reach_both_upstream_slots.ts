@@ -20,8 +20,12 @@ import { id, print, str } from "../../internal/helpers";
  *
  * 1. Build an import type with attributes and a qualifier.
  * 2. Build an `@import` JSDoc tag with attributes.
- * 3. Assert each prints its own form, and that omitting attributes changes nothing
- *    about the rest.
+ * 3. Assert each prints its own form and a plain import type retains its qualifier.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Import type attributes preserve their with object and qualifier, and JSDoc import tags retain their attribute slot.
+ * @evidence contracts/testing.md#independent-expectations Exact source literals independently specify the type: json attribute and names; the plain import-type literal supplies an omission control.
+ * @evidence contracts/testing.md#distinguishing-cases Attributed/plain import types and the separate JSDoc import slot expose misplaced attributes; there is no untested JSDoc omission claim.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_import_attributes_reach_both_upstream_slots. Calls createImportTypeNode, createImportAttributes and createJSDocImportTag then print in process.
  */
 export const test_import_attributes_reach_both_upstream_slots = (): void => {
   const attributes = factory.createImportAttributes(

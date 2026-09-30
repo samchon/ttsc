@@ -50,6 +50,11 @@ const legacyExtendsClass = (expression: ts.Expression) =>
  * 2. Repeat the comma sequence through `implements`, a class expression and an
  *    interface, since all four share the branch.
  * 3. Assert the negative twins — a call and a qualified name — stay bare.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Heritage emit wraps logical, conditional, assertion, await, arrow, assignment, optional-chain and comma operands where needed.
+ * @evidence contracts/testing.md#independent-expectations Exact literals and independently constructed ts-legacy nodes specify heritage syntax; parsed entry counts guard commas becoming multiple bases.
+ * @evidence contracts/testing.md#distinguishing-cases Extends/implements, class declaration/expression and interface routes, generic heritage and bare identifier/call controls expose contextual differences.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_heritage_expression_parentheses. Runs the heritage tables under this export using TsPrinter.print, assertOracle and the independent TypeScript parser.
  */
 export const test_heritage_expression_parentheses = (): void => {
   const rows: [string, Expression, ts.Expression, string][] = [

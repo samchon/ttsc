@@ -27,6 +27,11 @@ const arrow = (): Expression =>
  * 2. Print an arrow function as a call argument, array element, property value,
  *    and concise arrow body.
  * 3. Assert none of the outputs are parenthesized.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Arrow RHS, arguments, array values, property values and nested-arrow bodies remain unwrapped where grammar allows them.
+ * @evidence contracts/testing.md#independent-expectations Exact literal sources specify assignment, nullish assignment and delimited expression contexts without unnecessary parentheses.
+ * @evidence contracts/testing.md#distinguishing-cases Assignment/??=, call/array/property delimiters and nested arrows are negative controls for stricter arrow operand cases.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_arrow_function_operand_without_parentheses. Constructs the listed consumers around arrows and runs TsPrinter.print in this single source unit export.
  */
 export const test_arrow_function_operand_without_parentheses = (): void => {
   TestValidator.equals(

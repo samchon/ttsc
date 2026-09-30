@@ -57,6 +57,11 @@ const expression = (name: string) =>
  * 4. Assert the two shapes that have no `children` argument to compare: a
  *    childless element, whose whole emitted call must match across widths, and
  *    the breakable text child, whose layout must actually break.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Whitespace-only, newline text, adjacent text, nested fragments, self-closing children and ancestor breaks preserve independent JSX children.
+ * @evidence contracts/testing.md#independent-expectations Independent literal JSX sources define each runtime child sequence; a childless literal supplies the whole-module oracle.
+ * @evidence contracts/testing.md#distinguishing-cases Eight boundary shapes and childless 200/5 widths contrast with a text-only positive that must actually break.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_jsx_whitespace_boundaries. Calls TsPrinter.print, jsxChildren/jsxEmit and the independent TypeScript JSX transpiler; each shape retains its own title in failures.
  */
 export const test_jsx_whitespace_boundaries = (): void => {
   const cases: [string, JsxChild][] = [
@@ -112,10 +117,46 @@ export const test_jsx_whitespace_boundaries = (): void => {
       ]),
     ],
   ];
+  const independent = new Map<string, string>([
+  [
+    "whitespace-only element",
+    "<div> </div>"
+  ],
+  [
+    "text with no edge whitespace, which may break",
+    "<div>HelloHelloHelloHelloHelloHelloHello</div>"
+  ],
+  [
+    "text carrying its own newlines",
+    "<div>firstLineOfTheText\nsecondLineOfTheText</div>"
+  ],
+  [
+    "two text children side by side",
+    "<div>firstTextChildValuesecondTextChild</div>"
+  ],
+  [
+    "nested fragments",
+    "<><>{alphaAlphaAlphaAlpha} {bravoBravoBravoBravo}</></>"
+  ],
+  [
+    "self-closing child",
+    "<div>Hello there, <Avatar />!</div>"
+  ],
+  [
+    "opening tag alone exceeds the width",
+    "<section className=\"someRatherLongAttributeValueHere\">Hello there, {visitorName}</section>"
+  ],
+  [
+    "outer breaks while the inner fits",
+    "<section>{headerContentValue}<span>Hi {visitorName}</span>{footerContentValue}</section>"
+  ]
+]);
   for (const [title, node] of cases) {
     const rendered: string[] = [200, 80, 40, 10].map((printWidth) =>
       jsxChildren(new TsPrinter({ printWidth }).print(node)),
     );
+    for (const value of rendered)
+      TestValidator.equals(`${title} preserves independent JSX children`, value, jsxChildren(independent.get(title)!));
     TestValidator.equals(
       `${title} renders the same at every width`,
       new Set(rendered).size,
@@ -134,6 +175,10 @@ export const test_jsx_whitespace_boundaries = (): void => {
     ).size,
     1,
   );
+
+  for (const printWidth of [200, 5])
+    TestValidator.equals("childless element matches independent JSX",
+      jsxEmit(new TsPrinter({ printWidth }).print(element("div", []))), jsxEmit("<div></div>"));
 
   // the positive twin: with nothing to lose at its edges, the text child breaks
   TestValidator.equals(

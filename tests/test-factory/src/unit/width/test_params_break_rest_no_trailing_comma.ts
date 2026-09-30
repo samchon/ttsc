@@ -20,6 +20,11 @@ import { param, ref } from "../../internal/helpers";
  *    comma is kept.
  * 4. Print a signature whose only parameter is the rest; assert the broken
  *    single-element layout drops the comma too.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Broken parameter lists omit final rest commas but preserve a comma for ordinary last parameters.
+ * @evidence contracts/testing.md#independent-expectations Explicit multiline function signatures independently specify rest-last grammar and two-space layout.
+ * @evidence contracts/testing.md#distinguishing-cases Rest versus ordinary final parameter plus singleton-rest boundary catch both over-suppression and missed one-element handling.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_params_break_rest_no_trailing_comma. Calls declare and singleton function constructors then TsPrinter.print with width20.
  */
 export const test_params_break_rest_no_trailing_comma = (): void => {
   const tiny = new TsPrinter({ printWidth: 20 });

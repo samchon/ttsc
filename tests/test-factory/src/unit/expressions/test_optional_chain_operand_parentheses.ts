@@ -54,6 +54,11 @@ const legacyElementChain = (): ts.Expression =>
  * 3. Assert the negative twins — a consumer that continues the same chain, and a
  *    postfix update, which the legacy parenthesizer does not guard — stay
  *    bare.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Consumers outside an optional chain wrap its operand, while continuing chains and ordinary-call controls remain bare.
+ * @evidence contracts/testing.md#independent-expectations Literal expectations plus independent ts-legacy trees and parser chain membership distinguish a?.b() from (a?.b)().
+ * @evidence contracts/testing.md#distinguishing-cases Eight operand rows, tagged/decorator routes and seven negative twins cover termination versus continuation rather than all-purpose wrapping.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_optional_chain_operand_parentheses. Runs the labeled tables with TsPrinter.print and assertOracle; each row label identifies its failure within this unit export.
  */
 export const test_optional_chain_operand_parentheses = (): void => {
   const rows: [string, Expression, ts.Expression, string][] = [

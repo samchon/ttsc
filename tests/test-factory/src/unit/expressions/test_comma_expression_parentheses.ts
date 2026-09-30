@@ -19,6 +19,11 @@ import { id, print } from "../../internal/helpers";
  * 1. Build comma expressions in every delimited expression context.
  * 2. Build parameter, binding, and variable initializers with comma values.
  * 3. Assert each context emits parentheses around the comma expression.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Comma expressions stay one value in call/new/array/property/template and initializer contexts by being wrapped.
+ * @evidence contracts/testing.md#independent-expectations Exact source literals and contextual delimiters independently define which commas separate arguments versus belong to an expression.
+ * @evidence contracts/testing.md#distinguishing-cases Nine delimited consumers distinguish missed propagation in one position; bare comma output belongs to comma_operator_attaches_to_the_left_operand.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_comma_expression_parentheses. Constructs each labeled consumer around comma expression nodes and prints through the unit export.
  */
 export const test_comma_expression_parentheses = (): void => {
   const comma = () => factory.createComma(id("a"), id("b"));

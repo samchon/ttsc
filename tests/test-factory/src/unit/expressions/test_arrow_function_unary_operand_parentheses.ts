@@ -27,6 +27,11 @@ const arrow = (): Expression =>
  *    function operand.
  * 2. Print `!` with a function expression operand as the negative twin.
  * 3. Assert only the arrow operands are parenthesized.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Unary keyword/symbol consumers parenthesize arrow operands while a function-expression control remains bare.
+ * @evidence contracts/testing.md#independent-expectations Literal !/await/void/typeof/delete/minus sources specify the operand boundary independently.
+ * @evidence contracts/testing.md#distinguishing-cases Six unary consumers and the non-arrow function control distinguish missing versus unconditional wrapping.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_arrow_function_unary_operand_parentheses. Calls unary and keyword-expression constructors with arrow/function operands then print.
  */
 export const test_arrow_function_unary_operand_parentheses = (): void => {
   TestValidator.equals(
