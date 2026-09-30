@@ -14,7 +14,9 @@ const boundaries = [
   path.join(base, "native-plugins"),
 ];
 const runBoundaries =
-  process.env.TTSC_TEST_LAYER === "e2e" || dir || dirs?.length
+  process.env.TTSC_TEST_LAYER === "unit"
+    ? TestSourceUnits.run(boundaries)
+    : process.env.TTSC_TEST_LAYER === "e2e" || dir || dirs?.length
     ? true
     : TestSourceUnits.run(boundaries);
 

@@ -84,7 +84,6 @@ const LANES = [
     "run": "pnpm --filter @ttsc/test-lint start",
     "dirs": [
       "features/config",
-      "features/contributor",
       "features/plugin"
     ]
   },

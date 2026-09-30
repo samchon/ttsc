@@ -34,11 +34,19 @@ const {
 const { writeGoWork } = require("./go-work.cjs");
 
 const root = path.resolve(__dirname, "..");
+const windowsBoundary = process.argv.includes("--os-boundaries");
+if (windowsBoundary && process.platform !== "win32")
+  throw new Error("The Windows kernel boundary batch requires Windows");
 const unit = process.env.TTSC_TEST_LAYER === "unit";
 const e2e = process.env.TTSC_TEST_LAYER === "e2e";
+const direct = unit || windowsBoundary;
 const lintPkgDir = path.join(root, "packages", "lint");
 const lintTestsDir = path.join(lintPkgDir, "test");
-const ttscDir = path.join(root, "packages", "ttsc");
+// The OS batch compiles against the SDK of the candidate just installed and
+// executed by the preceding smoke step, not a second checkout SDK installation.
+const ttscDir = windowsBoundary
+  ? installedCandidateSdk()
+  : path.join(root, "packages", "ttsc");
 const goRoot = path.join(os.homedir(), "go-sdk", "go", "bin");
 const ttsxBinary =
   process.env.TTSC_TTSX_BINARY ??
@@ -47,14 +55,14 @@ const ttsxBinary =
 // fail deep inside `go test` with an opaque `Cannot find module '…/ttsx.js'`
 // (issue #622). test-go-lint drives the real ttsx launcher, which only exists
 // after the ttsc package is built.
-if (!unit && !fs.existsSync(ttsxBinary)) {
+if (!direct && !fs.existsSync(ttsxBinary)) {
   throw new Error(
     `ttsc lint Go tests need the ttsx launcher at ${ttsxBinary}, which does not exist.\n` +
       "Build it first with `pnpm --filter ttsc build`, or set TTSC_TTSX_BINARY to an existing launcher.",
   );
 }
-const tsgoBinary = unit ? "" : resolveTsgoBinary();
-const prettierModule = unit ? "" : resolvePrettierModule();
+const tsgoBinary = direct ? "" : resolveTsgoBinary();
+const prettierModule = direct ? "" : resolvePrettierModule();
 
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-lint-go-test-"));
 // Native-binary tests copy the scratch module. Keep fixture projects outside it
@@ -68,7 +76,13 @@ try {
     recursive: true,
     filter: (src) => !skip.has(path.basename(src)),
   });
-  copyGoTestsFlat(lintTestsDir, path.join(scratch, "linthost"));
+  copyGoTestsFlat(
+    lintTestsDir,
+    path.join(scratch, "linthost"),
+    (file) => !windowsBoundary ||
+      path.relative(lintTestsDir, file).split(path.sep).join("/").startsWith("os-boundaries/windows/") ||
+      ["config_fixture_helpers_test.go", "windows_short_path_windows_test.go"].includes(path.basename(file)),
+  );
   // Repository validation tests stay outside the product package. Overlay
   // them beside the engine only in this disposable Go test module.
   const unitOverlays = new Set([
@@ -79,7 +93,7 @@ try {
   copyGoTestsFlat(
     path.join(root, "tests", "test-lint", "go"),
     path.join(scratch, "linthost"),
-    (file) => !e2e || !unitOverlays.has(path.basename(file)),
+    (file) => !windowsBoundary && (!e2e || !unitOverlays.has(path.basename(file))),
   );
 
   // Discover every in-tree module the workspace needs to satisfy:
@@ -102,9 +116,9 @@ try {
     PATH: fs.existsSync(goRoot)
       ? `${goRoot}${path.delimiter}${process.env.PATH ?? ""}`
       : process.env.PATH,
-    TTSC_TSGO_BINARY: unit ? "" : (process.env.TTSC_TSGO_BINARY ?? tsgoBinary),
-    TTSC_TTSX_BINARY: unit ? "" : ttsxBinary,
-    TTSC_PRETTIER_MODULE: unit
+    TTSC_TSGO_BINARY: direct ? "" : (process.env.TTSC_TSGO_BINARY ?? tsgoBinary),
+    TTSC_TTSX_BINARY: direct ? "" : ttsxBinary,
+    TTSC_PRETTIER_MODULE: direct
       ? ""
       : (process.env.TTSC_PRETTIER_MODULE ?? prettierModule),
     TTSC_LINT_CORPUS_MANIFEST: path.join(corpusScratch, "corpus.json"),
@@ -116,7 +130,7 @@ try {
       "format-projects",
     ),
   };
-  const prepared = e2e
+  const prepared = e2e || windowsBoundary
     ? { status: 0 }
     : cp.spawnSync(
         process.execPath,
@@ -152,15 +166,16 @@ try {
   // through the owning layer's parent subtest instead of running the whole
   // package again in e2e. Default local test:go still runs the original suite.
   let selection = [];
-  if (unit || e2e) {
+  if (unit || e2e || windowsBoundary) {
     const tests = selectLintGoTests(
       lintTestsDir,
       path.join(root, "tests", "test-lint", "go"),
     );
+    const layer = windowsBoundary ? "windows" : unit ? "unit" : "e2e";
     const wrapper = writeLintGoSelection(
       path.join(scratch, "linthost", "lint_layer_selection_test.go"),
-      tests[unit ? "unit" : "e2e"],
-      unit ? "unit" : "e2e",
+      tests[layer],
+      layer,
       tests.sources,
     );
     selection = [`-run=^${wrapper}$`];
@@ -172,7 +187,7 @@ try {
       "-count=1",
       "-timeout=20m",
       ...selection,
-      ...process.argv.slice(2),
+      ...process.argv.slice(2).filter((argument) => argument !== "--os-boundaries"),
       "./linthost",
     ],
     {
@@ -191,6 +206,23 @@ try {
 } finally {
   fs.rmSync(scratch, { recursive: true, force: true });
   fs.rmSync(corpusScratch, { recursive: true, force: true });
+  if (windowsBoundary)
+    fs.rmSync(process.env.TTSC_INSTALLED_SMOKE_ROOT, { recursive: true, force: true });
+}
+
+function installedCandidateSdk() {
+  const consumer = process.env.TTSC_INSTALLED_SMOKE_ROOT;
+  if (!consumer || fs.readFileSync(path.join(consumer, ".ttsc-cli-smoke"), "utf8") !== root)
+    throw new Error("Windows boundaries require the preceding owned installed CLI consumer");
+  const physicalConsumer = fs.realpathSync.native(consumer);
+  if (path.dirname(physicalConsumer).toLowerCase() !== fs.realpathSync.native(os.tmpdir()).toLowerCase() ||
+      !path.basename(physicalConsumer).startsWith("ttsc-cli-smoke-"))
+    throw new Error("The installed CLI consumer must be an owned direct temporary directory");
+  const sdk = path.dirname(createRequire(path.join(consumer, "package.json")).resolve("ttsc/package.json"));
+  for (const entry of ["go.mod", "driver", "shim"])
+    if (!fs.existsSync(path.join(sdk, entry)))
+      throw new Error(`Installed candidate SDK is missing ${entry}`);
+  return sdk;
 }
 
 function resolvePrettierModule() {

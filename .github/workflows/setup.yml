@@ -51,4 +51,7 @@ jobs:
         env:
           TTSC_BUILD_SCOPE: install-smoke
       - name: Install and execute the packed CLI
-        run: pnpm exec node scripts/ci/installed-cli-smoke.cjs
+        run: pnpm exec node scripts/ci/installed-cli-smoke.cjs ${{ runner.os == 'Windows' && '--keep' || '' }}
+      - name: Check the Windows kernel boundaries in one installed SDK batch
+        if: runner.os == 'Windows'
+        run: pnpm exec node scripts/test-go-lint.cjs --os-boundaries

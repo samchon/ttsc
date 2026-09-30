@@ -82,7 +82,7 @@ jobs:
       - name: Installed CLI smoke
         id: installed
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: pnpm exec node scripts/ci/installed-cli-smoke.cjs --keep
+        run: pnpm exec node scripts/ci/installed-cli-smoke.cjs --consumer=experimental/test-unplugin/.tmp/project --keep
       - name: Verify VS Code installation once
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         shell: bash

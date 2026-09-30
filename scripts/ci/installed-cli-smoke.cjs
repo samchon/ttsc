@@ -96,7 +96,12 @@ try {
   const native = (name) =>
     path.join(platform, "bin", `${name}${process.platform === "win32" ? ".exe" : ""}`);
   assert.match(runNode([launcher("ttsc"), "--version"]), /^ttsc /m);
-  assert.match(runNode([launcher("ttsx"), "--version"]), /^ttsx /m);
+  const runtimeVersion = runNode([launcher("ttsx"), "--version"]);
+  assert.match(runtimeVersion, /^ttsx /m);
+  assert.match(runtimeVersion, /\(Version [^)]+\)/);
+  const runtimeHelp = runNode([launcher("ttsx"), "--help"]);
+  assert.match(runtimeHelp, /TypeScript runner provided by ttsc\./);
+  assert.match(runtimeHelp, /ttsx \[options\] <entry> \[argv\.\.\.\]/);
   assert.match(
     runInstalledBinary(native("ttscserver"), ["--version"]),
     /^ttscserver /m,
