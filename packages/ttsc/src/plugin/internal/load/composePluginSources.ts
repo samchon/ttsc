@@ -118,4 +118,3 @@ function matchesPluginAlias(
     (typeof transform === "string" && alias === transform)
   );
 }
-
