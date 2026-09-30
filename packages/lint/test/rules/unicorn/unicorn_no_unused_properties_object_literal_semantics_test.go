@@ -81,6 +81,11 @@ func assertUnusedPropertiesFindings(t *testing.T, source string) {
 //     calls and assignments, accessors, shorthand, exports, and escapes.
 //  2. Run the rule through the real Program/checker lifecycle.
 //  3. Assert exactly the `/* unused:NAME */`-marked properties are reported.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual checker-backed findings compare exactly with authored NAME@line markers and reject edits or unexpected messages, detecting under/over-analysis of object reads and escapes.
+// @evidence contracts/testing.md#independent-expectations The supported conservative object-reference analysis and official Unicorn property-read/escape policy establish each independently annotated used/unused pair.
+// @evidence contracts/testing.md#distinguishing-cases Direct/static/computed/nested reads and destructuring preserve unused siblings; aliases, rest/spread, whole arguments, exports, writes, member calls, probes and dynamic access retain all eligible properties.
+// @evidence contracts/testing.md#execution-ownership TestUnicornNoUnusedPropertiesObjectLiteralSemantics owns this authored checker-source matrix as a discoverable Go unit entry. loadProgram and the lint cycle operate in the shared Go process on t.TempDir fixtures; no native build, installed consumer or real child product host runs.
 func TestUnicornNoUnusedPropertiesObjectLiteralSemantics(t *testing.T) {
   source := `export {};
 declare function consume(...values: unknown[]): void;

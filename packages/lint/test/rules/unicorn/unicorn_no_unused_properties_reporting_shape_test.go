@@ -18,6 +18,11 @@ import (
 //     method, computed key, and an inline parameter type member.
 //  2. Run the rule through the real Program/checker lifecycle.
 //  3. Assert each finding's [Pos, End) range, message, and empty edit set.
+//
+// @evidence contracts/testing.md#behavioral-verification runRuleFindingsSnapshot checks complete property ranges, literal messages and absent fixes/suggestions for five member shapes.
+// @evidence contracts/testing.md#independent-expectations The supported fix-free property diagnostic and source-authored property needles independently establish ranges and messages; CRLF is normalized to the same byte representation before locating needles.
+// @evidence contracts/testing.md#distinguishing-cases Assignments, shorthand, methods, computed keys and inline type members expose different node ends; trailing comma is excluded while type-member semicolon remains included. Other hosts own clean liveness twins.
+// @evidence contracts/testing.md#execution-ownership TestUnicornNoUnusedPropertiesReportingShape owns this authored checker-source matrix as a discoverable Go unit entry. loadProgram and the lint cycle operate in the shared Go process on t.TempDir fixtures; no native build, installed consumer or real child product host runs.
 func TestUnicornNoUnusedPropertiesReportingShape(t *testing.T) {
   // The raw literal below picks up CRLF on autocrlf checkouts while the
   // expectation needles spell "\n"; normalize so both use one representation.

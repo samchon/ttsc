@@ -20,6 +20,11 @@ import (
 //  1. Materialize the corpus fixture source in a strict project.
 //  2. Run unicorn/no-unused-properties through loadProgram + runLintCycle.
 //  3. Assert the reported lines match the fixture's `// expect:` targets.
+//
+// @evidence contracts/testing.md#behavioral-verification runRuleFindingsSnapshot uses the real Program/checker path and compares exact rule/severity/line findings, detecting missed unused properties when the checker is absent.
+// @evidence contracts/testing.md#independent-expectations The supported unused-property policy and authored retries/breadth/ignored positions establish literal expected lines 6,10,31 independently of findings.
+// @evidence contracts/testing.md#distinguishing-cases Used properties, a dynamic key and whole-object escape stay clean beside unused root/nested/type-member positives.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusUnicornNoUnusedProperties owns this authored checker-source matrix as a discoverable Go unit entry. loadProgram and the lint cycle operate in the shared Go process on t.TempDir fixtures; no native build, installed consumer or real child product host runs.
 func TestRuleCorpusUnicornNoUnusedProperties(t *testing.T) {
   engine := NewEngine(RuleConfig{"unicorn/no-unused-properties": SeverityError})
   if !engine.NeedsTypeChecker() {

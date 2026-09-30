@@ -17,6 +17,11 @@ import "testing"
 //     and in for-statement heads (initializer-free for-of, initialized for).
 //  2. Run the rule through the real Program/checker lifecycle.
 //  3. Assert only block-, function-, and for-scoped objects report.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual checker-backed findings must equal the authored unused NAME@line markers, detecting accidentally analyzed globals or skipped local scopes.
+// @evidence contracts/testing.md#independent-expectations The official Unicorn global-scope exclusion and JavaScript var versus lexical scope rules establish independent block/function/loop expectations.
+// @evidence contracts/testing.md#distinguishing-cases Script top-level const/var and block-hoisted var stay clean; local lexical/function bindings and initialized for-head objects report unused siblings, while for-of bindings lack their own initializer.
+// @evidence contracts/testing.md#execution-ownership TestUnicornNoUnusedPropertiesScriptGlobalScopeExclusion owns this authored checker-source matrix as a discoverable Go unit entry. loadProgram and the lint cycle operate in the shared Go process on t.TempDir fixtures; no native build, installed consumer or real child product host runs.
 func TestUnicornNoUnusedPropertiesScriptGlobalScopeExclusion(t *testing.T) {
   source := `const topLevel = { read: 1, skippedConst: 2 };
 console.log(topLevel.read);

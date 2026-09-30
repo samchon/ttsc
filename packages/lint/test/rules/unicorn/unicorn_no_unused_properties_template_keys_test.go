@@ -17,6 +17,11 @@ import "testing"
 //  2. Run the rule through the real Program/checker lifecycle.
 //  3. Assert only the template-keyed property reports, with backticks
 //     preserved in its message.
+//
+// @evidence contracts/testing.md#behavioral-verification The checker-backed engine compares the exact authored property-name/line set, exposing template indexes treated as static strings or computed template keys given invented names.
+// @evidence contracts/testing.md#independent-expectations The official Unicorn Literal-only static-key extraction policy deliberately distinguishes TemplateLiteral nodes from plain string keys.
+// @evidence contracts/testing.md#distinguishing-cases A template index makes the object access unpredictable and preserves all properties; a template computed key reports its raw backtick display name while ordinary used siblings remain clean.
+// @evidence contracts/testing.md#execution-ownership TestUnicornNoUnusedPropertiesTemplateKeys owns this authored checker-source matrix as a discoverable Go unit entry. loadProgram and the lint cycle operate in the shared Go process on t.TempDir fixtures; no native build, installed consumer or real child product host runs.
 func TestUnicornNoUnusedPropertiesTemplateKeys(t *testing.T) {
   tick := "`"
   source := `export {};

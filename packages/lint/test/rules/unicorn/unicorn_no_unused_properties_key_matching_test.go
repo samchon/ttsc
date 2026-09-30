@@ -18,6 +18,11 @@ import "testing"
 //     access, plus `__proto__` skips and unpredictable-key reports.
 //  2. Run the rule through the real Program/checker lifecycle.
 //  3. Assert exactly the `/* unused:NAME */`-marked properties are reported.
+//
+// @evidence contracts/testing.md#behavioral-verification The actual checker-backed engine is compared against authored unused NAME@line markers, distinguishing key identity classes incorrectly merged or separated.
+// @evidence contracts/testing.md#independent-expectations The official Unicorn static-key analysis policy uses strict extracted-key identity rather than JavaScript runtime property coercion; independent source markers express that lint contract.
+// @evidence contracts/testing.md#distinguishing-cases Numeric notation normalizes but number/string/bigint/boolean/null classes differ; computed identifiers compare by name, parentheses are transparent, and proto/unpredictable forms retain their distinct outcomes.
+// @evidence contracts/testing.md#execution-ownership TestUnicornNoUnusedPropertiesKeyMatching owns this authored checker-source matrix as a discoverable Go unit entry. loadProgram and the lint cycle operate in the shared Go process on t.TempDir fixtures; no native build, installed consumer or real child product host runs.
 func TestUnicornNoUnusedPropertiesKeyMatching(t *testing.T) {
   source := `export {};
 declare function consume(...values: unknown[]): void;

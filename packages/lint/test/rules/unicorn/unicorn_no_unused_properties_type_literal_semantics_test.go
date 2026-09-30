@@ -17,6 +17,11 @@ import "testing"
 //     initializer priority, assertion wrappers, and signature filtering.
 //  2. Run the rule through the real Program/checker lifecycle.
 //  3. Assert exactly the `/* unused:NAME */`-marked members are reported.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual Program/checker findings compare exactly with authored unused-member markers, detecting incorrect annotation selection or references through TypeScript wrappers.
+// @evidence contracts/testing.md#independent-expectations The supported inline-type analysis and official Unicorn initializer-priority/member-filtering policy establish independently authored used/unused pairs.
+// @evidence contracts/testing.md#distinguishing-cases Inline parameters/nested types/annotations/wrappers report unused twins; whole escapes, dynamic keys, writes/calls, named aliases/interfaces, destructuring, ambient/uninitialized declarations and this-only parameter-property use retain their documented exclusions.
+// @evidence contracts/testing.md#execution-ownership TestUnicornNoUnusedPropertiesTypeLiteralSemantics owns this authored checker-source matrix as a discoverable Go unit entry. loadProgram and the lint cycle operate in the shared Go process on t.TempDir fixtures; no native build, installed consumer or real child product host runs.
 func TestUnicornNoUnusedPropertiesTypeLiteralSemantics(t *testing.T) {
   source := `export {};
 declare function consume(...values: unknown[]): void;
