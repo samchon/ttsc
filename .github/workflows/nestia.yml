@@ -78,6 +78,9 @@ jobs:
       - name: Add native host output ownership reporting
         run: git -C experimental/nestia apply --directory=packages/core "$GITHUB_WORKSPACE/experimental/native-host-provenance/nestia.patch"
 
+      - name: Compare the patched native command with its independently pinned source
+        run: git -C experimental/nestia apply "$GITHUB_WORKSPACE/experimental/native-host-provenance/nestia-typia-pin.patch"
+
       - name: Use local ttsc tarballs
         run: node scripts/ci/consumer-tarballs.cjs experimental/nestia patches/typia@15.0.0.patch
 
@@ -103,6 +106,7 @@ jobs:
           # detection off so the e2e run matches nestia's CI environment.
           NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
           TTSC_CACHE_DIR: ${{ runner.temp }}/nestia-plugin-cache
+          TTSC_TYPIA_NATIVE_PATCH: ${{ github.workspace }}/patches/typia@15.0.0.patch
         run: |
           pnpm build
           GOWORK="$RUNNER_TEMP/nestia-current-driver.work" pnpm test:go
