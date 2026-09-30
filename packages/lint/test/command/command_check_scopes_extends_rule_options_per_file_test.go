@@ -10,6 +10,11 @@ import (
 // path, including project-rule binding around ConfigStore. Both files contain
 // both selectable nodes; each must report only the option tuple from entries
 // that match its own path.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual check renders exactly two no-restricted-syntax findings: main.ts gets inherited VariableDeclaration error and tests/unit.ts gets matching DebuggerStatement warning, although both sources contain both node kinds.
+// @evidence contracts/testing.md#independent-expectations Independently authored extends base/child JSON, selectors, literal source kinds and severity/message checks specify each file outcome; exact total two rejects duplicate or leaked options.
+// @evidence contracts/testing.md#distinguishing-cases Identical sources under matching and nonmatching paths isolate per-file options ownership from source differences. Inherited error and scoped warning distinguish severity and option tuple replacement together.
+// @evidence contracts/testing.md#execution-ownership Real Go command, JSON inheritance, bound resolver, in-process compiler, Engine and renderer execute once against temporary fixtures; no script evaluator, native producer, installation or subprocess runs.
 func TestCommandCheckScopesExtendsRuleOptionsPerFile(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{

@@ -18,6 +18,11 @@ import (
 // 1. Import an unselected source carrying a no-var violation.
 // 2. Run check with no-var enabled and assert the imported file fails it.
 // 3. Add a global ignore for that file and assert the rerun is clean.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual check reports the imported extra.ts no-var violation before a global ignore, then succeeds with both streams empty after adding the exact src/extra.ts ignore.
+// @evidence contracts/testing.md#independent-expectations Authored imported-only var source and literal global-ignore path independently define failing versus clean behavior; the initial extra.ts rule diagnostic validates that the negative control source really executed.
+// @evidence contracts/testing.md#distinguishing-cases Same import/source/rule with only ignore policy changed distinguishes intended exclusion from broken imports or an inert rule, and global ignores differ from file-scoped selector controls.
+// @evidence contracts/testing.md#execution-ownership Real Go command, JSON resolver, in-process compiler and Engine run twice on temporary fixture files; no native producer, installation, script evaluator or external command executes.
 func TestGlobalIgnoresRemoveAnImportedSourceFromTheReadScope(t *testing.T) {
   root := seedLintProject(t, "import { value } from \"./extra\";\nJSON.stringify(value);\n")
   writeFile(
@@ -34,7 +39,7 @@ func TestGlobalIgnoresRemoveAnImportedSourceFromTheReadScope(t *testing.T) {
       "--plugins-json", lintManifest(t),
     })
   })
-  if code != 2 || !diagnosticOutputContains(stderr, "[no-var]") {
+  if code != 2 || !diagnosticOutputContains(stderr, "[no-var]") || !diagnosticOutputContains(stderr, "extra.ts") {
     t.Fatalf("imported source did not report before the ignore: code=%d stderr=%q", code, stderr)
   }
 

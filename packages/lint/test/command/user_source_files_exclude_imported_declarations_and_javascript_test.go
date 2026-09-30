@@ -19,6 +19,11 @@ import (
 // 1. Materialize a tsconfig whose only root is `src/root.ts`, with allowJs on.
 // 2. Import a JavaScript module and a declaration file from that root.
 // 3. Assert userSourceFiles returns the selected root alone.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual Program demonstrably reads imported helper.js and shapes.d.ts once each, but userSourceFiles retains only the selected root.ts; complete sorted literal membership excludes both imports.
+// @evidence contracts/testing.md#independent-expectations Authored imports, allowJs and literal root.ts expected list independently specify lint ownership; upstream Program source population is a positive observation preventing broken resolution from satisfying exclusion.
+// @evidence contracts/testing.md#distinguishing-cases Selected TypeScript contrasts with unselected JavaScript and declarations; explicit import-population counts distinguish lint filtering from failing to load the negative-control sources.
+// @evidence contracts/testing.md#execution-ownership Real supported in-process compiler loading and lint source projection execute with deferred program closure against temporary files, without installed packages, native producer compilation, script evaluator or subprocesses.
 func TestUserSourceFilesExcludeImportedDeclarationsAndJavaScript(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -45,6 +50,14 @@ func TestUserSourceFilesExcludeImportedDeclarationsAndJavaScript(t *testing.T) {
     t.Fatalf("unexpected diagnostics: %#v", diags)
   }
   defer prog.close()
+  imported := map[string]int{"src/helper.js": 0, "src/shapes.d.ts": 0}
+  for _, file := range prog.tsProgram.SourceFiles() {
+    name := filepath.ToSlash(filepath.Clean(file.FileName()))
+    for expected := range imported {
+      if name == filepath.ToSlash(filepath.Join(root, expected)) { imported[expected]++ }
+    }
+  }
+  for name, count := range imported { if count != 1 { t.Fatalf("upstream Program must actually read excluded import %s exactly once, got %d", name, count) } }
 
   names := make([]string, 0)
   for _, file := range prog.userSourceFiles() {

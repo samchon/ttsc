@@ -19,6 +19,11 @@ import (
 // 1. Materialize a tsconfig with TS, declaration, and JSON root files.
 // 2. Import an extra TS file and a JSON module that are not tsconfig roots.
 // 3. Assert the imported TS file joins the selected roots and the JSON does not.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual compiler/lint source projection retains selected root.ts and root.d.ts plus imported extra.ts while excluding data.json, comparing the complete sorted list against three literal paths.
+// @evidence contracts/testing.md#independent-expectations Authored tsconfig roots and imports independently establish exact membership; expected names are literal fixture paths, not derived from a compiler-produced expected selection.
+// @evidence contracts/testing.md#distinguishing-cases Selected declaration remains owned while unselected declarations have a separate exclusion unit; imported TypeScript joins the selected set and imported/selected JSON remains excluded from lint syntax population.
+// @evidence contracts/testing.md#execution-ownership Real supported compiler Program and userSourceFiles run in-process with temporary fixtures and deferred cleanup; no installed consumer, native producer, script evaluator or external compiler command executes.
 func TestUserSourceFilesSpanProgramTypeScriptSources(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{

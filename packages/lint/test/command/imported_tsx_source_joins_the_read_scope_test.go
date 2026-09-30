@@ -19,6 +19,11 @@ import (
 // 1. Select a single `.ts` root in the tsconfig.
 // 2. Import a `.tsx` module the selection does not name.
 // 3. Assert the imported `.tsx` file joins the read scope.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual compiler Program rooted only at src/root.ts admits imported widget.tsx into the lint user source list, comparing the complete sorted list against exactly those two authored paths.
+// @evidence contracts/testing.md#independent-expectations The independently authored tsconfig root and TSX import fixture define literal expected membership rather than reading the compiler root list as the expected outcome.
+// @evidence contracts/testing.md#distinguishing-cases Rooted TS versus unselected TSX isolates extension-aware widening; exact cardinality/path list rejects omission or extra declaration/library sources.
+// @evidence contracts/testing.md#execution-ownership Real loadProgram and userSourceFiles operate directly against supported compiler APIs with deferred closure and a temporary filesystem fixture; no native plugin build, installed React package, Node evaluator or compiler subprocess runs.
 func TestImportedTsxSourceJoinsTheReadScope(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{
