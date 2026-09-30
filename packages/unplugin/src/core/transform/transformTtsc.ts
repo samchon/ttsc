@@ -13,6 +13,7 @@ import { createTransformCacheKey } from "./cache/createTransformCacheKey";
 import { disposeCachedTransform } from "./cache/disposeCachedTransform";
 import { evictGeneration } from "./cache/evictGeneration";
 import { replaysTerminalGeneration } from "./cache/replaysTerminalGeneration";
+import { selectCachedGenerationAction } from "./cache/selectCachedGenerationAction";
 import { selectOrEvict } from "./cache/selectOrEvict";
 import { transformCacheEpoch } from "./cache/transformCacheEpoch";
 import { transformCacheTrustsNotifications } from "./cache/transformCacheTrustsNotifications";
@@ -34,7 +35,6 @@ import { isHostWrapperQuery } from "./utils/isHostWrapperQuery";
 import { pluginsAreDisabled } from "./utils/pluginsAreDisabled";
 import { stripQuery } from "./utils/stripQuery";
 import { markCachedSourceServed } from "./validation/markCachedSourceServed";
-import { matchesCachedSource } from "./validation/matchesCachedSource";
 import type { TtscTransformHooks } from "./watch/TtscTransformHooks";
 import type { TtscWatchSelection } from "./watch/TtscWatchSelection";
 import { notifyFailedGenerationInputs } from "./watch/notifyFailedGenerationInputs";
@@ -191,17 +191,19 @@ export async function transformTtsc(
           continue;
         }
       }
-      if (
-        // A file the plugin declared volatile must never be served from the
-        // cache: its output depends on non-file inputs, so the input-hash
-        // snapshot cannot prove freshness. Fall through to a fresh transform.
-        !isVolatileFile(envelopeDerivation(cached), {
-          file,
-          projectRoot: cached.projectRoot,
-          result: cached.result,
-        }) &&
-        matchesCachedSource(cached, file, source, epoch)
-      ) {
+      const action = selectCachedGenerationAction({
+        cache,
+        cached,
+        epoch,
+        file,
+        generation: transformed,
+        key,
+        source,
+      });
+      if (action === "retry") {
+        continue;
+      }
+      if (action === "serve") {
         reportSuccessDiagnostics(cached, epoch);
         // A resolved `"exception"` / `"failure"` envelope makes this throw;
         // that is a failed generation too, so it is retained for this pass or
@@ -232,13 +234,6 @@ export async function transformTtsc(
         notifyWatchInputs(hooks, cached, file, watchSelection);
         markCachedSourceServed(cached, file);
         return createTransformResult(file, source, output);
-      }
-      evictGeneration(cache, key, transformed);
-      // Another caller may have replaced the generation while this caller was
-      // awaiting or validating the old one. Retry that authoritative entry
-      // instead of deleting it or starting a redundant third compilation.
-      if (cache?.get(key) !== undefined) {
-        continue;
       }
       transformed = undefined;
     }
