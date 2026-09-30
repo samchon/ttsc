@@ -1,10 +1,10 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 
-import { createViteServeInputWatch } from "../../../../../packages/unplugin/lib/core/vite/createViteServeInputWatch.js";
+import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/core/vite/createViteServeInputWatch";
 
 /**
  * Verifies native watch resources stay constant as the compiler graph grows.
@@ -18,6 +18,17 @@ import { createViteServeInputWatch } from "../../../../../packages/unplugin/lib/
  * 2. Assert only the pinned project observer is open, and removing inputs does not
  *    reopen it.
  * 3. Dispose and assert no observer remains and none is closed twice.
+ * @evidence contracts/testing.md#behavioral-verification
+ *   Registers 12000 project inputs in createViteServeInputWatch and asserts one active scope, no reopen after removal, bounded registration duration and exactly one final close.
+ * @evidence contracts/testing.md#independent-expectations
+ *   All inputs below the attached project share one pinned recursive observer. Its lifetime is the server lifetime, not input count; the literal one-observer expectation is independent of its implementation.
+ * @evidence contracts/testing.md#distinguishing-cases
+ *   Includes large registration, complete input withdrawal and disposal, checking active handles and close counts at each transition. The existing five-second regression bound remains unchanged.
+ * @evidence contracts/testing.md#execution-ownership
+ *   This source-function unit captures injected scope handles and calls the
+ *   authored attach/replace/dispose lifecycle directly; no module graph or Vite
+ *   server is started. TestProject tracks fixture cleanup and finally disposes
+ *   the watcher. Packed Vite cases own actual host notification connections.
  */
 export async function test_vite_compiler_watch_resources_are_bounded_by_scope(): Promise<void> {
   const root = fs.realpathSync.native(

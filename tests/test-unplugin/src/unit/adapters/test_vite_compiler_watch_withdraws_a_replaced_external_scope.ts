@@ -1,9 +1,9 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { createViteServeInputWatch } from "../../../../../packages/unplugin/lib/core/vite/createViteServeInputWatch.js";
+import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/core/vite/createViteServeInputWatch";
 
 /**
  * Verifies the Vite serve watcher notices an external scope whose root was
@@ -21,6 +21,17 @@ import { createViteServeInputWatch } from "../../../../../packages/unplugin/lib/
  * 2. Tick once with the external root untouched and assert nothing is invalidated.
  * 3. Replace the external root with a copy whose input differs, tick, and assert
  *    the importer is invalidated.
+ * @evidence contracts/testing.md#behavioral-verification
+ *   Registers an external declaration, checks an unchanged poll is quiet, withdraws all inputs, then changes the old declaration and requires no invalidation.
+ * @evidence contracts/testing.md#independent-expectations
+ *   A removed registration must not invalidate its former importer. The deliberately modified old input is a negative control after withdrawal, not an absent fixture that could hide a stale subscription.
+ * @evidence contracts/testing.md#distinguishing-cases
+ *   Contrasts an active but unchanged external scope with the same scope after replacement by an empty input set; the actual file edit detects stale poll ownership.
+ * @evidence contracts/testing.md#execution-ownership
+ *   This exported source-function unit injects watch/poll observation and module
+ *   graph callbacks; it starts no Vite host or native observer. TestProject owns
+ *   fixture cleanup and watcher disposal remains in finally. Packed Vite hosts
+ *   separately own actual registration, transport and live invalidation.
  */
 export async function test_vite_compiler_watch_withdraws_a_replaced_external_scope(): Promise<void> {
   const base = fs.realpathSync.native(

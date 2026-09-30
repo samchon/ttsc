@@ -1,10 +1,10 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { captureWatchInputBaseline } from "../../../../../packages/unplugin/lib/core/transform/watch/captureWatchInputBaseline.js";
-import { createViteServeInputWatch } from "../../../../../packages/unplugin/lib/core/vite/createViteServeInputWatch.js";
+import { captureWatchInputBaseline } from "../../../../../packages/unplugin/src/core/transform/watch/captureWatchInputBaseline";
+import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/core/vite/createViteServeInputWatch";
 import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
 
 /**
@@ -23,6 +23,17 @@ import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
  * 2. Assert both environments reloaded the importer and no full reload was sent.
  * 3. Repeat with `hmr: false` and assert the importer is invalidated and the page
  *    reloaded.
+ * @evidence contracts/testing.md#behavioral-verification
+ *   Injects declaration changes into authored watcher logic and asserts enabled HMR reloads client/SSR without adapter messages, while disabled HMR invalidates both and sends full-reload.
+ * @evidence contracts/testing.md#independent-expectations
+ *   Vite owns HMR decisions when reloadModule is available; disabled HMR requires graph invalidation plus full-reload. Literal client/ssr names distinguish both attached environments.
+ * @evidence contracts/testing.md#distinguishing-cases
+ *   Compares HMR enabled and disabled with the same changed dependency; captures reloads, invalidations and messages independently so a wrong fallback cannot pass.
+ * @evidence contracts/testing.md#execution-ownership
+ *   This exported source-function unit injects watch/poll observation and module
+ *   graph callbacks; it starts no Vite host or native observer. TestProject owns
+ *   fixture cleanup and watcher disposal remains in finally. Packed Vite hosts
+ *   separately own actual registration, transport and live invalidation.
  */
 export async function test_vite_compiler_watch_reloads_importers_through_vite_hmr(): Promise<void> {
   const root = fs.realpathSync.native(TestProject.tmpdir("ttsc-vite-hmr-"));

@@ -1,13 +1,13 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { projectMembershipDigest } from "../../../../../packages/unplugin/lib/core/transform/project/projectMembershipDigest.js";
-import { walkProjectInputs } from "../../../../../packages/unplugin/lib/core/transform/project/walkProjectInputs.js";
-import type { TtscWatchInput } from "../../../../../packages/unplugin/lib/core/transform/watch/TtscWatchInput.js";
-import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/lib/core/tsconfig/readProjectMembershipPolicy.js";
-import { createViteServeInputWatch } from "../../../../../packages/unplugin/lib/core/vite/createViteServeInputWatch.js";
+import { projectMembershipDigest } from "../../../../../packages/unplugin/src/core/transform/project/projectMembershipDigest";
+import { walkProjectInputs } from "../../../../../packages/unplugin/src/core/transform/project/walkProjectInputs";
+import type { TtscWatchInput } from "../../../../../packages/unplugin/src/core/transform/watch/TtscWatchInput";
+import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
+import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/core/vite/createViteServeInputWatch";
 import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
 
 /**
@@ -29,6 +29,17 @@ import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
  *    invalidated.
  * 2. Emit a rename under the physical directory for a file no program admits, and
  *    assert nothing happens.
+ * @evidence contracts/testing.md#behavioral-verification
+ *   Registers project membership under a linked root, injects physical-path rename events and checks new declarations invalidate while unrelated text remains quiet.
+ * @evidence contracts/testing.md#independent-expectations
+ *   Linked and physical spellings name one project. The admitted declaration changes membership independently of its event spelling; notes.txt cannot change membership.
+ * @evidence contracts/testing.md#distinguishing-cases
+ *   Includes initially quiet state, physical-path admitted declaration and subsequent non-program text after updated membership proof, catching both missed positive and spurious negative notifications.
+ * @evidence contracts/testing.md#execution-ownership
+ *   This exported source-function unit injects watch/poll observation and module
+ *   graph callbacks; it starts no Vite host or native observer. TestProject owns
+ *   fixture cleanup and watcher disposal remains in finally. Packed Vite hosts
+ *   separately own actual registration, transport and live invalidation.
  */
 export async function test_vite_compiler_watch_places_a_physical_membership_event_under_the_root(): Promise<void> {
   const physical = fs.realpathSync.native(

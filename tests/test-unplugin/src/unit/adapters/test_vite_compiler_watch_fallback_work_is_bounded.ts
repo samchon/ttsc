@@ -1,9 +1,9 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { createViteServeInputWatch } from "../../../../../packages/unplugin/lib/core/vite/createViteServeInputWatch.js";
+import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/core/vite/createViteServeInputWatch";
 
 /**
  * Verifies a failed native watcher moves its inputs to a bounded fallback
@@ -21,6 +21,17 @@ import { createViteServeInputWatch } from "../../../../../packages/unplugin/lib/
  * 3. Drive ticks and assert each inspects one fair, fixed-size slice, and the
  *    scheduler stops when no work remains.
  * 4. Dispose and assert the detached watcher is not closed again.
+ * @evidence contracts/testing.md#behavioral-verification
+ *   Injects native watcher failure into createViteServeInputWatch; asserts immediate handle release, one scheduler, 64 then 65 invalidations and scheduler stop without a second close.
+ * @evidence contracts/testing.md#independent-expectations
+ *   The supported scheduler budget is 64 inputs per tick. A 65-input fixture independently distinguishes bounded fair progress from a full scan or a starved final input.
+ * @evidence contracts/testing.md#distinguishing-cases
+ *   Includes native open failure, one input beyond the budget, exhausted work and final disposal; captures both callback count and handle-close count.
+ * @evidence contracts/testing.md#execution-ownership
+ *   This exported source-function unit injects watch/poll observation and module
+ *   graph callbacks; it starts no Vite host or native observer. TestProject owns
+ *   fixture cleanup and watcher disposal remains in finally. Packed Vite hosts
+ *   separately own actual registration, transport and live invalidation.
  */
 export async function test_vite_compiler_watch_fallback_work_is_bounded(): Promise<void> {
   const root = fs.realpathSync.native(

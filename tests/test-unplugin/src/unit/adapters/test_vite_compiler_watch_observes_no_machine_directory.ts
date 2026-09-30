@@ -1,10 +1,10 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { pathIsWithin } from "../../../../../packages/unplugin/lib/core/transform/filesystem/pathIsWithin.js";
-import { createViteServeInputWatch } from "../../../../../packages/unplugin/lib/core/vite/createViteServeInputWatch.js";
+import { pathIsWithin } from "../../../../../packages/unplugin/src/core/transform/filesystem/pathIsWithin";
+import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/core/vite/createViteServeInputWatch";
 
 /**
  * Verifies the Vite serve watcher opens no observer on the project root's
@@ -24,6 +24,17 @@ import { createViteServeInputWatch } from "../../../../../packages/unplugin/lib/
  *    package got one.
  * 3. Create the missing probe, tick the poll, and assert the importer is
  *    invalidated.
+ * @evidence contracts/testing.md#behavioral-verification
+ *   Registers an ancestor missing probe and sibling declaration; asserts no ancestor observer, a sibling scope and poll-driven invalidation when the missing probe appears.
+ * @evidence contracts/testing.md#independent-expectations
+ *   Observers must not encompass project ancestors while a separate sibling retains its scope. The authored missing probe becomes present and must invalidate the literal importer.
+ * @evidence contracts/testing.md#distinguishing-cases
+ *   Contrasts dangerous ancestor scopes with legitimate siblings and absent/present probes; both scope recording and resulting importer invalidation are asserted.
+ * @evidence contracts/testing.md#execution-ownership
+ *   This exported source-function unit injects watch/poll observation and module
+ *   graph callbacks; it starts no Vite host or native observer. TestProject owns
+ *   fixture cleanup and watcher disposal remains in finally. Packed Vite hosts
+ *   separately own actual registration, transport and live invalidation.
  */
 export async function test_vite_compiler_watch_observes_no_machine_directory(): Promise<void> {
   const workspace = fs.realpathSync.native(
