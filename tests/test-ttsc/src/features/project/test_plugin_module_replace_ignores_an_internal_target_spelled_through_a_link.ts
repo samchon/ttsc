@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { pluginModuleReplaceDirectories } from "../../../../../packages/ttsc/lib/plugin/internal/source/pluginModuleReplaceDirectories.js";
-import { createFakeGoBinary } from "../../internal/source-build";
+import { resolveGoCompiler } from "../../../../../packages/ttsc/lib/plugin/internal/source/resolveGoCompiler.js";
 
 /**
  * Verifies a local replacement inside a module stays internal through a link.
@@ -22,8 +22,8 @@ import { createFakeGoBinary } from "../../internal/source-build";
  * @evidence contracts/testing.md#independent-expectations The authored replacement resolves inside the same real module, so lexical alias differences cannot create an external source.
  * @evidence contracts/testing.md#distinguishing-cases 1. Create a Go module and link another path to that module. 2. Name one of its own directories through the link in `go.mod`. 3. Assert no external replacement directory is reported.
  * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
- * @evidence contracts/e2e.md#necessary-boundary The actual child or host operation exercises the transport and execution result named in this case; direct in-process decision helpers cannot establish that process outcome.
- * @evidence contracts/e2e.md#shared-execution All authored subcases reuse the fixture and available runtime within this named entry; distinct process results or runtime identities retain their required child lifetime, without a consumer installation.
+ * @evidence contracts/e2e.md#necessary-boundary The existing real Go tool parses the authored replace directive through go mod edit -json before physical containment is checked; a surrogate manifest parser cannot prove the product's supported Go grammar/transport connection.
+ * @evidence contracts/e2e.md#shared-execution One existing Go mod-edit request and one linked module fixture own the original internal-target exclusion assertion; this case performs no Go build, download or installation.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private TestProject fixtures isolate mutable records and runtime identities. Synchronous child completion or existing session cleanup owns process lifetime; temporary roots remain registered with TestProject for exit cleanup.
  * @evidence contracts/e2e.md#preserved-coverage pluginModuleReplaceDirectories returns no external directory for an internal replacement reached through an alias. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
  */
@@ -52,9 +52,7 @@ export const test_plugin_module_replace_ignores_an_internal_target_spelled_throu
       ].join("\n"),
       "utf8",
     );
-    const fakeGoRoot = path.join(root, "fake-go");
-    fs.mkdirSync(fakeGoRoot);
-    const go = createFakeGoBinary(fakeGoRoot);
+    const go = resolveGoCompiler().binary;
 
     assert.deepEqual(
       pluginModuleReplaceDirectories(
