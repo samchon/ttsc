@@ -1,4 +1,4 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 import { assert, computeCacheKey, fs, path } from "../../internal/source-build-unit";
 

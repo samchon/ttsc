@@ -1,7 +1,7 @@
 import type createBanner from "../../../../../packages/banner/src/index";
 import type createStrip from "../../../../../packages/strip/src/index";
 
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";

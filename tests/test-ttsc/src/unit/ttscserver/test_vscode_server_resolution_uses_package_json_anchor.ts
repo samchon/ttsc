@@ -1,5 +1,5 @@
 import * as mod from "../../../../../packages/vscode/src/serverResolution";
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { createRequire } from "node:module";

@@ -1,4 +1,4 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import { dependencyCacheKey } from "../../../../../packages/ttsc/src/launcher/internal/runtime/dependencyCacheKey";
 import { dependencyCacheRoot } from "../../../../../packages/ttsc/src/launcher/internal/runtime/dependencyCacheRoot";
