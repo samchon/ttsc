@@ -74,8 +74,7 @@ export function envelopeGraphIndexes(
       built.memberSpellings.add(absolute);
       built.spellings.set(identity, absolute);
       const entries = built.edges.get(identity) ?? [];
-      entries.push(
-        ...targets
+      for (const entryToAppend of targets
           .filter(
             (target): target is string =>
               typeof target === "string" && target.length !== 0,
@@ -88,12 +87,11 @@ export function envelopeGraphIndexes(
               built.spellings.set(targetIdentity, absoluteTarget);
             }
             return absoluteTarget;
-          }),
-      );
+          })) entries.push(entryToAppend);
       built.edges.set(identity, entries);
     }
-    built.globals.push(...selectListedFiles(props.projectRoot, graph.globals));
-    built.configs.push(...selectListedFiles(props.projectRoot, graph.configs));
+    for (const entryToAppend of selectListedFiles(props.projectRoot, graph.globals)) built.globals.push(entryToAppend);
+    for (const entryToAppend of selectListedFiles(props.projectRoot, graph.configs)) built.configs.push(entryToAppend);
     for (const input of [...built.globals, ...built.configs]) {
       const identity = derivationIdentity(state, input);
       built.memberSpellings.add(path.resolve(input));
@@ -115,9 +113,7 @@ export function envelopeGraphIndexes(
       }
     }
     const realized = new Set(built.memberSpellings);
-    built.resolutionInputs.push(
-      ...selectListedFiles(props.projectRoot, graph.resolutionInputs),
-    );
+    for (const entryToAppend of selectListedFiles(props.projectRoot, graph.resolutionInputs)) built.resolutionInputs.push(entryToAppend);
     for (const input of built.resolutionInputs) {
       const spelling = path.resolve(input);
       const identity = derivationIdentity(state, input);

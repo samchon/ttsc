@@ -73,9 +73,7 @@ export async function installPlaygroundDependencies(
       );
     }
     if (previous !== undefined) {
-      previous.requests.push(
-        ...dependency.requests.map((request) => ({ ...request })),
-      );
+      for (const entryToAppend of dependency.requests.map((request) => ({ ...request }))) previous.requests.push(entryToAppend);
       continue;
     }
     installedDependencies.set(dependency.name, {

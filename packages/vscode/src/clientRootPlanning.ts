@@ -136,8 +136,7 @@ export function planRootsByPhysicalIdentity(
     ordered.push(unique.get(preferredKey)!);
     unique.delete(preferredKey);
   }
-  ordered.push(
-    ...[...unique.entries()]
+  for (const entryToAppend of [...unique.entries()]
       .map(([key, root]) => ({
         depth: pathDepth(identities.resolve(root).path, platform),
         key,
@@ -146,8 +145,7 @@ export function planRootsByPhysicalIdentity(
       .sort((left, right) =>
         right.depth - left.depth || left.key.localeCompare(right.key),
       )
-      .map(({ root }) => root),
-  );
+      .map(({ root }) => root)) ordered.push(entryToAppend);
   const selected: string[] = [];
   for (const root of ordered) {
     if (

@@ -270,8 +270,8 @@ function assemble(
       nodeOwners.set(node.id, key);
       nodes.push(node);
     }
-    edges.push(...shard.edges);
-    diagnostics.push(...shard.diagnostics);
+    for (const entryToAppend of shard.edges) edges.push(entryToAppend);
+    for (const entryToAppend of shard.diagnostics) diagnostics.push(entryToAppend);
   }
   for (const [key, value] of committed) {
     for (const edge of value.shard.edges) {

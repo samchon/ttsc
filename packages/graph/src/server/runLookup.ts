@@ -107,9 +107,10 @@ export function runLookup(
   // not a better fuzzy match than the name hits, it is a different and certain
   // kind of answer, and name scoring cannot rank the two against each other.
   const citedIds = new Set(cited.map((hit) => hit.id));
-  const ranked = scored.filter((hit) => !citedIds.has(hit.id));
-  ranked.sort((a, b) => b.score - a.score);
-  ranked.unshift(...cited);
+  const ranked = [
+    ...cited,
+    ...scored.filter((hit) => !citedIds.has(hit.id)).sort((a, b) => b.score - a.score),
+  ];
 
   // Diversity: keep at most PER_FILE hits per file while filling up to the limit.
   //

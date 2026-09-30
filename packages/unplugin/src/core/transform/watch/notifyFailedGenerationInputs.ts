@@ -113,9 +113,7 @@ export function notifyFailedGenerationInputs(
     selection.filesystem,
     (input) => input,
   );
-  inputs.push(
-    ...routedInputs.map((input) => ({ ...input, file: spell(input.file) })),
-  );
+  for (const entryToAppend of routedInputs.map((input) => ({ ...input, file: spell(input.file) }))) inputs.push(entryToAppend);
   // A build host takes the record, written to what the failed compile
   // consulted, so the repair moves it wherever it lands; a module handed over
   // without it depends on its own bytes alone, and no persistent cache may

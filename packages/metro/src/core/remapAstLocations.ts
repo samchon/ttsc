@@ -125,7 +125,7 @@ export function remapAstLocations(
     }
     visited.add(value);
     if (Array.isArray(value)) {
-      pending.push(...value);
+      for (const entryToAppend of value) pending.push(entryToAppend);
       continue;
     }
     const node = value as Record<string, unknown>;

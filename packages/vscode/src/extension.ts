@@ -744,9 +744,7 @@ export async function activate(context: ExtensionContext): Promise<void> {
         const removedRoots: string[] = [];
         for (const folder of event.removed) {
           if (folder.uri.scheme !== "file") continue;
-          removedRoots.push(
-            ...rootsInsideRemovedWorkspace(clientRoots(), folder.uri.fsPath),
-          );
+          for (const entryToAppend of rootsInsideRemovedWorkspace(clientRoots(), folder.uri.fsPath)) removedRoots.push(entryToAppend);
         }
         await stopClientRoots(removedRoots);
         const addedRoots = event.added

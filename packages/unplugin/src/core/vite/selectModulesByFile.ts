@@ -32,7 +32,7 @@ export function selectModulesByFile(
   const output: ViteModuleNodeLike[] = [];
   for (const [file, nodes] of graph.fileToModulesMap ?? []) {
     if (typeof file === "string" && pathIdentityKey(file) === identity) {
-      output.push(...nodes);
+      for (const entryToAppend of nodes) output.push(entryToAppend);
     }
   }
   return output;

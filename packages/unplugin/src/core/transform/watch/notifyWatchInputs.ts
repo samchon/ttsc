@@ -90,8 +90,6 @@ export function notifyWatchInputs(
   const membership =
     hooks.membership === true ? projectMembershipInput(cached) : undefined;
   if (membership !== undefined) inputs.push(membership);
-  inputs.push(
-    ...routedInputs.map((input) => ({ ...input, file: spell(input.file) })),
-  );
+  for (const entryToAppend of routedInputs.map((input) => ({ ...input, file: spell(input.file) }))) inputs.push(entryToAppend);
   handWatchInputs(hooks, inputs);
 }

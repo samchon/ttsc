@@ -312,7 +312,7 @@ function assemble(
     if (output === null) continue;
     try {
       const parsed: unknown = JSON.parse(output);
-      if (Array.isArray(parsed)) published.push(...parsed);
+      if (Array.isArray(parsed)) for (const entryToAppend of parsed) published.push(entryToAppend);
     } catch {
       continue;
     }
@@ -575,7 +575,7 @@ export function fingerprintInputs(inputs: IArtifactInputs): string {
   const states = new Map<string, string>();
   for (const file of inputs.files) parts.push(stateOf(file, states));
   for (const directory of inputs.directories)
-    parts.push(...walkState(directory.path, directory.recursive, states));
+    for (const entryToAppend of walkState(directory.path, directory.recursive, states)) parts.push(entryToAppend);
   parts.sort();
   return createHash("sha256").update(parts.join("\n")).digest("hex");
 }
@@ -686,7 +686,7 @@ function walkState(
         states.push(stateOf(child, inputStates));
         continue;
       }
-      states.push(...walkState(child, recursive, inputStates, nextAncestors));
+      for (const entryToAppend of walkState(child, recursive, inputStates, nextAncestors)) states.push(entryToAppend);
       continue;
     }
     states.push(stateOf(child, inputStates));

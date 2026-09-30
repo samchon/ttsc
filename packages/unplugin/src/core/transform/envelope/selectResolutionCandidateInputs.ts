@@ -46,7 +46,7 @@ export function selectResolutionCandidateInputs(
     if (!reachable.has(entry.source)) {
       continue;
     }
-    output.push(...entry.files);
+    for (const entryToAppend of entry.files) output.push(entryToAppend);
   }
   return output;
 }

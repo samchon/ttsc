@@ -39,9 +39,9 @@ export function selectGraphInputs(
   }
   const output: string[] = [];
   if (!props.complete) {
-    output.push(...selectReachableEdges(graph, state, props.file));
-    output.push(...graph.globals);
+    for (const entryToAppend of selectReachableEdges(graph, state, props.file)) output.push(entryToAppend);
+    for (const entryToAppend of graph.globals) output.push(entryToAppend);
   }
-  output.push(...graph.configs);
+  for (const entryToAppend of graph.configs) output.push(entryToAppend);
   return output;
 }

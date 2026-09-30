@@ -417,7 +417,7 @@ function tokenize(source: string): Token[] {
           const start = i + 2;
           const end = findTemplateSubstitutionEnd(source, start);
           context.pushOther();
-          tokens.push(...tokenize(source.slice(start, end)));
+          for (const entryToAppend of tokenize(source.slice(start, end))) tokens.push(entryToAppend);
           context.pushOther();
           i = end < n ? end + 1 : end;
           continue;

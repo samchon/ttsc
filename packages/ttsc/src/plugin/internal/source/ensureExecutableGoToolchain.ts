@@ -72,7 +72,7 @@ function walkToolFiles(dir: string): string[] {
   for (const entry of entries) {
     const file = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      out.push(...walkToolFiles(file));
+      for (const entryToAppend of walkToolFiles(file)) out.push(entryToAppend);
     } else if (entry.isFile()) {
       out.push(file);
     }

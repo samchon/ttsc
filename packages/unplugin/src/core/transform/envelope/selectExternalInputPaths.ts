@@ -60,12 +60,12 @@ export function selectExternalInputPaths(props: {
   // Every transform output key names the source file whose transformed text it
   // carries. Keep an out-of-walk source in the external snapshot instead of
   // injecting it into the project-walk key universe (samchon/ttsc#252).
-  members.push(...Object.keys(props.result.typescript));
+  for (const entryToAppend of Object.keys(props.result.typescript)) members.push(entryToAppend);
   if (graph !== undefined) {
     for (const [source, targets] of Object.entries(graph.edges ?? {})) {
       members.push(source);
       if (Array.isArray(targets)) {
-        members.push(...targets);
+        for (const entryToAppend of targets) members.push(entryToAppend);
       }
     }
     for (const listed of [
@@ -74,7 +74,7 @@ export function selectExternalInputPaths(props: {
       graph.resolutionInputs,
     ]) {
       if (Array.isArray(listed)) {
-        members.push(...listed);
+        for (const entryToAppend of listed) members.push(entryToAppend);
       }
     }
     for (const candidates of Object.values(graph.candidates ?? {})) {
@@ -98,7 +98,7 @@ export function selectExternalInputPaths(props: {
   }
   for (const entries of Object.values(props.result.dependencies ?? {})) {
     if (Array.isArray(entries)) {
-      members.push(...entries);
+      for (const entryToAppend of entries) members.push(entryToAppend);
     }
   }
   if (Array.isArray(props.result.hostInputs)) {

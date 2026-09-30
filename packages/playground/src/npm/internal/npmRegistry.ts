@@ -290,7 +290,10 @@ export async function verifyTarball(
   throwIfAborted(signal);
   if (dist.integrity !== undefined) {
     const candidates = parseIntegrity(dist.integrity);
-    const strength = Math.max(...candidates.map(({ rank }) => rank));
+    const strength = candidates.reduce(
+      (maximum, { rank }) => Math.max(maximum, rank),
+      0,
+    );
     const strongest = candidates.filter(
       (candidate) => candidate.rank === strength,
     );
