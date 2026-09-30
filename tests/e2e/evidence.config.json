@@ -118,7 +118,7 @@
         "tests/test-evidence/go/e2e/**/*_test.go",
         "packages/evidence/native/file_links_keep_unsaved_short_paths_windows_test.go",
         "packages/evidence/native/windows_project_root_past_the_resolver_names_the_invocation_windows_test.go",
-        "packages/evidence/native/windows_default_typescript_base_survives_a_deep_junction_chain_windows_test.go"
+        "packages/evidence/native/windows_default_type_script_base_survives_a_deep_junction_chain_windows_test.go"
       ],
       "symbol": "function",
       "reference": [
