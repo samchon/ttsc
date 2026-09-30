@@ -42,9 +42,12 @@ if (require.main === module) {
   const boundariesOnly = process.argv.includes("--boundaries-only");
   if (qualityOnly && boundariesOnly)
     throw new Error("Select quality gates or Node boundaries, not both");
-  const nodeTests = selectedNodeTests(root, "typecheck").map((relative) =>
-    path.join(root, ...relative.split("/")),
-  );
+  const selectedTests = selectedNodeTests(root, "typecheck");
+  const formatterTest = (relative) =>
+    relative.startsWith("tests/e2e/scripts/ci/gofmt_");
+  const absoluteTests = (names) => names.map((relative) => path.join(root, ...relative.split("/")));
+  const nodeTests = absoluteTests(selectedTests.filter((relative) => !formatterTest(relative)));
+  const formatterTests = absoluteTests(selectedTests.filter(formatterTest));
   const steps = [
     { name: "flag schema", command: "pnpm", args: ["run", "check:flags"] },
     {
@@ -54,8 +57,15 @@ if (require.main === module) {
     },
     {
       name: "Node harness",
+      boundary: true,
       command: process.execPath,
       args: ["--test", ...nodeTests],
+    },
+    {
+      name: "Formatter boundary batch",
+      boundary: true,
+      command: process.execPath,
+      args: ["--experimental-test-isolation=none", "--test", ...formatterTests],
     },
     {
       name: "format check",
@@ -65,8 +75,10 @@ if (require.main === module) {
     { name: "TypeScript types", command: "pnpm", args: ["run", "test:typecheck"] },
   ];
   const selected = steps.filter((step) =>
-    qualityOnly ? step.name !== "Node harness" :
-    boundariesOnly ? step.name === "Node harness" : true,
+    // Never invoke Node's default test discovery for an empty explicit batch.
+    (step.name !== "Node harness" || nodeTests.length !== 0) &&
+    (step.name !== "Formatter boundary batch" || formatterTests.length !== 0) &&
+    (qualityOnly ? !step.boundary : boundariesOnly ? step.boundary : true),
   );
   const failed = runAll(selected, runStep);
   if (failed.length !== 0) {

@@ -19,10 +19,14 @@ const path = require("node:path");
  * - `tests/unit/scripts/ci/*.test.cjs`: in-process tooling cases enrolled in
  *   the test contracts, also run by the `typecheck` lane.
  *
+ * - `tests/e2e/scripts/ci/*.test.cjs`: actual tooling process boundaries,
+ *   run only by the E2E typecheck population.
+ *
  * A `.test.cjs` anywhere else below `scripts/` belongs to no lane, and
  * discovery throws naming it, so it cannot be silently skipped.
  */
 const NODE_TEST_OWNERS = [
+  { lane: "typecheck", pattern: /^tests\/e2e\/scripts\/ci\/[^/]+\.test\.cjs$/ },
   { lane: "go", pattern: /^tests\/unit\/scripts\/go\/[^/]+\.test\.cjs$/ },
   { lane: "typecheck", pattern: /^tests\/unit\/scripts\/ci\/[^/]+\.test\.cjs$/ },
   { lane: "go", pattern: /^scripts\/[^/]+\.test\.cjs$/ },
@@ -37,7 +41,6 @@ const E2E_NODE_TESTS = new Set([
   "scripts/format-go.test.cjs",
   "scripts/go-wasm-exec.test.cjs",
   "scripts/ci/feature-worker-isolation.test.cjs",
-  "scripts/ci/gofmt-wrapper.test.cjs",
   "scripts/ci/typescript-loader.test.cjs",
   "scripts/ci/unit-source-loader.test.cjs",
   "scripts/ci/unplugin-test-contract.test.cjs",
@@ -46,7 +49,9 @@ const E2E_NODE_TESTS = new Set([
 
 /** Classify observable process and package boundaries separately from units. */
 function nodeTestLayer(relative) {
-  return relative.startsWith("scripts/ci/package/") || E2E_NODE_TESTS.has(relative)
+  return relative.startsWith("tests/e2e/") ||
+    relative.startsWith("scripts/ci/package/") ||
+    E2E_NODE_TESTS.has(relative)
     ? "e2e"
     : "unit";
 }
@@ -101,6 +106,7 @@ function discoverNodeTests(root, lane) {
   };
   walk("scripts");
   walk("tests/unit/scripts");
+  walk("tests/e2e/scripts");
   for (const entry of fs.readdirSync(path.join(root, "packages"), {
     withFileTypes: true,
   })) {
