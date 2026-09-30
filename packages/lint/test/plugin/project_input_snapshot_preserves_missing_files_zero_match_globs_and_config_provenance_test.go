@@ -45,6 +45,11 @@ func (projectInputSnapshotRule) ProjectInputs(ctx *publicrule.ProjectInputContex
 //  2. Collect the snapshot before either dependency exists.
 //  3. Assert both declarations, the lint config, and its resolution directory
 //     remain in their data and cold-reload protocol lanes.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual bound project input publication preserves missing docs/missing.md and zero-match api JSON glob, deduplicates repeated exact declarations, and publishes config files/directories in their correct cold-reload lanes.
+// @evidence contracts/testing.md#independent-expectations Authored relative patterns and config provenance independently define all expected lists; standard-library EvalSymlinks of the temporary root plus literal path joins supplements existing product canonicalizer comparisons.
+// @evidence contracts/testing.md#distinguishing-cases No dependency is created, so membership cannot be inferred from successful reads; duplicate exact declarations, separate data/reload lanes and unmatched glob distinguish configured topology from discovered existing files.
+// @evidence contracts/testing.md#execution-ownership Real resolver binding and input publisher execute in-process with restored project registration and isolated native temp root; this unit publishes dependency data without a watcher, native producer, consumer install or committed fixture existence check.
 func TestProjectInputSnapshotPreservesMissingFilesZeroMatchGlobsAndConfigProvenance(t *testing.T) {
   root := t.TempDir()
   config := filepath.Join(root, "lint.config.json")
@@ -115,4 +120,7 @@ func TestProjectInputSnapshotPreservesMissingFilesZeroMatchGlobsAndConfigProvena
   if !reflect.DeepEqual(snapshot.Globs, wantGlobs) {
     t.Fatalf("globs = %#v, want %#v", snapshot.Globs, wantGlobs)
   }
+  physical, err := filepath.EvalSymlinks(root)
+  if err != nil { t.Fatal(err) }
+  if snapshot.Root != filepath.ToSlash(physical) || !reflect.DeepEqual(snapshot.Files, []string{filepath.ToSlash(filepath.Join(physical, "docs", "missing.md")), filepath.ToSlash(filepath.Join(physical, "lint.config.json"))}) || !reflect.DeepEqual(snapshot.ReloadFiles, []string{filepath.ToSlash(filepath.Join(physical, "lint.config.json"))}) || !reflect.DeepEqual(snapshot.ReloadDirectories, []string{filepath.ToSlash(filepath.Join(physical, "config-deps"))}) || !reflect.DeepEqual(snapshot.Globs, []string{filepath.ToSlash(filepath.Join(physical, "api", "**", "*.json"))}) { t.Fatalf("authored missing/config dependency topology lost independently: %#v", snapshot) }
 }

@@ -19,6 +19,11 @@ import (
 //  1. Capture one state and result from the first engine cycle.
 //  2. Try to report through that result after the cycle has finalized.
 //  3. Run a second cycle and assert fresh state with no leaked finding.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual consecutive Engine runs each publish a distinct sequence-one/two state, remain clean and passed, and ignore late Report and Fail calls retained from the finalized first cycle.
+// @evidence contracts/testing.md#independent-expectations Literal sequence counts, pointer inequality and empty findings independently define cycle isolation; original clean results plus passed second result rule out a stale reporter contaminating later evaluation.
+// @evidence contracts/testing.md#distinguishing-cases A retained first result attempts both report and explicit failure after closure; the same Engine and same parsed sources run again, distinguishing fresh cycle ownership from replacing the engine or input.
+// @evidence contracts/testing.md#execution-ownership Actual project/file lifecycle runs twice in-process with restored registration and no native producer, watch process, installation or source-layout assertions.
 func TestProjectRuleStateAndReporterAreIsolatedBetweenCycles(t *testing.T) {
   const (
     projectRuleName = "project-isolation-test/project"
@@ -55,6 +60,7 @@ func TestProjectRuleStateAndReporterAreIsolatedBetweenCycles(t *testing.T) {
     t.Fatalf("observer should run in the first cycle, got %d calls", len(observed))
   }
   observed[0].Report("late result escaped its cycle")
+  observed[0].Fail()
   if findings := engine.Run(files, nil); len(findings) != 0 {
     t.Fatalf("late report leaked into the next cycle: %#v", findings)
   }
@@ -67,4 +73,5 @@ func TestProjectRuleStateAndReporterAreIsolatedBetweenCycles(t *testing.T) {
   if !firstOK || !secondOK || first == second || first.sequence != 1 || second.sequence != 2 {
     t.Fatalf("cycles should expose distinct state objects: first=%#v second=%#v", observed[0].State, observed[1].State)
   }
+  if checks != 2 || observed[0].Status != publicrule.ProjectRulePassed || observed[1].Status != publicrule.ProjectRulePassed || len(observed[1].Findings) != 0 { t.Fatalf("closed-cycle reporter mutated new state or result: checks=%d observed=%#v", checks, observed) }
 }

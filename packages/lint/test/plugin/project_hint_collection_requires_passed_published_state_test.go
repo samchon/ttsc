@@ -49,6 +49,11 @@ func installHintRuleTestDouble(t *testing.T, project hintRuleTestDouble) {
 //  1. Install off, failed, stateless, and passed hint-rule doubles.
 //  2. Evaluate one project cycle and collect its hints.
 //  3. Assert only the passed-and-published provider was invoked and retained.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual project hint collection calls only the passed provider with published state, preserves its literal insert and JSDoc @ trigger, and never invokes off, failed or stateless providers.
+// @evidence contracts/testing.md#independent-expectations Authored provider names, state transitions and one-call map independently specify eligibility; literal trigger values define the complete surviving hint instead of accepting only any item.
+// @evidence contracts/testing.md#distinguishing-cases Off, failed-with-state, passed-without-state and passed-with-state isolate each eligibility gate. Counters distinguish pre-call rejection from invoking every provider and filtering afterward.
+// @evidence contracts/testing.md#execution-ownership Real project evaluation and hint collection execute in-process with restored fixture registration; no native producer, language-server transport, installed consumer or source inspection executes.
 func TestProjectHintCollectionRequiresPassedPublishedState(t *testing.T) {
   const (
     failedName    = "hint-test/failed"
@@ -94,4 +99,5 @@ func TestProjectHintCollectionRequiresPassedPublishedState(t *testing.T) {
   if len(calls) != 1 || calls[passedName] != 1 {
     t.Fatalf("inactive providers should not be called: %#v", calls)
   }
+  if hints[0].Trigger.Scope != publicrule.HintScopeJSDoc || hints[0].Trigger.After != "@" { t.Fatalf("published trigger changed: %#v", hints[0]) }
 }

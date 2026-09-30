@@ -18,6 +18,11 @@ import (
 //  1. Configure one global ignore and one file-scoped ignore.
 //  2. Run an enabled project rule over ignored, scoped, and ordinary sources.
 //  3. Assert only the globally ignored source is absent and the rule still ran.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual configured project execution observes the scoped and ordinary sources in authored order while excluding the globally ignored generated source; file-entry ignores do not remove a Program-wide project input.
+// @evidence contracts/testing.md#independent-expectations Three independently authored source paths and literal expected scoped/ordinary order define membership; the observed callback list requires actual project execution rather than asserting configuration text.
+// @evidence contracts/testing.md#distinguishing-cases Global ignore-only entry contrasts with files-plus-ignores entry and an ordinary source, isolating project read-scope policy from file rule selection.
+// @evidence contracts/testing.md#execution-ownership Real ConfigStore resolution, Engine and project callback run on parsed source objects in-process with registry restoration; temporary paths are behavioral inputs, not committed-file existence checks or installed/native hosts.
 func TestProjectRuleSourcesApplyOnlyGlobalIgnores(t *testing.T) {
   const name = "project-test/source-ignores"
   root := t.TempDir()

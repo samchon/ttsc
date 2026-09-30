@@ -22,6 +22,11 @@ import (
 //  1. Publish an initial exact path and glob from enabled rule options.
 //  2. Publish a replacement config with different patterns.
 //  3. Assert no old pattern leaks and the snapshot uses the real project root.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual successive project input publications replace old Markdown/JSON patterns with new Markdown/YAML patterns and share the physical root; where permitted the selected root is a real directory symlink.
+// @evidence contracts/testing.md#independent-expectations Authored old/new relative patterns and standard-library EvalSymlinks of the physical temporary directory independently specify exact first and replacement lists, supplementing original product-normalizer expectations.
+// @evidence contracts/testing.md#distinguishing-cases Different files/glob extensions distinguish replacing from accumulating old dependencies; symlink identity is exercised when native permission allows creation, while original option reconciliation always remains exercised.
+// @evidence contracts/testing.md#execution-ownership Real resolver binding, public publisher and native temporary filesystem identity execute in-process with cleanup. Optional symlink permission behavior is preserved explicitly; no watcher, native plugin producer or installed consumer is claimed.
 func TestProjectInputSnapshotReconcilesOptionsAndPhysicalPaths(t *testing.T) {
   physicalRoot := t.TempDir()
   selectedRoot := physicalRoot
@@ -88,6 +93,9 @@ func TestProjectInputSnapshotReconcilesOptionsAndPhysicalPaths(t *testing.T) {
   if !reflect.DeepEqual(second.Globs, wantGlobs) {
     t.Fatalf("replacement globs = %#v, want %#v", second.Globs, wantGlobs)
   }
+  physical, err := filepath.EvalSymlinks(physicalRoot)
+  if err != nil { t.Fatal(err) }
+  if first.Root != filepath.ToSlash(physical) || !reflect.DeepEqual(first.Files, []string{filepath.ToSlash(filepath.Join(physical, "docs", "old.md"))}) || !reflect.DeepEqual(first.Globs, []string{filepath.ToSlash(filepath.Join(physical, "api", "old", "**", "*.json"))}) || !reflect.DeepEqual(second.Files, []string{filepath.ToSlash(filepath.Join(physical, "docs", "new.md"))}) || !reflect.DeepEqual(second.Globs, []string{filepath.ToSlash(filepath.Join(physical, "api", "new", "**", "*.yaml"))}) { t.Fatalf("authored physical dependency patterns were not preserved independently: first=%#v second=%#v", first, second) }
 }
 
 func quotedJSON(value string) string {
