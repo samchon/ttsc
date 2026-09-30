@@ -3,6 +3,7 @@ import path from "node:path";
 
 import type { IBenchmarkWorkspace } from "../internal/IBenchmarkWorkspace";
 import { acquireBenchmarkWorkspace } from "../internal/benchmarkWorkspace";
+import { enumerateInstalledPrograms } from "../internal/enumerateInstalledPrograms";
 
 /**
  * Windows cannot start a program whose path exceeds `MAX_PATH`, and
@@ -65,12 +66,12 @@ const worstCaseWorkspaceLength = (repository: string): number => {
  *
  * @evidence contracts/testing.md#behavioral-verification On Windows .npmrc must name an absolute external virtual store and every enumerated .exe must fit the projected 259-character run-path budget.
  * @evidence contracts/testing.md#independent-expectations The literal limit, longest authored requirement subject and fixed 36-character run id independently define projection; installed .npmrc and tree supply observed layout.
- * @evidence contracts/testing.md#distinguishing-cases Missing, relative or internal store and over-budget paths fail; other OSes return early. Empty/unreadable walks pass and no executable is started.
+ * @evidence contracts/testing.md#distinguishing-cases Missing, relative or internal store, failed directory walks, zero observed executables and over-budget paths fail; other OSes return early. No executable is started.
  * @evidence contracts/testing.md#execution-ownership The matching features export runs via DynamicExecutor; Windows consumes the actual installed Evidence tree and filesystem walks.
- * @evidence contracts/e2e.md#necessary-boundary Only installed package layout reveals real executable path depth. Actual CreateProcess success and complete enumeration remain unproved limitations reported to the owner.
+ * @evidence contracts/e2e.md#necessary-boundary Only installed package layout reveals real executable path depth. Both actual roots must be read successfully and at least one regular executable must be observed; actual CreateProcess success remains outside this path-budget assertion.
  * @evidence contracts/e2e.md#shared-execution Existing Evidence preparation and four-package pack are reused; two read-only tree walks need no new install or process launch.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Acquisition restores tracked baseline while retaining ignored dependencies/output. The case mutates nothing; benchmarkWorkspace owns install/store lifetimes and cleanup.
- * @evidence contracts/e2e.md#preserved-coverage All original store and length assertions and the Windows condition remain. The name does not certify process startup; silent enumeration failure remains a coverage gap.
+ * @evidence contracts/e2e.md#preserved-coverage All original store and length assertions and the Windows condition remain. Source units additionally preserve actual populated, failed and empty walk outcomes without another installation; the name does not certify process startup.
  */
 export const test_benchmark_workspace_keeps_its_programs_startable =
   async (): Promise<void> => {
@@ -103,18 +104,14 @@ export const test_benchmark_workspace_keeps_its_programs_startable =
       path.resolve(__dirname, "..", "..", "..", ".."),
     );
     const offenders: { file: string; length: number }[] = [];
-    for (const program of programs(store)) {
+    const installed = enumerateInstalledPrograms([store, workspace.workspace]);
+    for (const program of installed) {
       // A program in the store is reached by the store's own absolute path, so
       // the run directory cannot lengthen it. One inside the workspace is
       // reached through the workspace, and the worst case is what decides it.
       const length: number = program.startsWith(path.resolve(store))
         ? program.length
         : worst + program.length - path.resolve(workspace.workspace).length;
-      if (length > LIMIT) offenders.push({ file: program, length });
-    }
-    for (const program of programs(workspace.workspace)) {
-      const length: number =
-        worst + program.length - path.resolve(workspace.workspace).length;
       if (length > LIMIT) offenders.push({ file: program, length });
     }
     if (offenders.length !== 0)
@@ -128,22 +125,3 @@ export const test_benchmark_workspace_keeps_its_programs_startable =
         ].join(" "),
       );
   };
-
-const programs = (root: string): string[] => {
-  const found: string[] = [];
-  const walk = (directory: string): void => {
-    let entries: fs.Dirent[];
-    try {
-      entries = fs.readdirSync(directory, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const entry of entries) {
-      const location: string = path.join(directory, entry.name);
-      if (entry.isDirectory()) walk(location);
-      else if (entry.name.toLowerCase().endsWith(".exe")) found.push(location);
-    }
-  };
-  if (fs.existsSync(root)) walk(path.resolve(root));
-  return found;
-};

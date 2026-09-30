@@ -10,6 +10,7 @@ import {
   removeActivationGate,
 } from "../internal/activationGates";
 import { assertClaimActivated } from "../internal/assertClaimActivated";
+import { assertRequirementsReached } from "../internal/assertRequirementsReached";
 import { assertPublishedAccessorsDemanded } from "../internal/assertPublishedAccessorsDemanded";
 import { acquireBenchmarkWorkspace } from "../internal/benchmarkWorkspace";
 import {
@@ -20,9 +21,7 @@ import {
   claimIsUnlockedBy,
   claimUnlockOrder,
 } from "../internal/claimUnlockOrder";
-import type { IMissingAcknowledgement } from "../internal/evidenceDiagnostics";
 import { provisionEnvironment } from "../internal/provisionEnvironment";
-import { requirementDocumentsDeclaringSections } from "../internal/requirementDocuments";
 import { runScript } from "../internal/runScript";
 import { startScriptWatch } from "../internal/startScriptWatch";
 import { stripCitations } from "../internal/stripCitations";
@@ -67,12 +66,12 @@ const INSTRUCTION =
  *
  * @evidence contracts/testing.md#behavioral-verification Every backend claim ships staged then reports obligations without empty references after untagged host materialization; observed Markdown targets reach every section-bearing document and package claims demand all accessors.
  * @evidence contracts/testing.md#independent-expectations Frozen instruction order, delivered requirement sections and generator-authored accessors establish expectations separately from claim diagnostic populations.
- * @evidence contracts/testing.md#distinguishing-cases Nonempty owners, staged/declared equality and required package reference fail closed. Markdown coverage runs only after a Markdown target is observed; accessor checks assert membership, not equality.
+ * @evidence contracts/testing.md#distinguishing-cases Nonempty owners, staged/declared equality and required package reference fail closed. Each declared Markdown reference requires all delivered section documents even when zero Markdown targets arrive; Prisma and TypeScript references alone owe no Markdown documents. Accessor checks assert membership, not equality.
  * @evidence contracts/testing.md#execution-ownership The matching features export runs via DynamicExecutor with real prerequisites and retained native watch sessions; stage failures accumulate before AggregateError.
  * @evidence contracts/e2e.md#necessary-boundary Real watch invalidation must carry host/config/schema edits into owning Programs and enumerate the installed generated SDK.
  * @evidence contracts/e2e.md#shared-execution Shared Evidence install/pack serve initial Prisma/SDK builds, one watch host per owning configuration and schema-triggered Prisma regeneration only when serialized inputs change.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Edits accumulate only in the temporary consumer. Baselines must pass; finally awaits every session close and adds cleanup failures, then later acquisition restores tracked baseline while ignored output/install remain.
- * @evidence contracts/e2e.md#preserved-coverage Every original baseline/staged/prerequisite/claim/document/accessor check remains. Zero observed Markdown targets bypass document completeness; this limitation is explicit.
+ * @evidence contracts/e2e.md#preserved-coverage Every original baseline/staged/prerequisite/claim/document/accessor check remains. Source units strengthen zero, partial and foreign-document failures, single/array declaration parsing and non-Markdown controls without another native producer or installation.
  */
 export const test_benchmark_evidence_backend_gates_activate_each_claim =
   async (): Promise<void> => {
@@ -167,7 +166,12 @@ export const test_benchmark_evidence_backend_gates_activate_each_claim =
             .get(owner.file)!
             .nextBuild((cycle) => cycle.output.includes(`'${claim}'`));
           const obligations = assertClaimActivated({ result, claim });
-          assertRequirementsReached(workspace.workspace, claim, obligations);
+          assertRequirementsReached(
+            workspace.workspace,
+            owner.file,
+            claim,
+            obligations,
+          );
           if (throughTheInstall.includes(claim))
             assertPublishedAccessorsDemanded({ workspace, claim, obligations });
           console.log(
@@ -224,62 +228,6 @@ const readStagedClaims = (configurations: readonly string[]) => {
     gates.push(...staged);
   }
   return gates;
-};
-
-/**
- * Fails when a requirement reference reached only part of the delivered
- * documents.
- *
- * The Markdown references reach out of the package into `docs/analysis/`, which
- * the runner copies byte-for-byte from the frozen requirements. A reference
- * that selects some documents and not others narrows the obligation without
- * saying so — the same silent shrinkage as an empty population, one document at
- * a time — and a reference that named a document the workspace does not carry
- * resolved against something other than the delivered requirements.
- *
- * Documents are matched by file name rather than by the whole address. A
- * Markdown target is spelled relative to the root its reference declares, and
- * these references declare roots that climb out of the package; pinning the
- * exact prefix would make this assert the addressing convention instead of the
- * property, and fail for a reason that has nothing to do with coverage.
- */
-const assertRequirementsReached = (
-  workspace: string,
-  claim: string,
-  obligations: readonly IMissingAcknowledgement[],
-): void => {
-  const reached = new Set<string>();
-  for (const obligation of obligations) {
-    const separator: number = obligation.target.indexOf("#");
-    const file: string =
-      separator === -1
-        ? obligation.target
-        : obligation.target.slice(0, separator);
-    if (file.endsWith(".md")) reached.add(file);
-  }
-  // A claim whose references are all Prisma or TypeScript owes no document at
-  // all; only a claim that reached one is held to reaching them all.
-  if (reached.size === 0) return;
-  const expected: string[] = requirementDocumentsDeclaringSections(workspace);
-  const named = (document: string): boolean => {
-    const basename: string = document.slice(document.lastIndexOf("/") + 1);
-    return [...reached].some(
-      (file) => file === document || file.endsWith(`/${basename}`),
-    );
-  };
-  const missing: string[] = expected.filter((document) => !named(document));
-  if (missing.length !== 0)
-    throw new Error(
-      `Claim '${claim}' demanded evidence from ${String(reached.size)} of the ${String(expected.length)} delivered requirement documents; nothing was owed for ${missing.join(", ")}.`,
-    );
-  const delivered: string[] = expected.map((document) =>
-    document.slice(document.lastIndexOf("/") + 1),
-  );
-  for (const file of reached)
-    if (!delivered.some((basename) => file.endsWith(basename)))
-      throw new Error(
-        `Claim '${claim}' demanded evidence from '${file}', which is not a delivered requirement document. The reference resolved against something other than \`docs/analysis/\`.`,
-      );
 };
 
 const owning = (
