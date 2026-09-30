@@ -18,7 +18,7 @@ func runNoLoopFunc(t *testing.T, source string) []noLoopFuncFinding {
   _, _, findings := runRuleFindingsSnapshot(t, "no-loop-func", source, nil)
   normalized := make([]noLoopFuncFinding, 0, len(findings))
   for _, finding := range findings {
-    if finding.Rule != "no-loop-func" {
+    if finding.Rule != "no-loop-func" || finding.Severity != SeverityError {
       t.Fatalf("unexpected rule in no-loop-func findings: %+v", finding)
     }
     if len(finding.Fix) != 0 || len(finding.Suggestions) != 0 {

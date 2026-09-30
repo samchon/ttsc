@@ -17,6 +17,11 @@ import "testing"
 // 1. Load the annotated TypeScript fixture source embedded below.
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine compares every original annotated invalid prologue or late-string diagnostic while preserving actual function and namespace prologue controls.
+// @evidence contracts/testing.md#independent-expectations Authored parenthesized strings, strings after non-prologue work and class-static-block strings are independently outside the default directive exemption.
+// @evidence contracts/testing.md#distinguishing-cases Parenthesized/program-late/function-late/static/namespace-late forms report; genuine early function and namespace directives remain clean. DirectiveProloguePositions owns all accepted grammar contexts.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusNoUnusedExpressionsDirectiveBoundaries is selected in the shared Go unit population. It calls assertRuleCorpusCase with no-unused-expressions-directive-boundaries.ts and the owning AST Engine. No installed consumer, native artifact build or real product host runs.
 func TestRuleCorpusNoUnusedExpressionsDirectiveBoundaries(t *testing.T) {
   assertRuleCorpusCase(t, "no-unused-expressions-directive-boundaries.ts", "// expect: no-unused-expressions error\n(\"use strict\");\n// expect: no-unused-expressions error\n\"use client\";\n\nconst ready: boolean = true;\n\n// expect: no-unused-expressions error\n\"misplaced after statement\";\n\nfunction scoped(): void {\n  \"use scoped\";\n  void ready;\n  // expect: no-unused-expressions error\n  \"use late\";\n}\n\nclass Widget {\n  static {\n    // expect: no-unused-expressions error\n    \"use static\";\n  }\n}\n\nnamespace Space {\n  \"use namespace\";\n  export const marker: number = 1;\n  // expect: no-unused-expressions error\n  \"after namespace statement\";\n}\n\nscoped();\nvoid Widget;\nvoid Space.marker;\n")
 }

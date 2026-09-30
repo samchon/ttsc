@@ -12,6 +12,11 @@ import "testing"
 // 1. Declare disposable and async-disposable resources inside loops.
 // 2. Capture each resource and include a suppressed reassignment attempt.
 // 3. Assert both closures remain exempt from no-loop-func diagnostics.
+//
+// @evidence contracts/testing.md#behavioral-verification Checker-backed findings must remain empty for captured using and await-using resources in both original function kinds.
+// @evidence contracts/testing.md#independent-expectations Resource declarations are independently immutable binding kinds; suppressed illegal reassignment is intentionally outside this rule rather than evidence the program type-checks.
+// @evidence contracts/testing.md#distinguishing-cases Synchronous and asynchronous resource declarations remain exempt even beside suppressed writes; mutable ordinary bindings in the corpus and write-form cases supply positive counterparts.
+// @evidence contracts/testing.md#execution-ownership TestNoLoopFuncAllowsUsingBindings is selected in the shared Go unit population. It calls runNoLoopFunc and assertNoLoopFuncFindings through the owning Engine with a real Program/Checker; all authored in-source cases belong to this entry. No installed consumer, native artifact build or real product host runs.
 func TestNoLoopFuncAllowsUsingBindings(t *testing.T) {
   source := `interface SymbolConstructor {
   readonly dispose: unique symbol;

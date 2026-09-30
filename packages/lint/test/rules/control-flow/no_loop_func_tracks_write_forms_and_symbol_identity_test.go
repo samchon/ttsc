@@ -12,6 +12,11 @@ import "testing"
 // 1. Capture five bindings with distinct write forms plus one stable binding.
 // 2. Write the stable spelling only through a separate local symbol.
 // 3. Assert the diagnostic lists exactly the five truly mutable symbols.
+//
+// @evidence contracts/testing.md#behavioral-verification Checker-backed findings require the one original closure range and exactly five unsafe variable names, excluding stable.
+// @evidence contracts/testing.md#independent-expectations Authored compound/destructuring/loop/update/foreign-function writes mutate their resolved upper bindings; the same-spelled stable write resolves to a different local symbol.
+// @evidence contracts/testing.md#distinguishing-cases Five actual mutable symbols report in the message; the separately shadowed stable symbol does not. ReportsOnlyUnsafeReferences owns source-border differences.
+// @evidence contracts/testing.md#execution-ownership TestNoLoopFuncTracksWriteFormsAndSymbolIdentity is selected in the shared Go unit population. It calls runNoLoopFunc and assertNoLoopFuncFindings through the owning Engine with a real Program/Checker; all authored in-source cases belong to this entry. No installed consumer, native artifact build or real product host runs.
 func TestNoLoopFuncTracksWriteFormsAndSymbolIdentity(t *testing.T) {
   source := `let assigned = 0;
 let destructured = 0;

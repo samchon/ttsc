@@ -18,6 +18,11 @@ import (
 // 1. Parse ternary statements with productive and mixed branches.
 // 2. Run the native Engine with no-unused-expressions configured with allowTernary.
 // 3. Assert only the ternaries with a side-effect-free branch are reported.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine compares exactly lines nine and ten while preserving ternaries with both productive alternatives.
+// @evidence contracts/testing.md#independent-expectations Both ternary alternatives must satisfy the independently specified option policy; a single count alternative is sufficient to reject either branch order.
+// @evidence contracts/testing.md#distinguishing-cases Call/call and assignment/call remain clean; call/count and count/call report. The composition case owns recursion into logical alternatives.
+// @evidence contracts/testing.md#execution-ownership TestNoUnusedExpressionsHonorsAllowTernary is selected in the shared Go unit population. It parses the complete original source and runs Engine through InlineRuleResolver with the actual allowTernary JSON. No installed consumer, native artifact build or real product host runs.
 func TestNoUnusedExpressionsHonorsAllowTernary(t *testing.T) {
   const ruleName = "no-unused-expressions"
   source := `declare function run(): number;

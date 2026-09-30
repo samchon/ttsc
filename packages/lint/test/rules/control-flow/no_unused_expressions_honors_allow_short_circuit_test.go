@@ -19,6 +19,11 @@ import (
 // 1. Parse logical statements with productive and non-productive right operands.
 // 2. Run the native Engine with no-unused-expressions configured with allowShortCircuit.
 // 3. Assert only the statements with side-effect-free right operands are reported.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine compares exactly lines nine and ten under allowShortCircuit rather than exempting every logical expression.
+// @evidence contracts/testing.md#independent-expectations The option independently requires a productive right operand; count is inert even when run() appears on the left.
+// @evidence contracts/testing.md#distinguishing-cases AND/OR/nullish forms ending in calls stay clean; flag && count and run() && count report. The composition test owns nested ternary decisions.
+// @evidence contracts/testing.md#execution-ownership TestNoUnusedExpressionsHonorsAllowShortCircuit is selected in the shared Go unit population. It parses the original source and runs Engine with the authored allowShortCircuit JSON through InlineRuleResolver. No installed consumer, native artifact build or real product host runs.
 func TestNoUnusedExpressionsHonorsAllowShortCircuit(t *testing.T) {
   const ruleName = "no-unused-expressions"
   source := `declare function run(): number;

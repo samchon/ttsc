@@ -11,6 +11,11 @@ import "testing"
 // 1. Run the annotated fixture source with a real Program and checker.
 // 2. Assert the outer mutable/var closure and returned closure are reported.
 // 3. Assert safe lets, consts, no-capture closures, and a direct IIFE are not.
+//
+// @evidence contracts/testing.md#behavioral-verification Checker-backed findings compare exactly both original unsafe closure ranges and canonical variable-name messages while preserving all safe corpus controls.
+// @evidence contracts/testing.md#independent-expectations Authored mutable/var writes independently outlive iterations; const/per-iteration let and a synchronous direct IIFE satisfy supported safety exemptions.
+// @evidence contracts/testing.md#distinguishing-cases Mutable plus var-counter closure and returned nested closure report; const/iteration/no-capture and direct IIFE remain clean.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusNoLoopFunc is selected in the shared Go unit population. It calls runNoLoopFunc and assertNoLoopFuncFindings through the owning Engine with a real Program/Checker; all authored in-source cases belong to this entry. No installed consumer, native artifact build or real product host runs.
 func TestRuleCorpusNoLoopFunc(t *testing.T) {
   source := `// Positive: a closure captures both an outer binding written after the loop
 // begins and a var loop counter shared by every iteration.

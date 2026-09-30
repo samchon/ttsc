@@ -20,6 +20,11 @@ import (
 // 1. Parse a file whose leading run mixes parenthesized and bare strings.
 // 2. Run the native Engine with no-unused-expressions configured with ignoreDirectives.
 // 3. Assert only the misplaced and static-block strings are reported.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine compares exactly late-string line four and class-static line nine under the original ignoreDirectives option.
+// @evidence contracts/testing.md#independent-expectations The supported compatibility mode ignores leading program strings until ordinary work appears; this oracle does not claim the parenthesized first string is a language-level strict directive.
+// @evidence contracts/testing.md#distinguishing-cases Leading strings remain clean under the option; a post-declaration string and static-block string report. DirectiveBoundaries owns default parenthesized handling.
+// @evidence contracts/testing.md#execution-ownership TestNoUnusedExpressionsHonorsIgnoreDirectives is selected in the shared Go unit population. It parses the original source and runs Engine through InlineRuleResolver with ignoreDirectives true. No installed consumer, native artifact build or real product host runs.
 func TestNoUnusedExpressionsHonorsIgnoreDirectives(t *testing.T) {
   const ruleName = "no-unused-expressions"
   source := `("use strict");

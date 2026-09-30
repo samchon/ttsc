@@ -20,6 +20,11 @@ import (
 // 1. Parse statements nesting ternaries inside logicals and logicals inside ternaries.
 // 2. Run the native Engine with both allowances enabled.
 // 3. Assert only the statement with a bare-identifier leaf is reported.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine must report only the original line-nine deeply nested inert right branch under both allow options.
+// @evidence contracts/testing.md#independent-expectations Short-circuit policy validates the right operand and ternary policy validates both alternatives; authored calls versus count independently determine recursive acceptance.
+// @evidence contracts/testing.md#distinguishing-cases Both nesting directions with productive leaves remain clean; a nested count leaf reports. Individual option tests own their isolated decision differences.
+// @evidence contracts/testing.md#execution-ownership TestNoUnusedExpressionsComposesShortCircuitAndTernary is selected in the shared Go unit population. It parses the original source and calls Engine.Run through InlineRuleResolver with both actual option booleans. No installed consumer, native artifact build or real product host runs.
 func TestNoUnusedExpressionsComposesShortCircuitAndTernary(t *testing.T) {
   const ruleName = "no-unused-expressions"
   source := `declare function run(): number;

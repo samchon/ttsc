@@ -12,6 +12,11 @@ import "testing"
 // 1. Exercise each safe binding class plus destructuring and shadowing.
 // 2. Place closures in a for initializer and for-in/of right-hand expressions.
 // 3. Mutate adjacent outer bindings and assert the rule remains silent.
+//
+// @evidence contracts/testing.md#behavioral-verification Checker-backed rule findings must be empty for every original safe capture, excluded loop header and same-name local case.
+// @evidence contracts/testing.md#independent-expectations Stable-before-loop, const and per-iteration let identities independently avoid later mutable captures; type-only uses and excluded header positions are supported policy exclusions.
+// @evidence contracts/testing.md#distinguishing-cases No capture, stable/const/iteration/destructured/shadow/type-only/unresolved/computed-name captures and initializer/iterable-header closures stay clean; ReportsOnlyUnsafeReferences and TracksWriteFormsAndSymbolIdentity own dangerous counterparts.
+// @evidence contracts/testing.md#execution-ownership TestNoLoopFuncAllowsSafeBindingsAndExcludedHeaders is selected in the shared Go unit population. It calls runNoLoopFunc and assertNoLoopFuncFindings through the owning Engine with a real Program/Checker; all authored in-source cases belong to this entry. No installed consumer, native artifact build or real product host runs.
 func TestNoLoopFuncAllowsSafeBindingsAndExcludedHeaders(t *testing.T) {
   source := `let stable = 0;
 stable = 1;

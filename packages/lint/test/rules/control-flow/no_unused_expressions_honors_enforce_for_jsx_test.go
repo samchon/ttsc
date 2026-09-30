@@ -18,6 +18,11 @@ import (
 // 1. Parse a TSX file with element, self-closing, fragment, and call statements.
 // 2. Run the native Engine with no-unused-expressions configured with enforceForJSX.
 // 3. Assert exactly the three bare JSX statements are reported.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine reports exactly standalone component, element and fragment lines four through six while preserving render(<App />).
+// @evidence contracts/testing.md#independent-expectations The independently authored enforceForJSX true option forbids unused standalone nodes but not a node used as a call argument.
+// @evidence contracts/testing.md#distinguishing-cases Three standalone JSX forms report; the render call remains clean. AllowsJsxByDefault owns the exact-source option-off counterpart.
+// @evidence contracts/testing.md#execution-ownership TestNoUnusedExpressionsHonorsEnforceForJsx is selected in the shared Go unit population. It calls parseTSXFile and Engine.Run through InlineRuleResolver with enforceForJSX true on the original four JSX forms. No installed consumer, native artifact build or real product host runs.
 func TestNoUnusedExpressionsHonorsEnforceForJsx(t *testing.T) {
   const ruleName = "no-unused-expressions"
   source := `declare function App(): unknown;

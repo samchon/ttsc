@@ -12,6 +12,11 @@ import "testing"
 // 1. Create closures over outer, var-loop, nested-loop, and per-iteration names.
 // 2. Mutate only bindings whose writes cross the applicable loop border.
 // 3. Assert exact function ranges and ESLint-compatible unsafe-name messages.
+//
+// @evidence contracts/testing.md#behavioral-verification Checker-backed findings compare four complete range/line/message records and name only original upper-scope mutable captures.
+// @evidence contracts/testing.md#independent-expectations Fixed variable-name lists follow authored writes crossing each loop border; iteration-local identity independently excludes iteration from the nested-loop message.
+// @evidence contracts/testing.md#distinguishing-cases Outer/var-counter, nested-border, parameter-default and do-loop captures report with exact unsafe names; per-iteration identity is excluded and safe-binding tests own wholly clean closures.
+// @evidence contracts/testing.md#execution-ownership TestNoLoopFuncReportsOnlyUnsafeReferences is selected in the shared Go unit population. It calls runNoLoopFunc and assertNoLoopFuncFindings through the owning Engine with a real Program/Checker; all authored in-source cases belong to this entry. No installed consumer, native artifact build or real product host runs.
 func TestNoLoopFuncReportsOnlyUnsafeReferences(t *testing.T) {
   source := `let first = 0;
 let second = 0;

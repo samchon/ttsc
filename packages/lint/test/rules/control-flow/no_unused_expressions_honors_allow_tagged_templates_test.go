@@ -19,6 +19,11 @@ import (
 // 1. Parse a tagged template statement and an untagged template statement.
 // 2. Run the native Engine with no-unused-expressions configured with allowTaggedTemplates.
 // 3. Assert only the untagged template is reported.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine compares exactly the plain-template line-four diagnostic under allowTaggedTemplates.
+// @evidence contracts/testing.md#independent-expectations The option independently exempts invocation of a tag, not creation of an untagged template literal; the fixed line is authored from that difference.
+// @evidence contracts/testing.md#distinguishing-cases Tagged template stays clean under true; plain template reports. The default corpus supplies the otherwise reporting tagged-template counterpart.
+// @evidence contracts/testing.md#execution-ownership TestNoUnusedExpressionsHonorsAllowTaggedTemplates is selected in the shared Go unit population. It parses the original tagged/untagged source and runs Engine through InlineRuleResolver with allowTaggedTemplates true. No installed consumer, native artifact build or real product host runs.
 func TestNoUnusedExpressionsHonorsAllowTaggedTemplates(t *testing.T) {
   const ruleName = "no-unused-expressions"
   source := `declare const tag: (strings: TemplateStringsArray) => string;
