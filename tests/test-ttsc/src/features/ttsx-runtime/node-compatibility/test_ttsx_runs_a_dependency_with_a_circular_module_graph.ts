@@ -16,8 +16,17 @@ import assert from "node:assert/strict";
  *    `a` and `b` modules import each other.
  * 2. Run ttsx against an entry that imports a value assembled across the cycle.
  * 3. Assert it loaded without a cycle error and produced the combined value.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The real compiler prepares a dependency-owned CommonJS program and NativeNode loads its circular a/b graph; exact combined:AB and zero status distinguish accidental ESM cycle handling.
+ * @evidence contracts/testing.md#independent-expectations Independent fixture exports A and B and CommonJS support for partially initialized cyclic modules establish the expected combined value.
+ * @evidence contracts/testing.md#distinguishing-cases This owns a real dependency program with a mutual cycle; acyclic source packages and ESM resolution are covered by other host batches.
+ * @evidence contracts/testing.md#execution-ownership This named filename-matching E2E entry runs the real built launcher or public register and native host. Portable option/cache decisions stay in source units; recursive main24 and the explicit Node compatibility directory both select this actual boundary.
+ * @evidence contracts/e2e.md#necessary-boundary The real compiler prepares a dependency-owned CommonJS program and NativeNode loads its circular a/b graph; exact combined:AB and zero status distinguish accidental ESM cycle handling. Direct source calls cannot prove this NativeNode loader or process connection.
+ * @evidence contracts/e2e.md#shared-execution One root program and one dependency-owned program are consumed by one host; the dependency compiler options differ from consumer ownership and cannot be substituted with root emit.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The immutable cyclic package version and local tsconfig identify the dependency preparation; no source mutation or cold-cache assertion is claimed, and synchronous spawn closes the host.
+ * @evidence contracts/e2e.md#preserved-coverage All original meaningful status, output and state assertions remain in this named entry; physical directory selection removes only repeated unrelated portable cases from floor/current execution, while main24 retains the entire runtime population.
  */
-export const test_ttsx_runs_a_dependency_with_a_circular_module_graph = () => {
+export function test_ttsx_runs_a_dependency_with_a_circular_module_graph() {
   const root = TestProject.createProject({
     "package.json": JSON.stringify({ private: true }),
     "tsconfig.json": JSON.stringify({
@@ -78,4 +87,4 @@ export const test_ttsx_runs_a_dependency_with_a_circular_module_graph = () => {
 
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout.trim(), "combined:AB");
-};
+}

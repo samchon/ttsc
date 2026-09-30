@@ -1,7 +1,7 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
-import { TTSX_REGISTER, linkTtscPackage } from "../../internal/ttsx-register";
+import { TTSX_REGISTER, linkTtscPackage } from "../../../internal/ttsx-register";
 
 /**
  * Verifies ttsx register runs checked CommonJS and ESM Node entries.

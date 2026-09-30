@@ -23,9 +23,17 @@ import assert from "node:assert/strict";
  *    the module's named export, the `.ts` key carries Node's own `.js` handler
  *    rather than a ttsx one (samchon/ttsc#1560), and the resolver is Node's own
  *    wherever `require.resolve` consults the hooks.
+ *
+ * @evidence contracts/testing.md#behavioral-verification An ESM import reaches CommonJS typed config, whose require and both require.resolve forms must reach target.ts; exact JSON also checks native .js handler and unwrapped resolver.
+ * @evidence contracts/testing.md#independent-expectations SERVED is a literal typed export; handler identity is compared to native .js and resolver wrapping is observed in the actual consumer.
+ * @evidence contracts/testing.md#distinguishing-cases Relative require.resolve and paths-based resolution are both checked; handler false and wrapper false expectations rule out private-loader substitution.
+ * @evidence contracts/testing.md#execution-ownership This named filename-matching E2E entry runs the real built launcher or public register and native host. Portable option/cache decisions stay in source units; recursive main24 and the explicit Node compatibility directory both select this actual boundary.
+ * @evidence contracts/e2e.md#necessary-boundary An ESM import reaches CommonJS typed config, whose require and both require.resolve forms must reach target.ts; exact JSON also checks native .js handler and unwrapped resolver. Direct source calls cannot prove this NativeNode loader or process connection.
+ * @evidence contracts/e2e.md#shared-execution One CommonJS project and ESM consumer host exercise every probe together; no per-resolution compiler preparation is introduced.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The target has no target.js fallback, so hook rescue cannot pass by reading emitted files; synchronous spawn closes the host and temporary project is TestProject-owned.
+ * @evidence contracts/e2e.md#preserved-coverage All original meaningful status, output and state assertions remain in this named entry; physical directory selection removes only repeated unrelated portable cases from floor/current execution, while main24 retains the entire runtime population.
  */
-export const test_ttsx_serves_commonjs_typescript_through_the_supported_hooks_alone =
-  () => {
+export function test_ttsx_serves_commonjs_typescript_through_the_supported_hooks_alone() {
     const root = TestProject.commonJsProject({
       "src/config.ts": [
         `declare const require: any;`,
@@ -69,4 +77,4 @@ export const test_ttsx_serves_commonjs_typescript_through_the_supported_hooks_al
       target: "SERVED",
       wrapped: false,
     });
-  };
+  }

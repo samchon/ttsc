@@ -9,7 +9,7 @@ import {
   runTtsxWithCoverage,
   sourceMapSourcePath,
   tallCommentLibrarySource,
-} from "../../internal/ttsx-source-map";
+} from "../../../internal/ttsx-source-map";
 
 /**
  * V8 consumes real maps from both entry and independently built dependency lanes.

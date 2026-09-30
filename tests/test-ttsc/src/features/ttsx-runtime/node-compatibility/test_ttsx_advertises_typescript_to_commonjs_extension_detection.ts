@@ -21,9 +21,17 @@ import assert from "node:assert/strict";
  *    that exists as both `x.js` and `x.ts`.
  * 3. Assert the key is Node's `.js` handler, the typed config loads, the lone
  *    source is found, and `x.js` still wins, as it does for Node.
+ *
+ * @evidence contracts/testing.md#behavioral-verification A native CommonJS entry checks require.extensions, loads typed config, resolves extensionless y.ts and prefers x.js over adjacent x.ts; the exact JSON pins every result.
+ * @evidence contracts/testing.md#independent-expectations Node native .js handler identity and literal fixture exports independently establish loader detection and Node extension precedence.
+ * @evidence contracts/testing.md#distinguishing-cases Typed-only resolution is positive and colliding x.js/x.ts is the counterexample where source must not displace JavaScript.
+ * @evidence contracts/testing.md#execution-ownership This named filename-matching E2E entry runs the real built launcher or public register and native host. Portable option/cache decisions stay in source units; recursive main24 and the explicit Node compatibility directory both select this actual boundary.
+ * @evidence contracts/e2e.md#necessary-boundary A native CommonJS entry checks require.extensions, loads typed config, resolves extensionless y.ts and prefers x.js over adjacent x.ts; the exact JSON pins every result. Direct source calls cannot prove this NativeNode loader or process connection.
+ * @evidence contracts/e2e.md#shared-execution One CommonJS project load and host execute all detection, resolution and precedence probes without extra installations or CLI invocations.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Separate x/y fixture paths distinguish collision from source-only resolution; synchronous spawn closes the sole process and TestProject owns its directory.
+ * @evidence contracts/e2e.md#preserved-coverage All original meaningful status, output and state assertions remain in this named entry; physical directory selection removes only repeated unrelated portable cases from floor/current execution, while main24 retains the entire runtime population.
  */
-export const test_ttsx_advertises_typescript_to_commonjs_extension_detection =
-  () => {
+export function test_ttsx_advertises_typescript_to_commonjs_extension_detection() {
     const root = TestProject.commonJsProject({
       "src/main.ts": [
         `declare const require: any;`,
@@ -62,4 +70,4 @@ export = { value };
       nodeHandler: true,
       precedence: "from-js",
     });
-  };
+  }

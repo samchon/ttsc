@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { THROWER_THROW_COLUMN, THROWER_THROW_LINE, physicalRealpath, tallCommentThrowerSource } from "../../internal/ttsx-source-map";
+import { THROWER_THROW_COLUMN, THROWER_THROW_LINE, physicalRealpath, tallCommentThrowerSource } from "../../../internal/ttsx-source-map";
 
 /**
  * Native error stacks consume entry and dependency maps without user Node flags.
