@@ -173,6 +173,11 @@ func init() {
 //     every metadata method was evaluated by one bootstrap owner.
 //  3. Reuse two different Main commands sequentially without another warning,
 //     then run the ordinary package suite against the initialized host.
+//
+// @evidence contracts/testing.md#behavioral-verification verifyInitialContributorBootstrap releases sixteen real Main calls, checks each exit, every collision and metadata-panic warning, metadata call counts and surviving contributor identities; duplicate initialization or wrong registry ownership fails before the ordinary suite starts.
+// @evidence contracts/testing.md#independent-expectations The registered fixture contributors deliberately define first-owner collisions and panic stages; literal warning counts and method counters follow those authored declarations rather than reading expected values from the resulting registries.
+// @evidence contracts/testing.md#distinguishing-cases File/file, file/project and project/project collisions contrast with successful contributors; each metadata panic stops at its intended stage, and repeated sequential commands must produce no new warnings after the concurrent bootstrap.
+// @evidence contracts/testing.md#execution-ownership Go invokes TestMain once before m.Run; Main executes in the same process and the private bootstrap helpers own these assertions. Ordinary tests keep their own entries and explanations, and no child compiler or contributor build is used here.
 func TestMain(m *testing.M) {
   if err := verifyInitialContributorBootstrap(); err != nil {
     fmt.Fprintf(os.Stderr, "contributor bootstrap lifecycle: %v\n", err)
@@ -209,6 +214,7 @@ func verifyInitialContributorBootstrap() error {
   }
 
   expectedWarnings := []string{
+    "metadata panicked: metadata boom; dropping contributor entry",
     "metadata panicked: bootstrap Name boom; dropping contributor entry",
     "metadata panicked: bootstrap Visits boom; dropping contributor entry",
     "metadata panicked: bootstrap IsFormat boom; dropping contributor entry",
@@ -229,6 +235,9 @@ func verifyInitialContributorBootstrap() error {
     if count := strings.Count(stderr, warning); count != 1 {
       return fmt.Errorf("warning %q appeared %d times in %q", warning, count, stderr)
     }
+  }
+  if strings.Contains(stderr, "panic: metadata boom") {
+    return fmt.Errorf("original contributor metadata panic escaped recovery: %q", stderr)
   }
   if err := verifyContributorMetadataCounts(); err != nil {
     return err
@@ -398,6 +407,11 @@ func captureBootstrapMainCommands(commands [][]string) ([]int, string, error) {
 //  1. Invoke the command-id entry after bootstrap.
 //  2. Invoke the code-action-kind entry in the same process.
 //  3. Assert both succeed without contributor stderr.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls Main for command IDs and code-action kinds after bootstrap and checks successful exits with empty stderr, detecting a second contributor initialization that repeats warnings.
+// @evidence contracts/testing.md#independent-expectations Valid command queries must return zero and reuse the already published contributor registry without new diagnostics; those literal expectations follow the reusable Main contract.
+// @evidence contracts/testing.md#distinguishing-cases Two distinct queries reuse the same initialized host. TestMain owns the complementary fresh concurrent initialization, collision and panic cases, so this entry isolates sequential reuse.
+// @evidence contracts/testing.md#execution-ownership The discovered TestContributorBootstrapIsSingleOwnerForReusableMain entry runs its two Main calls directly in the shared Go process; fresh initialization executes once in TestMain and is not repeated for this case.
 func TestContributorBootstrapIsSingleOwnerForReusableMain(t *testing.T) {
   for _, command := range [][]string{{"lsp-command-ids"}, {"lsp-code-action-kinds"}} {
     code, _, stderr := captureCommandOutput(t, func() int { return Main(command) })
