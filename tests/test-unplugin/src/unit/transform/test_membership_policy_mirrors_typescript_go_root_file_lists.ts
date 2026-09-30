@@ -1,8 +1,8 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/lib/core/tsconfig/readProjectMembershipPolicy.mjs";
+import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
 
 /**
  * Verifies the membership policy resolves `files` and `include` exactly as
@@ -24,6 +24,10 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/li
  *    entries, `${configDir}`, and a leaf that blocks inheritance.
  * 3. Assert each resolves to the lists TypeScript-Go would use, and an unreadable
  *    config keeps the permissive fallback.
+ * @evidence contracts/testing.md#behavioral-verification The authored membership reader resolves default root specs and inherited files/include arrays while retaining unreadable-config fallback.
+ * @evidence contracts/testing.md#independent-expectations Literal expected files/include arrays follow the config inheritance contract, including owner-relative anchors and leaf configDir substitution, independently of product read results.
+ * @evidence contracts/testing.md#distinguishing-cases Absent/null/non-array lists, files-only/empty/union, single/multiple extends, leaf null blocking and malformed JSON retain their distinct assertions.
+ * @evidence contracts/testing.md#execution-ownership The named source unit imports only the actual authored membership reader with private config bytes; it needs no emitted API entry, plugin source, native process or project compile.
  */
 export async function test_membership_policy_mirrors_typescript_go_root_file_lists(): Promise<void> {
   const root = TestProject.tmpdir("ttsc-unplugin-root-lists-");

@@ -1,9 +1,13 @@
-import { TestUnpluginRuntime } from "@ttsc/testing";
+import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
+import { mergeMembershipPolicyOverlay } from "../../../../../packages/unplugin/src/core/tsconfig/mergeMembershipPolicyOverlay";
+import { isProjectWalkPath } from "../../../../../packages/unplugin/src/core/transform/project/isProjectWalkPath";
+import { collectProjectInputHashes } from "../../../../../packages/unplugin/src/core/transform/project/collectProjectInputHashes";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { createCacheProject } from "../../internal/transform-project-cache/createCacheProject";
+import { createSourcePolicyProject } from "../../internal/source-policy/createSourcePolicyProject";
 
 /**
  * Verifies the walk and `isProjectWalkPath` give the same answer.
@@ -21,10 +25,14 @@ import { createCacheProject } from "../../internal/transform-project-cache/creat
  *    origin.
  * 2. Walk it, and ask the predicate about every file in each location.
  * 3. Assert the predicate answers yes exactly for the files the walk hashed.
+ * @evidence contracts/testing.md#behavioral-verification Authored policy/overlay/walk operations apply output-option provenance and preserve exact admission distinctions when overlays replace inherited paths.
+ * @evidence contracts/testing.md#independent-expectations Literal inherited/overlay output locations, empty/null/path-template values and explicit excluded/admitted file expectations independently specify each result; exact collected hashes corroborate predicates.
+ * @evidence contracts/testing.md#distinguishing-cases Inherited versus replaced output paths, empty/null child/overlay options, configDir anchors, explicit/empty exclusions, provenance-free public policy and ordinary source retain every original assertion.
+ * @evidence contracts/testing.md#execution-ownership The named source unit invokes the authored reader, overlay, walk predicate and collector on cheap literal config/source files. Unused synthetic Go fixture materialization and built public API imports are removed; no native compile cost moves into this unit.
  */
 export async function test_transformttsc_the_walk_predicate_matches_the_walk(): Promise<void> {
-  const api = await TestUnpluginRuntime.loadUnpluginApi();
-  const project = createCacheProject({
+  const api = { readProjectMembershipPolicy, mergeMembershipPolicyOverlay, isProjectWalkPath, collectProjectInputHashes };
+  const project = createSourcePolicyProject({
     fileCount: 1,
     outDir: "src/inherited-output",
   });

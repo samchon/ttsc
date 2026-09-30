@@ -1,14 +1,14 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/lib/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS.mjs";
-import { isProjectWalkPath } from "../../../../../packages/unplugin/lib/core/transform/project/isProjectWalkPath.mjs";
-import { reportsProgramMembership } from "../../../../../packages/unplugin/lib/core/transform/project/reportsProgramMembership.mjs";
-import { walkProjectInputs } from "../../../../../packages/unplugin/lib/core/transform/project/walkProjectInputs.mjs";
-import type { ITtscProjectMembershipPolicy } from "../../../../../packages/unplugin/lib/core/tsconfig/ITtscProjectMembershipPolicy.mjs";
-import { PERMISSIVE_PROJECT_MEMBERSHIP_POLICY } from "../../../../../packages/unplugin/lib/core/tsconfig/PERMISSIVE_PROJECT_MEMBERSHIP_POLICY.mjs";
-import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/lib/core/tsconfig/readProjectMembershipPolicy.mjs";
+import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
+import { isProjectWalkPath } from "../../../../../packages/unplugin/src/core/transform/project/isProjectWalkPath";
+import { reportsProgramMembership } from "../../../../../packages/unplugin/src/core/transform/project/reportsProgramMembership";
+import { walkProjectInputs } from "../../../../../packages/unplugin/src/core/transform/project/walkProjectInputs";
+import type { ITtscProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/ITtscProjectMembershipPolicy";
+import { PERMISSIVE_PROJECT_MEMBERSHIP_POLICY } from "../../../../../packages/unplugin/src/core/tsconfig/PERMISSIVE_PROJECT_MEMBERSHIP_POLICY";
+import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
 
 /**
  * Verifies the walk, the walk predicate, and the live tracker give one answer
@@ -29,6 +29,10 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/li
  *    and under the permissive fallback.
  * 3. Assert all three agree, and tool output under ignored names is never
  *    membership.
+ * @evidence contracts/testing.md#behavioral-verification Actual walk, isProjectWalkPath and reportsProgramMembership select the independently specified planted corpus under readable policy and permissive fallback.
+ * @evidence contracts/testing.md#independent-expectations Two literal expected file populations define ordinary source, explicitly pinned package input and fallback hidden-path admission independently of all three product operations.
+ * @evidence contracts/testing.md#distinguishing-cases Every planted source/package/hidden/tool file is checked positively or negatively under both policies, while exact walk populations prevent three identically incorrect predicates from certifying each other.
+ * @evidence contracts/testing.md#execution-ownership This named source unit invokes authored walk and membership operations over private files. reportsProgramMembership is the policy predicate; no live tracker/watch process or native compiler is opened.
  */
 export async function test_membership_walk_predicate_and_tracker_agree_on_ignored_paths(): Promise<void> {
   const root = TestProject.tmpdir("ttsc-unplugin-membership-agree-");

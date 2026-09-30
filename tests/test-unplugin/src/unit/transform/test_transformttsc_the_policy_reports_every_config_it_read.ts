@@ -1,9 +1,10 @@
-import { TestUnpluginRuntime } from "@ttsc/testing";
+import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { createCacheProject } from "../../internal/transform-project-cache/createCacheProject";
+import { createSourcePolicyProject } from "../../internal/source-policy/createSourcePolicyProject";
 
 /**
  * Verifies the membership policy reports every config it consulted, including
@@ -23,10 +24,14 @@ import { createCacheProject } from "../../internal/transform-project-cache/creat
  *    differently cased specifiers.
  * 3. Create the base with an `exclude` and assert the policy applies it and still
  *    reports the base.
+ * @evidence contracts/testing.md#behavioral-verification The authored membership reader reports leaf and unresolved inheritance candidates, then applies a created base exclusion without dropping its provenance.
+ * @evidence contracts/testing.md#independent-expectations Literal leaf/base/.JSON.json candidate names and the generated exclusion path define expected source provenance independently of the product enumeration.
+ * @evidence contracts/testing.md#distinguishing-cases Missing explicit base, extensionless probe, case-sensitive suffix probe, later base appearance and inherited exclusion retain all original assertions.
+ * @evidence contracts/testing.md#execution-ownership This named source unit calls the actual authored reader with a source-only JSON/project fixture; it replaces built API loading and unused synthetic Go source preparation without adding a compiler surrogate.
  */
 export async function test_transformttsc_the_policy_reports_every_config_it_read(): Promise<void> {
-  const api = await TestUnpluginRuntime.loadUnpluginApi();
-  const project = createCacheProject({ fileCount: 1 });
+  const api = { readProjectMembershipPolicy };
+  const project = createSourcePolicyProject({ fileCount: 1 });
   const leaf = path.join(project.root, "tsconfig.json");
   const base = path.join(project.root, "tsconfig.base.json");
   const declared = JSON.parse(fs.readFileSync(leaf, "utf8")) as {

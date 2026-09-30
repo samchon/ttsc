@@ -1,9 +1,9 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { readEffectiveTsconfigPaths } from "../../../../../packages/unplugin/lib/core/tsconfig/readEffectiveTsconfigPaths.js";
+import { readEffectiveTsconfigPaths } from "../../../../../packages/unplugin/src/core/tsconfig/readEffectiveTsconfigPaths";
 
 /**
  * Verifies the alias overlay resolves an `extends` specifier as a config file,
@@ -19,6 +19,10 @@ import { readEffectiveTsconfigPaths } from "../../../../../packages/unplugin/lib
  * 2. Assert the effective paths come from `config.json`.
  * 3. Remove `config.json` and assert the directory contributes nothing.
  * 4. Assert an explicit `.json` spelling is not given a second suffix.
+ * @evidence contracts/testing.md#behavioral-verification The authored effective-paths reader resolves extensionless extends to config.json, refuses the same-named directory and never adds .json twice to an explicit suffix.
+ * @evidence contracts/testing.md#independent-expectations Literal file/* versus directory/* declarations and empty negative expectations distinguish the supported file resolution rule independently of runtime output.
+ * @evidence contracts/testing.md#distinguishing-cases Competing file/directory, removed file and an explicit .json target beside a tempting double-suffix file retain all three independent assertions.
+ * @evidence contracts/testing.md#execution-ownership This named source unit calls readEffectiveTsconfigPaths directly on private config bytes; the old native-plugins placement never launched a compiler and is removed from that execution population.
  */
 export async function test_transformttsc_alias_overlay_resolves_extends_as_a_file(): Promise<void> {
   const root = TestProject.tmpdir("ttsc-unplugin-extends-");

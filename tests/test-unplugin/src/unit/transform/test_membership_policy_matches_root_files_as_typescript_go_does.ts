@@ -1,9 +1,9 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { matchesProjectRootFile } from "../../../../../packages/unplugin/lib/core/tsconfig/matchesProjectRootFile.mjs";
-import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/lib/core/tsconfig/readProjectMembershipPolicy.mjs";
+import { matchesProjectRootFile } from "../../../../../packages/unplugin/src/core/tsconfig/matchesProjectRootFile";
+import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
 
 /**
  * Verifies root-file matching follows TypeScript-Go's wildcard rules for tool
@@ -24,6 +24,10 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/li
  * 3. Match dotted and package directories named literally, and a wildcard that
  *    spells `.min.`.
  * 4. Assert each file and directory answer is TypeScript-Go's.
+ * @evidence contracts/testing.md#behavioral-verification Authored root matching applies TypeScript-Go wildcard admission to source/package/hidden/JSON/minified paths and distinguishes file from directory matching.
+ * @evidence contracts/testing.md#independent-expectations Literal table rows specify independently supported default glob, explicit files, JSON-spec and minified-file expectations; expected booleans are not obtained from the matcher.
+ * @evidence contracts/testing.md#distinguishing-cases Default include, named hidden/package directories, literal JSON, shallow JSON patterns and explicit .min. patterns preserve every positive and adjacent negative row.
+ * @evidence contracts/testing.md#execution-ownership This named source unit invokes the actual matcher and config reader directly on a small JSON fixture, without starting a compiler merely to reach wildcard policy.
  */
 export async function test_membership_policy_matches_root_files_as_typescript_go_does(): Promise<void> {
   const root = TestProject.tmpdir("ttsc-unplugin-root-match-");

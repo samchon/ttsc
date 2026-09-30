@@ -1,9 +1,9 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { selectReferencedProject } from "../../../../../packages/unplugin/lib/core/tsconfig/selectReferencedProject.mjs";
+import { selectReferencedProject } from "../../../../../packages/unplugin/src/core/tsconfig/selectReferencedProject";
 
 /**
  * Verifies a file's default project is selected through a solution config's
@@ -35,6 +35,10 @@ import { selectReferencedProject } from "../../../../../packages/unplugin/lib/co
  *    every searched config consulted.
  * 4. Select below a directory one reference includes and excludes, and assert the
  *    reference that includes it wins unless the first lists the file.
+ * @evidence contracts/testing.md#behavioral-verification selectReferencedProject selects the admitting referenced config and returns every earlier routing candidate, including content changes whose size/mtime remain fixed.
+ * @evidence contracts/testing.md#independent-expectations Literal tsconfig references/include/files/exclude and expected consulted arrays independently define depth-first routing, rather than replaying resolver output.
+ * @evidence contracts/testing.md#distinguishing-cases Own-admission, nested solutions, missing references that appear or are rewritten, cycles, fallback and files overriding exclude all retain their original assertions.
+ * @evidence contracts/testing.md#execution-ownership The named source unit calls authored selectReferencedProject on private config/source files; no CLI, native compiler, consumer install or source-plugin fixture is created.
  */
 export async function test_default_project_follows_solution_references(): Promise<void> {
   const root = fs.realpathSync.native(TestProject.tmpdir("ttsc-solution-"));

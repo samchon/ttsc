@@ -1,4 +1,9 @@
-import { TestProject, TestUnpluginRuntime } from "@ttsc/testing";
+import { mergeMembershipPolicyOverlay } from "../../../../../packages/unplugin/src/core/tsconfig/mergeMembershipPolicyOverlay";
+import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
+import { collectProjectInputHashSnapshot } from "../../../../../packages/unplugin/src/core/transform/project/collectProjectInputHashSnapshot";
+import { isProjectWalkPath } from "../../../../../packages/unplugin/src/core/transform/project/isProjectWalkPath";
+import { collectProjectInputHashes } from "../../../../../packages/unplugin/src/core/transform/project/collectProjectInputHashes";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -11,11 +16,15 @@ import path from "node:path";
  * meanings, and a skipped source must move to external-input validation.
  *
  * 1. Materialize a tree and base/leaf configs with contrasting specifications.
- * 2. Collect built-API snapshots and compare exact keys for each configuration.
+ * 2. Collect authored-source snapshots and compare exact keys for each configuration.
  * 3. Require out-of-walk classification and compiler-option overlays to agree.
+ * @evidence contracts/testing.md#behavioral-verification Authored policy, overlay, walk snapshot and path classification select exact source keys across discovery specs, inheritance, links and explicit compiler case policies.
+ * @evidence contracts/testing.md#independent-expectations Literal source populations define glob/files/empty/configDir and Unicode outcomes; independently supplied sensitive/insensitive compiler policies require [] or sigma.ts on the same Linux execution.
+ * @evidence contracts/testing.md#distinguishing-cases Original discovery/root-alias/link mutation/special-name controls remain; both Unicode case meanings are exercised instead of selecting one expectation from the OS name.
+ * @evidence contracts/testing.md#execution-ownership The named source unit imports actual authored policy/snapshot/path owners and creates only resolver fixture files/links. No native artifact, process session or compiler runs to produce policy facts.
  */
 export async function test_transformttsc_root_file_policy_resolves_discovery_specs(): Promise<void> {
-  const api = await TestUnpluginRuntime.loadUnpluginApi();
+  const api = { mergeMembershipPolicyOverlay, readProjectMembershipPolicy, collectProjectInputHashSnapshot, isProjectWalkPath, collectProjectInputHashes };
   const root = TestProject.tmpdir("ttsc-root-file-policy-");
   const physicalRoot = fs.realpathSync.native(root);
   const files = [
@@ -195,18 +204,23 @@ export async function test_transformttsc_root_file_policy_resolves_discovery_spe
   fs.writeFileSync(path.join(root, "unicode", "\u03c4.ts"), "export {};\n");
   for (const include of [["unicode/\u03c2.ts"], ["unicode/\u03c2*.ts"]]) {
     fs.writeFileSync(config, JSON.stringify({ include }));
-    const unicodePolicy = api.readProjectMembershipPolicy(config);
-    assert.deepEqual(
-      Object.keys(
-        api.collectProjectInputHashes(
-          root,
-          undefined,
-          undefined,
-          unicodePolicy,
+    for (const useCaseSensitiveFileNames of [true, false]) {
+      const unicodePolicy = {
+        ...api.readProjectMembershipPolicy(config),
+        useCaseSensitiveFileNames,
+      };
+      assert.deepEqual(
+        Object.keys(
+          api.collectProjectInputHashes(
+            root,
+            undefined,
+            undefined,
+            unicodePolicy,
+          ),
         ),
-      ),
-      process.platform === "linux" ? [] : ["unicode/\u03c3.ts"],
-      JSON.stringify(include),
-    );
+        useCaseSensitiveFileNames ? [] : ["unicode/\u03c3.ts"],
+        JSON.stringify({ include, useCaseSensitiveFileNames }),
+      );
+    }
   }
 }

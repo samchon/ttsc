@@ -1,12 +1,12 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { collectProjectInputHashes } from "../../../../../packages/unplugin/lib/core/transform/project/collectProjectInputHashes.mjs";
-import { isProjectWalkPath } from "../../../../../packages/unplugin/lib/core/transform/project/isProjectWalkPath.mjs";
-import { readEffectiveTsconfigPaths } from "../../../../../packages/unplugin/lib/core/tsconfig/readEffectiveTsconfigPaths.mjs";
-import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/lib/core/tsconfig/readProjectMembershipPolicy.mjs";
+import { collectProjectInputHashes } from "../../../../../packages/unplugin/src/core/transform/project/collectProjectInputHashes";
+import { isProjectWalkPath } from "../../../../../packages/unplugin/src/core/transform/project/isProjectWalkPath";
+import { readEffectiveTsconfigPaths } from "../../../../../packages/unplugin/src/core/tsconfig/readEffectiveTsconfigPaths";
+import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
 
 /**
  * Verifies every path the config chain yields for a project reached through a
@@ -29,6 +29,10 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/li
  * 2. Read the policy through the link, and assert its configs, root, output
  *    exclusion, and `paths` targets are all spelled under the link.
  * 3. Assert the walk under the link admits the source and not the emitted file.
+ * @evidence contracts/testing.md#behavioral-verification Authored config/policy/paths readers preserve the named project link in roots, exclusions and aliases, and the actual walk admits source while excluding dist output.
+ * @evidence contracts/testing.md#independent-expectations Literal base outDir/paths values and expected linked path arrays define lexical anchoring; the independent source/output fixture distinguishes a lost output exclusion.
+ * @evidence contracts/testing.md#distinguishing-cases Physical versus linked spellings, ordinary source versus emitted output, policy roots/configs/paths and exact collected source keys are all retained.
+ * @evidence contracts/testing.md#execution-ownership This named source unit imports the actual policy and walk owners and uses a real directory link as resolver data. It starts no watcher, native compiler, plugin producer or host; native watch streams have separate boundary owners.
  */
 export async function test_membership_policy_keeps_a_linked_projects_spelling(): Promise<void> {
   const physical = fs.realpathSync.native(
