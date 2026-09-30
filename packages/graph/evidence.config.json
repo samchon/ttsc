@@ -29,7 +29,12 @@
         "!src/server/runDetails.ts",
         "!src/server/resolveHandle.ts",
         "!src/server/runTrace.ts",
-        "!src/server/startServer.ts"
+        "!src/server/startServer.ts",
+        "!src/model/TtscGraphLinePeer.ts",
+        "!src/model/TtscGraphNativeArguments.ts",
+        "!src/model/TtscGraphProtocol.ts",
+        "!src/model/TtscGraphSessionState.ts",
+        "!src/model/TtscLintDaemonState.ts"
       ],
       "symbol": ["type", "function"],
       "reference": {
@@ -77,7 +82,8 @@
         "src/model/TtscGraphSourceReader.ts",
         "src/model/TtscGraphSession.ts",
         "src/model/TtscLintDaemon.ts",
-        "src/server/startServer.ts"
+        "src/server/startServer.ts",
+        "src/model/TtscGraphLinePeer.ts"
       ],
       "symbol": ["type", "function"],
       "reference": {
@@ -98,12 +104,30 @@
       "files": [
         "src/runGraph.ts",
         "src/launcherArgs.ts",
-        "src/resolveGraphBinary.ts"
+        "src/resolveGraphBinary.ts",
+        "src/model/TtscGraphNativeArguments.ts"
       ],
       "symbol": ["type", "function"],
       "reference": {
         "type": "markdown",
         "files": ["contracts/common.md", "contracts/portability.md"],
+        "symbol": "h2",
+        "checklist": true,
+        "root": "../../.agents/skills"
+      }
+    },
+    {
+      "name": "graph protocol decoding and resident state owners",
+      "type": "typescript",
+      "files": [
+        "src/model/TtscGraphProtocol.ts",
+        "src/model/TtscGraphSessionState.ts",
+        "src/model/TtscLintDaemonState.ts"
+      ],
+      "symbol": ["type", "function"],
+      "reference": {
+        "type": "markdown",
+        "files": ["contracts/common.md", "contracts/performance.md"],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"

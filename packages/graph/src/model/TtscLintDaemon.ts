@@ -1,5 +1,6 @@
-import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
-import readline from "node:readline";
+import { TtscGraphNativeArguments } from "./TtscGraphNativeArguments";
+import { TtscGraphLinePeer } from "./TtscGraphLinePeer";
+import { TtscLintDaemonState } from "./TtscLintDaemonState";
 
 /**
  * One plugin sidecar this daemon can be opened against.
@@ -42,26 +43,27 @@ export interface ITtscLintDaemonTarget {
  * before this and is still correct — only slower.
  *
  * @evidence contracts/common.md#principled-implementation Serialized line requests match FIFO responses; unsupported or failed daemon replies return null so callers can use the same direct verb contract.
- * @evidence contracts/common.md#clear-and-simple-design This owner isolates one sidecar's transport, pending replies and failure state from artifact publication semantics.
+ * @evidence contracts/common.md#clear-and-simple-design This facade owns one sidecar's launch identity; daemon state owns FIFO replies/fallback and the shared line adapter owns its native transport.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A failed daemon is retired rather than advertised as a successful empty artifact set.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain resident amortization and the supported direct-command fallback rather than claiming all failures are empty results.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ask owns queue/transport processing with send/start/onLine helpers; the declaration describes their state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ask delegates FIFO processing and fallback to daemon state; this declaration describes the real sidecar launch identity.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work ask owns continued process/configuration reuse and invalidation.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ask and close own acquisition, failure and shutdown transitions; the declaration adds no independent lifecycle operation.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation Native invocation and termination decisions are acknowledged on ask and close together with private helpers.
  */
 export class TtscLintDaemon {
-  private child: ChildProcessWithoutNullStreams | undefined;
-  private lines: readline.Interface | undefined;
-  private readonly pending: ((reply: IReply | null) => void)[] = [];
-  private queue: Promise<unknown> = Promise.resolve();
-  private failed = false;
+  private readonly state: TtscLintDaemonState;
 
   public constructor(
     private readonly target: ITtscLintDaemonTarget,
     private readonly cwd: string,
     private readonly tsconfig: string,
-  ) {}
+  ) {
+    this.state = new TtscLintDaemonState((events) => TtscGraphLinePeer.open(
+      this.target.binary,
+      TtscGraphNativeArguments.lint(this.cwd, this.tsconfig, this.target.manifest, this.target.projectContext), events, { cwd: this.cwd, stderr: "drain", termination: "end" },
+    ));
+  }
 
   /**
    * Ask one verb and return its raw JSON, or `null` when this daemon cannot
@@ -77,7 +79,7 @@ export class TtscLintDaemon {
    * would be matched against the first one's answer.
    *
    * @evidence contracts/common.md#principled-implementation A promise queue admits one request at a time because the protocol orders responses without request ids; result text preserves arbitrary JSON values.
-   * @evidence contracts/common.md#clear-and-simple-design ask owns queue admission while send/start/onLine own transport and reply decoding.
+   * @evidence contracts/common.md#clear-and-simple-design ask delegates queue admission and reply decoding to daemon state; its configured opener supplies actual native transport and supported sidecar argv.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Null explicitly requests a direct fallback; it cannot silently masquerade as no published artifacts.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain null meaning and why requests must be serialized.
    * @evidence contracts/performance.md#efficient-algorithms Each request writes and decodes one JSON frame; queue work is linear in serialized frame bytes with one active reply.
@@ -86,9 +88,7 @@ export class TtscLintDaemon {
    * @evidence contracts/portability.md#os-neutral-implementation spawn passes executable and an argv vector directly with windowsHide, preserving spaces and native executable semantics without shell quoting.
    */
   public ask(verb: string, invalidate: boolean): Promise<string | null> {
-    const run = this.queue.then(() => this.send(verb, invalidate));
-    this.queue = run.catch(() => undefined);
-    return run;
+    return this.state.ask(verb, invalidate);
   }
 
   /**
@@ -105,122 +105,5 @@ export class TtscLintDaemon {
    * @evidence contracts/performance.md#bound-retention-and-release-resources Both normal and failed shutdown settle pending callbacks, close readline and end/kill the owned process; already absent children require no further release.
    * @evidence contracts/portability.md#os-neutral-implementation Node stream closure and child.kill own native termination rather than platform shell commands.
    */
-  public close(): void {
-    this.failed = true;
-    for (const settle of this.pending.splice(0)) settle(null);
-    this.lines?.close();
-    this.lines = undefined;
-    const child = this.child;
-    this.child = undefined;
-    if (child === undefined) return;
-    child.stdin.end();
-    child.kill();
-  }
-
-  private async send(
-    verb: string,
-    invalidate: boolean,
-  ): Promise<string | null> {
-    if (this.failed) return null;
-    const child = this.start();
-    if (child === undefined) return null;
-    const reply = await new Promise<IReply | null>((resolve) => {
-      this.pending.push(resolve);
-      child.stdin.write(
-        `${JSON.stringify({ invalidate, verb })}\n`,
-        (error) => {
-          if (error === null || error === undefined) return;
-          this.fail();
-        },
-      );
-    });
-    if (reply === null || reply.code !== 0) {
-      // A nonzero code is the sidecar declining, and this client cannot tell
-      // "unknown verb" from "the rule failed". Closing rather than retrying
-      // through the daemon is what makes the caller fall back to the direct
-      // command, where a real failure surfaces the same way it always did.
-      this.close();
-      return null;
-    }
-    return reply.result;
-  }
-
-  private start(): ChildProcessWithoutNullStreams | undefined {
-    if (this.child !== undefined) return this.child;
-    if (this.failed) return undefined;
-    let child: ChildProcessWithoutNullStreams;
-    try {
-      child = spawn(
-        this.target.binary,
-        [
-          "lsp-serve",
-          `--cwd=${this.cwd}`,
-          `--tsconfig=${this.tsconfig}`,
-          `--plugins-json=${this.target.manifest}`,
-          ...(this.target.projectContext === undefined
-            ? []
-            : [`--project-context-json=${this.target.projectContext}`]),
-        ],
-        { cwd: this.cwd, stdio: ["pipe", "pipe", "pipe"], windowsHide: true },
-      );
-    } catch {
-      this.failed = true;
-      return undefined;
-    }
-    this.child = child;
-    // The sidecar's stderr is its own diagnostic channel and is not this
-    // client's to interpret; draining it keeps a chatty plugin from filling the
-    // pipe and stalling the daemon it is talking through.
-    child.stderr.resume();
-    child.on("error", () => this.fail());
-    child.on("exit", () => this.fail());
-    this.lines = readline.createInterface({ input: child.stdout });
-    this.lines.on("line", (line) => this.onLine(line));
-    return child;
-  }
-
-  private onLine(line: string): void {
-    const settle = this.pending.shift();
-    if (settle === undefined) return;
-    let reply: IReply;
-    try {
-      reply = JSON.parse(line) as IReply;
-    } catch {
-      settle(null);
-      return;
-    }
-    settle(
-      typeof reply.code === "number"
-        ? { code: reply.code, result: rawResult(line) }
-        : null,
-    );
-  }
-
-  private fail(): void {
-    this.close();
-  }
-}
-
-/** One `lsp-serve` reply: a verb result and the code that qualifies it. */
-interface IReply {
-  code: number;
-  result: string;
-}
-
-/**
- * The `result` member, as the JSON text this daemon's callers parse.
- *
- * A verb's result is arbitrary JSON that the caller decodes itself, so it is
- * handed back as text rather than as a value — which is what the direct command
- * hands over, and what keeps the two paths interchangeable. The text is
- * re-serialized rather than sliced out of the line: the bytes are not identical
- * to the sidecar's own, but the value they decode to is, and no caller here
- * reads anything else.
- *
- * A reply with no `result` is `"null"`, so a caller parses a value either way
- * instead of being handed the empty string.
- */
-function rawResult(line: string): string {
-  const parsed = JSON.parse(line) as { result?: unknown };
-  return parsed.result === undefined ? "null" : JSON.stringify(parsed.result);
+  public close(): void { this.state.close(); }
 }
