@@ -1,37 +1,20 @@
 import assert from "node:assert/strict";
-import { createRequire } from "node:module";
-import path from "node:path";
-
-const require = createRequire(import.meta.url);
-const graphLib = path.dirname(require.resolve("@ttsc/graph"));
-const { TtscGraphMemory } = require(
-  path.join(graphLib, "model", "TtscGraphMemory.js"),
-) as { TtscGraphMemory: { from(dump: unknown): GraphMemory } };
-const { runLookup } = require(
-  path.join(graphLib, "server", "runLookup.js"),
-) as {
-  runLookup(
-    graph: GraphMemory,
-    props: { query: string },
-  ): { result: { hits: { id: string; kind: string; name: string }[] } };
-};
-interface GraphMemory {
-  node(id: string): { id: string; kind: string; parent?: string } | undefined;
-  incoming(id: string): readonly { from: string; to: string; kind: string }[];
-}
+import { TtscGraphMemory } from "../../../../packages/graph/src/model/TtscGraphMemory";
+import { runLookup } from "../../../../packages/graph/src/server/runLookup";
+import type { ITtscGraphDump } from "../../../../packages/graph/src/structures/ITtscGraphDump";
 
 /**
  * A dump carrying one declaration, the section it cites, and that section's
  * document.
  */
-const dump = () => ({
+const dump = (): ITtscGraphDump => ({
   project: "/fixture",
   tsconfig: "tsconfig.json",
   provenance: {
     schemaVersion: 8,
     capabilities: ["docTags", "artifactNodes"],
-    producer: { tool: "fixture", typescript: "7.0.0-dev" },
-    artifactProducer: { tool: "fixture lint" },
+    producer: { tool: "fixture", version: "", typescript: "7.0.0-dev" },
+    artifactProducer: { tool: "fixture lint", version: "", typescript: "" },
     universe: { configs: [], roots: [] },
     sources: [],
   },
@@ -101,9 +84,12 @@ const dump = () => ({
  * 2. Assert containment was synthesized from `parent`, not from a `file` node.
  * 3. Assert a lookup on the address returns the artifact and the citing
  *    declaration.
+  * @evidence contracts/testing.md#behavioral-verification TtscGraphMemory.from and runLookup return the literal artifact identity and title first, preserve its citation hit and synthesize document containment.
+ * @evidence contracts/testing.md#independent-expectations Literal authored node IDs and document parent define the expected ownership and lookup result independently of the product indexes.
+ * @evidence contracts/testing.md#distinguishing-cases A document and section coexist with citing and unrelated code declarations; synthesized containment must use the document rather than a file node.
+ * @evidence contracts/testing.md#execution-ownership The named src/unit entry invokes authored memory and lookup functions on deliberately synthetic index data without installed artifacts, native builds or a host.
  */
-export const test_ttscgraph_artifact_nodes_answer_the_address_they_name =
-  (): void => {
+export function test_ttscgraph_artifact_nodes_answer_the_address_they_name(): void {
     const graph = TtscGraphMemory.from(dump());
 
     const section = graph.node("docs/sale.md#pricing");
@@ -117,7 +103,7 @@ export const test_ttscgraph_artifact_nodes_answer_the_address_they_name =
       "a section is contained by its document, never by a synthesized file node",
     );
 
-    const hits = runLookup(graph, { query: "docs/sale.md#pricing" }).result
+    const hits = runLookup(graph, { type: "lookup", query: "docs/sale.md#pricing" }).result
       .hits;
     assert.equal(
       hits[0]?.id,
@@ -133,4 +119,4 @@ export const test_ttscgraph_artifact_nodes_answer_the_address_they_name =
       hits.some((hit) => hit.id === "src/notice.ts#renderNotice:function"),
       "the declaration citing the address is missing from the answer",
     );
-  };
+  }

@@ -1,43 +1,23 @@
 import assert from "node:assert/strict";
-import { createRequire } from "node:module";
+import fs from "node:fs";
 import path from "node:path";
-
-const require = createRequire(import.meta.url);
-const graphLib = path.dirname(require.resolve("@ttsc/graph"));
-const { TtscGraphMemory } = require(
-  path.join(graphLib, "model", "TtscGraphMemory.js"),
-) as { TtscGraphMemory: { from(dump: unknown): unknown } };
-const { runDetails } = require(
-  path.join(graphLib, "server", "runDetails.js"),
-) as {
-  runDetails(
-    graph: unknown,
-    props: { handles: string[] },
-  ): {
-    result: {
-      nodes: {
-        name: string;
-        signature?: string;
-        doc?: string;
-        sourceSpan?: { startLine?: number };
-        members?: unknown[];
-      }[];
-    };
-  };
-};
+import { TestProject } from "../../../utils/src/TestProject";
+import { TtscGraphMemory } from "../../../../packages/graph/src/model/TtscGraphMemory";
+import { runDetails } from "../../../../packages/graph/src/server/runDetails";
+import type { ITtscGraphDump } from "../../../../packages/graph/src/structures/ITtscGraphDump";
 
 /** The heading text a section carries, and the prose it must never carry. */
 const HEADING = "Coupon stacking";
 const BODY = "Only one coupon per issuer may apply to a single order line.";
 
-const dump = () => ({
+const dump = (): ITtscGraphDump => ({
   project: "/fixture",
   tsconfig: "tsconfig.json",
   provenance: {
     schemaVersion: 8,
     capabilities: ["artifactNodes", "sourceDigests"],
-    producer: { tool: "fixture", typescript: "7.0.0-dev" },
-    artifactProducer: { tool: "fixture lint" },
+    producer: { tool: "fixture", version: "", typescript: "7.0.0-dev" },
+    artifactProducer: { tool: "fixture lint", version: "", typescript: "" },
     universe: { configs: [], roots: [] },
     // The document is deliberately absent from the manifest: a plugin read it,
     // this Program did not, so the reader has no digest to trust and must fail
@@ -89,11 +69,21 @@ const dump = () => ({
  * 2. Ask `details` for the section by its address.
  * 3. Assert it answers with the heading and the line, and that no field carries
  *    the document's prose.
+  * @evidence contracts/testing.md#behavioral-verification TtscGraphMemory.from and runDetails return the artifact heading and span but no body from a real independently written Markdown file lacking provenance.
+ * @evidence contracts/testing.md#independent-expectations A literal heading, line and body plus independently written fixture bytes define the expected details; serialization searches every returned field for the forbidden body.
+ * @evidence contracts/testing.md#distinguishing-cases The physical document exists but its digest is absent; heading and span must survive while prose and invented members must not appear.
+ * @evidence contracts/testing.md#execution-ownership The named src/unit entry invokes authored memory and details functions over a real resolver fixture filesystem, without consumer installation, native producer or host.
  */
-export const test_ttscgraph_details_never_returns_an_artifact_body =
-  (): void => {
-    const graph = TtscGraphMemory.from(dump());
+export function test_ttscgraph_details_never_returns_an_artifact_body(): void {
+    const directory = TestProject.tmpdir("graph-artifact-prose-");
+    try {
+      fs.mkdirSync(path.join(directory, "docs"));
+      fs.writeFileSync(path.join(directory, "docs/discount.md"), Array(11).fill("preamble").join("\n") + "\n## " + HEADING + "\n" + BODY + "\n");
+      const snapshot = dump();
+      snapshot.project = directory;
+      const graph = TtscGraphMemory.from(snapshot);
     const detail = runDetails(graph, {
+      type: "details",
       handles: ["docs/discount.md#coupon-stacking"],
     }).result.nodes[0];
 
@@ -127,4 +117,7 @@ export const test_ttscgraph_details_never_returns_an_artifact_body =
       true,
       "an artifact has no members; a member list here would be invented",
     );
-  };
+      } finally {
+      fs.rmSync(directory, { recursive: true, force: true });
+    }
+}
