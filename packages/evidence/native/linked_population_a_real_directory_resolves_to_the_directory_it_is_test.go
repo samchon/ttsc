@@ -23,7 +23,7 @@ import (
  * @evidence contracts/testing.md#behavioral-verification resolveLinkedPath settles a real temporary directory and its returned path opens the same directory.
  * @evidence contracts/testing.md#independent-expectations os.SameFile compares operating-system file identity independently of the resolver spelling.
  * @evidence contracts/testing.md#distinguishing-cases A real existing directory complements hypothetical no-link paths whose identity cannot be opened.
- * @evidence contracts/testing.md#execution-ownership This named Go unit calls authored rule/resolver operations in one Go test process with native filesystem fixtures, without installing a consumer, compiling a native artifact or launching a product host. Symbolic-link creation uses os.Symlink; unsupported local privileges fail instead of skipping.
+ * @evidence contracts/testing.md#execution-ownership TestARealDirectoryResolvesToTheDirectoryItIs allocates its own t.TempDir, calls resolveLinkedPath and compares actual os.Stat identities with os.SameFile in one Go process. It creates no symbolic link, consumer or native compiler; t.TempDir owns fixture cleanup.
  */
 func TestARealDirectoryResolvesToTheDirectoryItIs(t *testing.T) {
 	directory := t.TempDir()

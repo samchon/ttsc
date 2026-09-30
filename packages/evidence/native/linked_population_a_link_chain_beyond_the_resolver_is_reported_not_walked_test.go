@@ -17,17 +17,16 @@ import (
  * remove, reappearing past the bound. Nobody writes a chain this long; the class
  * is what has to be sealed.
  *
- * Darwin and the BSDs stop at the same number of hops the resolver does, so the
- * gate answers first there and this window does not exist. The case verifies
- * that rather than assuming it, because a chain the platform itself refuses to
- * follow proves nothing about the one the resolver refuses.
+ * A host that stops following at the same bound cannot establish this case.
+ * Its fixture precondition fails rather than treating that platform limitation
+ * as a passing or skipped assertion; the Linux unit lane must reach the target.
  *
  *  1. Build a chain of 35 links, past the 32 the resolver follows.
- *  2. Skip where the platform stops following at or before the same bound.
+ *  2. Require the host to follow the chain; failure is a fixture failure.
  *  3. Root a reference at its head, run the rule, and assert the root is named
  *     with no glob diagnostic derived from it.
  *
- * @evidence contracts/testing.md#behavioral-verification runRootedGraphIn refuses a Markdown root reached through thirty-four links and suppresses the derivative empty-population diagnostic.
+ * @evidence contracts/testing.md#behavioral-verification runRootedGraphIn refuses a Markdown root reached through thirty-five links and suppresses the derivative empty-population diagnostic.
  * @evidence contracts/testing.md#independent-expectations Literal refused root and chain wording with absence of matched-no-files distinguish failure from emptiness.
  * @evidence contracts/testing.md#distinguishing-cases The host can stat the target while the owning resolver deliberately stops before completing the chain.
  * @evidence contracts/testing.md#execution-ownership This named Go unit calls authored rule/resolver operations in one Go test process with native filesystem fixtures, without installing a consumer, compiling a native artifact or launching a product host. Symbolic-link creation uses os.Symlink; unsupported local privileges fail instead of skipping.

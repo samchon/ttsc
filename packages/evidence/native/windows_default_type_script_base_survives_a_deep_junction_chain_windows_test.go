@@ -18,8 +18,8 @@ import (
  * @evidence contracts/testing.md#execution-ownership The existing Windows kernel batch executes this case against the previously installed candidate SDK. Fixture junction creation is an actual Windows process boundary; no per-case compiler or SDK installation is added.
  * @evidence contracts/e2e.md#shared-execution The existing installed CLI candidate is shared by the Windows kernel batch; this test creates only its junction fixture and directly invokes rule semantics in that one Go test process.
  * @evidence contracts/e2e.md#necessary-boundary The actual Windows filesystem, candidate SDK and authored rule graph are sufficient for this junction comparison. No bundler, LSP or additional consumer is started.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The positive host directory check precedes the original positive diagnostic and negative opposing-message assertions across a chain beyond the bounded resolver, exercising native alias expansion and traversal together.
- * @evidence contracts/e2e.md#preserved-coverage This case shares the installed candidate and Go process with the other Windows kernel cases; portable symbolic-link semantics remain direct Go units.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The shared installed candidate SDK is immutable for this batch. Each case owns its t.TempDir, source files, junction chain and local rule graph; t.TempDir removes the fixture after execution. These TypeScript and Markdown cases do not load or mutate Prisma or Swagger decoder caches.
+ * @evidence contracts/e2e.md#preserved-coverage TestWindowsDefaultTypeScriptBaseSurvivesADeepJunctionChain preserves TestADefaultTypeScriptBaseIsNotRefusedForAChain's literal positive diagnostics and absence of the opposing diagnostic across the same thirty-four-hop fixture, replacing only symbolic-link creation with actual Windows junction creation. The original portable entry remains in Linux units.
  */
 func TestWindowsDefaultTypeScriptBaseSurvivesADeepJunctionChain(t *testing.T) {
 	workspace := t.TempDir()

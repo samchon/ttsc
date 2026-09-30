@@ -24,7 +24,7 @@ import (
  * @evidence contracts/testing.md#behavioral-verification populationBase.display composes a drive root and a parent-relative root without doubled separators.
  * @evidence contracts/testing.md#independent-expectations Literal D:/requirements/pricing.md and ../docs/requirements/pricing.md define the display contract.
  * @evidence contracts/testing.md#distinguishing-cases A drive prefix ending in a separator contrasts with an ascending display prefix.
- * @evidence contracts/testing.md#execution-ownership This named Go unit calls authored rule/resolver operations in one Go test process with native filesystem fixtures, without installing a consumer, compiling a native artifact or launching a product host. Symbolic-link creation uses os.Symlink; unsupported local privileges fail instead of skipping.
+ * @evidence contracts/testing.md#execution-ownership TestADriveRootBaseComposesOneSeparator calls populationBase.display twice with authored scalar values in one Go test process. It creates no filesystem fixture or symbolic link and starts no product host, compiler or installed consumer.
  */
 func TestADriveRootBaseComposesOneSeparator(t *testing.T) {
 	drive := populationBase{Absolute: `D:\`, Display: "D:/"}

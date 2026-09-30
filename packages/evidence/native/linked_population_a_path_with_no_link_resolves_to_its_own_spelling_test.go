@@ -28,7 +28,7 @@ import (
  * @evidence contracts/testing.md#behavioral-verification resolveLinkedPath settles hypothetical native path shapes and preserves their cleaned spelling.
  * @evidence contracts/testing.md#independent-expectations Authored nonexistent path shapes contain no fixture links; filepath.Clean independently defines lexical normalization, not resolver traversal.
  * @evidence contracts/testing.md#distinguishing-cases Windows drive, UNC and extended prefixes contrast with POSIX root and descendants; native platform semantics choose the appropriate shape set.
- * @evidence contracts/testing.md#execution-ownership This named Go unit calls authored rule/resolver operations in one Go test process with native filesystem fixtures, without installing a consumer, compiling a native artifact or launching a product host. Symbolic-link creation uses os.Symlink; unsupported local privileges fail instead of skipping.
+ * @evidence contracts/testing.md#execution-ownership TestAPathWithNoLinkResolvesToItsOwnSpelling calls resolveLinkedPath with hypothetical native path strings and actual Lstat probes in one Go process. It creates no fixture or symbolic link; Linux selects POSIX shapes, while Windows drive and UNC probes use the real native filesystem policy. No consumer, compiler or product host is started.
  */
 func TestAPathWithNoLinkResolvesToItsOwnSpelling(t *testing.T) {
 	shapes := []string{}

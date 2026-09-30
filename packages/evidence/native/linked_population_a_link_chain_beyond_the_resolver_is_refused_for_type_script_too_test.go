@@ -20,7 +20,7 @@ import (
  *
  * @evidence contracts/testing.md#behavioral-verification runRootedGraphIn reports the bounded TypeScript root refusal for a chain the host can stat.
  * @evidence contracts/testing.md#independent-expectations The literal typescript root ../mirror refusal is an authored failure oracle.
- * @evidence contracts/testing.md#distinguishing-cases Thirty-four links exceed the thirty-two-link resolver limit; the exact boundary is separately pinned by TestTheResolverFollowsExactlyItsBoundOfLinks.
+ * @evidence contracts/testing.md#distinguishing-cases Thirty-five links exceed the thirty-two-link resolver limit; the exact boundary is separately pinned by TestTheResolverFollowsExactlyItsBoundOfLinks.
  * @evidence contracts/testing.md#execution-ownership This named Go unit calls authored rule/resolver operations in one Go test process with native filesystem fixtures, without installing a consumer, compiling a native artifact or launching a product host. Symbolic-link creation uses os.Symlink; unsupported local privileges fail instead of skipping.
  */
 func TestALinkChainBeyondTheResolverIsRefusedForTypeScriptToo(t *testing.T) {
