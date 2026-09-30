@@ -9,7 +9,17 @@ const path = require("node:path");
 const repository = path.resolve(__dirname, "../..");
 
 /**
- * Runs the shipped compiler and native platform tools in a bare consumer.
+ * Verifies the shipped compiler and native platform tools in a bare consumer.
+ *
+ * A structured onConsumerCreated callback receives a fresh allocation before
+ * preparation. With keep:true it owns that root even if preparation throws;
+ * a rejecting callback leaves cleanup with this constructor. Default calls
+ * preserve the ordinary keep/reuse lifecycle.
+ *
+ * 1. Prepare a new packed consumer or validate the explicitly reused owner.
+ * 2. Execute installed Node and native launchers and bundled Go version probes.
+ * 3. Compile and run the authored message with emit and the TypeScript runtime.
+ * 4. Release the consumer unless its confirmed owner requested retention.
  *
  * @evidence contracts/testing.md#behavioral-verification
  *   Executes installed ttsc/ttsx versions, native server/graph versions, bundled
@@ -31,6 +41,8 @@ const repository = path.resolve(__dirname, "../..");
  *   install; reuse mode runs the same actual assertions on another Node version.
  *   Structured archiveDirectory input borrows already packed immutable bytes
  *   into a newly installed consumer without repacking or editing their owner.
+ *   onConsumerCreated synchronously transfers the allocated root before marker,
+ *   archive or install work, including when later preparation fails.
  * @evidence contracts/e2e.md#necessary-boundary
  *   Actual packed artifacts must locate their native peer and SDK and run from
  *   a consumer without checkout overrides. Direct resolver units cannot prove
@@ -62,10 +74,16 @@ const workspace = reuse
   ? process.env.TTSC_INSTALLED_SMOKE_ROOT
   : fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-cli-smoke-"));
 assert(workspace, "--reuse requires TTSC_INSTALLED_SMOKE_ROOT");
-console.log(`Installed CLI consumer: ${workspace}`);
 const marker = path.join(workspace, ".ttsc-cli-smoke");
+let consumerTransferred = false;
 
 try {
+  if (options.onConsumerCreated) {
+    assert(!reuse, "A reused consumer cannot transfer new allocation ownership");
+    options.onConsumerCreated(workspace);
+    consumerTransferred = true;
+  }
+  console.log(`Installed CLI consumer: ${workspace}`);
   if (reuse) assert.equal(fs.readFileSync(marker, "utf8"), repository);
   else {
     fs.writeFileSync(marker, repository);
@@ -137,7 +155,8 @@ try {
 } finally {
   // Fresh scratch directories are owned by this invocation. A reused consumer
   // stays for the next Node-version probe in the same job.
-  if (!keep && !reuse) fs.rmSync(workspace, { recursive: true, force: true });
+  if (!reuse && (!keep || (options.onConsumerCreated && !consumerTransferred)))
+    fs.rmSync(workspace, { recursive: true, force: true });
 }
 
 function runNode(args) {

@@ -44,6 +44,31 @@ const prepared = new Map<EvidenceBenchmarkArm, Promise<IBenchmarkWorkspace>>();
 let toolchain: Promise<ITtscEvidenceBenchmarkWorkspaceArtifact[]> | undefined;
 
 /**
+ * Lends the suite's completed toolchain to an awaited installed SDK consumer.
+ *
+ * The test runner awaits its borrower before executing features and before
+ * final resource release. Later arm preparation reuses these identical packed
+ * archives; the borrower owns its installation and never edits this directory.
+ *
+ * @evidence contracts/common.md#principled-implementation Awaits the actual shared pack before lending its owned directory, so consumers receive completed immutable artifacts rather than observing a partially written tarball.
+ * @evidence contracts/common.md#clear-and-simple-design A single callback represents the current installed SDK borrower; normal feature preparation and the suite resource owner retain their existing responsibilities.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Uses the actual toolchain producer and performs no second pack, foreign mutation or measured workspace repair.
+ * @evidence contracts/common.md#meaningful-documentation States the callback's read-only ownership and the runner's await-before-release prerequisite.
+ * @evidence contracts/performance.md#efficient-algorithms Adds one promise acquisition and callback to the existing four-package producer, without scanning or copying arm workspaces.
+ * @evidence contracts/performance.md#reuse-equivalent-work The installed boundary and benchmark arms borrow the same completed pack promise, whose source inputs remain frozen for this invocation.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The suite retains its archives until the awaited borrower and all selected features settle; the borrower owns its distinct temporary consumer.
+ * @evidence contracts/portability.md#os-neutral-implementation Passes the native absolute directory to the borrower and leaves archive handling to Node filesystem operations.
+ */
+export const withBenchmarkToolchain = async (
+  consume: (directory: string) => Promise<void>,
+): Promise<void> => {
+  if (released) throw new Error("The benchmark workspace suite has been released.");
+  const suite = suiteTemporaryDirectory();
+  await acquireToolchain(suite);
+  await consume(path.join(suite, "toolchain"));
+};
+
+/**
  * Prepares one benchmark workspace per arm and hands every case the same tree.
  *
  * Preparation is a real `pnpm install` of a NestJS, Prisma, Playwright, and

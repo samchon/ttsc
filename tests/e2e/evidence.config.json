@@ -9,7 +9,8 @@
         "tests/test-*/src/features/**/test_*.ts",
         "tests/test-*/src/native-plugins/**/test_*.ts",
         "tests/test-*/src/os-boundaries/**/test_*.ts",
-        "tests/e2e/installed-os-boundaries.mts"
+        "tests/e2e/installed-os-boundaries.mts",
+        "tests/test-evidence-benchmark/src/internal/runInstalledSdkBoundaries.ts"
       ],
       "symbol": "function",
       "reference": [

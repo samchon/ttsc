@@ -1,6 +1,7 @@
 import { DynamicExecutor } from "@nestia/e2e";
 
-import { releaseBenchmarkWorkspaces } from "./internal/benchmarkWorkspace";
+import { releaseBenchmarkWorkspaces, withBenchmarkToolchain } from "./internal/benchmarkWorkspace";
+import { runInstalledSdkBoundaries } from "./internal/runInstalledSdkBoundaries";
 import { closeBenchmarkWatches } from "./internal/startScriptWatch";
 
 const main = async (): Promise<void> => {
@@ -53,6 +54,15 @@ const main = async (): Promise<void> => {
 
 void (async () => {
   try {
+    if (process.argv.includes("--installed-sdk")) {
+      try {
+        await withBenchmarkToolchain(runInstalledSdkBoundaries);
+      } catch (error) {
+        // A boundary failure must not conceal unrelated benchmark features.
+        console.error(error);
+        process.exitCode = 1;
+      }
+    }
     await main();
   } catch (error) {
     console.error(error);
