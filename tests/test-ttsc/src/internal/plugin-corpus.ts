@@ -49,7 +49,11 @@ function pluginProject(
 }
 
 /** Absolute identity of an immutable native producer shared by CLI consumers. */
-function nativePluginSource(fixture: "transformer" | "driver-emit" | "simple-source" | "runtime-source" = "transformer"): string {
+function nativePluginSource(fixture: "transformer" | "driver-emit" | "simple-source" | "runtime-source" | "raw-linked-host" | "own-linked-host" = "transformer"): string {
+  if (fixture === "raw-linked-host" || fixture === "own-linked-host") {
+    return path.join(TestProject.WORKSPACE_ROOT, "tests", "go-linked-driver-host", "cmd",
+      fixture === "raw-linked-host" ? "driver-host" : "emit-host");
+  }
   if (fixture === "runtime-source") {
     return path.join(TestProject.WORKSPACE_ROOT, "tests", "go-source-runtime-plugin");
   }

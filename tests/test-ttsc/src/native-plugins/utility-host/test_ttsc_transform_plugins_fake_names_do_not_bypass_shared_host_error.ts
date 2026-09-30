@@ -16,9 +16,17 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
  * 1. Two executable transform descriptors use names that look like package IDs.
  * 2. Run ttsc with both descriptors in one emit pass.
  * 3. Assert the normal multiple-native-backends error is reported.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Actual CLI must reject two executable sources even when their descriptor names imitate built-in linked packages.
+ * @evidence contracts/testing.md#independent-expectations Two distinct Go main packages and literal multiple-backend diagnostic establish incompatible compiler owners independently of plugin labels.
+ * @evidence contracts/testing.md#distinguishing-cases Owns false built-in labels on executable sources and public nonzero error transport; does not impersonate actual linked implementations.
+ * @evidence contracts/testing.md#execution-ownership The matching named utility-host export executes one real descriptor-admission and compatibility pass in the shared Linux native population.
+ * @evidence contracts/e2e.md#necessary-boundary The real loader must classify both Go main sources as executable owners before the shared-host guard; a guard unit with preselected kinds does not establish that earlier classification.
+ * @evidence contracts/e2e.md#shared-execution The cheap independent main fixtures and compiler objects use the suite cache without requiring the heavy linked utility host.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Fresh distinct descriptor/source modules prevent equal-identity reuse from hiding incompatible owners; names are input labels rather than asserted native routing authority.
+ * @evidence contracts/e2e.md#preserved-coverage Both original public nonzero exit and exact multiple-native-backend diagnostic pattern remain; no predicate-only replacement discards the actual loader classification boundary.
  */
-export const test_ttsc_transform_plugins_fake_names_do_not_bypass_shared_host_error =
-  () => {
+export function test_ttsc_transform_plugins_fake_names_do_not_bypass_shared_host_error(): void {
     const root = TestProject.commonJsProject(
       {
         "src/main.ts": `export const value = "x";\n`,
@@ -66,4 +74,4 @@ export const test_ttsc_transform_plugins_fake_names_do_not_bypass_shared_host_er
       result.stderr,
       /multiple compiler native backends cannot share one emit pass/,
     );
-  };
+  }

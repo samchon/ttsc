@@ -21,9 +21,17 @@ import { SHARED_GO_BUILD_CACHE_DIR } from "../../internal/plugin-cache";
  * 3. Assert one linked host was built with 3 contributors, path aliases were
  *    rewritten, banner was prepended, and `console.log`/`debugger` were
  *    stripped.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Actual cold linked-host build must report three contributors, emit exactly one banner in JS and declarations, rewrite imports and remove console/debugger.
+ * @evidence contracts/testing.md#independent-expectations Literal paths-first banner and exact contributor count distinguish one aggregate host from descriptor-order-dependent ownership.
+ * @evidence contracts/testing.md#distinguishing-cases Owns paths as the first descriptor, banner/strip config discovery, linked host assembly and JS/declaration composition.
+ * @evidence contracts/testing.md#execution-ownership The matching named utility-host export owns one cold native pass in the shared Linux boundary population.
+ * @evidence contracts/e2e.md#necessary-boundary The loader must select one linked host and statically compile all three contributors regardless of descriptor order; semantic units cannot prove that assembled binary ran.
+ * @evidence contracts/e2e.md#shared-execution Compiler objects are shared, but this case retains a fresh plugin cache because its original build diagnostics observe cold host publication.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Fresh source/config/output and independently cold plugin cache prevent a warm binary masking host selection; shared Go objects do not bypass the asserted link build.
+ * @evidence contracts/e2e.md#preserved-coverage Every original cold-build diagnostic, contributor count, single-banner JS/declaration check, rewritten import and removed-side-effect assertion remains.
  */
-export const test_ttsc_utility_plugins_shared_transform_host_works_when_paths_is_first =
-  () => {
+export function test_ttsc_utility_plugins_shared_transform_host_works_when_paths_is_first(): void {
     const root = TestProject.createProject({
       "tsconfig.json": JSON.stringify({
         compilerOptions: {
@@ -83,4 +91,4 @@ export const test_ttsc_utility_plugins_shared_transform_host_works_when_paths_is
     TestUtilityPlugins.assertSingleBanner(dts, "paths first");
     assert.match(js, /require\("\.\/modules\/message\.js"\)/);
     assert.doesNotMatch(js, /@lib\/message|console\.log|\bdebugger\b/);
-  };
+  }

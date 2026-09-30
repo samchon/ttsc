@@ -23,9 +23,17 @@ import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
  *    logs a secret at module scope.
  * 2. Run ttsx against an entry that imports the dependency for its value.
  * 3. Assert the secret was stripped and the dependency's value is intact.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Actual runtime must print only entry:dependency-value, so the imported package value survives and its secret log is removed.
+ * @evidence contracts/testing.md#independent-expectations The dependency explicitly authors a secret side effect and literal value; exact combined stdout excludes executing untranslated dependency input.
+ * @evidence contracts/testing.md#distinguishing-cases Owns raw-source dependency resolution under its own tsconfig and statically linked strip transform before runtime execution.
+ * @evidence contracts/testing.md#execution-ownership The matching named driver export executes one actual ttsx entry and its dependency build in the shared Linux boundary population.
+ * @evidence contracts/e2e.md#necessary-boundary The public runtime must discover the dependency project, assemble its strip host and execute the transformed dependency output; pure strip or cache-query units cannot prove this connection.
+ * @evidence contracts/e2e.md#shared-execution Unchanged strip package source and the existing sharedPluginCache reuse the native producer; no cold-build state is observed.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Fresh entry/dependency/config/output trees isolate side effects; only unchanged strip source and production configuration identities participate in producer reuse.
+ * @evidence contracts/e2e.md#preserved-coverage Original CLI success and exact stdout retain both secret-removal and dependency-value assertions.
  */
-export const test_ttsx_builds_a_dependency_with_its_own_transform_plugin =
-  () => {
+export function test_ttsx_builds_a_dependency_with_its_own_transform_plugin(): void {
     const root = TestProject.createProject({
       "package.json": JSON.stringify({ private: true }),
       "tsconfig.json": JSON.stringify({
@@ -86,4 +94,4 @@ export const test_ttsx_builds_a_dependency_with_its_own_transform_plugin =
 
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stdout.trim(), "entry:dependency-value");
-  };
+  }

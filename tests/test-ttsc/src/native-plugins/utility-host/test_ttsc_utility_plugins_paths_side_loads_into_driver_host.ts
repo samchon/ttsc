@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
+import { nativePluginSource } from "../../internal/plugin-corpus";
 import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 
 /**
@@ -17,9 +18,17 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
  * 1. Put `@ttsc/paths` before a custom driver-based transform plugin.
  * 2. Run ttsc so host selection cannot depend on descriptor order.
  * 3. Assert the custom host ran and emitted imports were path-rewritten.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Actual CLI success, raw-host marker ok and relative rewritten import require both executable ownership and linked paths behavior.
+ * @evidence contracts/testing.md#independent-expectations Literal marker and relative import distinguish the real custom driver from selection of the linked library as compiler owner.
+ * @evidence contracts/testing.md#distinguishing-cases Owns linked paths before an executable raw-emitting driver host and actual marker publication.
+ * @evidence contracts/testing.md#execution-ownership The matching named utility-host export invokes one real compiler pass in the shared Linux native population.
+ * @evidence contracts/e2e.md#necessary-boundary Actual static-linked paths init must apply within the driver-selected raw emission path; loaded-record or path rewrite units cannot prove this assembly.
+ * @evidence contracts/e2e.md#shared-execution Unchanged raw-host Go source lives in the canonical maintained fixture cmd and its native binary and compiler objects share the suite cache.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Consumer config, sources, marker and outputs remain fresh; only immutable producer code and unchanged paths contributor identity are shared under production keys.
+ * @evidence contracts/e2e.md#preserved-coverage All original success, marker and rewritten-import assertions remain; only the producer location changed from consumer copies to canonical source.
  */
-export const test_ttsc_utility_plugins_paths_side_loads_into_driver_host =
-  () => {
+export function test_ttsc_utility_plugins_paths_side_loads_into_driver_host(): void {
     const root = TestProject.createProject({
       "tsconfig.json": JSON.stringify({
         compilerOptions: {
@@ -42,134 +51,8 @@ export const test_ttsc_utility_plugins_paths_side_loads_into_driver_host =
       "plugins/driver-host.cjs": `
         module.exports = (context) => ({
           name: "driver-host",
-          source: require("node:path").resolve(
-            context.dirname,
-            "..",
-            "go-host",
-            "cmd",
-            "driver-host"
-          ),
+          source: ${JSON.stringify(nativePluginSource("raw-linked-host"))},
         });
-      `,
-      "go-host/go.mod": [
-        "module example.com/driverhost",
-        "",
-        "go 1.26",
-        "",
-        "require github.com/samchon/ttsc/packages/ttsc v0.0.0",
-        "",
-      ].join("\n"),
-      "go-host/cmd/driver-host/main.go": `
-        package main
-
-        import (
-          "flag"
-          "fmt"
-          "os"
-          "path/filepath"
-
-          "github.com/samchon/ttsc/packages/ttsc/driver"
-        )
-
-        func main() {
-          os.Exit(run(os.Args[1:]))
-        }
-
-        func run(args []string) int {
-          if len(args) == 0 {
-            fmt.Fprintln(os.Stderr, "driver-host: command required")
-            return 2
-          }
-          switch args[0] {
-          case "build":
-            return runBuild(args[1:])
-          case "check":
-            return runCheck(args[1:])
-          case "transform":
-            fmt.Fprintln(os.Stderr, "driver-host: transform is not implemented")
-            return 2
-          case "-v", "--version", "version":
-            fmt.Fprintln(os.Stdout, "driver-host 0.1.0")
-            return 0
-          default:
-            fmt.Fprintf(os.Stderr, "driver-host: unknown command %q\\n", args[0])
-            return 2
-          }
-        }
-
-        func runCheck(args []string) int {
-          return runProgram(args, true)
-        }
-
-        func runBuild(args []string) int {
-          return runProgram(args, false)
-        }
-
-        func runProgram(args []string, forceNoEmit bool) int {
-          fs := flag.NewFlagSet("driver-host", flag.ContinueOnError)
-          fs.SetOutput(os.Stderr)
-          cwd := fs.String("cwd", "", "project directory")
-          tsconfig := fs.String("tsconfig", "tsconfig.json", "tsconfig")
-          _ = fs.String("plugins-json", "", "ordered plugin descriptors")
-          emit := fs.Bool("emit", false, "force emit")
-          noEmit := fs.Bool("noEmit", false, "force no emit")
-          outDir := fs.String("outDir", "", "out dir")
-          _ = fs.Bool("quiet", false, "quiet")
-          _ = fs.Bool("verbose", false, "verbose")
-          if err := fs.Parse(args); err != nil {
-            return 2
-          }
-          root := *cwd
-          if root == "" {
-            var err error
-            root, err = os.Getwd()
-            if err != nil {
-              fmt.Fprintf(os.Stderr, "driver-host: cwd: %v\\n", err)
-              return 2
-            }
-          }
-          prog, diags, err := driver.LoadProgram(root, *tsconfig, driver.LoadProgramOptions{
-            ForceEmit:   *emit,
-            ForceNoEmit: *noEmit || forceNoEmit,
-            OutDir:      *outDir,
-          })
-          if err != nil {
-            fmt.Fprintf(os.Stderr, "driver-host: %v\\n", err)
-            return 2
-          }
-          if len(diags) > 0 {
-            for _, diag := range diags {
-              fmt.Fprintln(os.Stderr, diag.String())
-            }
-            return 2
-          }
-          defer prog.Close()
-          if diags := prog.Diagnostics(); len(diags) > 0 {
-            for _, diag := range diags {
-              fmt.Fprintln(os.Stderr, diag.String())
-            }
-            return 2
-          }
-          if *noEmit || forceNoEmit {
-            return 0
-          }
-          if err := os.WriteFile(filepath.Join(root, "driver-host-ran.txt"), []byte("ok"), 0o644); err != nil {
-            fmt.Fprintf(os.Stderr, "driver-host: marker: %v\\n", err)
-            return 2
-          }
-          _, emitDiags, err := prog.EmitAllRaw(nil)
-          if err != nil {
-            fmt.Fprintf(os.Stderr, "driver-host: emit: %v\\n", err)
-            return 3
-          }
-          for _, diag := range emitDiags {
-            fmt.Fprintln(os.Stderr, "  -", diag.String())
-          }
-          if driver.CountErrors(emitDiags) > 0 {
-            return 2
-          }
-          return 0
-        }
       `,
       "src/lib/value.ts": `export const value = "ok";\n`,
       "src/main.ts": [
@@ -199,4 +82,4 @@ export const test_ttsc_utility_plugins_paths_side_loads_into_driver_host =
       fs.readFileSync(path.join(root, "dist", "main.js"), "utf8"),
       /from "\.\/lib\/value\.js"/,
     );
-  };
+  }
