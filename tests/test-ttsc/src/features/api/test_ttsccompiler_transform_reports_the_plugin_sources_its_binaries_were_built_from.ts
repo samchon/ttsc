@@ -39,6 +39,15 @@ import {
  *    under it reports that state.
  * 5. Transform a project without a plugin, and assert the envelope reports no
  *    plugin source at all.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Transforms a plugin project, checks source-state publication, ignores pruned/backup writes, then checks source-edit and GOFLAGS invalidation plus absent provenance for a plugin-free project.
+ * @evidence contracts/testing.md#independent-expectations Literal source edits, ignored-directory names and distinct GOFLAGS establish expected change/no-change independently. Exact state equality uses the public pluginSourceState helper and therefore cannot detect a hash defect shared by both producer and that helper.
+ * @evidence contracts/testing.md#distinguishing-cases The case owns unchanged ignored inputs, changed meaningful Go input, changed build environment and no-plugin absence, retaining both positive and negative provenance transitions.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this exported boundary entry and runs real native plugin builds and transforms, with direct state-helper observations between them.
+ * @evidence contracts/e2e.md#necessary-boundary Published pluginSources must describe the artifact actually selected after source/environment changes; state-key unit tests alone cannot establish real artifact selection and returned provenance.
+ * @evidence contracts/e2e.md#shared-execution The unchanged first/source-edit/GOFLAGS sequence reuses one project and keyed cache; changed Go bytes or flags genuinely require new artifacts. A final no-plugin transform needs no contributor build.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity writeCompilerPlugin creates a private mutable module rather than the immutable suite producer. The per-instance GOFLAGS override avoids ambient mutation; TestProject owns both registered projects and their lifetime.
+ * @evidence contracts/e2e.md#preserved-coverage All original source-map equality, pruning predicates, ignored-state equality, source/flag inequality, subsequent publication and no-plugin absence checks remain. Shared helper equality is an acknowledged oracle limitation.
  */
 export const test_ttsccompiler_transform_reports_the_plugin_sources_its_binaries_were_built_from =
   () => {

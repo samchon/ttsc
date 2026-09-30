@@ -25,6 +25,15 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
  * 3. Ask it again, for a sibling root on the same volume, while `process.platform`
  *    names a platform whose ordinary answer is the other one.
  * 4. Assert all three agree.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Transforms a real compiler project, reads its boolean graph policy, and compares compilerUsesCaseSensitiveFileNames in the same and sibling cache roots while process.platform is changed.
+ * @evidence contracts/testing.md#independent-expectations The real native compiler graph is an independent producer for the JavaScript helper answer; the test checks agreement rather than hardcoding an OS policy.
+ * @evidence contracts/testing.md#distinguishing-cases Same-volume sibling cache and opposite apparent process.platform distinguish executable/volume policy from a platform-name guess; cross-volume behavior is not exercised.
+ * @evidence contracts/testing.md#execution-ownership The exported API feature executes native transform and direct helper calls through TestExecutor.
+ * @evidence contracts/e2e.md#necessary-boundary Only actual compiler reporting confirms the early JavaScript policy matches the executable it will invoke; a mocked platform oracle would repeat the discarded premise.
+ * @evidence contracts/e2e.md#shared-execution One native transform supplies the reference policy for both helper calls. The suite shared plugin cache and built package are reused; the sibling path requires no second compiler process.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A fresh registered project separates input state; process.platform is restored in finally before any subsequent case. Shared cache identity remains fixed and TestProject owns the fixture/sibling directory lifetime.
+ * @evidence contracts/e2e.md#preserved-coverage Original success, boolean policy and both equality assertions remain; equality can expose disagreement but cannot prove both components follow an external case specification.
  */
 export const test_compilerusescasesensitivefilenames_answers_what_the_compiler_reports =
   (): void => {

@@ -22,6 +22,14 @@ import {
  * 2. Call `compile()` via the programmatic API.
  * 3. Assert all four output file types are in the result map and `dist/` was not
  *    created.
+ * @evidence contracts/testing.md#behavioral-verification Calls compile against the real native compiler and checks returned JavaScript, declaration and both map contents, plus absence of a written dist directory.
+ * @evidence contracts/testing.md#independent-expectations The authored message and console call establish the JavaScript literals; the requested declarations and version-3 map contract establish the other expected output forms without deriving them from compile.
+ * @evidence contracts/testing.md#distinguishing-cases This valid no-plugin project distinguishes in-memory compile output from disk emit and checks all four requested output families. Diagnostic failures and plugin transformations have separate API entries.
+ * @evidence contracts/testing.md#execution-ownership The matching exported feature function is discovered by TestExecutor and runs TtscCompiler.compile through a native process, so it belongs to the boundary population.
+ * @evidence contracts/e2e.md#necessary-boundary The JavaScript API must transport actual native compile output into result.output without publishing project files; a decoder unit cannot prove the producer sends those outputs or honors the in-memory mode.
+ * @evidence contracts/e2e.md#shared-execution The suite reuses its built ttsc package and resolved tsgo executable. This case starts one compile process, disables plugins and performs every output-family assertion on that single result.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity createProject allocates a fresh TestProject-owned directory and source/config, avoiding output left by an earlier emit. The synchronous compile owns its process; the suite exit hook removes registered fixture directories.
+ * @evidence contracts/e2e.md#preserved-coverage The original success, message, console call, declaration, two map versions and no-dist assertions all remain on one compile result. These checks constrain output snippets rather than the complete generated program.
  */
 export const test_ttsccompiler_compile_returns_output_without_writing_project_files =
   () => {

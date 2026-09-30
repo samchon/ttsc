@@ -51,6 +51,15 @@ function spawnStub(stub: string): ResidentTransformProcess {
  *    === false`.
  * 2. Answer an update request with `{ updated: false }`; it resolves with `updated
  *    === false`.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Sends transform and update requests through one real pipe peer and requires found:false and updated:false to resolve instead of rejecting.
+ * @evidence contracts/testing.md#independent-expectations The authored peer explicitly answers domain-negative results allowed by the serve protocol; these booleans are independent expected values, not client-derived snapshots.
+ * @evidence contracts/testing.md#distinguishing-cases The missing-file and unsuccessful-edit negatives complement the framing/shape rejections, distinguishing legal domain absence from corrupt transport.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this named process feature; it creates an actual Node child and exchanges two request/reply lines.
+ * @evidence contracts/e2e.md#necessary-boundary Both legal negative replies must survive client shape validation and promise settlement on a live session; this proves transport acceptance rather than Go transformation semantics.
+ * @evidence contracts/e2e.md#shared-execution One peer lifetime handles both operation kinds with no Go build or installation, retaining shared session state between requests.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The private client queue belongs only to this entry and finally disposes its child on success or failure; no fixture filesystem or global environment is changed.
+ * @evidence contracts/e2e.md#preserved-coverage Original found:false and updated:false assertions remain. They do not inspect optional fields or subsequent positive transformation behavior.
  */
 export const test_residenttransformprocess_resolves_valid_negative_replies =
   async () => {

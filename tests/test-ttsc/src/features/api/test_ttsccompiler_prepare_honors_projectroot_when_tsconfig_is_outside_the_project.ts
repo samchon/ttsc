@@ -29,6 +29,15 @@ import {
  *    "config/tsconfig.json"`.
  * 3. Call `prepare()` and assert the binary exists under
  *    `project/.cache/ttsc/plugins`.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Prepares a package-discovered Go plugin with cwd=root, projectRoot=project and tsconfig=config/tsconfig.json; checks its binary exists beneath the project-owned cache.
+ * @evidence contracts/testing.md#independent-expectations The explicit projectRoot owns package discovery even when the selected configuration lives in a sibling directory; literal project/cache paths establish the expected location.
+ * @evidence contracts/testing.md#distinguishing-cases This split root/config layout differs from ordinary co-located config discovery; its positive assertion catches anchoring package lookup at the external config directory.
+ * @evidence contracts/testing.md#execution-ownership The named feature export performs actual plugin preparation via TestExecutor.
+ * @evidence contracts/e2e.md#necessary-boundary Real package discovery from the overridden root must feed native preparation despite an external tsconfig, which direct path resolution alone cannot establish.
+ * @evidence contracts/e2e.md#shared-execution One native preparation is performed; its existence and location checks share that artifact. The custom cache differs from shared suite preparation because root ownership is the asserted input.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A registered fixture owns project, external config and plugin package, preventing inherited repository metadata from supplying the descriptor; suite cleanup removes the whole root.
+ * @evidence contracts/e2e.md#preserved-coverage Prepared count, actual binary existence and cache-prefix checks remain. This case does not compile a source file or assert output semantics.
  */
 export const test_ttsccompiler_prepare_honors_projectroot_when_tsconfig_is_outside_the_project =
   () => {

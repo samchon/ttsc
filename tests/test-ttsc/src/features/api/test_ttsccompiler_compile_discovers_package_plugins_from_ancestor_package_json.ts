@@ -27,6 +27,15 @@ import {
  *    project.
  * 2. Construct a TtscCompiler with `cwd` pointing at the nested project.
  * 3. Call `compile()` and assert the workspace-level plugin was applied.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Compiles a nested packages/app project and requires PLUGIN JavaScript from its ancestor manifest with no project dist.
+ * @evidence contracts/testing.md#independent-expectations The workspace manifest declares the uppercasing fixture; the child has no package manifest, so upward discovery must reach the workspace-owned declaration.
+ * @evidence contracts/testing.md#distinguishing-cases This ancestor positive complements the same-directory discovery case and the nearest-empty-manifest negative; source retains a declared goUpper symbol for valid typing.
+ * @evidence contracts/testing.md#execution-ownership The exported feature executes real contributor assembly and TtscCompiler.compile under TestExecutor.
+ * @evidence contracts/e2e.md#necessary-boundary Actual upward package resolution must deliver a Go contributor to native compilation from a nested cwd; a resolver-only unit does not prove transformed output crosses the API.
+ * @evidence contracts/e2e.md#shared-execution The shared immutable compiler contributor and keyed plugin cache avoid another source producer; this nested project uses one compile process for output and no-publication checks.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fresh TestProject workspace contains both manifest owner and nested child, preventing ambient repository manifests from determining discovery; registered workspace cleanup happens at suite exit.
+ * @evidence contracts/e2e.md#preserved-coverage The original success, PLUGIN output and absent nested dist remain. The nearest-manifest case retains the complementary stop condition.
  */
 export const test_ttsccompiler_compile_discovers_package_plugins_from_ancestor_package_json =
   () => {

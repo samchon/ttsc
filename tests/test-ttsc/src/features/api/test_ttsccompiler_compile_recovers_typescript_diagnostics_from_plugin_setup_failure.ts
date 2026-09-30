@@ -24,6 +24,15 @@ import {
  * 2. Corrupt the plugin's Go source so setup fails before its sidecar runs.
  * 3. Assert compile returns failure with the pure TypeScript diagnostic.
  * 4. Assert the plugin build failure is retained as a TTSC_PROCESS diagnostic.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Corrupts the Go plugin source and compiles a TypeScript assignment error; requires failure with both code 2322 and TTSC_PROCESS building-plugin diagnostics.
+ * @evidence contracts/testing.md#independent-expectations The literal string assigned to number independently requires TypeScript error 2322, while intentionally invalid Go independently requires plugin setup failure; neither failure may hide the other.
+ * @evidence contracts/testing.md#distinguishing-cases This combined failure distinguishes recovery from reporting only the first plugin build error. Successful plugin composition has separate API coverage.
+ * @evidence contracts/testing.md#execution-ownership The named feature builds an intentionally invalid native contributor and exercises real compile failure recovery under TestExecutor.
+ * @evidence contracts/e2e.md#necessary-boundary Only actual Go build failure followed by TypeScript diagnostic collection establishes that the JavaScript API retains both process and compiler failure families.
+ * @evidence contracts/e2e.md#shared-execution One fresh broken plugin input requires its own failed preparation; the built package and native compiler are shared. All recovered diagnostics are checked from one compile result.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The corrupted plugin belongs only to the registered project, so shared valid contributor sources remain untouched. Synchronous preparation/compile finishes before assertions and fixture cleanup is suite-owned.
+ * @evidence contracts/e2e.md#preserved-coverage Both original independent diagnostic predicates and failure assertion remain. Diagnostic ordering, count and no-output publication are not asserted by this case.
  */
 export const test_ttsccompiler_compile_recovers_typescript_diagnostics_from_plugin_setup_failure =
   () => {

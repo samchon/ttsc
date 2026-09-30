@@ -23,6 +23,14 @@ import {
  * 2. Call `transform()` via the programmatic API.
  * 3. Assert the typescript map contains the source and no JS/declaration keys
  *    exist.
+ * @evidence contracts/testing.md#behavioral-verification Calls transform and asserts the authored typed declaration and console call in src/main.ts, no JavaScript or declaration output keys and no dist directory.
+ * @evidence contracts/testing.md#independent-expectations createProject authors the api-ok TypeScript fixture independently; source-only transform preserves that spelling rather than producing emitted JavaScript or declaration artifacts.
+ * @evidence contracts/testing.md#distinguishing-cases The no-plugin singleton source pins the minimum source-only path and both forbidden emit-key forms. Multi-file membership and plugin-changed sources are owned by adjacent transform entries.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers the exported API feature and invokes the real native transform through TtscCompiler; this is not an in-memory decoder unit.
+ * @evidence contracts/e2e.md#necessary-boundary The real native source envelope must arrive through the JavaScript API without entering disk emit. Direct parser calls cannot verify mode selection, producer output or publication behavior.
+ * @evidence contracts/e2e.md#shared-execution One transform process supplies all source and absence checks; plugins are disabled, while package build and tsgo resolution are shared by the API suite.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A fresh registered createProject directory supplies a known source and initially absent dist. Synchronous transform finishes its child before assertions; TestProject removes its registered fixture at suite exit.
+ * @evidence contracts/e2e.md#preserved-coverage Both source snippets, success, absent main.js/main.d.ts keys and absent dist stay executable in this entry. It does not claim exact full source equality or source-map correctness.
  */
 export const test_ttsccompiler_transform_returns_typescript_source_without_project_files =
   () => {

@@ -50,6 +50,15 @@ function spawnStub(stub: string): ResidentTransformProcess {
  * 2. The host emits one malformed line then a valid reply for the first.
  * 3. Assert both queued requests reject and a third request also rejects (the
  *    process is failed, not silently answering the late reply).
+ *
+ * @evidence contracts/testing.md#behavioral-verification Queues two requests to a real pipe peer emitting not-json then one valid line; asserts both reject and a third request cannot consume the trailing valid reply.
+ * @evidence contracts/testing.md#independent-expectations The independently authored peer emits one corrupt frame and a first-request reply while ignoring later inputs; accepting the trailing line for a later slot would violate positional ownership.
+ * @evidence contracts/testing.md#distinguishing-cases This malformed-before-valid ordering distinguishes terminal framing corruption from valid negative results and wrong-operation object shape.
+ * @evidence contracts/testing.md#execution-ownership The named API feature runs ResidentTransformProcess against an actual Node child under TestExecutor.
+ * @evidence contracts/e2e.md#necessary-boundary The corruption and valid tail traverse real stdout/readline delivery, exposing FIFO desynchronization and retirement that pure JSON validation cannot detect.
+ * @evidence contracts/e2e.md#shared-execution One child consumes both queued requests and the later-request probe; no separate host or build is needed per assertion.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each request is owned by this private client/queue, and finally disposes the fixture child even when an assertion fails. No leftover valid line is eligible for a new client.
+ * @evidence contracts/e2e.md#preserved-coverage Both queued rejections, malformed error text and post-failure rejection remain. The peer is a deliberate corrupt transport fixture, not evidence of Go producer correctness.
  */
 export const test_residenttransformprocess_malformed_reply_fails_queued_requests =
   async () => {

@@ -22,6 +22,14 @@ import {
  * 2. Call `transform()` via the programmatic API.
  * 3. Assert the result is `failure` with the error code and the typescript map is
  *    populated.
+ * @evidence contracts/testing.md#behavioral-verification Transforms the string-to-number error and checks failure with diagnostic 2322 while the typescript map still contains the bad source and dist remains absent.
+ * @evidence contracts/testing.md#independent-expectations The literal not-a-number initializer violates its number annotation; source-mode failure retains source text for consumers, independently of whether emitted JavaScript would be allowed.
+ * @evidence contracts/testing.md#distinguishing-cases This failure retains source alongside diagnostics, unlike successful transform and compile's emitted-output contract. Exact diagnostic locations are checked by compile_returns_structured_diagnostics.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers the matching feature export and runs a real native transform through the JavaScript API.
+ * @evidence contracts/e2e.md#necessary-boundary Real compiler diagnostics and source must coexist in a transported failure result. A decoder unit cannot verify native source-mode failure emission or absence of project writes.
+ * @evidence contracts/e2e.md#shared-execution One transform process supplies failure, diagnostic, retained-source and publication checks; plugins are disabled and the package build/tsgo executable are shared by the suite.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The intentionally erroneous source lives in a fresh registered fixture with no initial dist. Synchronous transform owns process completion and TestProject removes the fixture at suite exit.
+ * @evidence contracts/e2e.md#preserved-coverage Successor execution retains all four original distinctions: failure, code 2322, retained literal source and no dist. It does not claim full diagnostic equality or all-error aggregation.
  */
 export const test_ttsccompiler_transform_returns_failure_on_compiler_diagnostics =
   () => {

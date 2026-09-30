@@ -30,6 +30,15 @@ import { nativeBinary } from "../../internal/toolchain";
  * 2. Edit a sibling package of the module, and require a walk and a new binary.
  * 3. Change `GOFLAGS`, and require a walk and a new binary.
  * 4. Write below the module's `node_modules`, and require the cached answer.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Resolves declared graphNodes repeatedly, requires unchanged binary/record identity, then fresh identities after a sibling Go source edit or GOFLAGS change, and unchanged identity after a node_modules write.
+ * @evidence contracts/testing.md#independent-expectations The authored source/environment mutations determine change/no-change expectations and descriptor evaluation counts; the synthetic Go helper validates selected module inputs but is not a real artifact-correctness oracle.
+ * @evidence contracts/testing.md#distinguishing-cases Cold/warm answers, module-sibling edit, build-environment change and excluded-directory write distinguish build identity from descriptor freshness and irrelevant files.
+ * @evidence contracts/testing.md#execution-ownership The named feature is discovered by TestExecutor; it evaluates real descriptor modules and invokes a synthetic Go process provider, so it remains a process boundary rather than a pure unit or real Go producer test.
+ * @evidence contracts/e2e.md#necessary-boundary Persistent capability answers must track real descriptor evaluation and selected build inputs across API calls; the synthetic Go provider limits this test to loader/cache integration, with real Go artifact validity owned by native survivors.
+ * @evidence contracts/e2e.md#shared-execution One project/module and provider serve the whole sequence; unchanged calls reuse the recorded answer, while changed source/GOFLAGS require new build selection. No independent installation occurs per transition.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns project, module, evaluation log and private caches; saved environment values are restored in finally. Record inode identity distinguishes entry replacement from time updates; registered fixture cleanup happens at exit.
+ * @evidence contracts/e2e.md#preserved-coverage Original binary/record equality and inequality, existence, evaluation counts and irrelevant-file stability remain. Exact inode checks depend on filesystem support and synthetic provider output does not establish executable transform correctness.
  */
 export const test_resolvecapabilityplugins_hands_out_the_binary_its_plugin_module_builds_now =
   (): void => {

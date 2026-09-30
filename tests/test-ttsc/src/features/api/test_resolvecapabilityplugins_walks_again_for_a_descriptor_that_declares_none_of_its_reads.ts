@@ -22,6 +22,15 @@ import { createFakeGoBinary } from "../../internal/source-build";
  * 2. Resolve the capability.
  * 3. Turn the capability off in `settings.json`, resolve again, and assert the
  *    answer follows the file.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Resolves probe:true from an undeclared settings.json read, writes probe:false and requires the next resolution to return zero capabilities.
+ * @evidence contracts/testing.md#independent-expectations The separately authored settings values define each expected capability count; undeclared descriptor reads cannot justify reuse after their external state changes.
+ * @evidence contracts/testing.md#distinguishing-cases True-to-false undeclared-read transition checks stale-answer rejection; declared stable reads and superseding module-resolution state have complementary entries.
+ * @evidence contracts/testing.md#execution-ownership The matching TestExecutor feature evaluates an actual descriptor module and invokes a synthetic external Go provider, retaining E2E process ownership rather than claiming a direct unit.
+ * @evidence contracts/e2e.md#necessary-boundary Reevaluation must cross the descriptor runtime/filesystem boundary after undeclared input mutation. This fixture proves resolver freshness, while real Go producer validity remains outside its synthetic provider.
+ * @evidence contracts/e2e.md#shared-execution One project/settings file and provider serve both calls; only the changed undeclared input causes the repeated descriptor evaluation, with no per-case package install.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The settings file, module and caches are fresh registered fixture resources; saved environment provider/cache keys are restored in finally and suite exit removes the fixtures.
+ * @evidence contracts/e2e.md#preserved-coverage Both original capability counts and the settings mutation remain. The case does not observe exact build counts or prove a real native artifact was produced.
  */
 export const test_resolvecapabilityplugins_walks_again_for_a_descriptor_that_declares_none_of_its_reads =
   (): void => {

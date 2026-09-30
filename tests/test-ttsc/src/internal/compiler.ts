@@ -186,7 +186,22 @@ function writePackageSourcePlugin(root: string, packageName: string) {
   writeMinimalGoPlugin(packageRoot);
 }
 
+/**
+ * Install a project-owned package descriptor for the immutable shared backend.
+ *
+ * These package-discovery cases vary manifest placement and project source,
+ * not backend bytes. Source mutation and provenance cases keep private modules.
+ *
+ * @evidence contracts/common.md#principled-implementation The manifest and descriptor remain inside each consumer package, while their source points to the same immutable authored backend used by configured-plugin cases; discovery ownership changes without changing backend behavior.
+ * @evidence contracts/common.md#clear-and-simple-design One helper owns dependency/manifest/descriptor materialization and delegates backend lifetime to writeSharedCompilerPlugin instead of rewriting an identical Go module per consumer.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts This shares fixture preparation only; the real loader resolves the project package and builds/executes the authored Go backend, with no substituted product result or changed assertion.
+ * @evidence contracts/common.md#meaningful-documentation Native prose identifies immutable inputs and the private-source exceptions, separating those grounds from acknowledgment tags.
+ * @evidence contracts/performance.md#efficient-algorithms Consumer preparation writes three fixed-size metadata files rather than the backend module again; the initial shared source writer owns the fixed Go source materialization.
+ * @evidence contracts/performance.md#reuse-equivalent-work Package-discovery and configured-plugin consumers share identical backend bytes and build settings; their project inputs remain distinct runtime inputs, and mutation/provenance callers use writeCompilerPlugin instead.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources One shared source directory is retained for this runner process and owned by TestProject cleanup; each consumer retains only its registered project package files and synchronous command result.
+ */
 function writePackageCompilerPlugin(root: string, packageName: string) {
+  const source = writeSharedCompilerPlugin(root);
   const packageRoot = path.join(root, "node_modules", packageName);
   writeProjectDependency(root, packageName);
   fs.mkdirSync(packageRoot, { recursive: true });
@@ -208,11 +223,10 @@ function writePackageCompilerPlugin(root: string, packageName: string) {
     path.join(packageRoot, "index.cjs"),
     `module.exports = {
       name: ${JSON.stringify(packageName)},
-      source: ${JSON.stringify(path.join(packageRoot, "plugin-go"))}
+      source: ${JSON.stringify(source)}
     };\n`,
     "utf8",
   );
-  writeCompilerPluginBackend(path.join(packageRoot, "plugin-go"));
 }
 
 function writeProjectDependency(root: string, packageName: string) {

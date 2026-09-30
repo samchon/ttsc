@@ -24,6 +24,15 @@ import { createFakeGoBinary } from "../../internal/source-build";
  *    nothing, once it has imported it.
  * 2. Resolve the capability, which records the answer.
  * 3. Resolve it again, and assert it answers what a fresh walk now answers.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Resolves a descriptor reading a hoisted package before installing a nearer nondeclaring package, then compares cached second resolution with an independently forced fresh walk and requires no capability.
+ * @evidence contracts/testing.md#independent-expectations The authored hoisted probe:true and nearer probe:false packages establish first=1 and fresh=0; cache deletion forces a reference walk independently of the answer record under test.
+ * @evidence contracts/testing.md#distinguishing-cases The nearer package appears during descriptor evaluation, distinguishing the state actually read from the later state when the answer would be recorded.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor executes the named API feature with real package/module resolution and a synthetic external Go build provider; it is not pure unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary A live descriptor changes module resolution during loading, and the persistent resolver must not certify the earlier answer against the later filesystem state. The synthetic build does not prove native binary behavior.
+ * @evidence contracts/e2e.md#shared-execution One descriptor/project/provider serves first, second and fresh walk; deleting this private answer cache deliberately preserves the cold-reference distinction rather than rebuilding every ordinary consumer.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Both hoisted/nearer packages and private caches are registered fixture state. Saved TTSC cache/provider environment values are restored in finally, and no shared suite cache is deleted.
+ * @evidence contracts/e2e.md#preserved-coverage First result1, fresh result0 and second=fresh remain. This is one superseding-package race; it does not certify all descriptor reads or executable Go artifact validity.
  */
 export const test_resolvecapabilityplugins_proves_its_answer_by_what_the_load_read =
   (): void => {

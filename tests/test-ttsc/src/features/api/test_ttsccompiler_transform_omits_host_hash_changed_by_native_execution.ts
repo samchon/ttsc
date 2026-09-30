@@ -12,6 +12,23 @@ import {
 /**
  * Verifies native execution cannot retain descriptor proof for an input it
  * changes before returning either a successful transform or a failed check.
+ *
+ * A descriptor's initial input hash becomes stale if its own native process
+ * writes that input. Reporting its path remains useful, but the API must remove
+ * the old proof even when the check stage fails.
+ *
+ * 1. Hash old config bytes in a descriptor for each native stage.
+ * 2. Run a Go fixture that writes new bytes before success or failure.
+ * 3. Assert the path remains reported and neither result retains its old hash.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Executes native transform-success and check-failure fixtures that overwrite native.config.json; requires the observed input path, new disk bytes and no stale pre-execution hash in either result.
+ * @evidence contracts/testing.md#independent-expectations The descriptor independently hashes old bytes and the authored Go process writes new bytes; retaining that old proof would certify an input state no longer present.
+ * @evidence contracts/testing.md#distinguishing-cases Transform success and check failure both invalidate the same descriptor proof, distinguishing lost input identity from intentional removal of stale authority.
+ * @evidence contracts/testing.md#execution-ownership The named API feature runs two real Go process stages through TtscCompiler.transform under TestExecutor.
+ * @evidence contracts/e2e.md#necessary-boundary Actual native execution mutates a descriptor-observed file between initial hashing and result publication, a temporal boundary no immutable decoder fixture can reproduce.
+ * @evidence contracts/e2e.md#shared-execution The two stage descriptors use identical Go source bytes and a shared keyed plugin cache; stage selection differs and genuinely requires separate execution, while each run supplies all mutation/proof assertions.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each stage gets a fresh physical registered project and old config bytes, preventing the first mutation from setting the second expectation. Synchronous native execution completes before readback; fixture cleanup is suite-owned.
+ * @evidence contracts/e2e.md#preserved-coverage Stage-specific result type, input-path presence, stale-hash absence and exact new bytes remain for both stages. The fixture exercises host proof invalidation, not arbitrary transform semantics.
  */
 export const test_ttsccompiler_transform_omits_host_hash_changed_by_native_execution =
   () => {

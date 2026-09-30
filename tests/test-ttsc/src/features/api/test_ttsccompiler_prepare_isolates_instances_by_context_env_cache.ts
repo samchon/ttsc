@@ -35,6 +35,15 @@ import {
  * 2. Snapshot `process.env.TTSC_CACHE_DIR` before and after.
  * 3. Assert each binary lives under its own cache root, the two paths differ, and
  *    the ambient `TTSC_CACHE_DIR` was never mutated.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Prepares the same plugin through two compiler instances with .cache/a and .cache/b environments, requiring distinct existing binaries in their own roots and unchanged ambient TTSC_CACHE_DIR.
+ * @evidence contracts/testing.md#independent-expectations Instance environment overrides determine each cache independently; the expected roots are authored literals, and the before/after ambient comparison detects global environment leakage.
+ * @evidence contracts/testing.md#distinguishing-cases Two instances with identical sources but different cache roots distinguish artifact reuse ownership from accidental process.env mutation or cross-root placement.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor executes this named native preparation feature; both instances prepare real artifacts.
+ * @evidence contracts/e2e.md#necessary-boundary Real artifact placement through per-instance environment must remain isolated even when source identities match; pure key calculations cannot prove filesystem placement or ambient preservation.
+ * @evidence contracts/e2e.md#shared-execution Two preparations are intentional because cache-root separation is the tested distinction. Each result supplies existence and positive/negative root checks; native compiler resolution and package build stay shared.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fresh physical project owns two private caches and context.env supplies differences without ambient mutation; all project/cache resources are registered for TestProject suite cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Both positive prefixes, distinct paths, binary existence, opposite-root negatives and ambient equality remain; no deletion or concurrent prepare is claimed.
  */
 export const test_ttsccompiler_prepare_isolates_instances_by_context_env_cache =
   () => {

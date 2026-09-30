@@ -47,6 +47,19 @@ function spawnStub(stub: string): ResidentTransformProcess {
  * This is the direct regression test for the pipe-error hardening: reaching the
  * end of the host-death case is itself the no-crash assertion, because an
  * unhandled pipe "error" would take the whole test process down.
+ *
+ * 1. Resolve two concurrent replies from one echo peer in FIFO order.
+ * 2. Warm another peer, dispose it and reject a subsequent request.
+ * 3. Exit a third peer during a request and require rejection without crashing.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Sends concurrent a.ts/b.ts requests to an actual Node pipe host, verifies FIFO echo identities, rejects requests after disposal and rejects in-flight work when a host exits with code 7.
+ * @evidence contracts/testing.md#independent-expectations The independent echo fixture returns the received filename and the exit fixture sends no reply; authored names establish reply ownership without querying client queue logic.
+ * @evidence contracts/testing.md#distinguishing-cases The entry owns healthy concurrent replies, terminal disposal, repeated disposal and abrupt host death; malformed framing and cancellation have separate cases.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this named API feature; ResidentTransformProcess starts real Node children and exchanges stdin/stdout protocol lines.
+ * @evidence contracts/e2e.md#necessary-boundary Real pipes can close or emit unhandled errors independently of promise/JSON logic; the abrupt-host case protects consumer survival, while the echo fixture supplies a controlled peer rather than a real Go transform oracle.
+ * @evidence contracts/e2e.md#shared-execution One echo host handles both concurrent requests; a second handles dispose-after-warmup and a third intentionally dies. These terminal states require distinct lifetimes, with no native build or installation per peer.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each client owns one fixture child and disposal ends its session; no reply or queue is shared across terminal-state scenarios. The first session uses finally, while later simple sessions dispose after their assertions.
+ * @evidence contracts/e2e.md#preserved-coverage Original FIFO identities, disposal rejection and host-death rejection remain. The latter two blocks can leak a child until runner exit if a pre-disposal assertion fails, an unresolved cleanup limitation.
  */
 export const test_residenttransformprocess_lifecycle = async () => {
   // 1. FIFO: two concurrent requests each resolve to their own ordered reply.
