@@ -7,7 +7,7 @@ import {
   fs,
   path,
   tsgo,
-  writeCompilerPlugin,
+  writeSharedCompilerPlugin,
 } from "../../internal/compiler";
 
 /**
@@ -29,15 +29,23 @@ import {
  *    environment, and no stall came near the descriptor's hold.
  * 3. Assert a project that cannot be read produces the same exception envelope
  *    from both forms.
+ *
+ * @evidence contracts/testing.md#behavioral-verification transformAsync matches transform without event-loop stalls and captures environment at the call; both forms report the same missing-config exception.
+ * @evidence contracts/testing.md#independent-expectations asynchronous work preserves the synchronous API contract while a literal one-second descriptor hold must not block the calling timer queue; the fixture producer's explicit output is input to the host contract rather than an oracle for compiler AST semantics.
+ * @evidence contracts/testing.md#distinguishing-cases successful envelopes, later invalid temp environment, measured timer progress and unreadable config exception are retained.
+ * @evidence contracts/testing.md#execution-ownership The named test_ttsccompiler_transformasync_matches_transform_without_blocking function is an API E2E entry under src/features/api; it executes descriptor evaluation child, worker environment capture, actual native producer and asynchronous API scheduling.
+ * @evidence contracts/e2e.md#necessary-boundary This case owns descriptor evaluation child, worker environment capture, actual native producer and asynchronous API scheduling; direct decoder or option calls cannot prove this assembly and caller-visible behavior.
+ * @evidence contracts/e2e.md#shared-execution Five API consumers share one process-owned immutable compiler producer source and its keyed binary. Private descriptors, projects and API instances retain each case's inputs; source-mutation, proof-path and cold-cache cases keep their isolated producer.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The shared Go bytes never change in these five consumers; the product validates source, SDK and environment keys before artifact reuse. Each descriptor and project is private, and the pending worker is awaited and the timer and every changed temp variable are restored in finally. TestProject retains the immutable source until process exit and cleans it on exit.
+ * @evidence contracts/e2e.md#preserved-coverage Every original assertion and counterexample below remains; only source preparation is shared, and the native envelope decoder matrix executes separately in source units.
  */
-export const test_ttsccompiler_transformasync_matches_transform_without_blocking =
-  async () => {
+export async function test_ttsccompiler_transformasync_matches_transform_without_blocking() {
     const hold = 1_000;
     const root = createProject({
       plugins: [{ transform: "./check.cjs" }, { transform: "./plugin.cjs" }],
       source: 'export const value = goUpper("plugin");\nconsole.log(value);\n',
     });
-    writeCompilerPlugin(root);
+    const producer = writeSharedCompilerPlugin(root);
     // Descriptor evaluation runs in a child process that plugin loading waits
     // for. The fixture backend answers `check` with success, so one backend
     // serves both stages.
@@ -45,7 +53,7 @@ export const test_ttsccompiler_transformasync_matches_transform_without_blocking
       path.join(root, "check.cjs"),
       [
         `Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ${hold});`,
-        'module.exports = { name: "check-fixture", source: "./plugin-go", stage: "check" };',
+        `module.exports = { name: "check-fixture", source: ${JSON.stringify(producer)}, stage: "check" };`,
         "",
       ].join("\n"),
       "utf8",
@@ -104,4 +112,4 @@ export const test_ttsccompiler_transformasync_matches_transform_without_blocking
       envelope(await missing.transformAsync()),
       envelope(missing.transform()),
     );
-  };
+}

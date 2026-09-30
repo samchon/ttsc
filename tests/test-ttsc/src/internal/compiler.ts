@@ -284,6 +284,32 @@ function writeCompilerPlugin(root: string) {
   writeCompilerPluginBackend(path.join(root, "plugin-go"));
 }
 
+let sharedCompilerPluginSource: string | undefined;
+
+/**
+ * Write a private descriptor for the process-owned immutable compiler producer.
+ *
+ * These consumers vary project inputs and descriptor options, not Go source.
+ * Mutation, source-path and cold-build cases keep writeCompilerPlugin instead.
+ * TestProject owns the shared source until all this process's consumers finish.
+ */
+function writeSharedCompilerPlugin(root: string): string {
+  if (sharedCompilerPluginSource === undefined) {
+    const source = TestProject.physicalPath(
+      TestProject.tmpdir("ttsc-api-compiler-producer-"),
+    );
+    writeCompilerPluginBackend(source);
+    sharedCompilerPluginSource = source;
+  }
+  const source = sharedCompilerPluginSource;
+  fs.writeFileSync(
+    path.join(root, "plugin.cjs"),
+    `module.exports = { name: "compile-fixture", source: ${JSON.stringify(source)} };\n`,
+    "utf8",
+  );
+  return source;
+}
+
 function writeCompilerPluginBackend(pluginRoot: string) {
   fs.mkdirSync(pluginRoot, { recursive: true });
   fs.writeFileSync(
@@ -440,6 +466,7 @@ export {
   writeBasicProject,
   writeCompilerPlugin,
   writeCompilerPluginBackend,
+  writeSharedCompilerPlugin,
   writeMinimalGoPlugin,
   writePackageCompilerPlugin,
   writePackageSourcePlugin,
