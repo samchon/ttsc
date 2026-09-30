@@ -17,6 +17,11 @@ import (
 //  3. Assert the error message names the offending field.
 //  4. Call asString("format.endOfLine", "lf") — valid string.
 //  5. Assert no error and the returned value is "lf".
+//
+// @evidence contracts/testing.md#behavioral-verification asString rejects integer 42 with format.trailingComma context and preserves valid string lf for format.endOfLine.
+// @evidence contracts/testing.md#independent-expectations String options do not stringify arbitrary values; the authored lf literal and offending field name independently establish preservation and rejection.
+// @evidence contracts/testing.md#distinguishing-cases Owns numeric-versus-string input; allowed end-of-line and trailing-comma vocabularies are validated by their format-block cases.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go unit supplies integer 42 and literal lf directly to asString in the shared lint process, observing its returned value and field-named error without loading a consumer config or invoking a script host.
 func TestAsStringRejectsNonStringValue(t *testing.T) {
   _, err := asString("format.trailingComma", 42)
   if err == nil {

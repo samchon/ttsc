@@ -12,13 +12,13 @@ import (
 //
 // Locks six arms of the asInt type switch plus the error fallthrough:
 //
-//   - int (already covered by existing tests via the engine path).
+//   - int: preserve the directly supplied integer value.
 //
 //   - int32: must convert to int without error.
 //
 //   - int64: must convert to int without error.
 //
-//   - float64 integer-valued: must coerce (existing coverage covers this).
+//   - float64 integer-valued: must coerce without changing its value.
 //
 //   - float64 fractional: must fall through to the error return.
 //
@@ -34,6 +34,12 @@ import (
 //     4. Call asInt with json.Number("80") — assert success.
 //     5. Call asInt with json.Number("3.5") — assert error (fractional).
 //     6. Call asInt with a string — assert error.
+//     7. Call asInt with int(80) and integral float64(80); assert both retain 80.
+//
+// @evidence contracts/testing.md#behavioral-verification asInt converts int(80), int32(80), int64(100), integral float64(80), and integer json.Number(80), but rejects fractional float64, fractional json.Number and string input; the fractional float error also names its field.
+// @evidence contracts/testing.md#independent-expectations An integer config option preserves exact integer values and rejects fractional or nonnumeric representations; authored 80 and 100 literals supply expectations without using the conversion helper.
+// @evidence contracts/testing.md#distinguishing-cases Owns three native integer forms, integral float and JSON text, two fractional representations, and unsupported string, contrasting accepted numeric representations with truncation and coercion defects.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go unit calls asInt directly on native numbers, authored json.Number values and a string in the shared lint test process; its returned values and errors require neither JSON file loading nor a child compiler.
 func TestAsIntAcceptsAllIntegerTypesAndRejectsFractional(t *testing.T) {
   // int32 arm.
   got, err := asInt("field", int32(80))
@@ -81,5 +87,11 @@ func TestAsIntAcceptsAllIntegerTypesAndRejectsFractional(t *testing.T) {
   _, err = asInt("field", "eighty")
   if err == nil {
     t.Fatal("asInt(string): expected error, got nil")
+  }
+  for _, input := range []any{int(80), float64(80)} {
+    got, err := asInt("field", input)
+    if err != nil || got != 80 {
+      t.Fatalf("integer-valued %T input: value=%d error=%v", input, got, err)
+    }
   }
 }

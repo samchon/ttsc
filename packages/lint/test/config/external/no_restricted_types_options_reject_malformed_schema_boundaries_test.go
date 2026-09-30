@@ -6,51 +6,18 @@ import (
   "testing"
 )
 
-func noRestrictedTypesValidationEngine(options json.RawMessage) *Engine {
-  return NewEngineWithResolver(InlineRuleResolver{
-    Rules: RuleConfig{noRestrictedTypesRuleName: SeverityError},
-    Options: RuleOptionsMap{
-      noRestrictedTypesRuleName: options,
-    },
-  })
-}
-
-func TestNoRestrictedTypesOptionsValidatorAcceptsTheCompleteOfficialRuntimeSchema(t *testing.T) {
-  tests := []struct {
-    name    string
-    options json.RawMessage
-  }{
-    {name: "defaults", options: nil},
-    {name: "empty object", options: json.RawMessage(`{}`)},
-    {name: "empty types map", options: json.RawMessage(`{"types":{}}`)},
-    {
-      name: "complete value union",
-      options: json.RawMessage(`{"types":{
-        "Enabled":true,
-        "Disabled":false,
-        "Cleared":null,
-        "Message":"Use Safe.",
-        "EmptyObject":{},
-        "FixOnly":{"fixWith":"Safe"},
-        "SuggestOnly":{"suggest":["Safer","Safest"]},
-        "Structured":{"message":"Use Safe.","fixWith":"Safe","suggest":["Safer","Safest"]}
-      }}`),
-    },
-  }
-
-  for _, test := range tests {
-    t.Run(test.name, func(t *testing.T) {
-      engine := noRestrictedTypesValidationEngine(test.options)
-      if err := engine.ConfigError(); err != nil {
-        t.Fatalf("valid no-restricted-types options were rejected: %v", err)
-      }
-      if engine.EnabledRules()[noRestrictedTypesRuleName] != SeverityError {
-        t.Fatalf("valid options did not activate the rule: %v", engine.EnabledRules())
-      }
-    })
-  }
-}
-
+// TestNoRestrictedTypesOptionsValidatorRejectsEveryMalformedSchemaBoundary verifies malformed no-restricted-types options are rejected before dispatch.
+//
+// A later syntax walk cannot rescue invalid configuration; every malformed declaration must fail closed during rule binding.
+//
+// 1. Supply sixteen malformed payloads spanning JSON syntax, containers and nested field types.
+// 2. Bind each payload through InlineRuleResolver into the production engine.
+// 3. Require the authored field diagnostic, rule identity and absence from enabled rules.
+//
+// @evidence contracts/testing.md#behavioral-verification NewEngineWithResolver rejects sixteen authored malformed JSON/container/key/value cases, preserves each expected field diagnostic plus rule identity, and leaves the rule out of dispatch.
+// @evidence contracts/testing.md#independent-expectations The declared restriction schema requires an object, a types object, and Boolean/string/null/structured restrictions with typed message/fixWith/suggest fields; literal case-specific error fragments supply independent failure expectations.
+// @evidence contracts/testing.md#distinguishing-cases Owns malformed JSON, null/scalar/array root, unknown outer key, bad types container, numeric restriction, unknown nested key, Boolean/null message and fix, and null/scalar/mixed-array suggestions; the acceptance entry exercises valid neighboring forms.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns sixteen named malformed-payload subcases; InlineRuleResolver and NewEngineWithResolver reach the owning option validator in the shared process, so no native compilation or independently installed consumer is needed to observe rejection.
 func TestNoRestrictedTypesOptionsValidatorRejectsEveryMalformedSchemaBoundary(t *testing.T) {
   tests := []struct {
     name    string
@@ -87,26 +54,5 @@ func TestNoRestrictedTypesOptionsValidatorRejectsEveryMalformedSchemaBoundary(t 
         t.Fatalf("invalid options entered the dispatch table: %v", engine.EnabledRules())
       }
     })
-  }
-}
-
-func TestNoRestrictedTypesExternalConfigIsValidatedWhenTheEngineBindsIt(t *testing.T) {
-  store, err := parseExternalConfigStore(map[string]any{
-    "rules": map[string]any{
-      noRestrictedTypesRuleName: []any{
-        "error",
-        map[string]any{"types": map[string]any{"Banned": map[string]any{"fixWith": true}}},
-      },
-    },
-  }, "")
-  if err != nil {
-    t.Fatalf("parseExternalConfigStore: %v", err)
-  }
-  engine := NewEngineWithResolver(store)
-  if err := engine.ConfigError(); err == nil || !strings.Contains(err.Error(), "fixWith must be a string") {
-    t.Fatalf("engine ConfigError = %v", err)
-  }
-  if _, active := engine.EnabledRules()[noRestrictedTypesRuleName]; active {
-    t.Fatalf("invalid external options entered the dispatch table: %v", engine.EnabledRules())
   }
 }
