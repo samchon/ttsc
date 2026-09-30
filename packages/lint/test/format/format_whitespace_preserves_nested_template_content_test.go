@@ -14,6 +14,11 @@ import "testing"
 //     inner template with a trailing space.
 //  2. Run the rule.
 //  3. Assert it emits no finding.
+//
+// @evidence contracts/testing.md#behavioral-verification format/whitespace must emit no finding for a trailing space in an inner template nested in an outer substitution.
+// @evidence contracts/testing.md#independent-expectations The independently authored inner x-space-newline-y bytes belong to the composed string value and cannot be trimmed.
+// @evidence contracts/testing.md#distinguishing-cases Nested-template protection complements simpler template guards and real-source trimming, distinguishing recursive ranges from head-only protection.
+// @evidence contracts/testing.md#execution-ownership TestFormatWhitespacePreservesNestedTemplateContent is a public Go unit selected by TestSelectedLintUnits. This host owns every literal input and assertion; the shared syntax-only harness invokes the whitespace rule and observes zero findings in the same process without a consumer install, native product build or product host.
 func TestFormatWhitespacePreservesNestedTemplateContent(t *testing.T) {
   assertRuleSkipsSource(
     t,

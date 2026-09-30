@@ -14,6 +14,11 @@ import "testing"
 //  1. Parse a single statement ending in a space with no final newline.
 //  2. Apply the rule through the disk-backed fixer.
 //  3. Assert the trailing space is gone and one newline is appended.
+//
+// @evidence contracts/testing.md#behavioral-verification format/whitespace must remove a final stray space and append one LF in the same fix without changing the declaration.
+// @evidence contracts/testing.md#independent-expectations The complete independent output specifies both tail corrections and otherwise identical source tokens.
+// @evidence contracts/testing.md#distinguishing-cases This combined defect must change in both respects; bare missing-EOL insertion and trailing-blank collapse own neighboring cases.
+// @evidence contracts/testing.md#execution-ownership TestFormatWhitespaceFixesMissingFinalNewlineWithTrailingSpace is a public Go unit selected by TestSelectedLintUnits. This host owns every literal input and assertion; the shared syntax-only harness invokes the whitespace rule and applies edits for complete output comparisons in the same process without a consumer install, native product build or product host.
 func TestFormatWhitespaceFixesMissingFinalNewlineWithTrailingSpace(t *testing.T) {
   assertFixSnapshot(
     t,
