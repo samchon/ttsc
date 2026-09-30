@@ -13,3 +13,4 @@ export * from "./privatizeLibrary";
 export * from "./resolveDependency";
 export * from "./runCheck";
 export * from "./startWatch";
+export * from "./withEvidenceProject";

@@ -2,6 +2,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { getNativeLintProducer } from "../../../utils/src/NativeLintProducer";
+
 import type { ICreateProjectProps } from "./ICreateProjectProps";
 import type { ITtscEvidenceProject } from "./ITtscEvidenceProject";
 import { linkDirectory } from "./linkDirectory";
@@ -17,6 +19,20 @@ import { suiteRoot } from "./suiteRoot";
  * the `source` directory inside the package, and link that Go into its own
  * binary. Every one of those steps is a place packaging can break while every
  * unit test stays green.
+ *
+ * The default producer is the live workspace package. Shared non-mutating
+ * consumers explicitly select the byte-proven authored lint snapshot; mutation
+ * and cold boundaries retain the live package. Preparation owns its partial
+ * workspace even before it can return a cleanup callback.
+ *
+ * @evidence contracts/common.md#principled-implementation The operation materializes original compiler/config inputs and actual package entrypoints, then returns one private workspace owner; preparation failure releases that workspace and preserves concurrent cleanup failure.
+ * @evidence contracts/common.md#clear-and-simple-design One typed preparation operation owns writing, published Evidence entrypoints and package links; the optional nativeProducer choice is explicit and leaves other consumers on their original live producer.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Snapshot consumers resolve actual byte-proven copied lint source through their real package link, while cold/mutating consumers keep live source; no capability, provenance, source-key admission or compiler result is replaced.
+ * @evidence contracts/common.md#meaningful-documentation Explains published-package assembly, ancestor fixture layout, explicit producer identity and release ownership, including transient removal retries that remain failures when exhausted.
+ * @evidence contracts/portability.md#os-neutral-implementation Node path and filesystem APIs construct native workspace/link paths; package entrypoint strings keep their package-relative spelling, and the shared linkDirectory owner handles native directory-link creation.
+ * @evidence contracts/performance.md#efficient-algorithms File writing visits each authored input once and dependency links follow the declared runtime manifest; retained fixture space scales with input bytes rather than copying installed dependency trees.
+ * @evidence contracts/performance.md#reuse-equivalent-work Explicit non-mutating consumers reuse one verified authored lint snapshot and content-addressed native cache; the original live producer remains the default and changed test fixture inputs are written for every invocation.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Each invocation owns one exact private workspace, initial failures release partial output and the returned callback releases successful preparation; Node retries transient removal failures finitely and exhaustion propagates.
  */
 export const createProject = (
   props: ICreateProjectProps,
@@ -29,6 +45,7 @@ export const createProject = (
   const workspace: string = fs.mkdtempSync(
     path.join(os.tmpdir(), `evidence-${props.name}-`),
   );
+  try {
   const directory: string = path.join(workspace, "project");
   fs.mkdirSync(directory, { recursive: true });
 
@@ -90,7 +107,9 @@ export const createProject = (
   linkEvidencePackage(modules);
   linkEvidenceRuntimeDependencies(modules);
   linkDirectory(
-    resolveDependency("@ttsc/lint"),
+    props.nativeProducer === "snapshot"
+      ? getNativeLintProducer().packageRoot
+      : resolveDependency("@ttsc/lint"),
     path.join(modules, "@ttsc", "lint"),
   );
   linkDirectory(
@@ -99,26 +118,26 @@ export const createProject = (
   );
   linkDirectory(resolveDependency("ttsc"), path.join(modules, "ttsc"));
 
-  return { directory, workspace, cleanup: () => cleanupQuietly(workspace) };
+  return { directory, workspace, cleanup: () => cleanupWorkspace(workspace) };
+  } catch (error) {
+    try {
+      cleanupWorkspace(workspace);
+    } catch (cleanupError) {
+      throw new AggregateError([error, cleanupError], "Evidence fixture preparation and cleanup failed.");
+    }
+    throw error;
+  }
 };
 
 /**
- * Removes a fixture, tolerating a temp directory Windows will not release.
+ * Releases the exact private fixture root after its native processes close.
  *
- * The toolchain holds handles under the fixture (its plugin build cache, and
- * the junctions into the workspace), so a removal immediately after the process
- * exits can lose a race with the OS and raise EBUSY. A leftover temp directory
- * is litter; a test that reports failure because of that litter is a lie about
- * the code under test, and the whole point of this suite is to be believable.
+ * Windows can briefly retain a released handle, so Node retries transient
+ * removal failures. Exhaustion remains a failure rather than silently leaving
+ * a fixture behind or reporting successful ownership release.
  */
-const cleanupQuietly = (directory: string): void => {
-  for (let attempt = 0; attempt < 3; attempt++)
-    try {
-      fs.rmSync(directory, { recursive: true, force: true, maxRetries: 3 });
-      return;
-    } catch {
-      // Retry, then give up: the OS releases these handles on its own schedule.
-    }
+const cleanupWorkspace = (directory: string): void => {
+  fs.rmSync(directory, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
 };
 
 /** Absolute path to the workspace's `packages/evidence`. */
