@@ -11,40 +11,34 @@ import assert from "node:assert/strict";
  * would change nothing, so a run that accepted them would silently differ from
  * what was asked. A TypeScript entry keeps accepting them.
  *
- * 1. Give a project a JavaScript `script.js`, a TypeScript `entry.ts`, and a
- *    response file `args.txt`.
- * 2. Run `script.js` after `--strict`, `-P tsconfig.json`, `--no-plugins`, and
- *    `@args.txt`, the compiler's response file.
- * 3. Assert each exits 2 naming the option and never runs the script, while `ttsx
- *    --strict entry.ts` runs.
+ * 1. Give a project a JavaScript script and a compiler response file.
+ * 2. Run one request combining strict, project, plugin and response-file options.
+ * 3. Assert status 2 names every rejected option and the script never runs.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Actual public ttsx transports all four rejected build-policy options in one JavaScript request; status 2, every original option name, JavaScript-entry diagnostic and no script output assert refusal before execution.
+ * @evidence contracts/testing.md#independent-expectations A JavaScript entry has no up-front TypeScript build, so explicit project, plugin and compiler/response-file requests cannot be silently accepted; the script's ran literal must never appear.
+ * @evidence contracts/testing.md#distinguishing-cases The actual request combines project, no-plugins, strict and response-file policy; source unit test_ttsx_entry_options_preserve_preload_identity_and_reject_only_build_policy separately owns each original spelling and absent/false/zero/empty field boundaries. The shared mixed-preload E2E accepts explicit strict for a typed entry.
+ * @evidence contracts/testing.md#execution-ownership This matching named E2E invokes one built public launcher and exits before compiler or program startup; direct authored option parsing/projection runs only in the source-unit population.
+ * @evidence contracts/e2e.md#necessary-boundary Pure returned option lists do not prove launcher stderr and status transport or that a rejected JavaScript entry never starts; one aggregate request retains that assembly check.
+ * @evidence contracts/e2e.md#shared-execution Four equivalent rejection bootstrap lifetimes are one request, while their policy permutations run in the direct owner unit; the former separate typed compiler host joins the existing mixed-preload typed host with an explicit strict flag.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity One isolated immutable script/config/response fixture and synchronous launcher process own the request; no consumer install, native compile, cache transition or mutable program state is shared.
+ * @evidence contracts/e2e.md#preserved-coverage All original status-2, each rejected option name, script.js-is-JavaScript and no-ran-output checks remain here; each former individual request has exact source-owner results and the actual successful typed-entry strict branch retains existing mixed-preload output and marker assertions.
  */
-export const test_ttsx_refuses_build_options_before_a_javascript_entry = () => {
+export function test_ttsx_refuses_build_options_before_a_javascript_entry() {
   const root = TestProject.commonJsProject({
     "args.txt": "--strict\n",
     "script.js": `console.log("ran");\n`,
-    "src/entry.ts": `console.log("ran");\n`,
   });
 
-  for (const [args, option] of [
-    [["--strict", "script.js"], "--strict"],
-    [["-P", "tsconfig.json", "script.js"], "--project"],
-    [["--no-plugins", "script.js"], "--no-plugins"],
-    [["@args.txt", "script.js"], "@args.txt"],
-  ] as const) {
-    const result = TestProject.spawn(TestProject.TTSX_BIN, [...args], {
-      cwd: root,
-    });
-    assert.equal(result.status, 2, args.join(" "));
-    assert.match(result.stderr, new RegExp(`ttsx: .*${option}`));
-    assert.match(result.stderr, /script\.js is JavaScript/);
-    assert.doesNotMatch(result.stdout, /ran/);
-  }
-
-  const typescript = TestProject.spawn(
+  const result = TestProject.spawn(
     TestProject.TTSX_BIN,
-    ["--strict", "src/entry.ts"],
+    ["--strict", "-P", "tsconfig.json", "--no-plugins", "@args.txt", "script.js"],
     { cwd: root },
   );
-  assert.equal(typescript.status, 0, typescript.stderr);
-  assert.equal(typescript.stdout.trim(), "ran");
-};
+  assert.equal(result.status, 2);
+  for (const option of ["--project", "--no-plugins", "--strict", "@args.txt"])
+    assert.match(result.stderr, new RegExp(`ttsx: .*${option}`));
+  assert.match(result.stderr, /script\.js is JavaScript/);
+  assert.doesNotMatch(result.stdout, /ran/);
+
+}

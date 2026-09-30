@@ -7,6 +7,7 @@ import { getCompilerVersionText } from "./getCompilerVersionText";
 import { prepareExecution } from "./prepareExecution";
 import { parseTtsxCLI } from "./parseTtsxCLI";
 import { resolveCacheDir } from "./resolveCacheDir";
+import { TtsxEntryOptions } from "./TtsxEntryOptions";
 import { ProcessOwnedDirectory } from "./runtime/ProcessOwnedDirectory";
 import { checkNodeRuntimeSupport } from "./runtime/checkNodeRuntimeSupport";
 import { withRuntimeDirectoryLock } from "./runtime/withRuntimeDirectoryLock";
@@ -202,24 +203,6 @@ function prependNodeOption(
     : option;
 }
 
-function resolvePreload(cwd: string, preload: string): string {
-  if (path.isAbsolute(preload) || isRelativeSpecifier(preload)) {
-    return path.resolve(cwd, preload);
-  }
-  return preload;
-}
-
-function isRelativeSpecifier(specifier: string): boolean {
-  return (
-    specifier === "." ||
-    specifier === ".." ||
-    specifier.startsWith("./") ||
-    specifier.startsWith("../") ||
-    specifier.startsWith(".\\") ||
-    specifier.startsWith("..\\")
-  );
-}
-
 /**
  * Run a JavaScript entry as Node's main module under the runtime
  * `ttsc/register` installs (samchon/ttsc#1569).
@@ -238,16 +221,7 @@ async function runJavaScriptEntry(
   entry: string,
   signals: LauncherSignals,
 ): Promise<number> {
-  const unsupported = [
-    ...(parsed.project !== undefined ? ["--project"] : []),
-    ...(parsed.cacheDir !== undefined ? ["--cache-dir"] : []),
-    ...(parsed.checkers !== undefined ? ["--checkers"] : []),
-    ...(parsed.noPlugins ? ["--no-plugins"] : []),
-    ...(parsed.singleThreaded ? ["--singleThreaded"] : []),
-    ...parsed.tsgoFlags.filter(
-      (token) => token.startsWith("-") || token.startsWith("@"),
-    ),
-  ];
+  const unsupported = TtsxEntryOptions.unsupportedJavaScriptBuildOptions(parsed);
   if (unsupported.length !== 0) {
     process.stderr.write(
       `ttsx: ${unsupported.join(", ")} configure${unsupported.length === 1 ? "s" : ""} the up-front build of a TypeScript entry, and ${path.basename(entry)} is JavaScript; set compiler options in the tsconfig.json that owns the TypeScript it loads\n`,
@@ -258,7 +232,7 @@ async function runJavaScriptEntry(
     "--disable-warning=ExperimentalWarning",
     ...parsed.preload.flatMap((preload) => [
       "-r",
-      resolvePreload(cwd, preload),
+      TtsxEntryOptions.resolvePreload(cwd, preload),
     ]),
     entry,
     ...parsed.passthrough,
@@ -340,7 +314,7 @@ async function runPreparedEntry(
       "--disable-warning=ExperimentalWarning",
       ...parsed.preload.flatMap((preload) => [
         "-r",
-        resolvePreload(cwd, preload),
+        TtsxEntryOptions.resolvePreload(cwd, preload),
       ]),
       sourceEntry,
       ...parsed.passthrough,
