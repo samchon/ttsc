@@ -15,6 +15,11 @@ import "testing"
 // 1. Load the annotated TypeScript fixture source embedded below.
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
+// @evidence contracts/testing.md#behavioral-verification A computed enum initializer must report under literal-member policy.
+// @evidence contracts/testing.md#independent-expectations The original authored expect marker fixes exactly one typescript/prefer-literal-enum-member error at line 6; assertRuleCorpusCase compares complete rule/severity/line triples, while the independently authored counterpart requires zero findings.
+// @evidence contracts/testing.md#distinguishing-cases Literal numeric initializers remain clean.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusPreferLiteralEnumMember invokes the AST Engine through assertRuleCorpusCase and the registered rule through assertRuleSkipsSource in one Go unit process; no installation, child compiler or native plugin build executes.
 func TestRuleCorpusPreferLiteralEnumMember(t *testing.T) {
   assertRuleCorpusCase(t, "prefer-literal-enum-member.ts", "const base = 1;\n\nenum Value {\n  Fixed = 1,\n  // expect: typescript/prefer-literal-enum-member error\n  Computed = base + 1,\n}\n")
+  assertRuleSkipsSource(t, "typescript/prefer-literal-enum-member", "enum Value { Fixed = 1, Next = 2 }\n")
 }

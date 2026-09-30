@@ -15,6 +15,11 @@ import "testing"
 // 1. Load the annotated TypeScript fixture source embedded below.
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
+// @evidence contracts/testing.md#behavioral-verification Explicit any syntax must report the annotated parameter.
+// @evidence contracts/testing.md#independent-expectations The original authored expect marker fixes exactly one typescript/no-explicit-any error at line 3; assertRuleCorpusCase compares complete rule/severity/line triples, while the independently authored counterpart requires zero findings.
+// @evidence contracts/testing.md#distinguishing-cases An otherwise identical unknown parameter remains clean.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusNoExplicitAny invokes the AST Engine through assertRuleCorpusCase and the registered rule through assertRuleSkipsSource in one Go unit process; no installation, child compiler or native plugin build executes.
 func TestRuleCorpusNoExplicitAny(t *testing.T) {
   assertRuleCorpusCase(t, "no-explicit-any.ts", "function f(\n  // expect: typescript/no-explicit-any error\n  x: any,\n): number {\n  return Number(x);\n}\nf(0);\n")
+  assertRuleSkipsSource(t, "typescript/no-explicit-any", "function f(x: unknown): number { return Number(x); }\n")
 }

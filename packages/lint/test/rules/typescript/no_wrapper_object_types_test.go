@@ -15,6 +15,11 @@ import "testing"
 // 1. Load the annotated TypeScript fixture source embedded below.
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
+// @evidence contracts/testing.md#behavioral-verification Wrapper object type syntax must report.
+// @evidence contracts/testing.md#independent-expectations The original authored expect marker fixes exactly one typescript/no-wrapper-object-types error at line 2; assertRuleCorpusCase compares complete rule/severity/line triples, while the independently authored counterpart requires zero findings.
+// @evidence contracts/testing.md#distinguishing-cases The primitive string spelling remains clean.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusNoWrapperObjectTypes invokes the AST Engine through assertRuleCorpusCase and the registered rule through assertRuleSkipsSource in one Go unit process; no installation, child compiler or native plugin build executes.
 func TestRuleCorpusNoWrapperObjectTypes(t *testing.T) {
   assertRuleCorpusCase(t, "no-wrapper-object-types.ts", "// expect: typescript/no-wrapper-object-types error\ntype Name = String;\n\nJSON.stringify({} as Name);\n")
+  assertRuleSkipsSource(t, "typescript/no-wrapper-object-types", "type Name = string;\n")
 }

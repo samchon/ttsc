@@ -15,6 +15,11 @@ import "testing"
 // 1. Load the annotated TypeScript fixture source embedded below.
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
+// @evidence contracts/testing.md#behavioral-verification An empty interface must report.
+// @evidence contracts/testing.md#independent-expectations The original authored expect marker fixes exactly one typescript/no-empty-interface error at line 2; assertRuleCorpusCase compares complete rule/severity/line triples, while the independently authored counterpart requires zero findings.
+// @evidence contracts/testing.md#distinguishing-cases An interface with a declared member remains clean.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusNoEmptyInterface invokes the AST Engine through assertRuleCorpusCase and the registered rule through assertRuleSkipsSource in one Go unit process; no installation, child compiler or native plugin build executes.
 func TestRuleCorpusNoEmptyInterface(t *testing.T) {
   assertRuleCorpusCase(t, "no-empty-interface.ts", "// expect: typescript/no-empty-interface error\ninterface Empty {}\nconst e: Empty = {};\nJSON.stringify(e);\n")
+  assertRuleSkipsSource(t, "typescript/no-empty-interface", "interface Shape { name: string; }\n")
 }
