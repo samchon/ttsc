@@ -111,14 +111,13 @@ function isUnitTest(relative) {
 }
 
 /** Discover the original Go test functions and assign one owning layer each. */
-function selectLintGoTests(packageTestDir, repositoryTestDir) {
+function selectLintGoTests(packageTestDir, repositoryTestDir, captured) {
   const unit = [];
   const e2e = [];
   const windows = [];
   const seen = new Set();
   const sources = {};
-  const collect = (file, owner) => {
-    const source = fs.readFileSync(file, "utf8");
+  const collect = ({ file, source }, owner) => {
     for (const match of source.matchAll(/^func (Test[A-Za-z0-9_]+)\s*\(/gm)) {
       const name = match[1];
       if (name === "TestMain") continue;
@@ -128,18 +127,25 @@ function selectLintGoTests(packageTestDir, repositoryTestDir) {
       owner.push(name);
     }
   };
-  for (const file of walkForGoFiles(packageTestDir)) {
+  const liveInputs = (directory) => walkForGoFiles(directory).map((file) => ({
+    file,
+    source: fs.readFileSync(file, "utf8"),
+  }));
+  for (const input of captured ? captured.packageFiles : liveInputs(packageTestDir)) {
+    const { file } = input;
     const relative = path.relative(packageTestDir, file);
     collect(
-      file,
+      input,
       relative.split(path.sep).join("/").startsWith("os-boundaries/windows/")
         ? windows
         : isUnitTest(relative) ? unit : e2e,
     );
   }
-  for (const file of walkForGoFiles(repositoryTestDir)) collect(file, unit);
-  if (!unit.length || !e2e.length)
-    throw new Error("lint Go test selection needs both unit and e2e cases");
+  for (const input of captured ? captured.repositoryFiles : liveInputs(repositoryTestDir)) collect(input, unit);
+  const requiredLayers = captured ? [captured.layer] : ["unit", "e2e"];
+  const layers = { unit, e2e, windows };
+  if (requiredLayers.some((layer) => !layers[layer]?.length))
+    throw new Error(`lint Go test selection needs nonempty ${requiredLayers.join(" and ")} cases`);
   return { unit, e2e, windows, sources };
 }
 

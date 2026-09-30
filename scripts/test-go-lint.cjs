@@ -76,7 +76,7 @@ try {
     recursive: true,
     filter: (src) => !skip.has(path.basename(src)),
   });
-  copyGoTestsFlat(
+  const packageFiles = copyGoTestsFlat(
     lintTestsDir,
     path.join(scratch, "linthost"),
     (file) => !windowsBoundary ||
@@ -90,7 +90,7 @@ try {
     "command_format_fixture_corpus_test.go",
     "command_check_preserves_severity_exit_contract_test.go",
   ]);
-  copyGoTestsFlat(
+  const repositoryFiles = copyGoTestsFlat(
     path.join(root, "tests", "test-lint", "go"),
     path.join(scratch, "linthost"),
     (file) => !windowsBoundary && (!e2e || !unitOverlays.has(path.basename(file))),
@@ -167,11 +167,12 @@ try {
   // package again in e2e. Default local test:go still runs the original suite.
   let selection = [];
   if (unit || e2e || windowsBoundary) {
+    const layer = windowsBoundary ? "windows" : unit ? "unit" : "e2e";
     const tests = selectLintGoTests(
       lintTestsDir,
       path.join(root, "tests", "test-lint", "go"),
+      { packageFiles, repositoryFiles, layer },
     );
-    const layer = windowsBoundary ? "windows" : unit ? "unit" : "e2e";
     const wrapper = writeLintGoSelection(
       path.join(scratch, "linthost", "lint_layer_selection_test.go"),
       tests[layer],

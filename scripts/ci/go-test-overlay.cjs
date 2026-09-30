@@ -22,6 +22,7 @@ const path = require("node:path");
 function copyGoTestsFlat(sourceDir, targetDir, select = () => true) {
   fs.mkdirSync(targetDir, { recursive: true });
   const seen = new Set(existingGoBasenames(targetDir));
+  const captured = [];
   for (const file of walkForGoFiles(sourceDir)) {
     if (!select(file)) continue;
     const basename = path.basename(file);
@@ -33,8 +34,14 @@ function copyGoTestsFlat(sourceDir, targetDir, select = () => true) {
       );
     }
     seen.add(basename);
-    fs.copyFileSync(file, path.join(targetDir, basename));
+    const contents = fs.readFileSync(file);
+    const copiedFile = path.join(targetDir, basename);
+    fs.writeFileSync(copiedFile, contents);
+    // Selection must describe these exact compiled bytes, not a later walk of
+    // the mutable checkout. Retain the authored address for layer ownership.
+    captured.push({ file, copiedFile, source: contents.toString("utf8") });
   }
+  return captured;
 }
 
 // existingGoBasenames lists the `.go` filenames already materialized in dir.
