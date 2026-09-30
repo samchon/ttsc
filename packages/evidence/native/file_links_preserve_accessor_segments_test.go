@@ -13,13 +13,13 @@ import "testing"
  * 2. Cite each through a distinct file-qualified accessor.
  * 3. Verify every obligation is satisfied without ambiguity.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.Check through the authored project-rule fixture exercises this case. Verifies file links preserve literal member segments and encoded file paths.
+ * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the authored project-rule fixture exercises this case. Verifies file links preserve literal member segments and encoded file paths.
  *
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Instance prototype.run, the static literal prototype.run, and static a/b are three distinct authored members despite similar display text and encoded file characters.
+ * @evidence contracts/testing.md#independent-expectations Instance prototype.run, the static literal prototype.run, and static a/b are three distinct authored members despite similar display text and encoded file characters.
  *
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Define instance and static literal members in a file containing space/#. Cite each through a distinct file-qualified accessor. Verify every obligation is satisfied without ambiguity.
+ * @evidence contracts/testing.md#distinguishing-cases Define instance and static literal members in a file containing space/#. Cite each through a distinct file-qualified accessor. Verify every obligation is satisfied without ambiguity.
  *
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestFileLinksPreserveAccessorSegments is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the authored project-rule fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
+ * @evidence contracts/testing.md#execution-ownership TestFileLinksPreserveAccessorSegments is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the authored project-rule fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
  */
 func TestFileLinksPreserveAccessorSegments(t *testing.T) {
   assertNoProblems(t, runIndexRule(t, map[string]string{

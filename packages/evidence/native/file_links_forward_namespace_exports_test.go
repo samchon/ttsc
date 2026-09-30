@@ -15,13 +15,13 @@ import (
  * 2. Cite both legitimate paths and verify they still reach one unit.
  * 3. Forward an empty namespace beside it and verify no false missing-export error.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.Check through the file-link fixture exercises this case. Verifies named re-exports preserve the complete namespace accessor path.
+ * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the file-link fixture exercises this case. Verifies named re-exports preserve the complete namespace accessor path.
  *
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Public.a.value and Public.b.value end at the same value across forwarding, while an empty namespace contributes no missing-export error.
+ * @evidence contracts/testing.md#independent-expectations Public.a.value and Public.b.value end at the same value across forwarding, while an empty namespace contributes no missing-export error.
  *
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Re-export one value through two namespace aliases and a named forwarding hop. Cite both legitimate paths and verify they still reach one unit. Forward an empty namespace beside it and verify no false missing-export error.
+ * @evidence contracts/testing.md#distinguishing-cases Re-export one value through two namespace aliases and a named forwarding hop. Cite both legitimate paths and verify they still reach one unit. Forward an empty namespace beside it and verify no false missing-export error.
  *
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestFileLinksForwardNamespaceExports is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the file-link fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
+ * @evidence contracts/testing.md#execution-ownership TestFileLinksForwardNamespaceExports is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the file-link fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
  */
 func TestFileLinksForwardNamespaceExports(t *testing.T) {
   fixture := newFileLinkFixture(t, map[string]string{

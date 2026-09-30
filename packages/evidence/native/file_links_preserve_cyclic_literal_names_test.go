@@ -12,13 +12,13 @@ import "testing"
  * 2. Resolve existing inline spellings through each namespace alias.
  * 3. Introduce a qualified-name collision and require precise file accessors.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.Check through the file-link fixture exercises this case. Verifies cyclic paths preserve literal export names and their ambiguity.
+ * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the file-link fixture exercises this case. Verifies cyclic paths preserve literal export names and their ambiguity.
  *
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The authored A.B literal and nested A.B declarations collide only in legacy dotted syntax. Bracket accessors independently distinguish both required properties.
+ * @evidence contracts/testing.md#independent-expectations The authored A.B literal and nested A.B declarations collide only in legacy dotted syntax. Bracket accessors independently distinguish both required properties.
  *
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Export a class with a literal dotted alias and cyclic namespace aliases. Resolve existing inline spellings through each namespace alias. Introduce a qualified-name collision and require precise file accessors.
+ * @evidence contracts/testing.md#distinguishing-cases Export a class with a literal dotted alias and cyclic namespace aliases. Resolve existing inline spellings through each namespace alias. Introduce a qualified-name collision and require precise file accessors.
  *
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestFileLinksPreserveCyclicLiteralNames is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the file-link fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
+ * @evidence contracts/testing.md#execution-ownership TestFileLinksPreserveCyclicLiteralNames is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the file-link fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
  */
 func TestFileLinksPreserveCyclicLiteralNames(t *testing.T) {
   module := `class Target { static value = 1; }

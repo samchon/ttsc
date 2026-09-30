@@ -17,13 +17,13 @@ import (
  *  2. Evaluate the same claim.
  *  3. Assert it is reported as `@evidenceExcludeReview`.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.Check through the authored project-rule fixture exercises this case. Verifies a review written as prose is reported under the tag it was written as.
+ * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the authored project-rule fixture exercises this case. Verifies a review written as prose is reported under the tag it was written as.
  *
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The prose exclusion review must report evidenceExcludeReview at line 5, rather than silently discarding or renaming the tag.
+ * @evidence contracts/testing.md#independent-expectations The prose exclusion review must report evidenceExcludeReview at line 5, rather than silently discarding or renaming the tag.
  *
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Write a review of an exclusion as an ordinary paragraph line. Evaluate the same claim. Assert it is reported as `@evidenceExcludeReview`.
+ * @evidence contracts/testing.md#distinguishing-cases Write a review of an exclusion as an ordinary paragraph line. Evaluate the same claim. Assert it is reported as `@evidenceExcludeReview`.
  *
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestAMarkdownReviewWrittenAsProseIsReported is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the authored project-rule fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
+ * @evidence contracts/testing.md#execution-ownership TestAMarkdownReviewWrittenAsProseIsReported is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the authored project-rule fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
  */
 func TestAMarkdownReviewWrittenAsProseIsReported(t *testing.T) {
   assertReported(

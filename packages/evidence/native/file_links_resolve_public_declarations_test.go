@@ -12,13 +12,13 @@ import "testing"
  * 2. Cite them from both supported host kinds without imports.
  * 3. Add another selected module with the same execute name and verify its unit remains owed.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.Check through the authored project-rule fixture exercises this case. Verifies Markdown and TypeScript file links name the same public code units.
+ * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the authored project-rule fixture exercises this case. Verifies Markdown and TypeScript file links name the same public code units.
  *
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The authored functions/class/namespace citations acknowledge one module, while adding the other module introduces an independently owed same-named execute function.
+ * @evidence contracts/testing.md#independent-expectations The authored functions/class/namespace citations acknowledge one module, while adding the other module introduces an independently owed same-named execute function.
  *
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Select functions, a class, and namespace members from two modules. Cite them from both supported host kinds without imports. Add another selected module with the same execute name and verify its unit remains owed.
+ * @evidence contracts/testing.md#distinguishing-cases Select functions, a class, and namespace members from two modules. Cite them from both supported host kinds without imports. Add another selected module with the same execute name and verify its unit remains owed.
  *
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestFileLinksResolvePublicDeclarations is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the authored project-rule fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
+ * @evidence contracts/testing.md#execution-ownership TestFileLinksResolvePublicDeclarations is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the authored project-rule fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
  */
 func TestFileLinksResolvePublicDeclarations(t *testing.T) {
   contracts := `export function execute(): void {}

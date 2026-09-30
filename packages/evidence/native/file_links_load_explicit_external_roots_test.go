@@ -18,13 +18,13 @@ import (
  * 2. Resolve its file link through root/files with an empty Program.
  * 3. Delete and restore the target and assert failure then recovery.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.Check through the file-link fixture exercises this case. Verifies a rooted TypeScript reference reads a sibling outside the Program.
+ * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the file-link fixture exercises this case. Verifies a rooted TypeScript reference reads a sibling outside the Program.
  *
- * @evidence .agents/skills/contracts/testing.md#independent-expectations An explicit ../api root authorizes a Program-absent sibling; malformed source, deletion, and restoration independently require syntax error, missing file, and clean recovery.
+ * @evidence contracts/testing.md#independent-expectations An explicit ../api root authorizes a Program-absent sibling; malformed source, deletion, and restoration independently require syntax error, missing file, and clean recovery.
  *
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Create a Markdown-only project and a sibling code population. Resolve its file link through root/files with an empty Program. Delete and restore the target and assert failure then recovery.
+ * @evidence contracts/testing.md#distinguishing-cases Create a Markdown-only project and a sibling code population. Resolve its file link through root/files with an empty Program. Delete and restore the target and assert failure then recovery.
  *
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestFileLinksLoadExplicitExternalRoots is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the file-link fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
+ * @evidence contracts/testing.md#execution-ownership TestFileLinksLoadExplicitExternalRoots is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the file-link fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
  */
 func TestFileLinksLoadExplicitExternalRoots(t *testing.T) {
   workspace := t.TempDir()

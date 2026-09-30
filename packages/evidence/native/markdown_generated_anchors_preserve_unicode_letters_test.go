@@ -16,13 +16,13 @@ import (
  *  2. Compare the result with the public normalization rules.
  *  3. Assert meaningful letters remain and separators collapse once.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification markdownSlug exercises this case. Verifies generated anchors follow the documented Unicode and punctuation normalization rather than an ASCII-only shortcut.
+ * @evidence contracts/testing.md#behavioral-verification markdownSlug exercises this case. Verifies generated anchors follow the documented Unicode and punctuation normalization rather than an ASCII-only shortcut.
  *
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The authored Korean/Latin/punctuation/whitespace table specifies the slug grammar independently of markdownSlug, retaining letters and collapsing separators.
+ * @evidence contracts/testing.md#independent-expectations The authored Korean/Latin/punctuation/whitespace table specifies the slug grammar independently of markdownSlug, retaining letters and collapsing separators.
  *
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Generate slugs from Korean, accented Latin, punctuation, and whitespace. Compare the result with the public normalization rules. Assert meaningful letters remain and separators collapse once.
+ * @evidence contracts/testing.md#distinguishing-cases Generate slugs from Korean, accented Latin, punctuation, and whitespace. Compare the result with the public normalization rules. Assert meaningful letters remain and separators collapse once.
  *
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestMarkdownGeneratedAnchorsPreserveUnicodeLetters is the selectable Go entry and owns its fixture variants and local closures. It invokes markdownSlug in the native Go process. It consumes authored strings or parsed source nodes directly; no installed consumer, compiled host, or loader process participates.
+ * @evidence contracts/testing.md#execution-ownership TestMarkdownGeneratedAnchorsPreserveUnicodeLetters is the selectable Go entry and owns its fixture variants and local closures. It invokes markdownSlug in the native Go process. It consumes authored strings or parsed source nodes directly; no installed consumer, compiled host, or loader process participates.
  */
 func TestMarkdownGeneratedAnchorsPreserveUnicodeLetters(t *testing.T) {
   cases := map[string]string{

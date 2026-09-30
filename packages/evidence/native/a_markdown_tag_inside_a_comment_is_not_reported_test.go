@@ -17,13 +17,13 @@ import (
  *  2. Evaluate the same claim.
  *  3. Assert nothing is reported, so it was read and not named.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.Check through the authored project-rule fixture exercises this case. Verifies a tag inside an HTML comment is untouched.
+ * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the authored project-rule fixture exercises this case. Verifies a tag inside an HTML comment is untouched.
  *
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The multiline HTML comment contains the only acknowledgement. No problems means both that it was read and that it was not misreported as prose.
+ * @evidence contracts/testing.md#independent-expectations The multiline HTML comment contains the only acknowledgement. No problems means both that it was read and that it was not misreported as prose.
  *
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Write a multi-line comment carrying the document's only citation. Evaluate the same claim. Assert nothing is reported, so it was read and not named.
+ * @evidence contracts/testing.md#distinguishing-cases Write a multi-line comment carrying the document's only citation. Evaluate the same claim. Assert nothing is reported, so it was read and not named.
  *
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestAMarkdownTagInsideACommentIsNotReported is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the authored project-rule fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
+ * @evidence contracts/testing.md#execution-ownership TestAMarkdownTagInsideACommentIsNotReported is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the authored project-rule fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
  */
 func TestAMarkdownTagInsideACommentIsNotReported(t *testing.T) {
   assertNoProblems(t, runIndexRule(t, map[string]string{

@@ -12,13 +12,13 @@ import "testing"
  * 2. Cite the namespace itself and missing children at successive depths.
  * 3. Check precise diagnostics and verify none supplies coverage for the value.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.Check through the file-link fixture exercises this case. Verifies module namespace failures identify the existing namespace correctly.
+ * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the file-link fixture exercises this case. Verifies module namespace failures identify the existing namespace correctly.
  *
- * @evidence .agents/skills/contracts/testing.md#independent-expectations A namespace is not a declaration; the self, self.missing, and self.self.missing spellings specify the missing segment and cannot discharge value coverage.
+ * @evidence contracts/testing.md#independent-expectations A namespace is not a declaration; the self, self.missing, and self.self.missing spellings specify the missing segment and cannot discharge value coverage.
  *
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Publish a value and a namespace that returns to its declaring module. Cite the namespace itself and missing children at successive depths. Check precise diagnostics and verify none supplies coverage for the value.
+ * @evidence contracts/testing.md#distinguishing-cases Publish a value and a namespace that returns to its declaring module. Cite the namespace itself and missing children at successive depths. Check precise diagnostics and verify none supplies coverage for the value.
  *
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestFileLinksDiagnoseModuleNamespaces is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the file-link fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
+ * @evidence contracts/testing.md#execution-ownership TestFileLinksDiagnoseModuleNamespaces is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the file-link fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
  */
 func TestFileLinksDiagnoseModuleNamespaces(t *testing.T) {
   for _, test := range []struct{ target, problem string }{

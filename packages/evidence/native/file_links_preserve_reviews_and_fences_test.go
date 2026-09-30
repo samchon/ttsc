@@ -15,13 +15,13 @@ import (
  * 2. Review it beside a fenced invalid link and verify success.
  * 3. Change its implementation and verify the review expires.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.Check through the authored project-rule fixture exercises this case. Verifies file-link reviews expire on code changes while examples stay inert.
+ * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the authored project-rule fixture exercises this case. Verifies file-link reviews expire on code changes while examples stay inert.
  *
- * @evidence .agents/skills/contracts/testing.md#independent-expectations A valid review must cover unchanged source and expire after value changes from 1 to 2. Its suggested fingerprint is obtained from the rule, so this checks lifecycle and does not independently certify the hash algorithm.
+ * @evidence contracts/testing.md#independent-expectations A valid review must cover unchanged source and expire after value changes from 1 to 2. Its suggested fingerprint is obtained from the rule, so this checks lifecycle and does not independently certify the hash algorithm.
  *
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Cite one property and obtain the required content fingerprint. Review it beside a fenced invalid link and verify success. Change its implementation and verify the review expires.
+ * @evidence contracts/testing.md#distinguishing-cases Cite one property and obtain the required content fingerprint. Review it beside a fenced invalid link and verify success. Change its implementation and verify the review expires.
  *
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestFileLinksPreserveReviewsAndFences is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the authored project-rule fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
+ * @evidence contracts/testing.md#execution-ownership TestFileLinksPreserveReviewsAndFences is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the authored project-rule fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
  */
 func TestFileLinksPreserveReviewsAndFences(t *testing.T) {
   files := map[string]string{

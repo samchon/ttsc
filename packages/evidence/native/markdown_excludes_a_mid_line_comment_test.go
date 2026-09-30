@@ -16,13 +16,13 @@ import (
  *  2. Add a mid-line review to the same section.
  *  3. Assert the digest did not move, then change adjacent prose and require the digest to move.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification scanProjectMarkdown exercises this case. Verifies a comment opening mid-line is treated as a tag position.
+ * @evidence contracts/testing.md#behavioral-verification scanProjectMarkdown exercises this case. Verifies a comment opening mid-line is treated as a tag position.
  *
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Adding only the review comment must leave the pricing digest equal; changing adjacent prose must change it. The relational oracle checks exclusion and retained meaning without reproducing the hash.
+ * @evidence contracts/testing.md#independent-expectations Adding only the review comment must leave the pricing digest equal; changing adjacent prose must change it. The relational oracle checks exclusion and retained meaning without reproducing the hash.
  *
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Take the digest of a section with no tags. Add a mid-line review to the same section. Assert the digest did not move, then change adjacent prose and require the digest to move.
+ * @evidence contracts/testing.md#distinguishing-cases Take the digest of a section with no tags. Add a mid-line review to the same section. Assert the digest did not move, then change adjacent prose and require the digest to move.
  *
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestMarkdownExcludesAMidLineComment is the selectable Go entry and owns its fixture variants and local closures. It invokes scanProjectMarkdown in the native Go process. It consumes authored strings or parsed source nodes directly; no installed consumer, compiled host, or loader process participates.
+ * @evidence contracts/testing.md#execution-ownership TestMarkdownExcludesAMidLineComment is the selectable Go entry and owns its fixture variants and local closures. It invokes scanProjectMarkdown in the native Go process. It consumes authored strings or parsed source nodes directly; no installed consumer, compiled host, or loader process participates.
  */
 func TestMarkdownExcludesAMidLineComment(t *testing.T) {
   digestOf := func(content string) string {

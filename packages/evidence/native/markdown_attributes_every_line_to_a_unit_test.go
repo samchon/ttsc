@@ -33,13 +33,13 @@ func markdownUnitDigest(t *testing.T, content string, target string) string {
  *  3. Assert the H3's digest is unmoved and the enclosing H1 spec digest moved,
  *     since spec is the nearest addressable unit that encloses that region.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification scanProjectMarkdown through markdownUnitDigest exercises this case. Verifies a region under an unaddressable heading belongs to its enclosing unit, not to whichever unit the walk saw last.
+ * @evidence contracts/testing.md#behavioral-verification scanProjectMarkdown through markdownUnitDigest exercises this case. Verifies a region under an unaddressable heading belongs to its enclosing unit, not to whichever unit the walk saw last.
  *
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Changing only the later anchorless H2 region must leave coupons unchanged and change the enclosing spec digest. This checks attribution rather than a particular hash value.
+ * @evidence contracts/testing.md#independent-expectations Changing only the later anchorless H2 region must leave coupons unchanged and change the enclosing spec digest. This checks attribution rather than a particular hash value.
  *
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Build a document where an anchorless H2 follows an H3 under a cited H2. Change only the text under the anchorless heading. Assert the H3's digest is unmoved and the enclosing H1 spec digest moved, since spec is the nearest addressable unit that encloses that region.
+ * @evidence contracts/testing.md#distinguishing-cases Build a document where an anchorless H2 follows an H3 under a cited H2. Change only the text under the anchorless heading. Assert the H3's digest is unmoved and the enclosing H1 spec digest moved, since spec is the nearest addressable unit that encloses that region.
  *
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestMarkdownAttributesARegionToItsEnclosingUnit is the selectable Go entry and owns its fixture variants and local closures. It invokes scanProjectMarkdown through markdownUnitDigest in the native Go process. It consumes authored strings or parsed source nodes directly; no installed consumer, compiled host, or loader process participates.
+ * @evidence contracts/testing.md#execution-ownership TestMarkdownAttributesARegionToItsEnclosingUnit is the selectable Go entry and owns its fixture variants and local closures. It invokes scanProjectMarkdown through markdownUnitDigest in the native Go process. It consumes authored strings or parsed source nodes directly; no installed consumer, compiled host, or loader process participates.
  */
 func TestMarkdownAttributesARegionToItsEnclosingUnit(t *testing.T) {
   before := "# Spec\n\n## Pricing {#pricing}\n\n### Coupons {#coupons}\n\nOne per issuer.\n\n## {#}\n\nStray prose.\n"

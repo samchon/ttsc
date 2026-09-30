@@ -22,13 +22,13 @@ const scanProblemGraph = `{"claims":[{
  *  3. Assert an anchorless heading in a claim file is reported, and withheld from a claim that does not read that kind.
  *  4. Assert a file both populations read reports each problem once.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.Check through the authored project-rule fixture exercises this case. Verifies a claim population hears the scan problems its own files raise.
+ * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the authored project-rule fixture exercises this case. Verifies a claim population hears the scan problems its own files raise.
  *
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Whitespace paths report before claim deactivation; selected anchorless H2 reports while an H1-only claim suppresses it, and a file on both sides produces exactly one report.
+ * @evidence contracts/testing.md#independent-expectations Whitespace paths report before claim deactivation; selected anchorless H2 reports while an H1-only claim suppresses it, and a file on both sides produces exactly one report.
  *
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Point a Markdown claim at a whitespace-named file beside an ordinary one, and assert the path is reported while the ordinary file still owes its acknowledgement. Make that file the claim's only one, so the claim materializes no host and deactivates, and assert it still reports. Assert an anchorless heading in a claim file is reported, and withheld from a claim that does not read that kind. Assert a file both populations read reports each problem once.
+ * @evidence contracts/testing.md#distinguishing-cases Point a Markdown claim at a whitespace-named file beside an ordinary one, and assert the path is reported while the ordinary file still owes its acknowledgement. Make that file the claim's only one, so the claim materializes no host and deactivates, and assert it still reports. Assert an anchorless heading in a claim file is reported, and withheld from a claim that does not read that kind. Assert a file both populations read reports each problem once.
  *
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestMarkdownReportsScanProblemsToClaims is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the authored project-rule fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
+ * @evidence contracts/testing.md#execution-ownership TestMarkdownReportsScanProblemsToClaims is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the authored project-rule fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
  */
 func TestMarkdownReportsScanProblemsToClaims(t *testing.T) {
   unaddressable := runIndexRule(t, map[string]string{

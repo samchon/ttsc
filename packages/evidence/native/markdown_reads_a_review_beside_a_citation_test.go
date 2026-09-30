@@ -26,13 +26,13 @@ import (
  *     collected with its own target and description.
  *  3. Assert an unrelated `@tag` is still absorbed into a Markdown reason.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification scanProjectMarkdown exercises this case. Verifies a Markdown review closes the citation above it without making every `@tag` a boundary.
+ * @evidence contracts/testing.md#behavioral-verification scanProjectMarkdown exercises this case. Verifies a Markdown review closes the citation above it without making every `@tag` a boundary.
  *
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The citation and review each have literal target/reason expectations; the foreign architecture line remains prose. Counts detect swallowed or manufactured annotations.
+ * @evidence contracts/testing.md#independent-expectations The citation and review each have literal target/reason expectations; the foreign architecture line remains prose. Counts detect swallowed or manufactured annotations.
  *
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Scan a document whose HTML comment holds a citation and then a review. Assert the citation's reason stops at its own sentence and the review was collected with its own target and description. Assert an unrelated `@tag` is still absorbed into a Markdown reason.
+ * @evidence contracts/testing.md#distinguishing-cases Scan a document whose HTML comment holds a citation and then a review. Assert the citation's reason stops at its own sentence and the review was collected with its own target and description. Assert an unrelated `@tag` is still absorbed into a Markdown reason.
  *
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestMarkdownReadsAReviewBesideACitation is the selectable Go entry and owns its fixture variants and local closures. It invokes scanProjectMarkdown in the native Go process. It consumes authored strings or parsed source nodes directly; no installed consumer, compiled host, or loader process participates.
+ * @evidence contracts/testing.md#execution-ownership TestMarkdownReadsAReviewBesideACitation is the selectable Go entry and owns its fixture variants and local closures. It invokes scanProjectMarkdown in the native Go process. It consumes authored strings or parsed source nodes directly; no installed consumer, compiled host, or loader process participates.
  */
 func TestMarkdownReadsAReviewBesideACitation(t *testing.T) {
   inventory, problems := scanProjectMarkdown("docs/spec.md", `# Pricing

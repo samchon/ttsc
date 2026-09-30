@@ -12,13 +12,13 @@ import "testing"
  * 2. Cite the member through the public path.
  * 3. Assert the visibility/value reason instead of a generic missing member.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.Check through the file-link fixture exercises this case. Verifies namespace forwarding preserves private and type-only failure causes.
+ * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the file-link fixture exercises this case. Verifies namespace forwarding preserves private and type-only failure causes.
  *
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Namespace forwarding cannot make private members public or a type-only export into a value. Each table row supplies the required restriction independently of collection.
+ * @evidence contracts/testing.md#independent-expectations Namespace forwarding cannot make private members public or a type-only export into a value. Each table row supplies the required restriction independently of collection.
  *
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Forward private and type-only members through namespace and named exports. Cite the member through the public path. Assert the visibility/value reason instead of a generic missing member.
+ * @evidence contracts/testing.md#distinguishing-cases Forward private and type-only members through namespace and named exports. Cite the member through the public path. Assert the visibility/value reason instead of a generic missing member.
  *
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestFileLinksDiagnoseForwardedPrivateMembers is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the file-link fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
+ * @evidence contracts/testing.md#execution-ownership TestFileLinksDiagnoseForwardedPrivateMembers is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the file-link fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
  */
 func TestFileLinksDiagnoseForwardedPrivateMembers(t *testing.T) {
   for _, test := range []struct{ source, barrel, target, reason string }{

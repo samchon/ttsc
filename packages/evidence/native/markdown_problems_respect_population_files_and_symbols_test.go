@@ -21,13 +21,13 @@ import (
  *  2. Have the reference select H1 and assert no empty H2 is reported, since neither population reads that kind.
  *  3. Have the reference select H2 and assert only its own file is reported, since the claim still reads only `file`.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.Check through the authored project-rule fixture exercises this case. Verifies Markdown scan diagnostics stay inside each configured population's files and symbol selection.
+ * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the authored project-rule fixture exercises this case. Verifies Markdown scan diagnostics stay inside each configured population's files and symbol selection.
  *
- * @evidence .agents/skills/contracts/testing.md#independent-expectations An H1-only reference has no empty-H2 report; changing only its selector to H2 requires exactly one report at docs/source.md:2, excluding claim and unrelated files.
+ * @evidence contracts/testing.md#independent-expectations An H1-only reference has no empty-H2 report; changing only its selector to H2 requires exactly one report at docs/source.md:2, excluding claim and unrelated files.
  *
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Put an empty H2 in the reference file, the claim file, and an unrelated file. Have the reference select H1 and assert no empty H2 is reported, since neither population reads that kind. Have the reference select H2 and assert only its own file is reported, since the claim still reads only `file`.
+ * @evidence contracts/testing.md#distinguishing-cases Put an empty H2 in the reference file, the claim file, and an unrelated file. Have the reference select H1 and assert no empty H2 is reported, since neither population reads that kind. Have the reference select H2 and assert only its own file is reported, since the claim still reads only `file`.
  *
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestMarkdownProblemsRespectPopulationFilesAndSymbols is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the authored project-rule fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
+ * @evidence contracts/testing.md#execution-ownership TestMarkdownProblemsRespectPopulationFilesAndSymbols is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the authored project-rule fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
  */
 func TestMarkdownProblemsRespectPopulationFilesAndSymbols(t *testing.T) {
   files := map[string]string{

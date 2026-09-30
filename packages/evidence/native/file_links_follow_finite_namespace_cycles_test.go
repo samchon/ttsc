@@ -12,13 +12,13 @@ import "testing"
  * 2. Cite their repeated paths from Markdown and import-scoped TypeScript.
  * 3. Verify one unit remains one obligation through every address.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.Check through the authored project-rule fixture exercises this case. Verifies finite citation paths can traverse cyclic module namespaces.
+ * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the authored project-rule fixture exercises this case. Verifies finite citation paths can traverse cyclic module namespaces.
  *
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Every finite self/other/back path ends at the same authored value; repeated namespace hops must preserve clean Markdown and inline TypeScript coverage.
+ * @evidence contracts/testing.md#independent-expectations Every finite self/other/back path ends at the same authored value; repeated namespace hops must preserve clean Markdown and inline TypeScript coverage.
  *
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Export a self namespace and a namespace that returns through another module. Cite their repeated paths from Markdown and import-scoped TypeScript. Verify one unit remains one obligation through every address.
+ * @evidence contracts/testing.md#distinguishing-cases Export a self namespace and a namespace that returns through another module. Cite their repeated paths from Markdown and import-scoped TypeScript. Verify one unit remains one obligation through every address.
  *
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestFileLinksFollowFiniteNamespaceCycles is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the authored project-rule fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
+ * @evidence contracts/testing.md#execution-ownership TestFileLinksFollowFiniteNamespaceCycles is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the authored project-rule fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
  */
 func TestFileLinksFollowFiniteNamespaceCycles(t *testing.T) {
   for _, target := range []string{"self.value", "self.self.value", "other.back.value", "other.back.self.other.back.value"} {

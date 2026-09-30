@@ -12,13 +12,13 @@ import "testing"
  * 2. Cite their shared address from Markdown and existing TypeScript inline tags.
  * 3. Reject distinct declarations and deduplicate paths to one declaration.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.Check through the file-link fixture exercises this case. Verifies finite and cyclic export paths participate in one ambiguity check.
+ * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the file-link fixture exercises this case. Verifies finite and cyclic export paths participate in one ambiguity check.
  *
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Two different authored declarations at ns.value remain ambiguous; re-exporting the same declaration deduplicates it, for both file-qualified and inline citation forms.
+ * @evidence contracts/testing.md#independent-expectations Two different authored declarations at ns.value remain ambiguous; re-exporting the same declaration deduplicates it, for both file-qualified and inline citation forms.
  *
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Publish two namespace bindings through separate star re-exports. Cite their shared address from Markdown and existing TypeScript inline tags. Reject distinct declarations and deduplicate paths to one declaration.
+ * @evidence contracts/testing.md#distinguishing-cases Publish two namespace bindings through separate star re-exports. Cite their shared address from Markdown and existing TypeScript inline tags. Reject distinct declarations and deduplicate paths to one declaration.
  *
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestFileLinksUnionCyclicExportCandidates is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the file-link fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
+ * @evidence contracts/testing.md#execution-ownership TestFileLinksUnionCyclicExportCandidates is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the file-link fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
  */
 func TestFileLinksUnionCyclicExportCandidates(t *testing.T) {
   for _, same := range []bool{false, true} {

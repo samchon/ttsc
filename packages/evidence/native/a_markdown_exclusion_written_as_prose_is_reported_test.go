@@ -15,13 +15,13 @@ import (
  *  2. Evaluate the same claim.
  *  3. Assert the tag is reported.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.Check through the authored project-rule fixture exercises this case. Verifies an exclusion written as prose is reported.
+ * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the authored project-rule fixture exercises this case. Verifies an exclusion written as prose is reported.
  *
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The authored prose exclusion is unreadable at docs/claim/plan.md:5 and must retain its evidenceExclude tag in the diagnostic.
+ * @evidence contracts/testing.md#independent-expectations The authored prose exclusion is unreadable at docs/claim/plan.md:5 and must retain its evidenceExclude tag in the diagnostic.
  *
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Write an exclusion as an ordinary paragraph line. Evaluate the same claim. Assert the tag is reported.
+ * @evidence contracts/testing.md#distinguishing-cases Write an exclusion as an ordinary paragraph line. Evaluate the same claim. Assert the tag is reported.
  *
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestAMarkdownExclusionWrittenAsProseIsReported is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the authored project-rule fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
+ * @evidence contracts/testing.md#execution-ownership TestAMarkdownExclusionWrittenAsProseIsReported is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the authored project-rule fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
  */
 func TestAMarkdownExclusionWrittenAsProseIsReported(t *testing.T) {
   assertReported(

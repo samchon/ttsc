@@ -12,13 +12,13 @@ import "testing"
  * 2. Verify canonical targets keep the complete reason.
  * 3. Reject malformed paths, escapes, separators, and brackets.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification splitDeclarationBody and parseFileLink exercises this case. Verifies file-address grammar distinguishes quoted segments from reason text.
+ * @evidence contracts/testing.md#behavioral-verification splitDeclarationBody and parseFileLink exercises this case. Verifies file-address grammar distinguishes quoted segments from reason text.
  *
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The literal canonical targets preserve quoted/numeric segments and the complete reason. The independently enumerated malformed grammar inputs must all be refused.
+ * @evidence contracts/testing.md#independent-expectations The literal canonical targets preserve quoted/numeric segments and the complete reason. The independently enumerated malformed grammar inputs must all be refused.
  *
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Parse escaped file paths and quoted/numeric accessor segments. Verify canonical targets keep the complete reason. Reject malformed paths, escapes, separators, and brackets.
+ * @evidence contracts/testing.md#distinguishing-cases Parse escaped file paths and quoted/numeric accessor segments. Verify canonical targets keep the complete reason. Reject malformed paths, escapes, separators, and brackets.
  *
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestFileLinksValidateAddressBoundaries is the selectable Go entry and owns its fixture variants and local closures. It invokes splitDeclarationBody and parseFileLink in the native Go process. It consumes authored strings or parsed source nodes directly; no installed consumer, compiled host, or loader process participates.
+ * @evidence contracts/testing.md#execution-ownership TestFileLinksValidateAddressBoundaries is the selectable Go entry and owns its fixture variants and local closures. It invokes splitDeclarationBody and parseFileLink in the native Go process. It consumes authored strings or parsed source nodes directly; no installed consumer, compiled host, or loader process participates.
  */
 func TestFileLinksValidateAddressBoundaries(t *testing.T) {
   for _, test := range []struct{ input, target string }{
