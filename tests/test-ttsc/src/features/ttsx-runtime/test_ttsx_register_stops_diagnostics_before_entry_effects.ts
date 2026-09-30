@@ -17,8 +17,16 @@ import { TTSX_REGISTER, linkTtscPackage } from "../../internal/ttsx-register";
  * 2. Assert the diagnostic, absent marker, and cleaned runtime directory.
  * 3. Repeat through a JS host with same-basename out-of-include roots, proving the
  *    first root's stem-matched emit cannot hide the second's diagnostic.
+ * @evidence contracts/testing.md#behavioral-verification Uses public ttsc/register for an included bad entry and a later excluded bad entry after FIRST, requiring diagnostics before marker effects.
+ * @evidence contracts/testing.md#independent-expectations Authored string/number errors, FIRST and missing marker files independently establish gating and execution order.
+ * @evidence contracts/testing.md#distinguishing-cases The first fixture checks empty project cache; the second checks a successful earlier entry followed by failure but does not assert cache emptiness.
+ * @evidence contracts/testing.md#execution-ownership This second runtime review entry is the named E2E export test_ttsx_register_stops_diagnostics_before_entry_effects at this path, selected by tests/e2e/evidence.config.json; no direct-source unit equivalence is inferred without comparing its assertions.
+ * @evidence contracts/e2e.md#necessary-boundary Two real Node preload hosts connect public registration, native checking and suppression of entry effects.
+ * @evidence contracts/e2e.md#shared-execution Both cases reuse the installed public register package and compiler; each requires its own project and process because their startup states differ.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Temporary marker paths are fixture-owned, package links are local, and synchronous child completion precedes marker/cache inspection.
+ * @evidence contracts/e2e.md#preserved-coverage All diagnostic, status, ordering and marker assertions remain here, with cleanup scope limited to the first fixture.
  */
-export const test_ttsx_register_stops_diagnostics_before_entry_effects = () => {
+export function test_ttsx_register_stops_diagnostics_before_entry_effects() {
   const root = TestProject.commonJsProject({
     "src/main.ts": [
       `import fs from "node:fs";`,
@@ -99,4 +107,4 @@ export const test_ttsx_register_stops_diagnostics_before_entry_effects = () => {
     /Type 'number' is not assignable to type 'string'/,
   );
   assert.equal(fs.existsSync(repeatedMarker), false);
-};
+}

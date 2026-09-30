@@ -22,9 +22,16 @@ import { TTSX_REGISTER, linkTtscPackage } from "../../internal/ttsx-register";
  * 2. Run the entry through ttsx and through the `ttsc/register` preload.
  * 3. Assert both run `other/index.ts` itself, and that no synthesized tsconfig is
  *    left beside the project's own.
+ * @evidence contracts/testing.md#behavioral-verification Requires other/index from a files-only entry/index through ttsx and public register, requiring other=other and no leftover .ttsx- root names.
+ * @evidence contracts/testing.md#independent-expectations The two authored same-basename sources carry distinct values, independently detecting selection of the checked entry instead of required source.
+ * @evidence contracts/testing.md#distinguishing-cases Both launch routes must load the omitted source; cleanup inspects only root entries with the .ttsx- prefix.
+ * @evidence contracts/testing.md#execution-ownership This second runtime review entry is the named E2E export test_ttsx_runs_a_required_source_outside_the_checked_file_set_from_its_own_code at this path, selected by tests/e2e/evidence.config.json; no direct-source unit equivalence is inferred without comparing its assertions.
+ * @evidence contracts/e2e.md#necessary-boundary Two actual Node/native routes connect public register and ttsx to source-specific fallback emission.
+ * @evidence contracts/e2e.md#shared-execution One project and installed register package are shared, while the two fresh hosts preserve distinct launch lifetimes.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Package linking and source inputs are fixture-owned; both synchronous children finish before the root-prefix cleanup check.
+ * @evidence contracts/e2e.md#preserved-coverage Both exact other=other outputs and the existing prefix cleanup assertion remain here without claiming complete cache-directory inspection.
  */
-export const test_ttsx_runs_a_required_source_outside_the_checked_file_set_from_its_own_code =
-  () => {
+export function test_ttsx_runs_a_required_source_outside_the_checked_file_set_from_its_own_code() {
     const root = TestProject.createProject({
       "package.json": JSON.stringify({ name: "outside-files", private: true }),
       "tsconfig.json": JSON.stringify({
@@ -69,4 +76,4 @@ export const test_ttsx_runs_a_required_source_outside_the_checked_file_set_from_
       fs.readdirSync(root).filter((name) => name.startsWith(".ttsx-")),
       [],
     );
-  };
+  }

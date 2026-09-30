@@ -19,9 +19,17 @@ import path from "node:path";
  * 1. Build a `noEmit` project with sources under `src/` and no `rootDir`.
  * 2. Run ttsx against `src/main.ts`, which imports `src/lib/greeting.ts`.
  * 3. Assert the program printed the imported value and left no `.js` on disk.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Actual ttsx executes a nested noEmit project without rootDir or outDir; exact no-rootdir-nested output, zero status and no JavaScript beside either source distinguish the TS5011/layout regression.
+ * @evidence contracts/testing.md#independent-expectations Authored greeting text and fixed src/main.js/src/lib/greeting.js paths define expectations independently of synthesized compiler root or output mapping.
+ * @evidence contracts/testing.md#distinguishing-cases Nested source depth changes inferred source layout relative to the flat complementary case; both noEmit and absent output/root settings remain active input distinctions.
+ * @evidence contracts/testing.md#execution-ownership This matching named E2E entry owns one actual launcher/native compiler/Node session and checks two independent source-adjacent paths.
+ * @evidence contracts/e2e.md#necessary-boundary A runtime-only output/root adapter must prevent native TS5011 while retaining the nested import layout and containing real emit; no classifier-only call establishes those compiler and loader effects.
+ * @evidence contracts/e2e.md#shared-execution One nested root preparation and host serve both module and containment observations; its differing source-depth compiler profile currently remains separate from the flat case.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Fresh immutable sources have no stale JavaScript that could satisfy execution; synchronous child completion and TestProject cleanup own the process and fixture lifetimes.
+ * @evidence contracts/e2e.md#preserved-coverage Original exact greeting, status and both source-adjacent JavaScript absence checks remain; consolidation of the differing compiler layout has not been asserted without a verified owner.
  */
-export const test_ttsx_runs_a_nested_entry_whose_project_declares_no_rootdir =
-  () => {
+export function test_ttsx_runs_a_nested_entry_whose_project_declares_no_rootdir() {
     const root = TestProject.commonJsProject(
       {
         "src/lib/greeting.ts": `export const greeting: string = "no-rootdir-nested";\n`,
@@ -61,4 +69,4 @@ export const test_ttsx_runs_a_nested_entry_whose_project_declares_no_rootdir =
         `the runtime emit escaped into the source tree at ${leaked}`,
       );
     }
-  };
+  }

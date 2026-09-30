@@ -39,9 +39,16 @@ const { resolveGoCompiler } = require_(
  *    `TTSC_CACHE_DIR`: it prints `two`, the text the emit read.
  * 3. Write the orphan back to `"one"` and run again.
  * 4. Assert the second run prints `one`.
+ * @evidence contracts/testing.md#behavioral-verification An actual Go compiler wrapper changes rawpkg source from one to two exactly when that source emit starts; first ttsx prints two, then restoring one must make the next run print one.
+ * @evidence contracts/testing.md#independent-expectations Authored one/two versions independently identify which bytes ran. os.SameFile selects the real orphan emit and a done marker allows only the first mutation.
+ * @evidence contracts/testing.md#distinguishing-cases Key-read source differs from emit-read source in the first run; restored original bytes must not hit a cache entry containing the newer lowering. The wrapper delegates all compilations to real tsgo.
+ * @evidence contracts/testing.md#execution-ownership The named test_ttsx_orphan_cache_records_no_lowering_of_a_source_that_moved_during_its_emit E2E entry owns the actual bootstrap and observations specified here. TestProject/internal helpers supply fixtures and completed process results; this acknowledgment does not infer portable unit coverage from similarly named tests.
+ * @evidence contracts/e2e.md#necessary-boundary The source-key/real compiler-read/publication connection must resist a timed filesystem edit. Direct stable-snapshot units cannot prove this exact compiler process window and later served result.
+ * @evidence contracts/e2e.md#shared-execution One dedicated Go wrapper is built from fixture source, then two ttsx hosts share it, the real compiler and private cache. This per-entry wrapper producer is still separate from other native preparation; reusable runtime-driven wrapper assembly is a consolidation candidate.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only fixture orphan bytes and done marker mutate. The Go build and both host lifetimes are synchronous; TestProject owns wrapper/project/cache directories. No global function or product method is replaced.
+ * @evidence contracts/e2e.md#preserved-coverage Original wrapper build status, first two and restored second one assertions remain. The cache is not cleared between runs, preserving the actual race and invalidation distinction.
  */
-export const test_ttsx_orphan_cache_records_no_lowering_of_a_source_that_moved_during_its_emit =
-  () => {
+export function test_ttsx_orphan_cache_records_no_lowering_of_a_source_that_moved_during_its_emit() {
     const root = TestProject.createProject({
       "package.json": JSON.stringify({ name: "orphan-race", private: true }),
       "tsconfig.json": JSON.stringify({
@@ -152,4 +159,4 @@ export const test_ttsx_orphan_cache_records_no_lowering_of_a_source_that_moved_d
       "one",
       "the key of the first bytes served the lowering of other bytes",
     );
-  };
+  }

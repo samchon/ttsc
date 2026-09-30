@@ -20,9 +20,16 @@ import path from "node:path";
  * 2. Plant a marker in the one cached lowering and run again.
  * 3. Rewrite the compiler in place and run a third time.
  * 4. Assert the second run printed the marker and the third did not.
+ * @evidence contracts/testing.md#behavioral-verification Three ttsx runs observe lowered, then a planted cached marker, then lowered alone after an in-place compiler rewrite and future modification timestamp.
+ * @evidence contracts/testing.md#independent-expectations The marker is an independent runtime witness for serving the previous cache file; the original authored export determines the fresh output after invalidation.
+ * @evidence contracts/testing.md#distinguishing-cases Same compiler path is reused across warm and changed-metadata states. The rewrite preserves bytes and explicitly advances time, so this checks metadata-based identity rather than executable semantic change.
+ * @evidence contracts/testing.md#execution-ownership The named test_ttsx_orphan_cache_misses_when_the_compiler_changes_at_the_same_path E2E entry owns the actual bootstrap and observations specified here. TestProject/internal helpers supply fixtures and completed process results; this acknowledgment does not infer portable unit coverage from similarly named tests.
+ * @evidence contracts/e2e.md#necessary-boundary Actual compiler identity must select a new persistent orphan lowering across host processes. Direct key units cannot prove the served cache text changes after the mutation.
+ * @evidence contracts/e2e.md#shared-execution One compiler-directory copy and one cache/project serve three consumers. The first lowering and genuine warm marker reuse are retained; no cache deletion substitutes for identity invalidation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The copied executable and cache are private to the fixture, with executable mode restored. Hosts exit synchronously before mutation; TestProject tracks retained compiler and lowering files.
+ * @evidence contracts/e2e.md#preserved-coverage Original statuses, first value, one-lowering count, warm marker and third exact value remain. Same-path invalidation is witnessed without claiming a different compiler result or mtime-restored case.
  */
-export const test_ttsx_orphan_cache_misses_when_the_compiler_changes_at_the_same_path =
-  () => {
+export function test_ttsx_orphan_cache_misses_when_the_compiler_changes_at_the_same_path() {
     const root = TestProject.createProject({
       "package.json": JSON.stringify({ name: "orphan-cache", private: true }),
       "tsconfig.json": JSON.stringify({
@@ -89,4 +96,4 @@ export const test_ttsx_orphan_cache_misses_when_the_compiler_changes_at_the_same
     const third = run();
     assert.equal(third.status, 0, third.stderr);
     assert.equal(third.stdout.trim(), "lowered");
-  };
+  }

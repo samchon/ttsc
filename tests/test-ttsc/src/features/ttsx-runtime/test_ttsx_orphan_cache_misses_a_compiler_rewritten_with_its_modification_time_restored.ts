@@ -21,9 +21,16 @@ import path from "node:path";
  * 3. Rewrite the compiler with the same bytes and restore its modification time,
  *    then run a third time.
  * 4. Assert the second run printed the marker and the third did not.
+ * @evidence contracts/testing.md#behavioral-verification Three ttsx runs first lower rawpkg, then execute a planted cached marker, then omit the marker after rewriting compiler bytes in-place while preserving size and mtimeNs.
+ * @evidence contracts/testing.md#independent-expectations The authored lowering text versus planted marker independently witnesses real cache reuse/miss. Explicit stat comparisons establish unchanged size/mtime rather than assuming filesystem precision.
+ * @evidence contracts/testing.md#distinguishing-cases Unchanged compiler reuse contrasts with same-path/same-size/same-mtime rewrite. Compiler contents are the same bytes, so this tests filesystem-identity invalidation, not a different compiler implementation.
+ * @evidence contracts/testing.md#execution-ownership The named test_ttsx_orphan_cache_misses_a_compiler_rewritten_with_its_modification_time_restored E2E entry owns the actual bootstrap and observations specified here. TestProject/internal helpers supply fixtures and completed process results; this acknowledgment does not infer portable unit coverage from similarly named tests.
+ * @evidence contracts/e2e.md#necessary-boundary Real compiler identity observation must control persistent orphan bytes served by the next host. Direct fingerprint units cannot prove that cached lowering actually changes runtime execution.
+ * @evidence contracts/e2e.md#shared-execution One copied compiler directory, raw package/project and private persistent cache serve three host lifetimes. Warm marker and invalidated state are the behavior, so clearing that cache would destroy the distinction.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only fixture compiler/cache files mutate; the suite compiler is copied with its declarations. TestProject owns all copies, and synchronous runs prevent live compiler mutation during a build.
+ * @evidence contracts/e2e.md#preserved-coverage Original first value, exactly one lowering, second marker, unchanged size/mtime and third exact value remain. The case does not explicitly assert ctime changed, though rewriting provides the intended filesystem event.
  */
-export const test_ttsx_orphan_cache_misses_a_compiler_rewritten_with_its_modification_time_restored =
-  () => {
+export function test_ttsx_orphan_cache_misses_a_compiler_rewritten_with_its_modification_time_restored() {
     const root = TestProject.createProject({
       "package.json": JSON.stringify({ name: "orphan-cache", private: true }),
       "tsconfig.json": JSON.stringify({
@@ -97,4 +104,4 @@ export const test_ttsx_orphan_cache_misses_a_compiler_rewritten_with_its_modific
     const third = run();
     assert.equal(third.status, 0, third.stderr);
     assert.equal(third.stdout.trim(), "lowered");
-  };
+  }

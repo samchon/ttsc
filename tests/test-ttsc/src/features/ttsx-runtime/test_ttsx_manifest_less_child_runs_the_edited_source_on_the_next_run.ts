@@ -21,9 +21,16 @@ import path from "node:path";
  * 2. Run it, edit `src/child.ts`, and run it again.
  * 3. Assert each run prints its own version, and that no private cache directory
  *    of either child remains.
+ * @evidence contracts/testing.md#behavioral-verification Two parent ttsx runs each spawn a Node child with runtime manifest removed; child v1/v2 output must match rewritten source and neither observed PID may leave a process-PID cache directory.
+ * @evidence contracts/testing.md#independent-expectations The authored version bytes determine fresh execution; observed child PID plus literal private cache prefix independently identifies cleanup targets.
+ * @evidence contracts/testing.md#distinguishing-cases Manifest-less child differs from inherited shared-run ownership. Two source versions at one path must not reuse the first lowering, and both child-private cache owners must be gone.
+ * @evidence contracts/testing.md#execution-ownership The named test_ttsx_manifest_less_child_runs_the_edited_source_on_the_next_run E2E entry owns the actual bootstrap and observations specified here. TestProject/internal helpers supply fixtures and completed process results; this acknowledgment does not infer portable unit coverage from similarly named tests.
+ * @evidence contracts/e2e.md#necessary-boundary Actual inherited hooks, removed manifest, child process exit and filesystem cleanup connect here. Direct cache-key/lifetime units cannot prove the child executes edited source and releases its directories.
+ * @evidence contracts/e2e.md#shared-execution Two parent and two child lifetimes share one project. Separate runs are necessary for cross-run source invalidation; child-private generation state cannot be shared merely because tsconfig path is equal.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The full child bytes are rewritten before each synchronous parent run. Runtime owns each child-private cache; the test observes cleanup after both children exit and TestProject owns fixture cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Original version/status checks and both PID-prefix absence checks remain. Only the named historical ttsx-dep cache parent is inspected, not arbitrary leaked directories.
  */
-export const test_ttsx_manifest_less_child_runs_the_edited_source_on_the_next_run =
-  () => {
+export function test_ttsx_manifest_less_child_runs_the_edited_source_on_the_next_run() {
     const child = (version: string): string =>
       [
         `declare const process: { pid: number };`,
@@ -84,4 +91,4 @@ export const test_ttsx_manifest_less_child_runs_the_edited_source_on_the_next_ru
         `the child ${pid} left its private cache behind`,
       );
     }
-  };
+  }

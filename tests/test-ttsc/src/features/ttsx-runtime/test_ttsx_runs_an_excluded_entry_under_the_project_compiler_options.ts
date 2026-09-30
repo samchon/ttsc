@@ -24,9 +24,16 @@ import assert from "node:assert/strict";
  *    ["src"]`.
  * 2. Run ttsx against a root-level script that reads `__dirname`.
  * 3. Assert it ran and reported `cjs`.
+ * @evidence contracts/testing.md#behavioral-verification Runs excluded clear.ts under NodeNext project settings and requires aliased cjs from its CommonJS __dirname branch.
+ * @evidence contracts/testing.md#independent-expectations The authored branch literal independently distinguishes usable CommonJS execution from the alternate branch.
+ * @evidence contracts/testing.md#distinguishing-cases An excluded entry must retain module options; this value does not independently prove strict type-checking inheritance.
+ * @evidence contracts/testing.md#execution-ownership This second runtime review entry is the named E2E export test_ttsx_runs_an_excluded_entry_under_the_project_compiler_options at this path, selected by tests/e2e/evidence.config.json; no direct-source unit equivalence is inferred without comparing its assertions.
+ * @evidence contracts/e2e.md#necessary-boundary Actual excluded-entry native compilation and Node module execution connect project options to executable module semantics.
+ * @evidence contracts/e2e.md#shared-execution One project and one host share installed compiler preparation without separate consumer installation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Immutable config/source state belongs to the tracked fixture and lasts through synchronous completion until process-exit cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage The exact aliased cjs output remains here without extending the assertion into an unobserved strict-diagnostic guarantee.
  */
-export const test_ttsx_runs_an_excluded_entry_under_the_project_compiler_options =
-  () => {
+export function test_ttsx_runs_an_excluded_entry_under_the_project_compiler_options() {
     const root = TestProject.createProject({
       "package.json": JSON.stringify({
         name: "excluded-entry",
@@ -63,4 +70,4 @@ export const test_ttsx_runs_an_excluded_entry_under_the_project_compiler_options
     );
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stdout.trim(), "aliased cjs");
-  };
+  }

@@ -17,9 +17,16 @@ import assert from "node:assert/strict";
  *    type error.
  * 3. Assert the first run prints the preloaded value, and the second fails with
  *    the preload's diagnostic before the entry runs.
+ * @evidence contracts/testing.md#behavioral-verification Ttsx -r ./preload.ts first prints tag=preloaded; after rewriting the excluded preload with a type error it fails with preload root/assignability diagnostics before tag= output.
+ * @evidence contracts/testing.md#independent-expectations The authored preload writes the expected global tag, and string-to-number assignment independently requires rejection.
+ * @evidence contracts/testing.md#distinguishing-cases Preload compilation occurs before entry execution, outside src include. The same pointer is valid then mistyped, detecting cached success or bypassed checking.
+ * @evidence contracts/testing.md#execution-ownership The discoverable named test_ttsx_compiles_and_checks_a_typescript_preload_outside_include entry belongs to the TypeScript E2E population and executes the actual launch/bootstrap path described here. Its fixture helpers do not register hidden assertion hosts; no portable unit owner is inferred without exact body comparison.
+ * @evidence contracts/e2e.md#necessary-boundary Node preload order, runtime hooks and native checked-root compilation must agree before the main entry runs; direct argv/planning units cannot prove suppression of its side effect.
+ * @evidence contracts/e2e.md#shared-execution Two host lifetimes share one fixture and preload pointer because source validity changes. Each lifetime must install hooks before Node loads the preload; compiler preparation cannot reuse a stale typed source result.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The complete preload bytes are replaced only after the first synchronous exit. TestProject owns the fixture and runtime-owned generation state; no warm result may substitute for the negative transition.
+ * @evidence contracts/e2e.md#preserved-coverage Original typed status/tag and mistyped status/root error/assignability/no-tag assertions remain. The excluded preload and failure-before-entry distinctions are retained.
  */
-export const test_ttsx_compiles_and_checks_a_typescript_preload_outside_include =
-  () => {
+export function test_ttsx_compiles_and_checks_a_typescript_preload_outside_include() {
     const root = TestProject.createProject({
       "package.json": JSON.stringify({ name: "preload", private: true }),
       "tsconfig.json": JSON.stringify({
@@ -73,4 +80,4 @@ export const test_ttsx_compiles_and_checks_a_typescript_preload_outside_include 
       /Type 'string' is not assignable to type 'number'/,
     );
     assert.doesNotMatch(mistyped.stdout, /tag=/);
-  };
+  }

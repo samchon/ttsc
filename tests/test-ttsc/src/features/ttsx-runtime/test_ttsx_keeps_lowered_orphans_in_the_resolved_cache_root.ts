@@ -18,9 +18,16 @@ import path from "node:path";
  * 2. Run it again with neither `--cache-dir` nor `TTSC_CACHE_DIR`.
  * 3. Assert the first lowering is under the named root, the second under the
  *    default project-local root, and nothing went to the temporary directory.
+ * @evidence contracts/testing.md#behavioral-verification Two ttsx runs execute rawpkg as lowered: explicit --cache-dir must contain one ttsx-orphan JS file, default cache must contain one, and the private temp/ttsc-orphan directory must not exist.
+ * @evidence contracts/testing.md#independent-expectations The authored value and literal explicit/default project cache paths independently specify placement, rather than reading the runtime manifest as the expected cache root.
+ * @evidence contracts/testing.md#distinguishing-cases Explicit CLI selection contrasts with cleared TTSC_CACHE_DIR and default discovery. The orphan package has no own tsconfig; absence is checked for the historical temp directory name, not all possible temp writes.
+ * @evidence contracts/testing.md#execution-ownership The named test_ttsx_keeps_lowered_orphans_in_the_resolved_cache_root E2E entry owns the actual bootstrap and observations specified here. TestProject/internal helpers supply fixtures and completed process results; this acknowledgment does not infer portable unit coverage from similarly named tests.
+ * @evidence contracts/e2e.md#necessary-boundary The launch option/default selection must control real persistent orphan publication and runtime execution. Direct root selection cannot detect a cache file published elsewhere.
+ * @evidence contracts/e2e.md#shared-execution Two lifetimes reuse one package/project input graph because cache roots differ. Each root genuinely needs its own initial lowering; no warm cache may substitute for the placement observation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Both roots and private TEMP/TMP/TMPDIR belong to the tracked fixture. Child-only environment overrides avoid global mutation; orphan files deliberately persist until TestProject cleanup rather than per-run deletion.
+ * @evidence contracts/e2e.md#preserved-coverage Original outputs, exact one-file counts and absent historical temp-root assertion remain. The case does not assert all system temporary directories are clean.
  */
-export const test_ttsx_keeps_lowered_orphans_in_the_resolved_cache_root =
-  () => {
+export function test_ttsx_keeps_lowered_orphans_in_the_resolved_cache_root() {
     const root = TestProject.createProject({
       "package.json": JSON.stringify({ name: "orphan-root", private: true }),
       "tsconfig.json": JSON.stringify({
@@ -86,4 +93,4 @@ export const test_ttsx_keeps_lowered_orphans_in_the_resolved_cache_root =
       false,
       "a lowering went to the temporary directory",
     );
-  };
+  }

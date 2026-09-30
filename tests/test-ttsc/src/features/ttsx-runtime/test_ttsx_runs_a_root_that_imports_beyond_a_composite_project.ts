@@ -20,9 +20,16 @@ import assert from "node:assert/strict";
  *    `shared/value.ts` outside the project directory.
  * 2. Run the script as the entry, then run an entry that requires it.
  * 3. Assert both runs print the combined value.
+ * @evidence contracts/testing.md#behavioral-verification Runs an excluded report as entry and through an included main; both import included lib and a workspace file outside the composite app and print lib+shared.
+ * @evidence contracts/testing.md#independent-expectations Authored lib and shared values independently define the combined output for both launch paths.
+ * @evidence contracts/testing.md#distinguishing-cases Composite/rootDir restrictions must not block the excluded report graph; the two-case loop stops before the second run if the first fails.
+ * @evidence contracts/testing.md#execution-ownership This second runtime review entry is the named E2E export test_ttsx_runs_a_root_that_imports_beyond_a_composite_project at this path, selected by tests/e2e/evidence.config.json; no direct-source unit equivalence is inferred without comparing its assertions.
+ * @evidence contracts/e2e.md#necessary-boundary Actual compiler handling of composite ownership and Node import execution crosses both included and outside-project source boundaries.
+ * @evidence contracts/e2e.md#shared-execution One workspace graph and compiler serve two hosts; the source fixtures and options can be shared without rebuilding a plugin producer.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Inputs remain immutable between synchronous runs; the tracked workspace lasts until process-exit cleanup and owned-output cleanup is not inspected.
+ * @evidence contracts/e2e.md#preserved-coverage Both exact lib+shared assertions remain here; no cache-release or declaration-output preservation claim is added.
  */
-export const test_ttsx_runs_a_root_that_imports_beyond_a_composite_project =
-  () => {
+export function test_ttsx_runs_a_root_that_imports_beyond_a_composite_project() {
     const root = TestProject.createProject({
       "package.json": JSON.stringify({ name: "workspace", private: true }),
       "shared/value.ts": `export const shared: string = "shared";\n`,
@@ -65,4 +72,4 @@ export const test_ttsx_runs_a_root_that_imports_beyond_a_composite_project =
       assert.equal(result.status, 0, `${entry}: ${result.stderr}`);
       assert.equal(result.stdout.trim(), "lib+shared", entry);
     }
-  };
+  }

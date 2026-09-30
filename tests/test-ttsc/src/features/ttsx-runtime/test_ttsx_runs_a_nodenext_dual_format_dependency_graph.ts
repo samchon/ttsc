@@ -22,8 +22,16 @@ import assert from "node:assert/strict";
  * 2. Install an ESM `esm-dep` (`type: "module"`) with a named export.
  * 3. Run ttsx against a NodeNext ESM entry importing both.
  * 4. Assert both dependency formats executed and produced their values.
+ * @evidence contracts/testing.md#behavioral-verification Runs an ESM consumer loading a CTS CommonJS dependency and a type-module TypeScript dependency, requiring 42:7:esm-ok.
+ * @evidence contracts/testing.md#independent-expectations Authored dependency constants and functions independently establish the combined literal output.
+ * @evidence contracts/testing.md#distinguishing-cases The same graph must support CommonJS and ESM formats together, including their export interoperation.
+ * @evidence contracts/testing.md#execution-ownership This second runtime review entry is the named E2E export test_ttsx_runs_a_nodenext_dual_format_dependency_graph at this path, selected by tests/e2e/evidence.config.json; no direct-source unit equivalence is inferred without comparing its assertions.
+ * @evidence contracts/e2e.md#necessary-boundary One actual native dependency graph and Node module loader exercise both format connections in one runtime.
+ * @evidence contracts/e2e.md#shared-execution Both formats already share one project, compiler preparation and runtime host rather than separate per-format experiments.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Package types and dependency sources remain immutable throughout the synchronous child; tracked project cleanup occurs at process exit.
+ * @evidence contracts/e2e.md#preserved-coverage The exact combined output remains here and is not replaced by format-classification assertions alone.
  */
-export const test_ttsx_runs_a_nodenext_dual_format_dependency_graph = () => {
+export function test_ttsx_runs_a_nodenext_dual_format_dependency_graph() {
   const root = TestProject.createProject({
     "package.json": JSON.stringify({ type: "module", private: true }),
     "tsconfig.json": JSON.stringify({
@@ -75,4 +83,4 @@ export const test_ttsx_runs_a_nodenext_dual_format_dependency_graph = () => {
 
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout.trim(), "42:7:esm-ok");
-};
+}

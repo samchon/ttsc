@@ -22,9 +22,16 @@ import assert from "node:assert/strict";
  *    namespace`.
  * 2. Run ttsx against a NodeNext consumer that imports the dependency.
  * 3. Assert the dependency loaded and every exported member produced its value.
+ * @evidence contracts/testing.md#behavioral-verification Loads a CommonJS dependency containing export syntax from a NodeNext ESM consumer and requires 42:OK:7.
+ * @evidence contracts/testing.md#independent-expectations The authored constant, uppercase function and namespace value independently establish the literal output.
+ * @evidence contracts/testing.md#distinguishing-cases One dependency exposes three export forms and must be consumable through the default import; no failing format control is present.
+ * @evidence contracts/testing.md#execution-ownership This second runtime review entry is the named E2E export test_ttsx_lowers_a_commonjs_dependency_with_module_syntax_to_commonjs at this path, selected by tests/e2e/evidence.config.json; no direct-source unit equivalence is inferred without comparing its assertions.
+ * @evidence contracts/e2e.md#necessary-boundary Actual isolated native lowering and Node ESM/CommonJS interoperation connect the dependency source to its runtime exports.
+ * @evidence contracts/e2e.md#shared-execution One fixture graph and one ttsx process combine all three export checks; installed compiler preparation is shared.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Package type and sources remain immutable during the host; tracked temporary ownership lasts until process-exit cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage The exact combined output remains in this native runtime entry; format-classification units alone do not execute it.
  */
-export const test_ttsx_lowers_a_commonjs_dependency_with_module_syntax_to_commonjs =
-  () => {
+export function test_ttsx_lowers_a_commonjs_dependency_with_module_syntax_to_commonjs() {
     const root = TestProject.createProject({
       "package.json": JSON.stringify({ type: "module", private: true }),
       "tsconfig.json": JSON.stringify({
@@ -67,4 +74,4 @@ export const test_ttsx_lowers_a_commonjs_dependency_with_module_syntax_to_common
 
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stdout.trim(), "42:OK:7");
-  };
+  }

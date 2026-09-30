@@ -19,8 +19,16 @@ import path from "node:path";
  *    `transform` specifier cannot be resolved.
  * 2. Run plain `ttsx` and assert it fails because plugin loading throws.
  * 3. Run `ttsx --no-plugins` and assert it succeeds and runs the entry.
+ * @evidence contracts/testing.md#behavioral-verification Plain ttsx with an unresolvable configured transform must fail, while --no-plugins must succeed and print ran from the same project.
+ * @evidence contracts/testing.md#independent-expectations The deliberately absent @ttsc/this-plugin-does-not-exist specifier is the negative input; the literal program output is an independent skipped-loading success witness.
+ * @evidence contracts/testing.md#distinguishing-cases The only option difference is --no-plugins. The failing run asserts nonzero status but not its exact plugin-resolution diagnostic; package auto-discovery is not separately seeded.
+ * @evidence contracts/testing.md#execution-ownership The named test_ttsx_no_plugins_skips_plugin_loading E2E entry owns the actual bootstrap and observations specified here. TestProject/internal helpers supply fixtures and completed process results; this acknowledgment does not infer portable unit coverage from similarly named tests.
+ * @evidence contracts/e2e.md#necessary-boundary Launcher option propagation must bypass actual plugin resolution before native build and still execute the project. A direct loadProjectPlugins false branch cannot prove the public flag wiring.
+ * @evidence contracts/e2e.md#shared-execution Two host lifetimes share the same config/source fixture. No Go plugin is successfully built; plain failure and bypassed success have different bootstrap paths and cannot share one flag state.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The project is manually written under a tracked TestProject.tmpdir. Sources are immutable and both children synchronously finish; normal process-exit cleanup owns the fixture.
+ * @evidence contracts/e2e.md#preserved-coverage Original plain nonzero and bypass status/output assertions remain. Failure-cause specificity and independent package-discovery bypass are not certified by these assertions.
  */
-export const test_ttsx_no_plugins_skips_plugin_loading = () => {
+export function test_ttsx_no_plugins_skips_plugin_loading() {
   const root = TestProject.tmpdir("ttsc-ttsx-no-plugins-");
   for (const [name, contents] of Object.entries({
     "package.json": JSON.stringify({ private: true }),
@@ -62,4 +70,4 @@ export const test_ttsx_no_plugins_skips_plugin_loading = () => {
   );
   assert.equal(noPlugins.status, 0, noPlugins.stderr);
   assert.equal(noPlugins.stdout.trim(), "ran");
-};
+}

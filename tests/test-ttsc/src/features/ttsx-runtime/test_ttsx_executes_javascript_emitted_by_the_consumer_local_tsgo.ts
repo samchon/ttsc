@@ -21,9 +21,16 @@ import {
  * 1. Install a fake `typescript` into the project.
  * 2. Run ttsx without the workspace tsgo override (`spawnWithoutTsgoOverride`).
  * 3. Assert the fake tsgo's output was executed (not the original source).
+ * @evidence contracts/testing.md#behavioral-verification Ttsx without workspace binary overrides must run the consumer-local scripted compiler output consumer-local-tsgo, and its compiler log must include --outDir.
+ * @evidence contracts/testing.md#independent-expectations The source instead prints source-should-not-run; the distinct authored compiler output independently identifies execution of selected emitted bytes.
+ * @evidence contracts/testing.md#distinguishing-cases Fake compiler --version, noEmit and outDir handling exercise compiler selection/emit transport, not TypeScript parsing or type correctness.
+ * @evidence contracts/testing.md#execution-ownership The discoverable named test_ttsx_executes_javascript_emitted_by_the_consumer_local_tsgo entry belongs to the TypeScript E2E population and executes the actual launch/bootstrap path described here. Its fixture helpers do not register hidden assertion hosts; no portable unit owner is inferred without exact body comparison.
+ * @evidence contracts/e2e.md#necessary-boundary The real launcher resolves an installed compiler-shaped executable and executes its emitted JavaScript. The scripted compiler is a protocol fixture; this entry does not prove real compiler evaluation.
+ * @evidence contracts/e2e.md#shared-execution One consumer host and one fixture script use toolchain.scriptLauncher, a shared once-per-test-process Go forwarding binary copied to the install. The launcher build is genuine preparation, while the authored compiler payload is JavaScript.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Overrides are removed only in the child environment and isolatedCacheEnvironment names a fixture-owned cache. TestProject tracks consumer and shared forwarding-producer temp directories until process exit.
+ * @evidence contracts/e2e.md#preserved-coverage Original status, exact emitted-output text and --outDir log assertion remain. Compiler-local discovery and emitted-byte execution are preserved without certifying fake compiler semantics as real compilation.
  */
-export const test_ttsx_executes_javascript_emitted_by_the_consumer_local_tsgo =
-  () => {
+export function test_ttsx_executes_javascript_emitted_by_the_consumer_local_tsgo() {
     const root = TestProject.createProject({
       "package.json": JSON.stringify({ private: true }),
       "tsconfig.json": JSON.stringify({
@@ -71,4 +78,4 @@ if (!noEmit) {
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stdout.trim(), "consumer-local-tsgo");
     assert.match(fs.readFileSync(logFile, "utf8"), /--outDir/);
-  };
+  }

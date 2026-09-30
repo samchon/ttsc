@@ -20,9 +20,16 @@ import assert from "node:assert/strict";
  * 2. Run `tools/run.ts`, which requires `src/existing.ts`, then writes
  *    `src/generated.ts` and requires it.
  * 3. Assert both files ran with legacy decorators.
+ * @evidence contracts/testing.md#behavioral-verification Runs tools code that loads an existing app source, generates another app source, then requires it; both decorator results must be 3.
+ * @evidence contracts/testing.md#independent-expectations The authored three-argument legacy decorator is the oracle for both existing and generated app files.
+ * @evidence contracts/testing.md#distinguishing-cases A membership cache already consulted for existing source must discover the newly written file and use the referenced app options.
+ * @evidence contracts/testing.md#execution-ownership This second runtime review entry is the named E2E export test_ttsx_runs_a_generated_file_with_the_referenced_project_that_owns_it at this path, selected by tests/e2e/evidence.config.json; no direct-source unit equivalence is inferred without comparing its assertions.
+ * @evidence contracts/e2e.md#necessary-boundary Actual native project ownership, runtime file generation and Node require distinguish stale membership or tools-project option leakage.
+ * @evidence contracts/e2e.md#shared-execution One host and reference graph share compiler preparation and initial membership work; the generated source introduces a required fresh state.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The generated file is confined to the tracked project and written after the existing require; a generic immutable result cannot cover this transition.
+ * @evidence contracts/e2e.md#preserved-coverage Both exact existing/generated outputs remain in this entry without inferring equivalence from a standalone discovery unit.
  */
-export const test_ttsx_runs_a_generated_file_with_the_referenced_project_that_owns_it =
-  () => {
+export function test_ttsx_runs_a_generated_file_with_the_referenced_project_that_owns_it() {
     const probe = (name: string): string =>
       [
         `let observed: number = 0;`,
@@ -85,4 +92,4 @@ export const test_ttsx_runs_a_generated_file_with_the_referenced_project_that_ow
     );
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stdout.trim(), "existing=3 generated=3");
-  };
+  }

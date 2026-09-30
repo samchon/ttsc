@@ -26,8 +26,16 @@ import path from "node:path";
  * 2. Run ttsc, then run ttsx against each out-of-`include` entry.
  * 3. Assert every entry ran, that `lib` still holds only the `src` emit, and that
  *    no synthesized tsconfig was left behind.
+ * @evidence contracts/testing.md#behavioral-verification Seeds lib with ttsc, then executes excluded clear and build/release through ttsx, requiring cleared/released while lib stays index/release only.
+ * @evidence contracts/testing.md#independent-expectations The authored output literals and exact initial/final lib entry names distinguish selecting the compiled same-named release source.
+ * @evidence contracts/testing.md#distinguishing-cases Two excluded entries are checked beside included sources; the lint.config.ts fixture is never invoked and supplies no lint-config execution coverage.
+ * @evidence contracts/testing.md#execution-ownership This second runtime review entry is the named E2E export test_ttsx_runs_an_entry_the_project_include_excludes at this path, selected by tests/e2e/evidence.config.json; no direct-source unit equivalence is inferred without comparing its assertions.
+ * @evidence contracts/e2e.md#necessary-boundary One real ttsc emission followed by two ttsx hosts connects included output preservation with excluded entry compilation and runtime loading.
+ * @evidence contracts/e2e.md#shared-execution The three CLI calls share one project and compiler, retaining the seeded lib between entry runs instead of rebuilding independent fixtures.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Seeded output names and fixture sources remain stable; children complete before lib and .ttsx-entry prefix inspections, with tracked process-exit cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Both exact runtime values, lib-name equality and root-prefix absence remain here; no unused fixture is counted as an executed entry.
  */
-export const test_ttsx_runs_an_entry_the_project_include_excludes = () => {
+export function test_ttsx_runs_an_entry_the_project_include_excludes() {
   const root = TestProject.createProject({
     "package.json": JSON.stringify({
       name: "outside-include",
@@ -85,4 +93,4 @@ export const test_ttsx_runs_an_entry_the_project_include_excludes = () => {
     fs.readdirSync(root).filter((name) => name.startsWith(".ttsx-entry")),
     [],
   );
-};
+}

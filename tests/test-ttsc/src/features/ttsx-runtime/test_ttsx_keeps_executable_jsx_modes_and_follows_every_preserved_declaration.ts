@@ -27,9 +27,16 @@ import {
  *    response file that forwards `--jsx preserve`.
  * 2. Run each entry.
  * 3. Assert every run renders the component.
+ * @evidence contracts/testing.md#behavioral-verification Six real ttsx runs must render the exact authored JSX component under react, react-jsxdev, preserve/reactNamespace, preserve/factory+importSource, preserve/namespace+importSource and response-file preserve.
+ * @evidence contracts/testing.md#independent-expectations The fixture runtime independently renders div/hello and b/world to <div>hello</div><b>world</b>; that authored string does not come from compiler output.
+ * @evidence contracts/testing.md#distinguishing-cases Classic/development executable modes must remain valid; preserved declarations and an @jsx.rsp flag must choose an executable lowering. Import-source conflicts intentionally have no factory in scope.
+ * @evidence contracts/testing.md#execution-ownership The named test_ttsx_keeps_executable_jsx_modes_and_follows_every_preserved_declaration E2E entry owns the actual bootstrap and observations specified here. TestProject/internal helpers supply fixtures and completed process results; this acknowledgment does not infer portable unit coverage from similarly named tests.
+ * @evidence contracts/e2e.md#necessary-boundary Native JSX lowering, forwarded response-file options and actual runtime package imports must agree on executable component code. Direct option selection cannot prove compilation and rendering.
+ * @evidence contracts/e2e.md#shared-execution The immutable JSX runtime bytes are reused as input, but the loop still creates six separate projects and six hosts with different option sets. No compiled-project/session sharing is implemented; these remain consolidation candidates, and first assertion failure prevents later loop cases.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each option variant has a fresh tracked directory, so module state cannot contaminate another. Synchronous hosts exit between cases; TestProject cleanup is best-effort at test-process exit.
+ * @evidence contracts/e2e.md#preserved-coverage All six original statuses and exact rendering strings remain. This docs-only change does not reduce those preparations or provide aggregated failure collection.
  */
-export const test_ttsx_keeps_executable_jsx_modes_and_follows_every_preserved_declaration =
-  () => {
+export function test_ttsx_keeps_executable_jsx_modes_and_follows_every_preserved_declaration() {
     const globalJsx = [
       `declare namespace JSX {`,
       `  type Element = string;`,
@@ -123,4 +130,4 @@ export const test_ttsx_keeps_executable_jsx_modes_and_follows_every_preserved_de
       assert.equal(result.status, 0, `${label}: ${result.stderr}`);
       assert.equal(result.stdout.trim(), JSX_COMPONENT_OUTPUT, label);
     }
-  };
+  }

@@ -20,9 +20,16 @@ import assert from "node:assert/strict";
  *    legacy method decorator.
  * 2. Run a consumer entry that requires the package.
  * 3. Assert the program observes the legacy decorator's three arguments.
+ * @evidence contracts/testing.md#behavioral-verification Ttsx requires strict-pkg/index.ts excluded by include, with noEmitOnError:true, a type error and a legacy method decorator; it must still print arguments=3 successfully.
+ * @evidence contracts/testing.md#independent-expectations Foreign errors cannot withhold dependency-lane JavaScript, and the legacy three-argument call independently proves its project options were not lost to isolated fallback.
+ * @evidence contracts/testing.md#distinguishing-cases This case adds noEmitOnError to the excluded erroneous package root, beyond its adjacent emit-only sibling. Consumer own-source checking is a different required negative.
+ * @evidence contracts/testing.md#execution-ownership The discoverable named test_ttsx_emits_an_installed_package_root_whose_config_sets_no_emit_on_error entry belongs to the TypeScript E2E population and executes the actual launch/bootstrap path described here. Its fixture helpers do not register hidden assertion hosts; no portable unit owner is inferred without exact body comparison.
+ * @evidence contracts/e2e.md#necessary-boundary The actual compiler must override the emit-withholding gate while preserving decorator options and serve that output to Node. Direct option normalization cannot prove emitted code remains available.
+ * @evidence contracts/e2e.md#shared-execution One fixture and host retain package program plus excluded-root inputs. The similar no-noEmitOnError consumer remains duplicated; this tag does not claim their preparations are already batched.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The immutable package graph belongs to TestProject and the synchronous host owns its runtime generation. No cache mutation or cold-build transition is asserted.
+ * @evidence contracts/e2e.md#preserved-coverage Original status zero and exact arguments=3 remain. NoEmitOnError suppression and decorator-option inheritance both remain observable in the same consumer.
  */
-export const test_ttsx_emits_an_installed_package_root_whose_config_sets_no_emit_on_error =
-  () => {
+export function test_ttsx_emits_an_installed_package_root_whose_config_sets_no_emit_on_error() {
     const root = TestProject.createProject({
       "package.json": JSON.stringify({ name: "consumer", private: true }),
       "tsconfig.json": JSON.stringify({
@@ -82,4 +89,4 @@ export const test_ttsx_emits_an_installed_package_root_whose_config_sets_no_emit
     );
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stdout.trim(), "arguments=3");
-  };
+  }

@@ -17,9 +17,16 @@ import fs from "node:fs";
  *    --declarationDir`, `--incremental --tsBuildInfoFile`, and `--outFile`.
  * 3. Assert each run prints the entry's output and leaves the project's file list
  *    unchanged.
+ * @evidence contracts/testing.md#behavioral-verification Runs outDir, declarationDir, build-info and outFile variants and checks success, ran output and unchanged top-level project names.
+ * @evidence contracts/testing.md#independent-expectations The baseline directory-name list and authored ran marker are independent observations; they do not inspect bytes or descendants of existing directories.
+ * @evidence contracts/testing.md#distinguishing-cases Four flag families exercise output isolation, but each comparison only observes top-level names and the loop fails before later variants on a failure.
+ * @evidence contracts/testing.md#execution-ownership This second runtime review entry is the named E2E export test_ttsx_forwarded_output_flags_create_nothing_in_the_project at this path, selected by tests/e2e/evidence.config.json; no direct-source unit equivalence is inferred without comparing its assertions.
+ * @evidence contracts/e2e.md#necessary-boundary Real forwarded native emission and runtime output isolation are observed through four ttsx hosts, beyond argument parsing.
+ * @evidence contracts/e2e.md#shared-execution All four variants share one immutable source project and toolchain; each still creates a fresh runtime host.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each synchronous child finishes before the next comparison; the tracked project is reclaimed at process exit, and nested writes are outside this oracle.
+ * @evidence contracts/e2e.md#preserved-coverage All four status, marker and top-level equality assertions remain here; no recursive no-write guarantee is claimed.
  */
-export const test_ttsx_forwarded_output_flags_create_nothing_in_the_project =
-  () => {
+export function test_ttsx_forwarded_output_flags_create_nothing_in_the_project() {
     const root = TestProject.createProject({
       "package.json": JSON.stringify({ name: "forwarded", private: true }),
       "tsconfig.json": JSON.stringify({
@@ -62,7 +69,7 @@ export const test_ttsx_forwarded_output_flags_create_nothing_in_the_project =
         `${label} wrote into the project`,
       );
     }
-  };
+  }
 
 /** Top-level entries of the project, minus `node_modules`. */
 function listProject(root: string): string[] {

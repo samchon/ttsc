@@ -22,9 +22,16 @@ import assert from "node:assert/strict";
  * 2. Run `packages/app/src/main.ts`, which requires `packages/dep/src/value.ts` by
  *    path.
  * 3. Assert both files ran with legacy decorators.
+ * @evidence contracts/testing.md#behavioral-verification Ttsx runs a root solution with directory references, nested configs and a cycle, and the entry plus required sibling dependency must print entry=3 dependency=3.
+ * @evidence contracts/testing.md#independent-expectations Legacy decorator arity three is an independent runtime witness for the referenced lib configs rather than the empty solution configs.
+ * @evidence contracts/testing.md#distinguishing-cases Root-to-directory, nested lib config, backward root cycle and a separately required dependency solution all coexist; completion rejects looping, though no explicit per-config visit count is asserted.
+ * @evidence contracts/testing.md#execution-ownership The discoverable named test_ttsx_follows_directory_references_nested_solutions_and_cycles entry belongs to the TypeScript E2E population and executes the actual launch/bootstrap path described here. Its fixture helpers do not register hidden assertion hosts; no portable unit owner is inferred without exact body comparison.
+ * @evidence contracts/e2e.md#necessary-boundary Reference resolution must reach the owning compiler options for both actual entry and runtime-required source. Direct graph traversal alone cannot establish native decorator emit/execution.
+ * @evidence contracts/e2e.md#shared-execution One solution graph and one host share reference topology. Entry and dependency lib programs have distinct compiler inputs, while repeated cycle traversal must not create repeated infinite preparation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity All referenced configs/sources are immutable fixture inputs. TestProject tracks the graph and synchronous spawn owns host completion; the test sets no explicit execution deadline.
+ * @evidence contracts/e2e.md#preserved-coverage Original status and exact two decorator outputs remain. Reference-shape completion and both option owners are observed; no unasserted visit-count proof is claimed.
  */
-export const test_ttsx_follows_directory_references_nested_solutions_and_cycles =
-  () => {
+export function test_ttsx_follows_directory_references_nested_solutions_and_cycles() {
     const probe = (name: string): string =>
       [
         `let observed: number = 0;`,
@@ -82,4 +89,4 @@ export const test_ttsx_follows_directory_references_nested_solutions_and_cycles 
     );
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stdout.trim(), "entry=3 dependency=3");
-  };
+  }

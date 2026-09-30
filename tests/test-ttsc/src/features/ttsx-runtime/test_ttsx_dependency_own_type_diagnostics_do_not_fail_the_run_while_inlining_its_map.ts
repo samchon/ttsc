@@ -27,9 +27,16 @@ import {
  * 2. Run an entry that imports and calls it under `NODE_V8_COVERAGE`.
  * 3. Assert exit 0, the dependency executed, and its map `data` inlined with the
  *    real source path.
+ * @evidence contracts/testing.md#behavioral-verification A coverage-recorded ttsx run imports built-dep despite its noUnusedLocals/noUnusedParameters inputs; status zero, a served index.ts script, nonnull map and exact physical source path must result.
+ * @evidence contracts/testing.md#independent-expectations Unused fixture local/parameter are deliberate foreign diagnostics, and the native realpath of authored index.ts is the map oracle. V8 supplies the served-script/map record independently of the launcher.
+ * @evidence contracts/testing.md#distinguishing-cases Foreign diagnostics must not block source-map-bearing emit. The assertion checks V8 script/map presence, but does not assert greet stdout or its function execution count.
+ * @evidence contracts/testing.md#execution-ownership The discoverable named test_ttsx_dependency_own_type_diagnostics_do_not_fail_the_run_while_inlining_its_map entry belongs to the TypeScript E2E population and executes the actual launch/bootstrap path described here. Its fixture helpers do not register hidden assertion hosts; no portable unit owner is inferred without exact body comparison.
+ * @evidence contracts/e2e.md#necessary-boundary Emit-only compilation, runtime serving and Node V8 map ingestion must connect to the real dependency source. Direct inline-map units cannot establish that V8 received the map during successful execution.
+ * @evidence contracts/e2e.md#shared-execution One consumer/package project and one coverage host are prepared. The helper creates a fresh coverage directory and reads its records after host exit; no per-map fixture/compiler install occurs.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject tracks consumer and coverage directories. Windows path comparisons explicitly case-fold while the physical path oracle permits platform aliases; the synchronous host ends before coverage parsing.
+ * @evidence contracts/e2e.md#preserved-coverage All original success, script presence, nonnull map and exact canonical-source assertions remain. The older prose that dependency executed is bounded by these actual observations rather than a missing greet-value assertion.
  */
-export const test_ttsx_dependency_own_type_diagnostics_do_not_fail_the_run_while_inlining_its_map =
-  () => {
+export function test_ttsx_dependency_own_type_diagnostics_do_not_fail_the_run_while_inlining_its_map() {
     const root = TestProject.createProject({
       "package.json": JSON.stringify({ private: true }),
       "tsconfig.json": JSON.stringify({
@@ -99,7 +106,7 @@ export const test_ttsx_dependency_own_type_diagnostics_do_not_fail_the_run_while
       caseFold(real),
       "the map's source must be the dependency's real absolute index.ts",
     );
-  };
+  }
 
 function caseFold(value: string): string {
   return process.platform === "win32" ? value.toLowerCase() : value;

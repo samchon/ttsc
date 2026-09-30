@@ -15,8 +15,16 @@ import assert from "node:assert/strict";
  *    below a few blank lines.
  * 2. Run each with `--inlineSourceMap`.
  * 3. Assert each prints the `.ts` line of the throw.
+ * @evidence contracts/testing.md#behavioral-verification Runs included main and excluded outside with --inlineSourceMap and observes their authored throw line in the first captured stack frame.
+ * @evidence contracts/testing.md#independent-expectations Fixture line numbering determines line 5 independently of emitted JavaScript; regexes accept any column and matching basename.
+ * @evidence contracts/testing.md#distinguishing-cases Included and out-of-include entries both require mapped line 5; full physical source identity and exact columns are not asserted.
+ * @evidence contracts/testing.md#execution-ownership This second runtime review entry is the named E2E export test_ttsx_keeps_a_forwarded_inline_source_map at this path, selected by tests/e2e/evidence.config.json; no direct-source unit equivalence is inferred without comparing its assertions.
+ * @evidence contracts/e2e.md#necessary-boundary Two compiler/runtime stack connections validate source-map consumption by Node rather than only map serialization.
+ * @evidence contracts/e2e.md#shared-execution Both entries share one source project and compiler preparation; their two runtime processes remain distinct.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Inputs are immutable across the two synchronous hosts; tracked fixture cleanup occurs at process exit.
+ * @evidence contracts/e2e.md#preserved-coverage Both basename/line stack assertions remain here without being enlarged into exact physical-path or column guarantees.
  */
-export const test_ttsx_keeps_a_forwarded_inline_source_map = () => {
+export function test_ttsx_keeps_a_forwarded_inline_source_map() {
   const thrower = (tag: string): string =>
     [
       `declare const console: { log(value: unknown): void };`,
@@ -60,4 +68,4 @@ export const test_ttsx_keeps_a_forwarded_inline_source_map = () => {
       entry,
     );
   }
-};
+}

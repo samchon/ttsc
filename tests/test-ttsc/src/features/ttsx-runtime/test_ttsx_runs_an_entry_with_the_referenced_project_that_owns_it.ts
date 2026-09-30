@@ -24,9 +24,16 @@ import { TTSX_REGISTER, linkTtscPackage } from "../../internal/ttsx-register";
  *    and `scripts/loose.ts` through ttsx.
  * 3. Assert the entry sees three arguments in both lanes, the config sees two, and
  *    the loose script still runs.
+ * @evidence contracts/testing.md#behavioral-verification Runs an app source through ttsx and register, a standard-decorator vite source and an uncontained loose source, requiring 3, 3, 2 and loose ran.
+ * @evidence contracts/testing.md#independent-expectations The authored decorator callback argument counts distinguish legacy app options from standard node-project options; loose source has its own marker.
+ * @evidence contracts/testing.md#distinguishing-cases Referenced ownership must select opposite decorator modes, and an uncontained source must still execute; all four observations are explicit.
+ * @evidence contracts/testing.md#execution-ownership This second runtime review entry is the named E2E export test_ttsx_runs_an_entry_with_the_referenced_project_that_owns_it at this path, selected by tests/e2e/evidence.config.json; no direct-source unit equivalence is inferred without comparing its assertions.
+ * @evidence contracts/e2e.md#necessary-boundary Four real Node/native hosts connect referenced-config ownership, public registration and compiler transformation to executable code.
+ * @evidence contracts/e2e.md#shared-execution One solution graph, installed public package and compiler preparation serve all four launches; each host retains its required startup mode.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity All configurations and sources are immutable between synchronous hosts; the linked public package and temporary fixture are harness-owned.
+ * @evidence contracts/e2e.md#preserved-coverage All four exact outputs remain here; parser-only selection assertions do not establish those native transformations.
  */
-export const test_ttsx_runs_an_entry_with_the_referenced_project_that_owns_it =
-  () => {
+export function test_ttsx_runs_an_entry_with_the_referenced_project_that_owns_it() {
     const probe = [
       `let observed: number = 0;`,
       `function probe(...args: any[]): void {`,
@@ -100,4 +107,4 @@ export const test_ttsx_runs_an_entry_with_the_referenced_project_that_owns_it =
       assert.equal(result.status, 0, `${label}: ${result.stderr}`);
       assert.equal(result.stdout.trim(), expected, label);
     }
-  };
+  }

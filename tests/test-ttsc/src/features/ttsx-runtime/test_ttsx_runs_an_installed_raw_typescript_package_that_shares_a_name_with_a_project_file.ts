@@ -18,9 +18,16 @@ import assert from "node:assert/strict";
  * 2. Run `src/main.ts`, which requires `rawpkg`.
  * 3. Assert the package's own value arrives and the project's `src/index.ts` never
  *    runs.
+ * @evidence contracts/testing.md#behavioral-verification Requires a raw installed package index beside the consumer src/index and requires rawpkg=package-own without the project index value.
+ * @evidence contracts/testing.md#independent-expectations The authored package-own and project-index markers independently distinguish the two same-basename source owners.
+ * @evidence contracts/testing.md#distinguishing-cases The package has no own config and must be lowered from its own source, rather than borrowing the checked project index emit.
+ * @evidence contracts/testing.md#execution-ownership This second runtime review entry is the named E2E export test_ttsx_runs_an_installed_raw_typescript_package_that_shares_a_name_with_a_project_file at this path, selected by tests/e2e/evidence.config.json; no direct-source unit equivalence is inferred without comparing its assertions.
+ * @evidence contracts/e2e.md#necessary-boundary Actual no-config package fallback and Node require connect raw installed TypeScript to source-specific runtime ownership.
+ * @evidence contracts/e2e.md#shared-execution One consumer graph and one host reuse compiler preparation; this is not an independently installed consumer per assertion.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Package and consumer source bytes remain immutable during the child, with tracked temporary ownership through process-exit cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage The exact rawpkg=package-own assertion remains here; similarly named ownership units are not assumed to cover this native package load.
  */
-export const test_ttsx_runs_an_installed_raw_typescript_package_that_shares_a_name_with_a_project_file =
-  () => {
+export function test_ttsx_runs_an_installed_raw_typescript_package_that_shares_a_name_with_a_project_file() {
     const root = TestProject.createProject({
       "package.json": JSON.stringify({ name: "consumer", private: true }),
       "tsconfig.json": JSON.stringify({
@@ -55,4 +62,4 @@ export const test_ttsx_runs_an_installed_raw_typescript_package_that_shares_a_na
     );
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stdout.trim(), "rawpkg=package-own");
-  };
+  }

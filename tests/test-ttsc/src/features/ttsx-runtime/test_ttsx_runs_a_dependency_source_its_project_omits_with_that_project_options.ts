@@ -20,9 +20,16 @@ import assert from "node:assert/strict";
  *    an app whose only file requires `dep/b/index.ts`.
  * 2. Run the app.
  * 3. Assert `b/index.ts` ran, with the legacy decorator's three arguments.
+ * @evidence contracts/testing.md#behavioral-verification Requires omitted b/index beside configured a/index and requires dep-b:3 under the dependency legacy decorator options.
+ * @evidence contracts/testing.md#independent-expectations The authored dep-b marker and three-argument legacy decorator distinguish wrong same-named source and wrong option ownership.
+ * @evidence contracts/testing.md#distinguishing-cases Configured and omitted sources share a basename but different values; the omitted source must retain dependency compiler options.
+ * @evidence contracts/testing.md#execution-ownership This second runtime review entry is the named E2E export test_ttsx_runs_a_dependency_source_its_project_omits_with_that_project_options at this path, selected by tests/e2e/evidence.config.json; no direct-source unit equivalence is inferred without comparing its assertions.
+ * @evidence contracts/e2e.md#necessary-boundary Actual dependency fallback emission and Node require connect membership discovery, source ownership and decorator transformation.
+ * @evidence contracts/e2e.md#shared-execution One app/dependency graph and one host combine source-selection and compiler-option observations.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity All sources/configs are immutable for the synchronous host and retained only by tracked fixture ownership until process exit.
+ * @evidence contracts/e2e.md#preserved-coverage The exact dep-b:3 assertion remains here; no independent type-gate negative is claimed for this emit-only dependency case.
  */
-export const test_ttsx_runs_a_dependency_source_its_project_omits_with_that_project_options =
-  () => {
+export function test_ttsx_runs_a_dependency_source_its_project_omits_with_that_project_options() {
     const compilerOptions = {
       target: "ES2022",
       module: "commonjs",
@@ -72,4 +79,4 @@ export const test_ttsx_runs_a_dependency_source_its_project_omits_with_that_proj
     );
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stdout.trim(), "dep-b:3");
-  };
+  }

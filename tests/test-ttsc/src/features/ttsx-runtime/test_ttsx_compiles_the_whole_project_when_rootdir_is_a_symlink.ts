@@ -22,9 +22,16 @@ import path from "node:path";
  * 2. Have the entry name a type only an ambient `.d.ts` in that directory
  *    declares.
  * 3. Run ttsx and assert it compiled and ran under the real project.
+ * @evidence contracts/testing.md#behavioral-verification Runs src/main through a junction to sources and requires success, the runtime marker and absence of a missing BUILD_TAG diagnostic.
+ * @evidence contracts/testing.md#independent-expectations The authored ambient declaration and main marker independently require the compiler to include the project declaration population.
+ * @evidence contracts/testing.md#distinguishing-cases The symlinked root must retain ambient membership; inability to create the link returns without exercising this boundary.
+ * @evidence contracts/testing.md#execution-ownership This second runtime review entry is the named E2E export test_ttsx_compiles_the_whole_project_when_rootdir_is_a_symlink at this path, selected by tests/e2e/evidence.config.json; no direct-source unit equivalence is inferred without comparing its assertions.
+ * @evidence contracts/e2e.md#necessary-boundary Actual native project compilation and Node execution through a filesystem alias distinguish loss of declaration membership.
+ * @evidence contracts/e2e.md#shared-execution One project and one ttsx host exercise the alias; shared installed toolchain preparation does not require a source-plugin producer.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The alias and its target belong to the tracked project; the child completes synchronously and process-exit cleanup owns the fixture.
+ * @evidence contracts/e2e.md#preserved-coverage The runtime and ambient-diagnostic assertions remain here; the early return is a coverage limitation, not proof for unsupported link creation.
  */
-export const test_ttsx_compiles_the_whole_project_when_rootdir_is_a_symlink =
-  () => {
+export function test_ttsx_compiles_the_whole_project_when_rootdir_is_a_symlink() {
     const root = TestProject.createProject({
       "package.json": JSON.stringify({
         name: "symlinked-rootdir",
@@ -74,4 +81,4 @@ export const test_ttsx_compiles_the_whole_project_when_rootdir_is_a_symlink =
       /Cannot find name 'BUILD_TAG'/,
       "the entry-only fallback lost the project's ambient declaration",
     );
-  };
+  }

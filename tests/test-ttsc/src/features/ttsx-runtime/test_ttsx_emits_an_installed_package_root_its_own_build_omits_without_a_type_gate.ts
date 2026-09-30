@@ -19,9 +19,16 @@ import assert from "node:assert/strict";
  * 2. Give `index.ts` a type error and a legacy method decorator.
  * 3. Run a consumer entry that requires the package.
  * 4. Assert the program runs and observes the legacy decorator's three arguments.
+ * @evidence contracts/testing.md#behavioral-verification Ttsx requires installed legacy-pkg/index.ts excluded by its package include, carrying a type error and a legacy decorator; it must succeed with arguments=3.
+ * @evidence contracts/testing.md#independent-expectations The dependency emit-only contract permits its own string-to-number diagnostic, while legacy decorator arity independently identifies inherited experimentalDecorators.
+ * @evidence contracts/testing.md#distinguishing-cases The installed excluded root differs from a checked own-source root and must retain package options without a type gate. This entry does not set noEmitOnError; its adjacent sibling does.
+ * @evidence contracts/testing.md#execution-ownership The discoverable named test_ttsx_emits_an_installed_package_root_its_own_build_omits_without_a_type_gate entry belongs to the TypeScript E2E population and executes the actual launch/bootstrap path described here. Its fixture helpers do not register hidden assertion hosts; no portable unit owner is inferred without exact body comparison.
+ * @evidence contracts/e2e.md#necessary-boundary Actual package resolution and native fallback emit must execute erroneous dependency source with the proper decorator lowering. Direct policy units cannot prove that exact compiler/runtime connection.
+ * @evidence contracts/e2e.md#shared-execution One immutable consumer/package fixture uses one host and dependency/excluded-root preparations. The adjacent noEmitOnError test repeats a similar graph with one option difference and remains a consolidation candidate until exact assertions transfer.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only private installed fixture sources execute; no source changes mid-run. TestProject owns the graph and synchronous exit ends its host/runtime generation owners.
+ * @evidence contracts/e2e.md#preserved-coverage Original successful exit and decorator arity remain. Dependency diagnostic tolerance and inherited options are both witnessed; no package-directory or cache-state assertion is implied.
  */
-export const test_ttsx_emits_an_installed_package_root_its_own_build_omits_without_a_type_gate =
-  () => {
+export function test_ttsx_emits_an_installed_package_root_its_own_build_omits_without_a_type_gate() {
     const root = TestProject.createProject({
       "package.json": JSON.stringify({ name: "consumer", private: true }),
       "tsconfig.json": JSON.stringify({
@@ -80,4 +87,4 @@ export const test_ttsx_emits_an_installed_package_root_its_own_build_omits_witho
     );
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stdout.trim(), "arguments=3");
-  };
+  }

@@ -19,9 +19,16 @@ import path from "node:path";
  *    file and one outside `include`.
  * 2. Run an app entry that requires both.
  * 3. Assert both values arrive and `dep` holds no file it did not start with.
+ * @evidence contracts/testing.md#behavioral-verification Ttsx requires dep/src/inside.ts and excluded dep/extra.ts, prints inside then extra, and leaves the dependency recursive sorted file paths exactly as before.
+ * @evidence contracts/testing.md#independent-expectations Authored export values define runtime output; declarationDir/types and tsBuildInfoFile/state must receive no new files under a private runtime build.
+ * @evidence contracts/testing.md#distinguishing-cases Included project emit and excluded-root fallback both use a composite/declaration-configured dependency. The file-list oracle detects added/removed paths but not replacement of existing file bytes.
+ * @evidence contracts/testing.md#execution-ownership The discoverable named test_ttsx_dependency_build_leaves_its_declared_outputs_untouched entry belongs to the TypeScript E2E population and executes the actual launch/bootstrap path described here. Its fixture helpers do not register hidden assertion hosts; no portable unit owner is inferred without exact body comparison.
+ * @evidence contracts/e2e.md#necessary-boundary Native dependency and fallback emit callbacks must isolate declaration/build-info publication while Node executes both sources. Direct output-option calculations cannot prove actual side effects.
+ * @evidence contracts/e2e.md#shared-execution One consumer and dependency graph share one host with two requested sources. Different included/excluded compilation inputs retain their preparations rather than per-file consumer installation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The tree baseline is read before execution and after synchronous exit; sources remain immutable. TestProject tracks the fixture and runtime owns private generations.
+ * @evidence contracts/e2e.md#preserved-coverage Original two runtime values and recursive file-list equality remain. This case does not claim byte identity of preexisting outputs; the separate published-output test owns hashes.
  */
-export const test_ttsx_dependency_build_leaves_its_declared_outputs_untouched =
-  () => {
+export function test_ttsx_dependency_build_leaves_its_declared_outputs_untouched() {
     const root = TestProject.createProject({
       "package.json": JSON.stringify({ name: "dep-outputs", private: true }),
       "tsconfig.json": JSON.stringify({
@@ -69,7 +76,7 @@ export const test_ttsx_dependency_build_leaves_its_declared_outputs_untouched =
     assert.equal(result.status, 0, result.stderr);
     assert.deepEqual(result.stdout.trim().split(/\r?\n/), ["inside", "extra"]);
     assert.deepEqual(listTree(path.join(root, "dep")), before);
-  };
+  }
 
 /** Every file below `directory`, as sorted `/` paths. */
 function listTree(directory: string): string[] {

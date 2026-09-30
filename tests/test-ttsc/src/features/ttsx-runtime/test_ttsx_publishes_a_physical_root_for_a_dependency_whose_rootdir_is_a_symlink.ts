@@ -34,9 +34,16 @@ import path from "node:path";
  *    marker's `rootDir`.
  * 3. Assert both dependencies ran and every published `rootDir` is its own
  *    physical path.
+ * @evidence contracts/testing.md#behavioral-verification Loads dependencies with symlinked and ordinary roots and inspects the live manifest roots alongside dep-values output.
+ * @evidence contracts/testing.md#independent-expectations fs.realpathSync.native independently checks that each of the two published root strings is physical; the fixture authors dep-values.
+ * @evidence contracts/testing.md#distinguishing-cases Both roots must be physical, but the assertion does not assign each root to a particular dependency; failed link creation returns early.
+ * @evidence contracts/testing.md#execution-ownership This second runtime review entry is the named E2E export test_ttsx_publishes_a_physical_root_for_a_dependency_whose_rootdir_is_a_symlink at this path, selected by tests/e2e/evidence.config.json; no direct-source unit equivalence is inferred without comparing its assertions.
+ * @evidence contracts/e2e.md#necessary-boundary Native dependency emission, manifest publication and Node require cross the real alias boundary in one running graph.
+ * @evidence contracts/e2e.md#shared-execution One host compiles and loads both dependency forms; their project fixture and installed toolchain are shared.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The live manifest is read during the host lifetime before runtime teardown; all sources and links belong to tracked temporary ownership.
+ * @evidence contracts/e2e.md#preserved-coverage The two-root physical-spelling and output assertions remain here; exact root-to-dependency association and unavailable symlinks are not certified.
  */
-export const test_ttsx_publishes_a_physical_root_for_a_dependency_whose_rootdir_is_a_symlink =
-  () => {
+export function test_ttsx_publishes_a_physical_root_for_a_dependency_whose_rootdir_is_a_symlink() {
     const root = TestProject.createProject({
       "package.json": JSON.stringify({ private: true }),
       "tsconfig.json": JSON.stringify({
@@ -165,4 +172,4 @@ export const test_ttsx_publishes_a_physical_root_for_a_dependency_whose_rootdir_
           "exact-mirror lookup compares two spellings of one directory",
       );
     }
-  };
+  }
