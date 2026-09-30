@@ -22,6 +22,11 @@ import (
 //  2. Dispatch the ReturnStatement through PrintNode.
 //  3. Assert the `return` keyword stays put while the object breaks
 //     into the canonical vertical form.
+//
+// @evidence contracts/testing.md#behavioral-verification PrintNode must break the returned object while retaining return, all properties and its semicolon, and report full coverage.
+// @evidence contracts/testing.md#independent-expectations The exact literal expected statement independently fixes return grammar and property values/order; only layout changes.
+// @evidence contracts/testing.md#distinguishing-cases An over-wide returned object complements bare-return and comment-bearing-tail verbatim fallbacks.
+// @evidence contracts/testing.md#execution-ownership TestDispatchReturnStatementReflowsReturnedExpression is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
 func TestDispatchReturnStatementReflowsReturnedExpression(t *testing.T) {
   file := parseTS(t, "function f() {\n  return { aa: 1, bb: 2, cc: 3 };\n}\n")
   node := firstNodeOfKind(t, file, shimast.KindReturnStatement)

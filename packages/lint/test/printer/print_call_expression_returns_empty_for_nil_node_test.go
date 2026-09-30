@@ -14,6 +14,11 @@ import (
 //
 // 1. Call printCallExpression with a nil node.
 // 2. Assert the returned Doc is the zero value (Kind == 0).
+//
+// @evidence contracts/testing.md#behavioral-verification printCallExpression must return the zero no-op Doc for an absent node.
+// @evidence contracts/testing.md#independent-expectations The missing-node identity contributes no expression; the zero Doc discriminant is part of the documented layout algebra.
+// @evidence contracts/testing.md#distinguishing-cases Nil node is the boundary opposite intact flat calls and malformed public child lists.
+// @evidence contracts/testing.md#execution-ownership TestPrintCallExpressionReturnsEmptyForNilNode is a selected public Go printer unit under TestSelectedLintUnits. It calls the owning operation on local Doc, source or AST fixtures in the shared Go test process, without consumer installation, native product builds or product-host execution.
 func TestPrintCallExpressionReturnsEmptyForNilNode(t *testing.T) {
   file := parseTS(t, "foo(a);\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())

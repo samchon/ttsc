@@ -17,6 +17,11 @@ import (
 //  1. Parse `import type { A } from "x";`.
 //  2. Render under default options.
 //  3. Assert the keyword survives in the output.
+//
+// @evidence contracts/testing.md#behavioral-verification printImportDeclaration must retain type in import type { A } from x.
+// @evidence contracts/testing.md#independent-expectations The authored type-only fixture specifies a compile-time binding; losing type would change the import category.
+// @evidence contracts/testing.md#distinguishing-cases Type-only clause contrasts with the ordinary value import and imports without named bindings.
+// @evidence contracts/testing.md#execution-ownership TestDispatchImportDeclarationPreservesTypeOnlyKeyword is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
 func TestDispatchImportDeclarationPreservesTypeOnlyKeyword(t *testing.T) {
   file := parseTS(t, "import type { A } from \"x\";\n")
   node := firstNodeOfKind(t, file, shimast.KindImportDeclaration)

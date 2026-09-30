@@ -19,6 +19,11 @@ import "testing"
 //  2. Build a PrintContext with TabWidth = 4 and assert indentUnit returns 4.
 //  3. Build a PrintContext with TabWidth = 0 (PrintWidth = 80) and assert
 //     indentUnit falls back to 2.
+//
+// @evidence contracts/testing.md#behavioral-verification PrintContext.indentUnit must retain an explicit four-column width and default an omitted width to two.
+// @evidence contracts/testing.md#independent-expectations The literal four and documented two-column default are layout-policy expectations, not values obtained from indentUnit.
+// @evidence contracts/testing.md#distinguishing-cases Positive TabWidth four and omitted TabWidth zero distinguish supplied policy from defaulting.
+// @evidence contracts/testing.md#execution-ownership TestIndentUnitUsesTabWidthWhenPositive is a selected public Go printer unit under TestSelectedLintUnits. It calls the owning operation on local Doc, source or AST fixtures in the shared Go test process, without consumer installation, native product builds or product-host execution.
 func TestIndentUnitUsesTabWidthWhenPositive(t *testing.T) {
   file := parseTS(t, "const x = 1;\n")
 

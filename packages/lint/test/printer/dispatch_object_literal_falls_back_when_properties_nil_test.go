@@ -10,11 +10,9 @@ import (
 // ObjectLiteralExpression whose Properties list is nil falls back to
 // verbatim rather than panicking on a nil NodeList dereference.
 //
-// The TypeScript-Go parser always supplies a non-nil Properties NodeList,
-// so this guard is only reachable through a synthetically built node.
-// Testing it here satisfies the 100% coverage requirement for
-// printObjectLiteral and ensures the `obj.Properties == nil` branch stays
-// live under future refactoring.
+// A plugin-created object can omit its public Properties list. The
+// fallback must retain existing source bytes when a parsed node has a
+// valid range, while a fresh factory node contributes no source text.
 //
 // 1. Parse any source file to obtain a valid PrintContext.
 // 2. Use NodeFactory to build an ObjectLiteralExpression with nil Properties.
@@ -23,7 +21,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification printObjectLiteral must preserve { a: 1, b: 2 } when Properties is absent while keeping the original synthetic no-panic case.
 // @evidence contracts/testing.md#independent-expectations The fixture literal is the verbatim oracle, retaining both key/value pairs independently of the printer.
 // @evidence contracts/testing.md#distinguishing-cases An absent property list complements nil-entry fallback and valid flat/broken object layouts.
-// @evidence contracts/testing.md#execution-ownership TestDispatchObjectLiteralFallsBackWhenPropertiesNil is a selected public Go unit under TestSelectedLintUnits. It parses or constructs an AST and calls its owning printer directly in the shared Go process; no consumer installation, native compilation or product host executes.
+// @evidence contracts/testing.md#execution-ownership TestDispatchObjectLiteralFallsBackWhenPropertiesNil is a selected public Go unit under TestSelectedLintUnits. It parses or constructs an AST and calls its owning printer directly in the shared Go process; no consumer installation, native product build or product host executes.
 func TestDispatchObjectLiteralFallsBackWhenPropertiesNil(t *testing.T) {
   file := parseTS(t, "\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())

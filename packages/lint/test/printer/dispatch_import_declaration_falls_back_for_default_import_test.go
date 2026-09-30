@@ -6,18 +6,18 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// TestDispatchImportDeclarationFallsBackForDefaultImport verifies that
-// `import Default from "x"` is rendered verbatim.
+// Verifies a default-only import preserves its source.
 //
-// Default imports set the ImportClause's Name field to a non-nil identifier.
-// The printer checks `clause.Name() != nil` and falls back to verbatim so
-// `import Default, { a } from "x"` shapes (which mix default + named) are
-// never silently truncated to just the named part. Covering this branch
-// validates that the printer's v1 scope boundary is stable.
+// A default-only ImportClause has no named bindings list for the list printer. Its fallback must retain the default name and module instead of truncating the declaration. This fixture does not exercise default-plus-named clause reflow.
 //
-// 1. Parse `import Default from "x";`.
-// 2. Dispatch the ImportDeclaration node through printImportDeclaration.
-// 3. Assert the output equals the verbatim source bytes of the declaration.
+// 1. Parse import Default from x with its quoted module.
+// 2. Call printImportDeclaration directly.
+// 3. Assert the entire declaration remains verbatim.
+//
+// @evidence contracts/testing.md#behavioral-verification printImportDeclaration must preserve the complete default-only import from x rather than losing Default or the module specifier.
+// @evidence contracts/testing.md#independent-expectations The source literal is the independent verbatim oracle; this default-only clause has no named-bindings list to reflow.
+// @evidence contracts/testing.md#distinguishing-cases A default-only import complements ordinary named bindings, namespace imports and side-effect-only imports.
+// @evidence contracts/testing.md#execution-ownership TestDispatchImportDeclarationFallsBackForDefaultImport is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
 func TestDispatchImportDeclarationFallsBackForDefaultImport(t *testing.T) {
   src := "import Default from \"x\";\n"
   file := parseTS(t, src)

@@ -21,6 +21,11 @@ import (
 //  2. Dispatch the ReturnStatement through PrintNode.
 //  3. Assert the output is `return;` verbatim and covered is true
 //     (the statement is single-line).
+//
+// @evidence contracts/testing.md#behavioral-verification PrintNode must preserve return; without inventing an expression and report it covered.
+// @evidence contracts/testing.md#independent-expectations The independently authored bare-return literal fixes the return keyword and terminator, and is single-line.
+// @evidence contracts/testing.md#distinguishing-cases Absent return expression complements an actual returned object and a dirty expression tail.
+// @evidence contracts/testing.md#execution-ownership TestDispatchReturnStatementReturnsVerbatimForBareReturn is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
 func TestDispatchReturnStatementReturnsVerbatimForBareReturn(t *testing.T) {
   file := parseTS(t, "function f() { return; }\n")
   node := firstNodeOfKind(t, file, shimast.KindReturnStatement)

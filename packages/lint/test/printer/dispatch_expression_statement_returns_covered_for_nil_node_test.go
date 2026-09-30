@@ -18,6 +18,11 @@ import (
 //  1. Build a PrintContext from any valid parsed file.
 //  2. Call printExpressionStatement(ctx, nil) directly.
 //  3. Assert the returned Doc is empty and covered is true.
+//
+// @evidence contracts/testing.md#behavioral-verification printExpressionStatement must return empty output and covered true for a nil node.
+// @evidence contracts/testing.md#independent-expectations An absent statement contributes neither tokens nor unsupported source ranges.
+// @evidence contracts/testing.md#distinguishing-cases Nil-node identity complements parsed dirty-tail fallback and a public factory statement with no expression.
+// @evidence contracts/testing.md#execution-ownership TestDispatchExpressionStatementReturnsCoveredForNilNode is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
 func TestDispatchExpressionStatementReturnsCoveredForNilNode(t *testing.T) {
   file := parseTS(t, "const x = 1;\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())

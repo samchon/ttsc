@@ -20,6 +20,11 @@ import (
 //  2. Inject a nil *Node into the Arguments.Nodes slice.
 //  3. Call printNewExpression and assert the output matches the verbatim
 //     source `new Foo(a, b)`.
+//
+// @evidence contracts/testing.md#behavioral-verification printNewExpression must retain new Foo(a, b) rather than reconstructing an incomplete constructor when arguments contain nil.
+// @evidence contracts/testing.md#independent-expectations The parsed fixture source independently fixes new, Foo and both arguments; exact equality detects dropped or invented tokens.
+// @evidence contracts/testing.md#distinguishing-cases A malformed public argument entry complements valid type arguments, no argument list and absent node cases.
+// @evidence contracts/testing.md#execution-ownership TestPrintNewExpressionFallsBackVerbatimWhenArgsContainNil is a selected public Go printer unit under TestSelectedLintUnits. It calls the owning operation on local Doc, source or AST fixtures in the shared Go test process, without consumer installation, native product builds or product-host execution.
 func TestPrintNewExpressionFallsBackVerbatimWhenArgsContainNil(t *testing.T) {
   src := "new Foo(a, b);\n"
   file := parseTS(t, src)

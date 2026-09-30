@@ -19,6 +19,11 @@ import (
 //  2. Dispatch the ParenthesizedExpression under printWidth=20.
 //  3. Assert the parens stay attached while the inner object breaks
 //     into the canonical vertical form.
+//
+// @evidence contracts/testing.md#behavioral-verification PrintNode must reflow the over-wide object while retaining both surrounding parentheses and report complete coverage.
+// @evidence contracts/testing.md#independent-expectations The literal expected output preserves all three key/value pairs and their order while requiring the parentheses around the rewritten object.
+// @evidence contracts/testing.md#distinguishing-cases A nonempty width-twenty inner expression complements nil-parenthesized-node and nil-inner factory boundaries.
+// @evidence contracts/testing.md#execution-ownership TestDispatchParenthesizedExpressionReflowsInner is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
 func TestDispatchParenthesizedExpressionReflowsInner(t *testing.T) {
   file := parseTS(t, "const x = ({ aa: 1, bb: 2, cc: 3 });\n")
   node := firstNodeOfKind(t, file, shimast.KindParenthesizedExpression)

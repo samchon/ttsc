@@ -17,6 +17,11 @@ import (
 //  1. Parse `foo(a, b);`.
 //  2. Dispatch and print under default options.
 //  3. Assert the result is `foo(a, b)`.
+//
+// @evidence contracts/testing.md#behavioral-verification printCallExpression must keep foo(a, b) flat at the default width.
+// @evidence contracts/testing.md#independent-expectations The full literal expression preserves its callee and ordered arguments and fits the documented width budget.
+// @evidence contracts/testing.md#distinguishing-cases An intact short call complements over-wide calls and malformed public argument lists.
+// @evidence contracts/testing.md#execution-ownership TestDispatchCallExpressionFlatWhenFits is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
 func TestDispatchCallExpressionFlatWhenFits(t *testing.T) {
   file := parseTS(t, "foo(a, b);\n")
   node := firstNodeOfKind(t, file, shimast.KindCallExpression)

@@ -21,6 +21,11 @@ import (
 //  2. Build a PrintContext from a real parsed file so ctx.Source is valid.
 //  3. Call printParenthesizedExpression(ctx, syntheticNode) directly.
 //  4. Assert the output is empty and covered is true (zero-range verbatim).
+//
+// @evidence contracts/testing.md#behavioral-verification printParenthesizedExpression must safely return empty, covered output for a factory parenthesized node whose Expression is nil.
+// @evidence contracts/testing.md#independent-expectations The public factory provides no source range, so fallback cannot invent parentheses or inner text.
+// @evidence contracts/testing.md#distinguishing-cases Missing inner expression differs from missing node and the valid parenthesized-object reflow.
+// @evidence contracts/testing.md#execution-ownership TestDispatchParenthesizedExpressionReturnsVerbatimForNilInner is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
 func TestDispatchParenthesizedExpressionReturnsVerbatimForNilInner(t *testing.T) {
   file := parseTS(t, "const x = 1;\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())

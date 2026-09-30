@@ -17,6 +17,11 @@ import (
 //  1. Parse `const x = [1, 2, 3];`.
 //  2. Render under default options.
 //  3. Assert the array printed flat as `[1, 2, 3]`.
+//
+// @evidence contracts/testing.md#behavioral-verification printArrayLiteral must keep [1, 2, 3] on one line at the default width.
+// @evidence contracts/testing.md#independent-expectations The authored compact array fits the eighty-column policy and retains each numeric value and comma.
+// @evidence contracts/testing.md#distinguishing-cases The fitting list complements the width-twenty overflowing string-array case.
+// @evidence contracts/testing.md#execution-ownership TestDispatchArrayLiteralFlatWhenFits is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
 func TestDispatchArrayLiteralFlatWhenFits(t *testing.T) {
   file := parseTS(t, "const x = [1, 2, 3];\n")
   node := firstNodeOfKind(t, file, shimast.KindArrayLiteralExpression)

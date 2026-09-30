@@ -21,6 +21,11 @@ import (
 //  2. Print under PrintWidth=20 with TrailingComma="none".
 //  3. Assert the rendered output ends the broken list with `ccccccccc\n)`
 //     — no trailing comma after the last argument.
+//
+// @evidence contracts/testing.md#behavioral-verification printCallExpression must break the long argument list and omit a final comma under none policy.
+// @evidence contracts/testing.md#independent-expectations The full expected call source retains its three arguments and requires the explicit no-comma policy.
+// @evidence contracts/testing.md#distinguishing-cases None mode complements all and es5 on identical argument inputs.
+// @evidence contracts/testing.md#execution-ownership TestPrintArgListOmitsTrailingCommaWhenModeNone is a selected public Go printer unit under TestSelectedLintUnits. It calls the owning operation on local Doc, source or AST fixtures in the shared Go test process, without consumer installation, native product builds or product-host execution.
 func TestPrintArgListOmitsTrailingCommaWhenModeNone(t *testing.T) {
   file := parseTS(t, "process(aaaaaaaaa, bbbbbbbbb, ccccccccc);\n")
   node := firstNodeOfKind(t, file, shimast.KindCallExpression)

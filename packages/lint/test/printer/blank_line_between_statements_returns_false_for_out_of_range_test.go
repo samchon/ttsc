@@ -20,6 +20,11 @@ import (
 //  1. Call blankLineBetweenStatements with prevEnd=-1 (negative prevEnd).
 //  2. Call it with nextPos whose trivia-skipped result is before prevEnd.
 //  3. Assert both calls return false.
+//
+// @evidence contracts/testing.md#behavioral-verification blankLineBetweenStatements must reject negative/reversed ranges while distinguishing two actual breaks from one.
+// @evidence contracts/testing.md#independent-expectations Literal offsets two/four delimit the two LF bytes in a; followed by b;; the one-break source independently establishes the adjacent negative.
+// @evidence contracts/testing.md#distinguishing-cases Negative prevEnd, reversed range, valid two-break gap and valid one-break gap pin safety and the blank-line threshold.
+// @evidence contracts/testing.md#execution-ownership TestBlankLineBetweenStatementsReturnsFalseForOutOfRange is a selected public Go printer unit under TestSelectedLintUnits. It calls the owning operation on local Doc, source or AST fixtures in the shared Go test process, without consumer installation, native product builds or product-host execution.
 func TestBlankLineBetweenStatementsReturnsFalseForOutOfRange(t *testing.T) {
   src := "a;\n\nb;\n"
 
@@ -33,5 +38,11 @@ func TestBlankLineBetweenStatementsReturnsFalseForOutOfRange(t *testing.T) {
   // prevEnd=5 → nextStart(1) <= prevEnd(5) → guard fires.
   if blankLineBetweenStatements(src, 5, 1) {
     t.Fatalf("expected false for nextStart <= prevEnd")
+  }
+  if !blankLineBetweenStatements(src, 2, 4) {
+    t.Fatal("two valid line breaks must preserve a blank line")
+  }
+  if blankLineBetweenStatements("a;\nb;\n", 2, 3) {
+    t.Fatal("one line break is not a blank line")
   }
 }

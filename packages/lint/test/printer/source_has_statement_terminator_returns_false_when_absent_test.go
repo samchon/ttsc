@@ -16,6 +16,11 @@ import (
 //     a module specifier with no semicolon).
 //  2. Call sourceHasStatementTerminator with end == len(src).
 //  3. Assert the return value is false.
+//
+// @evidence contracts/testing.md#behavioral-verification sourceHasStatementTerminator must return false when the import source has no terminal semicolon.
+// @evidence contracts/testing.md#independent-expectations The literal ends at the module string and contains no trailing terminator; source spelling independently fixes the result.
+// @evidence contracts/testing.md#distinguishing-cases The same import with a terminal semicolon is the adjacent positive sibling.
+// @evidence contracts/testing.md#execution-ownership TestSourceHasStatementTerminatorReturnsFalseWhenAbsent is a selected public Go printer unit under TestSelectedLintUnits. It calls the owning operation on local Doc, source or AST fixtures in the shared Go test process, without consumer installation, native product builds or product-host execution.
 func TestSourceHasStatementTerminatorReturnsFalseWhenAbsent(t *testing.T) {
   src := `import { a } from "x"`
   if sourceHasStatementTerminator(src, len(src)) {

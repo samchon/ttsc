@@ -18,6 +18,11 @@ import (
 // 1. Parse `new Foo<A, B>(x);` — a NewExpression with TypeArguments.
 // 2. Print under default options.
 // 3. Assert the output is `new Foo<A, B>(x)`.
+//
+// @evidence contracts/testing.md#behavioral-verification printNewExpression must preserve new Foo<A, B>(x), including the generic arguments.
+// @evidence contracts/testing.md#independent-expectations The authored source literal independently fixes constructor name, type order, runtime argument and punctuation.
+// @evidence contracts/testing.md#distinguishing-cases Explicit type arguments complement the no-argument-list constructor and malformed argument fallback.
+// @evidence contracts/testing.md#execution-ownership TestPrintNewExpressionIncludesTypeArguments is a selected public Go printer unit under TestSelectedLintUnits. It calls the owning operation on local Doc, source or AST fixtures in the shared Go test process, without consumer installation, native product builds or product-host execution.
 func TestPrintNewExpressionIncludesTypeArguments(t *testing.T) {
   file := parseTS(t, "new Foo<A, B>(x);\n")
   node := firstNodeOfKind(t, file, shimast.KindNewExpression)

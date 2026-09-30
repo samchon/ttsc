@@ -22,6 +22,11 @@ import (
 //     one line.
 //  2. Dispatch the Block through PrintNode.
 //  3. Assert `covered` is true and the statements render one per line.
+//
+// @evidence contracts/testing.md#behavioral-verification PrintNode must retain a() then b() in a consistently indented block and report it fully covered.
+// @evidence contracts/testing.md#independent-expectations The authored block literal preserves both calls, statement separators and order with two-space indentation.
+// @evidence contracts/testing.md#distinguishing-cases Plain nonempty statements complement empty blocks and inter-statement comments that must prevent coverage.
+// @evidence contracts/testing.md#execution-ownership TestDispatchBlockKeepsCoveredForSingleLineStatements is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
 func TestDispatchBlockKeepsCoveredForSingleLineStatements(t *testing.T) {
   file := parseTS(t, "function f() {\n  a();\n  b();\n}\n")
   node := firstNodeOfKind(t, file, shimast.KindBlock)

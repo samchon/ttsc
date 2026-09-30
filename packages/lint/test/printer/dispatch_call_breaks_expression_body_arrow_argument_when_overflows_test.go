@@ -23,6 +23,11 @@ import (
 //  2. Dispatch the CallExpression through PrintNode under printWidth=24.
 //  3. Assert the argument list breaks: the arrow lands on its own
 //     indented line with a trailing comma.
+//
+// @evidence contracts/testing.md#behavioral-verification PrintNode must break stocks.find around its expression-bodied arrow at width twenty-four and report full coverage.
+// @evidence contracts/testing.md#independent-expectations The full literal output retains stock, its id comparison and wantedId; only call delimiters and layout change.
+// @evidence contracts/testing.md#distinguishing-cases An expression-bodied callback that overflows differs from block-body hugging and short flat calls.
+// @evidence contracts/testing.md#execution-ownership TestDispatchCallBreaksExpressionBodyArrowArgumentWhenOverflows is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
 func TestDispatchCallBreaksExpressionBodyArrowArgumentWhenOverflows(t *testing.T) {
   file := parseTS(t, "stocks.find((stock) => stock.id === wantedId);\n")
   node := firstNodeOfKind(t, file, shimast.KindCallExpression)

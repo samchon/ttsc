@@ -15,6 +15,11 @@ import "testing"
 //  1. Parse any valid TypeScript source so a PrintContext is available.
 //  2. Call verbatim directly with a nil node.
 //  3. Assert the returned Doc equals the zero value.
+//
+// @evidence contracts/testing.md#behavioral-verification verbatim must return a no-op Doc for an absent source node.
+// @evidence contracts/testing.md#independent-expectations No node provides a source span, so the layout identity is the supported safe result.
+// @evidence contracts/testing.md#distinguishing-cases Nil-node source copying complements out-of-range rejection and nonempty unknown-kind verbatim preservation.
+// @evidence contracts/testing.md#execution-ownership TestVerbatimReturnsEmptyForNilNode is a selected public Go printer unit under TestSelectedLintUnits. It calls the owning operation on local Doc, source or AST fixtures in the shared Go test process, without consumer installation, native product builds or product-host execution.
 func TestVerbatimReturnsEmptyForNilNode(t *testing.T) {
   file := parseTS(t, "const x = 1;\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())

@@ -18,6 +18,11 @@ import (
 //  1. Parse `new Foo(a, b);`.
 //  2. Dispatch the NewExpression node directly.
 //  3. Assert the rendered output is `new Foo(a, b)`.
+//
+// @evidence contracts/testing.md#behavioral-verification printNewExpression must retain new Foo(a, b) flat at the default budget.
+// @evidence contracts/testing.md#independent-expectations The authored short constructor fits and preserves new, target and argument order exactly.
+// @evidence contracts/testing.md#distinguishing-cases A fitting constructor complements the narrow-budget broken list and malformed public argument fallback.
+// @evidence contracts/testing.md#execution-ownership TestDispatchNewExpressionFlatWhenFits is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
 func TestDispatchNewExpressionFlatWhenFits(t *testing.T) {
   file := parseTS(t, "new Foo(a, b);\n")
   node := firstNodeOfKind(t, file, shimast.KindNewExpression)

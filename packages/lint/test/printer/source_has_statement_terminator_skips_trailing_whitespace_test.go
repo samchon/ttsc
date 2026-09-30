@@ -20,6 +20,11 @@ import (
 //  2. Call sourceHasStatementTerminator with end == len(src) so the scan
 //     begins inside the trailing whitespace.
 //  3. Assert the return value is true.
+//
+// @evidence contracts/testing.md#behavioral-verification sourceHasStatementTerminator must detect a semicolon followed by whitespace and LF.
+// @evidence contracts/testing.md#independent-expectations The literal import ends semantically at its semicolon; trailing space and line break do not alter that spelling.
+// @evidence contracts/testing.md#distinguishing-cases Whitespace suffix complements a bare terminator, balanced comment suffix and absence of a semicolon.
+// @evidence contracts/testing.md#execution-ownership TestSourceHasStatementTerminatorSkipsTrailingWhitespace is a selected public Go printer unit under TestSelectedLintUnits. It calls the owning operation on local Doc, source or AST fixtures in the shared Go test process, without consumer installation, native product builds or product-host execution.
 func TestSourceHasStatementTerminatorSkipsTrailingWhitespace(t *testing.T) {
   src := "import { a } from \"x\"; \n"
   if !sourceHasStatementTerminator(src, len(src)) {

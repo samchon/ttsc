@@ -21,6 +21,11 @@ import (
 //  2. Grab the TypeAliasDeclaration node.
 //  3. Dispatch via PrintNode and assert the rendered Doc round-trips
 //     to the source bytes of the declaration.
+//
+// @evidence contracts/testing.md#behavioral-verification PrintNode must preserve the unsupported type-alias source rather than dropping or partially reconstructing it.
+// @evidence contracts/testing.md#independent-expectations The full literal type Alias = number; supplies the independent fallback bytes.
+// @evidence contracts/testing.md#distinguishing-cases An unknown single-line grammar kind complements supported structured expression layouts and unknown multiline subtrees that require abstention.
+// @evidence contracts/testing.md#execution-ownership TestDispatchVerbatimFallbackPreservesUnknownKinds is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
 func TestDispatchVerbatimFallbackPreservesUnknownKinds(t *testing.T) {
   src := "type Alias = number;\n"
   file := parseTS(t, src)

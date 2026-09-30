@@ -16,15 +16,16 @@ import "testing"
 //     defaulted to TabWidth=2 and emitted one tab for the 2-column
 //     indent rather than panicking.
 //
-// @evidence contracts/testing.md#behavioral-verification Print must emit one tab before x instead of panicking when TabWidth is zero and UseTabs is true.
+// @evidence contracts/testing.md#behavioral-verification Print must emit one tab before x for both zero and negative TabWidth with UseTabs enabled.
 // @evidence contracts/testing.md#independent-expectations The documented default of two columns divides Indent two into one tab, yielding the literal newline-tab-x.
-// @evidence contracts/testing.md#distinguishing-cases Zero tab width complements explicit tab-width and remainder-space cases; negative width is not exercised here.
+// @evidence contracts/testing.md#distinguishing-cases Both nonpositive tab widths must select the two-column default; explicit-width and remainder-space cases cover positive widths.
 // @evidence contracts/testing.md#execution-ownership TestEngineTabWidthDefaultsWhenZero is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
 func TestEngineTabWidthDefaultsWhenZero(t *testing.T) {
   doc := Indent(2, Hardline(), Text("x"))
-  opts := PrintOptions{PrintWidth: 80, TabWidth: 0, UseTabs: true, EndOfLine: "lf"}
-  got := Print(doc, opts)
-  if got != "\n\tx" {
-    t.Fatalf("zero TabWidth should default to 2 (one tab), got %q", got)
+  for _, omitted := range []int{0, -1} {
+    opts := PrintOptions{PrintWidth: 80, TabWidth: omitted, UseTabs: true, EndOfLine: "lf"}
+    if got := Print(doc, opts); got != "\n\tx" {
+      t.Fatalf("TabWidth=%d should default to 2 (one tab), got %q", omitted, got)
+    }
   }
 }

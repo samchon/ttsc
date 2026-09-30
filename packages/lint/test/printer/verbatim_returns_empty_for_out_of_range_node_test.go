@@ -25,6 +25,11 @@ import (
 //  3. Build a PrintContext with Source truncated to just past the node's
 //     Pos() but before its End(), so the guard fires.
 //  4. Call verbatim directly and assert a zero Doc is returned.
+//
+// @evidence contracts/testing.md#behavioral-verification verbatim must reject a parsed numeric literal whose End exceeds the shortened context source.
+// @evidence contracts/testing.md#independent-expectations The independently shortened source ends inside the numeric token; copying a complete source span would exceed its bounds.
+// @evidence contracts/testing.md#distinguishing-cases An intact parsed node paired with a truncated source exercises the invalid-end boundary, distinct from absent node and ordinary unknown-kind fallback.
+// @evidence contracts/testing.md#execution-ownership TestVerbatimReturnsEmptyForOutOfRangeNode is a selected public Go printer unit under TestSelectedLintUnits. It calls the owning operation on local Doc, source or AST fixtures in the shared Go test process, without consumer installation, native product builds or product-host execution.
 func TestVerbatimReturnsEmptyForOutOfRangeNode(t *testing.T) {
   src := "const x = 42;\n"
   file := parseTS(t, src)

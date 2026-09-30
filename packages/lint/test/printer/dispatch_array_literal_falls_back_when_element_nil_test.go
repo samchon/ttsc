@@ -24,7 +24,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification printArrayLiteral must preserve [a, b] when Elements.Nodes contains nil instead of synthesizing a corrupt list.
 // @evidence contracts/testing.md#independent-expectations The original source literal independently fixes element spelling and order; the synthetic zero-range expected output is empty.
 // @evidence contracts/testing.md#distinguishing-cases The malformed entry differs from absent Elements and valid flat/broken arrays, each owned by sibling cases.
-// @evidence contracts/testing.md#execution-ownership TestDispatchArrayLiteralFallsBackWhenElementNil is a selected public Go unit under TestSelectedLintUnits. It parses or constructs an AST and calls its owning printer directly in the shared Go process; no consumer installation, native compilation or product host executes.
+// @evidence contracts/testing.md#execution-ownership TestDispatchArrayLiteralFallsBackWhenElementNil is a selected public Go unit under TestSelectedLintUnits. It parses or constructs an AST and calls its owning printer directly in the shared Go process; no consumer installation, native product build or product host executes.
 func TestDispatchArrayLiteralFallsBackWhenElementNil(t *testing.T) {
   file := parseTS(t, "\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())

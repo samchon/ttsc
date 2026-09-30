@@ -23,6 +23,11 @@ import (
 //     element (bypassing the real block.Statements.Nodes list directly).
 //  3. Assert the function returns false without panicking (the block holds no
 //     comment, so even with the nil stmt skipped the result is false).
+//
+// @evidence contracts/testing.md#behavioral-verification blockHasNonStatementComment must safely skip nil entries and report no comment in the comment-free block.
+// @evidence contracts/testing.md#independent-expectations The literal block { a(); } contains no comment delimiter, so a nil item cannot create one.
+// @evidence contracts/testing.md#distinguishing-cases The supplied singleton nil statement exercises item filtering; comment-only and inter-statement-comment dispatch cases own the opposite coverage outcome.
+// @evidence contracts/testing.md#execution-ownership TestBlockHasNonStatementCommentSkipsNilStmts is a selected public Go printer unit under TestSelectedLintUnits. It calls the owning operation on local Doc, source or AST fixtures in the shared Go test process, without consumer installation, native product builds or product-host execution.
 func TestBlockHasNonStatementCommentSkipsNilStmts(t *testing.T) {
   // Parse a block with no comments so the expected result is false.
   file := parseTS(t, "{ a(); }\n")

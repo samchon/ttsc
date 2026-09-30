@@ -18,6 +18,11 @@ import (
 //  4. zero-value node (Pos 0) -> the backward `<` scan finds nothing, -1.
 //  5. zero-value list (End 0) over source with no `>` -> typeArgsEnd
 //     falls through to the end offset (0).
+//
+// @evidence contracts/testing.md#behavioral-verification typeArgsStart and typeArgsEnd must return the specified absent-range sentinels rather than dereferencing missing list entries.
+// @evidence contracts/testing.md#independent-expectations Nil lists cannot contain delimiters, while a zero-end empty list without > retains its explicit zero end; literal -1 and zero distinguish these contracts.
+// @evidence contracts/testing.md#distinguishing-cases Nil list, empty list, nil first entry, zero-position node and empty end range are each asserted. Valid generic spelling is checked by typed call/new printer cases.
+// @evidence contracts/testing.md#execution-ownership TestTypeArgsStartAndEndGuardBranches is a selected public Go printer unit under TestSelectedLintUnits. It calls the owning operation on local Doc, source or AST fixtures in the shared Go test process, without consumer installation, native product builds or product-host execution.
 func TestTypeArgsStartAndEndGuardBranches(t *testing.T) {
   file := parseTS(t, "foo(x);\n")
   src := file.Text()

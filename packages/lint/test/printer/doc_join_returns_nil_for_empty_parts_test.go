@@ -17,6 +17,11 @@ import "testing"
 //  1. Call Join with any separator and an empty []Doc{}.
 //  2. Assert the returned doc's IsNil() is true.
 //  3. Print the nil doc and assert the output is an empty string.
+//
+// @evidence contracts/testing.md#behavioral-verification Join of zero parts must be a no-op Doc and Print must emit no separator or payload.
+// @evidence contracts/testing.md#independent-expectations Empty sequence identity requires no output; both the IsNil verdict and empty rendering are observed independently.
+// @evidence contracts/testing.md#distinguishing-cases This zero-cardinality boundary complements ordinary nonempty argument-list printing, which retains separators.
+// @evidence contracts/testing.md#execution-ownership TestDocJoinReturnsNilForEmptyParts is a selected public Go printer unit under TestSelectedLintUnits. It calls the owning operation on local Doc, source or AST fixtures in the shared Go test process, without consumer installation, native product builds or product-host execution.
 func TestDocJoinReturnsNilForEmptyParts(t *testing.T) {
   doc := Join(Text(", "), []Doc{})
   if !doc.IsNil() {

@@ -22,6 +22,11 @@ import (
 //  2. Build a PrintContext from a real parsed file.
 //  3. Call printFunctionLike(ctx, syntheticArrow, syntheticBlock) directly.
 //  4. Assert the function returns without panicking and produces an empty Doc.
+//
+// @evidence contracts/testing.md#behavioral-verification printFunctionLike must safely return empty, covered output for factory arrow/block nodes with undefined negative ranges.
+// @evidence contracts/testing.md#independent-expectations The public factory provides no source span for either node; verbatim fallback contributes no bytes.
+// @evidence contracts/testing.md#distinguishing-cases Negative synthetic positions complement parsed valid bodies and multiline signatures whose real source prevents safe coverage.
+// @evidence contracts/testing.md#execution-ownership TestDispatchFunctionLikeReturnsVerbatimForOutOfRangeBody is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
 func TestDispatchFunctionLikeReturnsVerbatimForOutOfRangeBody(t *testing.T) {
   file := parseTS(t, "const x = 1;\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())

@@ -22,6 +22,11 @@ import (
 //  3. Call printBlock(ctx, syntheticBlock) directly.
 //  4. Assert the output is empty (verbatim of a zero-range block) and covered
 //     is true (synthetic node spans no lines).
+//
+// @evidence contracts/testing.md#behavioral-verification printBlock must safely fall back to empty, covered output when a factory statement list contains nil.
+// @evidence contracts/testing.md#independent-expectations The constructed block has no source span, so no statement or punctuation can legitimately be invented.
+// @evidence contracts/testing.md#distinguishing-cases A present list with a missing item complements the absent-list fixture and covered valid statements.
+// @evidence contracts/testing.md#execution-ownership TestDispatchBlockReturnsVerbatimForNilStatement is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
 func TestDispatchBlockReturnsVerbatimForNilStatement(t *testing.T) {
   file := parseTS(t, "const x = 1;\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())

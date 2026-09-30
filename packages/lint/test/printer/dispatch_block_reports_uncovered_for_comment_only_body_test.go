@@ -22,6 +22,11 @@ import (
 //     own line.
 //  2. Dispatch the enclosing CallExpression through PrintNode.
 //  3. Assert `covered` is false.
+//
+// @evidence contracts/testing.md#behavioral-verification PrintNode of the enclosing call must mark the comment-only callback body uncovered so reflow cannot discard its note.
+// @evidence contracts/testing.md#independent-expectations The literal // note has no statement carrier in the reconstructed block, establishing the need to abstain.
+// @evidence contracts/testing.md#distinguishing-cases Comment-only content differs from an empty block and ordinary statement bodies; this case asserts coverage, not a rewritten output.
+// @evidence contracts/testing.md#execution-ownership TestDispatchBlockReportsUncoveredForCommentOnlyBody is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
 func TestDispatchBlockReportsUncoveredForCommentOnlyBody(t *testing.T) {
   file := parseTS(t, "foo(() => {\n  // note\n});\n")
   node := firstNodeOfKind(t, file, shimast.KindCallExpression)

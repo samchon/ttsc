@@ -17,6 +17,11 @@ import "testing"
 //  1. Call verbatimRange with start < 0 and assert a zero Doc.
 //  2. Call verbatimRange with end < start and assert a zero Doc.
 //  3. Call verbatimRange with end > len(src) and assert a zero Doc.
+//
+// @evidence contracts/testing.md#behavioral-verification verbatimRange must reject invalid bounds but copy valid interior/full source bytes and permit an empty range.
+// @evidence contracts/testing.md#independent-expectations The literal hello and independently authored ell substring establish valid output without invoking the implementation as an oracle.
+// @evidence contracts/testing.md#distinguishing-cases Negative start, reversed endpoints and end beyond source contrast with interior, complete and zero-length valid ranges.
+// @evidence contracts/testing.md#execution-ownership TestVerbatimRangeReturnsEmptyForInvalidRange is a selected public Go printer unit under TestSelectedLintUnits. It calls the owning operation on local Doc, source or AST fixtures in the shared Go test process, without consumer installation, native product builds or product-host execution.
 func TestVerbatimRangeReturnsEmptyForInvalidRange(t *testing.T) {
   src := "hello"
 
@@ -33,5 +38,14 @@ func TestVerbatimRangeReturnsEmptyForInvalidRange(t *testing.T) {
   // end > len(src)
   if doc := verbatimRange(src, 0, len(src)+1); !doc.IsNil() {
     t.Fatalf("end>len(src): want nil Doc, got Kind=%d", doc.Kind)
+  }
+  if got := Print(verbatimRange(src, 1, 4), DefaultPrintOptions()); got != "ell" {
+    t.Fatalf("valid interior range must preserve ell, got %q", got)
+  }
+  if got := Print(verbatimRange(src, 0, len(src)), DefaultPrintOptions()); got != src {
+    t.Fatalf("full source range must preserve hello, got %q", got)
+  }
+  if got := Print(verbatimRange(src, 2, 2), DefaultPrintOptions()); got != "" {
+    t.Fatalf("valid empty range must emit nothing, got %q", got)
   }
 }

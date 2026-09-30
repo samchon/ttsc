@@ -25,7 +25,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification printNamedImports must retain both bindings verbatim when a parsed Elements list contains a nil specifier.
 // @evidence contracts/testing.md#independent-expectations The literal { a, b } determines binding names and order without rerendering the expected source.
 // @evidence contracts/testing.md#distinguishing-cases A missing entry complements absent Elements; valid named import lists are owned by flat/broken siblings.
-// @evidence contracts/testing.md#execution-ownership TestDispatchNamedImportsFallsBackWhenSpecifierNil is a selected public Go unit under TestSelectedLintUnits. It parses or constructs an AST and calls its owning printer directly in the shared Go process; no consumer installation, native compilation or product host executes.
+// @evidence contracts/testing.md#execution-ownership TestDispatchNamedImportsFallsBackWhenSpecifierNil is a selected public Go unit under TestSelectedLintUnits. It parses or constructs an AST and calls its owning printer directly in the shared Go process; no consumer installation, native product build or product host executes.
 func TestDispatchNamedImportsFallsBackWhenSpecifierNil(t *testing.T) {
   file := parseTS(t, "\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())

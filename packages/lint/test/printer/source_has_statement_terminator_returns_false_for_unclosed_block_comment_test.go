@@ -18,6 +18,11 @@ import (
 // 1. Build a minimal source string that ends with `*/` but has no `/*`.
 // 2. Call sourceHasStatementTerminator with end == len(src).
 // 3. Assert the return value is false (no valid comment opener found).
+//
+// @evidence contracts/testing.md#behavioral-verification sourceHasStatementTerminator must reject a trailing closing-comment fragment with no matching opening comment.
+// @evidence contracts/testing.md#independent-expectations The authored import tail ends in */ without a semicolon or balanced block comment, so it cannot prove a terminator.
+// @evidence contracts/testing.md#distinguishing-cases Malformed closing-comment syntax complements a balanced trailing block comment containing a real earlier semicolon.
+// @evidence contracts/testing.md#execution-ownership TestSourceHasStatementTerminatorReturnsFalseForUnclosedBlockComment is a selected public Go printer unit under TestSelectedLintUnits. It calls the owning operation on local Doc, source or AST fixtures in the shared Go test process, without consumer installation, native product builds or product-host execution.
 func TestSourceHasStatementTerminatorReturnsFalseForUnclosedBlockComment(t *testing.T) {
   // The source ends with `*/` but has no matching `/*` opener.
   src := `import { a } from "x"*/`

@@ -10,10 +10,9 @@ import (
 // ArrayLiteralExpression whose Elements list is nil falls back to verbatim
 // rather than panicking.
 //
-// Symmetric partner of the object-literal nil-Properties test. The guard
-// `arr == nil || arr.Elements == nil` in printArrayLiteral is only
-// reachable through a synthetically built node, but must be covered so
-// the defensive branch survives the 100% coverage check.
+// Plugins can supply a factory node or remove a public Elements list.
+// Missing structure must not panic or discard the original source when
+// the node still has a valid parsed range.
 //
 // 1. Parse any source file to obtain a valid PrintContext.
 // 2. Use NodeFactory to build an ArrayLiteralExpression with nil Elements.
@@ -22,7 +21,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification printArrayLiteral must preserve [a, b] when its parsed Elements list is nil, and return empty for the original synthetic range.
 // @evidence contracts/testing.md#independent-expectations The fixture source supplies independent verbatim bytes; an unconditional empty result would now fail the nonempty case.
 // @evidence contracts/testing.md#distinguishing-cases A missing list complements a list containing a nil element and the valid flat/broken array cases.
-// @evidence contracts/testing.md#execution-ownership TestDispatchArrayLiteralFallsBackWhenElementsNil is a selected public Go unit under TestSelectedLintUnits. It parses or constructs an AST and calls its owning printer directly in the shared Go process; no consumer installation, native compilation or product host executes.
+// @evidence contracts/testing.md#execution-ownership TestDispatchArrayLiteralFallsBackWhenElementsNil is a selected public Go unit under TestSelectedLintUnits. It parses or constructs an AST and calls its owning printer directly in the shared Go process; no consumer installation, native product build or product host executes.
 func TestDispatchArrayLiteralFallsBackWhenElementsNil(t *testing.T) {
   file := parseTS(t, "\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())

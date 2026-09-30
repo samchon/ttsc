@@ -24,6 +24,11 @@ import (
 //     (shorter than the block's End()).
 //  3. Call blockHasNonStatementComment with the mismatched context.
 //  4. Assert the function returns false without panicking.
+//
+// @evidence contracts/testing.md#behavioral-verification blockHasNonStatementComment must return false when the parsed block range extends beyond the supplied source.
+// @evidence contracts/testing.md#independent-expectations The literal one-character context source cannot contain the complete parsed block; the range-safety contract prohibits scanning outside it.
+// @evidence contracts/testing.md#distinguishing-cases A valid AST with a shortened context exercises range mismatch; actual inter-statement comments are checked by the uncovered-block dispatch cases.
+// @evidence contracts/testing.md#execution-ownership TestBlockHasNonStatementCommentReturnsFalseForOutOfRange is a selected public Go printer unit under TestSelectedLintUnits. It calls the owning operation on local Doc, source or AST fixtures in the shared Go test process, without consumer installation, native product builds or product-host execution.
 func TestBlockHasNonStatementCommentReturnsFalseForOutOfRange(t *testing.T) {
   // Top-level `{ }` is a block statement starting at position 0.
   // SkipTrivia("{", 0) = 0 (safe); End() = 3 > len("{") = 1 → guard fires.

@@ -16,6 +16,11 @@ import (
 // 1. Construct a PrintContext from a trivial parsed source.
 // 2. Call printNamedImports with a nil node pointer.
 // 3. Assert the rendered output is the empty string.
+//
+// @evidence contracts/testing.md#behavioral-verification printNamedImports must produce no clause for nil.
+// @evidence contracts/testing.md#independent-expectations An absent named-bindings node contributes no source bytes or delimiters.
+// @evidence contracts/testing.md#distinguishing-cases The nil boundary complements nonempty flat/broken imports and missing-list or missing-item fallbacks.
+// @evidence contracts/testing.md#execution-ownership TestDispatchNamedImportsReturnsEmptyForNilNode is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
 func TestDispatchNamedImportsReturnsEmptyForNilNode(t *testing.T) {
   file := parseTS(t, "export {};\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())

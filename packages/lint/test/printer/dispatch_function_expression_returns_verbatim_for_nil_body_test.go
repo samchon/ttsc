@@ -22,6 +22,11 @@ import (
 //  3. Call printFunctionExpression(ctx, syntheticNode) directly.
 //  4. Assert the output is empty (verbatim of a zero-range node) and covered
 //     is true.
+//
+// @evidence contracts/testing.md#behavioral-verification printFunctionExpression must safely return empty, covered output for a factory function whose Body is nil.
+// @evidence contracts/testing.md#independent-expectations Its undefined source range provides no verbatim bytes; no function signature or braces may be invented.
+// @evidence contracts/testing.md#distinguishing-cases The public missing-body fixture complements missing-node safety and real block-body reflow.
+// @evidence contracts/testing.md#execution-ownership TestDispatchFunctionExpressionReturnsVerbatimForNilBody is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
 func TestDispatchFunctionExpressionReturnsVerbatimForNilBody(t *testing.T) {
   file := parseTS(t, "const x = 1;\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())

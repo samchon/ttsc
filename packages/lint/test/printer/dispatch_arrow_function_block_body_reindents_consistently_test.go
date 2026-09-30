@@ -22,6 +22,11 @@ import (
 //  2. Dispatch the ArrowFunction through PrintNode.
 //  3. Assert the body statements indent exactly two spaces under the
 //     `=>` header and the closing brace returns to column 0.
+//
+// @evidence contracts/testing.md#behavioral-verification PrintNode must reindent the arrow block while retaining doStuff followed by return 1 and report complete coverage.
+// @evidence contracts/testing.md#independent-expectations The full literal expected arrow preserves its signature, both statements and ordering; only braces and indentation change.
+// @evidence contracts/testing.md#distinguishing-cases A one-line valid block that must expand complements the nil-body and multiline-signature abstention cases.
+// @evidence contracts/testing.md#execution-ownership TestDispatchArrowFunctionBlockBodyReindentsConsistently is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
 func TestDispatchArrowFunctionBlockBodyReindentsConsistently(t *testing.T) {
   file := parseTS(t, "const run = () => { doStuff(); return 1; };\n")
   node := firstNodeOfKind(t, file, shimast.KindArrowFunction)

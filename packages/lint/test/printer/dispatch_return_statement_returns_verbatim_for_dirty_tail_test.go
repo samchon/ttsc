@@ -21,6 +21,11 @@ import (
 //  2. Dispatch the ReturnStatement through PrintNode.
 //  3. Assert the output preserves the original bytes and covered is true
 //     (the statement is single-line, so verbatim is safe).
+//
+// @evidence contracts/testing.md#behavioral-verification PrintNode must preserve return x /* note */; exactly and report it covered.
+// @evidence contracts/testing.md#independent-expectations The authored source requires x, the comment and semicolon to remain in order; single-line verbatim is reflow-safe.
+// @evidence contracts/testing.md#distinguishing-cases A comment-bearing tail complements a clean returned object that can reflow and a bare return with no expression.
+// @evidence contracts/testing.md#execution-ownership TestDispatchReturnStatementReturnsVerbatimForDirtyTail is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
 func TestDispatchReturnStatementReturnsVerbatimForDirtyTail(t *testing.T) {
   file := parseTS(t, "function f() { return x /* note */; }\n")
   node := firstNodeOfKind(t, file, shimast.KindReturnStatement)
