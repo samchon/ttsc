@@ -1,6 +1,7 @@
 const child_process = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
+const { runIndependent } = require("./ci/run-independent.cjs");
 
 const workspaceRoot = path.resolve(__dirname, "..");
 const testsRoot = path.join(workspaceRoot, "tests");
@@ -18,21 +19,33 @@ if (projects.length === 0) {
   process.exit(1);
 }
 
-for (const project of projects) {
-  const label = path.relative(workspaceRoot, project);
-  console.log(`typecheck ${label}`);
-  const result = child_process.spawnSync(
-    "tsc",
-    ["--noEmit", "-p", path.join(project, "tsconfig.json")],
-    {
-      cwd: workspaceRoot,
-      encoding: "utf8",
-      shell: process.platform === "win32",
-      stdio: "inherit",
-      windowsHide: true,
-    },
-  );
-  if (result.status !== 0) {
-    process.exit(result.status ?? 1);
+async function main() {
+  const failures = await runIndependent(projects, (project) => {
+    const label = path.relative(workspaceRoot, project);
+    console.log(`typecheck ${label}`);
+    const result = child_process.spawnSync(
+      "tsc",
+      ["--noEmit", "-p", path.join(project, "tsconfig.json")],
+      {
+        cwd: workspaceRoot,
+        encoding: "utf8",
+        shell: process.platform === "win32",
+        stdio: "inherit",
+        windowsHide: true,
+      },
+    );
+    if (result.error) console.error(result.error);
+    return result.error ? 1 : result.status ?? 1;
+  });
+  if (failures.length) {
+    console.error(
+      `Failed typecheck projects: ${failures.map((project) => path.relative(workspaceRoot, project)).join(", ")}`,
+    );
+    process.exitCode = 1;
   }
 }
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

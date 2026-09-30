@@ -4,6 +4,7 @@ import os from "node:os";
 import { BuildExecution } from "../../../../../packages/ttsc/src/compiler/internal/build/BuildExecution";
 import { inheritedSidecarEnv } from "../../../../../packages/ttsc/src/compiler/internal/sharedHost/inheritedSidecarEnv";
 import { publishLinkedTransformPlugins } from "../../../../../packages/ttsc/src/compiler/internal/sharedHost/publishLinkedTransformPlugins";
+import { SidecarEnvironment } from "../../../../../packages/ttsc/src/compiler/internal/sharedHost/SidecarEnvironment";
 
 /**
  * Verifies a sidecar environment carries this invocation's compiler and linked
@@ -22,15 +23,22 @@ import { publishLinkedTransformPlugins } from "../../../../../packages/ttsc/src/
  *    descriptor-evaluation env with an explicit compiler.
  * 3. Assert each carries the resolved compiler and no inherited manifest, while a
  *    caller-named manifest and this invocation's own linked list survive.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls composeNativePluginEnv, inheritedSidecarEnv and publishLinkedTransformPlugins with an outer compiler and invalid manifest, asserting exact selected compiler, removed inherited payload and retained caller/own linked-plugin contents.
+ * @evidence contracts/testing.md#independent-expectations Literal outer, selected, caller and descriptor compiler identities establish invocation precedence independently of composition. The explicit authored plugin DTO establishes the linked list without reading it back as an expected result.
+ * @evidence contracts/testing.md#distinguishing-cases Check and transform stages both reject stale inherited state; caller compiler loses to selected compiler, explicit descriptor wins while absent descriptor selection preserves its inherited override, and caller-empty versus invocation-owned linked payloads remain distinct. A selected Node binary also overrides the outer binary without discovery.
+ * @evidence contracts/testing.md#execution-ownership This named source unit invokes the real pure composer with already-layered environment and selected Node identity in its Node process. Production nativePluginEnv still owns executable runtime discovery; this case starts no subprocess, installs no consumer and restores each inherited environment mutation in finally.
  */
 export const test_ttsc_sidecar_env_owns_the_compiler_and_linked_plugin_manifest =
   (): void => {
     const saved = {
       binary: process.env.TTSC_TSGO_BINARY,
       linked: process.env.TTSC_LINKED_PLUGINS_JSON,
+      node: process.env.TTSC_NODE_BINARY,
     };
     process.env.TTSC_TSGO_BINARY = "/outer/tsgo";
     process.env.TTSC_LINKED_PLUGINS_JSON = "{not json";
+    process.env.TTSC_NODE_BINARY = "/outer/node";
     try {
       const execution = {
         nativePlugins: [],
@@ -42,17 +50,22 @@ export const test_ttsc_sidecar_env_owns_the_compiler_and_linked_plugin_manifest 
         ({ stage }) as Parameters<typeof BuildExecution.nativePluginEnv>[2];
 
       for (const stage of ["check", "transform"] as const) {
-        const env = BuildExecution.nativePluginEnv(
+        const env = BuildExecution.composeNativePluginEnv(
+          SidecarEnvironment.merge(process.env),
           undefined,
           execution,
+          "/selected/node",
           plugin(stage),
         );
         assert.equal(env.TTSC_TSGO_BINARY, "/selected/tsgo", stage);
         assert.equal(env.TTSC_LINKED_PLUGINS_JSON, undefined, stage);
+        assert.equal(env.TTSC_NODE_BINARY, "/selected/node", stage);
       }
-      const overridden = BuildExecution.nativePluginEnv(
+      const overridden = BuildExecution.composeNativePluginEnv(
+        SidecarEnvironment.merge(process.env, { TTSC_TSGO_BINARY: "/caller/tsgo" }),
         { TTSC_TSGO_BINARY: "/caller/tsgo" },
         execution,
+        "/selected/node",
         plugin("check"),
       );
       assert.equal(overridden.TTSC_TSGO_BINARY, "/selected/tsgo");
@@ -84,6 +97,7 @@ export const test_ttsc_sidecar_env_owns_the_compiler_and_linked_plugin_manifest 
     } finally {
       restore("TTSC_TSGO_BINARY", saved.binary);
       restore("TTSC_LINKED_PLUGINS_JSON", saved.linked);
+      restore("TTSC_NODE_BINARY", saved.node);
     }
   };
 

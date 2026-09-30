@@ -24,7 +24,8 @@
       "type": "javascript",
       "files": [
         "scripts/**/*.test.cjs",
-        "runtime/test_runtime_compiler_output_preserves_decorator_effects.cjs"
+        "runtime/test_runtime_compiler_output_preserves_decorator_effects.cjs",
+        "runtime/test_runtime_compiler_output_renders_jsx_profiles.cjs"
       ],
       "symbol": "function",
       "reference": {
@@ -208,6 +209,7 @@
       "root": "../..",
       "files": [
         "packages/ttsc/test/driver-unit/runtime_decorator_target_profiles_test.go",
+        "packages/ttsc/test/driver-unit/runtime_jsx_profiles_test.go",
         "packages/ttsc/test/driver-unit/source_sdk_program_checker_test.go",
         "packages/ttsc/test/driver-unit/source_sdk_interface_properties_test.go",
         "packages/ttsc/test/driver-unit/source_sdk_factory_printer_test.go"
