@@ -12,6 +12,11 @@
 // directory a contributor's `source` names into `@ttsc/lint`'s own module and
 // rejects a `go.mod` inside it. The file exists for tooling like this runner
 // and `gopls`, never for the build.
+//
+// The Windows --os-boundaries population instead binds the retained installed
+// CLI consumer's SDK and shim modules through explicit workspace replacements.
+// Repository tooling modules remain local, but cannot substitute checkout SDK
+// sources for that installed boundary.
 
 const cp = require("node:child_process");
 const fs = require("node:fs");
@@ -59,19 +64,46 @@ function main() {
   try {
     const env = { ...process.env };
     if (sdk) {
-      const modules = [packageDir, path.join(root, "packages", "lint"), sdk];
+      const modules = [packageDir, path.join(root, "packages", "lint")];
+      const sdkModules = [sdk];
       function findModules(directory) {
         if (fs.existsSync(path.join(directory, "go.mod")))
-          modules.push(directory);
+          sdkModules.push(directory);
         for (const entry of fs.readdirSync(directory, { withFileTypes: true }))
           if (entry.isDirectory())
             findModules(path.join(directory, entry.name));
       }
       findModules(path.join(sdk, "shim"));
+      // The repo tooling module replaces shims with checkout paths. Explicit
+      // workspace replacements bind every SDK module to the installed receipt;
+      // these dependencies must not also become workspace main modules.
+      const identities = new Set();
+      const bindings = sdkModules.map((directory) => {
+        const source = fs.readFileSync(path.join(directory, "go.mod"), "utf8");
+        const identity = /^module\s+(\S+)\s*$/m.exec(source)?.[1];
+        if (!identity || identities.has(identity))
+          throw new Error(`Installed SDK module identity is missing or duplicated: ${directory}`);
+        if (directory === sdk
+          ? identity !== "github.com/samchon/ttsc/packages/ttsc"
+          : !identity.startsWith("github.com/microsoft/typescript-go/shim/"))
+          throw new Error(`Unexpected installed SDK module identity: ${identity}`);
+        identities.add(identity);
+        return `${identity} => ${JSON.stringify(directory.split(path.sep).join("/"))}`;
+      });
+      // Missing installed modules must fail before Go can use a tooling
+      // module's checkout replacement for the same declared dependency.
+      for (const directory of [...modules, ...sdkModules]) {
+        const declaration = fs.readFileSync(path.join(directory, "go.mod"), "utf8")
+          .split("\n").map((line) => line.split("//")[0]).join("\n");
+        for (const identity of declaration.match(/\bgithub\.com\/microsoft\/typescript-go\/shim\/[\w./-]+/g) ?? [])
+          if (!identities.has(identity))
+            throw new Error(`Installed SDK does not provide declared shim module: ${identity}`);
+      }
+      console.log(`Evidence Windows SDK: ${identities.size} authoritative installed module bindings`);
       env.GOWORK = path.join(scratch, "go.work");
       writeGoWork(
         env.GOWORK,
-        `use (\n${modules.map((directory) => JSON.stringify(directory.split(path.sep).join("/"))).join("\n")}\n)\n`,
+        `use (\n${modules.map((directory) => JSON.stringify(directory.split(path.sep).join("/"))).join("\n")}\n)\nreplace (\n${bindings.join("\n")}\n)\n`,
         env,
       );
     }
