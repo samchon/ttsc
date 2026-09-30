@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { TestBanner } from "../internal/TestBanner";
-import { decodeSourceLines } from "../internal/decode-source-map";
-import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
+import { TestBanner } from "../../internal/TestBanner";
+import { decodeSourceLines } from "../../internal/decode-source-map";
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 
 /**
  * Verifies the @ttsc/banner plugin: source maps stay correct under
@@ -25,9 +25,17 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
  * 2. Run `ttsc --emit`.
  * 3. Assert the banner text is absent from `.js`, yet `.js.map` and `.d.ts.map`
  *    map every statement inside the real source (first at line 0).
+ *
+ * @evidence contracts/testing.md#behavioral-verification With removeComments the JS banner must disappear while JS/declaration mappings remain nonempty, start at 0 and stay below authored EOF.
+ * @evidence contracts/testing.md#independent-expectations Authored zero-based line positions and explicit removeComments independently define removed text and map bounds.
+ * @evidence contracts/testing.md#distinguishing-cases This combines absent emitted comment with a still-preamble-shifted parser input; retained-comment maps are the adjacent control.
+ * @evidence contracts/testing.md#execution-ownership This named test_banner_source_map_lines_correct_under_remove_comments entry runs through TestExecutor and the real built launcher or native host; portable decisions are separate Go units.
+ * @evidence contracts/e2e.md#necessary-boundary Native compiler comment removal and post-emit map correction must connect even when the emitted banner no longer exists.
+ * @evidence contracts/e2e.md#shared-execution removeComments changes the emit state and requires an independent compile from retained-comment map consumers. Other unchanged native preparations reuse TestProject.sharedPluginCache, whose identity covers compiler, SDK, sources and overlays.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns fresh fixture directories until process exit, including failure; synchronous child processes finish before assertions. Sources/config remain fixed for their compilation, and only unchanged artifact inputs share the cache, never consumer results.
+ * @evidence contracts/e2e.md#preserved-coverage With removeComments the JS banner must disappear while JS/declaration mappings remain nonempty, start at 0 and stay below authored EOF. All original assertions remain in this named entry. Direct preamble/config/map unit cases do not claim this launcher and serialization connection.
  */
-export const test_banner_source_map_lines_correct_under_remove_comments =
-  () => {
+export function test_banner_source_map_lines_correct_under_remove_comments() {
     const source = [
       "export const alpha: number = 1;",
       "export const beta: number = 2;",
@@ -93,4 +101,4 @@ export const test_banner_source_map_lines_correct_under_remove_comments =
         `${mapName} must map its first statement to source line 0`,
       );
     }
-  };
+}

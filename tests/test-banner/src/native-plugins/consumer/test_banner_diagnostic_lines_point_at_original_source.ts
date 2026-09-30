@@ -1,8 +1,8 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
-import { TestBanner } from "../internal/TestBanner";
-import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
+import { TestBanner } from "../../internal/TestBanner";
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 
 /**
  * Verifies the @ttsc/banner plugin: reported diagnostics point at the real
@@ -22,8 +22,17 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
  * 2. Run `ttsc --emit`.
  * 3. Assert the failure names line 5 once, never names the shifted line 13, and
  *    never quotes the banner text back at the user.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The real emit error must name main.ts line 5, contain TS2322 exactly once and omit banner text from the code frame.
+ * @evidence contracts/testing.md#independent-expectations Authored source places the number/string type error on literal line 5; the three-line banner cannot change its public position.
+ * @evidence contracts/testing.md#distinguishing-cases Nonempty reported positions, exact original line, one diagnostic and absent banner reject missing output, shifted output and duplicate recovery diagnostics.
+ * @evidence contracts/testing.md#execution-ownership This named test_banner_diagnostic_lines_point_at_original_source entry runs through TestExecutor and the real built launcher or native host; portable decisions are separate Go units.
+ * @evidence contracts/e2e.md#necessary-boundary Native source preamble, diagnostic recovery and launcher rendering must agree on original positions.
+ * @evidence contracts/e2e.md#shared-execution An invalid source needs its own failed compilation, so a successful emit cannot own this diagnostic/recovery transition. Other unchanged native preparations reuse TestProject.sharedPluginCache, whose identity covers compiler, SDK, sources and overlays.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns fresh fixture directories until process exit, including failure; synchronous child processes finish before assertions. Sources/config remain fixed for their compilation, and only unchanged artifact inputs share the cache, never consumer results.
+ * @evidence contracts/e2e.md#preserved-coverage The real emit error must name main.ts line 5, contain TS2322 exactly once and omit banner text from the code frame. All original assertions remain in this named entry. Direct preamble/config/map unit cases do not claim this launcher and serialization connection.
  */
-export const test_banner_diagnostic_lines_point_at_original_source = () => {
+export function test_banner_diagnostic_lines_point_at_original_source() {
   const source = [
     "export interface IUser {",
     "  id: string;",
@@ -95,4 +104,4 @@ export const test_banner_diagnostic_lines_point_at_original_source = () => {
     /Copyright|MIT License|@packageDocumentation/,
     `the code frame must quote the authored source, never the banner:\n${stderr}`,
   );
-};
+}

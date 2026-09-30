@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { TestPaths } from "../internal/TestPaths";
-import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
+import { TestPaths } from "../../internal/TestPaths";
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 
 /**
  * Verifies the @ttsc/paths plugin: allowJs extensionless targets use emitted
@@ -19,9 +19,17 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
  *    `.jsx` sources by extensionless paths.
  * 2. Run real ttsc with `@ttsc/paths`.
  * 3. Assert emitted ESM/CJS outputs use `.js`, `.mjs`, `.cjs`, and `.jsx`.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Real emit must produce JS/MJS/CJS/JSX target files and replace aliases with their respective literal runtime suffixes.
+ * @evidence contracts/testing.md#independent-expectations allowJs and preserve-JSX output contracts define .js, .mjs, .cjs and .jsx independently of the paths predictor.
+ * @evidence contracts/testing.md#distinguishing-cases Extensionless targets across all four source kinds distinguish blind .js prediction; emitted references and target publication are both checked.
+ * @evidence contracts/testing.md#execution-ownership This named test_paths_rewrites_allow_js_extensionless_targets_to_emitted_extensions entry runs through TestExecutor and the real built launcher or native host; portable decisions are separate Go units.
+ * @evidence contracts/e2e.md#necessary-boundary Native rewriting must agree with the compiler emit filenames for JavaScript-family inputs.
+ * @evidence contracts/e2e.md#shared-execution One allowJs/preserve-JSX project shares its host across all four target kinds; this compiler option context differs from typed NodeNext and JSON consumers. Other unchanged native preparations reuse TestProject.sharedPluginCache, whose identity covers compiler, SDK, sources and overlays.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns fresh fixture directories until process exit, including failure; synchronous child processes finish before assertions. Sources/config remain fixed for their compilation, and only unchanged artifact inputs share the cache, never consumer results.
+ * @evidence contracts/e2e.md#preserved-coverage Real emit must produce JS/MJS/CJS/JSX target files and replace aliases with their respective literal runtime suffixes. All original assertions remain in this named entry. TestLinkedProgramRewritesModuleSyntaxWithoutChangingOtherLiterals owns eligible syntax, adjacent ordinary literals and lexical require controls in the Go unit population; these emit assertions retain serializer and copied-output responsibility.
  */
-export const test_paths_rewrites_allow_js_extensionless_targets_to_emitted_extensions =
-  () => {
+export function test_paths_rewrites_allow_js_extensionless_targets_to_emitted_extensions() {
     const root = TestProject.createProject({
       "tsconfig.json": JSON.stringify({
         compilerOptions: {
@@ -97,4 +105,4 @@ export const test_paths_rewrites_allow_js_extensionless_targets_to_emitted_exten
     );
     assert.match(cjs, /require\("\.\/modules\/legacy\.cjs"\)/);
     assert.doesNotMatch(cjs, /@lib\/legacy/);
-  };
+}

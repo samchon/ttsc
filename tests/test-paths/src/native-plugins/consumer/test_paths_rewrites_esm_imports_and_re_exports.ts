@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { TestPaths } from "../internal/TestPaths";
-import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
+import { TestPaths } from "../../internal/TestPaths";
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 
 /**
  * Verifies the @ttsc/paths plugin: paths rewrites ESM imports and re-exports.
@@ -23,8 +23,17 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
  * 2. Run `ttsc --emit` against that project.
  * 3. Assert all alias specifiers are replaced with relative paths in `.js` and
  *    `.d.ts`, including the `declare module` augmentation block.
+ *
+ * @evidence contracts/testing.md#behavioral-verification JS/declarations must replace exact, fallback wildcard and package aliases across static exports, require, dynamic import, type imports and module augmentation.
+ * @evidence contracts/testing.md#independent-expectations Authored rootDir/outDir paths define ./modules/exact.js, ./modules/message.js and ./pkg/index.js independently.
+ * @evidence contracts/testing.md#distinguishing-cases Missing first wildcard candidate precedes the successful target; all aliases must disappear from the relevant published JS/declaration forms.
+ * @evidence contracts/testing.md#execution-ownership This named test_paths_rewrites_esm_imports_and_re_exports entry runs through TestExecutor and the real built launcher or native host; portable decisions are separate Go units.
+ * @evidence contracts/e2e.md#necessary-boundary Native AST mutation must reach actual JS and declaration serializers, not only in-process AST inspection.
+ * @evidence contracts/e2e.md#shared-execution One ES2022 project jointly compiles every syntax form and alias shape; typed NodeNext, copied JSON and allowJs require different compiler-option contexts. Other unchanged native preparations reuse TestProject.sharedPluginCache, whose identity covers compiler, SDK, sources and overlays.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns fresh fixture directories until process exit, including failure; synchronous child processes finish before assertions. Sources/config remain fixed for their compilation, and only unchanged artifact inputs share the cache, never consumer results.
+ * @evidence contracts/e2e.md#preserved-coverage JS/declarations must replace exact, fallback wildcard and package aliases across static exports, require, dynamic import, type imports and module augmentation. All original assertions remain in this named entry. TestLinkedProgramRewritesModuleSyntaxWithoutChangingOtherLiterals owns eligible syntax, adjacent ordinary literals and lexical require controls in the Go unit population; these emit assertions retain serializer and copied-output responsibility.
  */
-export const test_paths_rewrites_esm_imports_and_re_exports = () => {
+export function test_paths_rewrites_esm_imports_and_re_exports() {
   const root = TestProject.createProject({
     "tsconfig.json": JSON.stringify({
       compilerOptions: {
@@ -92,4 +101,4 @@ export const test_paths_rewrites_esm_imports_and_re_exports = () => {
   assert.match(dts, /import\("\.\/modules\/message\.js"\)/);
   assert.match(dts, /declare module "\.\/modules\/message\.js"/);
   assert.doesNotMatch(dts, /@lib\/message/);
-};
+}

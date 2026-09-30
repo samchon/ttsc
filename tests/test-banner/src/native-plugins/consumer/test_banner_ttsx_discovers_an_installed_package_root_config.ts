@@ -1,8 +1,8 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
-import { TestBanner } from "../internal/TestBanner";
-import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
+import { TestBanner } from "../../internal/TestBanner";
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 
 /**
  * Verifies the @ttsc/banner plugin: ttsx discovers an installed package's
@@ -22,9 +22,17 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
  * 2. Run a consumer entry that requires the package, then reads the root's
  *    JavaScript from the dependency cache.
  * 3. Assert that JavaScript carries the package's banner.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Real ttsx must execute the installed dependency and report exactly root-ran bannered=true.
+ * @evidence contracts/testing.md#independent-expectations The package-root config and fixture runtime probe independently require a bannered dependency emit.
+ * @evidence contracts/testing.md#distinguishing-cases The package config sits outside the entry project; runtime output distinguishes entry-only discovery from dependency-root discovery.
+ * @evidence contracts/testing.md#execution-ownership This named test_banner_ttsx_discovers_an_installed_package_root_config entry runs through TestExecutor and the real built launcher or native host; portable decisions are separate Go units.
+ * @evidence contracts/e2e.md#necessary-boundary Runtime dependency preparation must connect installed-package plugin discovery to executable output.
+ * @evidence contracts/e2e.md#shared-execution A ttsx runtime process is required to consume the dependency output; ordinary ttsc emit does not cover this runtime connection. Other unchanged native preparations reuse TestProject.sharedPluginCache, whose identity covers compiler, SDK, sources and overlays.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns fresh fixture directories until process exit, including failure; synchronous child processes finish before assertions. Sources/config remain fixed for their compilation, and only unchanged artifact inputs share the cache, never consumer results.
+ * @evidence contracts/e2e.md#preserved-coverage Real ttsx must execute the installed dependency and report exactly root-ran bannered=true. All original assertions remain in this named entry. Direct preamble/config/map unit cases do not claim this launcher and serialization connection.
  */
-export const test_banner_ttsx_discovers_an_installed_package_root_config =
-  () => {
+export function test_banner_ttsx_discovers_an_installed_package_root_config() {
     const root = TestProject.createProject({
       "package.json": JSON.stringify({ name: "consumer", private: true }),
       "tsconfig.json": JSON.stringify({
@@ -94,4 +102,4 @@ export const test_banner_ttsx_discovers_an_installed_package_root_config =
     );
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stdout.trim(), "root-ran bannered=true");
-  };
+}

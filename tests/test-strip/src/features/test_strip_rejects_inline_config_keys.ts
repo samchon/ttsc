@@ -19,8 +19,17 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
  * 2. Run `ttsc --emit`.
  * 3. Assert a non-zero exit and that stderr mentions the unsupported key and
  *    points the user to a strip.config.* file.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The launcher must reject the obsolete inline calls entry with a nonzero exit and an error naming calls.
+ * @evidence contracts/testing.md#independent-expectations The dedicated-config contract independently disallows inline calls in plugin entries.
+ * @evidence contracts/testing.md#distinguishing-cases Invalid calls is the negative entry case; direct factory units own key variations and configured emit cases own valid inputs.
+ * @evidence contracts/testing.md#execution-ownership This named test_strip_rejects_inline_config_keys entry runs through TestExecutor and the real built launcher or native host; portable decisions are separate Go units.
+ * @evidence contracts/e2e.md#necessary-boundary Descriptor validation must propagate an invalid tsconfig plugin entry to the public launcher failure.
+ * @evidence contracts/e2e.md#shared-execution One rejected load remains to prove launcher propagation; it aborts before a native producer is built. Other unchanged native preparations reuse TestProject.sharedPluginCache, whose identity covers compiler, SDK, sources and overlays.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns fresh fixture directories until process exit, including failure; synchronous child processes finish before assertions. Sources/config remain fixed for their compilation, and only unchanged artifact inputs share the cache, never consumer results.
+ * @evidence contracts/e2e.md#preserved-coverage The launcher must reject the obsolete inline calls entry with a nonzero exit and an error naming calls. All original assertions remain in this named entry. TestLinkedProgramStripsDefaultStatementsAndPreservesDeclarations and TestLinkedProgramStripsCustomCallsOnlyInStatementPositions own AST list/body/callee/value-position distinctions; this case retains its original configuration or published-output boundary.
  */
-export const test_strip_rejects_inline_config_keys = () => {
+export function test_strip_rejects_inline_config_keys() {
   const root = TestProject.commonJsProject(
     {
       "src/main.ts": `console.log("hello");\nexport const v = 1;\n`,
@@ -60,4 +69,4 @@ export const test_strip_rejects_inline_config_keys = () => {
     /unsupported key.*"calls"|"calls".*unsupported key/,
     `stderr should name the unsupported key: ${result.stderr}`,
   );
-};
+}

@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { TestBanner } from "../internal/TestBanner";
-import { decodeSourceLines } from "../internal/decode-source-map";
-import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
+import { TestBanner } from "../../internal/TestBanner";
+import { decodeSourceLines } from "../../internal/decode-source-map";
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 
 /**
  * Verifies the @ttsc/banner plugin: an inline source map (embedded in the
@@ -22,9 +22,17 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
  * 2. Run `ttsc --emit`.
  * 3. Decode the base64 map from the `.js` trailer; assert no mapping references a
  *    source line at/after EOF and the first statement maps to source line 0.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The JS trailer must decode into a v3 map with nonempty lines starting at 0 and all below the authored source EOF.
+ * @evidence contracts/testing.md#independent-expectations The source-map v3 trailer contract and literal authored source line count supply independent expectations.
+ * @evidence contracts/testing.md#distinguishing-cases A missing inline trailer, empty mappings and shifted source lines all fail; external sidecar correction has a separate owner.
+ * @evidence contracts/testing.md#execution-ownership This named test_banner_inline_source_map_lines_point_at_original_source entry runs through TestExecutor and the real built launcher or native host; portable decisions are separate Go units.
+ * @evidence contracts/e2e.md#necessary-boundary The native serializer publishes an embedded base64 trailer whose correction cannot be proved by checking external map files.
+ * @evidence contracts/e2e.md#shared-execution inlineSourceMap changes the physical publication form and conflicts with sourceMap, requiring this independent compile. Other unchanged native preparations reuse TestProject.sharedPluginCache, whose identity covers compiler, SDK, sources and overlays.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns fresh fixture directories until process exit, including failure; synchronous child processes finish before assertions. Sources/config remain fixed for their compilation, and only unchanged artifact inputs share the cache, never consumer results.
+ * @evidence contracts/e2e.md#preserved-coverage The JS trailer must decode into a v3 map with nonempty lines starting at 0 and all below the authored source EOF. All original assertions remain in this named entry. Direct preamble/config/map unit cases do not claim this launcher and serialization connection.
  */
-export const test_banner_inline_source_map_lines_point_at_original_source =
-  () => {
+export function test_banner_inline_source_map_lines_point_at_original_source() {
     const source = [
       "export const alpha: number = 1;",
       "export const beta: number = 2;",
@@ -84,4 +92,4 @@ export const test_banner_inline_source_map_lines_point_at_original_source =
       0,
       "inline map must map its first statement to source line 0",
     );
-  };
+}

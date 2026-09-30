@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { TestBanner } from "../internal/TestBanner";
-import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
+import { TestBanner } from "../../internal/TestBanner";
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 
 /**
  * Verifies the @ttsc/banner plugin: banner injects JavaScript and declaration
@@ -22,8 +22,17 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
  * 2. Run `ttsc --emit` against that project.
  * 3. Assert the banner JSDoc block appears exactly once in `.js` and `.d.ts`.
  * 4. Assert the `.js.map` and `.d.ts.map` files contain no banner text.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Emit must contain one multiline banner in both JS and declaration output, preserve map trailers, and produce v3 maps without banner markers.
+ * @evidence contracts/testing.md#independent-expectations Dedicated config text and the public packageDocumentation output shape establish literal text/count expectations.
+ * @evidence contracts/testing.md#distinguishing-cases Both emit kinds are positive; JS/declaration maps must exclude banner text and retain independent trailers.
+ * @evidence contracts/testing.md#execution-ownership This named test_banner_injects_javascript_and_declaration_jsdoc entry runs through TestExecutor and the real built launcher or native host; portable decisions are separate Go units.
+ * @evidence contracts/e2e.md#necessary-boundary Source preamble and both emit serializers must publish the banner and map sidecars through the native host.
+ * @evidence contracts/e2e.md#shared-execution One compilation jointly covers JS, declarations and their maps; its banner-only text differs from the coordinate fixture. Other unchanged native preparations reuse TestProject.sharedPluginCache, whose identity covers compiler, SDK, sources and overlays.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns fresh fixture directories until process exit, including failure; synchronous child processes finish before assertions. Sources/config remain fixed for their compilation, and only unchanged artifact inputs share the cache, never consumer results.
+ * @evidence contracts/e2e.md#preserved-coverage Emit must contain one multiline banner in both JS and declaration output, preserve map trailers, and produce v3 maps without banner markers. All original assertions remain in this named entry. Direct preamble/config/map unit cases do not claim this launcher and serialization connection.
  */
-export const test_banner_injects_javascript_and_declaration_jsdoc = () => {
+export function test_banner_injects_javascript_and_declaration_jsdoc() {
   const root = TestProject.commonJsProject(
     {
       "banner.config.cjs": `module.exports = { text: "banner-only\\nsecond line" };\n`,
@@ -71,4 +80,4 @@ export const test_banner_injects_javascript_and_declaration_jsdoc = () => {
   assert.doesNotMatch(dtsMap, /@packageDocumentation|banner-only/);
   assert.equal(JSON.parse(jsMap).version, 3);
   assert.equal(JSON.parse(dtsMap).version, 3);
-};
+}
