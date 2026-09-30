@@ -23,9 +23,17 @@ import { PluginPackageResolution } from "../../../../../packages/ttsc/lib/plugin
  *    blocked entries.
  * 2. Resolve each through the plugin resolver and through Node.
  * 3. Assert both select the same file or both refuse with the same code.
+ *
+ * @evidence contracts/testing.md#behavioral-verification PluginPackageResolution.resolvePluginRequest returns the same canonical file or rejection code as Node for every authored export shape.
+ * @evidence contracts/testing.md#independent-expectations A separate unmodified Node process with --conditions=ttsc is the independent exports-resolution oracle; expectations are not computed by the plugin resolver.
+ * @evidence contracts/testing.md#distinguishing-cases Valid, blocked, missing, escaping, nested blocked, invalid-first fallback and all-blocked array targets retain their seven distinct fixtures; the escaping target exists so only the export rule can reject it.
+ * @evidence contracts/testing.md#execution-ownership The named E2E function under src/features/project executes the shipped resolver and the actual conditioned Node reference process; each specifier remains a separate result-map key.
+ * @evidence contracts/e2e.md#necessary-boundary Node conditional exports resolution supplies the real independent contract for the host's custom ttsc-condition resolver; ordinary default-condition calls cannot supply that oracle.
+ * @evidence contracts/e2e.md#shared-execution One fixture workspace and one conditioned Node process resolve all seven packages; neither a package nor an export shape needs a separate native build or host lifetime.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity All fixtures are written before resolution and immutable afterward; distinct package names prevent one resolution cache entry from determining another. Synchronous process completion is checked before JSON consumption, and TestProject registers the workspace for exit cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage The complete seven plugin outcomes and seven independent Node outcomes are compared together after all have executed; status and exact response membership assertions additionally reject broken or incomplete oracle transport.
  */
-export const test_pluginpackageresolution_follows_node_for_a_ttsc_export_target =
-  () => {
+export function test_pluginpackageresolution_follows_node_for_a_ttsc_export_target() {
     const root = fs.realpathSync.native(
       TestProject.tmpdir("ttsc-ttsc-exports-"),
     );
@@ -54,15 +62,14 @@ export const test_pluginpackageresolution_follows_node_for_a_ttsc_export_target 
       fs.writeFileSync(path.join(directory, "runtime.cjs"), "");
     }
 
-    for (const name of Object.keys(cases)) {
-      const specifier = `pkg-${name}`;
-      const ours = outcome(() =>
-        PluginPackageResolution.resolvePluginRequest(specifier, root),
-      );
-      const node = nodeOutcome(root, specifier);
-      assert.deepEqual(ours, node, specifier);
-    }
-  };
+    const specifiers = Object.keys(cases).map((name) => `pkg-${name}`);
+    const node = nodeOutcomes(root, specifiers);
+    const ours = Object.fromEntries(specifiers.map((specifier) => [
+      specifier,
+      outcome(() => PluginPackageResolution.resolvePluginRequest(specifier, root)),
+    ]));
+    assert.deepEqual(ours, node);
+  }
 
 function outcome(resolve: () => string): string {
   try {
@@ -72,19 +79,26 @@ function outcome(resolve: () => string): string {
   }
 }
 
-function nodeOutcome(root: string, specifier: string): string {
+function nodeOutcomes(root: string, specifiers: string[]): Record<string, string> {
   const script = [
-    "try {",
-    `  const file = require.resolve(${JSON.stringify(specifier)}, { paths: [${JSON.stringify(root)}] });`,
-    "  process.stdout.write('file:' + require('node:fs').realpathSync.native(file));",
-    "} catch (error) {",
-    "  process.stdout.write('error:' + error.code);",
+    "const outcomes = {};",
+    `for (const specifier of ${JSON.stringify(specifiers)}) {`,
+    "  try {",
+    `    const file = require.resolve(specifier, { paths: [${JSON.stringify(root)}] });`,
+    "    outcomes[specifier] = 'file:' + require('node:fs').realpathSync.native(file);",
+    "  } catch (error) {",
+    "    outcomes[specifier] = 'error:' + error.code;",
+    "  }",
     "}",
+    "process.stdout.write(JSON.stringify(outcomes));",
   ].join("\n");
   const result = child_process.spawnSync(
     process.execPath,
     ["--conditions=ttsc", "-e", script],
-    { cwd: root, encoding: "utf8" },
+    { cwd: root, encoding: "utf8", windowsHide: true },
   );
-  return result.stdout;
+  assert.equal(result.status, 0, result.stderr || result.error?.message);
+  const results = JSON.parse(result.stdout) as Record<string, string>;
+  assert.deepEqual(Object.keys(results), specifiers);
+  return results;
 }
