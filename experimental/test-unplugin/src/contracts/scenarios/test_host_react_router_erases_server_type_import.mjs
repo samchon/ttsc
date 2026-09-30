@@ -1,10 +1,30 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { eventually, expectOutput, fixture, write } from "./common.mjs";
+import { eventually, expectOutput, fixture, write } from "../common.mjs";
 
-/** The original framework guard must accept an erased .server type import. */
-export async function reactRouterContract() {
+/**
+ * Verifies React Router accepts an erased server-only type import and invalidates transformed output.
+ *
+ * @evidence contracts/testing.md#behavioral-verification
+ *   Actual Vite plus reactRouter transforms the route to FIRST, then SECOND and THIRD after edits; an invalid contract type must reject. The route module graph must not retain contract-input.server as a runtime import.
+ * @evidence contracts/testing.md#independent-expectations
+ *   The authored type-only import must be erased before the framework server-module guard, and literal input values define output. The broken type is independently invalid and its compiler diagnostic is matched.
+ * @evidence contracts/testing.md#distinguishing-cases
+ *   Covers initial transformation, type-only invalidation, compiler failure and repair, plus absence of a runtime server-module graph edge. These distinguish successful transformation from silently ignored framework guards.
+ * @evidence contracts/testing.md#execution-ownership
+ *   The react-router worker calls this named E2E entry directly. Each original module graph, output and rejection assertion remains; source adapter units do not execute this framework plugin composition.
+ * @evidence contracts/e2e.md#necessary-boundary
+ *   Real React Router guards run after actual Vite transformation. Ordinary Vite watch and source transform units cannot prove the framework sees erased imports rather than the original type-only server reference.
+ * @evidence contracts/e2e.md#shared-execution
+ *   One existing Vite server, project and shared installed producer serve all edits and failure/recovery; no server or compilation fixture is created separately for each assertion.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity
+ *   The dedicated React Router fixture isolates config and route graph. The original cwd is restored and the actual Vite server closes in finally, including transform rejection or assertion failure.
+ * @evidence contracts/e2e.md#preserved-coverage
+ *   Every original FIRST/SECOND/THIRD, module graph invalidation, forbidden server import and invalid-contract rejection assertion remains in this body. Extraction changes only its callable name and relative helper import.
+ */
+
+export async function test_host_react_router_erases_server_type_import() {
   const { createServer } = await import("vite");
   const project = fixture("react-router");
   write(

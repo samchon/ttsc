@@ -1,9 +1,8 @@
+import { test_host_bun_preload_runtime } from "./scenarios/test_host_bun_preload_runtime.mjs";
 import ttsc from "@ttsc/unplugin/bun";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
 
-import { BROKEN_INPUT, landLateRace, projectAt, valuesIn } from "./common.mjs";
+import { landLateRace, projectAt, valuesIn } from "./common.mjs";
 import { runScenarios, SCENARIOS } from "./scenarios.mjs";
 
 /**
@@ -72,28 +71,4 @@ const session = {
 };
 await runScenarios(project, session, contract === "complete" ? SCENARIOS : SCENARIOS.slice(0, 4));
 
-// The preload session owns a different cache lifetime: each `bun run` is one
-// immutable load session.
-fs.writeFileSync(
-  path.join(project.root, "bunfig.toml"),
-  'preload = ["@ttsc/unplugin/bun-register"]\n',
-);
-const run = (args) =>
-  Bun.spawnSync(["bun", ...args], { cwd: project.root, env: process.env });
-project.break();
-const broken = run(["run", "src/main.ts"]);
-assert.notEqual(broken.exitCode, 0);
-assert.match(
-  `${broken.stdout}${broken.stderr}`,
-  BROKEN_INPUT,
-  "a broken input fails a runtime session",
-);
-for (const value of ["RUNTIME_FIRST", "RUNTIME_SECOND"]) {
-  project.change(value);
-  const ran = run(["run", "src/main.ts"]);
-  assert.equal(ran.exitCode, 0, `${ran.stderr}`);
-  assert.equal(
-    String(ran.stdout).trim(),
-    [value, value, value, value].join(" "),
-  );
-}
+await test_host_bun_preload_runtime(project);

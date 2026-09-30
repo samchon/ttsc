@@ -1,3 +1,17 @@
+import { test_packed_installed_compiler } from "./contracts/builds/test_packed_installed_compiler.mjs";
+import { test_packed_entrypoints } from "./contracts/builds/test_packed_entrypoints.mjs";
+import { test_packed_vite } from "./contracts/builds/test_packed_vite.mjs";
+import { test_packed_rollup } from "./contracts/builds/test_packed_rollup.mjs";
+import { test_packed_esbuild } from "./contracts/builds/test_packed_esbuild.mjs";
+import { test_packed_rolldown } from "./contracts/builds/test_packed_rolldown.mjs";
+import { test_packed_webpack } from "./contracts/builds/test_packed_webpack.mjs";
+import { test_packed_rspack } from "./contracts/builds/test_packed_rspack.mjs";
+import { test_packed_farm } from "./contracts/builds/test_packed_farm.mjs";
+import { test_packed_next } from "./contracts/builds/test_packed_next.mjs";
+import { test_packed_turbopack_globs } from "./contracts/builds/test_packed_turbopack_globs.mjs";
+import { test_packed_bun_build } from "./contracts/builds/test_packed_bun_build.mjs";
+import { test_packed_bun_runtime } from "./contracts/builds/test_packed_bun_runtime.mjs";
+
 import cp from "node:child_process";
 import fs from "node:fs";
 import { createRequire } from "node:module";
@@ -848,77 +862,11 @@ function installTarballs() {
 
 /** Preserve the complete shipped-compiler contract in this consumer install. */
 function verifyInstalledCompilerContracts() {
-  const environment: NodeJS.ProcessEnv = {
-    ...process.env,
-    TTSC_CACHE_DIR: pluginCache,
-  };
-  // Portable suites select system Go. The shipped compiler and runtime must
-  // instead resolve the SDK inside their freshly installed platform package.
-  delete environment.TTSC_GO_BINARY;
-  const result = cp.spawnSync(
-    process.execPath,
-    [
-      ...process.execArgv,
-      path.join(root, "experimental", "install", "src", "index.ts"),
-      `--consumer=${workspace}`,
-    ],
-    {
-      cwd: experimentRoot,
-      env: environment,
-      stdio: "inherit",
-      windowsHide: true,
-    },
-  );
-  if (result.error) throw result.error;
-  assert(result.status === 0, "installed compiler contracts failed");
+  return test_packed_installed_compiler({ workspace, root, experimentRoot, pluginCache, assert });
 }
 
 function verifyEntrypoints() {
-  fs.writeFileSync(
-    path.join(workspace, "verify-entrypoints.mjs"),
-    [
-      'const root = await import("@ttsc/unplugin");',
-      'if (typeof root.default.vite !== "function") {',
-      '  throw new Error("@ttsc/unplugin ESM default import must expose adapters");',
-      "}",
-      'const api = await import("@ttsc/unplugin/api");',
-      'if (typeof api.transformTtsc !== "function") {',
-      '  throw new Error("@ttsc/unplugin/api must expose transformTtsc");',
-      "}",
-      "for (const entrypoint of " + JSON.stringify(adapterEntrypoints) + ") {",
-      "  const mod = await import(`@ttsc/unplugin/${entrypoint}`);",
-      '  if (typeof mod.default !== "function") {',
-      "    throw new Error(`${entrypoint} ESM default import must be a function`);",
-      "  }",
-      "}",
-      "",
-    ].join("\n"),
-    "utf8",
-  );
-  run("node verify-entrypoints.mjs", workspace);
-
-  fs.writeFileSync(
-    path.join(workspace, "verify-entrypoints.cjs"),
-    [
-      'const root = require("@ttsc/unplugin");',
-      'if (typeof root.default.vite !== "function") {',
-      '  throw new Error("@ttsc/unplugin CJS require must expose adapters");',
-      "}",
-      'const api = require("@ttsc/unplugin/api");',
-      'if (typeof api.transformTtsc !== "function") {',
-      '  throw new Error("@ttsc/unplugin/api must expose transformTtsc through CJS");',
-      "}",
-      "for (const entrypoint of " + JSON.stringify(adapterEntrypoints) + ") {",
-      "  const mod = require(`@ttsc/unplugin/${entrypoint}`);",
-      '  if (typeof mod.default !== "function") {',
-      "    throw new Error(`${entrypoint} CJS require must expose a default function`);",
-      "  }",
-      "}",
-      "",
-    ].join("\n"),
-    "utf8",
-  );
-  run("node verify-entrypoints.cjs", workspace);
+  return test_packed_entrypoints({ workspace, adapterEntrypoints, run });
 }
 
 function verifyEcosystemContracts() {
@@ -935,101 +883,35 @@ function verifyEcosystemContracts() {
 }
 
 function verifyViteBuild() {
-  run("npx vite build --config vite.config.mjs", workspace);
-  assertBuiltOutput("dist-vite/vite-entry.js", "VITE-INSTALLED-OK", "vite");
+  return test_packed_vite({ workspace, run, assertBuiltOutput });
 }
 
 function verifyRollupBuild() {
-  run("npx rollup -c rollup.config.mjs", workspace);
-  assertBuiltOutput(
-    "dist-rollup/rollup-entry.js",
-    "ROLLUP-INSTALLED-OK",
-    "rollup",
-  );
+  return test_packed_rollup({ workspace, run, assertBuiltOutput });
 }
 
 function verifyEsbuildBuild() {
-  run("node esbuild.config.cjs", workspace);
-  assertBuiltOutput(
-    "dist-esbuild/esbuild-entry.js",
-    "ESBUILD-INSTALLED-OK",
-    "esbuild",
-  );
-  const { stdout } = run(
-    "node dist-esbuild/bun-register-optimizer-entry.js",
-    workspace,
-  );
-  assert(
-    stdout.includes("BUN-REGISTER-OPTIMIZER-OK"),
-    "esbuild must retain the packed bun-register bare import and execute it exactly once",
-  );
+  return test_packed_esbuild({ workspace, run, assertBuiltOutput, assert });
 }
 
 function verifyRolldownBuild() {
-  run("npx rolldown -c rolldown.config.mjs", workspace);
-  assertBuiltOutput(
-    "dist-rolldown/rolldown-entry.js",
-    "ROLLDOWN-INSTALLED-OK",
-    "rolldown",
-  );
+  return test_packed_rolldown({ workspace, run, assertBuiltOutput });
 }
 
 function verifyWebpackBuild() {
-  run("npx webpack --config webpack.config.cjs", workspace);
-  assertBuiltOutput(
-    "dist-webpack/webpack-entry.js",
-    "WEBPACK-INSTALLED-OK",
-    "webpack",
-  );
+  return test_packed_webpack({ workspace, run, assertBuiltOutput });
 }
 
 function verifyRspackBuild() {
-  run("npx rspack build --config rspack.config.cjs", workspace);
-  assertBuiltOutput(
-    "dist-rspack/rspack-entry.js",
-    "RSPACK-INSTALLED-OK",
-    "rspack",
-  );
+  return test_packed_rspack({ workspace, run, assertBuiltOutput });
 }
 
 function verifyFarmBuild() {
-  run("node farm-build.mjs", workspace);
-  const output = findSingleBuiltFile("dist-farm", "farm-entry");
-  assertBuiltOutput(output, "FARM-INSTALLED-OK", "farm");
+  return test_packed_farm({ workspace, run, assertBuiltOutput, findSingleBuiltFile });
 }
 
-async function verifyNextBuild() {
-  // Both of Next's bundlers, because `withTtsc` claims both. The webpack half
-  // was the only one checked for a long time, and forcing `--webpack` here is
-  // what let the Turbopack half ship doing nothing at all: the build succeeded
-  // and the output was simply untransformed (samchon/ttsc#1310). The assertion
-  // is the same for each, and it is the one that fails when the transform did
-  // not run, since it requires the transformed marker and refuses the original.
-  const failed = await runIndependent(
-    ["--webpack", "--turbopack"],
-    (bundler) => {
-      fs.rmSync(path.join(workspace, "dist-next"), {
-        force: true,
-        recursive: true,
-      });
-      run(`npx next build ${bundler}`, workspace);
-      for (const [marker, original, extension] of [
-        ["NEXT-INSTALLED-OK", "next-installed-ok", ".ts"],
-        ["TURBOPACK-TSX-OK", "turbopack-tsx-ok", ".tsx"],
-        ["TURBOPACK-MTS-OK", "turbopack-mts-ok", ".mts"],
-        ["TURBOPACK-CTS-OK", "turbopack-cts-ok", ".cts"],
-      ]) {
-        assertBuiltTreeContains(
-          "dist-next",
-          marker,
-          `next ${bundler} (${extension})`,
-          original,
-        );
-      }
-      return 0;
-    },
-  );
-  assert(failed.length === 0, `Failed Next bundlers: ${failed.join(", ")}`);
+function verifyNextBuild() {
+  return test_packed_next({ workspace, runIndependent, run, assertBuiltTreeContains, assert });
 }
 
 /**
@@ -1053,161 +935,7 @@ async function verifyNextBuild() {
  * our matcher thinks.
  */
 function verifyTurbopackRecognisedGlobs() {
-  const coverage = installedTurbopackProjectWideGlobCoverage();
-  const projectWideGlobs = coverage.map(([glob]) => glob);
-  const globs = [...projectWideGlobs, ...TURBOPACK_SCOPED_GLOBS];
-  const probeDirectory = path.join(
-    experimentRoot,
-    ".tmp",
-    "turbopack-glob-probes",
-  );
-  fs.rmSync(probeDirectory, { force: true, recursive: true });
-  fs.mkdirSync(probeDirectory, { recursive: true });
-  const probeLoader = path.join(workspace, "turbopack-glob-probe.cjs");
-  const rules = globs.flatMap((glob, index) => [
-    `        ${JSON.stringify(glob)}: {`,
-    "          loaders: [{",
-    `            loader: ${JSON.stringify(probeLoader)},`,
-    `            options: { id: ${JSON.stringify(String(index))}, outputDirectory: ${JSON.stringify(probeDirectory)} },`,
-    "          }],",
-    "        },",
-  ]);
-  fs.writeFileSync(
-    path.join(workspace, "next.config.mjs"),
-    [
-      'import withTtsc from "@ttsc/unplugin/next";',
-      "",
-      "export default withTtsc(",
-      "  {",
-      '    distDir: "dist-next",',
-      "    typescript: {",
-      "      ignoreBuildErrors: true,",
-      "    },",
-      "    turbopack: {",
-      `      root: ${JSON.stringify(path.dirname(workspace))},`,
-      "      rules: {",
-      ...rules,
-      "      },",
-      "    },",
-      "  },",
-      "  {",
-      '    project: "tsconfig.unplugin.json",',
-      "  },",
-      ");",
-      "",
-    ].join("\n"),
-    "utf8",
-  );
-  fs.rmSync(path.join(workspace, "dist-next"), {
-    force: true,
-    recursive: true,
-  });
-  run("npx next build --turbopack", workspace);
-
-  const sourcePaths = new Map([
-    [
-      "ts",
-      [
-        path.join(workspace, "turbopack-root-entry.ts"),
-        path.join(workspace, "src", "next-entry.ts"),
-        path.join(
-          workspace,
-          "src",
-          "deep",
-          "nested",
-          "turbopack-deep-entry.ts",
-        ),
-      ],
-    ],
-    [
-      "tsx",
-      [
-        path.join(workspace, "turbopack-root-entry.tsx"),
-        path.join(workspace, "src", "turbopack-tsx-entry.tsx"),
-        path.join(
-          workspace,
-          "src",
-          "deep",
-          "nested",
-          "turbopack-deep-entry.tsx",
-        ),
-      ],
-    ],
-    [
-      "mts",
-      [
-        path.join(workspace, "turbopack-root-entry.mts"),
-        path.join(workspace, "src", "turbopack-mts-entry.mts"),
-        path.join(
-          workspace,
-          "src",
-          "deep",
-          "nested",
-          "turbopack-deep-entry.mts",
-        ),
-      ],
-    ],
-    [
-      "cts",
-      [
-        path.join(workspace, "turbopack-root-entry.cts"),
-        path.join(workspace, "src", "turbopack-cts-entry.cts"),
-        path.join(
-          workspace,
-          "src",
-          "deep",
-          "nested",
-          "turbopack-deep-entry.cts",
-        ),
-      ],
-    ],
-  ]);
-  const dedicatedSources = [...sourcePaths.values()].flat();
-  const comparable = (file) => {
-    const resolved = path.resolve(file);
-    return process.platform === "win32" ? resolved.toLowerCase() : resolved;
-  };
-  const probeMatches = (index) => {
-    const directory = path.join(probeDirectory, String(index));
-    if (!fs.existsSync(directory)) return new Set();
-    return new Set(
-      fs
-        .readdirSync(directory)
-        .map((file) => fs.readFileSync(path.join(directory, file), "utf8"))
-        .map(comparable),
-    );
-  };
-  const mismatches = [];
-  for (const [index, [glob, extensions]] of coverage.entries()) {
-    const expected = extensions.flatMap(
-      (extension) => sourcePaths.get(extension) ?? [],
-    );
-    const matches = probeMatches(index);
-    const actual = dedicatedSources
-      .filter((file) => matches.has(comparable(file)))
-      .map(comparable)
-      .sort();
-    const wanted = expected.map(comparable).sort();
-    if (JSON.stringify(actual) !== JSON.stringify(wanted)) {
-      mismatches.push(
-        `${glob} expected ${JSON.stringify(wanted)} but matched ${JSON.stringify(actual)}`,
-      );
-    }
-  }
-  for (const [offset, glob] of TURBOPACK_SCOPED_GLOBS.entries()) {
-    const matches = probeMatches(projectWideGlobs.length + offset);
-    const tsSources = sourcePaths.get("ts") ?? [];
-    if (tsSources.every((file) => matches.has(comparable(file)))) {
-      mismatches.push(
-        `${glob} must remain refused because it covers every project-wide .ts source`,
-      );
-    }
-  }
-  assert(
-    mismatches.length === 0,
-    `Turbopack glob coverage mismatches:\n${mismatches.join("\n")}`,
-  );
-  writeNextConfig();
+  return test_packed_turbopack_globs({ workspace, experimentRoot, TURBOPACK_SCOPED_GLOBS, run, installedTurbopackProjectWideGlobCoverage, writeNextConfig, assert });
 }
 
 /** Read the immutable allowlist from the installed package under test. */
@@ -1225,9 +953,7 @@ function installedTurbopackProjectWideGlobCoverage() {
 }
 
 function verifyBunBuild() {
-  run("bun bun-build.mjs", workspace);
-  const output = findSingleBuiltFile("dist-bun", "bun-entry");
-  assertBuiltOutput(output, "BUN-INSTALLED-OK", "bun");
+  return test_packed_bun_build({ workspace, run, assertBuiltOutput, findSingleBuiltFile });
 }
 
 // Bun RUNTIME preload smoke (typia #1534): `@ttsc/unplugin/bun-register`
@@ -1235,31 +961,7 @@ function verifyBunBuild() {
 // `bun run entry.ts` executes transformed code — no bundling step. Written
 // after verifyBunBuild so the bunfig preload cannot affect the earlier build.
 function verifyBunRuntime() {
-  fs.writeFileSync(
-    path.join(workspace, "src", "bun-runtime-entry.ts"),
-    [
-      // `mark` is only declared (globals.d.ts); if the preload transform does
-      // not run, `mark(...)` survives and Bun throws "mark is not defined".
-      'export const value = mark("bun-runtime-ok");',
-      "console.log(value);",
-      "",
-    ].join("\n"),
-    "utf8",
-  );
-  fs.writeFileSync(
-    path.join(workspace, "bunfig.toml"),
-    ['preload = ["@ttsc/unplugin/bun-register"]', ""].join("\n"),
-    "utf8",
-  );
-  const { stdout } = run("bun run src/bun-runtime-entry.ts", workspace);
-  assert(
-    stdout.includes("BUN-RUNTIME-OK"),
-    "bun runtime preload must transform mark() on import (expected BUN-RUNTIME-OK in stdout)",
-  );
-  assert(
-    !stdout.includes("bun-runtime-ok"),
-    "bun runtime preload must not leave the original marker string",
-  );
+  return test_packed_bun_runtime({ workspace, run, assert });
 }
 
 function assertBuiltTreeContains(directory, expected, label, original) {

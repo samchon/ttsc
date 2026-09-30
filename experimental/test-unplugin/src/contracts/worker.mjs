@@ -1,3 +1,5 @@
+import { test_host_unwritable_record_directory } from "./scenarios/test_host_unwritable_record_directory.mjs";
+import { test_host_watching_predicates } from "./scenarios/test_host_watching_predicates.mjs";
 import { execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -10,7 +12,6 @@ import * as rollup from "./hosts/rollup.mjs";
 import * as vite from "./hosts/vite.mjs";
 import * as webpack from "./hosts/webpack.mjs";
 import {
-  predicateContract,
   watchEsbuild,
   watchFarm,
   watchRollupLike,
@@ -18,8 +19,7 @@ import {
 } from "./predicates.mjs";
 import { test_host_persistent_cache_restart } from "./scenarios/test_host_persistent_cache_restart.mjs";
 import { runScenarios, SCENARIOS } from "./scenarios.mjs";
-import { unwritableContract } from "./unwritable.mjs";
-import { reactRouterContract } from "./vite.mjs";
+import { test_host_react_router_erases_server_type_import } from "./scenarios/test_host_react_router_erases_server_type_import.mjs";
 
 /**
  * One host's contract in an owned process: its complete linked-producer
@@ -106,7 +106,7 @@ if (host in sessions) {
       );
   }
 } else if (host === "react-router") {
-  await reactRouterContract();
+  await test_host_react_router_erases_server_type_import();
 } else {
   throw new Error(`Unknown host ${host}`);
 }
@@ -133,17 +133,17 @@ if (RESTARTED.includes(host)) {
 // way the adapter keeps a record then: webpack's fallback, Farm's fallback or
 // its cache turned off, Turbopack's refusal; see unwritable.mjs.
 if (["webpack", "farm", "next-turbopack"].includes(host)) {
-  await unwritableContract(host);
+  await test_host_unwritable_record_directory(host);
 }
 
 // Each watching build host also runs the compiler-predicate matrix through its
 // own watcher.
 if (["rollup", "rolldown"].includes(host)) {
-  await predicateContract(host, watchRollupLike(host));
+  await test_host_watching_predicates(host, watchRollupLike(host));
 } else if (["webpack", "rspack"].includes(host)) {
-  await predicateContract(host, watchWebpackLike(host));
+  await test_host_watching_predicates(host, watchWebpackLike(host));
 } else if (host === "esbuild") {
-  await predicateContract(host, watchEsbuild);
+  await test_host_watching_predicates(host, watchEsbuild);
 } else if (host === "farm") {
-  await predicateContract(host, watchFarm);
+  await test_host_watching_predicates(host, watchFarm);
 }
