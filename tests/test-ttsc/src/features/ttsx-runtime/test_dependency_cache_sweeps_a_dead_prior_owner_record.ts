@@ -19,9 +19,17 @@ import { isolatedCacheEnvironment } from "../../internal/isolated-cache-environm
  * 1. Seed old-format roots for a departed process and this live process.
  * 2. Start a fresh manifest-less process to trigger the sweep.
  * 3. Assert only the dead owner's root is removed.
+ *
+ * @evidence contracts/testing.md#behavioral-verification A fresh process calls dependencyCacheRoot and asserts successful exit, removal of the legacy dead-owner tree and preservation of the live-owner tree.
+ * @evidence contracts/testing.md#independent-expectations The fixture records this host and actual departed/current PIDs; literal existence expectations follow ownership safety, not a second invocation of the sweep.
+ * @evidence contracts/testing.md#distinguishing-cases Legacy owner.json is tested with one provably exited local owner and one current live owner; modern record and remote-owner decisions belong to the process ownership cases.
+ * @evidence contracts/testing.md#execution-ownership The matching named feature entry runs real child processes against the built runtime owner and belongs to the E2E population.
+ * @evidence contracts/e2e.md#necessary-boundary A separate manifest-less process must initialize its private cache and observe native PID liveness; the test detects missing legacy sweep assembly, not compiler emission.
+ * @evidence contracts/e2e.md#shared-execution One exited seed process establishes a genuine dead PID and one fresh sweep process consumes the same two seeded roots; there is no consumer installation or native compilation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity An isolated HOME/TMP environment and random directory suffix prevent unrelated legacy roots from participating; finally removes both seeded trees, while the sweep process owns its exit cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage All legacy dead-removal, live-preservation and child-success assertions remain in this named entry; no assertion is transferred or removed.
  */
-export const test_dependency_cache_sweeps_a_dead_prior_owner_record =
-  (): void => {
+export function test_dependency_cache_sweeps_a_dead_prior_owner_record(): void {
     const root = TestProject.tmpdir("ttsx-legacy-owner-");
     const env = isolatedCacheEnvironment(root);
     const exited = childProcess.spawnSync(process.execPath, ["-e", ""], {
@@ -71,4 +79,4 @@ export const test_dependency_cache_sweeps_a_dead_prior_owner_record =
       fs.rmSync(dead, { force: true, recursive: true });
       fs.rmSync(live, { force: true, recursive: true });
     }
-  };
+  }

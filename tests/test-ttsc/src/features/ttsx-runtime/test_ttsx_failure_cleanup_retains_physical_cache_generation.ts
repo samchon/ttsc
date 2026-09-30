@@ -16,9 +16,17 @@ import path from "node:path";
  *    plugin preparation with a missing source.
  * 3. Assert failure cleanup removes the original generation but preserves the
  *    victim sentinel below the retargeted alias.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The descriptor retargets the explicit cache-root alias then fails preparation; assertions require the missing-source error, one surviving victim generation and no original generations.
+ * @evidence contracts/testing.md#independent-expectations Literal victim bytes under a distinct native physical target supply the independent deletion oracle; generation identity is observed only to seed the same-name victim.
+ * @evidence contracts/testing.md#distinguishing-cases The root cache alias changes after allocation, unlike the linked child-index case; success cleanup is exercised separately by the linked-run execution case.
+ * @evidence contracts/testing.md#execution-ownership The named feature entry owns the actual ttsx host and fixture descriptor side effect; its failure assertions execute in the E2E population.
+ * @evidence contracts/e2e.md#necessary-boundary The real allocation-to-descriptor-to-failure-cleanup connection must retain physical ownership despite lexical alias mutation; a direct resolver unit does not execute that ordering.
+ * @evidence contracts/e2e.md#shared-execution One actual preparation consumes the existing compiler artifact and one descriptor evaluation; missing plugin source intentionally prevents an unnecessary native plugin build.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Dedicated original/victim roots and a cold generation isolate the mutation. Finally unlinks or removes the alias without removing the target, and TestProject owns the fixture roots.
+ * @evidence contracts/e2e.md#preserved-coverage Nonzero status, missing-source diagnostic, victim singleton and bytes, and original empty index remain; no failure-path assertion has been removed.
  */
-export const test_ttsx_failure_cleanup_retains_physical_cache_generation =
-  (): void => {
+export function test_ttsx_failure_cleanup_retains_physical_cache_generation(): void {
     const root = TestProject.tmpdir("ttsx-cache-alias-retarget-");
     const project = path.join(root, "project");
     const physicalCache = path.join(root, "physical-cache");
@@ -97,4 +105,4 @@ export const test_ttsx_failure_cleanup_retains_physical_cache_generation =
         }
       }
     }
-  };
+  }

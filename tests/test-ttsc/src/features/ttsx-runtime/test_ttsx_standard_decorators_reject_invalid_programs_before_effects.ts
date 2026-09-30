@@ -12,9 +12,17 @@ import { STANDARD_DECORATOR_SOURCE } from "../../internal/ttsx-decorators";
  * 1. Run an invalid decorator and decorated programs with lib [] or noLib.
  * 2. Exercise both config and CLI noLib settings plus an invalid target.
  * 3. Assert compiler diagnostics and no decorator or entry side effects.
+ * @evidence contracts/testing.md#behavioral-verification Actual ttsx rejects decorator signature, missing-library and invalid-target inputs before authored effects; each failure must contain its diagnostic code and omit effect markers.
+ * @evidence contracts/testing.md#independent-expectations TypeScript diagnostics specify TS1329, TS2318 and TS6046; authored effect markers must not occur independently of runtime computation.
+ * @evidence contracts/testing.md#distinguishing-cases Invalid decorator, lib [], config noLib, CLI noLib and invalid target distinguish five compile gates. Valid effects have library/host owners.
+ * @evidence contracts/testing.md#execution-ownership This named E2E entry owns five real rejecting compile/startup requests.
+ * @evidence contracts/e2e.md#necessary-boundary Runtime option adjustment must retain the gate before Node side effects. Direct diagnostic or argument calls cannot establish launcher abort ordering.
+ * @evidence contracts/e2e.md#shared-execution Each failing effective program requires its own native diagnostic/startup request because it intentionally cannot execute other consumers; toolchain artifacts are reused.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Immutable isolated tracked roots prevent diagnostic state leakage; processes complete before cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage All five nonzero statuses, code distinctions and forbidden-effect assertions remain. Every rejecting program executes before collected assertion failures are thrown.
  */
-export const test_ttsx_standard_decorators_reject_invalid_programs_before_effects =
-  () => {
+export function test_ttsx_standard_decorators_reject_invalid_programs_before_effects() {
+  const failures: unknown[] = [];
     const cases = [
       {
         options: {},
@@ -58,8 +66,10 @@ export const test_ttsx_standard_decorators_reject_invalid_programs_before_effect
         [...scenario.args, "src/main.ts"],
         { cwd: root },
       );
-      assert.notEqual(result.status, 0);
-      assert.match(result.stderr + result.stdout, scenario.diagnostic);
-      assert.doesNotMatch(result.stdout, /Hello Class|Hello Function|executed/);
+      try { assert.notEqual(result.status, 0); } catch (error) { failures.push(error); }
+      try { assert.match(result.stderr + result.stdout, scenario.diagnostic); } catch (error) { failures.push(error); }
+      try { assert.doesNotMatch(result.stdout, /Hello Class|Hello Function|executed/); } catch (error) { failures.push(error); }
     }
-  };
+
+  if (failures.length) throw new AggregateError(failures, "standard_decorators_reject_invalid_programs_before_effects assertions failed");
+}

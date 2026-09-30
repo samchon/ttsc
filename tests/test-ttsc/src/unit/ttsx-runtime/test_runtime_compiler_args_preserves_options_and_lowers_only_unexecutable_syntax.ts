@@ -9,8 +9,8 @@ import { runtimeCompilerArgs } from "../../../../../packages/ttsc/src/launcher/i
  * Verifies runtime arguments preserve checked options while making emit executable.
  *
  * Portable target, JSX and CLI precedence decisions do not require repeatedly
- * compiling decorators or starting Node. Actual decorator and JSX execution
- * remains in the surviving host cases, including compiler-owned response files.
+ * compiling decorators or starting Node. Actual library output effects have shared Go/VM unit owners; native runtime
+ * assembly remains in surviving host cases, including compiler-owned response files.
  *
  * 1. Resolve one fixture project through the authored config reader.
  * 2. Apply the target and JSX decision matrix directly to the argument owner.
@@ -55,6 +55,8 @@ export function test_runtime_compiler_args_preserves_options_and_lowers_only_une
     { options: { jsx: "react-jsxdev", jsxImportSource: "myjsx" }, suffix: [] },
     { options: { jsx: "preserve" }, suffix: ["--jsx", "react-jsx"] },
     { options: { jsx: "react-native" }, suffix: ["--jsx", "react-jsx"] },
+    { options: { jsx: "preserve", jsxImportSource: "myjsx" }, suffix: ["--jsx", "react-jsx"] },
+    { options: { jsx: "react-native", jsxImportSource: "myjsx" }, suffix: ["--jsx", "react-jsx"] },
     { options: { jsx: "preserve", jsxFactory: "h" }, suffix: ["--jsx", "react"] },
     { options: { jsx: "preserve", jsxFragmentFactory: "F" }, suffix: ["--jsx", "react"] },
     { options: { jsx: "preserve", reactNamespace: "R" }, suffix: ["--jsx", "react"] },

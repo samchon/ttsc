@@ -49,13 +49,14 @@ if (require.main === module) {
     } catch { /* The strict unit decoder reports malformed transport. */ }
   }
   for (const line of ordinaryOutput.split(/\r?\n/)) {
-    if (line && !line.startsWith("TTSC_RUNTIME_EMIT_V1:")) console.log(line);
+    if (line && !line.startsWith("TTSC_RUNTIME_EMIT_V1:") && !line.startsWith("TTSC_JSX_EMIT_V1:")) console.log(line);
   }
-  try {
-    require("../tests/unit/runtime/test_runtime_compiler_output_preserves_decorator_effects.cjs").test_runtime_compiler_output_preserves_decorator_effects(result);
-  } catch (error) {
-    console.error(error);
-    process.exitCode = 1;
+  for (const [file, name] of [
+    ["test_runtime_compiler_output_preserves_decorator_effects", "test_runtime_compiler_output_preserves_decorator_effects"],
+    ["test_runtime_compiler_output_renders_jsx_profiles", "test_runtime_compiler_output_renders_jsx_profiles"],
+  ]) {
+    try { require("../tests/unit/runtime/" + file + ".cjs")[name](result); }
+    catch (error) { console.error(error); process.exitCode = 1; }
   }
   process.exitCode = process.exitCode || result.status || 0;
 }

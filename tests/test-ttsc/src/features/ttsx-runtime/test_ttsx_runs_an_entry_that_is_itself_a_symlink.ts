@@ -18,20 +18,24 @@ import { runTtsxWithCoverage } from "../../internal/ttsx-source-map";
  * takes `files` verbatim — which is exactly why it must be handed Node's
  * spelling rather than a different one.
  *
- * Getting either half wrong is silent. One spelling too few and the gate claims
- * an emit the runtime then refuses to serve, so the file falls to the orphan
- * lane and the project's transform plugins, `target`, `paths`, and source map
- * are all dropped from a run that still prints and still exits zero.
+ * A source map alone cannot distinguish project emit from orphan lowering,
+ * because both lanes supply maps. ES2019 lowering of optional chaining is the
+ * independent project-option witness; isolated orphan emit uses a modern
+ * target and would retain that syntax.
  *
- * So printing is not the assertion. The served script's source map is: the
- * entry-project lane inlines one (forced on when the project configures none),
- * and the orphan lane emits with `--ignoreConfig` and no `--sourceMap` at all.
- *
- * 1. Put the real script outside the project and link to it from inside.
- * 2. Run ttsx against the link under V8 coverage.
- * 3. Assert it ran and that the served script carries a source map.
+ * 1. Link an external source into a project configured for ES2019.
+ * 2. Execute the linked entry under V8 coverage.
+ * 3. Require its original marker, lowered optional chaining and served map.
+ * @evidence contracts/testing.md#behavioral-verification Runs a linked external clear.ts under V8 coverage and checks success, its original marker, lowered optional-function syntax, a recorded script and nonnull source map.
+ * @evidence contracts/testing.md#independent-expectations The ES2019 language contract requires optional chaining to be lowered; the authored function source and its false syntax result independently distinguish project options from modern isolated orphan emit. The V8 record separately establishes map presence.
+ * @evidence contracts/testing.md#distinguishing-cases The lexical owning project requests ES2019 while the external physical source has no config. Unavailable symlink creation still returns early; nonnull maps alone are deliberately not a lane discriminator.
+ * @evidence contracts/testing.md#execution-ownership This second runtime review entry is the named E2E export test_ttsx_runs_an_entry_that_is_itself_a_symlink at this path, selected by tests/e2e/evidence.config.json; no direct-source unit equivalence is inferred without comparing its assertions.
+ * @evidence contracts/e2e.md#necessary-boundary The real filesystem alias, native emission and Node coverage connection remain necessary for observing served-source behavior.
+ * @evidence contracts/e2e.md#shared-execution One source project, linked target and host reuse installed compiler preparation; coverage is collected for this invocation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Both tracked directories own the link and target; coverage is read after synchronous completion and fixture cleanup occurs at process exit.
+ * @evidence contracts/e2e.md#preserved-coverage All original status, marker, V8-script and map assertions remain; the additional false optional-chain result now independently establishes project-option inheritance instead of relying on the disproved orphan-no-map premise.
  */
-export const test_ttsx_runs_an_entry_that_is_itself_a_symlink = () => {
+export function test_ttsx_runs_an_entry_that_is_itself_a_symlink() {
   const root = TestProject.createProject({
     "package.json": JSON.stringify({
       name: "symlinked-entry",
@@ -43,7 +47,7 @@ export const test_ttsx_runs_an_entry_that_is_itself_a_symlink = () => {
         outDir: "lib",
         rootDir: "src",
         strict: true,
-        target: "ES2022",
+        target: "ES2019",
       },
       include: ["src"],
     }),
@@ -56,6 +60,8 @@ export const test_ttsx_runs_an_entry_that_is_itself_a_symlink = () => {
     [
       `const ran: string = "ran-through-the-link";`,
       `console.log(ran);`,
+      `function optional(value?: { answer: number }) { return value?.answer; }`,
+      `console.log("native-optional=" + optional.toString().includes("?."));`,
       "",
     ].join("\n"),
     "utf8",
@@ -72,11 +78,12 @@ export const test_ttsx_runs_an_entry_that_is_itself_a_symlink = () => {
   const run = runTtsxWithCoverage(root, "clear.ts");
   assert.equal(run.status, 0, run.stderr);
   assert.match(run.stdout, /ran-through-the-link/);
+  assert.match(run.stdout, /(?:^|\r?\n)native-optional=false(?:\r?\n|$)/);
 
   const script = run.scriptEndingWith("clear.ts");
   assert.ok(script, "coverage must record the served clear.ts script");
   assert.ok(
     script.sourceMap !== null,
-    "a served entry carries the project emit's source map; the orphan lane has none",
+    "the served linked entry must carry a resolvable source map",
   );
-};
+}

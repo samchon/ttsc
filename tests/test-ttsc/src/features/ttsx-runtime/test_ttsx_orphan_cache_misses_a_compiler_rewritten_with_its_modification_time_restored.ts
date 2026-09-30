@@ -7,12 +7,12 @@ import path from "node:path";
  * Verifies the persistent orphan lowering cache is missed after the compiler is
  * rewritten in place with its size kept and its modification time restored.
  *
- * The cache key names the compiler by its filesystem identity instead of its
- * content. That identity was the path, size, modification time, and file id,
- * all of which a same-size rewrite that restores the modification time leaves
- * as they were, so a later process reused a lowering from a compiler that may
- * no longer be the one at that path (samchon/ttsc#1521). The change time moves
- * with every write and cannot be restored, so it is part of the identity now.
+ * An earlier identity used path, size, modification time and file id, which a
+ * same-size rewrite restoring modification time leaves unchanged (#1521).
+ * The current owner observes lexical/physical metadata, including change time,
+ * and streams actual contents into its fingerprint. This same-byte rewrite
+ * specifically tests observed filesystem identity; changed-content hashing has
+ * a separate direct source-unit owner.
  *
  * 1. Copy the compiler to a fixed path, pin its modification time to a whole
  *    second, and run an entry that requires a raw TypeScript package with no
@@ -28,7 +28,7 @@ import path from "node:path";
  * @evidence contracts/e2e.md#necessary-boundary Real compiler identity observation must control persistent orphan bytes served by the next host. Direct fingerprint units cannot prove that cached lowering actually changes runtime execution.
  * @evidence contracts/e2e.md#shared-execution One copied compiler directory, raw package/project and private persistent cache serve three host lifetimes. Warm marker and invalidated state are the behavior, so clearing that cache would destroy the distinction.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only fixture compiler/cache files mutate; the suite compiler is copied with its declarations. TestProject owns all copies, and synchronous runs prevent live compiler mutation during a build.
- * @evidence contracts/e2e.md#preserved-coverage Original first value, exactly one lowering, second marker, unchanged size/mtime and third exact value remain. The case does not explicitly assert ctime changed, though rewriting provides the intended filesystem event.
+ * @evidence contracts/e2e.md#preserved-coverage Original first value, exactly one lowering, second marker, unchanged size/mtime and third exact value remain. The separate future-mtime variant's identical cold/warm/runtime observations share this stronger boundary, and test_runtime_executable_identity_tracks_bytes_and_metadata_without_running_a_binary owns its actual same-path future-mtime identity decision plus byte/chunk and invalid-candidate controls. This case does not explicitly assert ctime changed, though rewriting provides the intended filesystem event.
  */
 export function test_ttsx_orphan_cache_misses_a_compiler_rewritten_with_its_modification_time_restored() {
     const root = TestProject.createProject({

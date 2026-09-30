@@ -21,9 +21,17 @@ import { spawnNodeWorker } from "../../internal/source-build";
  * 2. Prepare a ttsx run in that child with the same cache root.
  * 3. Assert the other run's directory and file are untouched, and the prepared
  *    run's directory is its own.
+ *
+ * @evidence contracts/testing.md#behavioral-verification A worker plants a remote-host PID-named run then calls prepareExecution with its own identical PID; assertions require the old file to survive and the new run path to differ.
+ * @evidence contracts/testing.md#independent-expectations The fixture deliberately records a different hostname and current worker PID, making non-reclamation required even if local PID probes agree; literal file survival and path inequality are independent of runtimeRunKey.
+ * @evidence contracts/testing.md#distinguishing-cases The same PID with a different host distinguishes PID-only identity from per-run identity; actual local dead-owner reclamation is exercised by other ownership cases.
+ * @evidence contracts/testing.md#execution-ownership The named async E2E entry owns the worker and real preparation/compiler connection; spawnNodeWorker provides transport and does not replace the native compiler in this case.
+ * @evidence contracts/e2e.md#necessary-boundary Native preparation must allocate a distinct run without erasing a conservative remote-owner tree; a pure nonce unit cannot establish the destructive filesystem behavior.
+ * @evidence contracts/e2e.md#shared-execution One worker lifetime seeds the competing identity and performs one checked preparation with the shared native artifact; no separate CLI consumer or plugin build is added.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A dedicated cache and worker-owned PID isolate the conflict; the worker exits after reporting, leaving prepared and foreign-owner trees to TestProject cleanup. The worker helper has a bounded process timeout.
+ * @evidence contracts/e2e.md#preserved-coverage Worker success, other-run file preservation and distinct resolved path strings remain here; this case does not independently check nonce randomness or remote process liveness.
  */
-export const test_ttsx_keeps_a_run_directory_another_run_named_by_the_same_pid =
-  async (): Promise<void> => {
+export async function test_ttsx_keeps_a_run_directory_another_run_named_by_the_same_pid(): Promise<void> {
     const root = TestProject.createProject({
       "tsconfig.json": JSON.stringify({
         compilerOptions: {
@@ -100,4 +108,4 @@ export const test_ttsx_keeps_a_run_directory_another_run_named_by_the_same_pid =
       path.resolve(report.other),
       "a run claimed the directory of another run with its process id",
     );
-  };
+  }

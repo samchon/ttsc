@@ -15,9 +15,17 @@ import path from "node:path";
  * 2. Assert user code sees its own completed owner record.
  * 3. Start it against a removed run and assert user code never executes.
  * 4. Remove the inherited manifest and assert an independent child can run.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Node loads runtimeOwnerPreload before user source; assertions require completed owner visibility and user marker, reject a removed run without execution, and allow an empty-manifest independent child.
+ * @evidence contracts/testing.md#independent-expectations The user program independently observes its own PID record and writes fixed marker bytes; success and failure are checked through actual process status rather than preload return values.
+ * @evidence contracts/testing.md#distinguishing-cases Existing run, removed run with inherited manifest and removed run without inherited manifest separate required admission, fail-closed startup and independent execution.
+ * @evidence contracts/testing.md#execution-ownership The named feature entry owns three Node preload sessions; fixture programs are inputs and the assertions execute in this E2E entry.
+ * @evidence contracts/e2e.md#necessary-boundary Actual Node preload ordering and inherited environment transport connect the compiled owner preload with user execution, which direct admission calls do not prove.
+ * @evidence contracts/e2e.md#shared-execution All three sessions reuse one preload artifact and fixture root without any compiler build; independent lifetimes are necessary because preload startup and environment differ.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The run and marker are explicitly removed before the failure phase, and the independent phase starts without a manifest. Synchronous children finish before the next phase; fixture cleanup owns remaining records.
+ * @evidence contracts/e2e.md#preserved-coverage Owner-before-user, missing-run nonzero/no marker and independent marker/status assertions remain in the same entry, with no portable assertion removed.
  */
-export const test_runtime_owner_preload_claims_before_program_and_rejects_a_missing_run =
-  (): void => {
+export function test_runtime_owner_preload_claims_before_program_and_rejects_a_missing_run(): void {
     const root = TestProject.tmpdir("ttsx-owner-preload-");
     const run = path.join(root, "ttsx", "project", "claim");
     fs.mkdirSync(run, { recursive: true });
@@ -69,4 +77,4 @@ export const test_runtime_owner_preload_claims_before_program_and_rejects_a_miss
     );
     assert.equal(independent.status, 0, independent.stderr);
     assert.equal(fs.readFileSync(marker, "utf8"), "independent");
-  };
+  }

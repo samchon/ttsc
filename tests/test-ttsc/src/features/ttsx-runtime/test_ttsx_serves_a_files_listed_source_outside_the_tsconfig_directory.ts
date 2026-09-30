@@ -22,9 +22,16 @@ import path from "node:path";
  * 2. Run ttsx on the loader; it dynamically imports the config and prints it.
  * 3. Assert the config's value round-tripped (it was served, not mis-loaded as
  *    CommonJS where its `export default` would throw).
+ * @evidence contracts/testing.md#behavioral-verification Actual ttsx loads an absolute files-listed config outside the tsconfig directory and prints its exact default token, detecting incorrect emit ownership or module classification.
+ * @evidence contracts/testing.md#independent-expectations The authored config exports literal config-served-from-emit; parsed JSON must equal that literal object independently of emitted paths.
+ * @evidence contracts/testing.md#distinguishing-cases The files list crosses the config-directory boundary under the actual volume root, with ESM and rewritten .ts imports. Same-name and twin-extension ownership have separate tests.
+ * @evidence contracts/testing.md#execution-ownership This named E2E entry owns one actual launcher with explicit project/cwd/no-plugins and a dynamic config import.
+ * @evidence contracts/e2e.md#necessary-boundary Absolute compiler files and rootDir emission must map back into runtime loading across directories. Direct ownership units cannot certify the native compiler-to-Node mapping.
+ * @evidence contracts/e2e.md#shared-execution One loader/config workspace and host cover this volume-root boundary; source compilation and import share that preparation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity path.parse(root).root supplies the native volume spelling. Inputs remain immutable and synchronous completion precedes tracked cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Original zero status and complete parsed default-config object remain here; direct ownership units complement this real emission/loading connection.
  */
-export const test_ttsx_serves_a_files_listed_source_outside_the_tsconfig_directory =
-  () => {
+export function test_ttsx_serves_a_files_listed_source_outside_the_tsconfig_directory() {
     const root = TestProject.createProject({
       "config/app.config.ts": `export default { token: "config-served-from-emit" };\n`,
       "loader/run.ts": [
@@ -78,4 +85,4 @@ export const test_ttsx_serves_a_files_listed_source_outside_the_tsconfig_directo
     assert.deepEqual(JSON.parse(result.stdout.trim()), {
       token: "config-served-from-emit",
     });
-  };
+  }

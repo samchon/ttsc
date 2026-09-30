@@ -18,8 +18,16 @@ import {
  * 1. Create a project and an external caller-owned cache root.
  * 2. Run ttsx with `TTSC_CACHE_DIR` and assert the program succeeds.
  * 3. Assert runtime and cache-path state use that root and touch no local cache.
+ * @evidence contracts/testing.md#behavioral-verification Actual ttsx uses TTSC_CACHE_DIR, succeeds, leaves no local node_modules and no completed project run, then public cache paths reports the exact external root.
+ * @evidence contracts/testing.md#independent-expectations The authored log, caller-selected cache path and empty completed-run directory determine expectations independently of path computation.
+ * @evidence contracts/testing.md#distinguishing-cases External placement contrasts with absence of local cache; public inspection follows completed execution. Relative/local-boundary paths have other owners.
+ * @evidence contracts/testing.md#execution-ownership This named E2E entry owns one runtime host and one public cache inspection command.
+ * @evidence contracts/e2e.md#necessary-boundary Runtime placement, process cleanup and public inspection must agree on the override; direct path units cannot certify actual output lifetime.
+ * @evidence contracts/e2e.md#shared-execution One root/external cache serves runtime and inspection. Inspection consumes completed state rather than repeating a build.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Runtime finishes before inspection; both receive identical override input and tracked fixtures are retained until cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Original success/log, no local node_modules, empty external project directory and exact public root remain.
  */
-export const test_ttsx_ttsc_cache_dir_relocates_the_runtime_cache = () => {
+export function test_ttsx_ttsc_cache_dir_relocates_the_runtime_cache() {
   const root = createProject({
     "src/main.ts": `console.log("relocated-runtime-cache");\n`,
     "tsconfig.json": JSON.stringify({
@@ -54,4 +62,4 @@ export const test_ttsx_ttsc_cache_dir_relocates_the_runtime_cache = () => {
     (JSON.parse(paths.stdout) as { cacheRoot: string }).cacheRoot,
     cache,
   );
-};
+}

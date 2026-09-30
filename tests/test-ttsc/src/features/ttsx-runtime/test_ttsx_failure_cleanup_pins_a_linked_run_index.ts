@@ -14,8 +14,17 @@ import path from "node:path";
  * 1. Prepare through a linked `project` directory into an original run index.
  * 2. Retarget the link from a descriptor, seed a same-named victim, and fail.
  * 3. Assert only the original generation is cleaned and the victim survives.
+ *
+ * @evidence contracts/testing.md#behavioral-verification A descriptor retargets the linked run index after generation creation and fails plugin preparation; ttsx must report that failure, clean the original generation and preserve one victim sentinel.
+ * @evidence contracts/testing.md#independent-expectations The fixture chooses distinct original and victim trees with literal victim bytes; native listing and reads observe cleanup independently of the product path resolver.
+ * @evidence contracts/testing.md#distinguishing-cases The run-index child alias changes while the cache root stays fixed, separating this boundary from the cache-root alias retarget case.
+ * @evidence contracts/testing.md#execution-ownership The matching named E2E entry owns one real ttsx preparation; the mutating descriptor is user-controlled fixture input, not a mock cleanup implementation.
+ * @evidence contracts/e2e.md#necessary-boundary Actual descriptor execution between runtime allocation and preparation failure must not redirect recursive cleanup; direct safe-path calls cannot establish this handoff ordering.
+ * @evidence contracts/e2e.md#shared-execution One project preparation and descriptor lifetime exercise the transition, using existing compiler artifacts; no plugin binary is built because the declared source is deliberately missing.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Dedicated original/victim trees and a same-named generation make wrong-target deletion visible; finally removes the alias, and TestProject owns remaining trees. Warm success state cannot bypass the deliberate preparation failure.
+ * @evidence contracts/e2e.md#preserved-coverage Nonzero status, exact missing-source diagnostic, exactly one victim generation, victim bytes and empty original index remain here.
  */
-export const test_ttsx_failure_cleanup_pins_a_linked_run_index = (): void => {
+export function test_ttsx_failure_cleanup_pins_a_linked_run_index(): void {
   const root = TestProject.tmpdir("ttsx-run-index-alias-");
   const project = path.join(root, "project");
   const cache = path.join(root, "cache");
@@ -82,4 +91,4 @@ export const test_ttsx_failure_cleanup_pins_a_linked_run_index = (): void => {
   } finally {
     fs.rmSync(alias, { force: true, recursive: true });
   }
-};
+}

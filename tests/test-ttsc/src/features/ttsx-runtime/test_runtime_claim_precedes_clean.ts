@@ -15,8 +15,17 @@ import path from "node:path";
  *    decision immediately after the first lock transaction.
  * 2. Remove only the test-owned targets that clean selected.
  * 3. Assert clean selected nothing and the claimed run remains reachable.
+ *
+ * @evidence contracts/testing.md#behavioral-verification prepareExecution is called in a worker with a handoff after the first real runtime lock transaction; assertions require injection, an empty clean plan and an existing reachable generation.
+ * @evidence contracts/testing.md#independent-expectations A newly prepared live owner must prevent default clean from selecting its index; the empty target list and physical reachability are independently observable fixture facts.
+ * @evidence contracts/testing.md#distinguishing-cases The linked external index pins the create-before-claim race; clean selection after the first lock would distinguish a split transaction from one atomic claim transaction.
+ * @evidence contracts/testing.md#execution-ownership The named E2E entry reaches the built preparation pipeline, real compiler and fixture-only worker; the injected clean decision is not a separate public clean invocation. The worker replaces the compiled lock export, a prohibited foreign-internal patch that remains unresolved.
+ * @evidence contracts/e2e.md#necessary-boundary The connection joins native preparation, owner publication and the runtime lock with actual linked filesystem state; portable cleanup classification alone cannot prove this call ordering.
+ * @evidence contracts/e2e.md#shared-execution One worker loads one project and performs one preparation; the clean target decision is injected into that same lifetime rather than recompiling in a second host.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A dedicated cache and external index isolate the mutation; only fixture-owned safe targets may be deleted. The worker ends normally but its prepared directory is retained for fixture cleanup, not explicitly released here.
+ * @evidence contracts/e2e.md#preserved-coverage Injection, no selected targets, generation existence and index reachability all remain here; this case does not assert scheduler-level concurrent clean execution.
  */
-export const test_runtime_claim_precedes_clean = (): void => {
+export function test_runtime_claim_precedes_clean(): void {
   const root = TestProject.tmpdir("ttsx-atomic-claim-");
   const project = path.join(root, "project");
   const cacheRoot = path.join(root, "cache", "ttsc");
@@ -106,4 +115,4 @@ export const test_runtime_claim_precedes_clean = (): void => {
   assert.deepEqual(report.cleanTargets, [], "clean pruned the unclaimed index");
   assert.equal(report.runExists, true);
   assert.equal(report.runReachable, true, "the claimed run was orphaned");
-};
+}

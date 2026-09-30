@@ -15,9 +15,16 @@ import assert from "node:assert/strict";
  *    `tools/index.ts` outside it.
  * 2. Import the first two statically, then require all three by computed paths.
  * 3. Assert every module reports its own identity.
+ * @evidence contracts/testing.md#behavioral-verification Actual ttsx prints a,b,a,b,tools from static and computed-path requests for three index.ts identities, detecting basename borrowing or missing excluded-source fallback.
+ * @evidence contracts/testing.md#independent-expectations Authored modules export literals a, b and tools; ordered output follows entry requests independently of ownership metadata.
+ * @evidence contracts/testing.md#distinguishing-cases Two included same-name modules have static and dynamic consumers, while the excluded third uses fallback compilation. Twin-extension precedence has its companion.
+ * @evidence contracts/testing.md#execution-ownership This named E2E entry owns one real launcher and five module observations.
+ * @evidence contracts/e2e.md#necessary-boundary Native emitted ownership and Node dynamic source serving must retain full-path identity. Direct index calls do not certify this loading connection.
+ * @evidence contracts/e2e.md#shared-execution One root preparation/host serves five requests; the excluded source needs fallback emit within that same host.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Immutable distinct source paths avoid identity aliasing; repeated included consumers intentionally share Node values. Synchronous completion precedes cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Original zero status and ordered five-identity assertion remain, distinguishing included paths and excluded fallback.
  */
-export const test_ttsx_serves_same_named_sources_each_from_its_own_emit =
-  () => {
+export function test_ttsx_serves_same_named_sources_each_from_its_own_emit() {
     const root = TestProject.createProject({
       "package.json": JSON.stringify({ name: "same-names", private: true }),
       "tsconfig.json": JSON.stringify({
@@ -53,4 +60,4 @@ export const test_ttsx_serves_same_named_sources_each_from_its_own_emit =
     );
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stdout.trim(), "a,b,a,b,tools");
-  };
+  }
