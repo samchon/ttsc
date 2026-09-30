@@ -14,81 +14,25 @@ import { createLintProject } from "../../internal/config-file";
  * user-facing diagnostic, so it must name all colliding namespaces and the
  * shared Go name before a native host build can hide the cause.
  *
- * 1. Materialize CJS configs with collision permutations and an exact-repeat fold.
+ * 1. Materialize one CJS config carrying distinct a-b and a_b contributors.
  * 2. Invoke the real built lint descriptor factory and assert its diagnostic.
- * 3. Prove non-colliding and single-hyphen namespaces still produce descriptors.
+ * 3. Check both original namespace names, the shared Go name and config path.
+ *
+ * Collision permutations, exact repetition, independent names and empty input
+ * now execute in the authored normalization unit without evaluator processes.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The built descriptor evaluates a real CJS config with a-b and a_b contributors, and the thrown diagnostic must name the config, both namespaces and shared Go name.
+ * @evidence contracts/testing.md#independent-expectations Distinct user namespaces cannot map to one Go subpackage; literal original spellings and a_b follow the supported hyphen-to-underscore naming contract.
+ * @evidence contracts/testing.md#distinguishing-cases This surviving CJS case owns one distinct-name collision across evaluator transport. Permutations, three-way collisions, exact repetition, valid independent names and empty entries are preserved in test_contributor_namespace_normalization_preserves_every_registration.
+ * @evidence contracts/testing.md#execution-ownership The named E2E entry loads the built factory and real isolated config evaluator; portable normalization decisions execute in the separate source-unit population.
+ * @evidence contracts/e2e.md#necessary-boundary CJS evaluation must carry original namespace spellings and resolved source paths into the descriptor resolver and propagate its collision error; direct normalization calls cannot verify that serialization and error connection.
+ * @evidence contracts/e2e.md#shared-execution Only one CJS fixture and one evaluator call remain. The removed per-input evaluator lifetimes now share the in-process normalization unit, while the TypeScript case separately checks its compiler/loader connection.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fixture owns two contributor source directories and a CJS config, none of which mutates during evaluation. Its project is removed in finally, and no native artifact or warm plugin cache substitutes for the evaluator boundary.
+ * @evidence contracts/e2e.md#preserved-coverage The original first CJS collision retains its path/name/shared-Go diagnostic assertions. Every other meaningful original CJS decision has the executable authored normalization-unit owner, including deterministic reverse order and first-source repetition precedence.
  */
-export const test_descriptor_rejects_colliding_contributor_namespaces_from_cjs_config =
-  () => {
-    const colliding = ["a-b", "a_b"];
-    const forward = assertCollision(colliding, "a_b");
-    assert.equal(assertCollision([...colliding].reverse(), "a_b"), forward);
-    assertCollision(["a-b-c", "a_b-c", "a-b_c"], "a_b_c");
-
-    const repeated = createLintProject({
-      name: "contributor-namespace-cjs-repeated",
-      source: "export const value = 1;\n",
-      pluginConfig: { configFile: "./lint.config.cjs" },
-    });
-    try {
-      const first = createContributorSource(repeated.tmpdir, "first");
-      const later = createContributorSource(repeated.tmpdir, "later");
-      writeCjsConfigValue(repeated.tmpdir, [
-        { plugins: { "react-hooks": { source: first } } },
-        { plugins: { "react-hooks": { source: later } } },
-      ]);
-      assert.deepEqual(loadContributors(repeated.tmpdir), [
-        { name: "react_hooks", source: first },
-      ]);
-    } finally {
-      repeated.cleanup();
-    }
-
-    const project = createLintProject({
-      name: "contributor-namespace-cjs-noncollision",
-      source: "export const value = 1;\n",
-      pluginConfig: { configFile: "./lint.config.cjs" },
-    });
-    try {
-      const first = createContributorSource(project.tmpdir, "first");
-      const second = createContributorSource(project.tmpdir, "second");
-      writeCjsConfig(project.tmpdir, [
-        ["a-b", first],
-        ["c-d", second],
-      ]);
-      assert.deepEqual(
-        loadContributors(project.tmpdir).map((contributor) => contributor.name),
-        ["a_b", "c_d"],
-      );
-    } finally {
-      project.cleanup();
-    }
-
-    const hyphenated = createLintProject({
-      name: "contributor-namespace-cjs-hyphenated",
-      source: "export const value = 1;\n",
-      pluginConfig: { configFile: "./lint.config.cjs" },
-    });
-    try {
-      writeCjsConfig(hyphenated.tmpdir, [
-        [
-          "react-hooks",
-          createContributorSource(hyphenated.tmpdir, "contributor"),
-        ],
-      ]);
-      assert.deepEqual(
-        loadContributors(hyphenated.tmpdir).map(
-          (contributor) => contributor.name,
-        ),
-        ["react_hooks"],
-      );
-    } finally {
-      hyphenated.cleanup();
-    }
-
-    assertNoContributors("empty-plugins", { plugins: {} });
-    assertNoContributors("no-plugins-key", { rules: {} });
-  };
+export function test_descriptor_rejects_colliding_contributor_namespaces_from_cjs_config(): void {
+  assertCollision(["a-b", "a_b"], "a_b");
+}
 
 function assertCollision(namespaces: string[], goName: string): string {
   const project = createLintProject({
@@ -122,23 +66,6 @@ function assertCollision(namespaces: string[], goName: string): string {
     const markerIndex = message.indexOf(marker);
     assert.notEqual(markerIndex, -1);
     return message.slice(markerIndex);
-  } finally {
-    project.cleanup();
-  }
-}
-
-function assertNoContributors(name: string, config: object): void {
-  const project = createLintProject({
-    name: `contributor-namespace-cjs-${name}`,
-    source: "export const value = 1;\n",
-    pluginConfig: { configFile: "./lint.config.cjs" },
-  });
-  try {
-    fs.writeFileSync(
-      path.join(project.tmpdir, "lint.config.cjs"),
-      `module.exports = ${JSON.stringify(config)};\n`,
-    );
-    assert.deepEqual(loadContributors(project.tmpdir), []);
   } finally {
     project.cleanup();
   }

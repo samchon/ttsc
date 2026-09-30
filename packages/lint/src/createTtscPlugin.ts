@@ -11,6 +11,7 @@ import {
   configEvaluatorFailureReason,
   configEvaluatorProcessFailure,
 } from "./internal/configEvaluatorFailure";
+import { normalizeContributors } from "./internal/normalizeContributors";
 import type { ITtscLintPluginConfig } from "./structures";
 
 /** A resolved contributor: Go sub-package name + absolute source directory. */
@@ -75,17 +76,6 @@ type TtscPluginFactoryContext<TConfig> = {
 // are encoded into underscores for the Go sub-package name (see
 // `goSubpackageName`); the user-facing prefix keeps the original form.
 const NAMESPACE_PATTERN = /^[a-z][a-z0-9_-]*$/;
-
-/**
- * Map a user-facing namespace (`react-hooks`) to a Go-valid sub-package name
- * (`react_hooks`). Required because ttsc's plugin builder uses the `name` field
- * as a directory and import-path suffix, both of which must satisfy Go's
- * stricter `[a-z][a-z0-9_]*` identifier rules. The function is total over
- * namespaces that already passed `NAMESPACE_PATTERN`.
- */
-function goSubpackageName(namespace: string): string {
-  return namespace.replace(/-/g, "_");
-}
 
 const LINT_CONFIG_FILENAMES = [
   "lint.config.json",
@@ -247,18 +237,7 @@ function resolveConfigFileContributors(
 
   const evaluation = readConfigPluginEntries(configPath, context);
   const entries = evaluation.entries;
-  assertContributorNamespacesDoNotCollide(entries, configPath);
-  // Dedup exact repeated namespaces on the Go-subpackage form. Config-array
-  // folding can surface the same namespace more than once; that existing
-  // behavior stays intact after distinct namespaces are rejected above.
-  const occupied = new Set<string>();
-  const out: TtscPluginContributor[] = [];
-  for (const entry of entries) {
-    const goName = goSubpackageName(entry.namespace);
-    if (occupied.has(goName)) continue;
-    occupied.add(goName);
-    out.push({ name: goName, source: entry.source });
-  }
+  const out = normalizeContributors(entries, configPath);
   const dependencyInputs = evaluation.dependencies
     .filter(
       (dependency) =>
@@ -433,37 +412,6 @@ function discoverLintConfigFile(
     }
   }
   return { hostInputHashes, hostInputRealpaths, hostInputs };
-}
-
-function assertContributorNamespacesDoNotCollide(
-  entries: ConfigPluginEntry[],
-  configPath: string,
-): void {
-  const namespacesByGoName = new Map<string, Set<string>>();
-  for (const entry of entries) {
-    const goName = goSubpackageName(entry.namespace);
-    let namespaces = namespacesByGoName.get(goName);
-    if (namespaces === undefined) {
-      namespaces = new Set<string>();
-      namespacesByGoName.set(goName, namespaces);
-    }
-    namespaces.add(entry.namespace);
-  }
-  const collisions = [...namespacesByGoName]
-    .map(([goName, namespaces]) => [goName, [...namespaces].sort()] as const)
-    .filter(([, namespaces]) => namespaces.length > 1)
-    .sort(([left], [right]) => left.localeCompare(right));
-  if (collisions.length === 0) return;
-
-  const details = collisions
-    .map(
-      ([goName, namespaces]) =>
-        `${namespaces.map((namespace) => JSON.stringify(namespace)).join(", ")} all normalize to ${JSON.stringify(goName)}`,
-    )
-    .join("; ");
-  throw new Error(
-    `@ttsc/lint: lint config ${configPath} contributor namespaces collide after Go normalization: ${details}`,
-  );
 }
 
 /**
