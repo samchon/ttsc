@@ -14,6 +14,11 @@ import { CommonJsRuntimeSource } from "../../../../packages/ttsc/src/launcher/in
  * 1. Evaluate strict, sloppy, escaped-directive, hashbang and hoisted-binding bodies.
  * 2. Compare local registry/cache behavior with the unchanged original require.
  * 3. Decode a shifted compiler map and verify its original source coordinates.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls CommonJsRuntimeSource.prepare and executes adapted bodies, verifying strictness, user bindings, owned require metadata and decoded source-map positions.
+ * @evidence contracts/testing.md#independent-expectations Literal strict/sloppy return values and SourceMap original coordinates establish expected behavior; the unchanged native require extension table is snapshotted before adaptation.
+ * @evidence contracts/testing.md#distinguishing-cases Custom versus real and escaped strict directives, four hashbang separators, top-level return, hoisted versus nested require and adjacent or next-line mappings distinguish semantic preservation from prepending an unsafe bootstrap.
+ * @evidence contracts/testing.md#execution-ownership Executes authored source adaptation, Node VM and source-map decoding in one unit process without native compilation; only the owned require table is exposed and the native extension snapshot must remain unchanged.
  */
 export function test_commonjs_runtime_source_preserves_bindings_and_locations(): void {
   const native = createRequire(import.meta.url);

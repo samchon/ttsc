@@ -8,7 +8,14 @@ import vm from "node:vm";
 import { inlineServedSourceMap } from "../../../../packages/ttsc/src/launcher/internal/inlineServedSourceMap";
 import { CommonJsRuntimeSource } from "../../../../packages/ttsc/src/launcher/internal/runtime/CommonJsRuntimeSource";
 
-/** Preserve compiler locations through the actual inline-producer/CommonJS chain. */
+/**
+ * Preserve compiler locations through the actual inline-producer/CommonJS chain.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls the actual inlineServedSourceMap and CommonJsRuntimeSource.prepare chain, decodes its emitted maps and executes valid code carrying malformed optional metadata.
+ * @evidence contracts/testing.md#independent-expectations Literal original line two and adjacent columns zero and one, authored sourcesContent and independent source-file URLs establish location expectations rather than reading expected positions from a second implementation call.
+ * @evidence contracts/testing.md#distinguishing-cases Base64, charset and percent-encoded maps, hashbang lines, indexed section offsets and six malformed or unavailable map shapes distinguish accurate metadata adaptation from rejecting valid JavaScript.
+ * @evidence contracts/testing.md#execution-ownership Executes source-map production and adaptation with Node SourceMap and VM in one source-unit process; compiler emission, Node CLI bootstrap and product hosts are not invoked.
+ */
 export function test_commonjs_runtime_source_preserves_served_maps(): void {
   const filename = path.resolve("served-original.ts");
   const emitted = path.resolve("served-original.js");
