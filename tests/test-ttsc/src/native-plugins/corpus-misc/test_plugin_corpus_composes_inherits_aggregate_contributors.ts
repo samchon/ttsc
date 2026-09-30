@@ -1,14 +1,13 @@
 import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   assert,
-  copyDirectory,
+  nativePluginSource,
   fs,
   goPath,
   path,
   pluginProject,
   spawn,
   ttscBin,
-  workspaceRoot,
 } from "../../internal/plugin-corpus";
 
 /**
@@ -32,9 +31,17 @@ import {
  * 3. Assert a zero exit (the composed and aggregate records share one native host)
  *    and that the target's suffix transform still reached the emitted
  *    JavaScript.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Invokes the real CLI with a contributor-bearing aggregate and a target whose own source does not exist; requires shared native-host success and the target's literal PLUGIN:Z emission.
+ * @evidence contracts/testing.md#independent-expectations Literal missing-target source, suffix Z and emitted PLUGIN:Z define the oracle; source units independently assert the descriptor redirect, contributor/capability inheritance and rejection decisions.
+ * @evidence contracts/testing.md#distinguishing-cases Retains the strongest real composition assembly case, combining source redirect with contributor-derived binary identity and target config propagation; cycle and one-hop counterexamples remain exact source units.
+ * @evidence contracts/testing.md#execution-ownership This named native export owns one consumer project and one CLI compilation, selected once by the native boundary runner.
+ * @evidence contracts/e2e.md#necessary-boundary Descriptor units cannot prove both aggregate and target resolve to the same linked native binary and that target plugin JSON reaches its suffix handler; this case executes those real connections.
+ * @evidence contracts/e2e.md#shared-execution Uses the canonical immutable transformer source and shared TTSC_CACHE_DIR; the one consumer-owned contributor source is built once for this distinct identity, replacing three redundant composition CLI cases with owning units.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The canonical Go module is never mutated, and the contributor's exact temporary physical source/content identity remains in the production cache key; missing target resolution can succeed only after the actual redirect.
+ * @evidence contracts/e2e.md#preserved-coverage Keeps original CLI success and PLUGIN:Z emission, also owning the former plain-redirect success; direct composePluginSources units retain the original nontransitive A/A/B distinction and reciprocal-cycle failure, and the fake-name shared-host E2E retains real multi-backend rejection.
  */
-export const test_plugin_corpus_composes_inherits_aggregate_contributors =
-  () => {
+export function test_plugin_corpus_composes_inherits_aggregate_contributors(): void {
     const root = pluginProject(
       [
         { transform: "./plugins/aggregate.cjs" },
@@ -43,7 +50,7 @@ export const test_plugin_corpus_composes_inherits_aggregate_contributors =
       {
         "plugins/aggregate.cjs": `module.exports = (context) => ({
   name: "compose-aggregate",
-  source: require("node:path").resolve(context.dirname, "..", "go-plugin", "cmd", "ttsc-go-transformer"),
+  source: ${JSON.stringify(nativePluginSource())},
   composes: ["compose-target"],
   contributors: [
     {
@@ -59,11 +66,6 @@ export const test_plugin_corpus_composes_inherits_aggregate_contributors =
         "plugins/contributor/contributor.go": "package demo\n",
       },
     );
-    copyDirectory(
-      path.join(workspaceRoot, "tests", "go-transformer"),
-      path.join(root, "go-plugin"),
-    );
-
     const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
       cwd: root,
       env: { PATH: goPath(), TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
@@ -73,4 +75,4 @@ export const test_plugin_corpus_composes_inherits_aggregate_contributors =
       fs.readFileSync(path.join(root, "dist", "main.js"), "utf8"),
       /"PLUGIN:Z"/,
     );
-  };
+}
