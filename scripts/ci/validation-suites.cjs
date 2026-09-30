@@ -36,7 +36,6 @@ const LANES = [
       "features/compiler",
       "features/platform",
       "features/project",
-      "features/tsgo",
       "features/ttscserver",
       "features/ttsx-runtime",
       "features/utility-plugins",
