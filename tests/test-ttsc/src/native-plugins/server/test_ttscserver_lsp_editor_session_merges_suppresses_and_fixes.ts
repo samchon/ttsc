@@ -97,6 +97,7 @@ const FIXED = SAVED.replace("var legacy", "let legacy");
  */
 export async function test_ttscserver_lsp_editor_session_merges_suppresses_and_fixes() {
     const project = TestLint.createProject({
+      nativeProducer: "snapshot",
       name: "ttscserver-lsp-editor-session",
       rules: { "no-var": "error" },
       source: OPENED,

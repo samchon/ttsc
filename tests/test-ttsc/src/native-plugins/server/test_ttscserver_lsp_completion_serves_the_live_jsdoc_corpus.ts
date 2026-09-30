@@ -134,6 +134,7 @@ const CLIENT_CAPABILITIES = {
  */
 export async function test_ttscserver_lsp_completion_serves_the_live_jsdoc_corpus() {
     const project = TestLint.createProject({
+      nativeProducer: "snapshot",
       name: "ttscserver-lsp-completion-corpus",
       rules: { "jsdoc/check-tag-names": "error", "no-var": "error" },
       source: SAVED,

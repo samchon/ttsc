@@ -99,6 +99,7 @@ const CLIENT_CAPABILITIES = {
  */
 export async function test_ttscserver_answers_typescript_go_language_requests() {
     const project = TestLint.createProject({
+      nativeProducer: "snapshot",
       name: "ttscserver-typescript-go-requests",
       rules: { "no-var": "error" },
       source: SOURCE,

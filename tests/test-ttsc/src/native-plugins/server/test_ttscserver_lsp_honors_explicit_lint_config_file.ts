@@ -44,6 +44,7 @@ type PublishDiagnosticsParams = {
  */
 export async function test_ttscserver_lsp_honors_explicit_lint_config_file() {
     const project = TestLint.createProject({
+      nativeProducer: "snapshot",
       name: "ttscserver-lsp-explicit-lint-config",
       pluginConfig: { configFile: "./custom-lint.config.json" },
       source: "var legacy = 1;\nconsole.log(legacy);\n",

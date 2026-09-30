@@ -41,6 +41,7 @@ export async function test_ttscserver_revalidates_file_qualified_evidence_links(
       "packages/evidence/lib/index.js",
     );
     const project = TestLint.createProject({
+      nativeProducer: "snapshot",
       name: "lsp-evidence-file-links",
       source: "export {};\n",
       pluginConfig: { configFile: "./lint.config.cjs" },
