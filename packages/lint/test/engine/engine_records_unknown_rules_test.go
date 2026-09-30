@@ -16,6 +16,11 @@ import (
 // 1. Build an engine with one unknown rule name and one registered rule name.
 // 2. Call UnknownRules() and EnabledRules().
 // 3. Assert the unknown name is isolated and the known rule is still active.
+//
+// @evidence contracts/testing.md#behavioral-verification NewEngine isolates never-existed in UnknownRules and excludes it from dispatch while no-var remains enabled at error severity.
+// @evidence contracts/testing.md#independent-expectations Literal unknown identity and canonical no-var/error distinguish a real known rule from an empty or contaminated enabled map.
+// @evidence contracts/testing.md#distinguishing-cases One known and one unknown name in the same configuration distinguish warning segregation from loss of valid rules; directive unknowns are tested separately.
+// @evidence contracts/testing.md#execution-ownership Actual NewEngine and its warning/dispatch accessors run directly in one Go process, without CLI warning rendering or a source walk.
 func TestEngineRecordsUnknownRules(t *testing.T) {
   engine := NewEngine(RuleConfig{
     "never-existed": SeverityError,
@@ -30,5 +35,8 @@ func TestEngineRecordsUnknownRules(t *testing.T) {
   }
   if _, ok := engine.EnabledRules()["no-var"]; !ok {
     t.Errorf("known rule should still be enabled")
+  }
+  if enabled := engine.EnabledRules(); len(enabled) != 1 || enabled["no-var"] != SeverityError {
+    t.Fatalf("known rule lost its configured severity: %v", enabled)
   }
 }

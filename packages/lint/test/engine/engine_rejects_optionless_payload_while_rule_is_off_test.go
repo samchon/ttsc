@@ -17,6 +17,11 @@ import (
 //  1. Configure optionless `no-var` as off with an object payload.
 //  2. Construct the engine.
 //  3. Assert the payload is rejected and the rule remains disabled.
+//
+// @evidence contracts/testing.md#behavioral-verification NewEngineWithResolver rejects an object options payload for no-var even at off severity, and leaves it out of dispatch.
+// @evidence contracts/testing.md#independent-expectations The literal no-var optionless diagnostic independently establishes validation of declared configuration before dispatch eligibility.
+// @evidence contracts/testing.md#distinguishing-cases Off severity plus a present typo object distinguishes validation from enabled-rule filtering; the off-without-payload test is the valid neighboring case.
+// @evidence contracts/testing.md#execution-ownership Direct inline resolver and engine accessors run in one Go process; this individual entry owns configuration failure semantics, not native descriptor transport.
 func TestEngineRejectsOptionlessPayloadWhileRuleIsOff(t *testing.T) {
   engine := NewEngineWithResolver(InlineRuleResolver{
     Rules:   RuleConfig{"no-var": SeverityOff},
