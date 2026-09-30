@@ -17,6 +17,10 @@ import { createPaxRecord, createTarball } from "../internal/tarball";
  *    `path` record, alongside an ASCII control.
  * 2. Mount the extracted file and reject malformed PAX record lengths rather than
  *    silently treating an invalid header as a different path.
+ * @evidence contracts/testing.md#behavioral-verification unpackNpmTarball parses UTF8-byte PAX records without corrupting multibyte paths, and mountPackageFiles preserves extracted text in compiler/editor/runtime namespaces; malformed length999 rejects.
+ * @evidence contracts/testing.md#independent-expectations Authored unicode/ASCII archive paths and literal complete extracted map define the oracle independently of parsing; literal mounted keys/bytes establish each consumer namespace and package metadata retention.
+ * @evidence contracts/testing.md#distinguishing-cases Multibyte comment before multibyte path, repeated PAX overrides, ASCII control, declaration/runtime/manifest mounts and an overflowing PAX record retain distinct assertions.
+ * @evidence contracts/testing.md#execution-ownership This entry owns its byte-oriented createPaxRecord/createTarball fixtures and direct extraction/mount calls in process, without network, native artifact production or a browser host.
  */
 export const test_npm_tarball_parses_pax_bytes = async () => {
   const unicodePath = "package/한글/日本語.ts";

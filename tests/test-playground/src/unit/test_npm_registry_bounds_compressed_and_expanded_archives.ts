@@ -22,6 +22,10 @@ import {
  * 2. Reject invalid public limits before metadata fetch or decompressor setup.
  * 3. Keep the gzip small but set the expanded limit below its tar output.
  * 4. Assert each independent byte budget fails with its own context.
+ * @evidence contracts/testing.md#behavioral-verification downloadTarball and installPlaygroundDependencies enforce compressed byte limits with absent/false length headers, cancel header/status rejections, validate limits before fetch and independently reject expanded tar excess in unpackNpmTarball while accepting exact byte limits.
+ * @evidence contracts/testing.md#independent-expectations The authored compressed length minus1 and independent Node gunzipSync expanded length minus1 pin different byte domains; literal cancellation1/fetch0 counters distinguish rejection before resource acquisition.
+ * @evidence contracts/testing.md#distinguishing-cases Absent versus falsely low Content-Length, declared1000 versus limit999, HTTP500, invalid public limits and small-gzip/large-tar cases retain independent outcomes, with literal byte preservation at the exact inclusive limits.
+ * @evidence contracts/testing.md#execution-ownership This entry owns every controlled response and fixture installation through injected fetch plus real in-process gzip extraction; no live registry, installed consumer or compiler host is involved.
  */
 export const test_npm_registry_bounds_compressed_and_expanded_archives =
   async () => {
@@ -121,6 +125,12 @@ export const test_npm_registry_bounds_compressed_and_expanded_archives =
     );
 
     const expandedLength = gunzipSync(new Uint8Array(tarball)).byteLength;
+    const atLimit = await installNpmFixture({
+      options: { maxTarballBytes: tarball.byteLength, maxUnpackedBytes: expandedLength },
+      tarball,
+    });
+    assert.equal(atLimit.runtimeFiles["fixture/index.js"], "module.exports = true;\n", "exact compressed/expanded limits remain inclusive");
+    assert.equal(atLimit.compilerFiles["node_modules/fixture/index.d.ts"], "export declare const value: true;\n");
     await assert.rejects(
       installNpmFixture({
         options: { maxUnpackedBytes: expandedLength - 1 },

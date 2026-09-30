@@ -11,6 +11,10 @@ import { createTarball } from "../internal/tarball";
  * their tarballs, required conflicts fail before publication, optional
  * conflicts are omitted, and a full replacement solve can select a version that
  * stale session state would otherwise pin.
+ * @evidence contracts/testing.md#behavioral-verification installPlaygroundDependencies reconciles mounted version/registry identity and active edge requests, reuses compatible tarballs, rejects required conflicts, omits optional conflicts and replaces stale file maps on a fresh solve.
+ * @evidence contracts/testing.md#independent-expectations Authored versions1/2 and edge ranges specify exact package inventories/requests independently; captured URLs prove shared tarball reuse, and literal declaration/runtime versions pin replacement outputs.
+ * @evidence contracts/testing.md#distinguishing-cases Compatible versus required/optional conflict, fresh replacement, npm alias identity conflict and an aborted solve cover reuse and publication ownership; original caller mounted records must remain byte-equivalent after abort.
+ * @evidence contracts/testing.md#execution-ownership This entry owns all sequential solve scenarios, independent metadata/tarball maps and request recording through an injected fetch; fixtures are actual archive inputs, without external registry access or compiler/native host work.
  */
 export const test_npm_registry_reconciles_incremental_install_state =
   async () => {

@@ -13,6 +13,10 @@ import { createTarball } from "../internal/tarball";
  *    rather than npm's usual `package/`.
  * 2. Assert the root is stripped consistently and the package files unpack without
  *    weakening mixed-root rejection.
+ * @evidence contracts/testing.md#behavioral-verification unpackNpmTarball accepts the single node/ archive root, strips it from index.d.ts and a GNU long-name path, and preserves the @types/node manifest name and exact declaration text.
+ * @evidence contracts/testing.md#independent-expectations Authored node/ entries and literal declaration bytes independently determine stripped keys; the longPath is fixture input, not a key computed from extraction output.
+ * @evidence contracts/testing.md#distinguishing-cases Ordinary declaration and sixteen-level GNU long-name override share one safe nonstandard root; mixed/unsafe roots remain covered by the neighboring rejection case.
+ * @evidence contracts/testing.md#execution-ownership This entry calls the actual extraction helper on a locally generated gzip/tar fixture in one source process; no npm download or installed package/compiler host is involved.
  */
 export const test_npm_tarball_accepts_one_safe_nonstandard_root = async () => {
   const longPath = `node/${"nested/".repeat(16)}long.d.ts`;

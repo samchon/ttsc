@@ -15,6 +15,10 @@ import { loadTypiaRuntimePack } from "../../../../packages/playground/src/sandbo
  * 3. Join one stalled fetch from two callers, abort the joiner, and require the
  *    shared attempt and forwarded fetch signal to cancel.
  * 4. Retry the same shared URL successfully.
+ * @evidence contracts/testing.md#behavioral-verification loadTypiaRuntimePack aborts stalled JSON/fetch phases, forwards cancellation to fetch, evicts rejected attempts and retains the successfully retried runtime pack with shared promise/record identity.
+ * @evidence contracts/testing.md#independent-expectations Controlled fetch counters and independently authored module-text records fix retry2 and fulfilled-cache reuse; exact phase diagnostics and the caller cause identity distinguish cancellation from generic transport failure.
+ * @evidence contracts/testing.md#distinguishing-cases Stalled JSON, two callers sharing a stalled fetch, joiner cancellation, retry and a subsequent fulfilled-cache read separate failure eviction from healthy reuse.
+ * @evidence contracts/testing.md#execution-ownership This entry calls the authored runtime-pack loader with a temporarily replaced fetch, restores global fetch in finally and owns both URL scenarios and cache assertions; all responses are doubles and no network runs.
  */
 export const test_load_typia_runtime_pack_bounds_and_recovers_cache =
   async (): Promise<void> => {
@@ -47,6 +51,11 @@ export const test_load_typia_runtime_pack_bounds_and_recovers_cache =
         "typia/index.js": "module.exports = {};",
       });
       assert.equal(jsonCalls, 2);
+      const recovered = loadTypiaRuntimePack(jsonUrl);
+      const recoveredAgain = loadTypiaRuntimePack(jsonUrl);
+      assert.equal(recoveredAgain, recovered);
+      assert.equal(await recoveredAgain, await recovered);
+      assert.equal(jsonCalls, 2, "fulfilled runtime packs must not fetch again");
 
       const sharedUrl = "https://pack.invalid/shared-fetch.json";
       let sharedCalls = 0;

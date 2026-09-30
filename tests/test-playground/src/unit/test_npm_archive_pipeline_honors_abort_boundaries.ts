@@ -32,6 +32,10 @@ function createStartSignal(): {
  * 4. Prioritize synchronous aborts and remove listeners from stalled work.
  * 5. Abort an in-flight digest, then pass an already aborted signal through
  *    download, verification, and decompression and assert every stage stops.
+ * @evidence contracts/testing.md#behavioral-verification fetchNpmMetadata/downloadTarball/verifyTarball/unpackNpmTarball preserve the exact abort reason through stalled and late handoffs, cancel rejected bodies, suppress post-abort reads and remove listeners from synchronous-abort work.
+ * @evidence contracts/testing.md#independent-expectations The authored DOMException identity, fixture cancellation counters, zero post-abort fetch/read counts and empty listener set independently observe resource and error ownership; stalled promises cannot fabricate successful archive results.
+ * @evidence contracts/testing.md#distinguishing-cases Metadata fetch/JSON, tar fetch/stream/bodyless read, late response, 404/503 handoff, synchronous throw/rejection, in-flight digest and preaborted stages are distinct sequential controls owned by this case.
+ * @evidence contracts/testing.md#execution-ownership This exported entry owns all phase gates and injected response/stream doubles; it exercises an actual in-flight digest and verifies extraction rejects before decompression when preaborted, with no registry network, native plugin build or product host.
  */
 export const test_npm_archive_pipeline_honors_abort_boundaries = async () => {
   const tarball = createNpmFixtureTarball();
