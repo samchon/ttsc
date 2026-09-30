@@ -13,7 +13,7 @@
     "experimental:unplugin-perf": "pnpm --dir experimental/unplugin-perf start",
     "assert:platform-packages": "node scripts/assert-platform-package.cjs --source",
     "check:dependencies": "node scripts/ci/dependency-audit.cjs",
-    "evidence": "pnpm --filter \"./packages/*\" -r --no-bail --workspace-concurrency=1 run evidence",
+    "evidence": "node scripts/ci/run-evidence.cjs",
     "format": "pnpm run gen:flags && prettier --write \"**/*.ts\" \"**/*.md\" \"**/*.mdx\" && pnpm run format:go",
     "format:go": "node scripts/format-go.cjs",
     "gen:flags": "node scripts/node-strip-types.cjs packages/ttsc/scripts/gen-flags.mts",
