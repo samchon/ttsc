@@ -23,6 +23,14 @@ import {
  * 2. Run the real local `ttsc` launcher with that cache directory.
  * 3. Assert the CLI exits successfully and reports reclaiming the abandoned lock
  *    instead of waiting for the ordinary admission budget.
+ * @evidence contracts/testing.md#behavioral-verification The real ttsc noEmit launcher must discover the source plugin, reclaim its seeded dead legacy lock, build the missing binary and exit zero with both reclamation and build diagnostics.
+ * @evidence contracts/testing.md#independent-expectations A successfully exited same-host child establishes the dead owner, explicit aged owner bytes establish legacy state, and independent CLI status plus named stderr messages distinguish successful recovery from merely accepting the configuration.
+ * @evidence contracts/testing.md#distinguishing-cases The initially selected key is deliberately stripped of its binary and v3 history before an old legacy owner is created. This owns launcher/discovery-to-lock recovery, while direct fake-tool admission and pure owner policies have separate tests.
+ * @evidence contracts/testing.md#execution-ownership This exported source-plugin entry copies the go-source-plugin consumer and invokes the real shipped CLI, native compiler and source-plugin builder; the seed builder also executes a real build.
+ * @evidence contracts/e2e.md#necessary-boundary Package plugin discovery and CLI execution must actually reach the abandoned-key recovery path; direct lock inspection or builder calls cannot detect a launcher that bypasses or miskeys that connection.
+ * @evidence contracts/e2e.md#shared-execution One copied consumer, source module and explicit cache are reused. The seed build currently obtains the exact binary-key path, then the binary is removed to require cold recovery; that extra seed payload cost is explicit and has not yet been replaced by a verified key-only producer.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private consumer/cache paths own the intentionally removed binary and lock histories, and PATH is restored in finally. The seed process exits synchronously before recording its PID, and the CLI spawn completes before assertions; no warm artifact may bypass the missing-binary premise.
+ * @evidence contracts/e2e.md#preserved-coverage Exited-child success, zero CLI status and both named reclamation/build diagnostics remain unchanged. This entry does not independently inspect the rebuilt artifact contents, and the seed-build expense is not hidden by its contract.
  */
 export const test_ttsc_reclaims_dead_legacy_source_plugin_lock_e2e = () => {
   const root = TestProject.copyProject("go-source-plugin");

@@ -1,61 +1,53 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import fs from "node:fs";
 import path from "node:path";
 
-import { acquireDependencyBuildLock } from "../../internal/dependency-cache";
-import { acquirePluginBuildLock } from "../../internal/source-build";
+import { acquireDependencyBuildLock, releaseDependencyBuildLock } from "../../internal/dependency-cache";
+import { acquirePluginBuildLock, releasePluginBuildLock } from "../../internal/source-build";
 
 /**
- * Verifies both build locks report a candidate rename that lost the race for
- * `current` as not acquired, whatever the destination looks like afterwards.
- *
- * On Windows a rename onto a directory another process holds, or is deleting,
- * fails with `EPERM`. Each lock took that as a lost race only when `current`
- * still existed at the moment it looked. A holder that released in between left
- * nothing there, so the lost race was thrown as a permission failure and the
- * build failed (samchon/ttsc#1582). The candidate was just created in the same
- * directory, so the directory is writable and the error alone decides.
- *
- * 1. Make each lock's rename onto `current` fail with `EPERM` while no `current`
- *    exists, as a release between the rename and the look leaves it.
- * 2. Assert the plugin build lock and the dependency build lock both report the
- *    acquisition as not acquired instead of throwing.
- * 3. Restore `fs.renameSync` and assert each lock is acquired normally.
+ * A live generation denies a second acquisition until its real owner releases.
+ * Portable errno classification is covered directly in the source unit
+ * test_contended_candidate_rename_classifies_only_protocol_collision_errors.
+ * @evidence contracts/testing.md#behavioral-verification Actual plugin and dependency lock admission return null while a live generation occupies current, then return non-null leases after that generation is released.
+ * @evidence contracts/testing.md#independent-expectations Two acquired owning leases establish actual current occupancy; null contender and non-null post-release controls are literal lock-admission expectations, without injecting filesystem errors.
+ * @evidence contracts/testing.md#distinguishing-cases Both independent lock protocols cover occupied current and released current. The source classifier unit separately retains EPERM/EACCES and adjacent non-collision errno distinctions, including an error without a destination lookup.
+ * @evidence contracts/testing.md#execution-ownership The exported entry calls shipped acquire/release operations against real native directory generations. It replaces no global operation and every acquired lease has a finally owner.
+ * @evidence contracts/e2e.md#necessary-boundary Actual generation publication, occupancy and retirement must connect each lock protocol to native directory state; direct errno classification cannot detect admission that ignores an occupied current generation.
+ * @evidence contracts/e2e.md#shared-execution One private root supplies the two protocol paths without an installation, Go build or child host. The two protocol leases are separate ownership resources, not repeated compiler preparations.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each protocol has its own lock path. Initial holders and successful post-release controls are released in finally, and neither fixture mutates shared fs methods or uses a prior case's generation.
+ * @evidence contracts/e2e.md#preserved-coverage Both original null/non-null protocol outcomes remain with actual occupancy instead of a foreign injected rename. The exact four accepted errno values and neighboring failures are preserved and strengthened in the named source classifier unit; this case makes no claim to force a kernel EPERM race.
  */
-export const test_build_locks_take_a_contended_candidate_rename_as_a_lost_race =
-  (): void => {
-    const root = TestProject.tmpdir("ttsc-lock-contended-rename-");
-    const pluginLock = path.join(root, "plugin.lock");
-    const dependencyLock = path.join(root, "dependency.lock");
-
-    const originalRename = fs.renameSync;
-    Object.defineProperty(fs, "renameSync", {
-      configurable: true,
-      value: ((source: fs.PathLike, destination: fs.PathLike) => {
-        if (path.basename(String(destination)) === "current") {
-          throw Object.assign(
-            new Error(
-              `EPERM: operation not permitted, rename '${String(source)}' -> '${String(destination)}'`,
-            ),
-            { code: "EPERM", syscall: "rename" },
-          );
-        }
-        originalRename(source, destination);
-      }) as typeof fs.renameSync,
-      writable: true,
-    });
+export function test_build_locks_take_a_contended_candidate_rename_as_a_lost_race(): void {
+  const root = TestProject.tmpdir("ttsc-lock-contended-rename-");
+  const pluginLock = path.join(root, "plugin.lock");
+  const dependencyLock = path.join(root, "dependency.lock");
+  const pluginHolder = acquirePluginBuildLock(pluginLock);
+  let dependencyHolder: ReturnType<typeof acquireDependencyBuildLock> = null;
+  try {
+    assert.notEqual(pluginHolder, null);
+    dependencyHolder = acquireDependencyBuildLock(dependencyLock);
+    assert.notEqual(dependencyHolder, null);
+    assert.equal(acquirePluginBuildLock(pluginLock), null);
+    assert.equal(acquireDependencyBuildLock(dependencyLock), null);
+  } finally {
     try {
-      assert.equal(acquirePluginBuildLock(pluginLock), null);
-      assert.equal(acquireDependencyBuildLock(dependencyLock), null);
+      if (pluginHolder !== null) releasePluginBuildLock(pluginLock, pluginHolder);
     } finally {
-      Object.defineProperty(fs, "renameSync", {
-        configurable: true,
-        value: originalRename,
-        writable: true,
-      });
+      if (dependencyHolder !== null) releaseDependencyBuildLock(dependencyLock, dependencyHolder);
     }
-
-    assert.notEqual(acquirePluginBuildLock(pluginLock), null);
-    assert.notEqual(acquireDependencyBuildLock(dependencyLock), null);
-  };
+  }
+  const pluginControl = acquirePluginBuildLock(pluginLock);
+  let dependencyControl: ReturnType<typeof acquireDependencyBuildLock> = null;
+  try {
+    assert.notEqual(pluginControl, null);
+    dependencyControl = acquireDependencyBuildLock(dependencyLock);
+    assert.notEqual(dependencyControl, null);
+  } finally {
+    try {
+      if (pluginControl !== null) releasePluginBuildLock(pluginLock, pluginControl);
+    } finally {
+      if (dependencyControl !== null) releaseDependencyBuildLock(dependencyLock, dependencyControl);
+    }
+  }
+}

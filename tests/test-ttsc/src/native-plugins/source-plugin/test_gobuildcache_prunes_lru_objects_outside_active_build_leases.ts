@@ -31,9 +31,17 @@ import {
  *    external objects or JSON files.
  * 8. Resolve user and explicitly named cache layouts and assert their objects and
  *    maintenance metadata remain untouched at the exact resolved roots.
+ * @evidence contracts/testing.md#behavioral-verification Actual lease/GC/layout operations preserve objects under an active lease, prune older objects to the literal budget, bound a recent cohort, recover stale/completed/future records and refuse link escapes without rewriting external data or metadata.
+ * @evidence contracts/testing.md#independent-expectations Fixture object bytes and explicitly ordered mtimes define the independent LRU/budget results; hard-linked external contents/mtime and junction targets establish ownership boundaries. Literal callback/record assertions and a timed child mutation expose maintenance arbitration.
+ * @evidence contracts/testing.md#distinguishing-cases Active versus released lease, equal/unequal recent sizes, future marker, stale/completed/future intent, fresh/expired orphan, hard links, root/coordination junctions and user/explicit cache layouts retain their original cases. Permission-supported Node hosts also exercise the denied-Worker IPC heartbeat fallback.
+ * @evidence contracts/testing.md#execution-ownership The exported entry invokes shipped cache owners on real files and heartbeats, creates a native timestamp-release child and conditionally runs a permission-mode Node child; it runs no Go compiler or contributor host.
+ * @evidence contracts/e2e.md#necessary-boundary Real heartbeat workers/IPC permissions, cross-process timestamp release and hard-link/junction effects are necessary native connections for those subcases. The LRU budget and layout-policy portions themselves are portable transfer candidates, not justification for repeating a native producer.
+ * @evidence contracts/e2e.md#shared-execution One fixture tree and cached object-writing helper serve the entire lease/GC corpus. Ordinary objects are seeded directly rather than Go-built; only future-intent release and permission-mode heartbeat need their own child roles, and shared Go compiler objects are not touched.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Separate cache subroots isolate coordination epochs and link targets; product lease finally releases each heartbeat. The future-release child has immediately registered close/error observers and is killed and joined in finally around arbitration, including an earlier lease failure.
+ * @evidence contracts/e2e.md#preserved-coverage Every original file-presence/cohort, callback, grace-time, external-byte/mtime, permission status/marker/empty-lease and resolved-cache assertion remains. No fake successful maintenance or removed negative link control is introduced; conditional permission execution is unchanged.
  */
 export const test_gobuildcache_prunes_lru_objects_outside_active_build_leases =
-  () => {
+  async (): Promise<void> => {
     const root = TestProject.tmpdir("ttsc-go-cache-gc-");
     const goCache = path.join(root, "go-build");
     const now = Date.now();
@@ -210,12 +218,25 @@ export const test_gobuildcache_prunes_lru_objects_outside_active_build_leases =
       ],
       { stdio: "ignore", windowsHide: true },
     );
+    const futureClosed = new Promise<void>((resolve) => {
+      futureRelease.once("close", () => resolve());
+    });
+    let futureProcessError: Error | undefined;
+    futureRelease.once("error", (error) => { futureProcessError = error; });
     let futureIntentYielded = false;
     const futureWaitStarted = Date.now();
-    withGoBuildCacheLease(goCache, true, () => {
-      futureIntentYielded = true;
-    });
-    futureRelease.kill();
+    try {
+      withGoBuildCacheLease(goCache, true, () => {
+        futureIntentYielded = true;
+      });
+    } finally {
+      try {
+        futureRelease.kill();
+      } finally {
+        await futureClosed;
+      }
+    }
+    assert.equal(futureProcessError, undefined);
     assert.equal(futureIntentYielded, true);
     assert.ok(
       Date.now() - futureWaitStarted >= 150,

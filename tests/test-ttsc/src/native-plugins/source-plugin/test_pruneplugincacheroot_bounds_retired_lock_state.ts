@@ -25,6 +25,15 @@ import {
  * 2. Assert the entry is gone while its still-observable lock root remains.
  * 3. For a live entry, retire one generation recorded for a dead process and one
  *    for this process, and assert only the dead holder's tombstone goes.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Plugin-cache pruning must evict the old payload while preserving its observable lock root, delete a dead holder's retired generation and keep the live holder's tombstone plus the current payload.
+ * @evidence contracts/testing.md#independent-expectations Explicit last-used timestamps place one entry beyond the 30-day policy, and real exited versus current PIDs establish the two holder premises. Literal path-presence expectations define payload and fence lifetimes independently of random generation ordering.
+ * @evidence contracts/testing.md#distinguishing-cases Old payload versus fresh entry and dead versus live retired ownership retain distinct outcomes. The helper locates each newly created tombstone by set difference and asserts exactly one, avoiding random-name ordering assumptions.
+ * @evidence contracts/testing.md#execution-ownership The exported entry calls shipped acquire/release/prune APIs over actual generation records and a real completed-process PID; it does not compile Go or load a contributor host.
+ * @evidence contracts/e2e.md#necessary-boundary The collector must connect actual local owner absence to safe tombstone deletion while preserving a still-live capability holder. Pure age/LRU policy alone cannot establish that native process-liveness connection.
+ * @evidence contracts/e2e.md#shared-execution One plugin-cache root and retire helper supply old/fresh entries and both retired owners. One completed child supplies the native dead-holder witness; no per-generation compiler build is prepared.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private payload and coordination roots isolate collection. Fixture leases are released before pruning, while the current process remains a live holder of its history; the seed child must exit zero and supply a positive native PID before recording its absent-owner premise.
+ * @evidence contracts/e2e.md#preserved-coverage Original acquisition/new-tombstone controls and every payload/root/live/dead presence assertion remain. Observer-population and unfinished-task distinctions are not added by this acknowledgment and retain their other owners.
  */
 export const test_pruneplugincacheroot_bounds_retired_lock_state = (): void => {
   const root = path.join(
@@ -64,7 +73,12 @@ export const test_pruneplugincacheroot_bounds_retired_lock_state = (): void => {
 
   const live = seed("live", now);
   const dead = retire(live);
-  const deadPid = child_process.spawnSync(process.execPath, ["-e", ""]).pid;
+  const exited = child_process.spawnSync(process.execPath, ["-e", ""], {
+    windowsHide: true,
+  });
+  assert.equal(exited.status, 0, exited.error?.message);
+  const deadPid = exited.pid;
+  assert.ok(deadPid > 0);
   const owner = JSON.parse(
     fs.readFileSync(path.join(dead, "owner.json"), "utf8"),
   ) as Record<string, unknown>;
