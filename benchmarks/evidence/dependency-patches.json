@@ -1,0 +1,5 @@
+{
+  "patchedDependencies": {
+    "@nestia/core@14.0.1": "patches/@nestia__core@14.0.1.patch"
+  }
+}

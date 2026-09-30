@@ -138,6 +138,7 @@ export namespace EvidenceBenchmarkWorkspace {
       fs.renameSync(stage, output);
       settled = path.join(output, "workspace");
       adoptRepositoryCatalog(request.repository, settled);
+      adoptRepositoryPatches(request.repository, settled);
       overrideToolchainResolution(settled, request.toolchain);
       shortenVirtualStore(settled);
       await pnpm(["install", "--no-frozen-lockfile"], settled, environment);
@@ -338,6 +339,124 @@ export namespace EvidenceBenchmarkWorkspace {
       },
     );
     fs.writeFileSync(target, output);
+  }
+
+  /**
+   * Carries exact dependency corrections into both neutral arms.
+   *
+   * A prepared workspace installs independently of the repository. Catalog
+   * versions alone therefore drop native-host corrections recorded in pnpm's
+   * patchedDependencies. Repository patches and this benchmark's consumer-owned
+   * patches combine as exact package/version bindings. Their bytes and neutral
+   * version overrides travel before installation, so both baseline commits and
+   * checkpoint restores retain the same dependency implementation without editing either arm's template.
+   * Existing bindings, conflicting versions and occupied patch directories are
+   * refused before copying. Patch basenames must also remain unique on
+   * case-insensitive filesystems.
+   *
+   * @evidence contracts/common.md#principled-implementation Preparation merges repository and consumer-owned exact selectors, copies their declared regular patch bytes and registers matching neutral version overrides before the actual pnpm install; template configuration and arm treatment remain unchanged.
+   * @evidence contracts/common.md#clear-and-simple-design One preparation operation owns patch path validation, case-folded destination collisions, exact version conflicts, copying and YAML mapping insertion, shared by both arm preparations.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The package manager applies actual source corrections; no descriptor capability, compiler response, provenance record or assertion is fabricated and an incompatible patch remains an installation failure.
+   * @evidence contracts/common.md#meaningful-documentation Documents independent workspace installation, neutral arm ownership, baseline/checkpoint retention and exact binding/collision refusal rather than claiming that source copying proves emitted provenance.
+   * @evidence contracts/performance.md#efficient-algorithms Each exact binding is validated once with map/set lookup and each declared patch is copied once; dominant work is linear in configuration and total patch bytes, with temporary metadata linear in binding count.
+   * @evidence contracts/performance.md#reuse-equivalent-work Both neutral arms use the same declared patch and version inputs, but their independent destination trees each require physical copies; baseline commits and checkpoint snapshots carry those files so subsequent restores reuse the prepared dependency implementation.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources This synchronous preparation retains only invocation-local mapping metadata; copied patches transfer to the owning workspace and its existing stage cleanup or final workspace lifecycle, while filesystem exhaustion remains a preparation failure.
+   * @evidence contracts/portability.md#os-neutral-implementation Native path resolution, realpath and relative containment distinguish repository identity from relative pnpm spelling; joined destination paths use Node filesystem operations, occupied directories are refused including symlinks, and basename collisions are conservatively refused under case folding on every platform.
+   */
+  export function adoptRepositoryPatches(repository: string, workspace: string): void {
+    const repositoryPatches = dependencyBindings(
+      fs.readFileSync(path.join(repository, "pnpm-workspace.yaml"), "utf8"),
+      "patchedDependencies",
+    ) ?? {};
+    const consumerPatches = dependencyBindings(
+      fs.readFileSync(path.join(EvidenceBenchmarkLayout.assetsRoot(repository), "dependency-patches.json"), "utf8"),
+      "patchedDependencies",
+    ) ?? {};
+    const declared = new Map(Object.entries(repositoryPatches));
+    for (const [name, location] of Object.entries(consumerPatches)) {
+      if (declared.has(name) && declared.get(name) !== location)
+        throw new Error(`Benchmark and repository disagree on dependency patch "${name}".`);
+      declared.set(name, location);
+    }
+    if (declared.size === 0) return;
+    const target = path.join(workspace, "pnpm-workspace.yaml");
+    const source = fs.readFileSync(target, "utf8");
+    const existing = dependencyBindings(source, "patchedDependencies");
+    const overrides = dependencyBindings(source, "overrides");
+    const repositoryRoot = fs.realpathSync.native(repository);
+    const prepared: Array<{ name: string; source: string; relative: string }> = [];
+    const destinations = new Set<string>();
+    const patchDirectory = path.join(workspace, ".benchmark-patches");
+    try {
+      fs.lstatSync(patchDirectory);
+      throw new Error("Benchmark dependency patch directory is already occupied.");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+    const versions = new Map<string, string>();
+    for (const [name, patch] of declared) {
+      if (existing?.[name] !== undefined)
+        throw new Error(`Benchmark workspace already patches "${name}".`);
+      const separator = name.lastIndexOf("@");
+      const packageName = name.slice(0, separator);
+      const version = name.slice(separator + 1);
+      if (separator <= 0 || !/^\d+\.\d+\.\d+(?:-[\w.-]+)?(?:\+[\w.-]+)?$/.test(version))
+        throw new Error(`Benchmark dependency patch requires an exact package version: ${name}.`);
+      if (versions.has(packageName) || (overrides?.[packageName] !== undefined && overrides[packageName] !== version))
+        throw new Error(`Benchmark dependency patch version conflicts for "${packageName}".`);
+      versions.set(packageName, version);
+      const location = fs.realpathSync.native(path.resolve(repositoryRoot, patch));
+      const within = path.relative(repositoryRoot, location);
+      if (within === "" || within === ".." || within.startsWith(`..${path.sep}`) || path.isAbsolute(within))
+        throw new Error(`Benchmark dependency patch leaves its repository: ${patch}.`);
+      if (!fs.statSync(location).isFile())
+        throw new Error(`Benchmark dependency patch is not a regular file: ${patch}.`);
+      const relative = `.benchmark-patches/${path.basename(location)}`;
+      if (destinations.has(relative.toLowerCase()))
+        throw new Error(`Benchmark dependency patch destination collides: ${relative}.`);
+      destinations.add(relative.toLowerCase());
+      prepared.push({ name, source: location, relative });
+    }
+    const eol = source.includes("\r\n") ? "\r\n" : "\n";
+    const block = prepared.map((patch) =>
+      `  ${JSON.stringify(patch.name)}: ${JSON.stringify(patch.relative)}`,
+    ).join(eol);
+    const heading = /^patchedDependencies:[ \t]*(?=\r?$)/m.exec(source);
+    if (existing !== undefined && heading === null)
+      throw new Error("Benchmark patchedDependencies must use a block mapping.");
+    let output = heading === null
+      ? `${source.endsWith(eol) ? source : `${source}${eol}`}${eol}patchedDependencies:${eol}${block}${eol}`
+      : `${source.slice(0, heading.index + heading[0].length)}${eol}${block}${source.slice(heading.index + heading[0].length)}`;
+    const overrideBlock = [...versions].filter(([name]) => overrides?.[name] === undefined).map(([name, version]) =>
+      `  ${JSON.stringify(name)}: ${JSON.stringify(version)}`,
+    ).join(eol);
+    if (overrideBlock !== "") {
+      const overrideHeading = /^overrides:[ \t]*(?=\r?$)/m.exec(output);
+      if (overrides !== undefined && overrideHeading === null)
+        throw new Error("Benchmark dependency overrides must use a block mapping.");
+      output = overrideHeading === null
+        ? `${output.endsWith(eol) ? output : `${output}${eol}`}${eol}overrides:${eol}${overrideBlock}${eol}`
+        : `${output.slice(0, overrideHeading.index + overrideHeading[0].length)}${eol}${overrideBlock}${output.slice(overrideHeading.index + overrideHeading[0].length)}`;
+    }
+    for (const patch of prepared) {
+      const destination = path.join(workspace, ...patch.relative.split("/"));
+      fs.mkdirSync(path.dirname(destination), { recursive: true });
+      fs.copyFileSync(patch.source, destination, fs.constants.COPYFILE_EXCL);
+    }
+    fs.writeFileSync(target, output);
+  }
+
+  /** Reads pnpm patch bindings without requiring a generated typia checker. */
+  function dependencyBindings(source: string, field: "patchedDependencies" | "overrides"): Record<string, string> | undefined {
+    const document: unknown = YAML.parse(source);
+    if (typeof document !== "object" || document === null || Array.isArray(document))
+      throw new Error("Benchmark workspace configuration must be an object.");
+    const patches: unknown = (document as Record<string, unknown>)[field];
+    if (patches === undefined) return undefined;
+    if (typeof patches !== "object" || patches === null || Array.isArray(patches) ||
+      Object.values(patches).some((value) => typeof value !== "string" || value.length === 0))
+      throw new Error(`Benchmark ${field} bindings must contain nonempty strings.`);
+    return patches as Record<string, string>;
   }
 
   /**
