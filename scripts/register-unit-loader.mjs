@@ -12,7 +12,7 @@ const commonjsSources = [
   "ttsc", "wasm", "playground", "banner", "paths", "strip", "lint",
 ].map(
   (owner) => new URL(`../packages/${owner}/src/`, import.meta.url).href,
-);
+).concat(new URL("../benchmarks/evidence/src/", import.meta.url).href);
 registerHooks({
   load(url, context, nextLoad) {
     // These owners emit CommonJS. Preserve their dependency export conditions,
