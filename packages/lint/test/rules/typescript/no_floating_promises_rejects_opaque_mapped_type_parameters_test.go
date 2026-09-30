@@ -15,6 +15,10 @@ import (
 //
 // The callable case is separate because its call signature would otherwise
 // enter the supported callback proof before the ordinary latent-type walk.
+// @evidence contracts/testing.md#behavioral-verification Opaque mapped parameter shapes must remain uncertain rather than prove a safe generic return.
+// @evidence contracts/testing.md#independent-expectations Authored plain and callable mapped fixtures must expose a mapped constituent with zero public properties/index infos, retain opaque and latent-type guards and yield uncertain applicability.
+// @evidence contracts/testing.md#distinguishing-cases Plain object versus callable intersection exercises the distinct callback-proof entry; DetectsIndexValueTypeParameters supplies observable index/value boundaries.
+// @evidence contracts/testing.md#execution-ownership TestNoFloatingPromisesRejectsOpaqueMappedTypeParameters invokes loadProgram and direct public Checker mapped-shape/index/signature applicability operations in the shared Go unit population. All original input/options/assertions stay owned here; no compiler child, installation or native artifact build executes.
 func TestNoFloatingPromisesRejectsOpaqueMappedTypeParameters(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{

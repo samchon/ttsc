@@ -1,6 +1,7 @@
 package linthost
 
 import (
+  "sort"
   "strings"
   "testing"
 )
@@ -14,6 +15,10 @@ import (
 //  1. Pair valid generic receiver branches with one-contract-away invalid twins.
 //  2. Exercise constraints, defaults, callback variance, properties, and unsupported shapes.
 //  3. Assert every unsafe or uncertain call reports while every proven-safe twin remains clean.
+// @evidence contracts/testing.md#behavioral-verification Unsupported or incompatible generic proofs must not hide possibly floating Promise results.
+// @evidence contracts/testing.md#independent-expectations Twenty independently authored lint markers determine the complete raw/rendered error population; four designated compiler-rejected calls must independently carry actual TS2349 diagnostics at their authored call spans.
+// @evidence contracts/testing.md#distinguishing-cases Explicit/default/dependent generics, callback/tag/variance/predicate/assertion/rest/private contracts and uncertain returns preserve valid safe twins and both compiler-rejected and lint-uncertain positives.
+// @evidence contracts/testing.md#execution-ownership TestNoFloatingPromisesRejectsInapplicableGenericReceiverBranches invokes in-process check command, runRuleFindingsSnapshot and loadProgram programDiagnostics with real Checker in the shared Go unit population. All original input/options/assertions stay owned here; no compiler child, installation or native artifact build executes.
 func TestNoFloatingPromisesRejectsInapplicableGenericReceiverBranches(t *testing.T) {
   source := `interface FixedGenericThen {
   then<T>(value: number, factory: () => T): T;
@@ -192,7 +197,7 @@ function checkUncertainArray<U>(
     }
     found := false
     for _, finding := range findings {
-      if finding != nil && finding.Rule == "typescript/no-floating-promises" &&
+      if finding != nil && finding.Rule == "typescript/no-floating-promises" && finding.Severity == SeverityError &&
         finding.Pos >= lineStart && finding.Pos < lineEnd {
         found = true
         break
@@ -235,4 +240,12 @@ function checkUncertainArray<U>(
       t.Fatalf("missing independent TS2349 rejection for %q at offset %d: %+v", marker, offset, compilerDiagnostics)
     }
   }
+  expectedRuleLines := make([]int, 0, len(lintMarkers))
+  for _, marker := range lintMarkers {
+    offset := strings.Index(source, marker)
+    if offset < 0 { t.Fatalf("missing authored lint marker %q", marker) }
+    expectedRuleLines = append(expectedRuleLines, strings.Count(source[:offset], "\n")+1)
+  }
+  sort.Ints(expectedRuleLines)
+  assertTypedRuleRenderedErrors(t, "typescript/no-floating-promises", stderr, expectedRuleLines...)
 }

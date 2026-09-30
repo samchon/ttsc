@@ -24,6 +24,10 @@ import (
 //  3. Run `check` with typescript/await-thenable enabled as error.
 //  4. Assert exactly one finding anchored at the initializer with the
 //     upstream message text.
+// @evidence contracts/testing.md#behavioral-verification Await-using a sync-only disposable must report at its initializer.
+// @evidence contracts/testing.md#independent-expectations The authored source and original complete assertions fix exact rule/error rendered lines 3 with code 2 and empty stdout; added per-rule diagnostic parsing rejects wrong severity or unrelated diagnostic anchors.
+// @evidence contracts/testing.md#distinguishing-cases Original upstream message and line3 column26 remain required; AsyncDisposableAllows provides the async protocol counterpart.
+// @evidence contracts/testing.md#execution-ownership TestAwaitThenableAwaitUsingSyncDisposableReports executes the in-process check command with a real Program/Checker; the original separate no-plugin compiler-prerequisite check is retained before rule execution in the shared Go unit process. Fixture configuration is input; no child compiler, native build or installed consumer runs.
 func TestAwaitThenableAwaitUsingSyncDisposableReports(t *testing.T) {
   root := seedAwaitUsingLintProject(t, `export {};
 async function main(): Promise<void> {
@@ -56,4 +60,5 @@ void main();
   if !diagnosticOutputContains(stderr, "main.ts:3:26") {
     t.Fatalf("finding not anchored at the initializer expression:\n%s", stderr)
   }
+  assertTypedRuleRenderedErrors(t, "typescript/await-thenable", stderr, 3)
 }

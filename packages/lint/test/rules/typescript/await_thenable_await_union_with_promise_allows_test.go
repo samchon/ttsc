@@ -20,6 +20,10 @@ import (
 //  1. Seed a project awaiting a `Promise<number> | number` value.
 //  2. Run `check` with typescript/await-thenable enabled as error.
 //  3. Assert a clean exit with no await-thenable finding.
+// @evidence contracts/testing.md#behavioral-verification A union containing a Promise must remain maybe-awaitable.
+// @evidence contracts/testing.md#independent-expectations The authored source and original complete assertions fix zero rule findings with code 0 and empty stdout; added per-rule diagnostic parsing rejects wrong severity or unrelated diagnostic anchors.
+// @evidence contracts/testing.md#distinguishing-cases The Promise<number>|number input is clean; scalar-constrained await in AwaitabilityTypeParameterBoundaries is the positive counterpart.
+// @evidence contracts/testing.md#execution-ownership TestAwaitThenableAwaitUnionWithPromiseAllows executes the in-process check command with a real Program/Checker in the shared Go unit process. Fixture configuration is input; no child compiler, native build or installed consumer runs.
 func TestAwaitThenableAwaitUnionWithPromiseAllows(t *testing.T) {
   root := seedLintProject(t, `declare const maybePromise: Promise<number> | number;
 async function main(): Promise<void> {
@@ -40,4 +44,5 @@ void main();
   if code != 0 || stdout != "" || strings.Contains(stderr, "[typescript/await-thenable]") {
     t.Fatalf("maybe-thenable union await was reported: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
+  assertTypedRuleRenderedErrors(t, "typescript/await-thenable", stderr)
 }

@@ -19,6 +19,10 @@ import (
 //  1. Import unsafe-any and safe-undefined JSDoc method defaults into TypeScript.
 //  2. Recover each JavaScript signature and fill its omitted type argument.
 //  3. Assert only the JavaScript-any return remains conservatively unhandled.
+// @evidence contracts/testing.md#behavioral-verification JavaScript generic defaults must preserve the checker-specific filled type and unhandled result.
+// @evidence contracts/testing.md#independent-expectations The authored JSDoc defaults require filled any/unhandled=true for the uncertain class and undefined/unhandled=false for the safe class; both signatures must be applicable JavaScript signatures with two parameters.
+// @evidence contracts/testing.md#distinguishing-cases Identical explicit catch<undefined> calls differ only by the second JSDoc default; the fixture validates this compiler-supported default policy.
+// @evidence contracts/testing.md#execution-ownership TestNoFloatingPromisesHonorsJavaScriptGenericDefaults invokes loadProgram with allowJs/checkJs and direct Checker/signature/default/applicability operations in the shared Go unit population. All original input/options/assertions stay owned here; no compiler child, installation or native artifact build executes.
 func TestNoFloatingPromisesHonorsJavaScriptGenericDefaults(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{

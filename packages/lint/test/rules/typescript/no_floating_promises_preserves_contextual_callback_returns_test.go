@@ -19,6 +19,10 @@ import (
 //  1. Contextually widen a callback's literal return to string.
 //  2. Compare it with generic and non-generic unsafe literal-return candidates.
 //  3. Assert the mismatch remains uncertain and prevents selecting the safe twin.
+// @evidence contracts/testing.md#behavioral-verification Literal callback return context must not silently discard a possibly applicable unsafe overload.
+// @evidence contracts/testing.md#independent-expectations Authored plain/generic/constrained narrow candidates require uncertainty, their broad twins require applicability, and overall selection must remain nil; the actual original callback must return string.
+// @evidence contracts/testing.md#distinguishing-cases The same literal-return callback is compared under narrow and broad signatures and three generic configurations, preserving independently checked contextual widening.
+// @evidence contracts/testing.md#execution-ownership TestNoFloatingPromisesPreservesContextualCallbackReturns invokes loadProgram and direct Checker callback-return/signature applicability/selection operations in the shared Go unit population. All original input/options/assertions stay owned here; no compiler child, installation or native artifact build executes.
 func TestNoFloatingPromisesPreservesContextualCallbackReturns(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{

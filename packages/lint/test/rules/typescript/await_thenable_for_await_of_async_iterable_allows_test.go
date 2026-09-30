@@ -20,6 +20,10 @@ import (
 //  1. Seed a project with four loops that must all stay clean.
 //  2. Run `check` with typescript/await-thenable enabled as error.
 //  3. Assert a clean exit with no await-thenable finding.
+// @evidence contracts/testing.md#behavioral-verification Supported async iteration and unknown-any boundaries must not report.
+// @evidence contracts/testing.md#independent-expectations The authored source and original complete assertions fix zero rule findings with code 0 and empty stdout; added per-rule diagnostic parsing rejects wrong severity or unrelated diagnostic anchors.
+// @evidence contracts/testing.md#distinguishing-cases Async generator, mixed async/sync union and any remain clean alongside an ordinary synchronous loop; SyncIterableReports provides async-loop-over-sync positives.
+// @evidence contracts/testing.md#execution-ownership TestAwaitThenableForAwaitOfAsyncIterableAllows executes the in-process check command with a real Program/Checker in the shared Go unit process. Fixture configuration is input; no child compiler, native build or installed consumer runs.
 func TestAwaitThenableForAwaitOfAsyncIterableAllows(t *testing.T) {
   root := seedLintProject(t, `declare const mixedSource: AsyncIterable<string> | Iterable<string>;
 declare const anything: any;
@@ -54,4 +58,5 @@ void main();
   if code != 0 || stdout != "" || strings.Contains(stderr, "[typescript/await-thenable]") {
     t.Fatalf("valid async iteration was reported: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
+  assertTypedRuleRenderedErrors(t, "typescript/await-thenable", stderr)
 }

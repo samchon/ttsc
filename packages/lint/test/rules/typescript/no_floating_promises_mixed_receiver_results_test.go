@@ -16,6 +16,10 @@ import (
 //  1. Pair safe undefined returns with unsafe Promise returns in mixed calls.
 //  2. Repeat the distinction with thenable checks and configured safe values.
 //  3. Assert every unsafe twin reports and every handled twin remains clean.
+// @evidence contracts/testing.md#behavioral-verification Mixed-receiver results must preserve every possibly unhandled branch.
+// @evidence contracts/testing.md#independent-expectations Original authored complete lists require 16 errors at 33,35,37,39,42,44,45,46,58,74,76,78,86,93,102,103; configured variants require 15,17,19 then 15,19 with checkThenables disabled.
+// @evidence contracts/testing.md#distinguishing-cases Safe/non-Promise return branches, unsafe Promise/uncertain/incompatible/overloaded returns, generic defaults, known-safe exemptions and thenable option twins remain in their original comprehensive sources.
+// @evidence contracts/testing.md#execution-ownership TestNoFloatingPromisesCorrelatesMixedReceiverResults invokes in-process check command through runNoFloatingPromisesCase and real Program/Checker in the shared Go unit population. All original input/options/assertions stay owned here; no compiler child, installation or native artifact build executes.
 func TestNoFloatingPromisesCorrelatesMixedReceiverResults(t *testing.T) {
   code, stdout, stderr := runNoFloatingPromisesCase(t, `interface CatchResult<T> {
   catch(onRejected: (reason: unknown) => void): T;
@@ -155,6 +159,8 @@ unrelatedUnknown.catch(() => undefined);
     }
   }
 
+  assertTypedRuleRenderedErrors(t, "typescript/no-floating-promises", stderr, 33, 35, 37, 39, 42, 44, 45, 46, 58, 74, 76, 78, 86, 93, 102, 103)
+
   optionSource := `interface CatchResult<T> {
   catch(onRejected: (reason: unknown) => void): T;
 }
@@ -201,6 +207,8 @@ ignoredPromise.catch();
     }
   }
 
+  assertTypedRuleRenderedErrors(t, "typescript/no-floating-promises", stderr, 15, 17, 19)
+
   options["checkThenables"] = false
   code, stdout, stderr = runNoFloatingPromisesCase(t, optionSource, options)
   if code != 2 || stdout != "" || strings.Count(stderr, "[typescript/no-floating-promises]") != 2 ||
@@ -209,4 +217,5 @@ ignoredPromise.catch();
     diagnosticOutputContains(stderr, "main.ts:17:") {
     t.Fatalf("disabled thenable run mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
+  assertTypedRuleRenderedErrors(t, "typescript/no-floating-promises", stderr, 15, 19)
 }

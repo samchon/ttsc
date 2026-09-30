@@ -14,6 +14,10 @@ import (
 //  1. Discard four built-in Promise forms and one custom catchable thenable.
 //  2. Run the rule with no options.
 //  3. Assert exactly the four built-in forms report.
+// @evidence contracts/testing.md#behavioral-verification Default no-floating-promises policy must reject incomplete rejection handling and Promise arrays.
+// @evidence contracts/testing.md#independent-expectations Independently authored source and original assertions require exact error lines 1, 2, 3, 4, code 2 and empty stdout for reporting command runs; all original inputs/options and clean arms are retained.
+// @evidence contracts/testing.md#distinguishing-cases Empty catch, finally-only, undefined rejection callback and Promise array report; custom thenable stays out of default scope.
+// @evidence contracts/testing.md#execution-ownership TestNoFloatingPromisesDefaultSemantics invokes the in-process check command over a real Program/Checker through the owning floating-promise fixture helpers in one Go unit process, without a native build, installed consumer or compiler child.
 func TestNoFloatingPromisesDefaultSemantics(t *testing.T) {
   code, stdout, stderr := runNoFloatingPromisesCase(t, `Promise.reject(new Error("catch")).catch();
 Promise.reject(new Error("finally")).finally(() => undefined);
@@ -39,4 +43,5 @@ customThenable;
   if diagnosticOutputContains(stderr, "main.ts:9:") {
     t.Fatalf("custom thenable reported under checkThenables=false:\n%s", stderr)
   }
+  assertTypedRuleRenderedErrors(t, "typescript/no-floating-promises", stderr, 1, 2, 3, 4)
 }

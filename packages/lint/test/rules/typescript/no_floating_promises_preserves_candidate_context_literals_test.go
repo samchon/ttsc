@@ -17,6 +17,10 @@ import (
 // not every expression affected by contextual typing. Plain literals, wrapper
 // expressions, annotated callback returns, and generic calls with contextual
 // return inference must therefore remain uncertain in candidate proofs.
+// @evidence contracts/testing.md#behavioral-verification Candidate selection must not accept evidence widened by another signature's context.
+// @evidence contracts/testing.md#independent-expectations Ten authored literal/wrapper/const-context candidates require uncertainty and no selected signature; the ordinary asserted broad callback requires narrow-incompatible, broad-applicable and exact broad signature identity.
+// @evidence contracts/testing.md#distinguishing-cases Array/object-return/template literals, generics, await/non-null wrappers and const assertions contrast with an ordinary explicit type assertion; original checker shape guards independently establish fixture context.
+// @evidence contracts/testing.md#execution-ownership TestNoFloatingPromisesPreservesCandidateContextLiterals invokes loadProgram and direct Checker plus floatingPromiseSignatureApplicability/floatingPromiseApplicableSignature in the shared Go unit population. All original input/options/assertions stay owned here; no compiler child, installation or native artifact build executes.
 func TestNoFloatingPromisesPreservesCandidateContextLiterals(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{

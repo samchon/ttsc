@@ -21,6 +21,10 @@ import (
 //  3. Run `check` with typescript/await-thenable enabled as error.
 //  4. Assert exactly one finding, anchored at the second declarator's
 //     initializer expression.
+// @evidence contracts/testing.md#behavioral-verification Multiple await-using declarators must classify each initializer separately.
+// @evidence contracts/testing.md#independent-expectations The authored source and original complete assertions fix exact rule/error rendered lines 11 with code 2 and empty stdout; added per-rule diagnostic parsing rejects wrong severity or unrelated diagnostic anchors.
+// @evidence contracts/testing.md#distinguishing-cases The first async resource is clean and the second sync resource alone reports at original line11 column45.
+// @evidence contracts/testing.md#execution-ownership TestAwaitThenableAwaitUsingMultiDeclaratorReportsOnlySyncResource executes the in-process check command with a real Program/Checker; the original separate no-plugin compiler-prerequisite check is retained before rule execution in the shared Go unit process. Fixture configuration is input; no child compiler, native build or installed consumer runs.
 func TestAwaitThenableAwaitUsingMultiDeclaratorReportsOnlySyncResource(t *testing.T) {
   root := seedAwaitUsingLintProject(t, `export {};
 interface AsyncResource {
@@ -56,4 +60,5 @@ void main();
   if !diagnosticOutputContains(stderr, "main.ts:11:45") {
     t.Fatalf("finding not anchored at the sync declarator's initializer:\n%s", stderr)
   }
+  assertTypedRuleRenderedErrors(t, "typescript/await-thenable", stderr, 11)
 }

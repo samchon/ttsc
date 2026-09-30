@@ -21,6 +21,10 @@ import (
 //  1. Cache canonical signatures before analysis for valid, invalid, and nested calls.
 //  2. Analyze equivalent uncached and cached calls in opposite orders.
 //  3. Assert every cached signature and return type remains the exact same object.
+// @evidence contracts/testing.md#behavioral-verification Mixed-receiver analysis must leave canonical call-resolution and contextual type caches unchanged.
+// @evidence contracts/testing.md#independent-expectations Authored safe/unsafe/incompatible outcomes are asserted separately; before/after signature and type pointers must remain identical, and cached/uncached twin declarations, targets and flags must match.
+// @evidence contracts/testing.md#distinguishing-cases Safe, unsafe, failed calls and nested arrow/function contexts exercise both cache orderings and repeated analysis. State identity preservation is the oracle, not a snapshot claiming the original behavior correct.
+// @evidence contracts/testing.md#execution-ownership TestNoFloatingPromisesPreservesCanonicalCallResolution invokes loadProgram, analyzeFloatingPromise and direct Checker canonical signature/contextual type queries in the shared Go unit population. All original input/options/assertions stay owned here; no compiler child, installation or native artifact build executes.
 func TestNoFloatingPromisesPreservesCanonicalCallResolution(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{

@@ -8,6 +8,10 @@ import "testing"
 //  1. Check every incomplete literal family together and assert all names.
 //  2. Check every complete counterpart separately and require no findings.
 //  3. Keep enum and unique-symbol identity distinct from equal-looking values.
+// @evidence contracts/testing.md#behavioral-verification Finite switch types must enumerate all supported literal and enum members.
+// @evidence contracts/testing.md#independent-expectations Seven authored missing-member messages require only, 42, Mode.Done, true, 2n, undefined and typeof second once each; the completed program requires zero findings.
+// @evidence contracts/testing.md#distinguishing-cases Singleton, number, enum, boolean, bigint, nullish and unique-symbol unions each have an exhaustive counterpart.
+// @evidence contracts/testing.md#execution-ownership TestSwitchExhaustivenessCheckFiniteMembers executes the in-process check command with real Program/Checker through the shared switch oracle; every original source/options/assertion remains and no compiler child, installation or native build runs.
 func TestSwitchExhaustivenessCheckFiniteMembers(t *testing.T) {
   assertSwitchExhaustivenessCheckForTest(t, `
 declare const singletonIncomplete: "only";

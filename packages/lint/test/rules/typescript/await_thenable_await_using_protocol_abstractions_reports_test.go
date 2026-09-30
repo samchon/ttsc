@@ -20,6 +20,10 @@ import (
 //  2. Prove the fixture type-checks without a lint plugin entry.
 //  3. Run `check` with typescript/await-thenable enabled as error.
 //  4. Assert exactly four findings on the four declaration lines.
+// @evidence contracts/testing.md#behavioral-verification Sync-only disposal must report through aliases, inherited interfaces, intersections and constrained generic factories.
+// @evidence contracts/testing.md#independent-expectations The authored source and original complete assertions fix exact rule/error rendered lines 13,14,15,19 with code 2 and empty stdout; added per-rule diagnostic parsing rejects wrong severity or unrelated diagnostic anchors.
+// @evidence contracts/testing.md#distinguishing-cases ProtocolAbstractionsAllows supplies the same four abstraction forms with async-dispose.
+// @evidence contracts/testing.md#execution-ownership TestAwaitThenableAwaitUsingProtocolAbstractionsReports executes the in-process check command with a real Program/Checker; the original separate no-plugin compiler-prerequisite check is retained before rule execution in the shared Go unit process. Fixture configuration is input; no child compiler, native build or installed consumer runs.
 func TestAwaitThenableAwaitUsingProtocolAbstractionsReports(t *testing.T) {
   root := seedAwaitUsingLintProject(t, `export {};
 interface SyncResource {
@@ -66,4 +70,5 @@ void openConstrained(() => aliased);
       t.Fatalf("missing finding at %s:\n%s", anchor, stderr)
     }
   }
+  assertTypedRuleRenderedErrors(t, "typescript/await-thenable", stderr, 13, 14, 15, 19)
 }

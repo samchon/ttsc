@@ -10,6 +10,10 @@ import "testing"
 //  2. Reject only genuinely redundant defaults when allowDefaultCaseForExhaustiveSwitch is false.
 //  3. Require defaults only for open branches while retaining finite missing diagnostics.
 //  4. Recognize only the eligible trailing comment under the default or custom pattern.
+// @evidence contracts/testing.md#behavioral-verification Switch exhaustiveness options and trailing comment policy must act independently.
+// @evidence contracts/testing.md#independent-expectations Authored counts/messages require 0,2,3,0,0,2 findings across six independently configured programs, preserving full exit/stdout/error severity assertions.
+// @evidence contracts/testing.md#distinguishing-cases Default-exhaustive, unnecessary-default, open-type requirements, final/custom markers and misplaced/nonfinal markers distinguish every configured gate.
+// @evidence contracts/testing.md#execution-ownership TestSwitchExhaustivenessCheckOptions executes the in-process check command with real Program/Checker through the shared switch oracle; every original source/options/assertion remains and no compiler child, installation or native build runs.
 func TestSwitchExhaustivenessCheckOptions(t *testing.T) {
   assertSwitchExhaustivenessCheckForTest(t, `
 declare const value: "alpha" | "beta";

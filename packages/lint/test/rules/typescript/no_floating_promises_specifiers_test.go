@@ -12,6 +12,10 @@ import (
 //  1. Materialize local and package declarations plus built-in Promise types.
 //  2. Run matching and deliberately wrong-source configurations.
 //  3. Assert only declarations outside each configured boundary report.
+// @evidence contracts/testing.md#behavioral-verification Structured safe-call and safe-Promise exemptions must bind their declared source.
+// @evidence contracts/testing.md#independent-expectations Independently authored source and original assertions require exact lists 10; 6,7,8,9,10; and 5 across the original three command runs, plus a zero-finding direct Engine source, code 2 and empty stdout for reporting command runs; all original inputs/options and clean arms are retained.
+// @evidence contracts/testing.md#distinguishing-cases Matching local/package names leave only ordinaryPromise; wrong file/package names expose all five; lib-only Promise exemption does not exempt a local subclass; direct Engine current-directory resolution stays clean.
+// @evidence contracts/testing.md#execution-ownership TestNoFloatingPromisesStructuredSpecifiers invokes the in-process check command over a real Program/Checker through the owning floating-promise fixture helpers and the existing direct Engine operation in one Go unit process, without a native build, installed consumer or compiler child.
 func TestNoFloatingPromisesStructuredSpecifiers(t *testing.T) {
   source := `import { LocalSafePromise, localSafeCall } from "./safe";
 import { PackageSafePromise, packageSafeCall } from "safe-package";
@@ -48,6 +52,8 @@ export declare function packageSafeCall(): Promise<void>;
     t.Fatalf("matching specifier run mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
 
+  assertTypedRuleRenderedErrors(t, "typescript/no-floating-promises", stderr, 10)
+
   wrongSource := map[string]any{
     "allowForKnownSafeCalls": []any{
       map[string]any{"from": "file", "name": "localSafeCall", "path": "src/other.ts"},
@@ -68,6 +74,8 @@ export declare function packageSafeCall(): Promise<void>;
     }
   }
 
+  assertTypedRuleRenderedErrors(t, "typescript/no-floating-promises", stderr, 6, 7, 8, 9, 10)
+
   code, stdout, stderr = runNoFloatingPromisesProjectCase(t, `class SafePromise<T> extends Promise<T> {}
 declare const localSafe: SafePromise<void>;
 declare const builtIn: Promise<void>;
@@ -81,6 +89,8 @@ localSafe;
   if code != 2 || stdout != "" || strings.Count(stderr, "[typescript/no-floating-promises]") != 1 || !diagnosticOutputContains(stderr, "main.ts:5:") {
     t.Fatalf("lib specifier run mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
+
+  assertTypedRuleRenderedErrors(t, "typescript/no-floating-promises", stderr, 5)
 
   _, _, findings := runRuleFindingsSnapshot(
     t,

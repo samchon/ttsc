@@ -12,6 +12,10 @@ import (
 //  1. Suppress compiler errors for a missing and a numeric all argument.
 //  2. Run check with typescript/await-thenable enabled as error.
 //  3. Assert neither malformed call produces a lint finding.
+// @evidence contracts/testing.md#behavioral-verification Malformed noniterable aggregator calls must not receive unsupported iterable lint findings.
+// @evidence contracts/testing.md#independent-expectations The authored source and original assertions fix zero rule findings with code 0 and empty stdout; the added per-rule rendered oracle excludes wrong severity or unrelated diagnostic anchors.
+// @evidence contracts/testing.md#distinguishing-cases Missing argument and number argument stay lint-clean with intentional TypeScript suppression; NativeMethodsReport covers actual iterable scalar positives. No claim that malformed calls are valid without suppression is made.
+// @evidence contracts/testing.md#execution-ownership TestAwaitThenablePromiseAggregatorNoniterableBoundariesAllow invokes the in-process check command with a real Program/Checker in the shared Go unit population; original source/configuration and all assertions remain, with no child compiler, installed consumer or native artifact build.
 func TestAwaitThenablePromiseAggregatorNoniterableBoundariesAllow(t *testing.T) {
   root := seedLintProject(t, `// @ts-expect-error: intentionally missing required iterable
 Promise.all();
@@ -30,4 +34,5 @@ Promise.all(1);
   if code != 0 || stdout != "" || strings.Contains(stderr, "[typescript/await-thenable]") {
     t.Fatalf("malformed Promise aggregator call was linted: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
+  assertTypedRuleRenderedErrors(t, "typescript/await-thenable", stderr)
 }

@@ -13,6 +13,10 @@ import "testing"
 //  2. Include a fully covered union with a permitted default as the negative
 //     control.
 //  3. Assert every diagnostic names its actual missing member.
+// @evidence contracts/testing.md#behavioral-verification The baseline switch policy must report every missing finite alternative, including with a default clause.
+// @evidence contracts/testing.md#independent-expectations Five authored occurrences require beta twice, only, typeof second and undefined; a separately authored complete switch requires zero findings.
+// @evidence contracts/testing.md#distinguishing-cases Incomplete union with/without default, singleton, symbol union and maybe-undefined inputs contrast with the complete explicit union cases.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusSwitchExhaustivenessCheck executes the in-process check command with real Program/Checker through the shared switch oracle; every original source/options/assertion remains and no compiler child, installation or native build runs.
 func TestRuleCorpusSwitchExhaustivenessCheck(t *testing.T) {
   assertSwitchExhaustivenessCheckForTest(t, `
 type Choice = "alpha" | "beta";

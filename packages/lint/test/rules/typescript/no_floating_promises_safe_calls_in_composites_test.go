@@ -10,6 +10,10 @@ import (
 //
 // The matrix covers every recursive composite family, an explicit void walk,
 // a structural thenable under checkThenables, and the existing IIFE escape.
+// @evidence contracts/testing.md#behavioral-verification Known-safe calls must retain their exemption throughout composite expressions.
+// @evidence contracts/testing.md#independent-expectations Independently authored source and original assertions require exact error lines 17, 18, 19, 20, 21, 22, 23, 24, 26, code 2 and empty stdout for reporting command runs; all original inputs/options and clean arms are retained.
+// @evidence contracts/testing.md#distinguishing-cases Sequence, AND/OR/nullish/conditional and void branches pair safe and unsafe calls; thenable and ignored-IIFE cases preserve configured scope.
+// @evidence contracts/testing.md#execution-ownership TestNoFloatingPromisesSafeCallsInComposites invokes the in-process check command over a real Program/Checker through the owning floating-promise fixture helpers in one Go unit process, without a native build, installed consumer or compiler child.
 func TestNoFloatingPromisesSafeCallsInComposites(t *testing.T) {
   code, stdout, stderr := runNoFloatingPromisesCase(t, `interface CatchableThenable {
   then(onFulfilled: () => void, onRejected: () => void): CatchableThenable;
@@ -79,4 +83,5 @@ condition && unsafeThenable();
       t.Fatalf("configured safe/IIFE expression reported at %s\n%s", line, stderr)
     }
   }
+  assertTypedRuleRenderedErrors(t, "typescript/no-floating-promises", stderr, 17, 18, 19, 20, 21, 22, 23, 24, 26)
 }

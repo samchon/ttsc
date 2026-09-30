@@ -19,6 +19,10 @@ import (
 //  1. Declare a generic catch parameter with an index value of T.
 //  2. Recover the method signature and its original parameter type.
 //  3. Assert the latent-type-parameter scan detects T through the index value.
+// @evidence contracts/testing.md#behavioral-verification Index-signature latent type detection must inspect values rather than only keys.
+// @evidence contracts/testing.md#independent-expectations The authored generic catch signature must retain T in its index value and enclosing parameter, while the string key must not contain T.
+// @evidence contracts/testing.md#distinguishing-cases A concrete string key is the negative control beside generic T value in the same actual index info.
+// @evidence contracts/testing.md#execution-ownership TestNoFloatingPromisesDetectsIndexValueTypeParameters invokes loadProgram and direct public Checker index/type queries plus floatingPromiseTypeContainsAnyTypeParameter in the shared Go unit population. All original input/options/assertions stay owned here; no compiler child, installation or native artifact build executes.
 func TestNoFloatingPromisesDetectsIndexValueTypeParameters(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{

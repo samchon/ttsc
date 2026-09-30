@@ -7,6 +7,10 @@ import (
 
 // TestNoFloatingPromisesSafeCallsInCompositesHonorStructuredSpecifiers proves
 // nested matching retains file, package, and TypeScript-lib source boundaries.
+// @evidence contracts/testing.md#behavioral-verification Structured known-safe call identities must survive composite-expression traversal.
+// @evidence contracts/testing.md#independent-expectations Independently authored source and original assertions require exact error lines 7, code 2 and empty stdout for reporting command runs; all original inputs/options and clean arms are retained.
+// @evidence contracts/testing.md#distinguishing-cases File, package and lib-resolve calls stay exempt inside logical/conditional expressions; unlisted native reject reports. The synthetic package manifest feeds actual resolver behavior, not a file-existence check.
+// @evidence contracts/testing.md#execution-ownership TestNoFloatingPromisesSafeCallsInCompositesHonorStructuredSpecifiers invokes the in-process check command over a real Program/Checker through the owning floating-promise fixture helpers in one Go unit process, without a native build, installed consumer or compiler child.
 func TestNoFloatingPromisesSafeCallsInCompositesHonorStructuredSpecifiers(t *testing.T) {
   source := `import { localSafeCall } from "./safe";
 import { packageSafeCall } from "safe-package";
@@ -34,4 +38,5 @@ condition && Promise.reject(new Error("unsafe"));
     !diagnosticOutputContains(stderr, "main.ts:7:") {
     t.Fatalf("structured nested safe-call mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
+  assertTypedRuleRenderedErrors(t, "typescript/no-floating-promises", stderr, 7)
 }

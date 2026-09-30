@@ -19,6 +19,10 @@ import (
 //     constraint-typed SYNC iterables with `for await`.
 //  2. Run `check` with typescript/await-thenable enabled as error.
 //  3. Assert exactly four findings on the four loop lines.
+// @evidence contracts/testing.md#behavioral-verification Sync-only iterable abstractions must report under the async-iteration rule policy.
+// @evidence contracts/testing.md#independent-expectations The authored source and original complete assertions fix exact rule/error rendered lines 9,14,17,20 with code 2 and empty stdout; added per-rule diagnostic parsing rejects wrong severity or unrelated diagnostic anchors.
+// @evidence contracts/testing.md#distinguishing-cases The matching AsyncIterable abstractions in ProtocolAbstractionsAllows remain clean; this lint policy does not claim synchronous iteration is forbidden by JavaScript.
+// @evidence contracts/testing.md#execution-ownership TestAwaitThenableForAwaitOfProtocolAbstractionsReports executes the in-process check command with a real Program/Checker in the shared Go unit process. Fixture configuration is input; no child compiler, native build or installed consumer runs.
 func TestAwaitThenableForAwaitOfProtocolAbstractionsReports(t *testing.T) {
   root := seedLintProject(t, `type NumberList = Iterable<number>;
 interface NamedList extends Iterable<number> {
@@ -66,4 +70,5 @@ void main();
       t.Fatalf("missing finding at %s:\n%s", anchor, stderr)
     }
   }
+  assertTypedRuleRenderedErrors(t, "typescript/await-thenable", stderr, 9, 14, 17, 20)
 }

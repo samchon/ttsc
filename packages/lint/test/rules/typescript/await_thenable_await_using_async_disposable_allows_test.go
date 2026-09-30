@@ -22,6 +22,10 @@ import (
 //  2. Prove the fixture type-checks without a lint plugin entry.
 //  3. Run `check` with typescript/await-thenable enabled as error.
 //  4. Assert a clean exit with no await-thenable finding.
+// @evidence contracts/testing.md#behavioral-verification Supported async disposable resources must not produce await-using findings.
+// @evidence contracts/testing.md#independent-expectations The authored source and original complete assertions fix zero rule findings with code 0 and empty stdout; added per-rule diagnostic parsing rejects wrong severity or unrelated diagnostic anchors.
+// @evidence contracts/testing.md#distinguishing-cases Async-dispose, any, sync using and iterated async resources stay clean; SyncDisposableReports and AsyncMethodUnderDisposeSymbolReports provide opposite protocol cases.
+// @evidence contracts/testing.md#execution-ownership TestAwaitThenableAwaitUsingAsyncDisposableAllows executes the in-process check command with a real Program/Checker; the original separate no-plugin compiler-prerequisite check is retained before rule execution in the shared Go unit process. Fixture configuration is input; no child compiler, native build or installed consumer runs.
 func TestAwaitThenableAwaitUsingAsyncDisposableAllows(t *testing.T) {
   root := seedAwaitUsingLintProject(t, `export {};
 interface AsyncResource {
@@ -56,4 +60,5 @@ void main();
   if code != 0 || stdout != "" || strings.Contains(stderr, "[typescript/await-thenable]") {
     t.Fatalf("valid resource management was reported: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
+  assertTypedRuleRenderedErrors(t, "typescript/await-thenable", stderr)
 }

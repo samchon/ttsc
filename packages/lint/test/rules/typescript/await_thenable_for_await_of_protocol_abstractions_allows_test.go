@@ -19,6 +19,10 @@ import (
 //     constraint-typed async iterables with `for await`.
 //  2. Run `check` with typescript/await-thenable enabled as error.
 //  3. Assert a clean exit with no await-thenable finding.
+// @evidence contracts/testing.md#behavioral-verification Async-iterable protocol detection must traverse aliases, inheritance, intersections and constraints.
+// @evidence contracts/testing.md#independent-expectations The authored source and original complete assertions fix zero rule findings with code 0 and empty stdout; added per-rule diagnostic parsing rejects wrong severity or unrelated diagnostic anchors.
+// @evidence contracts/testing.md#distinguishing-cases The four async abstraction shapes remain clean; ProtocolAbstractionsReports changes them to sync Iterable.
+// @evidence contracts/testing.md#execution-ownership TestAwaitThenableForAwaitOfProtocolAbstractionsAllows executes the in-process check command with a real Program/Checker in the shared Go unit process. Fixture configuration is input; no child compiler, native build or installed consumer runs.
 func TestAwaitThenableForAwaitOfProtocolAbstractionsAllows(t *testing.T) {
   root := seedLintProject(t, `type NumberStream = AsyncIterable<number>;
 interface NamedFeed extends AsyncIterable<number> {
@@ -58,4 +62,5 @@ void main();
   if code != 0 || stdout != "" || strings.Contains(stderr, "[typescript/await-thenable]") {
     t.Fatalf("abstracted async iterables were reported: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
+  assertTypedRuleRenderedErrors(t, "typescript/await-thenable", stderr)
 }

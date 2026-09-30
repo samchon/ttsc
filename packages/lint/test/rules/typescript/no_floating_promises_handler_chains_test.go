@@ -14,6 +14,10 @@ import (
 //  1. Build handled and unhandled dot/computed Promise chains.
 //  2. Run the rule with scalar defaults.
 //  3. Assert only the invalid handler, finally, and spread lines report.
+// @evidence contracts/testing.md#behavioral-verification Handler recognition must require a supported callable rejection arm and preserve receiver certainty.
+// @evidence contracts/testing.md#independent-expectations Independently authored source and original assertions require exact error lines 11, 12, 13, 14, 17, code 2 and empty stdout for reporting command runs; all original inputs/options and clean arms are retained.
+// @evidence contracts/testing.md#distinguishing-cases Direct/computed catch and then rejection callbacks, nested finally and asserted handler stay clean; undefined, finally-only, spread-argument and mixed unrelated receiver cases report.
+// @evidence contracts/testing.md#execution-ownership TestNoFloatingPromisesHandlerChains invokes the in-process check command over a real Program/Checker through the owning floating-promise fixture helpers in one Go unit process, without a native build, installed consumer or compiler child.
 func TestNoFloatingPromisesHandlerChains(t *testing.T) {
   code, stdout, stderr := runNoFloatingPromisesCase(t, `declare const promise: Promise<void>;
 declare const maybeHandler: ((reason: unknown) => void) | undefined;
@@ -44,4 +48,5 @@ mixedReceiver.catch(() => undefined);
       t.Fatalf("missing handler finding at %s\n%s", line, stderr)
     }
   }
+  assertTypedRuleRenderedErrors(t, "typescript/no-floating-promises", stderr, 11, 12, 13, 14, 17)
 }

@@ -19,6 +19,10 @@ import (
 //     `for await`.
 //  2. Run `check` with typescript/await-thenable enabled as error.
 //  3. Assert exactly one finding on the loop line.
+// @evidence contracts/testing.md#behavioral-verification A union consisting only of synchronous iterable forms must report.
+// @evidence contracts/testing.md#independent-expectations The authored source and original assertions fix the complete rule/error line list 3 with code 2 and empty stdout; the added per-rule rendered oracle excludes wrong severity or unrelated diagnostic anchors.
+// @evidence contracts/testing.md#distinguishing-cases The sync Iterable|string-array union contrasts with AsyncIterableAllows mixed async/sync union.
+// @evidence contracts/testing.md#execution-ownership TestAwaitThenableForAwaitOfSyncOnlyUnionReports invokes the in-process check command with a real Program/Checker in the shared Go unit population; original source/configuration and all assertions remain, with no child compiler, installed consumer or native artifact build.
 func TestAwaitThenableForAwaitOfSyncOnlyUnionReports(t *testing.T) {
   root := seedLintProject(t, `declare const syncOnly: Iterable<string> | string[];
 async function main(): Promise<void> {
@@ -46,4 +50,5 @@ void main();
   if !diagnosticOutputContains(stderr, "main.ts:3:") {
     t.Fatalf("finding not anchored on the loop line:\n%s", stderr)
   }
+  assertTypedRuleRenderedErrors(t, "typescript/await-thenable", stderr, 3)
 }
