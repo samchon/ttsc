@@ -1,11 +1,9 @@
 import { TestProject } from "@ttsc/testing";
 
-import {
-  assert,
-  fs,
-  path,
-  readDependencyCache,
-} from "../../internal/dependency-cache";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { readDependencyCache } from "../../../../../packages/ttsc/src/launcher/internal/runtime/readDependencyCache";
 
 /**
  * Verifies a dependency-cache marker that carries no output record is rejected
@@ -23,9 +21,13 @@ import {
  * 2. Read the cache after each.
  * 3. Assert both reads miss, then assert the same generation hits with its record,
  *    which the read hands back unchanged.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The real reader rejects missing and malformed output ownership, then returns the exact recorded output list.
+ * @evidence contracts/testing.md#independent-expectations The marker contract requires a string output list, independently of any filename inference.
+ * @evidence contracts/testing.md#distinguishing-cases Missing and mixed-type lists miss; a valid singleton list hits without changing its generation.
+ * @evidence contracts/testing.md#execution-ownership The named source-unit entry calls authored production functions directly; temporary fixture files are inputs, with no compiler build, consumer installation or product host.
  */
-export const test_ttsx_dependency_cache_rejects_a_marker_without_an_output_record =
-  () => {
+export function test_ttsx_dependency_cache_rejects_a_marker_without_an_output_record() {
     const root = TestProject.tmpdir("ttsx-depcache-outputs-");
     const cacheDir = path.join(root, "entry");
     const metaPath = path.join(root, "entry.json");
@@ -69,4 +71,4 @@ export const test_ttsx_dependency_cache_rejects_a_marker_without_an_output_recor
     assert.notEqual(reused, null, "the same generation must hit once recorded");
     assert.equal(reused!.emitDir, generationDir);
     assert.deepEqual(reused!.outputs, ["lib/index.js"]);
-  };
+}

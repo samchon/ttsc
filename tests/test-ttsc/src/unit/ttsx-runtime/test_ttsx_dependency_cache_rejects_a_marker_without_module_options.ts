@@ -1,11 +1,9 @@
 import { TestProject } from "@ttsc/testing";
 
-import {
-  assert,
-  fs,
-  path,
-  readDependencyCache,
-} from "../../internal/dependency-cache";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { readDependencyCache } from "../../../../../packages/ttsc/src/launcher/internal/runtime/readDependencyCache";
 
 /**
  * Verifies a dependency-cache marker that carries no `moduleOptions` object is
@@ -24,9 +22,13 @@ import {
  * 3. Assert the read misses, then assert the same generation hits once its marker
  *    carries an object, so the rejection is the field's doing and not the
  *    generation's.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The real reader rejects a legacy schema and accepts the identical generation only after moduleOptions is supplied.
+ * @evidence contracts/testing.md#independent-expectations The published marker schema independently requires an options object; equal generation bytes rule out unrelated cache corruption.
+ * @evidence contracts/testing.md#distinguishing-cases Absent options miss and present CommonJS options hit with the exact generation path.
+ * @evidence contracts/testing.md#execution-ownership The named source-unit entry calls authored production functions directly; temporary fixture files are inputs, with no compiler build, consumer installation or product host.
  */
-export const test_ttsx_dependency_cache_rejects_a_marker_without_module_options =
-  () => {
+export function test_ttsx_dependency_cache_rejects_a_marker_without_module_options() {
     const root = TestProject.tmpdir("ttsx-depcache-schema-");
     const cacheDir = path.join(root, "entry");
     const metaPath = path.join(root, "entry.json");
@@ -74,4 +76,4 @@ export const test_ttsx_dependency_cache_rejects_a_marker_without_module_options 
       "the same generation must hit once described",
     );
     assert.equal(reused!.emitDir, generationDir);
-  };
+}

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 
-import { TTSX_MINIMUM_NODE_VERSION } from "../../../../../packages/ttsc/lib/launcher/internal/runtime/TTSX_MINIMUM_NODE_VERSION.js";
-import { checkNodeRuntimeSupport } from "../../../../../packages/ttsc/lib/launcher/internal/runtime/checkNodeRuntimeSupport.js";
+import { TTSX_MINIMUM_NODE_VERSION } from "../../../../../packages/ttsc/src/launcher/internal/runtime/TTSX_MINIMUM_NODE_VERSION";
+import { checkNodeRuntimeSupport } from "../../../../../packages/ttsc/src/launcher/internal/runtime/checkNodeRuntimeSupport";
 
 /**
  * Verifies ttsx diagnoses every Node.js version below its documented floor with
@@ -19,9 +19,13 @@ import { checkNodeRuntimeSupport } from "../../../../../packages/ttsc/lib/launch
  * 2. Assert the floor 22.15.0 and a later 24.x return `null` (supported).
  * 3. Assert an unparseable version returns `null` rather than blocking on a
  *    parsing quirk.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The production version guard returns actionable diagnostics below its public floor and permits supported versions.
+ * @evidence contracts/testing.md#independent-expectations The supported Node API floor is 22.15.0, not a value computed by the guard; diagnostics independently name that API and each rejected version.
+ * @evidence contracts/testing.md#distinguishing-cases Older major versions and the adjacent patch below the floor reject; exact floor, later releases, a v prefix and malformed text retain their documented outcomes.
+ * @evidence contracts/testing.md#execution-ownership The named source-unit entry calls authored production functions directly; temporary fixture files are inputs, with no compiler build, consumer installation or product host.
  */
-export const test_ttsx_diagnoses_unsupported_node_versions_at_the_documented_floor =
-  () => {
+export function test_ttsx_diagnoses_unsupported_node_versions_at_the_documented_floor() {
     assert.equal(TTSX_MINIMUM_NODE_VERSION, "22.15.0");
 
     for (const version of ["18.20.8", "20.20.2", "22.13.0", "22.14.9"]) {
@@ -47,4 +51,4 @@ export const test_ttsx_diagnoses_unsupported_node_versions_at_the_documented_flo
 
     // An unrecognizable version is not proof of an unsupported runtime.
     assert.equal(checkNodeRuntimeSupport("not-a-version"), null);
-  };
+}

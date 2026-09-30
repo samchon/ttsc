@@ -1,11 +1,9 @@
 import { TestProject } from "@ttsc/testing";
 
-import {
-  assert,
-  fs,
-  path,
-  readDependencyCache,
-} from "../../internal/dependency-cache";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { readDependencyCache } from "../../../../../packages/ttsc/src/launcher/internal/runtime/readDependencyCache";
 
 /**
  * Verifies a dependency-cache marker's `rootDir` is read in its physical
@@ -22,9 +20,13 @@ import {
  *    `sources` directory.
  * 2. Read the cache.
  * 3. Assert the hit reports the real directory, which is its own physical path.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The real reader resolves a published linked root to its filesystem identity while retaining a valid cache hit.
+ * @evidence contracts/testing.md#independent-expectations Native realpath supplies the independent physical identity; the marker deliberately uses a different alias.
+ * @evidence contracts/testing.md#distinguishing-cases A valid generation with linked root hits and reports the target identity; unsupported link creation remains an explicit execution limitation.
+ * @evidence contracts/testing.md#execution-ownership The named source-unit entry calls authored production functions directly; temporary fixture files are inputs, with no compiler build, consumer installation or product host.
  */
-export const test_ttsx_dependency_cache_reads_a_marker_root_in_its_physical_spelling =
-  () => {
+export function test_ttsx_dependency_cache_reads_a_marker_root_in_its_physical_spelling() {
     const root = TestProject.tmpdir("ttsx-depcache-root-");
     const cacheDir = path.join(root, "entry");
     const metaPath = path.join(root, "entry.json");
@@ -67,4 +69,4 @@ export const test_ttsx_dependency_cache_reads_a_marker_root_in_its_physical_spel
       "a marker root must be read in the spelling the served sources carry",
     );
     assert.equal(built!.rootDir, fs.realpathSync.native(realRoot));
-  };
+}
