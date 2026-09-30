@@ -14,6 +14,11 @@ import { collectExternalPackageNames } from "../../../../packages/playground/src
  *    nested template substitutions.
  * 2. Keep raw template text and lookalikes inside comments, strings, regexes, and
  *    computed arguments inert, including a regex body containing `}`.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls collectExternalPackageNames with ordinary, tagged and nested templates; the exact six dependencies must come from executable substitutions while raw text and inert lookalikes remain absent.
+ * @evidence contracts/testing.md#independent-expectations JavaScript template quasis are text and substitutions are expressions. The literal sorted list names only static import/require arguments in those expressions, independently of recursive tokenization.
+ * @evidence contracts/testing.md#distinguishing-cases Raw require text, substitution comments/strings/regexes, a regex containing a closing brace, division, nested substitutions and computed import arguments distinguish recursion from raw-text scanning and premature brace termination. A member require call remains inert.
+ * @evidence contracts/testing.md#execution-ownership This exported source-unit entry calls the authored lexical collector with one in-memory mixed fixture in the playground batch. It starts no compiler, process protocol, installation or native producer; the wide-substitution unit owns the size boundary separately.
  */
 export const test_collect_external_package_names_reads_template_substitutions =
   () => {

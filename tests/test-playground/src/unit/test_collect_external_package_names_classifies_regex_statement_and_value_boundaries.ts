@@ -6,6 +6,11 @@ import { collectExternalPackageNames } from "../../../../packages/playground/src
  * A slash after a control header or statement block starts a regex literal,
  * while a slash after an object, function, or class expression is division.
  * Both rules apply again inside executable template substitutions.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls collectExternalPackageNames with control headers, declaration blocks and expression values; the exact ten names must include executable division operands and exclude every regex-body lookalike.
+ * @evidence contracts/testing.md#independent-expectations Authored statement and expression positions determine JavaScript regex versus division interpretation. Literal sorted names enumerate real require arguments without deriving expectations from lexer tokens.
+ * @evidence contracts/testing.md#distinguishing-cases Control headers, catch blocks, function/class declarations and class heritage contrast with object/function/async-function/class expressions. Member keywords and destructured class keys cannot change lexical context; the same distinction runs inside a template substitution.
+ * @evidence contracts/testing.md#execution-ownership This named source unit directly calls the authored collector in the shared playground unit process with one in-memory string. It performs no download, installation, native build or product host invocation; template and non-code cases own complementary lexical boundaries.
  */
 export const test_collect_external_package_names_classifies_regex_statement_and_value_boundaries =
   () => {
