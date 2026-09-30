@@ -12,7 +12,7 @@ import { closeBenchmarkWatches, startScriptWatch } from "../internal/startScript
  *
  * @evidence contracts/testing.md#behavioral-verification Native directories are removed on normal and missing-root completion; replacing an owned root with another directory or a junction rejects reclamation and preserves the replacement and target. Windows stores are released independently when another owned root is unsafe.
  * @evidence contracts/testing.md#independent-expectations Literal sentinel bytes must survive rejected deletion and exact owned paths must disappear after successful release. The Windows store location follows the production workspace path policy; identity and link assertions compare actual independent filesystem objects rather than a helper-produced expected status.
- * @evidence contracts/testing.md#distinguishing-cases Covers normal, already-missing, replaced identity, linked replacement and outside-workspace refusal. Windows adds a newly created store, refusal of a preexisting store and a file replacement that must remain while the independent suite root is removed.
+ * @evidence contracts/testing.md#distinguishing-cases Covers normal removal with a nested external link target preserved, already-missing, replaced identity, linked replacement and outside-workspace refusal. Windows adds a newly created store, refusal of a preexisting store and a file replacement that must remain while the independent suite root is removed.
  * @evidence contracts/testing.md#execution-ownership This named E2E function is discovered by the benchmark runner. All roots are newly created by this invocation and explicit finally cleanup only names those paths; it never passes historical stores into the resource owner.
  * @evidence contracts/e2e.md#necessary-boundary Native file identities and Windows junction entries determine whether recursive deletion is safe; two actual pnpm/Node watches establish native close before reclamation. No compiler, package archive, browser or measured campaign is needed.
  * @evidence contracts/e2e.md#shared-execution Several small ownership lifetimes share this one native regression entry and need no repeated packed toolchain or workspace install.
@@ -36,9 +36,15 @@ export async function test_benchmark_suite_releases_only_its_owned_resources(): 
   try {
     const normal = make();
     fs.writeFileSync(path.join(normal.directory, "owned.txt"), "owned");
+    const outsideTarget = path.join(fixture, "outside-target");
+    fs.mkdirSync(outsideTarget);
+    fs.writeFileSync(path.join(outsideTarget, "retain.txt"), "outside owned removal");
+    fs.symlinkSync(outsideTarget, path.join(normal.directory, "external-link"),
+      process.platform === "win32" ? "junction" : "dir");
     normal.release();
     normal.release();
     assert.equal(fs.existsSync(normal.directory), false);
+    assert.equal(fs.readFileSync(path.join(outsideTarget, "retain.txt"), "utf8"), "outside owned removal");
 
     const missing = make();
     fs.rmSync(missing.directory, { recursive: true });
