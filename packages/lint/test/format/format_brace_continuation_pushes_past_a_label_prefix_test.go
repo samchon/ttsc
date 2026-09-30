@@ -18,6 +18,11 @@ import (
 //  1. Seed a project with a labeled one-line `if`/`else` inside a function.
 //  2. Run `ttsc format`.
 //  3. Assert `else` lands on its own line at the statement's column.
+//
+// @evidence contracts/testing.md#behavioral-verification The in-process format command must complete the cascade for a labeled if/else and place else at the two-space column while retaining outer: on the if line.
+// @evidence contracts/testing.md#independent-expectations The fixed full-file literal preserves the label, function, condition and calls; zero exit code and empty stdout/stderr independently require a successful quiet command as well as correct disk content.
+// @evidence contracts/testing.md#distinguishing-cases This labeled-prefix command positive distinguishes a label belonging to the same statement from a preceding statement requiring deferral; the shared-line cascade and direct abstention cases own that neighboring decision.
+// @evidence contracts/testing.md#execution-ownership TestFormatBraceContinuationPushesPastALabelPrefix is a public Go unit selected by TestSelectedLintUnits. This host owns the seeded project/config fixtures and all exit, stream and full disk-output assertions. It calls the real formatter command and cascade in the same Go process; no consumer install, native product build or product host is started.
 func TestFormatBraceContinuationPushesPastALabelPrefix(t *testing.T) {
   root := seedLintProject(t, "function f() {\n  outer: if (a) x(); else y();\n}\n")
   seedLintConfig(t, root, map[string]any{"format": map[string]any{}})
