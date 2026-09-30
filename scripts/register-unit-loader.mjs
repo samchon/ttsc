@@ -8,7 +8,9 @@ import { load, resolve } from "./typescript-loader.mjs";
 // Workspace unit tests execute the authored TypeScript export, before a build.
 // Dependencies keep their normal runtime exports and package integration stays
 // on register-typescript-loader.mjs, which exercises the shipped JavaScript.
-const commonjsSources = ["ttsc", "wasm", "playground"].map(
+const commonjsSources = [
+  "ttsc", "wasm", "playground", "banner", "paths", "strip", "lint",
+].map(
   (owner) => new URL(`../packages/${owner}/src/`, import.meta.url).href,
 );
 registerHooks({
