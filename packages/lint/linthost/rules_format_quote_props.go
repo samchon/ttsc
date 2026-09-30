@@ -8,8 +8,8 @@ import (
 )
 
 // formatQuoteProps normalizes quoting of object keys and method/type-member
-// names, mirroring Prettier's `quoteProps` except for the documented semantic
-// preservation of `__proto__` and non-ASCII identifier keys:
+// names, mirroring Prettier's `quoteProps` with conservative preservation of
+// non-ASCII identifier keys:
 //
 //   - "as-needed" (default): drop the quotes from a string key that is a
 //     valid identifier and not a numeric-looking key. `{ "foo": 1 }` becomes
@@ -200,14 +200,6 @@ func unquotableIdentifier(raw string) string {
   }
   inner := raw[1 : len(raw)-1]
   if len(inner) == 0 {
-    return ""
-  }
-  if inner == "__proto__" {
-    // A bare `__proto__:` key in an object literal is the spec-special
-    // prototype setter (sets [[Prototype]]), whereas a quoted `"__proto__"`
-    // key is an ordinary own data property. Unquoting would change runtime
-    // semantics, so ttsc deliberately keeps it quoted even though Prettier
-    // does not.
     return ""
   }
   for i := 0; i < len(inner); i++ {

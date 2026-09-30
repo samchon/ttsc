@@ -69,7 +69,7 @@ export interface ITtscLintFormat {
    * `false` gives `{x: 1}`, `import {foo}`. Applies to object literals, object
    * destructuring patterns, named imports/exports, type literals, mapped types,
    * and import attributes; block, class, interface, and enum braces are
-   * unaffected.
+   * unaffected. Empty single-line braces remain `{}` in either mode.
    *
    * @default true
    */
@@ -81,9 +81,10 @@ export interface ITtscLintFormat {
    * quotes from a key that is a valid identifier (`{ "foo": 1 }` becomes `{
    * foo: 1 }`), keeping them on non-identifier or numeric keys (`"bar-baz"`,
    * `"123"`). `"consistent"` quotes every object-literal identifier key when a
-   * sibling requires quotes. `"preserve"` never changes quoting. ttsc keeps
-   * `"__proto__"` and non-ASCII identifier keys quoted because unquoting can
-   * change runtime semantics or exceed its conservative identifier policy.
+   * sibling requires quotes. `"preserve"` never changes quoting. Non-ASCII and
+   * escaped keys retain their quoted spelling under the conservative identifier
+   * policy; `"__proto__"` follows the same quoting policy as other ASCII
+   * names.
    *
    * @default "as-needed"
    */
