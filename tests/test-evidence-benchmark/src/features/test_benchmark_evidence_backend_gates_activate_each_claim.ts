@@ -64,6 +64,15 @@ const INSTRUCTION =
  * 4. Assert the claim reported obligations, that its requirement reference reached
  *    every delivered document declaring a section, and that a package reference
  *    owed every published accessor.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Every backend claim ships staged then reports obligations without empty references after untagged host materialization; observed Markdown targets reach every section-bearing document and package claims demand all accessors.
+ * @evidence contracts/testing.md#independent-expectations Frozen instruction order, delivered requirement sections and generator-authored accessors establish expectations separately from claim diagnostic populations.
+ * @evidence contracts/testing.md#distinguishing-cases Nonempty owners, staged/declared equality and required package reference fail closed. Markdown coverage runs only after a Markdown target is observed; accessor checks assert membership, not equality.
+ * @evidence contracts/testing.md#execution-ownership The matching features export runs via DynamicExecutor with real prerequisites and retained native watch sessions; stage failures accumulate before AggregateError.
+ * @evidence contracts/e2e.md#necessary-boundary Real watch invalidation must carry host/config/schema edits into owning Programs and enumerate the installed generated SDK.
+ * @evidence contracts/e2e.md#shared-execution Shared Evidence install/pack serve initial Prisma/SDK builds, one watch host per owning configuration and schema-triggered Prisma regeneration only when serialized inputs change.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Edits accumulate only in the temporary consumer. Baselines must pass; finally awaits every session close and adds cleanup failures, then later acquisition restores tracked baseline while ignored output/install remain.
+ * @evidence contracts/e2e.md#preserved-coverage Every original baseline/staged/prerequisite/claim/document/accessor check remains. Zero observed Markdown targets bypass document completeness; this limitation is explicit.
  */
 export const test_benchmark_evidence_backend_gates_activate_each_claim =
   async (): Promise<void> => {

@@ -34,6 +34,15 @@ import { benchmarkRoot, repositoryRoot } from "../internal/suiteRoot";
  *    delivered tree without a local binding.
  * 5. Assert the lockfile records every one of those names resolved from a `file:`
  *    tarball and from no registry version.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Checks both arms carry ttsc and exactly one platform package, unchanged archive bytes, retained template overrides, local bindings for published dependencies and only file lockfile resolutions.
+ * @evidence contracts/testing.md#independent-expectations Packed bytes, ttsc optionalDependencies, template overrides and published manifests independently define delivery expectations; the pnpm lockfile observes actual resolution.
+ * @evidence contracts/testing.md#distinguishing-cases Both arms require nonempty toolchain and manifest intersection; missing/changed archives, lost overrides, duplicate remote resolutions and unsupported manifest shapes fail.
+ * @evidence contracts/testing.md#execution-ownership This matching features export runs via src/index.ts DynamicExecutor and acquireBenchmarkWorkspace; its private manifest and lockfile readers belong to this entry.
+ * @evidence contracts/e2e.md#necessary-boundary Real packing, delivery, pnpm override application and installation resolution must agree; source mapping units cannot certify a delivered compiler and platform carrier.
+ * @evidence contracts/e2e.md#shared-execution One identical four-package toolchain pack serves both arms, with one preparation/install per arm and no per-archive compiler request.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Separate arm trees restore tracked baseline and clean untracked edits while retaining ignored installs/output. Immutable archives share identity; benchmarkWorkspace owns eventual root cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Every original helper assertion remains, including nonempty populations and every resolution for each packed name; no packed executable is launched.
  */
 export const test_benchmark_workspace_resolves_the_packed_toolchain =
   async (): Promise<void> => {

@@ -37,8 +37,7 @@ const worstCaseWorkspaceLength = (repository: string): number => {
 };
 
 /**
- * Verifies a prepared workspace keeps every program it installs startable, at
- * the deepest path a run directory can put that workspace at.
+ * Verifies enumerated installed programs fit the projected Windows path budget.
  *
  * This suite prepares under the OS temporary directory, which is short, so no
  * case here can see what a run directory does to a path — and every cell of a
@@ -62,7 +61,16 @@ const worstCaseWorkspaceLength = (repository: string): number => {
  * 1. Skip where the limit this defends against does not exist.
  * 2. Read the store the prepared workspace installed into.
  * 3. Require it to be absolute and outside the workspace.
- * 4. Require every program in it to start from the deepest run directory.
+ * 4. Require every enumerated executable path to fit the deepest run directory's budget.
+ *
+ * @evidence contracts/testing.md#behavioral-verification On Windows .npmrc must name an absolute external virtual store and every enumerated .exe must fit the projected 259-character run-path budget.
+ * @evidence contracts/testing.md#independent-expectations The literal limit, longest authored requirement subject and fixed 36-character run id independently define projection; installed .npmrc and tree supply observed layout.
+ * @evidence contracts/testing.md#distinguishing-cases Missing, relative or internal store and over-budget paths fail; other OSes return early. Empty/unreadable walks pass and no executable is started.
+ * @evidence contracts/testing.md#execution-ownership The matching features export runs via DynamicExecutor; Windows consumes the actual installed Evidence tree and filesystem walks.
+ * @evidence contracts/e2e.md#necessary-boundary Only installed package layout reveals real executable path depth. Actual CreateProcess success and complete enumeration remain unproved limitations reported to the owner.
+ * @evidence contracts/e2e.md#shared-execution Existing Evidence preparation and four-package pack are reused; two read-only tree walks need no new install or process launch.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Acquisition restores tracked baseline while retaining ignored dependencies/output. The case mutates nothing; benchmarkWorkspace owns install/store lifetimes and cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage All original store and length assertions and the Windows condition remain. The name does not certify process startup; silent enumeration failure remains a coverage gap.
  */
 export const test_benchmark_workspace_keeps_its_programs_startable =
   async (): Promise<void> => {

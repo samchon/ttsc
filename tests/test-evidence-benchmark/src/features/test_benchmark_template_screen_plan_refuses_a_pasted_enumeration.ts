@@ -23,6 +23,15 @@ import { benchmarkRoot } from "../internal/suiteRoot";
  *    with a family omission whose reason wraps across lines.
  * 4. Remove one row and assert exactly that section is named while its children
  *    stay covered.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Eleven copied-script invocations require 0/5 failure for transcription/missing/excluded pages, 5/5 success for honest plans/anchors/wrapped omissions and 4/5 with only the missing family diagnosed.
+ * @evidence contracts/testing.md#independent-expectations Five authored identifiers, literal counts/statuses and independently created domain/gallery files define expectations without the script parser.
+ * @evidence contracts/testing.md#distinguishing-cases Five empty/transcription shapes, missing versus excluded pages, identifier versus anchor plans, wrapped omissions and missing-parent/covered-child distinguish cases.
+ * @evidence contracts/testing.md#execution-ownership The matching features export runs via DynamicExecutor and starts the unchanged screen-plan.mjs with Node against a private synthetic tree.
+ * @evidence contracts/e2e.md#necessary-boundary Actual script cwd reads, wiki records, requirement files and page existence must connect to CLI count/status/diagnostic output.
+ * @evidence contracts/e2e.md#shared-execution One script copy and five-section fixture serve eleven sequential inputs; no install, Go producer or official benchmark campaign is prepared.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity record removes both old wiki files before each input; fixed corpus/pages remain. Synchronous children finish and finally removes the exact unique root on success/failure.
+ * @evidence contracts/e2e.md#preserved-coverage Every count, exit, missing-section and covered-child assertion remains in this executable batch; application/browser behavior is outside it.
  */
 export const test_benchmark_template_screen_plan_refuses_a_pasted_enumeration =
   (): void => {

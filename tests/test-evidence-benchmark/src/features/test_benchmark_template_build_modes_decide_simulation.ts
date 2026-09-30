@@ -31,6 +31,15 @@ import { runScript } from "../internal/runScript";
  * 2. Build live, then simulated, and require a zero exit from each.
  * 3. Assert the two outputs differ.
  * 4. Assert `pnpm plan` refuses the delivered workspace, which has no screens.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Three backend prerequisites and two frontend builds must exit zero, emitted tree digests differ, and plan rejects the screenless delivery.
+ * @evidence contracts/testing.md#independent-expectations Shipped script contracts define zero statuses; sorted relative names/bytes define two real SHA256 outputs, and the empty scaffold independently requires plan rejection.
+ * @evidence contracts/testing.md#distinguishing-cases Live and contract scripts share inputs sequentially; equal trees fail. Hash inequality alone does not identify actual API simulation behavior or the reason for a difference.
+ * @evidence contracts/testing.md#execution-ownership The matching features export runs via DynamicExecutor and executes six actual pnpm scripts through runScript.
+ * @evidence contracts/e2e.md#necessary-boundary Installed SDK generation, Vite builds and the delivered plan executable must connect; assertions observe different bundles rather than live/simulated API requests.
+ * @evidence contracts/e2e.md#shared-execution Shared Evidence install and pack serve three SDK prerequisites, two option-incompatible builds and one plan request.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Acquisition restores authored baseline while retaining ignored installation/output. Each digest is captured just after its build; synchronous children end before reads and benchmarkWorkspace owns cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage All prerequisites, build statuses, digest inequality and nonzero plan assertion remain; neither browser simulation semantics nor a specific plan diagnostic is asserted.
  */
 export const test_benchmark_template_build_modes_decide_simulation =
   async (): Promise<void> => {

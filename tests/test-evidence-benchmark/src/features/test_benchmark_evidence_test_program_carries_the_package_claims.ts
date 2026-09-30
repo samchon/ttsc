@@ -41,9 +41,17 @@ import { materializeClaimLayer } from "../internal/workspaceLayer";
  * 1. Build the workspace, then open every backend claim at once.
  * 2. Remove the scaffold's citations so nothing is acknowledged.
  * 3. Run both Programs' gates and read the obligations each reported.
- * 4. Assert the package claims hold in both, that `backend-tests` holds only where
- *    its hosts live, and that its operation obligations are exactly the
- *    accessors the generator published.
+ * 4. Assert each claim reports in its owning Program and that the test Program's
+ *    operation obligations are exactly the accessors the generator published.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Every discovered backend claim reports obligations in its owning gate, and build:test operation demands exactly equal the nonempty generated accessor set.
+ * @evidence contracts/testing.md#independent-expectations Generator-authored accessor tags supply expected targets independently of Evidence diagnostics; Markdown/Prisma prefixes separate operation targets.
+ * @evidence contracts/testing.md#distinguishing-cases Nonempty configuration discovery and a required build:test result prevent fallback/vacuity; stripped citations expose demands and exact equality rejects extra/missing accessors.
+ * @evidence contracts/testing.md#execution-ownership The matching features export runs via DynamicExecutor, real Prisma/SDK prerequisites and each distinct discovered pnpm gate.
+ * @evidence contracts/e2e.md#necessary-boundary Installed SDK link traversal must reach the Program hosting backend tests, connecting generator publication with native diagnostic output.
+ * @evidence contracts/e2e.md#shared-execution One Evidence preparation serves initial Prisma/SDK builds and a second Prisma build after materialization; requests deduplicate by script across owning configurations.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only temporary layers/markers/citations change after baseline restore. .env is provisioned, ignored generated/install trees remain, synchronous outputs are captured and benchmarkWorkspace owns cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage All original prerequisite/discovery/per-claim/exact-set checks remain. The body does not independently forbid backend-tests obligations in another Program.
  */
 export const test_benchmark_evidence_test_program_carries_the_package_claims =
   async (): Promise<void> => {

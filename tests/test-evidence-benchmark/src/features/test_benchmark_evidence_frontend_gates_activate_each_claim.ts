@@ -47,6 +47,15 @@ const INSTRUCTION =
  * 3. For each, write its host layer, delete its marker, and lint the package.
  * 4. Assert the claim reported obligations, and that the claim reaching the
  *    install owed every accessor the SDK publishes.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Exactly one owner has nonempty fully staged frontend claims and a package reference; each instructed untagged layer activates and package claims demand all nonempty generated accessors.
+ * @evidence contracts/testing.md#independent-expectations Frozen frontend instruction establishes order; generator accessor tags define package expectations independently of diagnostic parsing.
+ * @evidence contracts/testing.md#distinguishing-cases Wrong owner count, zero claims, staged mismatch and absent package reference fail. Hooks/screens/journeys accumulate; demands assert accessor membership without excluding additional targets.
+ * @evidence contracts/testing.md#execution-ownership The matching features export runs via DynamicExecutor with the discovered owner's actual pnpm script per claim.
+ * @evidence contracts/e2e.md#necessary-boundary Installed SDK links, host layers, configuration activation and native lint diagnostics must connect rather than only agree in source parsers.
+ * @evidence contracts/e2e.md#shared-execution Existing Evidence preparation/pack serve one cumulative walk; changed claims need separate requests and unchanged generated SDK output is retained.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Temporary layers/markers change after tracked-baseline restore and untracked cleanup; ignored install/SDK output remain. Synchronous commands finish before reads and benchmarkWorkspace owns cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage All original discovery/staged/package and per-claim activation/accessor checks remain. This body does not build the SDK; nonempty discovery requires retained generated output and fails if absent.
  */
 export const test_benchmark_evidence_frontend_gates_activate_each_claim =
   async (): Promise<void> => {

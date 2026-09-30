@@ -45,6 +45,15 @@ const RAISED = `"evidence/review": "error"`;
  * 2. Raise the staged severity in all three claim configurations.
  * 3. Run every layer gate a cell runs and require a zero exit from each.
  * 4. Assert no review obligation was reported.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Three configurations must carry review off before replacement; seven backend and two sibling gates exit zero and omit Unreviewed @ with review raised.
+ * @evidence contracts/testing.md#independent-expectations Literal off-to-error transition and review-diagnostic prefix define independent expectations: disabled claims owe neither acknowledgements nor reviews.
+ * @evidence contracts/testing.md#distinguishing-cases Missing staged spelling fails; all three owners and nine real command results distinguish enabled-review compatibility/silence from review-off delivery.
+ * @evidence contracts/testing.md#execution-ownership The matching features export runs via DynamicExecutor and edits only temporary consumer configurations before nine pnpm requests.
+ * @evidence contracts/e2e.md#necessary-boundary Raised review severity must load/type-check through actual compiler/generator/lint/backend-test scripts; direct rule units bypass installed config loading.
+ * @evidence contracts/e2e.md#shared-execution Existing Evidence install/pack is reused; three config edits and one environment setup precede the nine-command batch.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Acquisition restores tracked configs for later consumers, retaining ignored dependencies/output. SQLite reset and synchronous child completion precede observations; benchmarkWorkspace owns cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage All staged-spelling, nine status and nine review-silence checks remain; disabled claims are not activated and reviewed/unreviewed authored tags are not compared.
  */
 export const test_benchmark_evidence_workspace_passes_every_layer_gate_with_review_raised =
   async (): Promise<void> => {

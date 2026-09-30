@@ -28,6 +28,15 @@ import { sdkAccessorAddresses } from "../internal/sdkAccessorAddresses";
  * 3. Run every layer gate a cell runs and require a zero exit from each.
  * 4. Assert no obligation was reported, and that `build:sdk` really published the
  *    accessor surface later cases derive their expectations from.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Evidence archive/file dependency must exist; nine package gates exit zero, seven backend outputs omit Missing acknowledgement, and generated SDK accessor discovery is nonempty.
+ * @evidence contracts/testing.md#independent-expectations Delivered archive path/file specifier, shipped command contracts and generator-authored accessor tags define independent expectations.
+ * @evidence contracts/testing.md#distinguishing-cases Disabled backend claims stay silent; API/frontend lint assert status only. Missing injection and empty SDK output fail separately.
+ * @evidence contracts/testing.md#execution-ownership The matching features export runs via DynamicExecutor and nine actual pnpm requests against the installed Evidence consumer.
+ * @evidence contracts/e2e.md#necessary-boundary Packed plugin injection, installed lint-config evaluation, native compilation and SDK publication must connect while staged backend claims stay silent.
+ * @evidence contracts/e2e.md#shared-execution Shared Evidence preparation/pack serve seven ordered backend scripts, two sibling lint requests and one generated SDK walk.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Baseline restore retains ignored installation/output. Example environment and schema reset prepare live backend tests; synchronous commands finish and benchmarkWorkspace owns cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage All original injection, nine status, seven silence and nonempty-accessor checks remain; archive byte equality and sibling diagnostic-string absence are not asserted.
  */
 export const test_benchmark_evidence_workspace_passes_every_layer_gate =
   async (): Promise<void> => {

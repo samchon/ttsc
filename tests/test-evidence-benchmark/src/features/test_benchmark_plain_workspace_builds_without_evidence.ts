@@ -24,6 +24,15 @@ import { runScript } from "../internal/runScript";
  * 2. Assert nothing in the delivered tree names the plugin or its tag.
  * 3. Run the layer gates a cell runs, from the packages that own them.
  * 4. Assert every one exits zero and none reports an `evidence/` rule.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Plain must contain exactly its toolchain archives and no Evidence markers in the scanned tree; seven backend gates and API/frontend lint exit zero with no evidence/graph or plugin output.
+ * @evidence contracts/testing.md#independent-expectations Supplied archive names independently establish the allowed set; literal treatment markers and shipped Plain gate contracts define absence and status expectations.
+ * @evidence contracts/testing.md#distinguishing-cases Nonempty expected archives, missing/extra archives and byte leaks fail. Nine gates cover backend reset/build/test and two sibling lint owners, excluding node_modules/.git from scans.
+ * @evidence contracts/testing.md#execution-ownership The matching features export runs via DynamicExecutor against the real Plain installation with nine pnpm requests.
+ * @evidence contracts/e2e.md#necessary-boundary The installed control must execute real build/lint/server-test scripts without the treatment; source configuration cannot prove command output.
+ * @evidence contracts/e2e.md#shared-execution One Plain preparation and arm-independent pack are reused; environment provisioning and schema reset precede one nine-command batch.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Acquisition restores baseline, provisionEnvironment overwrites ignored .env and schema resets disposable SQLite. Synchronous requests finish; ignored installs/output remain and benchmarkWorkspace owns cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Every archive-set, byte-marker and nine status/output check remains. The scan runs before this case's gates and does not rescan newly generated files.
  */
 export const test_benchmark_plain_workspace_builds_without_evidence =
   async (): Promise<void> => {
