@@ -19,10 +19,10 @@ import (
  *  1. Declare an empty constructor in one class and an overload run in another.
  *  2. Collect the inventory.
  *  3. Assert only the implementation's parameter property materializes.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert only the implementation's parameter property materializes.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The constructor is read now rather than skipped, so the shapes that carry no parameter property have to leave the population exactly as they found it. The overload half is a boundary rather than a doubling risk, since units dedupe by identity: what it pins is that walking three constructor nodes instead of one adds nothing and drops nothing. The authored scenario requires this outcome: Assert only the implementation's parameter property materializes.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Declare an empty constructor in one class and an overload run in another. Collect the inventory. Assert only the implementation's parameter property materializes.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestConstructorsWithoutParameterPropertiesAddNothing runs as a Go unit entry in the native package. parseTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert only the implementation's parameter property materializes.
+ * @evidence contracts/testing.md#independent-expectations The constructor is read now rather than skipped, so the shapes that carry no parameter property have to leave the population exactly as they found it. The overload half is a boundary rather than a doubling risk, since units dedupe by identity: what it pins is that walking three constructor nodes instead of one adds nothing and drops nothing. The authored scenario requires this outcome: Assert only the implementation's parameter property materializes.
+ * @evidence contracts/testing.md#distinguishing-cases Declare an empty constructor in one class and an overload run in another. Collect the inventory. Assert only the implementation's parameter property materializes.
+ * @evidence contracts/testing.md#execution-ownership TestConstructorsWithoutParameterPropertiesAddNothing runs as a Go unit entry in the native package. parseTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestConstructorsWithoutParameterPropertiesAddNothing(t *testing.T) {
   inventory := parseTypeScriptInventory(t, "src/contracts.ts", `

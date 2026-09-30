@@ -17,10 +17,10 @@ import (
  *  1. Publish one tagged and one untagged callable through an entry.
  *  2. Cite neither.
  *  3. Assert only the untagged one is reported as missing.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert only the untagged one is reported as missing.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations This is the obligation half of the issue: the population a reference selects must not contain something the source already declared is not API, or the author's only answers are a false citation or an exclusion whose reason restates the tag. The untagged operation beside it stays owed, so the case cannot pass by selecting nothing. The authored scenario requires this outcome: Assert only the untagged one is reported as missing.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Publish one tagged and one untagged callable through an entry. Cite neither. Assert only the untagged one is reported as missing.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestGraphOwesNoAcknowledgementForHiddenReferenceUnits runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert only the untagged one is reported as missing.
+ * @evidence contracts/testing.md#independent-expectations This is the obligation half of the issue: the population a reference selects must not contain something the source already declared is not API, or the author's only answers are a false citation or an exclusion whose reason restates the tag. The untagged operation beside it stays owed, so the case cannot pass by selecting nothing. The authored scenario requires this outcome: Assert only the untagged one is reported as missing.
+ * @evidence contracts/testing.md#distinguishing-cases Publish one tagged and one untagged callable through an entry. Cite neither. Assert only the untagged one is reported as missing.
+ * @evidence contracts/testing.md#execution-ownership TestGraphOwesNoAcknowledgementForHiddenReferenceUnits runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestGraphOwesNoAcknowledgementForHiddenReferenceUnits(t *testing.T) {
   for _, tag := range hiddenTagCases {

@@ -15,10 +15,10 @@ import (
  *  1. Export an interface and arrow function named `Shared` from one file.
  *  2. Select only `"function"` and assert `Shared` resolves to the callable.
  *  3. Select both kinds and assert the shared target becomes ambiguous.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Select both kinds and assert the shared target becomes ambiguous.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations An interface and a callable `const` may legally export the same name. A function-only source must retain the callable, while a source selecting both kinds must report that the unqualified declaration target is ambiguous. The authored scenario requires this outcome: Select both kinds and assert the shared target becomes ambiguous.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Export an interface and arrow function named `Shared` from one file. Select only `"function"` and assert `Shared` resolves to the callable. Select both kinds and assert the shared target becomes ambiguous.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestTypeScriptSymbolKindsDoNotCollapseSharedTargets runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Select both kinds and assert the shared target becomes ambiguous.
+ * @evidence contracts/testing.md#independent-expectations An interface and a callable `const` may legally export the same name. A function-only source must retain the callable, while a source selecting both kinds must report that the unqualified declaration target is ambiguous. The authored scenario requires this outcome: Select both kinds and assert the shared target becomes ambiguous.
+ * @evidence contracts/testing.md#distinguishing-cases Export an interface and arrow function named `Shared` from one file. Select only `"function"` and assert `Shared` resolves to the callable. Select both kinds and assert the shared target becomes ambiguous.
+ * @evidence contracts/testing.md#execution-ownership TestTypeScriptSymbolKindsDoNotCollapseSharedTargets runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestTypeScriptSymbolKindsDoNotCollapseSharedTargets(t *testing.T) {
   files := map[string]string{

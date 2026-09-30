@@ -19,10 +19,10 @@ import (
  *     owning nested members.
  *  2. Collect the inventory once per tag.
  *  3. Assert only the untagged sibling and its members survive.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert only the untagged sibling and its members survive.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The three tags are equivalent statements that a declaration is not API, so treating them separately would leave two of them silently inert. The untagged sibling is the negative twin: without it, a collector that dropped every declaration in a file carrying any tag would pass just as well. The authored scenario requires this outcome: Assert only the untagged sibling and its members survive.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Tag an interface, a namespace, a function, and a class in one file, each owning nested members. Collect the inventory once per tag. Assert only the untagged sibling and its members survive.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestTypeScriptHidingTagsRemoveDeclarationsAndTheirMembers runs as a Go unit entry in the native package. parseTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert only the untagged sibling and its members survive.
+ * @evidence contracts/testing.md#independent-expectations The three tags are equivalent statements that a declaration is not API, so treating them separately would leave two of them silently inert. The untagged sibling is the negative twin: without it, a collector that dropped every declaration in a file carrying any tag would pass just as well. The authored scenario requires this outcome: Assert only the untagged sibling and its members survive.
+ * @evidence contracts/testing.md#distinguishing-cases Tag an interface, a namespace, a function, and a class in one file, each owning nested members. Collect the inventory once per tag. Assert only the untagged sibling and its members survive.
+ * @evidence contracts/testing.md#execution-ownership TestTypeScriptHidingTagsRemoveDeclarationsAndTheirMembers runs as a Go unit entry in the native package. parseTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestTypeScriptHidingTagsRemoveDeclarationsAndTheirMembers(t *testing.T) {
   for _, tag := range hiddenTagCases {

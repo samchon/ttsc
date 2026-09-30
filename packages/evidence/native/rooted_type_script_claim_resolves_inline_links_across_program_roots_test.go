@@ -18,10 +18,10 @@ import (
  *  1. Supply a rooted API claim and its imported backend contract in one Program.
  *  2. Cite the imported contract through an inline link.
  *  3. Assert the complete graph resolves without a diagnostic.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.Check exercises the authored fixture. Assert the complete graph resolves without a diagnostic.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations A rooted declaration is displayed as `../api/...`, while its imported module may normalize back into the active backend root. Resolving both locations through the physical project prevents separator and sibling-segment spelling from breaking an otherwise valid citation. The authored scenario requires this outcome: Assert the complete graph resolves without a diagnostic.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Supply a rooted API claim and its imported backend contract in one Program. Cite the imported contract through an inline link. Assert the complete graph resolves without a diagnostic.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestRootedTypeScriptClaimResolvesInlineLinksAcrossProgramRoots runs as a Go unit entry in the native package. graphRule.Check executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification graphRule.Check exercises the authored fixture. Assert the complete graph resolves without a diagnostic.
+ * @evidence contracts/testing.md#independent-expectations A rooted declaration is displayed as `../api/...`, while its imported module may normalize back into the active backend root. Resolving both locations through the physical project prevents separator and sibling-segment spelling from breaking an otherwise valid citation. The authored scenario requires this outcome: Assert the complete graph resolves without a diagnostic.
+ * @evidence contracts/testing.md#distinguishing-cases Supply a rooted API claim and its imported backend contract in one Program. Cite the imported contract through an inline link. Assert the complete graph resolves without a diagnostic.
+ * @evidence contracts/testing.md#execution-ownership TestRootedTypeScriptClaimResolvesInlineLinksAcrossProgramRoots runs as a Go unit entry in the native package. graphRule.Check executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestRootedTypeScriptClaimResolvesInlineLinksAcrossProgramRoots(t *testing.T) {
   root, config, sources := rootedTypeScriptProgram(

@@ -15,10 +15,10 @@ import (
  *  1. Materialize three Markdown headings.
  *  2. Cite them from an interface, function, and interface property.
  *  3. Assert the omitted claim selector accepts every host kind.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the omitted claim selector accepts every host kind.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The claim default is the union of all supported kinds, unlike the source default. This complete graph proves each host can fire rather than trusting a quiet rule with only one declaration shape. The authored scenario requires this outcome: Assert the omitted claim selector accepts every host kind.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Materialize three Markdown headings. Cite them from an interface, function, and interface property. Assert the omitted claim selector accepts every host kind.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestTypeScriptClaimDefaultAcceptsEverySymbolKind runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the omitted claim selector accepts every host kind.
+ * @evidence contracts/testing.md#independent-expectations The claim default is the union of all supported kinds, unlike the source default. This complete graph proves each host can fire rather than trusting a quiet rule with only one declaration shape. The authored scenario requires this outcome: Assert the omitted claim selector accepts every host kind.
+ * @evidence contracts/testing.md#distinguishing-cases Materialize three Markdown headings. Cite them from an interface, function, and interface property. Assert the omitted claim selector accepts every host kind.
+ * @evidence contracts/testing.md#execution-ownership TestTypeScriptClaimDefaultAcceptsEverySymbolKind runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestTypeScriptClaimDefaultAcceptsEverySymbolKind(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

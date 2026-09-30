@@ -23,10 +23,10 @@ import (
  *     in one source file.
  *  2. Acknowledge only the four type identities from a TypeScript claim.
  *  3. Assert the omitted source selector creates no additional obligation.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the omitted source selector creates no additional obligation.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The default is intentionally narrower than the claim default. A test that merely inspects decoded options would miss a materializer that ignored the selector and indexed every discovered declaration anyway. The authored scenario requires this outcome: Assert the omitted source selector creates no additional obligation.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Put types, a class with members, a namespace, properties, and callables in one source file. Acknowledge only the four type identities from a TypeScript claim. Assert the omitted source selector creates no additional obligation.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestTypeScriptSourceDefaultMaterializesOnlyTypes runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the omitted source selector creates no additional obligation.
+ * @evidence contracts/testing.md#independent-expectations The default is intentionally narrower than the claim default. A test that merely inspects decoded options would miss a materializer that ignored the selector and indexed every discovered declaration anyway. The authored scenario requires this outcome: Assert the omitted source selector creates no additional obligation.
+ * @evidence contracts/testing.md#distinguishing-cases Put types, a class with members, a namespace, properties, and callables in one source file. Acknowledge only the four type identities from a TypeScript claim. Assert the omitted source selector creates no additional obligation.
+ * @evidence contracts/testing.md#execution-ownership TestTypeScriptSourceDefaultMaterializesOnlyTypes runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestTypeScriptSourceDefaultMaterializesOnlyTypes(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

@@ -18,10 +18,10 @@ import (
  *  2. Evaluate the graph.
  *  3. Assert the diagnostic names the tag, the withdrawn declaration, and both
  *     repairs.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the diagnostic names the tag, the withdrawn declaration, and both repairs.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations This is the decision the issue asked to be made explicit. The target does resolve to a real declaration, so a bare unresolved-target message would send the author hunting for a typo that is not there. Both repairs are named, because which one is right depends on which statement is wrong , the tag or the citation. The authored scenario requires this outcome: Assert the diagnostic names the tag, the withdrawn declaration, and both repairs.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Withdraw a callable and cite it from a claim host anyway. Evaluate the graph. Assert the diagnostic names the tag, the withdrawn declaration, and both repairs.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestGraphNamesTheTagWhenACitationTargetsAHiddenDeclaration runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the diagnostic names the tag, the withdrawn declaration, and both repairs.
+ * @evidence contracts/testing.md#independent-expectations This is the decision the issue asked to be made explicit. The target does resolve to a real declaration, so a bare unresolved-target message would send the author hunting for a typo that is not there. Both repairs are named, because which one is right depends on which statement is wrong , the tag or the citation. The authored scenario requires this outcome: Assert the diagnostic names the tag, the withdrawn declaration, and both repairs.
+ * @evidence contracts/testing.md#distinguishing-cases Withdraw a callable and cite it from a claim host anyway. Evaluate the graph. Assert the diagnostic names the tag, the withdrawn declaration, and both repairs.
+ * @evidence contracts/testing.md#execution-ownership TestGraphNamesTheTagWhenACitationTargetsAHiddenDeclaration runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestGraphNamesTheTagWhenACitationTargetsAHiddenDeclaration(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

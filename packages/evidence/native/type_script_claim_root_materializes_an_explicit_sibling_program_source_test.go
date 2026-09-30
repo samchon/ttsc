@@ -16,10 +16,10 @@ import (
  *  1. Supply one API DTO as an explicit Program source.
  *  2. Materialize it through a `../api` TypeScript claim root.
  *  3. Assert root-relative selection and project-relative locations.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification loadTypeScriptInventories exercises the authored fixture. Assert root-relative selection and project-relative locations.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations A monorepo package needs claim files to be selected relative to their owning sibling, while a diagnostic still needs the path a developer can open from the active project. Keeping the population address and display path separate prevents either concern from leaking into the other. The authored scenario requires this outcome: Assert root-relative selection and project-relative locations.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Supply one API DTO as an explicit Program source. Materialize it through a `../api` TypeScript claim root. Assert root-relative selection and project-relative locations.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestTypeScriptClaimRootMaterializesAnExplicitSiblingProgramSource runs as a Go unit entry in the native package. loadTypeScriptInventories executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification loadTypeScriptInventories exercises the authored fixture. Assert root-relative selection and project-relative locations.
+ * @evidence contracts/testing.md#independent-expectations A monorepo package needs claim files to be selected relative to their owning sibling, while a diagnostic still needs the path a developer can open from the active project. Keeping the population address and display path separate prevents either concern from leaking into the other. The authored scenario requires this outcome: Assert root-relative selection and project-relative locations.
+ * @evidence contracts/testing.md#distinguishing-cases Supply one API DTO as an explicit Program source. Materialize it through a `../api` TypeScript claim root. Assert root-relative selection and project-relative locations.
+ * @evidence contracts/testing.md#execution-ownership TestTypeScriptClaimRootMaterializesAnExplicitSiblingProgramSource runs as a Go unit entry in the native package. loadTypeScriptInventories executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestTypeScriptClaimRootMaterializesAnExplicitSiblingProgramSource(t *testing.T) {
   root, config, sources := rootedTypeScriptProgram(

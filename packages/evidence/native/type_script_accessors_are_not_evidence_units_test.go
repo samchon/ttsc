@@ -26,10 +26,10 @@ import (
  *     and on an interface.
  *  2. Collect the inventory.
  *  3. Assert only the ordinary members materialize.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert only the ordinary members materialize.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Auto-accessors share PropertyDeclaration shape with ordinary fields but retain accessor semantics, and a get/set pair is not a member variable either. The ordinary field and method in the same class are the positive controls: without them a collector that had stopped materializing class members entirely would pass this case. The authored scenario requires this outcome: Assert only the ordinary members materialize.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Declare ordinary members beside callable and data accessors, on a class and on an interface. Collect the inventory. Assert only the ordinary members materialize.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestTypeScriptAccessorsAreNotEvidenceUnits runs as a Go unit entry in the native package. parseTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert only the ordinary members materialize.
+ * @evidence contracts/testing.md#independent-expectations Auto-accessors share PropertyDeclaration shape with ordinary fields but retain accessor semantics, and a get/set pair is not a member variable either. The ordinary field and method in the same class are the positive controls: without them a collector that had stopped materializing class members entirely would pass this case. The authored scenario requires this outcome: Assert only the ordinary members materialize.
+ * @evidence contracts/testing.md#distinguishing-cases Declare ordinary members beside callable and data accessors, on a class and on an interface. Collect the inventory. Assert only the ordinary members materialize.
+ * @evidence contracts/testing.md#execution-ownership TestTypeScriptAccessorsAreNotEvidenceUnits runs as a Go unit entry in the native package. parseTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestTypeScriptAccessorsAreNotEvidenceUnits(t *testing.T) {
   inventory := parseTypeScriptInventory(t, "src/contracts.ts", `

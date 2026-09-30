@@ -15,10 +15,10 @@ import (
  *  1. Parse the same namespace under all declaration-file extensions.
  *  2. Collect its implicit function member.
  *  3. Assert each extension materializes the member.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert each extension materializes the member.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The parser derives ambient context from the physical file name. Testing only `.d.ts` would leave the module-specific `.d.mts` and `.d.cts` paths able to regress independently. The authored scenario requires this outcome: Assert each extension materializes the member.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Parse the same namespace under all declaration-file extensions. Collect its implicit function member. Assert each extension materializes the member.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestTypeScriptDeclarationFileExtensionsUseAmbientNamespaceVisibility runs as a Go unit entry in the native package. parseTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert each extension materializes the member.
+ * @evidence contracts/testing.md#independent-expectations The parser derives ambient context from the physical file name. Testing only `.d.ts` would leave the module-specific `.d.mts` and `.d.cts` paths able to regress independently. The authored scenario requires this outcome: Assert each extension materializes the member.
+ * @evidence contracts/testing.md#distinguishing-cases Parse the same namespace under all declaration-file extensions. Collect its implicit function member. Assert each extension materializes the member.
+ * @evidence contracts/testing.md#execution-ownership TestTypeScriptDeclarationFileExtensionsUseAmbientNamespaceVisibility runs as a Go unit entry in the native package. parseTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestTypeScriptDeclarationFileExtensionsUseAmbientNamespaceVisibility(t *testing.T) {
   for _, path := range []string{

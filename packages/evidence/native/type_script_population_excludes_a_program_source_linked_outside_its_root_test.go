@@ -22,10 +22,10 @@ import (
  *  1. Cite a Markdown section from an ordinary project source.
  *  2. Parse another source through a project link to an external directory.
  *  3. Assert the external source adds no host obligation.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.Check exercises the authored fixture. Assert the external source adds no host obligation.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations A Program can spell an external file through a link below the project. A lexical containment check admitted it to a source glob below `src`, even though the physical source is outside the declared base. A host with no citation then acquired an obligation the population did not own. The authored scenario requires this outcome: Assert the external source adds no host obligation.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Cite a Markdown section from an ordinary project source. Parse another source through a project link to an external directory. Assert the external source adds no host obligation.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestTypeScriptPopulationExcludesAProgramSourceLinkedOutsideItsRoot runs as a Go unit entry in the native package. graphRule.Check executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification graphRule.Check exercises the authored fixture. Assert the external source adds no host obligation.
+ * @evidence contracts/testing.md#independent-expectations A Program can spell an external file through a link below the project. A lexical containment check admitted it to a source glob below `src`, even though the physical source is outside the declared base. A host with no citation then acquired an obligation the population did not own. The authored scenario requires this outcome: Assert the external source adds no host obligation.
+ * @evidence contracts/testing.md#distinguishing-cases Cite a Markdown section from an ordinary project source. Parse another source through a project link to an external directory. Assert the external source adds no host obligation.
+ * @evidence contracts/testing.md#execution-ownership TestTypeScriptPopulationExcludesAProgramSourceLinkedOutsideItsRoot runs as a Go unit entry in the native package. graphRule.Check executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestTypeScriptPopulationExcludesAProgramSourceLinkedOutsideItsRoot(t *testing.T) {
   workspace := t.TempDir()

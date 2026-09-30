@@ -16,10 +16,10 @@ import (
  *  1. Materialize the same class.
  *  2. Read each member unit's parent identity.
  *  3. Assert every member points at the class and the class points at nothing.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert every member points at the class and the class points at nothing.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Containment is what lets one citation on the subject acknowledge the members it selected, and it is stored as a parent identity rather than derived from the dotted address, because a literal dot inside a name would otherwise collapse into qualification. Before the class was a unit its members hung from whatever enclosed the class, so this is the property that moved. The authored scenario requires this outcome: Assert every member points at the class and the class points at nothing.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Materialize the same class. Read each member unit's parent identity. Assert every member points at the class and the class points at nothing.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestClassIsTheContainmentScopeOfItsMembers runs as a Go unit entry in the native package. parseTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert every member points at the class and the class points at nothing.
+ * @evidence contracts/testing.md#independent-expectations Containment is what lets one citation on the subject acknowledge the members it selected, and it is stored as a parent identity rather than derived from the dotted address, because a literal dot inside a name would otherwise collapse into qualification. Before the class was a unit its members hung from whatever enclosed the class, so this is the property that moved. The authored scenario requires this outcome: Assert every member points at the class and the class points at nothing.
+ * @evidence contracts/testing.md#distinguishing-cases Materialize the same class. Read each member unit's parent identity. Assert every member points at the class and the class points at nothing.
+ * @evidence contracts/testing.md#execution-ownership TestClassIsTheContainmentScopeOfItsMembers runs as a Go unit entry in the native package. parseTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestClassIsTheContainmentScopeOfItsMembers(t *testing.T) {
   inventory := parseTypeScriptInventory(t, "src/Sale.ts", classContractSource)

@@ -19,10 +19,10 @@ import (
  *  1. Declare a destructured parameter carrying a property modifier.
  *  2. Collect the inventory.
  *  3. Assert only the ordinary parameter property materializes.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert only the ordinary parameter property materializes.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations `constructor(public { a, b }: T)` is `TS1187`, so no unit may come of it. It is pinned because the sibling collector for destructured exports does the opposite and expands every binding leaf: aligning the two later would silently materialize `Sale.prototype.a` from a parameter TypeScript rejects, with nothing to catch it. The plain parameter property beside it is the control that keeps the case honest. The authored scenario requires this outcome: Assert only the ordinary parameter property materializes.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Declare a destructured parameter carrying a property modifier. Collect the inventory. Assert only the ordinary parameter property materializes.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestDestructuredParameterPropertyMaterializesNothing runs as a Go unit entry in the native package. parseTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert only the ordinary parameter property materializes.
+ * @evidence contracts/testing.md#independent-expectations `constructor(public { a, b }: T)` is `TS1187`, so no unit may come of it. It is pinned because the sibling collector for destructured exports does the opposite and expands every binding leaf: aligning the two later would silently materialize `Sale.prototype.a` from a parameter TypeScript rejects, with nothing to catch it. The plain parameter property beside it is the control that keeps the case honest. The authored scenario requires this outcome: Assert only the ordinary parameter property materializes.
+ * @evidence contracts/testing.md#distinguishing-cases Declare a destructured parameter carrying a property modifier. Collect the inventory. Assert only the ordinary parameter property materializes.
+ * @evidence contracts/testing.md#execution-ownership TestDestructuredParameterPropertyMaterializesNothing runs as a Go unit entry in the native package. parseTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestDestructuredParameterPropertyMaterializesNothing(t *testing.T) {
   inventory := parseTypeScriptInventory(t, "src/Sale.ts", `

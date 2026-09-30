@@ -21,10 +21,10 @@ import (
  *  1. Parse all supported and adjacent unsupported declaration forms.
  *  2. Collect the inventory's unit targets.
  *  3. Assert the exact public identity set.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification scanTypeScriptInventory exercises the authored fixture. Assert the exact public identity set.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Function syntax is deliberately broader than FunctionDeclaration. The negative twins exclude mutable variables, type-only methods, accessors, private/protected members, and non-exported classes. The authored scenario requires this outcome: Assert the exact public identity set.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Parse all supported and adjacent unsupported declaration forms. Collect the inventory's unit targets. Assert the exact public identity set.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestTypeScriptMaterializesEveryDocumentedCallableForm runs as a Go unit entry in the native package. scanTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification scanTypeScriptInventory exercises the authored fixture. Assert the exact public identity set.
+ * @evidence contracts/testing.md#independent-expectations Function syntax is deliberately broader than FunctionDeclaration. The negative twins exclude mutable variables, type-only methods, accessors, private/protected members, and non-exported classes. The authored scenario requires this outcome: Assert the exact public identity set.
+ * @evidence contracts/testing.md#distinguishing-cases Parse all supported and adjacent unsupported declaration forms. Collect the inventory's unit targets. Assert the exact public identity set.
+ * @evidence contracts/testing.md#execution-ownership TestTypeScriptMaterializesEveryDocumentedCallableForm runs as a Go unit entry in the native package. scanTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestTypeScriptMaterializesEveryDocumentedCallableForm(t *testing.T) {
   source := `

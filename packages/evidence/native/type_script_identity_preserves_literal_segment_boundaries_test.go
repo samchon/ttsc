@@ -16,10 +16,10 @@ import (
  *  1. Export an instance `run` and static `"prototype.run"` method.
  *  2. Cite their shared displayed target.
  *  3. Assert resolution sees two distinct callable units.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert resolution sees two distinct callable units.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The displayed target intentionally stays human-readable, but its internal identity must retain segment boundaries. Otherwise a static literal method silently overwrites an instance method rather than making the target ambiguous. The authored scenario requires this outcome: Assert resolution sees two distinct callable units.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Export an instance `run` and static `"prototype.run"` method. Cite their shared displayed target. Assert resolution sees two distinct callable units.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestTypeScriptIdentityPreservesLiteralSegmentBoundaries runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert resolution sees two distinct callable units.
+ * @evidence contracts/testing.md#independent-expectations The displayed target intentionally stays human-readable, but its internal identity must retain segment boundaries. Otherwise a static literal method silently overwrites an instance method rather than making the target ambiguous. The authored scenario requires this outcome: Assert resolution sees two distinct callable units.
+ * @evidence contracts/testing.md#distinguishing-cases Export an instance `run` and static `"prototype.run"` method. Cite their shared displayed target. Assert resolution sees two distinct callable units.
+ * @evidence contracts/testing.md#execution-ownership TestTypeScriptIdentityPreservesLiteralSegmentBoundaries runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestTypeScriptIdentityPreservesLiteralSegmentBoundaries(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

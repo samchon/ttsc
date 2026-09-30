@@ -20,10 +20,10 @@ import (
  *  1. Digest one leaf of a destructuring pattern.
  *  2. Change the shared initializer, then reword the block above the pattern.
  *  3. Assert the first moved it and the second did not.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification variableDigestOf exercises the authored fixture. Assert the first moved it and the second did not.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The leaves of one pattern have no separate content: they are named by one declarator and take their values from one initializer, so a change to that initializer is a change to each of them and must expire every review of the set. That is the shape a narrower repair would break, and the reason content is stated per declaration rather than derived by narrowing to the smallest node that spells the name. The authored scenario requires this outcome: Assert the first moved it and the second did not.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Digest one leaf of a destructuring pattern. Change the shared initializer, then reword the block above the pattern. Assert the first moved it and the second did not.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestADestructuredLeafAnswersForItsSharedDeclarator runs as a Go unit entry in the native package. variableDigestOf executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification variableDigestOf exercises the authored fixture. Assert the first moved it and the second did not.
+ * @evidence contracts/testing.md#independent-expectations The leaves of one pattern have no separate content: they are named by one declarator and take their values from one initializer, so a change to that initializer is a change to each of them and must expire every review of the set. That is the shape a narrower repair would break, and the reason content is stated per declaration rather than derived by narrowing to the smallest node that spells the name. The authored scenario requires this outcome: Assert the first moved it and the second did not.
+ * @evidence contracts/testing.md#distinguishing-cases Digest one leaf of a destructuring pattern. Change the shared initializer, then reword the block above the pattern. Assert the first moved it and the second did not.
+ * @evidence contracts/testing.md#execution-ownership TestADestructuredLeafAnswersForItsSharedDeclarator runs as a Go unit entry in the native package. variableDigestOf executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestADestructuredLeafAnswersForItsSharedDeclarator(t *testing.T) {
   first := variableDigestOf(t, "gamma", `declare const source: { gamma: number; delta: number };

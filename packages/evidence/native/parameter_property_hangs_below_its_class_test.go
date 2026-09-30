@@ -14,10 +14,10 @@ import (
  *  1. Declare one body field and one parameter property.
  *  2. Materialize the inventory.
  *  3. Assert both point at the class unit.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert both point at the class unit.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The shorthand has to reach the same containment scope, or a citation on the class would acknowledge the fields written in the body and silently miss the ones written in the constructor. The authored scenario requires this outcome: Assert both point at the class unit.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Declare one body field and one parameter property. Materialize the inventory. Assert both point at the class unit.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestParameterPropertyHangsBelowItsClass runs as a Go unit entry in the native package. parseTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert both point at the class unit.
+ * @evidence contracts/testing.md#independent-expectations The shorthand has to reach the same containment scope, or a citation on the class would acknowledge the fields written in the body and silently miss the ones written in the constructor. The authored scenario requires this outcome: Assert both point at the class unit.
+ * @evidence contracts/testing.md#distinguishing-cases Declare one body field and one parameter property. Materialize the inventory. Assert both point at the class unit.
+ * @evidence contracts/testing.md#execution-ownership TestParameterPropertyHangsBelowItsClass runs as a Go unit entry in the native package. parseTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestParameterPropertyHangsBelowItsClass(t *testing.T) {
   inventory := parseTypeScriptInventory(t, "src/Sale.ts", `

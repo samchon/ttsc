@@ -23,10 +23,10 @@ import (
  *  1. Link two directories inside a project to one source directory.
  *  2. Root a claim at one link and parse its Program source through the other.
  *  3. Assert the claim owes its ordinary Markdown acknowledgement.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.Check exercises the authored fixture. Assert the claim owes its ordinary Markdown acknowledgement.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations A configured base may resolve through one link while the Program names the same file through another below the project root. Comparing either the declared base or only the base's resolved path to that source deactivates the claim silently; both sides must resolve before one relative comparison. The authored scenario requires this outcome: Assert the claim owes its ordinary Markdown acknowledgement.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Link two directories inside a project to one source directory. Root a claim at one link and parse its Program source through the other. Assert the claim owes its ordinary Markdown acknowledgement.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestTypeScriptPopulationMatchesAProgramSourceThroughANestedLink runs as a Go unit entry in the native package. graphRule.Check executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification graphRule.Check exercises the authored fixture. Assert the claim owes its ordinary Markdown acknowledgement.
+ * @evidence contracts/testing.md#independent-expectations A configured base may resolve through one link while the Program names the same file through another below the project root. Comparing either the declared base or only the base's resolved path to that source deactivates the claim silently; both sides must resolve before one relative comparison. The authored scenario requires this outcome: Assert the claim owes its ordinary Markdown acknowledgement.
+ * @evidence contracts/testing.md#distinguishing-cases Link two directories inside a project to one source directory. Root a claim at one link and parse its Program source through the other. Assert the claim owes its ordinary Markdown acknowledgement.
+ * @evidence contracts/testing.md#execution-ownership TestTypeScriptPopulationMatchesAProgramSourceThroughANestedLink runs as a Go unit entry in the native package. graphRule.Check executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestTypeScriptPopulationMatchesAProgramSourceThroughANestedLink(t *testing.T) {
   workspace := t.TempDir()

@@ -16,10 +16,10 @@ import (
  *  1. Cite the first declaration of an overload run and withdraw the second.
  *  2. Evaluate a `symbol: "function"` claim over that file.
  *  3. Assert the citation is refused and the section stays unacknowledged.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the citation is refused and the section stays unacknowledged.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The unit is marked by whichever declaration carries the tag, not by the one written first, and that back-fill is the whole mechanism the host reconciliation reads. Every other case here tags the first declaration, so removing the back-fill left the suite green while an untagged-first run silently went back to hosting a citation. The authored scenario requires this outcome: Assert the citation is refused and the section stays unacknowledged.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Cite the first declaration of an overload run and withdraw the second. Evaluate a `symbol: "function"` claim over that file. Assert the citation is refused and the section stays unacknowledged.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestWithdrawalReachesARunTaggedAfterTheCitation runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the citation is refused and the section stays unacknowledged.
+ * @evidence contracts/testing.md#independent-expectations The unit is marked by whichever declaration carries the tag, not by the one written first, and that back-fill is the whole mechanism the host reconciliation reads. Every other case here tags the first declaration, so removing the back-fill left the suite green while an untagged-first run silently went back to hosting a citation. The authored scenario requires this outcome: Assert the citation is refused and the section stays unacknowledged.
+ * @evidence contracts/testing.md#distinguishing-cases Cite the first declaration of an overload run and withdraw the second. Evaluate a `symbol: "function"` claim over that file. Assert the citation is refused and the section stays unacknowledged.
+ * @evidence contracts/testing.md#execution-ownership TestWithdrawalReachesARunTaggedAfterTheCitation runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestWithdrawalReachesARunTaggedAfterTheCitation(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

@@ -32,10 +32,10 @@ import (
  *  2. Include nested type and value declarations, an interface callable, an
  *     object-shaped type alias callable, and a class with its members.
  *  3. Assert the exact full and type-only projections.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert the exact full and type-only projections.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations A namespace spans TypeScript's type and value spaces. Treating a type-only export as fully public creates false function/property obligations, while dropping it loses valid imported type paths. The authored scenario requires this outcome: Assert the exact full and type-only projections.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Export one namespace through full and both type-only alias syntaxes. Include nested type and value declarations, an interface callable, an object-shaped type alias callable, and a class with its members. Assert the exact full and type-only projections.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestTypeScriptTypeOnlyNamespaceAliasesProjectOnlyTypeSpace runs as a Go unit entry in the native package. parseTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert the exact full and type-only projections.
+ * @evidence contracts/testing.md#independent-expectations A namespace spans TypeScript's type and value spaces. Treating a type-only export as fully public creates false function/property obligations, while dropping it loses valid imported type paths. The authored scenario requires this outcome: Assert the exact full and type-only projections.
+ * @evidence contracts/testing.md#distinguishing-cases Export one namespace through full and both type-only alias syntaxes. Include nested type and value declarations, an interface callable, an object-shaped type alias callable, and a class with its members. Assert the exact full and type-only projections.
+ * @evidence contracts/testing.md#execution-ownership TestTypeScriptTypeOnlyNamespaceAliasesProjectOnlyTypeSpace runs as a Go unit entry in the native package. parseTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestTypeScriptTypeOnlyNamespaceAliasesProjectOnlyTypeSpace(t *testing.T) {
   inventory := parseTypeScriptInventory(t, "src/contracts.ts", `

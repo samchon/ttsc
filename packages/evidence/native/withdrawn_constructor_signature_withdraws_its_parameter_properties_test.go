@@ -26,10 +26,10 @@ import (
  *  1. Withdraw a different constructor declaration in each of three classes.
  *  2. Collect each inventory.
  *  3. Assert the parameter property carries the expected tag every time.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert the parameter property carries the expected tag every time.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations An overload run is one constructor written several times, and a signature is where JSDoc for an overloaded declaration conventionally goes, while only the implementation carries parameter properties. Reading the tag from the node being visited would make the withdrawal depend on which half the author documented. The authored scenario requires this outcome: Assert the parameter property carries the expected tag every time.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Withdraw a different constructor declaration in each of three classes. Collect each inventory. Assert the parameter property carries the expected tag every time.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestWithdrawnConstructorSignatureWithdrawsItsParameterProperties runs as a Go unit entry in the native package. parseTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert the parameter property carries the expected tag every time.
+ * @evidence contracts/testing.md#independent-expectations An overload run is one constructor written several times, and a signature is where JSDoc for an overloaded declaration conventionally goes, while only the implementation carries parameter properties. Reading the tag from the node being visited would make the withdrawal depend on which half the author documented. The authored scenario requires this outcome: Assert the parameter property carries the expected tag every time.
+ * @evidence contracts/testing.md#distinguishing-cases Withdraw a different constructor declaration in each of three classes. Collect each inventory. Assert the parameter property carries the expected tag every time.
+ * @evidence contracts/testing.md#execution-ownership TestWithdrawnConstructorSignatureWithdrawsItsParameterProperties runs as a Go unit entry in the native package. parseTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestWithdrawnConstructorSignatureWithdrawsItsParameterProperties(t *testing.T) {
   for _, testCase := range []struct {

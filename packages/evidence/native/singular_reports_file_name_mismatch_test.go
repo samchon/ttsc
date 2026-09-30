@@ -14,10 +14,10 @@ import (
  *  1. Export one function under a name the file does not carry.
  *  2. Run the rule.
  *  3. Assert the message offers the rename in both directions.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runSingularRule exercises the authored fixture. Assert the message offers the rename in both directions.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations A diagnostic that named only the mismatch would leave the reader to guess which side moves, and either side is valid here. The authored scenario requires this outcome: Assert the message offers the rename in both directions.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Export one function under a name the file does not carry. Run the rule. Assert the message offers the rename in both directions.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestSingularReportsFileNameMismatch runs as a Go unit entry in the native package. runSingularRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification runSingularRule exercises the authored fixture. Assert the message offers the rename in both directions.
+ * @evidence contracts/testing.md#independent-expectations A diagnostic that named only the mismatch would leave the reader to guess which side moves, and either side is valid here. The authored scenario requires this outcome: Assert the message offers the rename in both directions.
+ * @evidence contracts/testing.md#distinguishing-cases Export one function under a name the file does not carry. Run the rule. Assert the message offers the rename in both directions.
+ * @evidence contracts/testing.md#execution-ownership TestSingularReportsFileNameMismatch runs as a Go unit entry in the native package. runSingularRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestSingularReportsFileNameMismatch(t *testing.T) {
   messages := runSingularRule(t, "src/utils.ts", `

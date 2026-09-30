@@ -20,10 +20,10 @@ import (
  *  1. Export local type, function, class, and namespace declarations by alias.
  *  2. Export a second function through `export type` only.
  *  3. Assert public aliases materialize and local/runtime-only names do not.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification scanTypeScriptInventory exercises the authored fixture. Assert public aliases materialize and local/runtime-only names do not.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations An exported contract need not carry an `export` modifier on its declaration. When `export { Local as Public }` exposes it, evidence targets must use the public name; a type-only export must not expose runtime callable behavior. The authored scenario requires this outcome: Assert public aliases materialize and local/runtime-only names do not.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Export local type, function, class, and namespace declarations by alias. Export a second function through `export type` only. Assert public aliases materialize and local/runtime-only names do not.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestTypeScriptExportListsUsePublicAliases runs as a Go unit entry in the native package. scanTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification scanTypeScriptInventory exercises the authored fixture. Assert public aliases materialize and local/runtime-only names do not.
+ * @evidence contracts/testing.md#independent-expectations An exported contract need not carry an `export` modifier on its declaration. When `export { Local as Public }` exposes it, evidence targets must use the public name; a type-only export must not expose runtime callable behavior. The authored scenario requires this outcome: Assert public aliases materialize and local/runtime-only names do not.
+ * @evidence contracts/testing.md#distinguishing-cases Export local type, function, class, and namespace declarations by alias. Export a second function through `export type` only. Assert public aliases materialize and local/runtime-only names do not.
+ * @evidence contracts/testing.md#execution-ownership TestTypeScriptExportListsUsePublicAliases runs as a Go unit entry in the native package. scanTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestTypeScriptExportListsUsePublicAliases(t *testing.T) {
   source := `

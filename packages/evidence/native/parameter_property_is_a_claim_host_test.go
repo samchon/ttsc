@@ -21,10 +21,10 @@ import (
  *  1. Cite one of two Markdown sections from a parameter property.
  *  2. Evaluate a `symbol: "property"` claim over that file.
  *  3. Assert the uncited section is the only thing reported.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the uncited section is the only thing reported.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Materializing the unit is only half of the repair. TypeScript attaches a leading block to the parameter rather than to the constructor, and unless the parameter is registered as a claim host too, the field would be visible as evidence while unable to cite anything of its own. The authored scenario requires this outcome: Assert the uncited section is the only thing reported.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Cite one of two Markdown sections from a parameter property. Evaluate a `symbol: "property"` claim over that file. Assert the uncited section is the only thing reported.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestParameterPropertyIsAClaimHost runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the uncited section is the only thing reported.
+ * @evidence contracts/testing.md#independent-expectations Materializing the unit is only half of the repair. TypeScript attaches a leading block to the parameter rather than to the constructor, and unless the parameter is registered as a claim host too, the field would be visible as evidence while unable to cite anything of its own. The authored scenario requires this outcome: Assert the uncited section is the only thing reported.
+ * @evidence contracts/testing.md#distinguishing-cases Cite one of two Markdown sections from a parameter property. Evaluate a `symbol: "property"` claim over that file. Assert the uncited section is the only thing reported.
+ * @evidence contracts/testing.md#execution-ownership TestParameterPropertyIsAClaimHost runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestParameterPropertyIsAClaimHost(t *testing.T) {
   assertReported(t, runIndexRule(t, map[string]string{

@@ -15,10 +15,10 @@ import (
  *  1. Attach an exclusion to a local arrow-function `const`.
  *  2. Export that declaration under a public alias.
  *  3. Assert the function-only claim group accepts the host and exclusion.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the function-only claim group accepts the host and exclusion.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Source materialization and claim-host selection use the same public export analysis. Testing only source targets could leave aliased callables visible as evidence while rejecting declarations attached to them. The authored scenario requires this outcome: Assert the function-only claim group accepts the host and exclusion.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Attach an exclusion to a local arrow-function `const`. Export that declaration under a public alias. Assert the function-only claim group accepts the host and exclusion.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestTypeScriptExportAliasCanHostEvidenceExclusion runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the function-only claim group accepts the host and exclusion.
+ * @evidence contracts/testing.md#independent-expectations Source materialization and claim-host selection use the same public export analysis. Testing only source targets could leave aliased callables visible as evidence while rejecting declarations attached to them. The authored scenario requires this outcome: Assert the function-only claim group accepts the host and exclusion.
+ * @evidence contracts/testing.md#distinguishing-cases Attach an exclusion to a local arrow-function `const`. Export that declaration under a public alias. Assert the function-only claim group accepts the host and exclusion.
+ * @evidence contracts/testing.md#execution-ownership TestTypeScriptExportAliasCanHostEvidenceExclusion runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestTypeScriptExportAliasCanHostEvidenceExclusion(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

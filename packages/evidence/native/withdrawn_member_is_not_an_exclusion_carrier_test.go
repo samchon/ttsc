@@ -15,10 +15,10 @@ import (
  *  1. Exclude a section from the untagged half of a withdrawn member.
  *  2. Evaluate a `symbol: "function"` claim over that file.
  *  3. Assert the carrier is refused and the section stays unacknowledged.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the carrier is refused and the section stays unacknowledged.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Carrier eligibility is wider than host eligibility, and it reads the same host set, so a leak there is a second way for a withdrawn declaration to settle an obligation. Excluding through one is worse than citing through one: the reason field makes it read as a reviewed decision. The authored scenario requires this outcome: Assert the carrier is refused and the section stays unacknowledged.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Exclude a section from the untagged half of a withdrawn member. Evaluate a `symbol: "function"` claim over that file. Assert the carrier is refused and the section stays unacknowledged.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestWithdrawnMemberIsNotAnExclusionCarrier runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the carrier is refused and the section stays unacknowledged.
+ * @evidence contracts/testing.md#independent-expectations Carrier eligibility is wider than host eligibility, and it reads the same host set, so a leak there is a second way for a withdrawn declaration to settle an obligation. Excluding through one is worse than citing through one: the reason field makes it read as a reviewed decision. The authored scenario requires this outcome: Assert the carrier is refused and the section stays unacknowledged.
+ * @evidence contracts/testing.md#distinguishing-cases Exclude a section from the untagged half of a withdrawn member. Evaluate a `symbol: "function"` claim over that file. Assert the carrier is refused and the section stays unacknowledged.
+ * @evidence contracts/testing.md#execution-ownership TestWithdrawnMemberIsNotAnExclusionCarrier runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestWithdrawnMemberIsNotAnExclusionCarrier(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

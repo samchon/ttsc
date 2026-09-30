@@ -19,10 +19,10 @@ import (
  *  1. Parse equivalent `.ts` and `.js` source files under one project root.
  *  2. Build the TypeScript inventory from both Program entries.
  *  3. Assert only the TypeScript path is available to globs.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification loadTypeScriptInventories exercises the authored fixture. Assert only the TypeScript path is available to globs.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations SourceFile ASTs can represent both languages, but the public variant is explicitly `"typescript"`. Its file inventory therefore accepts TypeScript extensions and leaves JavaScript for a future artifact variant. The authored scenario requires this outcome: Assert only the TypeScript path is available to globs.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Parse equivalent `.ts` and `.js` source files under one project root. Build the TypeScript inventory from both Program entries. Assert only the TypeScript path is available to globs.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestTypeScriptInventoryExcludesJavaScriptProgramFiles runs as a Go unit entry in the native package. loadTypeScriptInventories executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification loadTypeScriptInventories exercises the authored fixture. Assert only the TypeScript path is available to globs.
+ * @evidence contracts/testing.md#independent-expectations SourceFile ASTs can represent both languages, but the public variant is explicitly `"typescript"`. Its file inventory therefore accepts TypeScript extensions and leaves JavaScript for a future artifact variant. The authored scenario requires this outcome: Assert only the TypeScript path is available to globs.
+ * @evidence contracts/testing.md#distinguishing-cases Parse equivalent `.ts` and `.js` source files under one project root. Build the TypeScript inventory from both Program entries. Assert only the TypeScript path is available to globs.
+ * @evidence contracts/testing.md#execution-ownership TestTypeScriptInventoryExcludesJavaScriptProgramFiles runs as a Go unit entry in the native package. loadTypeScriptInventories executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestTypeScriptInventoryExcludesJavaScriptProgramFiles(t *testing.T) {
   root := t.TempDir()

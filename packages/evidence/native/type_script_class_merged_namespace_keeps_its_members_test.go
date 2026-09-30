@@ -18,10 +18,10 @@ import (
  *  1. Merge a class with a namespace declaring companion members.
  *  2. Collect the inventory.
  *  3. Assert the class callables and every namespace member survive.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert the class callables and every namespace member survive.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Both halves of `class Service` beside `namespace Service` are `type` under one identity, so they fold into one unit rather than colliding, and the ambiguity this change removes never arose there. A correction keyed on the namespace rather than on its merge partner would have caught it anyway and erased the companion object every such class publishes. The authored scenario requires this outcome: Assert the class callables and every namespace member survive.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Merge a class with a namespace declaring companion members. Collect the inventory. Assert the class callables and every namespace member survive.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestTypeScriptClassMergedNamespaceKeepsItsMembers runs as a Go unit entry in the native package. parseTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert the class callables and every namespace member survive.
+ * @evidence contracts/testing.md#independent-expectations Both halves of `class Service` beside `namespace Service` are `type` under one identity, so they fold into one unit rather than colliding, and the ambiguity this change removes never arose there. A correction keyed on the namespace rather than on its merge partner would have caught it anyway and erased the companion object every such class publishes. The authored scenario requires this outcome: Assert the class callables and every namespace member survive.
+ * @evidence contracts/testing.md#distinguishing-cases Merge a class with a namespace declaring companion members. Collect the inventory. Assert the class callables and every namespace member survive.
+ * @evidence contracts/testing.md#execution-ownership TestTypeScriptClassMergedNamespaceKeepsItsMembers runs as a Go unit entry in the native package. parseTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestTypeScriptClassMergedNamespaceKeepsItsMembers(t *testing.T) {
   inventory := parseTypeScriptInventory(t, "src/contracts.ts", `

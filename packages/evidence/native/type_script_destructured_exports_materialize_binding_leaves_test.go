@@ -17,10 +17,10 @@ import (
  *  1. Export representative object and array binding patterns.
  *  2. Add namespace, alias, and private negative twins.
  *  3. Assert the exact public property inventory.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert the exact public property inventory.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Object and array binding patterns have no declaration-level identifier. Recursing through their leaves must preserve renamed, nested, rest, namespace, and later export-list bindings without guessing callable values. The authored scenario requires this outcome: Assert the exact public property inventory.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Export representative object and array binding patterns. Add namespace, alias, and private negative twins. Assert the exact public property inventory.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestTypeScriptDestructuredExportsMaterializeBindingLeaves runs as a Go unit entry in the native package. parseTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert the exact public property inventory.
+ * @evidence contracts/testing.md#independent-expectations Object and array binding patterns have no declaration-level identifier. Recursing through their leaves must preserve renamed, nested, rest, namespace, and later export-list bindings without guessing callable values. The authored scenario requires this outcome: Assert the exact public property inventory.
+ * @evidence contracts/testing.md#distinguishing-cases Export representative object and array binding patterns. Add namespace, alias, and private negative twins. Assert the exact public property inventory.
+ * @evidence contracts/testing.md#execution-ownership TestTypeScriptDestructuredExportsMaterializeBindingLeaves runs as a Go unit entry in the native package. parseTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestTypeScriptDestructuredExportsMaterializeBindingLeaves(t *testing.T) {
   inventory := parseTypeScriptInventory(t, "src/contracts.ts", `

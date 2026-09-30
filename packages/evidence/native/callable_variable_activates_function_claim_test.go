@@ -14,10 +14,10 @@ import (
  *  1. Export one arrow-function variable from a matched TypeScript file.
  *  2. Materialize one unacknowledged Markdown heading.
  *  3. Assert the selected callable activates missing-acknowledgement coverage.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the selected callable activates missing-acknowledgement coverage.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The negative twin in TestFunctionClaimIgnoresExportedNonFunctionVariable proves ordinary exported data stays outside the function population. Replacing only its initializer with an arrow function must open the existing obligation without a configuration change. The authored scenario requires this outcome: Assert the selected callable activates missing-acknowledgement coverage.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Export one arrow-function variable from a matched TypeScript file. Materialize one unacknowledged Markdown heading. Assert the selected callable activates missing-acknowledgement coverage.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestCallableVariableActivatesFunctionClaim runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the selected callable activates missing-acknowledgement coverage.
+ * @evidence contracts/testing.md#independent-expectations The negative twin in TestFunctionClaimIgnoresExportedNonFunctionVariable proves ordinary exported data stays outside the function population. Replacing only its initializer with an arrow function must open the existing obligation without a configuration change. The authored scenario requires this outcome: Assert the selected callable activates missing-acknowledgement coverage.
+ * @evidence contracts/testing.md#distinguishing-cases Export one arrow-function variable from a matched TypeScript file. Materialize one unacknowledged Markdown heading. Assert the selected callable activates missing-acknowledgement coverage.
+ * @evidence contracts/testing.md#execution-ownership TestCallableVariableActivatesFunctionClaim runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestCallableVariableActivatesFunctionClaim(t *testing.T) {
   assertProblemContains(t, runIndexRule(t, map[string]string{

@@ -15,10 +15,10 @@ import (
  *  1. Obligate a merged identity from a TypeScript claim, in both orders.
  *  2. Leave it unacknowledged.
  *  3. Assert the diagnostic points at line 2 either way.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the diagnostic points at line 2 either way.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The complementary inventory unit tests read the inventory directly; this reads what a user sees. A missing acknowledgement sends its reader to a line, and that line has to be the identity's first declaration no matter which half was written first. The authored scenario requires this outcome: Assert the diagnostic points at line 2 either way.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Obligate a merged identity from a TypeScript claim, in both orders. Leave it unacknowledged. Assert the diagnostic points at line 2 either way.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestMissingAcknowledgementNamesTheFirstDeclaration runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the diagnostic points at line 2 either way.
+ * @evidence contracts/testing.md#independent-expectations The complementary inventory unit tests read the inventory directly; this reads what a user sees. A missing acknowledgement sends its reader to a line, and that line has to be the identity's first declaration no matter which half was written first. The authored scenario requires this outcome: Assert the diagnostic points at line 2 either way.
+ * @evidence contracts/testing.md#distinguishing-cases Obligate a merged identity from a TypeScript claim, in both orders. Leave it unacknowledged. Assert the diagnostic points at line 2 either way.
+ * @evidence contracts/testing.md#execution-ownership TestMissingAcknowledgementNamesTheFirstDeclaration runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestMissingAcknowledgementNamesTheFirstDeclaration(t *testing.T) {
   for name, source := range map[string]string{

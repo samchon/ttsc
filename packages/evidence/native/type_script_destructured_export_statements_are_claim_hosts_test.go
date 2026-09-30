@@ -15,10 +15,10 @@ import (
  *  1. Attach evidence to an exported object binding pattern.
  *  2. Select property hosts and one Markdown heading.
  *  3. Assert the complete rule accepts the host.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the complete rule accepts the host.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations TypeScript attaches leading JSDoc to the variable statement wrapper, while public identities live on nested binding elements. Both nodes must receive the same property-host result. The authored scenario requires this outcome: Assert the complete rule accepts the host.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Attach evidence to an exported object binding pattern. Select property hosts and one Markdown heading. Assert the complete rule accepts the host.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestTypeScriptDestructuredExportStatementsAreClaimHosts runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the complete rule accepts the host.
+ * @evidence contracts/testing.md#independent-expectations TypeScript attaches leading JSDoc to the variable statement wrapper, while public identities live on nested binding elements. Both nodes must receive the same property-host result. The authored scenario requires this outcome: Assert the complete rule accepts the host.
+ * @evidence contracts/testing.md#distinguishing-cases Attach evidence to an exported object binding pattern. Select property hosts and one Markdown heading. Assert the complete rule accepts the host.
+ * @evidence contracts/testing.md#execution-ownership TestTypeScriptDestructuredExportStatementsAreClaimHosts runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestTypeScriptDestructuredExportStatementsAreClaimHosts(t *testing.T) {
   messages := runIndexRule(t, map[string]string{
