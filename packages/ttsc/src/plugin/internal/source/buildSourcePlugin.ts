@@ -57,7 +57,7 @@ import { withGoBuildCacheLease } from "./withGoBuildCacheLease";
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain effective environment, exact-input verification and managed versus explicit roots; option-map comments state their reading provenance with blank member separation.
  * @evidence contracts/portability.md#os-neutral-implementation Node path/physical-cache/temp APIs preserve native identities; executable resolution and Windows command handling are isolated owners, and the binary filename explicitly follows its executable platform.
  * @evidence contracts/performance.md#efficient-algorithms Key construction streams source hashes and shared toolchain identities; a cold build materializes only contributing inputs, parses each module manifest through a per-build memo and invokes one compiler for the plugin.
- * @evidence contracts/performance.md#reuse-equivalent-work Existing binaries and concurrent builders share the exact version/platform/source/environment key; load-owned digest maps share readings across plugins while source/toolchain proofs reject a result whose inputs changed during production.
+ * @evidence contracts/performance.md#reuse-equivalent-work Existing binaries and concurrent builders share the exact version/platform/source/environment key; fixed trimpath compilation removes disposable snapshot paths from equivalent Go object identities. Load-owned digest maps share readings while source/toolchain proofs reject changed production inputs.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The build owns scratch directories, unpublished binaries and build leases with finally cleanup; managed disk caches use age/LRU maintenance with live/recent entries protected, while explicit cache retention remains caller-owned.
  */
 export function buildSourcePlugin(opts: {
@@ -1134,12 +1134,16 @@ function runGoBuild(
   normalizeGoToolPermissions: boolean,
 ): void {
   ensureExecutableGoToolchain(goBinary, normalizeGoToolPermissions);
-  const result = spawnGoTool(goBinary, ["build", "-o", binaryName, entry], {
-    cwd,
-    encoding: "utf8",
-    env: GoSourceInputs.goBuildEnv(goBinary, goBuildCacheRoot, env),
-    windowsHide: true,
-  });
+  const result = spawnGoTool(
+    goBinary,
+    ["build", ...GoSourceInputs.BUILD_FLAGS, "-o", binaryName, entry],
+    {
+      cwd,
+      encoding: "utf8",
+      env: GoSourceInputs.goBuildEnv(goBinary, goBuildCacheRoot, env),
+      windowsHide: true,
+    },
+  );
   if (result.error) {
     throw new Error(
       goSpawnFailureMessage(

@@ -13,7 +13,9 @@ import { spawnGoTool } from "./spawnGoTool";
  * compiler's identity (its `go version` and the bytes of the binary), the Go
  * build environment `go env` reports for the build's directory (target, build
  * tags, cgo, FIPS, the C toolchain's commands by content, and GOROOT by
- * content), and the external toolchain environment cgo reads.
+ * content), and the external toolchain environment cgo reads. Fixed source-build
+ * flags enter this same identity, so its binary key and reported source state
+ * both distinguish the artifact policy used by native compilation.
  *
  * A plugin binary is a function of its sources and of this environment, so both
  * the plugin cache key (`computeCacheKey`) and the state a transform reports
@@ -34,7 +36,7 @@ import { spawnGoTool } from "./spawnGoTool";
  *   the executables the C toolchain commands name, and GOROOT. A consumer that
  *   keeps the reading compares their metadata before reusing it.
  *
- * @evidence contracts/common.md#principled-implementation Compiler bytes/version, selected Go build values, command executables and contributing SDK files enter a deterministic digest; source-state reporting uses this same serialization rather than a second definition of toolchain identity.
+ * @evidence contracts/common.md#principled-implementation Fixed artifact flags, compiler bytes/version, selected Go build values, command executables and contributing SDK files enter a deterministic digest; source-state reporting uses this same serialization rather than a second definition of toolchain identity.
  * @evidence contracts/common.md#clear-and-simple-design Private helpers separate compiler identity, Go-reported settings, external variables and SDK content while sharing one hash sink and optional pre-read witness.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Cache signatures include real identity/change metadata and effective invocation context; failed SDK witnessing refuses reuse rather than accepting a VERSION-only proxy.
  * @evidence contracts/common.md#meaningful-documentation Native documentation names the input classes and witness purpose; private comments explain context-sensitive compiler memoization and SDK exclusions without treating a passing check as proof.
@@ -51,6 +53,9 @@ export function hashPluginBuildEnvironment(
   filesystem: SourceBuildFilesystemOperations,
   witness?: PluginBuildEnvironmentWitness.Record,
 ): void {
+  // Fixed artifact policy must invalidate binaries and reported source states
+  // together, including binaries cached before this policy was introduced.
+  hash.update(JSON.stringify(["source-build-flags", GoSourceInputs.BUILD_FLAGS]));
   if (goBinary !== undefined) {
     hash.update(
       JSON.stringify([

@@ -9,10 +9,10 @@ import path from "node:path";
  * irrelevant file would bust the cached binary (or a relevant one would not),
  * and the build must run with the same toolchain environment the key hashed.
  *
- * @evidence contracts/common.md#principled-implementation One policy defines real Go inputs and local build residue so hashing, copying and observers agree about which changes affect the binary.
+ * @evidence contracts/common.md#principled-implementation One policy defines real Go inputs, fixed artifact flags and local build residue so hashing, copying, compilation and observers agree about which changes affect the binary.
  * @evidence contracts/common.md#clear-and-simple-design Source-name predicates and invocation-environment construction are centralized for consumers instead of copying their policies across loaders and watchers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Omitted names are actual dependency/build residue boundaries; GOWORK and managed GOCACHE reflect the scratch build protocol rather than fixture-specific exceptions.
- * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain why residue is omitted and distinguish metadata probes from cache-writing builds; constants document their consumers and units where relevant.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain why residue is omitted and distinguish metadata probes from cache-writing builds; artifact-flag documentation identifies logical runtime source locations and unchanged embedded bytes.
  * @evidence contracts/portability.md#os-neutral-implementation Native roots use Node path APIs; platform sidecar names are omitted as residue without deriving filesystem capabilities from the running OS.
  *
  * @evidenceExclude contracts/performance.md#efficient-algorithms The namespace groups input policies; each function owns its environment or membership processing.
@@ -20,6 +20,15 @@ import path from "node:path";
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Policy collections have fixed population and do not own external resources.
  */
 export namespace GoSourceInputs {
+  /**
+   * Artifact flags shared by native compilation and its environment identity.
+   *
+   * Go's trimpath removes disposable materialization paths from object keys
+   * and debug information. Runtime source locations identify module files;
+   * source diagnostics and embedded file contents still come from the snapshot.
+   */
+  export const BUILD_FLAGS: readonly string[] = Object.freeze(["-trimpath"]);
+
   /**
    * Names of directories that never contribute plugin source: a nested
    * `node_modules`, a repository's `.git`, and ttsc's own `.ttsc`. An observer
