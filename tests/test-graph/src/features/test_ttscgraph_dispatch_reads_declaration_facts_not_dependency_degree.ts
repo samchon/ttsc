@@ -1,6 +1,5 @@
-import { TestProject } from "@ttsc/testing";
-
-import { TtsgraphClient, assert } from "../internal/ttsgraph";
+import { withIdentityBoundary } from "../internal/identityBoundary";
+import { assert } from "../internal/ttsgraph";
 
 interface ToolResult {
   structuredContent?: {
@@ -45,184 +44,18 @@ interface TraceResult {
  *    override, that no bodyless candidate is admitted as an implementation, and
  *    that `focus: "types"` still synthesizes nothing.
  *
- * @evidence contracts/testing.md#behavioral-verification MCP trace dispatch follows bodyless declarations to real implementations, excludes concrete empty/literal/arithmetic/throwing bodies and helpers, deduplicates double heritage, and returns the exact Pipeline execution path.
+ * @evidence contracts/testing.md#behavioral-verification MCP trace dispatch follows bodyless declarations to real implementations, excludes concrete empty/literal/arithmetic/throwing bodies and helpers, deduplicates double heritage, and returns the exact BodyPipeline execution path.
  * @evidence contracts/testing.md#independent-expectations Authored declaration modifiers and bodies independently decide whether dispatch is needed; literal expected path names and negative implementation names distinguish edge-count guesses.
  * @evidence contracts/testing.md#distinguishing-cases Abstract, interface and ambient members contrast concrete bodies, overload implementation and types-only focus; double implements/override relations still produce one implementation hop.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_dispatch_reads_declaration_facts_not_dependency_degree starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary The checker must publish body/modifier/container and heritage facts before transported graph traversal can distinguish concrete zero-degree methods from declarations.
- * @evidence contracts/e2e.md#shared-execution All declaration contrasts and path requests reuse one fixture/session and the suite compiler. Compatible dispatch cases can join a shared graph project; current cross-case preparation is not minimized.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Distinct owner-qualified names prevent ambiguous fixture reuse, and all requests inspect one immutable generation; client stdin closes in finally and normal exit is checked.
+ * @evidence contracts/e2e.md#shared-execution Fifteen identity/display, documentation/citation, DTO/audit and member-dispatch entries borrow one composite project, initialized MCP session and resident native compiler. Only the object-source mutation requires a new generation. The checker-rejection entry also executes the public dump CLI once because diagnostics/raw edges are a separate entrypoint connection; all named assertions remain.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique source files, symbol names and citation targets isolate each fixture; distinct dispatch contracts and audit handler names prevent cross-case implementation/citation matches. Only object-outline.ts changes. Serial requests synchronize its delta and suite finally closes the shared client with a successful-exit assertion after complete result collection.
  * @evidence contracts/e2e.md#preserved-coverage Positive dispatch, negative concrete/helper dispatch, deduplication, types-focus and exact-path assertions remain here. A direct predicate test alone cannot replace the native fact-production coverage.
  */
 export const test_ttscgraph_dispatch_reads_declaration_facts_not_dependency_degree =
   async () => {
-    const root = TestProject.createProject({
-      "tsconfig.json": JSON.stringify(
-        {
-          compilerOptions: {
-            target: "ES2022",
-            module: "commonjs",
-            strict: true,
-            rootDir: "src",
-            outDir: "dist",
-          },
-          include: ["src"],
-        },
-        null,
-        2,
-      ),
-      "src/app.ts": [
-        "export function accepted(): void {}",
-        "export function derivedOnly(): void {}",
-        "",
-        "export interface Pipeline {",
-        "  execute(): void;",
-        "}",
-        "",
-        "export class Empty implements Pipeline {",
-        "  public execute(): void {}",
-        "}",
-        "",
-        "export function callPipeline(pipeline: Pipeline): void {",
-        "  pipeline.execute();",
-        "}",
-        "",
-        "export interface Reader {",
-        "  read(): number;",
-        "}",
-        "",
-        "export class Constant implements Reader {",
-        "  public read(): number {",
-        "    return 1;",
-        "  }",
-        "}",
-        "",
-        "export class Computed implements Reader {",
-        "  public read(): number {",
-        "    let total = 0;",
-        "    for (let i = 0; i < 3; i++) total += i;",
-        "    return total;",
-        "  }",
-        "}",
-        "",
-        "export class Refusing implements Reader {",
-        "  public read(): number {",
-        '    throw "unsupported";',
-        "  }",
-        "}",
-        "",
-        "export function callReader(reader: Reader): number {",
-        "  return reader.read();",
-        "}",
-        "",
-        "export abstract class Task {",
-        "  public abstract perform(): void;",
-        "",
-        "  public start(): void {",
-        "    this.perform();",
-        "  }",
-        "}",
-        "",
-        "export class QuietTask extends Task {",
-        "  public perform(): void {}",
-        "}",
-        "",
-        "export interface Shape {",
-        "  area(): number;",
-        "}",
-        "",
-        "export abstract class BaseShape implements Shape {",
-        "  public abstract area(): number;",
-        "}",
-        "",
-        "export class Square extends BaseShape {",
-        "  public area(): number {",
-        "    return 4;",
-        "  }",
-        "}",
-        "",
-        "export function callShape(shape: Shape): number {",
-        "  return shape.area();",
-        "}",
-        "",
-        "export abstract class Twice {",
-        "  public abstract emit(): void;",
-        "}",
-        "",
-        "export class OnlyOnce extends Twice implements Twice {",
-        "  public emit(): void {}",
-        "}",
-        "",
-        "export function callTwice(twice: Twice): void {",
-        "  twice.emit();",
-        "}",
-        "",
-        "declare class Native {",
-        "  handle(): void;",
-        "}",
-        "",
-        "export class RealNative extends Native {",
-        "  public handle(): void {}",
-        "}",
-        "",
-        "export function callNative(native: Native): void {",
-        "  native.handle();",
-        "}",
-        "",
-        "export class Base {",
-        "  public run(): void {}",
-        "}",
-        "",
-        "export class Derived extends Base {",
-        "  public run(): void {",
-        "    derivedOnly();",
-        "  }",
-        "}",
-        "",
-        "export function callBase(base: Base): void {",
-        "  base.run();",
-        "}",
-        "",
-        "export class Loud {",
-        "  public speak(): void {",
-        "    accepted();",
-        "  }",
-        "}",
-        "",
-        "export class Louder extends Loud {",
-        "  public speak(): void {",
-        "    derivedOnly();",
-        "  }",
-        "}",
-        "",
-        "export function callLoud(loud: Loud): void {",
-        "  loud.speak();",
-        "}",
-        "",
-        "export class Formatter {",
-        "  public format(value: string): string;",
-        "  public format(value: number): string;",
-        "  public format(value: string | number): string {",
-        "    return String(value);",
-        "  }",
-        "}",
-        "",
-        "export function callFormatter(formatter: Formatter): string {",
-        "  return formatter.format(1);",
-        "}",
-        "",
-      ].join("\n"),
-    });
-
-    const client = TtsgraphClient.start(root);
-    try {
-      await client.request("initialize", {
-        protocolVersion: "2025-06-18",
-        capabilities: {},
-        clientInfo: { name: "test-graph", version: "0.0.0" },
-      });
-      client.notify("notifications/initialized", {});
-
+    await withIdentityBoundary(async (client) => {
       const call = async (
         request: Record<string, unknown>,
       ): Promise<TraceResult> => {
@@ -259,7 +92,7 @@ export const test_ttscgraph_dispatch_reads_declaration_facts_not_dependency_degr
       const forward = async (from: string): Promise<TraceResult> =>
         call({ from, direction: "forward", focus: "execution", maxDepth: 4 });
 
-      const emptyBody = await forward("callPipeline");
+      const emptyBody = await forward("callBodyPipeline");
       assert.ok(
         dispatchedIn(emptyBody).includes("Empty.execute"),
         `an implementation with an empty body is still the code that runs: ${JSON.stringify(emptyBody.hops)}`,
@@ -339,7 +172,7 @@ export const test_ttscgraph_dispatch_reads_declaration_facts_not_dependency_degr
         "the same shape answers the same way when the base body calls a helper",
       );
       assert.ok(
-        concreteCallingBase.reached.some((node) => node.name === "accepted"),
+        concreteCallingBase.reached.some((node) => node.name === "bodyAccepted"),
         "the concrete base's own work is still reached",
       );
 
@@ -357,7 +190,7 @@ export const test_ttscgraph_dispatch_reads_declaration_facts_not_dependency_degr
       );
 
       const typed = await call({
-        from: "callPipeline",
+        from: "callBodyPipeline",
         direction: "forward",
         focus: "types",
         maxDepth: 4,
@@ -369,24 +202,15 @@ export const test_ttscgraph_dispatch_reads_declaration_facts_not_dependency_degr
       );
 
       const asPath = await call({
-        from: "callPipeline",
+        from: "callBodyPipeline",
         to: "Empty.execute",
         focus: "execution",
         maxDepth: 4,
       });
       assert.deepEqual(
         asPath.path?.map((node) => node.name),
-        ["callPipeline", "Pipeline.execute", "Empty.execute"],
+        ["callBodyPipeline", "BodyPipeline.execute", "Empty.execute"],
         `path mode agrees with the open trace: ${JSON.stringify(asPath.path)}`,
       );
-    } finally {
-      client.endStdin();
-    }
-
-    const code = await client.waitForExit();
-    assert.equal(
-      code,
-      0,
-      `the launcher exits cleanly\nstderr: ${client.stderrText()}`,
-    );
+    });
   };

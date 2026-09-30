@@ -3,9 +3,9 @@ import {
   RESULT_AUDIT_DETAILS,
   RESULT_AUDIT_SELECTION,
 } from "@ttsc/graph";
-import { TestProject } from "@ttsc/testing";
 
-import { TtsgraphClient, assert } from "../internal/ttsgraph";
+import { withIdentityBoundary } from "../internal/identityBoundary";
+import { assert } from "../internal/ttsgraph";
 
 const GRAPH_TOOL_NAME = "inspect_typescript_graph";
 
@@ -63,50 +63,12 @@ const graphArguments = (props: {
  * @evidence contracts/testing.md#distinguishing-cases Twenty handlers force a shortlist and truncated entrypoints; caller-selected trace identity contrasts ranked lookup/tour and detail/overview operations.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_result_audit_matches_selection_semantics starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Actual native facts, MCP DTO selection and application audit dispatch must agree at the wire boundary; constants-only tests cannot prove populated requests choose the correct scope.
- * @evidence contracts/e2e.md#shared-execution All six operation types reuse one project/session and suite binary. This is an existing within-case audit batch; cross-case response-shape sharing remains incomplete.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Twenty uniquely named handlers stay in one immutable fixture; trace uses a handle obtained in that generation, and finally ends stdin with normal exit checked.
+ * @evidence contracts/e2e.md#shared-execution Fifteen identity/display, documentation/citation, DTO/audit and member-dispatch entries borrow one composite project, initialized MCP session and resident native compiler. Only the object-source mutation requires a new generation. The checker-rejection entry also executes the public dump CLI once because diagnostics/raw edges are a separate entrypoint connection; all named assertions remain.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique source files, symbol names and citation targets isolate each fixture; distinct dispatch contracts and audit handler names prevent cross-case implementation/citation matches. Only object-outline.ts changes. Serial requests synchronize its delta and suite finally closes the shared client with a successful-exit assertion after complete result collection.
  * @evidence contracts/e2e.md#preserved-coverage Distinct constants, ranked scores, bounded hits, entrypoint truncation, real trace start and every operation's original audit equality are retained.
  */
 export const test_ttscgraph_result_audit_matches_selection_semantics =
   async (): Promise<void> => {
-    // A shared `helper` reached from twenty exported `handlerN` functions: a
-    // broad "handler" query overflows every ranker's per-file cap and limit, so
-    // the shortlist is genuinely scored, bounded, and truncated.
-    const handlers = Array.from(
-      { length: 20 },
-      (_unused, i) =>
-        `export function handler${i}(): void { helper(); log(); }`,
-    ).join("\n");
-    const root = TestProject.createProject({
-      "tsconfig.json": JSON.stringify({
-        compilerOptions: {
-          target: "ES2022",
-          module: "commonjs",
-          strict: true,
-          rootDir: "src",
-          outDir: "dist",
-        },
-        include: ["src"],
-      }),
-      "src/app.ts": [
-        "export function helper(): void {}",
-        "export function log(): void {}",
-        handlers,
-        "export class Service {",
-        "  run(): void {",
-        "    helper();",
-        "    handler0();",
-        "  }",
-        "}",
-        "",
-      ].join("\n"),
-      "src/app.spec.ts": [
-        "import { Service } from './app';",
-        "export function coversRun(): void { new Service().run(); }",
-        "",
-      ].join("\n"),
-    });
-
     assert.equal(
       new Set([RESULT_AUDIT, RESULT_AUDIT_SELECTION, RESULT_AUDIT_DETAILS])
         .size,
@@ -114,15 +76,7 @@ export const test_ttscgraph_result_audit_matches_selection_semantics =
       "the exact, selection, and details audits must be distinct constants",
     );
 
-    const client = TtsgraphClient.start(root);
-    try {
-      await client.request("initialize", {
-        protocolVersion: "2025-06-18",
-        capabilities: {},
-        clientInfo: { name: "test-graph", version: "0.0.0" },
-      });
-      client.notify("notifications/initialized", {});
-
+    await withIdentityBoundary(async (client) => {
       const call = async (request: GraphRequest): Promise<ToolResult> =>
         (await client.request("tools/call", {
           name: GRAPH_TOOL_NAME,
@@ -161,7 +115,7 @@ export const test_ttscgraph_result_audit_matches_selection_semantics =
       // --- entrypoints: lookup-derived seeds, ranked neighbors, truncation. ---
       const entrypoints = await call({
         type: "entrypoints",
-        query: "handler helper log",
+        query: "handler auditHelper log",
         limit: 8,
         neighbors: 1,
       });
@@ -187,7 +141,7 @@ export const test_ttscgraph_result_audit_matches_selection_semantics =
       // --- tour: ranked seeds, bounded flows -> selection audit. ---
       const tour = await call({
         type: "tour",
-        reinterpretations: ["handler0", "helper", "Service.run"],
+        reinterpretations: ["handler0", "auditHelper", "AuditService.run"],
       });
       assert.equal(
         tour.structuredContent?.audit,
@@ -217,7 +171,7 @@ export const test_ttscgraph_result_audit_matches_selection_semantics =
         `trace walks from an explicit handle and must carry the exact audit: ${JSON.stringify(trace.structuredContent)}`,
       );
 
-      const details = await call({ type: "details", handles: ["Service.run"] });
+      const details = await call({ type: "details", handles: ["AuditService.run"] });
       assert.equal(
         details.structuredContent?.audit,
         RESULT_AUDIT_DETAILS,
@@ -230,14 +184,5 @@ export const test_ttscgraph_result_audit_matches_selection_semantics =
         RESULT_AUDIT,
         `overview reports project structure and must carry the exact audit: ${JSON.stringify(overview.structuredContent)}`,
       );
-    } finally {
-      client.endStdin();
-    }
-
-    const code = await client.waitForExit();
-    assert.equal(
-      code,
-      0,
-      `the launcher should exit cleanly\nstderr: ${client.stderrText()}`,
-    );
+    });
   };

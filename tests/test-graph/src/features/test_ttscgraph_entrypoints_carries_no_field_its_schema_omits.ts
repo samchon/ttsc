@@ -1,6 +1,5 @@
-import { TestProject } from "@ttsc/testing";
-
-import { TtsgraphClient, assert } from "../internal/ttsgraph";
+import { withIdentityBoundary } from "../internal/identityBoundary";
+import { assert } from "../internal/ttsgraph";
 
 interface ToolResult {
   content: { type: string; text: string }[];
@@ -48,48 +47,13 @@ const graphArguments = (props: {
  * @evidence contracts/testing.md#distinguishing-cases The same tagged declaration is a positive lookup/details control and a negative entrypoints payload control, distinguishing field projection from missing producer metadata.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_entrypoints_carries_no_field_its_schema_omits starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Actual native tag publication and MCP serialization must preserve tags where allowed while omitting them from the entrypoints wire shape.
- * @evidence contracts/e2e.md#shared-execution Three operations share one project/session and the suite compiler. They are candidates for the citation/DTO boundary batch; its current separate case session has not yet been consolidated.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fixture owns one tagged declaration and all controls use its generation; stdin ends in finally and successful exit is joined, without claiming a universal failure-path join.
+ * @evidence contracts/e2e.md#shared-execution Fifteen identity/display, documentation/citation, DTO/audit and member-dispatch entries borrow one composite project, initialized MCP session and resident native compiler. Only the object-source mutation requires a new generation. The checker-rejection entry also executes the public dump CLI once because diagnostics/raw edges are a separate entrypoint connection; all named assertions remain.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique source files, symbol names and citation targets isolate each fixture; distinct dispatch contracts and audit handler names prevent cross-case implementation/citation matches. Only object-outline.ts changes. Serial requests synchronize its delta and suite finally closes the shared client with a successful-exit assertion after complete result collection.
  * @evidence contracts/e2e.md#preserved-coverage Nonempty hits, lookup tags, absence from every entrypoint hit and details tags remain executable here; schema-only comparison is not used as a replacement.
  */
 export const test_ttscgraph_entrypoints_carries_no_field_its_schema_omits =
   async () => {
-    const root = TestProject.createProject({
-      "tsconfig.json": JSON.stringify(
-        {
-          compilerOptions: {
-            target: "ES2022",
-            module: "commonjs",
-            strict: true,
-            rootDir: "src",
-            outDir: "dist",
-          },
-          include: ["src"],
-        },
-        null,
-        2,
-      ),
-      "src/main.ts": [
-        "/** @evidence docs/boot.md#start Starts the application. */",
-        "export function bootstrap(): void {",
-        "  run();",
-        "}",
-        "",
-        "/** Does the work. */",
-        "export function run(): void {}",
-        "",
-      ].join("\n"),
-    });
-
-    const client = TtsgraphClient.start(root);
-    try {
-      await client.request("initialize", {
-        protocolVersion: "2025-06-18",
-        capabilities: {},
-        clientInfo: { name: "test-graph", version: "0.0.0" },
-      });
-      client.notify("notifications/initialized", {});
-
+    await withIdentityBoundary(async (client) => {
       const call = async (
         request: Record<string, unknown>,
       ): Promise<Record<string, unknown>> => {
@@ -153,9 +117,5 @@ export const test_ttscgraph_entrypoints_carries_no_field_its_schema_omits =
         (details.nodes ?? []).some((node) => "docTags" in node),
         `details must still carry the tag: ${JSON.stringify(details.nodes)}`,
       );
-    } finally {
-      client.endStdin();
-    }
-
-    assert.equal(await client.waitForExit(), 0, client.stderrText());
+    });
   };
