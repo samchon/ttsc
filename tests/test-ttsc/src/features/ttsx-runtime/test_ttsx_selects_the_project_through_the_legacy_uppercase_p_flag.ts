@@ -22,9 +22,9 @@ import assert from "node:assert/strict";
  * @evidence contracts/testing.md#distinguishing-cases Uppercase spaced project selection exercises the real alternate-config connection. The actual parseTtsxCLI unit separately owns spaced and inline uppercase forms, exact selected path and absence of leaked compiler/program arguments.
  * @evidence contracts/testing.md#execution-ownership This named E2E entry invokes one actual compiler-backed public launcher; the parser spelling matrix runs in the source-unit population.
  * @evidence contracts/e2e.md#necessary-boundary The parser's selected path must reach real project discovery, preparation and Node execution; returning a path from a unit call cannot prove that caller wiring.
- * @evidence contracts/e2e.md#shared-execution One alternate project preparation and one runtime host check selection assembly. Repeating the same compiler program for the inline spelling adds no connection, so that lexical decision executes directly through the owning parser.
+ * @evidence contracts/e2e.md#shared-execution One alternate project preparation and one runtime host check selection assembly and the former long-project typed message; both fixtures use the same ES2022/CommonJS strict ../src and ../dist config profile. Repeating the same compiler program for the inline spelling adds no connection, so that lexical decision executes directly through the owning parser.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fresh fixture has only its alternate config and immutable source; no default config or prior output can satisfy the invocation. Synchronous spawn completes before TestProject releases fixture state.
- * @evidence contracts/e2e.md#preserved-coverage Original zero-exit and ENTRY assertions remain in this public host; both original -P argument forms retain exact path, entry and forwarded-array assertions in the actual parser unit.
+ * @evidence contracts/e2e.md#preserved-coverage Original zero-exit and ENTRY assertions remain in this public host; both original -P argument forms and the original long --project configs/app.json request retain exact path, entry and forwarded-array assertions in the actual parser unit. The former separate explicit-project corpus typed message executes here as the exact second output line with the same alternate-config compiler profile.
  */
 export function test_ttsx_selects_the_project_through_the_legacy_uppercase_p_flag() {
     const root = TestProject.createProject({
@@ -38,11 +38,12 @@ export function test_ttsx_selects_the_project_through_the_legacy_uppercase_p_fla
         },
         include: ["../src"],
       }),
-      "src/main.ts": `console.log("ENTRY");\n`,
+      "src/main.ts": `const message: string = "explicit-runner-project";\nconsole.log("ENTRY");\nconsole.log(message);\n`,
     });
 
     const args = ["-P", "alt/tsconfig.json"];
     const result = TestProject.spawn(TestProject.TTSX_BIN, ["--cwd", root, ...args, "src/main.ts"], { cwd: root });
     assert.equal(result.status, 0, `ttsx ${args.join(" ")}:\n${result.stdout}${result.stderr}`);
     assert.match(result.stdout, /ENTRY/);
+    assert.deepEqual(result.stdout.trim().split(/\r?\n/), ["ENTRY", "explicit-runner-project"]);
 }
