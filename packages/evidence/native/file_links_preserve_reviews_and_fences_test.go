@@ -8,7 +8,7 @@ import (
 /**
  * Verifies file-link reviews expire on code changes while examples stay inert.
  *
- * @link is an acknowledgement; its review remains an annotation and fenced
+ * A file link is an acknowledgement; its review remains an annotation and fenced
  * examples must neither create coverage nor demand reviews of example targets.
  *
  * 1. Cite one property and obtain the required content fingerprint.
