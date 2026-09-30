@@ -141,7 +141,7 @@ Run `pnpm evidence` from the repository root to execute the production packages'
 
 The JSON configuration avoids evaluating configuration through the compiler this repository is developing. This keeps the checker usable before that compiler has been built.
 
-The dedicated `.github/workflows/evidence.yml` runs the production checks independently. Keep Evidence out of test source, test configurations, `pnpm test`, `test:*` scripts, existing test workflows, and their validation planner while the maintainer has deferred test integration. That boundary lets concurrent test work proceed without a changed test gate or source population.
+The existing `.github/workflows/build.yml` job runs `pnpm evidence` after dependency installation and before building on every pull request and master push. Keep Evidence out of test source, test configurations, `pnpm test`, `test:*` scripts, existing test workflows, and their validation planner. Sharing the build job removes a separate install and job without changing the production selection or treating checklist acknowledgments as unit assertions.
 
 During draft adoption, report all outstanding obligations and any incomplete analysis. The report must distinguish a functioning checker from completed enforcement of the selected production code.
 

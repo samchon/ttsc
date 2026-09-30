@@ -4,43 +4,7 @@ on:
   push:
     branches:
       - master
-    paths:
-      - ".github/workflows/build.yml"
-      - "config/**"
-      - "scripts/assert-platform-package.cjs"
-      - "scripts/assert-ttscgraph-release-candidate.cjs"
-      - "scripts/build-platform-package.cjs"
-      - "scripts/build-platforms.cjs"
-      - "scripts/ci/run-independent.cjs"
-      - "scripts/go-build-cache.cjs"
-      - "scripts/go-sdk-extraction.cjs"
-      - "scripts/go-sdk-integrity.cjs"
-      - "scripts/go-wasm-exec.cjs"
-      - "scripts/platform-target.cjs"
-      - "packages/**"
-      - "!packages/unplugin/**"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
   pull_request:
-    paths:
-      - ".github/workflows/build.yml"
-      - "config/**"
-      - "scripts/assert-platform-package.cjs"
-      - "scripts/assert-ttscgraph-release-candidate.cjs"
-      - "scripts/build-platform-package.cjs"
-      - "scripts/build-platforms.cjs"
-      - "scripts/ci/run-independent.cjs"
-      - "scripts/go-build-cache.cjs"
-      - "scripts/go-sdk-extraction.cjs"
-      - "scripts/go-sdk-integrity.cjs"
-      - "scripts/go-wasm-exec.cjs"
-      - "scripts/platform-target.cjs"
-      - "packages/**"
-      - "!packages/unplugin/**"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
 
 concurrency:
   group: build-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
@@ -67,6 +31,9 @@ jobs:
 
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Check Engineering Contracts
+        run: pnpm evidence
 
       - name: Build Packages
         run: pnpm run build
