@@ -2,14 +2,19 @@ package linthost
 
 import "testing"
 
-// TestFormatReflowPreservesNewConstructeeGapComment pins the data-safety guard
-// for a comment in the `new`->constructee gap of a NO-ARGUMENT new expression
-// (`new /* c */ Foo`). The new-expression sits inside an array that overflows
-// and would reflow; the `new` keyword and constructee are not separated by an
-// AST child, so the comment is masked from the outer scan. The no-args path of
-// printNewExpression mints `new ` and trivia-trims the constructee, so without
-// the hoisted guard the comment is dropped. With it the new-expression reports
-// uncovered, the enclosing reflow abstains, and the bytes survive.
+// TestFormatReflowPreservesNewConstructeeGapComment verifies preservation of
+// a comment between new and its constructee when the argument list is absent.
+//
+// Reprinting this nested allocation must retain keyword-gap trivia even when
+// there is no argument list to trigger an argument-gap guard.
+//
+// 1. Seed an outer call with an array containing the comment-bearing allocation.
+// 2. Format it directly and require every original byte to survive.
+//
+// @evidence contracts/testing.md#behavioral-verification The in-process format command must preserve the comment between new and its no-argument constructee, including the original outer call and array. Full unchanged output catches dropping that gap while printing a nested allocation.
+// @evidence contracts/testing.md#independent-expectations The authored allocation comment and program bytes must survive. The source itself is the independent byte-preservation oracle, not an expected result obtained from printer coverage or AST traversal.
+// @evidence contracts/testing.md#distinguishing-cases This no-argument new expression distinguishes the keyword gap from argument-list comments. NestedCallArgComment and ReturnComment cover other recursive gaps; existing printer new-expression cases exercise ordinary comment-free allocation rendering.
+// @evidence contracts/testing.md#execution-ownership TestFormatReflowPreservesNewConstructeeGapComment owns its allocation/array/call fixture and unchanged output. Its helper directly calls Go run in the same process with temporary project files and captured streams, without building native artifacts, installing a consumer or starting a CLI child.
 func TestFormatReflowPreservesNewConstructeeGapComment(t *testing.T) {
   assertFormatUnchanged(t, `const result = wrapWithAnEvenLongerFunctionNameToForceReflow([new /* keep */ AllocatorInstance]);
 `)

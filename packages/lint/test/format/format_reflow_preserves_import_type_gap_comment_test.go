@@ -2,13 +2,19 @@ package linthost
 
 import "testing"
 
-// TestFormatReflowPreservesImportTypeGapComment pins the data-safety guard for a
-// comment in the `type`->`{` gap of a type-only import (`import type /* c */
-// { … }`). The `type` keyword is an ImportClause modifier flag, not a child
-// node, so the comment is masked by the top-level scan and the brace-scoped
-// guard starts at `{`. At a narrow printWidth the multi-specifier clause would
-// reflow and the minted `import type ` prefix would drop the comment; the guard
-// abstains, keeping the bytes verbatim.
+// TestFormatReflowPreservesImportTypeGapComment verifies preservation of
+// trivia between the type keyword and a named import brace.
+//
+// Rebuilding the type-only prefix must not delete its comment. A comment-free
+// twin requires reflow while retaining type-only binding ownership.
+//
+// 1. Format the original type-gap comment at width ten without changing it.
+// 2. Remove that comment and require the literal broken type import.
+//
+// @evidence contracts/testing.md#behavioral-verification The in-process format command must preserve the comment between type and the named import brace. The comment-free type import must break at width ten while retaining type-only ownership and every binding.
+// @evidence contracts/testing.md#independent-expectations The authored type-gap comment must survive byte for byte. Installed Prettier 3.8.3 independently supplies the literal type-only import break and trailing comma, preserving the module specifier and imported names.
+// @evidence contracts/testing.md#distinguishing-cases The original type-keyword gap remains negative for reflow, with a comment-free twin positive under the same narrow width. The default-gap host distinguishes a different prefix region that also must retain trivia.
+// @evidence contracts/testing.md#execution-ownership TestFormatReflowPreservesImportTypeGapComment owns the original and paired import fixtures plus width-ten options. Its helper directly invokes Go run in process and reads temporary project output and streams without consumer installation, native artifacts or a CLI child.
 func TestFormatReflowPreservesImportTypeGapComment(t *testing.T) {
   assertFormatUnchangedWithFormat(
     t,
@@ -16,4 +22,8 @@ func TestFormatReflowPreservesImportTypeGapComment(t *testing.T) {
 `,
     map[string]any{"printWidth": 10},
   )
+  assertFormatResultWithFormat(t,
+    "import type { alpha, bravo, charlie } from \"x\";\n",
+    "import type {\n  alpha,\n  bravo,\n  charlie,\n} from \"x\";\n",
+    map[string]any{"printWidth": 10})
 }

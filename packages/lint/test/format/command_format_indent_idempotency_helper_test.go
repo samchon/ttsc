@@ -8,10 +8,10 @@ import (
 
 // assertFormatUnchanged seeds a project with `src`, runs `ttsc format` with a
 // default `format: {}` block, and asserts the file on disk is byte-identical
-// to `src`. Used by the indentation idempotency suite: each `src` is already
-// Prettier-canonical, so a well-behaved formatter must leave it untouched.
-// A failure means a format rule de-indented (or otherwise mangled) source
-// that was already correct.
+// to `src`. Used for canonical indentation and source-preservation boundaries
+// such as comment-bearing syntax the formatter must leave intact. The caller
+// owns the unchanged-output premise; this helper does not establish that every
+// source matches Prettier's complete output.
 func assertFormatUnchanged(t *testing.T, src string) {
   t.Helper()
   assertFormatResult(t, src, src)
@@ -19,8 +19,8 @@ func assertFormatUnchanged(t *testing.T, src string) {
 
 // assertFormatResult seeds a project with `src`, runs `ttsc format` with a
 // default `format: {}` block, and asserts the file on disk equals `want`. Use
-// for active reflows (mangled input -> a specific Prettier-canonical output),
-// while assertFormatUnchanged covers the idempotency cases (want == src).
+// for active transformations with a caller-authored expected output, while
+// assertFormatUnchanged covers cases whose output must equal their input.
 func assertFormatResult(t *testing.T, src, want string) {
   t.Helper()
   assertFormatResultWithFormat(t, src, want, map[string]any{})
