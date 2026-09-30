@@ -9,13 +9,10 @@ import (
 //
 // The supported property opt-in and ambiguous e dictionary independently prevent an automatic public-property rename.
 //
-// 1. Execute the retained binding, filename, option or command variants.
-// 2. Compare the authored diagnostic, edit, helper value or preserved source.
-//
 // @evidence contracts/testing.md#behavioral-verification The engine checks clean defaults and two enabled property findings with suggestions but no autofix.
 // @evidence contracts/testing.md#independent-expectations The supported property opt-in and ambiguous e dictionary independently prevent an automatic public-property rename.
 // @evidence contracts/testing.md#distinguishing-cases Property declaration/write are clean by default and each receive two suggestions when property checking is enabled.
-// @evidence contracts/testing.md#execution-ownership TestUnicornPreventAbbreviationsPropertyChecksAreOptInAndSuggestionOnly owns its explicit variants and named subcases where present as a discoverable Go unit entry; actual checker/engine/fix/filename/casing operations run in the shared process with isolated fixture files and no installed consumer, native producer or product child host.
+// @evidence contracts/testing.md#execution-ownership TestUnicornPreventAbbreviationsPropertyChecksAreOptInAndSuggestionOnly owns its explicit variants and named subcases where present as a discoverable Go unit entry; Checker-backed rule snapshots and exact diagnostic or editor-suggestion comparisons run in the shared Go process with isolated authored fixture files; no installed consumer, native producer or product child host runs.
 func TestUnicornPreventAbbreviationsPropertyChecksAreOptInAndSuggestionOnly(t *testing.T) {
   source := "class Store {\n  e = 0;\n  update(): void {\n    this.e = 1;\n  }\n}\nvoid Store;\n"
   assertRuleSkipsSource(t, unicornPreventAbbreviationsRuleName, source)

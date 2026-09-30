@@ -10,13 +10,10 @@ import (
 //
 // Explicit dictionary replacement, allowList and ignore policies independently leave err/ignoredCmd/allowedCmd unchanged.
 //
-// 1. Execute the retained binding, filename, option or command variants.
-// 2. Compare the authored diagnostic, edit, helper value or preserved source.
-//
 // @evidence contracts/testing.md#behavioral-verification The engine/fixer checks one custom cmd report and the authored complete output.
 // @evidence contracts/testing.md#independent-expectations Explicit dictionary replacement, allowList and ignore policies independently leave err/ignoredCmd/allowedCmd unchanged.
 // @evidence contracts/testing.md#distinguishing-cases Only cmd becomes command; omitted defaults, regex ignore and exact allow-list names stay clean.
-// @evidence contracts/testing.md#execution-ownership TestUnicornPreventAbbreviationsHonorsReplacementAllowAndIgnoreOptions owns its explicit variants and named subcases where present as a discoverable Go unit entry; actual checker/engine/fix/filename/casing operations run in the shared process with isolated fixture files and no installed consumer, native producer or product child host.
+// @evidence contracts/testing.md#execution-ownership TestUnicornPreventAbbreviationsHonorsReplacementAllowAndIgnoreOptions owns its explicit variants and named subcases where present as a discoverable Go unit entry; Checker-backed rule snapshots and actual disk fix application run in the shared Go process with isolated authored fixture files; no installed consumer, native producer or product child host runs.
 func TestUnicornPreventAbbreviationsHonorsReplacementAllowAndIgnoreOptions(t *testing.T) {
   source := "const err = 1;\nconst cmd = 2;\nconst ignoredCmd = 3;\nconst allowedCmd = 4;\nvoid [err, cmd, ignoredCmd, allowedCmd];\n"
   options := `{

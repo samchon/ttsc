@@ -8,13 +8,10 @@ import (
 //
 // Public export keys are module contract names, independently preserved while their local bindings rename.
 //
-// 1. Execute the retained binding, filename, option or command variants.
-// 2. Compare the authored diagnostic, edit, helper value or preserved source.
-//
 // @evidence contracts/testing.md#behavioral-verification The actual fixer compares three authored export forms with full output.
 // @evidence contracts/testing.md#independent-expectations Public export keys are module contract names, independently preserved while their local bindings rename.
 // @evidence contracts/testing.md#distinguishing-cases Shorthand export, explicit same-name alias and publicError alias retain their original exported spelling.
-// @evidence contracts/testing.md#execution-ownership TestUnicornPreventAbbreviationsPreservesExportedAliasNames owns its explicit variants and named subcases where present as a discoverable Go unit entry; actual checker/engine/fix/filename/casing operations run in the shared process with isolated fixture files and no installed consumer, native producer or product child host.
+// @evidence contracts/testing.md#execution-ownership TestUnicornPreventAbbreviationsPreservesExportedAliasNames owns its explicit variants and named subcases where present as a discoverable Go unit entry; Checker-backed rule snapshots and actual disk fix application run in the shared Go process with isolated authored fixture files; no installed consumer, native producer or product child host runs.
 func TestUnicornPreventAbbreviationsPreservesExportedAliasNames(t *testing.T) {
   source := "const err = new Error();\nexport { err };\n"
   assertFixSnapshot(

@@ -8,13 +8,10 @@ import (
 //
 // Upstream JavaScript first-code-unit casing leaves an astral leading surrogate unchanged and uncased; the literal compatibility expectations are independent of Go Unicode helpers.
 //
-// 1. Execute the retained binding, filename, option or command variants.
-// 2. Compare the authored diagnostic, edit, helper value or preserved source.
-//
 // @evidence contracts/testing.md#behavioral-verification Actual casing helpers are compared with authored astral strings and the supported upper-first classification.
 // @evidence contracts/testing.md#independent-expectations Upstream JavaScript first-code-unit casing leaves an astral leading surrogate unchanged and uncased; the literal compatibility expectations are independent of Go Unicode helpers.
 // @evidence contracts/testing.md#distinguishing-cases Upper/lower astral inputs stay unchanged and the retained astral-lower classification is true; full Unicode expansion belongs to the adjacent host.
-// @evidence contracts/testing.md#execution-ownership TestUnicornPreventAbbreviationsPreservesAstralFirstRuneCasing owns its explicit variants and named subcases where present as a discoverable Go unit entry; actual checker/engine/fix/filename/casing operations run in the shared process with isolated fixture files and no installed consumer, native producer or product child host.
+// @evidence contracts/testing.md#execution-ownership TestUnicornPreventAbbreviationsPreservesAstralFirstRuneCasing owns its explicit variants and named subcases where present as a discoverable Go unit entry; Direct lower-first, upper-first and starts-upper casing helper calls over authored astral strings run in the shared Go process without fixture files; no installed consumer, native producer or product child host runs.
 func TestUnicornPreventAbbreviationsPreservesAstralFirstRuneCasing(t *testing.T) {
   const astralUpper = "\U00010400Name"
   const astralLower = "\U00010428Name"

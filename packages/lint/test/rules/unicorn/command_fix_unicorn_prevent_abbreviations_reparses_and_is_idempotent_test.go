@@ -10,13 +10,10 @@ import (
 //
 // The supported binding rename and shorthand-key preservation independently establish the complete expected source beyond idempotency alone.
 //
-// 1. Execute the retained binding, filename, option or command variants.
-// 2. Compare the authored diagnostic, edit, helper value or preserved source.
-//
 // @evidence contracts/testing.md#behavioral-verification In-process public fix dispatch executes twice and compares the final fixture with authored canonical shorthand output.
 // @evidence contracts/testing.md#independent-expectations The supported binding rename and shorthand-key preservation independently establish the complete expected source beyond idempotency alone.
 // @evidence contracts/testing.md#distinguishing-cases idx declaration and shorthand become index/idx:index and remain stable on the second command pass.
-// @evidence contracts/testing.md#execution-ownership TestCommandFixUnicornPreventAbbreviationsReparsesAndIsIdempotent owns its explicit variants and named subcases where present as a discoverable Go unit entry; actual checker/engine/fix/filename/casing operations run in the shared process with isolated fixture files and no installed consumer, native producer or product child host.
+// @evidence contracts/testing.md#execution-ownership TestCommandFixUnicornPreventAbbreviationsReparsesAndIsIdempotent owns its explicit variants and named subcases where present as a discoverable Go unit entry; Two in-process public fix dispatches, checker-backed binding analysis and disk edit application run in the shared Go process with isolated authored fixture files; no installed consumer, native producer or product child host runs.
 func TestCommandFixUnicornPreventAbbreviationsReparsesAndIsIdempotent(t *testing.T) {
   root := seedLintProject(t, "const idx = 0;\nconsole.log({ idx });\n")
   seedLintRules(t, root, map[string]string{unicornPreventAbbreviationsRuleName: "error"})

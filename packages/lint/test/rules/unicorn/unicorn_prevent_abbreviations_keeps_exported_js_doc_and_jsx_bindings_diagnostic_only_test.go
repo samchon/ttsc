@@ -8,13 +8,10 @@ import (
 //
 // The supported rename-safety contract independently preserves external API, attached documentation and JSX naming across those authored inputs.
 //
-// 1. Execute the retained binding, filename, option or command variants.
-// 2. Compare the authored diagnostic, edit, helper value or preserved source.
-//
 // @evidence contracts/testing.md#behavioral-verification The engine checks each named public/comment/JSX binding risk for one diagnostic and no fixes or suggestions.
 // @evidence contracts/testing.md#independent-expectations The supported rename-safety contract independently preserves external API, attached documentation and JSX naming across those authored inputs.
 // @evidence contracts/testing.md#distinguishing-cases All fourteen retained export/JSDoc/JSX/parameter-property/ambient/wrapper cases remain diagnostic-only.
-// @evidence contracts/testing.md#execution-ownership TestUnicornPreventAbbreviationsKeepsExportedJSDocAndJSXBindingsDiagnosticOnly owns its explicit variants and named subcases where present as a discoverable Go unit entry; actual checker/engine/fix/filename/casing operations run in the shared process with isolated fixture files and no installed consumer, native producer or product child host.
+// @evidence contracts/testing.md#execution-ownership TestUnicornPreventAbbreviationsKeepsExportedJSDocAndJSXBindingsDiagnosticOnly owns its explicit variants and named subcases where present as a discoverable Go unit entry; Checker-backed rule snapshots and exact diagnostic or editor-suggestion comparisons run in the shared Go process with isolated authored fixture files; no installed consumer, native producer or product child host runs.
 func TestUnicornPreventAbbreviationsKeepsExportedJSDocAndJSXBindingsDiagnosticOnly(t *testing.T) {
   cases := []struct {
     name     string

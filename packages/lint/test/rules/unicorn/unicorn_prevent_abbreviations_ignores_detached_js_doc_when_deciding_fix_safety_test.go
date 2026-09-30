@@ -8,13 +8,10 @@ import (
 //
 // A detached or different-name tag does not document the binding, independently allowing its safe rename while preserving comment text.
 //
-// 1. Execute the retained binding, filename, option or command variants.
-// 2. Compare the authored diagnostic, edit, helper value or preserved source.
-//
 // @evidence contracts/testing.md#behavioral-verification Actual fix execution compares each named detached-comment case with authored full output.
 // @evidence contracts/testing.md#independent-expectations A detached or different-name tag does not document the binding, independently allowing its safe rename while preserving comment text.
 // @evidence contracts/testing.md#distinguishing-cases Blank/Unicode-blank separation, intervening ordinary comment and longer @parameter tag retain distinct safe outputs.
-// @evidence contracts/testing.md#execution-ownership TestUnicornPreventAbbreviationsIgnoresDetachedJSDocWhenDecidingFixSafety owns its explicit variants and named subcases where present as a discoverable Go unit entry; actual checker/engine/fix/filename/casing operations run in the shared process with isolated fixture files and no installed consumer, native producer or product child host.
+// @evidence contracts/testing.md#execution-ownership TestUnicornPreventAbbreviationsIgnoresDetachedJSDocWhenDecidingFixSafety owns its explicit variants and named subcases where present as a discoverable Go unit entry; Checker-backed rule snapshots and actual disk fix application run in the shared Go process with isolated authored fixture files; no installed consumer, native producer or product child host runs.
 func TestUnicornPreventAbbreviationsIgnoresDetachedJSDocWhenDecidingFixSafety(t *testing.T) {
   cases := []struct {
     name   string

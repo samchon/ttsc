@@ -9,13 +9,10 @@ import (
 //
 // The supported idx->index dictionary and diagnostic-only filename policy independently require the literal message without source edits.
 //
-// 1. Execute the retained binding, filename, option or command variants.
-// 2. Compare the authored diagnostic, edit, helper value or preserved source.
-//
 // @evidence contracts/testing.md#behavioral-verification The engine checks exact idx.ts reporting and disabled filename silence, while actual filename helpers check dot/virtual-name boundaries.
 // @evidence contracts/testing.md#independent-expectations The supported idx->index dictionary and diagnostic-only filename policy independently require the literal message without source edits.
 // @evidence contracts/testing.md#distinguishing-cases idx.ts reports without edits unless disabled; leading-dot, angle-bracket physical and input/text virtual names retain their distinctions.
-// @evidence contracts/testing.md#execution-ownership TestUnicornPreventAbbreviationsChecksPhysicalFilenameWithoutOfferingEdits owns its explicit variants and named subcases where present as a discoverable Go unit entry; actual checker/engine/fix/filename/casing operations run in the shared process with isolated fixture files and no installed consumer, native producer or product child host.
+// @evidence contracts/testing.md#execution-ownership TestUnicornPreventAbbreviationsChecksPhysicalFilenameWithoutOfferingEdits owns its explicit variants and named subcases where present as a discoverable Go unit entry; Checker-backed rule snapshots plus direct filename-extension and virtual-filename predicate calls run in the shared Go process with isolated authored fixture files; no installed consumer, native producer or product child host runs.
 func TestUnicornPreventAbbreviationsChecksPhysicalFilenameWithoutOfferingEdits(t *testing.T) {
   _, _, findings := runRuleFindingsSnapshotFile(
     t,

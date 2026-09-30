@@ -8,13 +8,10 @@ import (
 //
 // ECMAScript strict binding restrictions and TypeScript contextual keyword grammar independently distinguish invalid reserved names from valid context words.
 //
-// 1. Execute the retained binding, filename, option or command variants.
-// 2. Compare the authored diagnostic, edit, helper value or preserved source.
-//
 // @evidence contracts/testing.md#behavioral-verification The identifier predicate checks literal reserved/contextual word sets, and the fixer checks authored eval_/type outputs.
 // @evidence contracts/testing.md#independent-expectations ECMAScript strict binding restrictions and TypeScript contextual keyword grammar independently distinguish invalid reserved names from valid context words.
 // @evidence contracts/testing.md#distinguishing-cases All retained reserved/contextual words remain; eval replacement gains a suffix while type is used directly.
-// @evidence contracts/testing.md#execution-ownership TestUnicornPreventAbbreviationsUsesStrictBindingGrammarForCustomReplacements owns its explicit variants and named subcases where present as a discoverable Go unit entry; actual checker/engine/fix/filename/casing operations run in the shared process with isolated fixture files and no installed consumer, native producer or product child host.
+// @evidence contracts/testing.md#execution-ownership TestUnicornPreventAbbreviationsUsesStrictBindingGrammarForCustomReplacements owns its explicit variants and named subcases where present as a discoverable Go unit entry; Direct strict-identifier predicate calls plus checker-backed configured fix snapshots and disk edits run in the shared Go process with isolated authored fixture files; no installed consumer, native producer or product child host runs.
 func TestUnicornPreventAbbreviationsUsesStrictBindingGrammarForCustomReplacements(t *testing.T) {
   for _, name := range []string{
     "arguments", "await", "break", "case", "catch", "class", "const", "continue",

@@ -9,13 +9,10 @@ import (
 //
 // Property keys may use reserved words even when lexical bindings cannot; the supported property grammar independently permits class/function.
 //
-// 1. Execute the retained binding, filename, option or command variants.
-// 2. Compare the authored diagnostic, edit, helper value or preserved source.
-//
 // @evidence contracts/testing.md#behavioral-verification The actual rule checks two literal suggestion titles and each exact property-key edit, without an automatic fix.
 // @evidence contracts/testing.md#independent-expectations Property keys may use reserved words even when lexical bindings cannot; the supported property grammar independently permits class/function.
 // @evidence contracts/testing.md#distinguishing-cases The property e offers class/function suggestions under the custom dictionary, contrasting with strict binding keyword controls.
-// @evidence contracts/testing.md#execution-ownership TestUnicornPreventAbbreviationsAllowsReservedWordsInPropertySuggestions owns its explicit variants and named subcases where present as a discoverable Go unit entry; actual checker/engine/fix/filename/casing operations run in the shared process with isolated fixture files and no installed consumer, native producer or product child host.
+// @evidence contracts/testing.md#execution-ownership TestUnicornPreventAbbreviationsAllowsReservedWordsInPropertySuggestions owns its explicit variants and named subcases where present as a discoverable Go unit entry; Checker-backed rule snapshots and exact diagnostic or editor-suggestion comparisons run in the shared Go process with isolated authored fixture files; no installed consumer, native producer or product child host runs.
 func TestUnicornPreventAbbreviationsAllowsReservedWordsInPropertySuggestions(t *testing.T) {
   _, _, findings := runRuleFindingsSnapshot(
     t,

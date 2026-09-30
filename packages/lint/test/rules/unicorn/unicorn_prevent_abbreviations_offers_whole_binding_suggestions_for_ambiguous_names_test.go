@@ -9,13 +9,10 @@ import (
 //
 // The supported ambiguous e dictionary offers error/event, with the occupied event global requiring event_; authored identifier offsets and replacement texts establish each edit independently.
 //
-// 1. Execute the retained binding, filename, option or command variants.
-// 2. Compare the authored diagnostic, edit, helper value or preserved source.
-//
 // @evidence contracts/testing.md#behavioral-verification Actual rule execution checks two titled suggestions, no autofix and both exact declaration/reference edits for each candidate.
 // @evidence contracts/testing.md#independent-expectations The supported ambiguous e dictionary offers error/event, with the occupied event global requiring event_; authored identifier offsets and replacement texts establish each edit independently.
 // @evidence contracts/testing.md#distinguishing-cases Both suggestions must consistently replace only the two e identifiers, while the original source is not automatically edited.
-// @evidence contracts/testing.md#execution-ownership TestUnicornPreventAbbreviationsOffersWholeBindingSuggestionsForAmbiguousNames owns its explicit variants and named subcases where present as a discoverable Go unit entry; actual checker/engine/fix/filename/casing operations run in the shared process with isolated fixture files and no installed consumer, native producer or product child host.
+// @evidence contracts/testing.md#execution-ownership TestUnicornPreventAbbreviationsOffersWholeBindingSuggestionsForAmbiguousNames owns its explicit variants and named subcases where present as a discoverable Go unit entry; Checker-backed rule snapshots and exact diagnostic or editor-suggestion comparisons run in the shared Go process with isolated authored fixture files; no installed consumer, native producer or product child host runs.
 func TestUnicornPreventAbbreviationsOffersWholeBindingSuggestionsForAmbiguousNames(t *testing.T) {
   source := "const e = 1;\nconsole.log(e);\n"
   _, _, findings := runRuleFindingsSnapshot(t, unicornPreventAbbreviationsRuleName, source, nil)

@@ -9,13 +9,10 @@ import (
 //
 // The supported internal/external import policy independently chooses which local bindings rename while imported export names remain unchanged.
 //
-// 1. Execute the retained binding, filename, option or command variants.
-// 2. Compare the authored diagnostic, edit, helper value or preserved source.
-//
 // @evidence contracts/testing.md#behavioral-verification The actual fixer checks authored internal import renames, and option-enabled/disabled runs retain their finding counts.
 // @evidence contracts/testing.md#independent-expectations The supported internal/external import policy independently chooses which local bindings rename while imported export names remain unchanged.
 // @evidence contracts/testing.md#distinguishing-cases Internal default/named rename by default; external namespace/default/named and both explicit control modes retain their distinctions.
-// @evidence contracts/testing.md#execution-ownership TestUnicornPreventAbbreviationsAppliesInternalImportDefaultsAndPreservesImportedNames owns its explicit variants and named subcases where present as a discoverable Go unit entry; actual checker/engine/fix/filename/casing operations run in the shared process with isolated fixture files and no installed consumer, native producer or product child host.
+// @evidence contracts/testing.md#execution-ownership TestUnicornPreventAbbreviationsAppliesInternalImportDefaultsAndPreservesImportedNames owns its explicit variants and named subcases where present as a discoverable Go unit entry; Checker-backed rule snapshots and actual disk fix application run in the shared Go process with isolated authored fixture files; no installed consumer, native producer or product child host runs.
 func TestUnicornPreventAbbreviationsAppliesInternalImportDefaultsAndPreservesImportedNames(t *testing.T) {
   source := "import err from \"./local-default\";\nimport * as ctx from \"external-ns\";\nimport doc from \"./node_modules/external-default\";\nimport { prop } from \"./local-named\";\nimport { ref } from \"external-named\";\nvoid [err, ctx, doc, prop, ref];\n"
   assertFixSnapshot(
