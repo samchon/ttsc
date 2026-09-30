@@ -1,4 +1,4 @@
-import type { ITtscLintConfig } from "@ttsc/lint";
+import type { ITtscLintConfig } from "../../../../../packages/lint/src/structures";
 import assert from "node:assert/strict";
 
 /**
@@ -60,8 +60,13 @@ import assert from "node:assert/strict";
  * 3. Lean on `pnpm run test:typecheck` to catch type-level regressions — a missing
  *    `@ts-expect-error` directive will surface as a test failure because TS
  *    reports the unused directive itself as an error.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The authored ITtscLintConfig assignments exercise accepted severity and per-rule tuple types and rejected rule-name, option-key and option-value shapes through load-bearing ts-expect-error directives.
+ * @evidence contracts/testing.md#independent-expectations Supported rule names and documented ESLint option schemas supply the literal allowed and forbidden examples, not values derived from the implementation type map.
+ * @evidence contracts/testing.md#distinguishing-cases Bare severities, singleton tuples, namespaced contributors and valid positional/object options are accepted; each malformed example is separately assigned so one diagnostic cannot hide another.
+ * @evidence contracts/testing.md#execution-ownership This named source unit imports authored types and is statically verified by the existing suite typecheck; executing its values alone does not verify typings. No installed declaration, compiler child or native host is built by this case.
  */
-export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
+export function test_lib_index_d_ts_rule_options_autocomplete_per_rule(): void {
   const config: ITtscLintConfig = {
     rules: {
       "no-var": "error",
@@ -627,4 +632,4 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
   assert.ok(banTsCommentMissingDescriptionFormat);
   assert.ok(betterRegexOptionKeyTypo);
   assert.ok(camelBuiltinName);
-};
+}
