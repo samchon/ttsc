@@ -1,17 +1,6 @@
 import assert from "node:assert/strict";
-import { createRequire } from "node:module";
 import path from "node:path";
-
-const require = createRequire(import.meta.url);
-const graphLib = path.dirname(require.resolve("@ttsc/graph"));
-const { watchedBy } = require(
-  path.join(graphLib, "model", "publishedArtifacts.js"),
-) as {
-  watchedBy(
-    pattern: string,
-    cwd: string,
-  ): { path: string; recursive: boolean } | null;
-};
+import { watchedBy } from "../../../../packages/graph/src/model/publishedArtifacts";
 
 /** The project root every pattern below is resolved against. */
 const CWD = path.resolve("/workspace/project");
@@ -35,9 +24,13 @@ const CWD = path.resolve("/workspace/project");
  *
  * 1. Translate a recursive glob, a shallow one, a rootless one, and an exact path.
  * 2. Assert each names the directory and the depth its own syntax states.
+ *
+ * @evidence contracts/testing.md#behavioral-verification watchedBy returns the literal expected directory and recursion depth for each declared pattern.
+ * @evidence contracts/testing.md#independent-expectations Glob syntax makes double-star recursive, single-star shallow and an exact file a non-directory watch; expected paths use native path operations.
+ * @evidence contracts/testing.md#distinguishing-cases Recursive, shallow, rootless, trailing double-star and exact-file patterns distinguish breadth and traversal depth.
+ * @evidence contracts/testing.md#execution-ownership The named exported src/unit entry calls authored operations through the unit loader; fixtures are in-memory and no installed artifact, native build or product process is needed.
  */
-export const test_ttscgraph_artifacts_watch_what_a_pattern_actually_names =
-  (): void => {
+export function test_ttscgraph_artifacts_watch_what_a_pattern_actually_names(): void {
     const cases: {
       pattern: string;
       expected: { path: string; recursive: boolean } | null;
@@ -78,4 +71,4 @@ export const test_ttscgraph_artifacts_watch_what_a_pattern_actually_names =
         `${item.pattern}: ${item.why} — got ${JSON.stringify(actual)}`,
       );
     }
-  };
+}

@@ -15,9 +15,13 @@ import {
  * 1. Build thirteen exact-name candidates with the exported winner last.
  * 2. Resolve the shared name with the default twelve-candidate limit.
  * 3. Assert the late winner is returned first and the response stays capped.
+ *
+ * @evidence contracts/testing.md#behavioral-verification resolveGraphHandle asserts the thirteenth exact-name declaration first and twelve returned candidates.
+ * @evidence contracts/testing.md#independent-expectations The only exported declaration outranks otherwise equivalent local candidates regardless of visitation.
+ * @evidence contracts/testing.md#distinguishing-cases Thirteen exact-name candidates place the winner beyond the default twelve-item cap.
+ * @evidence contracts/testing.md#execution-ownership The named exported src/unit entry executes authored graph memory and resolver through the unit loader; no installed consumer, native producer or child process is used.
  */
-export const test_ttscgraph_resolver_ranks_exact_candidates_before_limiting =
-  () => {
+export function test_ttscgraph_resolver_ranks_exact_candidates_before_limiting(): void {
     const nodes: ResolverGraphNode[] = Array.from(
       { length: 13 },
       (_, index) => ({
@@ -33,4 +37,4 @@ export const test_ttscgraph_resolver_ranks_exact_candidates_before_limiting =
     const resolved = resolveSyntheticGraph(nodes, "Shared");
     assert.strictEqual(resolved.candidates?.length, 12);
     assert.strictEqual(resolved.candidates?.[0]?.id, nodes[12]!.id);
-  };
+}

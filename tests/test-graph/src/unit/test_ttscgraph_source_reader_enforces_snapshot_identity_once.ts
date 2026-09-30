@@ -1,30 +1,10 @@
 import { createHash } from "node:crypto";
-import { createRequire } from "node:module";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 
-import { assert } from "../internal/ttsgraph";
-
-interface Provenance {
-  capabilities: string[];
-  sources: {
-    file: string;
-    checkerDigest: string;
-    diskDigest: string;
-  }[];
-}
-
-interface SourceReader {
-  lines(file: string): readonly string[] | undefined;
-}
-
-interface SourceReaderConstructor {
-  new (
-    project: string,
-    provenance: Provenance | undefined,
-    read: (file: string) => Buffer,
-  ): SourceReader;
-}
+import assert from "node:assert/strict";
+import { TtscGraphSourceReader } from "../../../../packages/graph/src/model/TtscGraphSourceReader";
+import { TtscGraphMemory } from "../../../../packages/graph/src/model/TtscGraphMemory";
+import type { ITtscGraphDump } from "../../../../packages/graph/src/structures/ITtscGraphDump";
 
 const digest = (value: string | Buffer): string =>
   createHash("sha256").update(value).digest("hex");
@@ -48,18 +28,14 @@ const digest = (value: string | Buffer): string =>
  *    presented as checker text or retried.
  * 4. Build the minimal synthetic memory used by internal resolver tests and assert
  *    an absent provenance manifest fails closed without crashing.
+ *
+ * @evidence contracts/testing.md#behavioral-verification TtscGraphSourceReader asserts immutable reused lines, single physical reads and stable absence after digest, capability or I/O failures; synthetic memory also fails closed.
+ * @evidence contracts/testing.md#independent-expectations Independent SHA-256 witnesses describe fixture bytes captured before mutation; raw-byte and decoded checker text must both match that generation.
+ * @evidence contracts/testing.md#distinguishing-cases Stable and sibling sources contrast post-capture edits, BOM re-encoding, injected preambles, missing capabilities, virtual sources, I/O failure and absent provenance.
+ * @evidence contracts/testing.md#execution-ownership The named exported src/unit entry executes authored operations through the unit loader; no installed consumer, native build or product host is used.
  */
-export const test_ttscgraph_source_reader_enforces_snapshot_identity_once =
-  async () => {
-    const graphRoot = path.dirname(
-      createRequire(import.meta.url).resolve("@ttsc/graph/package.json"),
-    );
-    const module = (await import(
-      pathToFileURL(
-        path.join(graphRoot, "lib", "model", "TtscGraphSourceReader.js"),
-      ).href
-    )) as { TtscGraphSourceReader: SourceReaderConstructor };
-    const Reader = module.TtscGraphSourceReader;
+export async function test_ttscgraph_source_reader_enforces_snapshot_identity_once(): Promise<void> {
+    const Reader = TtscGraphSourceReader;
 
     const stable = "export const stable = 1;\n";
     let stableReads = 0;
@@ -297,22 +273,14 @@ export const test_ttscgraph_source_reader_enforces_snapshot_identity_once =
       "synthetic graph memories without provenance fail closed before disk I/O",
     );
 
-    const memoryModule = (await import(
-      pathToFileURL(path.join(graphRoot, "lib", "model", "TtscGraphMemory.js"))
-        .href
-    )) as {
-      TtscGraphMemory: {
-        from(dump: unknown): { source: SourceReader };
-      };
-    };
-    const synthetic = memoryModule.TtscGraphMemory.from({
+    const synthetic = TtscGraphMemory.from({
       project: "C:/project",
       nodes: [],
       edges: [],
-    });
+    } as unknown as ITtscGraphDump);
     assert.equal(
       synthetic.source.lines("src/stable.ts"),
       undefined,
       "a no-manifest synthetic memory remains usable and source-free",
     );
-  };
+}

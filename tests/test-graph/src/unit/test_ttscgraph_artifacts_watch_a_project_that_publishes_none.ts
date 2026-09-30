@@ -1,23 +1,9 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { createRequire } from "node:module";
 import path from "node:path";
 
-const require = createRequire(import.meta.url);
-const graphLib = path.dirname(require.resolve("@ttsc/graph"));
-const { artifactsAreStale, publishArtifacts } = require(
-  path.join(graphLib, "model", "publishedArtifacts.js"),
-) as {
-  artifactsAreStale(published: IPublished): boolean;
-  publishArtifacts(options: { cwd: string; tsconfig: string }): IPublished;
-};
-
-interface IPublished {
-  file: string | null;
-  inputs: { files: string[]; directories: { path: string }[] };
-  fingerprint: string;
-}
+import { artifactsAreStale, publishArtifacts } from "../../../../packages/graph/src/model/publishedArtifacts";
 
 /**
  * Verifies that "this project publishes no artifacts" is an answer that can
@@ -39,9 +25,13 @@ interface IPublished {
  * 2. Assert the answer is "none", and that it names those two files.
  * 3. Assert it reads fresh against itself.
  * 4. Edit the tsconfig, and require it to read stale.
+ *
+ * @evidence contracts/testing.md#behavioral-verification publishArtifacts returns no file for an unconfigured fixture while tracking tsconfig and manifest; artifactsAreStale rejects freshness after a config edit.
+ * @evidence contracts/testing.md#independent-expectations A project with no publisher has no artifacts, but its declared configuration can change that answer; literal control paths and explicit writes establish expectations.
+ * @evidence contracts/testing.md#distinguishing-cases Initial absence and unchanged freshness contrast adding a plugin entry; real fixture files exercise resolver invalidation without any configured producer to build or launch.
+ * @evidence contracts/testing.md#execution-ownership The named exported src/unit entry executes authored operations through the unit loader; no installed consumer, native build or product host is used.
  */
-export const test_ttscgraph_artifacts_watch_a_project_that_publishes_none =
-  (): void => {
+export function test_ttscgraph_artifacts_watch_a_project_that_publishes_none(): void {
     const cwd = TestProject.createProject({
       "package.json": JSON.stringify({ name: "no-publisher" }),
       "src/index.ts": "export const value = 1;\n",
@@ -91,4 +81,4 @@ export const test_ttscgraph_artifacts_watch_a_project_that_publishes_none =
       true,
       "configuring a plugin left the answer reading fresh, so a running session would never reconsider it",
     );
-  };
+}

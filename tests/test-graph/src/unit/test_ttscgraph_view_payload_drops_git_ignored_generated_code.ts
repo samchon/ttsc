@@ -1,6 +1,6 @@
-import { reduce } from "@ttsc/graph";
+import { reduce } from "../../../../packages/graph/src/reduce";
 
-import { assert } from "../internal/ttsgraph";
+import assert from "node:assert/strict";
 
 /**
  * Verifies the `view` reducer drops git-ignored generated code, as the guide
@@ -22,9 +22,13 @@ import { assert } from "../internal/ttsgraph";
  * 2. Assert only the authored node survives and the counts attribute each drop.
  * 3. Assert `keepIgnored` brings the generated node back, so the filter is a
  *    policy rather than a hard exclusion.
+ *
+ * @evidence contracts/testing.md#behavioral-verification reduce drops ignored and external nodes, accounts for both, and restores the generated edge with keepIgnored.
+ * @evidence contracts/testing.md#independent-expectations The viewer contract projects authored connected code by default and permits an explicit ignored-code policy override.
+ * @evidence contracts/testing.md#distinguishing-cases Authored, ignored and external nodes plus keepIgnored false/true distinguish separate drop policies and disconnected-node removal.
+ * @evidence contracts/testing.md#execution-ownership The named exported src/unit entry calls authored operations through the unit loader; fixtures are in-memory and no installed artifact, native build or product process is needed.
  */
-export const test_ttscgraph_view_payload_drops_git_ignored_generated_code =
-  (): void => {
+export function test_ttscgraph_view_payload_drops_git_ignored_generated_code(): void {
     const raw = {
       project: "fixture",
       nodes: [
@@ -66,4 +70,4 @@ export const test_ttscgraph_view_payload_drops_git_ignored_generated_code =
       "keepIgnored restores the generated node and the edge to it",
     );
     assert.equal(kept.counts.droppedIgnored, 0);
-  };
+}

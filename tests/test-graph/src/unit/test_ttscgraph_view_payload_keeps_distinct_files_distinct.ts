@@ -1,6 +1,6 @@
-import { reduce } from "@ttsc/graph";
+import { reduce } from "../../../../packages/graph/src/reduce";
 
-import { assert } from "../internal/ttsgraph";
+import assert from "node:assert/strict";
 
 /**
  * Verifies the viewer projection keeps two distinct files distinct.
@@ -17,9 +17,13 @@ import { assert } from "../internal/ttsgraph";
  * 2. Reduce a dump mixing an absolute file with two relative ones sharing a
  *    basename.
  * 3. Assert both keep two nodes with distinct ids and a resolvable edge.
+ *
+ * @evidence contracts/testing.md#behavioral-verification reduce preserves distinct node identities and the connecting edge for disjoint and mixed path inputs.
+ * @evidence contracts/testing.md#independent-expectations Distinct authored file paths identify distinct declarations; equal basenames must not merge them.
+ * @evidence contracts/testing.md#distinguishing-cases Disjoint absolute roots and mixed absolute/relative paths with repeated basenames distinguish injective projection from basename collapse.
+ * @evidence contracts/testing.md#execution-ownership The named exported src/unit entry calls authored operations through the unit loader; fixtures are in-memory and no installed artifact, native build or product process is needed.
  */
-export const test_ttscgraph_view_payload_keeps_distinct_files_distinct =
-  (): void => {
+export function test_ttscgraph_view_payload_keeps_distinct_files_distinct(): void {
     const disjoint = reduce({
       project: "disjoint",
       nodes: [
@@ -84,4 +88,4 @@ export const test_ttscgraph_view_payload_keeps_distinct_files_distinct =
       `viewer ids collided: ${JSON.stringify(files)}`,
     );
     assert.equal(mixed.links.length, 1);
-  };
+}

@@ -16,9 +16,13 @@ import {
  * 1. Build three equal-score candidates in two opposite visitation orders.
  * 2. Resolve the same ambiguous name from both memories.
  * 3. Assert both results use the same ascending id order.
+ *
+ * @evidence contracts/testing.md#behavioral-verification resolveGraphHandle asserts identical literal ascending identities for forward and reversed equal-score inputs.
+ * @evidence contracts/testing.md#independent-expectations Equal relevance orders by graph identity; the literal a,b,c result is independent of visitation.
+ * @evidence contracts/testing.md#distinguishing-cases Three tied candidates in opposite orders expose dependence on stable-sort input order.
+ * @evidence contracts/testing.md#execution-ownership The named exported src/unit entry executes authored graph memory and resolver through the unit loader; no installed consumer, native producer or child process is used.
  */
-export const test_ttscgraph_resolver_breaks_equal_score_ties_by_identity =
-  () => {
+export function test_ttscgraph_resolver_breaks_equal_score_ties_by_identity(): void {
     const nodes: ResolverGraphNode[] = ["c", "a", "b"].map((letter) => ({
       id: `src/${letter}.ts#Tied:class`,
       kind: "class",
@@ -42,4 +46,4 @@ export const test_ttscgraph_resolver_breaks_equal_score_ties_by_identity =
       reverse.candidates?.map((node) => node.id),
       expected,
     );
-  };
+}

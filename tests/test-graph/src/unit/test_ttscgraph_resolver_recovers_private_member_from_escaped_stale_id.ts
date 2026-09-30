@@ -16,9 +16,13 @@ import {
  * 1. Build the current private property under its escaped graph id.
  * 2. Resolve an escaped id from an obsolete file.
  * 3. Assert recovery returns the current private member.
+ *
+ * @evidence contracts/testing.md#behavioral-verification resolveGraphHandle asserts the current private property identity from an obsolete escaped id.
+ * @evidence contracts/testing.md#independent-expectations Graph id grammar treats the escaped hash as private-member data, preserving Counter.#count.
+ * @evidence contracts/testing.md#distinguishing-cases An escaped private property under an obsolete file distinguishes data decoding from a second hash boundary.
+ * @evidence contracts/testing.md#execution-ownership The named exported src/unit entry executes authored graph memory and resolver through the unit loader; no installed consumer, native producer or child process is used.
  */
-export const test_ttscgraph_resolver_recovers_private_member_from_escaped_stale_id =
-  (): void => {
+export function test_ttscgraph_resolver_recovers_private_member_from_escaped_stale_id(): void {
     const node: ResolverGraphNode = {
       id: "src/current.ts#Counter.\\#count:variable",
       kind: "variable",
@@ -32,4 +36,4 @@ export const test_ttscgraph_resolver_recovers_private_member_from_escaped_stale_
       "src/old.ts#Counter.\\#count:variable",
     );
     assert.strictEqual(resolved.node?.id, node.id);
-  };
+}

@@ -17,9 +17,13 @@ import {
  * 1. Build a class and its quoted dotted variable from a synthetic dump.
  * 2. Let the real memory synthesis refine containment and property kind.
  * 3. Assert the class owns the refined property.
+ *
+ * @evidence contracts/testing.md#behavioral-verification TtscGraphMemory.from refines the dotted quoted member and synthesizes containment under Box, not Box.a.
+ * @evidence contracts/testing.md#independent-expectations The authored simple name a.b belongs to Box; its dot is identifier data.
+ * @evidence contracts/testing.md#distinguishing-cases A class and one dotted-name variable distinguish exact member suffix ownership from a last-dot split.
+ * @evidence contracts/testing.md#execution-ownership The named exported src/unit entry executes authored graph memory and resolver through the unit loader; no installed consumer, native producer or child process is used.
  */
-export const test_ttscgraph_memory_keeps_quoted_dotted_members_on_their_owner =
-  (): void => {
+export function test_ttscgraph_memory_keeps_quoted_dotted_members_on_their_owner(): void {
     const box: ResolverGraphNode = {
       id: "src/box.ts#Box:class",
       kind: "class",
@@ -43,4 +47,4 @@ export const test_ttscgraph_memory_keeps_quoted_dotted_members_on_their_owner =
         .incoming(member.id)
         .some((edge) => edge.kind === "contains" && edge.from === box.id),
     );
-  };
+}

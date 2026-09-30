@@ -58,9 +58,13 @@ const assertProjection = (
  * 2. Exercise single-file, repeated-file, nested, POSIX, drive, and UNC paths.
  * 3. Assert IDs and files retain their spellings, and that both copies apply the
  *    same git-ignored drop policy.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Each authored reducer preserves literal file/id projections, distinct identities, links and generated-code drop counts.
+ * @evidence contracts/testing.md#independent-expectations Legacy rerooting retains filenames and current relative spelling; literal fixture projections independently specify POSIX, drive and UNC expectations.
+ * @evidence contracts/testing.md#distinguishing-cases Single, repeated and nested files, disjoint/case-distinct roots, drive/UNC paths, relative paths and generated nodes distinguish projection and filter policies.
+ * @evidence contracts/testing.md#execution-ownership The named exported src/unit entry calls authored operations through the unit loader; fixtures are in-memory and no installed artifact, native build or product process is needed.
  */
-export const test_ttscgraph_viewer_reducers_preserve_legacy_absolute_filenames =
-  async (): Promise<void> => {
+export async function test_ttscgraph_viewer_reducers_preserve_legacy_absolute_filenames(): Promise<void> {
     const reducers = await loadViewerReducers();
 
     const cases = [
@@ -199,4 +203,4 @@ export const test_ttscgraph_viewer_reducers_preserve_legacy_absolute_filenames =
         [1, 1, 1],
         `${name} reducer drops ignored nodes and reports the drop`,
       );
-  };
+}
