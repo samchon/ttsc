@@ -20,6 +20,11 @@ import (
 //     substitution, and a canonical escape.
 //  2. Run the in-process `fix` command twice.
 //  3. Assert exit 0, silent output, and the canonical file after each pass.
+//
+// @evidence contracts/testing.md#behavioral-verification in-process run(fix) returns exit zero with empty stdout/stderr and the exact authored canonical file on both passes.
+// @evidence contracts/testing.md#independent-expectations The authored whole-file expected string specifies the supported dollar-brace escape transformation; exact first-pass equality establishes correctness before second-pass convergence.
+// @evidence contracts/testing.md#distinguishing-cases Both malformed escape spellings change, real expression substitution and canonical escape remain intact, and the second command invocation preserves the same bytes.
+// @evidence contracts/testing.md#execution-ownership This Go unit invokes the owning command function directly against t.TempDir fixture configuration/files; it does not install a consumer, build a native artifact or spawn a product process.
 func TestCommandFixUnicornConsistentTemplateLiteralEscapeConvergesAndIsIdempotent(t *testing.T) {
   source := "const template = `use $\\{name} and \\$\\{other}${\"expr\"}$\\{tail} plus \\${kept}`;\nexport default template;\n"
   expected := "const template = `use \\${name} and \\${other}${\"expr\"}\\${tail} plus \\${kept}`;\nexport default template;\n"

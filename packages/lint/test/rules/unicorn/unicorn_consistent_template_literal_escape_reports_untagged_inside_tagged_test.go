@@ -20,6 +20,11 @@ import (
 //     own tail also spells `$\{skipped}`.
 //  2. Assert exactly one finding, anchored on the inner template's token.
 //  3. Fix and assert only the inner payload was rewritten.
+//
+// @evidence contracts/testing.md#behavioral-verification exact range and fixed-source assertions report and rewrite only the nested untagged template.
+// @evidence contracts/testing.md#independent-expectations The independently authored inner token marker and full expected output preserve outer tagged raw bytes.
+// @evidence contracts/testing.md#distinguishing-cases The same malformed escape appears in an inner ordinary template and outer tagged tail; only the inner changes, preventing an overbroad ancestor exclusion.
+// @evidence contracts/testing.md#execution-ownership This Go unit exercises owning engine/fix operations over a virtual nested-template AST in the shared process. Virtual/temporary fixture execution does not install consumers, build native artifacts or launch a product host.
 func TestUnicornConsistentTemplateLiteralEscapeReportsUntaggedInsideTagged(t *testing.T) {
   source := "const foo = html`${`$\\{a}`} and $\\{skipped}`;\n"
   expected := "const foo = html`${`\\${a}`} and $\\{skipped}`;\n"

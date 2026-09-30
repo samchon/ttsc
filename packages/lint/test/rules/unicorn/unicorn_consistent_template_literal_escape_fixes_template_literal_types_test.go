@@ -17,6 +17,11 @@ import "testing"
 //     no-substitution literal type.
 //  2. Compare against the canonical spelling byte-for-byte and reparse.
 //  3. Assert the fixed source no longer fires (idempotence).
+//
+// @evidence contracts/testing.md#behavioral-verification exact fix snapshot normalizes two template literal types, parser diagnostics remain empty and re-lint is clean.
+// @evidence contracts/testing.md#independent-expectations The literal expected source specifies canonical escaped dollar-brace spelling without deriving replacement text from the Go scanner.
+// @evidence contracts/testing.md#distinguishing-cases Substitution-bearing and no-substitution type templates both change, while the real string type substitution remains intact and canonical results stay clean.
+// @evidence contracts/testing.md#execution-ownership This Go unit invokes owning engine/fix and parse operations over virtual source in the shared process. Virtual/temporary fixture execution does not install consumers, build native artifacts or launch a product host.
 func TestUnicornConsistentTemplateLiteralEscapeFixesTemplateLiteralTypes(t *testing.T) {
   source := "type Pattern = `$\\{value}${string}$\\{rest}`;\ntype Single = `$\\{only}`;\n"
   expected := "type Pattern = `\\${value}${string}\\${rest}`;\ntype Single = `\\${only}`;\n"

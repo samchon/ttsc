@@ -17,6 +17,11 @@ import "testing"
 //  2. Fix arms must produce the canonical spelling byte-for-byte and stay
 //     silent afterwards.
 //  3. Skip arms must produce zero findings.
+//
+// @evidence contracts/testing.md#behavioral-verification two malformed high-parity cases rewrite exactly while three adjacent canonical/real-substitution forms stay clean.
+// @evidence contracts/testing.md#independent-expectations Authored source and expected byte strings encode upstream even-backslash lookbehind independently of the production parity counter.
+// @evidence contracts/testing.md#distinguishing-cases Four-backslash brace/both escapes change; real substitution after escaped backslash, escaped-dollar plus escaped backslash, and three-backslash canonical forms do not; changed outputs are also clean.
+// @evidence contracts/testing.md#execution-ownership Five named t.Run cases belong to this Go unit host; owning engine/fix operations share the Go process. Virtual/temporary fixture execution does not install consumers, build native artifacts or launch a product host.
 func TestUnicornConsistentTemplateLiteralEscapeHonorsBackslashParity(t *testing.T) {
   cases := []struct {
     name     string

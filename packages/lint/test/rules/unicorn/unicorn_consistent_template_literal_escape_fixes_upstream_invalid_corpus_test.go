@@ -15,6 +15,11 @@ import "testing"
 // 1. Run the fixer over each upstream invalid source.
 // 2. Compare the rewritten file byte-for-byte with the upstream output.
 // 3. Reparse the output and assert the rule no longer fires on it.
+//
+// @evidence contracts/testing.md#behavioral-verification eight named upstream invalid cases produce exact authored fixed strings that reparse and no longer report.
+// @evidence contracts/testing.md#independent-expectations The supported upstream snapshot output was independently transcribed into each literal expected field, so the Go rewrite cannot supply its own oracle.
+// @evidence contracts/testing.md#distinguishing-cases Brace/both escaped forms, multiple occurrences, leading escaped backslashes and head/tail combinations change; expression substitutions and surrounding declarations remain intact.
+// @evidence contracts/testing.md#execution-ownership Eight named t.Run cases belong to this discoverable Go unit host and preserve each fixture identity in shared-process engine/fix assertions. Virtual/temporary fixture execution does not install consumers, build native artifacts or launch a product host.
 func TestUnicornConsistentTemplateLiteralEscapeFixesUpstreamInvalidCorpus(t *testing.T) {
   cases := []struct {
     name     string

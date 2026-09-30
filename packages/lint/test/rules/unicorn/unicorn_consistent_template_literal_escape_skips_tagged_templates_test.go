@@ -16,6 +16,11 @@ import "testing"
 //     tags, with and without substitutions.
 //  2. Run the engine with only this rule enabled.
 //  3. Assert zero findings for every source.
+//
+// @evidence contracts/testing.md#behavioral-verification five tagged-template shapes yield zero diagnostics.
+// @evidence contracts/testing.md#independent-expectations Authored zero-result fixtures follow upstream raw-string preservation: a tag observes escape spelling and rewriting its quasi changes runtime meaning.
+// @evidence contracts/testing.md#distinguishing-cases Identifier/member/call-result tags, real substitutions and both-escaped forms are excluded; TestUnicornConsistentTemplateLiteralEscapeReportsUntaggedInsideTagged owns the nested ordinary-template positive.
+// @evidence contracts/testing.md#execution-ownership Five named t.Run cases belong to this Go unit entry and each failure preserves its source identity. Virtual/temporary fixture execution does not install consumers, build native artifacts or launch a product host.
 func TestUnicornConsistentTemplateLiteralEscapeSkipsTaggedTemplates(t *testing.T) {
   cases := []struct {
     name   string

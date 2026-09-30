@@ -17,6 +17,11 @@ const unicornConsistentTemplateLiteralEscapeRuleName = "unicorn/consistent-templ
 // 1. Mirror tests/test-lint/src/cases/unicorn-consistent-template-literal-escape.ts.
 // 2. Run the native engine with the rule enabled via expect annotations.
 // 3. Assert the reported (rule, severity, line) triples match the annotations.
+//
+// @evidence contracts/testing.md#behavioral-verification assertRuleCorpusCase compares six exact annotated rule/severity/line findings and rejects extras.
+// @evidence contracts/testing.md#independent-expectations Authored annotation lines express upstream raw-template element diagnostic positions, including the multiline tail opening line.
+// @evidence contracts/testing.md#distinguishing-cases Brace/both escapes, head/tail, template type and multiline tail report; canonical escape, backslash parity, tagged quasi and plain string remain clean.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go unit entry executes the literal corpus through the owning engine in the shared process. Virtual/temporary fixture execution does not install consumers, build native artifacts or launch a product host.
 func TestRuleCorpusUnicornConsistentTemplateLiteralEscape(t *testing.T) {
   assertRuleCorpusCase(
     t,

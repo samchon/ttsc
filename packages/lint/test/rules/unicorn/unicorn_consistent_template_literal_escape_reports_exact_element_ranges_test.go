@@ -22,6 +22,11 @@ import (
 //     ranges.
 //  3. Assert each fix is a single edit spanning exactly the element
 //     payload with the canonical replacement.
+//
+// @evidence contracts/testing.md#behavioral-verification four findings have the exact message, token ranges and single payload-only edits.
+// @evidence contracts/testing.md#independent-expectations Authored marker substrings, closing-delimiter widths and canonical replacement bytes independently specify the upstream element-token report and payload edit contract.
+// @evidence contracts/testing.md#distinguishing-cases Head, middle, tail and no-substitution element delimiters differ in width; expression delimiters are excluded from edits, preventing off-by-one corruption.
+// @evidence contracts/testing.md#execution-ownership The literal expectation table belongs to this discoverable Go unit entry and failures retain finding index and marker identity. Virtual/temporary fixture execution does not install consumers, build native artifacts or launch a product host.
 func TestUnicornConsistentTemplateLiteralEscapeReportsExactElementRanges(t *testing.T) {
   source := "const foo = `$\\{a}${expr}$\\{m}${expr}$\\{b}`;\nconst bar = `$\\{c}`;\n"
   expected := []struct {

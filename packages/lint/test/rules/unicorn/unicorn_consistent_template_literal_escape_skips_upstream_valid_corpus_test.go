@@ -15,6 +15,11 @@ import "testing"
 // 1. Transcribe the upstream valid corpus plus adjacent negative twins.
 // 2. Run the engine with only this rule enabled.
 // 3. Assert zero findings for every source.
+//
+// @evidence contracts/testing.md#behavioral-verification fifteen named canonical or nonapplicable sources yield zero diagnostics.
+// @evidence contracts/testing.md#independent-expectations The independently authored upstream valid corpus and adjacent negatives encode the supported raw escape policy rather than mirroring the implementation.
+// @evidence contracts/testing.md#distinguishing-cases Canonical escape, no escape, lone dollar/brace, empty template, real substitutions, tags, escaped-backslash parity, plain string/comment and canonical type all remain clean; invalid rewrites have the named FixesUpstreamInvalidCorpus entry.
+// @evidence contracts/testing.md#execution-ownership Fifteen named t.Run cases belong to this discoverable Go unit host and run owning engine operations in one process. Virtual/temporary fixture execution does not install consumers, build native artifacts or launch a product host.
 func TestUnicornConsistentTemplateLiteralEscapeSkipsUpstreamValidCorpus(t *testing.T) {
   cases := []struct {
     name   string
