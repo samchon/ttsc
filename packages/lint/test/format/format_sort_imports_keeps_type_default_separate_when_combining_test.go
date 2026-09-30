@@ -13,6 +13,11 @@ import "testing"
 //     plus a later-sorting third-party import.
 //  2. Enable combineTypeAndValue and unsafe runtime sorting.
 //  3. Assert the type-only default import stays its own declaration.
+//
+// @evidence contracts/testing.md#behavioral-verification Type-only default D must remain separate from value x when sorting both before z with combining enabled, retaining x use.
+// @evidence contracts/testing.md#independent-expectations A merged clause-level type would erase x as a value binding; dropping type would promote D. The literal output independently preserves each binding phase under the supported combine safety contract.
+// @evidence contracts/testing.md#distinguishing-cases A type-only default and runtime named value cannot merge. A type-only named binding can become inline type in the combines host, and a value default can legally merge in its own host.
+// @evidence contracts/testing.md#execution-ownership TestFormatSortImportsKeepsTypeDefaultSeparateWhenCombining owns the full-output mixed type-default/value-named protection fixture in the selected public Go unit population. The owning syntax rule and fixture observations execute in one Go process without native builds, consumer installation or real product-host children.
 func TestFormatSortImportsKeepsTypeDefaultSeparateWhenCombining(t *testing.T) {
   source := "import { z } from \"z\";\n" +
     "import type D from \"m\";\n" +

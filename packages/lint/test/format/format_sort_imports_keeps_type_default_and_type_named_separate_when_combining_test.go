@@ -16,6 +16,11 @@ import "testing"
 //     same module plus a later-sorting third-party import.
 //  2. Enable combineTypeAndValue and unsafe runtime sorting.
 //  3. Assert the two type-only declarations stay separate, sorted first.
+//
+// @evidence contracts/testing.md#behavioral-verification With both options enabled the type-only D and A declarations must remain separate, move before z and preserve z use.
+// @evidence contracts/testing.md#independent-expectations Official TypeScript module grammar forbids a combined type-only default-plus-named declaration irrespective of the sorter option. The literal output independently retains legal source forms.
+// @evidence contracts/testing.md#distinguishing-cases The whole bucket is type-only even with combine enabled. Its disabled-combine twin and empty-named merge positive distinguish option state from actual grammar legality.
+// @evidence contracts/testing.md#execution-ownership TestFormatSortImportsKeepsTypeDefaultAndTypeNamedSeparateWhenCombining owns the literal both-options type-only default/named protection snapshot in the selected public Go unit population. The owning syntax rule and fixture observations execute in one Go process without native builds, consumer installation or real product-host children.
 func TestFormatSortImportsKeepsTypeDefaultAndTypeNamedSeparateWhenCombining(t *testing.T) {
   source := "import { z } from \"z\";\n" +
     "import type D from \"m\";\n" +
