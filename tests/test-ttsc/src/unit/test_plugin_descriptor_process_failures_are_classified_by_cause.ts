@@ -21,6 +21,11 @@ import { pluginDescriptorProcessFailure } from "../../../../packages/ttsc/src/pl
  * 1. Classify a launch failure, an external signal, and a non-zero exit.
  * 2. Assert none of them is described as a timeout or an output limit.
  * 3. Assert a clean exit produces no error at all.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls pluginDescriptorProcessFailure with supplied launch, signal, exit and successful child-result records and checks their distinct error meanings.
+ * @evidence contracts/testing.md#independent-expectations Authored ENOENT, SIGKILL and status-five inputs are compared with literal diagnostic fragments and undefined success, without spawning a process to manufacture the classifier inputs.
+ * @evidence contracts/testing.md#distinguishing-cases Launch failure overrides simultaneous signal and status, signal overrides status, null status is not success and no error invents a timeout or output ceiling.
+ * @evidence contracts/testing.md#execution-ownership Executes the process-result classifier in one source-unit process; child launch, stream transport and actual signal delivery remain evaluator boundary responsibilities.
  */
 export const test_plugin_descriptor_process_failures_are_classified_by_cause =
   (): void => {
@@ -44,6 +49,19 @@ export const test_plugin_descriptor_process_failures_are_classified_by_cause =
       request,
     );
     assert.match(exit?.message ?? "", /failed with exit code 5/);
+
+    assert.match(
+      pluginDescriptorProcessFailure(processResult({ error: processError("EACCES"), signal: "SIGTERM", status: 7 }), request)?.message ?? "",
+      /failed to launch ttsx.*EACCES/,
+    );
+    assert.match(
+      pluginDescriptorProcessFailure(processResult({ signal: "SIGTERM", status: 7 }), request)?.message ?? "",
+      /killed by signal SIGTERM/,
+    );
+    assert.match(
+      pluginDescriptorProcessFailure(processResult({}), request)?.message ?? "",
+      /failed with exit code null/,
+    );
 
     // A kill this process did not order is reported as what it is. Neither a
     // deadline nor an output ceiling exists to be blamed for it.

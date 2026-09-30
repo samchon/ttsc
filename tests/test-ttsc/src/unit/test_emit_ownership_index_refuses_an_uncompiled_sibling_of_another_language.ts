@@ -14,6 +14,11 @@ import { TestProject } from "../../../utils/src/TestProject";
  * 1. Record JavaScript ownership for each TypeScript/JavaScript language pair.
  * 2. Check both siblings with matching, missing and contradictory source maps.
  * 3. Refuse unavailable or ambiguous producer records instead of guessing.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls EmitOwnershipIndex.find for same-stem TS/JS, MTS/MJS, CTS/CJS and TSX/JSX source pairs against authored producer provenance.
+ * @evidence contracts/testing.md#independent-expectations Literal language pairs and captured JavaScript owner paths establish who produced each existing output; independently authored source maps deliberately agree, disappear or contradict this authority.
+ * @evidence contracts/testing.md#distinguishing-cases An uncompiled language sibling returns null while the recorded owner receives its output in all three map states; unavailable, empty and conflicting producer records must throw rather than guessing by extension.
+ * @evidence contracts/testing.md#execution-ownership Executes the authored ownership index and private filesystem fixtures in one source-unit process, without compiler emission or a product host; producer transport is verified separately.
  */
 export function test_emit_ownership_index_refuses_an_uncompiled_sibling_of_another_language(): void {
   const base = fs.realpathSync.native(TestProject.tmpdir("ttsc-ownership-"));

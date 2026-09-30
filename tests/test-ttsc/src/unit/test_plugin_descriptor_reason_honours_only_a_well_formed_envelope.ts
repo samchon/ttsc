@@ -23,6 +23,11 @@ import { pluginDescriptorFailureReason } from "../../../../packages/ttsc/src/plu
  * 1. Point the reader at each shape the result file can hold.
  * 2. Assert only the envelope yields text, trimmed.
  * 3. Assert an absent file and every other shape yield the empty string.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls the actual failure-envelope reader on private JSON files and a missing path, checking trimmed descriptor context or the empty fallback.
+ * @evidence contracts/testing.md#independent-expectations Each file has literal authored bytes and a separately written expected string; absence, malformed JSON and successful descriptor objects cannot supply invented reasons.
+ * @evidence contracts/testing.md#distinguishing-cases Root string envelopes differ from whitespace, nonstring fields, nested array records, scalar, null and partial-write inputs; a missing file also returns no reason.
+ * @evidence contracts/testing.md#execution-ownership Executes only the authored reader and temporary filesystem IO in one source-unit process, with finally cleanup; no descriptor evaluator or native compiler runs.
  */
 export const test_plugin_descriptor_reason_honours_only_a_well_formed_envelope =
   (): void => {

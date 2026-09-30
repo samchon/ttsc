@@ -18,6 +18,11 @@ import { runHoldingLock } from "../../../../../packages/ttsc/src/internal/runHol
  *    thrown, and the release's error is reported once.
  * 3. Run work under a release that succeeds: nothing is reported, and the release
  *    ran after the work.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls runHoldingLock with explicit synchronous work, release and reporting callbacks and checks result or failure preservation after release.
+ * @evidence contracts/testing.md#independent-expectations Literal return values, sentinel Error identities and the independently stated work-before-release sequence specify outcomes without invoking a compiler or acquiring a real lock.
+ * @evidence contracts/testing.md#distinguishing-cases Success with failed release, failed work with failed release, ordinary release and an undefined thrown work value distinguish primary outcome preservation from replacement or swallowed failure.
+ * @evidence contracts/testing.md#execution-ownership Executes the owning lock-lifetime adapter with supplied callbacks in one source-unit process; real lock acquisition, abandoned-owner recovery and Go compilation are outside this case.
  */
 export const test_buildlock_release_never_replaces_the_outcome_it_protected =
   () => {
@@ -68,4 +73,21 @@ export const test_buildlock_release_never_replaces_the_outcome_it_protected =
       1,
     );
     assert.deepEqual(order, ["work", "release"]);
+    let threwUndefined = false;
+    const undefinedOrder: string[] = [];
+    try {
+      runHoldingLock(
+        () => {
+          undefinedOrder.push("work");
+          throw undefined;
+        },
+        () => undefinedOrder.push("release"),
+        () => undefinedOrder.push("reported"),
+      );
+    } catch (error) {
+      threwUndefined = true;
+      assert.equal(error, undefined);
+    }
+    assert.equal(threwUndefined, true);
+    assert.deepEqual(undefinedOrder, ["work", "release"]);
   };
