@@ -21,8 +21,6 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    # One full build-plus-publish cycle takes ~35 minutes end to end.
-    timeout-minutes: 60
     outputs:
       marketplace: ${{ steps.marketplace.outcome }}
     steps:
@@ -94,11 +92,6 @@ jobs:
           ! printf '%s\n%s\n' "$ttsc_out" "$server_out" | grep -q 'commit dev'
       - name: Publish VS Code Marketplace extension
         id: marketplace
-        # Fail fast on a stalled Marketplace call: the healthy step takes
-        # under a minute (11-28 s observed), and the default 360-minute job
-        # timeout would otherwise hold the npm publish hostage for hours
-        # while looking like a slow build (#1008).
-        timeout-minutes: 10
         # The Marketplace is one distribution channel for the editor extension;
         # npm carries the compiler, the runtime, the plugin host, and every
         # platform binary. When this step answered 401 for v0.26.0 it withheld
@@ -111,10 +104,6 @@ jobs:
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
       - name: Publish to npm
-        # Same fail-fast contract as the Marketplace step: the healthy step
-        # takes ~5.5 minutes; the default 360-minute job timeout would hold a
-        # stalled publish silently for hours (#1008).
-        timeout-minutes: 20
         run: pnpm run package:latest:publish
   # A Marketplace rejection is reported, never fatal. Both failures on record
   # were the gallery's, not the tag's: a 401 and a three-minute request timeout
@@ -127,7 +116,6 @@ jobs:
   # colour the run.
   marketplace-report:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     needs: publish
     if: needs.publish.outputs.marketplace != 'success'
     steps:
@@ -149,7 +137,6 @@ jobs:
           echo "::warning title=Marketplace publish did not succeed::npm published ${GITHUB_REF_NAME}; samchon.ttsc did not. Rotate VSCE_PAT if this was a 401, then run scripts/publish-vscode-marketplace.sh."
   wasm-smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     needs: publish
     steps:
       - uses: actions/setup-node@v7
@@ -167,7 +154,6 @@ jobs:
           node -e "if(!require('@ttsc/wasm'))process.exit(1)"
   vscode-smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     needs: publish
     steps:
       - uses: actions/checkout@v7
@@ -212,7 +198,6 @@ jobs:
           NODE
   release:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     needs: [wasm-smoke, vscode-smoke]
     permissions:
       contents: write

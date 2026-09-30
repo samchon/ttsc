@@ -36,10 +36,6 @@ function writeConsumerGoWorkspace(location, consumers, producerRoot) {
   );
 }
 
-if (require.main === module) {
-  const [location, ...consumers] = process.argv.slice(2);
-  if (!location) throw new Error("expected workspace result path");
-  writeConsumerGoWorkspace(location, consumers, path.resolve(__dirname, "../.."));
-}
-
-module.exports = { writeConsumerGoWorkspace };
+const [location, ...consumers] = process.argv.slice(2);
+if (!location) throw new Error("expected workspace result path");
+writeConsumerGoWorkspace(location, consumers, path.resolve(__dirname, "../.."));
