@@ -31,7 +31,7 @@ import {
  * @evidence contracts/e2e.md#necessary-boundary The installed launcher must route format and accept the threading option while retaining native file writes; portable formatting or argv units cannot prove this command connection.
  * @evidence contracts/e2e.md#shared-execution Both formatter inputs share one consumer project load and one native invocation, as well as the batch lint binary; neither scenario rebuilds a producer.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The isolated project contains two independent input files and explicit formatting options; file edits are confined to this project and immutable native artifacts alone are shared.
- * @evidence contracts/e2e.md#preserved-coverage The original exact semicolon file, exact single-to-double-quote file, success status and absent JavaScript output execute here. The old threading case did not observe worker count and this case does not claim to.
+ * @evidence contracts/e2e.md#preserved-coverage The original exact semicolon file, exact single-to-double-quote file, success status and absent JavaScript output execute here. The old threading case did not observe worker count and this case does not claim to; test_native_check_arguments_gate_threading_without_name_shortcuts separately owns actual descriptor-to-argv capability/command controls without another native build.
  */
 export function test_plugin_corpus_ttsc_lint_format_subcommand_rewrites_source(): void {
   const root = commonJsProject(
