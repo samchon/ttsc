@@ -18,6 +18,11 @@ import (
 // 1. Inspect a synthetic public contributor rule and wrap the metadata.
 // 2. Ask the internal checker gate about that wrapped rule.
 // 3. Assert the rule is treated as type-aware.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual inspection of a contributor with no checker marker yields an adapter that the owning checker gate classifies as type-aware.
+// @evidence contracts/testing.md#independent-expectations The public conservative default independently requires true for marker absence; the test queries the actual adapter rather than assuming a zero-value fixture or inferring checker allocation.
+// @evidence contracts/testing.md#distinguishing-cases No TypeAwareRule method contrasts with separate explicit-true and explicit-false marker controls; inspection errors are rejected before classification.
+// @evidence contracts/testing.md#execution-ownership Real contributor metadata inspection and checker classification execute in-process; this decision-only unit does not construct a Program or checker, native producer, installation or CLI.
 func TestEngineRequiresTypeCheckerForContributorRule(t *testing.T) {
   metadata, err := inspectContributor(contributorCheckerGateRule{})
   if err != nil {
