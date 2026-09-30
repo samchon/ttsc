@@ -13,10 +13,10 @@ import "testing"
  *  1. Select one file with separate type and property claims.
  *  2. Cite an H2 from the type and its selected H3 from the property.
  *  3. Assert both independent obligations pass without a false scope error.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies overlapping claim files attribute declarations by host eligibility. The original assertions check assert both independent obligations pass without a false scope error.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations A type and each of its properties live in one file, so separate type and property claims necessarily match the same inventory. Copying every declaration into both claims made the type's parent-scope citation fail the property claim even though each obligation had its own valid citation. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Select one file with separate type and property claims. Cite an H2 from the type and its selected H3 from the property. Assert both independent obligations pass without a false scope error. The assertions and inputs in this function retain its own failure identity.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestOverlappingClaimsAttributeDeclarationsToEligibleHosts is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule selects Entity's type and id property through two claims and requires no diagnostics after H2/H3 citations.
+ * @evidence contracts/testing.md#independent-expectations Each declaration belongs only to claims admitting its actual host kind; shared file inventory does not make both tags eligible everywhere.
+ * @evidence contracts/testing.md#distinguishing-cases Different selectors and reference ranks detect indiscriminate copying, but the clean-only assertion does not independently establish activation of both claims.
+ * @evidence contracts/testing.md#execution-ownership TestOverlappingClaimsAttributeDeclarationsToEligibleHosts is a selectable native Go unit entry. Its graph helper parses fixture TypeScript and calls graphRule.Check in the same Go process; temporary Markdown/TypeScript files are resolver inputs, without an installed consumer or product host.
  */
 func TestOverlappingClaimsAttributeDeclarationsToEligibleHosts(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

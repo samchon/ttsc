@@ -8,8 +8,8 @@ import (
 /**
  * Verifies Prisma model hosts obey positive and exclusion cardinality.
  *
- * Prisma declarations are reconstructed from comments after the real schema
- * parser classifies models and fields. Host identity must survive that bridge
+ * Prisma declarations are reconstructed from comments beside authored model
+ * DTOs. Host identity must survive that association
  * so different models may cite one requirement while one model cannot repeat
  * it, and exclusions remain unique across the claim.
  *
@@ -21,10 +21,6 @@ import (
  * @evidence contracts/testing.md#distinguishing-cases Repeat positive evidence across models and then on one model. Repeat an exclusion across models. Assert only the same-host positive and repeated exclusion fail. The assertions and inputs in this function retain its own failure identity.
  * @evidence contracts/testing.md#execution-ownership TestPrismaHostsPreserveAcknowledgementCardinality calls runPrismaAcknowledgementGraph with authored model DTOs and scanned comments in one Go process; it does not invoke the installed Prisma parser. This entry owns every model variant in the function.
  *
- * @evidence contracts/testing.md#behavioral-verification runPrismaAcknowledgementGraph distinguishes requirement ownership,duplicate evidence and duplicate exclusions in the original subtests.
- * @evidence contracts/testing.md#independent-expectations Literal repeated targets/tags independently fix whether each ownership is distinct or duplicated.
- * @evidence contracts/testing.md#distinguishing-cases All three subtest identities survive; inventories are authored without Node parsing.
- * @evidence contracts/testing.md#execution-ownership TestPrismaHostsPreserveAcknowledgementCardinality is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestPrismaHostsPreserveAcknowledgementCardinality(t *testing.T) {
   t.Run("positive across models", func(t *testing.T) {

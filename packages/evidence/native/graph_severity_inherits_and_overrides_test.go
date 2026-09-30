@@ -16,10 +16,10 @@ import (
  * 1. Evaluate every outer, claim, and reference severity combination.
  * 2. Leave one selected requirement uncited.
  * 3. Assert the effective level, or complete silence for a disabled population.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRuleAtSeverity exercises this case: Verifies severity inheritance and explicit overrides through graph evaluation. The original assertions check assert the effective level, or complete silence for a disabled population.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations An off value must differ from an omitted one, and a warning must stay a warning even when the enclosing rule fails on errors by default. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Evaluate every outer, claim, and reference severity combination. Leave one selected requirement uncited. Assert the effective level, or complete silence for a disabled population. The assertions and inputs in this function retain its own failure identity.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestGraphSeverityInheritsAndOverrides is the selectable Go test entry; its local loops and closures remain owned by this entry. It exercises runIndexRuleAtSeverity within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRuleAtSeverity exercises this case: Verifies severity inheritance and explicit overrides through graph evaluation. The original assertions check assert the effective level, or complete silence for a disabled population.
+ * @evidence contracts/testing.md#independent-expectations An off value must differ from an omitted one, and a warning must stay a warning even when the enclosing rule fails on errors by default. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
+ * @evidence contracts/testing.md#distinguishing-cases Evaluate every outer, claim, and reference severity combination. Leave one selected requirement uncited. Assert the effective level, or complete silence for a disabled population. The assertions and inputs in this function retain its own failure identity.
+ * @evidence contracts/testing.md#execution-ownership TestGraphSeverityInheritsAndOverrides is the selectable Go test entry; its local loops and closures remain owned by this entry. It exercises runIndexRuleAtSeverity within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
  */
 func TestGraphSeverityInheritsAndOverrides(t *testing.T) {
   levels := []string{"", "off", "warning", "error"}

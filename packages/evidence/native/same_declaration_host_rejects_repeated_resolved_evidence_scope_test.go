@@ -12,10 +12,10 @@ import "testing"
  *  1. Repeat one target in a single JSDoc block and across two blocks.
  *  2. Cite one TypeScript unit through two local import names.
  *  3. Assert each later edge is reported once with its canonical target.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies one declaration host cannot repeat one resolved positive scope. The original assertions check assert each later edge is reported once with its canonical target.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Duplicate spelling is not the boundary: aliases can resolve to the same TypeScript unit, and separate JSDoc blocks can attach to one declaration. Both still express one edge whose useful reasons must be combined. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Repeat one target in a single JSDoc block and across two blocks. Cite one TypeScript unit through two local import names. Assert each later edge is reported once with its canonical target. The assertions and inputs in this function retain its own failure identity.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestSameDeclarationHostRejectsRepeatedResolvedEvidenceScope is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule repeats an evidence target in one block, separate blocks, and two import aliases; assertSingleEvidenceDuplicate requires one canonical duplicate with retained coverage.
+ * @evidence contracts/testing.md#independent-expectations Duplicate identity follows one physical declaration host and resolved scope, so aliases of get are not distinct evidence edges.
+ * @evidence contracts/testing.md#distinguishing-cases Block boundaries and spelling differences challenge text-based deduplication while different positive hosts remain legal in EvidenceAcrossDeclarationHostsMayShareOrOverlapScopes.
+ * @evidence contracts/testing.md#execution-ownership TestSameDeclarationHostRejectsRepeatedResolvedEvidenceScope is a selectable native Go unit entry. Its graph helper parses fixture TypeScript and calls graphRule.Check in the same Go process; temporary Markdown/TypeScript files are resolver inputs, without an installed consumer or product host.
  */
 func TestSameDeclarationHostRejectsRepeatedResolvedEvidenceScope(t *testing.T) {
   t.Run("one JSDoc block", func(t *testing.T) {

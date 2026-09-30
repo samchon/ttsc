@@ -13,10 +13,10 @@ import "testing"
  *  1. Cite one target from two declaration hosts.
  *  2. Overlap parent and child scopes across different and identical hosts.
  *  3. Assert every positive graph remains valid.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies positive evidence is a many-to-many relation between declaration hosts and evidence scopes. The original assertions check assert every positive graph remains valid.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations One requirement may need success, refusal, and boundary implementations. A broad implementation may also realize a requirement family while the same or another host realizes one child rule. Neither shape is a duplicate. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Cite one target from two declaration hosts. Overlap parent and child scopes across different and identical hosts. Assert every positive graph remains valid. The assertions and inputs in this function retain its own failure identity.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestEvidenceAcrossDeclarationHostsMayShareOrOverlapScopes is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule requires clean graphs for shared targets, parent/child positive scopes on one or different hosts, and copied citations across a merged interface/namespace.
+ * @evidence contracts/testing.md#independent-expectations Positive evidence is many-to-many; overlap is legal across scopes and merged declarations unlike contradictory exclusion intent.
+ * @evidence contracts/testing.md#distinguishing-cases The table and merged-identity subtest preserve distinct arrangements, but clean results alone do not certify that their claim populations stayed active.
+ * @evidence contracts/testing.md#execution-ownership TestEvidenceAcrossDeclarationHostsMayShareOrOverlapScopes is a selectable native Go unit entry. Its graph helper parses fixture TypeScript and calls graphRule.Check in the same Go process; temporary Markdown/TypeScript files are resolver inputs, without an installed consumer or product host.
  */
 func TestEvidenceAcrossDeclarationHostsMayShareOrOverlapScopes(t *testing.T) {
   cases := map[string]map[string]string{

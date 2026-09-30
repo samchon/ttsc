@@ -13,10 +13,10 @@ import (
  *  1. Supply a selected host and one retained unit under an unhealthy reference state.
  *  2. Enable both cardinality options with no positive evidence.
  *  3. Assert the evaluator derives neither cardinality nor missing coverage.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification evaluateEvidenceGraph exercises this case: Verifies an unhealthy partial denominator produces no derived cardinality. The original assertions check assert the evaluator derives neither cardinality nor missing coverage.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations A loader can materialize some units before discovering that its population is incomplete. Cardinality over that partial set would claim completeness from missing data, so the evaluator must defer entirely to the owning loader failure. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Supply a selected host and one retained unit under an unhealthy reference state. Enable both cardinality options with no positive evidence. Assert the evaluator derives neither cardinality nor missing coverage. The assertions and inputs in this function retain its own failure identity.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestReferencePolicyDerivesNothingFromAnUnhealthyReference is the selectable Go test entry; its local loops and closures remain owned by this entry. It exercises evaluateEvidenceGraph within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification evaluateEvidenceGraph receives a healthy host and an unhealthy reference retaining one selected unit with both cardinality policies; it must return no findings.
+ * @evidence contracts/testing.md#independent-expectations Partial unavailable data cannot establish missing coverage or cardinality even when its retained subset has one unit.
+ * @evidence contracts/testing.md#distinguishing-cases One host with zero evidence would fail both policies if the reference were healthy; Healthy false is the decisive boundary, supplied directly without a loader.
+ * @evidence contracts/testing.md#execution-ownership TestReferencePolicyDerivesNothingFromAnUnhealthyReference is a selectable native Go unit entry exercising the owning operations named in its behavioral answer in-process. Its direct fixture values and local comparisons require no installed artifact or product process.
  */
 func TestReferencePolicyDerivesNothingFromAnUnhealthyReference(t *testing.T) {
   host := &evidenceUnit{

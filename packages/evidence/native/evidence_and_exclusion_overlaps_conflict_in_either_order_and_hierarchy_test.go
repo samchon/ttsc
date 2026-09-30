@@ -16,10 +16,10 @@ import (
  *  1. Reverse exact evidence and exclusion order.
  *  2. Reverse order for both parent-evidence and parent-exclusion overlaps.
  *  3. Assert every arrangement produces exactly one conflict.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies opposite acknowledgement intents conflict independent of source order and hierarchy direction. The original assertions check assert every arrangement produces exactly one conflict.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Evidence says a claim uses a selected unit; exclusion says the same claim does not. Exact and ancestor-descendant overlaps are contradictions whichever declaration appears first and whichever intent owns the broader scope. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Reverse exact evidence and exclusion order. Reverse order for both parent-evidence and parent-exclusion overlaps. Assert every arrangement produces exactly one conflict. The assertions and inputs in this function retain its own failure identity.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestEvidenceAndExclusionOverlapsConflictInEitherOrderAndHierarchy is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule evaluates six source-order and parent/child intent permutations; each must report one conflict, both marker-location fragments, and no missing coverage.
+ * @evidence contracts/testing.md#independent-expectations An evidence and exclusion scope sharing selected units contradict one another independently of order or which intent owns the parent.
+ * @evidence contracts/testing.md#distinguishing-cases Exact overlap plus both hierarchy directions reject one-sided detection; missing-count zero verifies conflicting acknowledgements still contribute coverage.
+ * @evidence contracts/testing.md#execution-ownership TestEvidenceAndExclusionOverlapsConflictInEitherOrderAndHierarchy is a selectable native Go unit entry. Its graph helper parses fixture TypeScript and calls graphRule.Check in the same Go process; temporary Markdown/TypeScript files are resolver inputs, without an installed consumer or product host.
  */
 func TestEvidenceAndExclusionOverlapsConflictInEitherOrderAndHierarchy(t *testing.T) {
   cases := map[string]string{

@@ -15,10 +15,10 @@ import (
  *  1. Repeat positive evidence across headings and then within one heading.
  *  2. Repeat an exclusion across headings.
  *  3. Assert only the same-host positive and repeated exclusion fail.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies Markdown declaration hosts obey positive and exclusion cardinality. The original assertions check assert only the same-host positive and repeated exclusion fail.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Markdown has no AST declaration node, so its scanner must preserve heading identity explicitly. Without that identity, same-host positive duplicates disappear or separate headings collapse into one host. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Repeat positive evidence across headings and then within one heading. Repeat an exclusion across headings. Assert only the same-host positive and repeated exclusion fail. The assertions and inputs in this function retain its own failure identity.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestMarkdownHostsPreserveAcknowledgementCardinality is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies Markdown declaration hosts obey positive and exclusion cardinality. The original assertions check assert only the same-host positive and repeated exclusion fail.
+ * @evidence contracts/testing.md#independent-expectations Markdown has no AST declaration node, so its scanner must preserve heading identity explicitly. Without that identity, same-host positive duplicates disappear or separate headings collapse into one host. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
+ * @evidence contracts/testing.md#distinguishing-cases Repeat positive evidence across headings and then within one heading. Repeat an exclusion across headings. Assert only the same-host positive and repeated exclusion fail. The assertions and inputs in this function retain its own failure identity.
+ * @evidence contracts/testing.md#execution-ownership TestMarkdownHostsPreserveAcknowledgementCardinality is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
  */
 func TestMarkdownHostsPreserveAcknowledgementCardinality(t *testing.T) {
   config := `{"claims":[{

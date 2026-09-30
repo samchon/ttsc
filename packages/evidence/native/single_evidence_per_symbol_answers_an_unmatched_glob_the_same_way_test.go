@@ -16,10 +16,10 @@ import (
  *  1. Point the same policy at a glob no document occupies.
  *  2. Evaluate.
  *  3. Assert the population is named and no host is named.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies an empty reference answers the same way whether or not a file matched. The original assertions check assert the population is named and no host is named.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The removed exception was conditional on the reference having matched at least one path, so the identical empty population produced per-host findings or none depending on a fact the question does not turn on. This is the other half of that pair: same policy, same zero units, no matched file. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Point the same policy at a glob no document occupies. Evaluate. Assert the population is named and no host is named. The assertions and inputs in this function retain its own failure identity.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestSingleEvidencePerSymbolAnswersAnUnmatchedGlobTheSameWay is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule selects a live function but an absent Markdown file; matched-no-files must be present and per-host exactly-one cardinality must be absent.
+ * @evidence contracts/testing.md#independent-expectations An empty reference owns its population diagnostic rather than asking each host to cite nonexistent units.
+ * @evidence contracts/testing.md#distinguishing-cases An unmatched glob differs from a successfully loaded headingless document; this entry does not compare their complete messages directly.
+ * @evidence contracts/testing.md#execution-ownership TestSingleEvidencePerSymbolAnswersAnUnmatchedGlobTheSameWay is a selectable native Go unit entry. Its graph helper parses fixture TypeScript and calls graphRule.Check in the same Go process; temporary Markdown/TypeScript files are resolver inputs, without an installed consumer or product host.
  */
 func TestSingleEvidencePerSymbolAnswersAnUnmatchedGlobTheSameWay(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

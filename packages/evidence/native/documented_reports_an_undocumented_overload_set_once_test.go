@@ -14,10 +14,10 @@ import (
  *  1. Leave every signature of an overload set undocumented.
  *  2. Run the rule.
  *  3. Assert exactly one finding for the set.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runDocumentedRule exercises this case: Verifies the overload branch still fires when no signature is documented. The original assertions check assert exactly one finding for the set.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Merging the run must not become skipping it, which would exempt every overloaded callable in a project. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Leave every signature of an overload set undocumented. Run the rule. Assert exactly one finding for the set. The assertions and inputs in this function retain its own failure identity.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestDocumentedReportsAnUndocumentedOverloadSetOnce is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runDocumentedRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runDocumentedRule exercises this case: Verifies the overload branch still fires when no signature is documented. The original assertions check assert exactly one finding for the set.
+ * @evidence contracts/testing.md#independent-expectations Merging the run must not become skipping it, which would exempt every overloaded callable in a project. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
+ * @evidence contracts/testing.md#distinguishing-cases Leave every signature of an overload set undocumented. Run the rule. Assert exactly one finding for the set. The assertions and inputs in this function retain its own failure identity.
+ * @evidence contracts/testing.md#execution-ownership TestDocumentedReportsAnUndocumentedOverloadSetOnce is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runDocumentedRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
  */
 func TestDocumentedReportsAnUndocumentedOverloadSetOnce(t *testing.T) {
   messages := runDocumentedRule(t, "src/format.ts", `

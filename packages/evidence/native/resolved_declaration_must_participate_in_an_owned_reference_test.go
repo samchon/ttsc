@@ -14,10 +14,10 @@ import "testing"
  *  1. Expose one target only through a second claim's reference.
  *  2. Cite it with `@evidenceExclude` from the first claim.
  *  3. Assert the tag is reported as non-participating with its repair context.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies a globally resolving tag cannot remain outside every owned reference. The original assertions check assert the tag is reported as non-participating with its repair context.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Resolution indexes the complete graph so two claims can share a source, but that global address table previously let a tag resolve through another claim's reference and then participate in nothing. An exclusion in that state is especially dangerous because it looks like an intentional coverage decision while changing no obligation. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Expose one target only through a second claim's reference. Cite it with `@evidenceExclude` from the first claim. Assert the tag is reported as non-participating with its repair context. The assertions and inputs in this function retain its own failure identity.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestResolvedDeclarationMustParticipateInAnOwnedReference is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule resolves a Claim exclusion only through Other's reference and requires non-participation, its source location, owning claim context and repair text.
+ * @evidence contracts/testing.md#independent-expectations Global resolution does not confer participation: Claim owns docs/owed.md, while only Other owns docs/stray.md.
+ * @evidence contracts/testing.md#distinguishing-cases The healthy Other citation makes the target resolvable, distinguishing this placement error from an unresolved target; total findings are not asserted.
+ * @evidence contracts/testing.md#execution-ownership TestResolvedDeclarationMustParticipateInAnOwnedReference is a selectable native Go unit entry. Its graph helper parses fixture TypeScript and calls graphRule.Check in the same Go process; temporary Markdown/TypeScript files are resolver inputs, without an installed consumer or product host.
  */
 func TestResolvedDeclarationMustParticipateInAnOwnedReference(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

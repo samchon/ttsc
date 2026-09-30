@@ -13,10 +13,10 @@ import (
  *  1. Configure a strict Swagger operation and an ordinary Markdown section in one claim.
  *  2. Exclude both targets from the same eligible function carrier.
  *  3. Assert only the operation exclusion fails and only the operation remains missing.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification evaluateEvidenceGraph exercises this case: Verifies a strict Swagger obligation does not prohibit an ordinary Markdown exclusion. The original assertions check assert only the operation exclusion fails and only the operation remains missing.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations A backend-test claim can cite API operations, requirements, and DTO contracts through separate references. The operation reference's anti-exclusion policy must not infect the ordinary documentary obligation beside it. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Configure a strict Swagger operation and an ordinary Markdown section in one claim. Exclude both targets from the same eligible function carrier. Assert only the operation exclusion fails and only the operation remains missing. The assertions and inputs in this function retain its own failure identity.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestStrictSwaggerAndOrdinaryMarkdownExclusionsCoexist is the selectable Go test entry; its local loops and closures remain owned by this entry. It exercises evaluateEvidenceGraph within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification evaluateEvidenceGraph consumes direct healthy Swagger/Markdown states with one function excluding both; exactly one forbidden and one missing finding must name POST:/orders, with no Markdown missing target.
+ * @evidence contracts/testing.md#independent-expectations NoExclude belongs to the Swagger reference alone; the ordinary Markdown reference independently accepts its exclusion.
+ * @evidence contracts/testing.md#distinguishing-cases Two artifact kinds and one host isolate policy leakage; this hand-built unit fixture performs no Swagger normalization or Node process.
+ * @evidence contracts/testing.md#execution-ownership TestStrictSwaggerAndOrdinaryMarkdownExclusionsCoexist is a selectable native Go unit entry exercising the owning operations named in its behavioral answer in-process. Its direct fixture values and local comparisons require no installed artifact or product process.
  */
 func TestStrictSwaggerAndOrdinaryMarkdownExclusionsCoexist(t *testing.T) {
   host := &evidenceUnit{

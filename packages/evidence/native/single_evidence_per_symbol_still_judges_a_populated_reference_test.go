@@ -5,7 +5,7 @@ import "testing"
 /**
  * Verifies cardinality still judges a host against a population that has units.
  *
- * This is the negative twin of the two cases above and the reason the early
+ * This is the negative twin of the empty-reference regressions and the reason the early
  * return is bounded by emptiness rather than by policy. A host that cites none
  * of a population that really holds units is the failure singleEvidencePerSymbol
  * exists to catch, and the suppression must not reach it.
@@ -13,10 +13,10 @@ import "testing"
  *  1. Select one TypeScript function and a document with two headings.
  *  2. Require exactly one Markdown unit per selected symbol, and cite neither.
  *  3. Assert the host is named with its zero count.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies cardinality still judges a host against a population that has units. The original assertions check assert the host is named with its zero count.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations This is the negative twin of the two cases above and the reason the early return is bounded by emptiness rather than by policy. A host that cites none of a population that really holds units is the failure singleEvidencePerSymbol exists to catch, and the suppression must not reach it. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Select one TypeScript function and a document with two headings. Require exactly one Markdown unit per selected symbol, and cite neither. Assert the host is named with its zero count. The assertions and inputs in this function retain its own failure identity.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestSingleEvidencePerSymbolStillJudgesAPopulatedReference is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule selects a function citing neither of two H2s; its named zero-unit cardinality finding must appear.
+ * @evidence contracts/testing.md#independent-expectations Suppression for empty references must not suppress a live host's zero coverage when units exist.
+ * @evidence contracts/testing.md#distinguishing-cases Two real headings keep the denominator populated; presence is checked without requiring total diagnostic count or every missing target.
+ * @evidence contracts/testing.md#execution-ownership TestSingleEvidencePerSymbolStillJudgesAPopulatedReference is a selectable native Go unit entry. Its graph helper parses fixture TypeScript and calls graphRule.Check in the same Go process; temporary Markdown/TypeScript files are resolver inputs, without an installed consumer or product host.
  */
 func TestSingleEvidencePerSymbolStillJudgesAPopulatedReference(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

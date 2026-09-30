@@ -16,11 +16,11 @@ import (
  *
  *  1. Select one TypeScript function and a Markdown document with no heading.
  *  2. Require exactly one Markdown unit per selected symbol.
- *  3. Assert the population is named once and no host is named at all.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies cardinality derives nothing from an empty healthy reference. The original assertions check assert the population is named once and no host is named at all.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations A successfully loaded document can contain no selected unit, and the materializer reports that population as empty on its own. Judging hosts on top of it added one message per host asking each to cite a unit that does not exist, which is the derived finding the loader-failure path already refuses. The count of zero is true; the demand it produced was not answerable. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Select one TypeScript function and a Markdown document with no heading. Require exactly one Markdown unit per selected symbol. Assert the population is named once and no host is named at all. The assertions and inputs in this function retain its own failure identity.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestSingleEvidencePerSymbolDerivesNothingFromAHealthyEmptyReference is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ *  3. Assert the empty population is named and no per-host cardinality is derived.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule loads a prose-only Markdown document for a live function; the no-selected-units finding must appear without per-host cardinality.
+ * @evidence contracts/testing.md#independent-expectations No selected units leaves no answerable per-host citation demand, even though the document loaded successfully.
+ * @evidence contracts/testing.md#distinguishing-cases A matched headingless file distinguishes healthy emptiness from an unmatched glob or loader failure; the total population finding count is not asserted.
+ * @evidence contracts/testing.md#execution-ownership TestSingleEvidencePerSymbolDerivesNothingFromAHealthyEmptyReference is a selectable native Go unit entry. Its graph helper parses fixture TypeScript and calls graphRule.Check in the same Go process; temporary Markdown/TypeScript files are resolver inputs, without an installed consumer or product host.
  */
 func TestSingleEvidencePerSymbolDerivesNothingFromAHealthyEmptyReference(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

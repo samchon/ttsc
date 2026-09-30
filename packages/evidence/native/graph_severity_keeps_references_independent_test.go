@@ -15,10 +15,10 @@ import (
  * 1. Select the same uncited requirement twice at different levels.
  * 2. Add an off reference naming a missing root.
  * 3. Assert one warning and one error with the original reference indexes.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRuleAtSeverity exercises this case: Verifies overlapping references retain independent diagnostic levels. The original assertions check assert one warning and one error with the original reference indexes.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Identical populations must not pool their severities or coverage. An off reference must also avoid loading a nonexistent source. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Select the same uncited requirement twice at different levels. Add an off reference naming a missing root. Assert one warning and one error with the original reference indexes. The assertions and inputs in this function retain its own failure identity.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestGraphSeverityKeepsReferencesIndependent is the selectable Go test entry; its local loops and closures remain owned by this entry. It exercises runIndexRuleAtSeverity within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRuleAtSeverity exercises this case: Verifies overlapping references retain independent diagnostic levels. The original assertions check assert one warning and one error with the original reference indexes.
+ * @evidence contracts/testing.md#independent-expectations Identical populations must not pool their severities or coverage. An off reference must also avoid loading a nonexistent source. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
+ * @evidence contracts/testing.md#distinguishing-cases Select the same uncited requirement twice at different levels. Add an off reference naming a missing root. Assert one warning and one error with the original reference indexes. The assertions and inputs in this function retain its own failure identity.
+ * @evidence contracts/testing.md#execution-ownership TestGraphSeverityKeepsReferencesIndependent is the selectable Go test entry; its local loops and closures remain owned by this entry. It exercises runIndexRuleAtSeverity within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
  */
 func TestGraphSeverityKeepsReferencesIndependent(t *testing.T) {
   reporter := runIndexRuleAtSeverity(t, t.TempDir(), map[string]string{

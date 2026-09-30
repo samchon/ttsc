@@ -15,10 +15,10 @@ import (
  *  1. Repeat an exact exclusion on one and on separate hosts.
  *  2. Overlap parent and child exclusions in both source orders.
  *  3. Assert each later exclusion produces one duplicate finding.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies exclusions remain one reviewed decision per covered scope. The original assertions check assert each later exclusion produces one duplicate finding.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Repeating an exclusion makes ownership of its reason ambiguous regardless of host or declaration order. Ancestor and descendant exclusions duplicate the selected unit where their scopes intersect. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Repeat an exact exclusion on one and on separate hosts. Overlap parent and child exclusions in both source orders. Assert each later exclusion produces one duplicate finding. The assertions and inputs in this function retain its own failure identity.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestOverlappingExclusionsAreRejectedAcrossHostsAndHierarchy is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule evaluates four exact/hierarchical exclusion overlaps; one duplicate, zero conflicts and zero missing coverage are required in each.
+ * @evidence contracts/testing.md#independent-expectations Same-intent overlap repeats an exclusion decision rather than creating an evidence/exclusion conflict; acknowledgements still cover their scope.
+ * @evidence contracts/testing.md#distinguishing-cases One versus two hosts and both parent orders detect inconsistent overlap accounting; the required named claim/reference fragment preserves obligation attribution.
+ * @evidence contracts/testing.md#execution-ownership TestOverlappingExclusionsAreRejectedAcrossHostsAndHierarchy is a selectable native Go unit entry. Its graph helper parses fixture TypeScript and calls graphRule.Check in the same Go process; temporary Markdown/TypeScript files are resolver inputs, without an installed consumer or product host.
  */
 func TestOverlappingExclusionsAreRejectedAcrossHostsAndHierarchy(t *testing.T) {
   cases := map[string]string{

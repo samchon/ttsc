@@ -16,10 +16,10 @@ import (
  *  1. Give one claim a failed Markdown reference and a healthy sibling.
  *  2. Materialize and evaluate both from the same claim file.
  *  3. Assert only the healthy sibling derives a missing acknowledgement.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises this case: Verifies a failed reference suppresses only its derived coverage findings. The original assertions check assert only the healthy sibling derives a missing acknowledgement.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations A loader diagnostic already says why one population is unavailable. Treating that failed inventory as a healthy empty document adds a false no-units finding and can add missing acknowledgements from a partial denominator, while suppressing every claim would hide healthy sibling obligations. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Give one claim a failed Markdown reference and a healthy sibling. Materialize and evaluate both from the same claim file. Assert only the healthy sibling derives a missing acknowledgement. The assertions and inputs in this function retain its own failure identity.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestReferenceLoaderFailureSuppressesOnlyItsOwnDerivedFindings is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls parseTypeScriptInventory within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification materializeClaimStates and evaluateEvidenceGraph consume a failed Markdown inventory beside healthy Good and a parsed TypeScript host; health flags, one missing Good, no empty-source and no unresolved derivatives are required.
+ * @evidence contracts/testing.md#independent-expectations An injected load failure is not an empty denominator, and cannot prove a target unresolved; the healthy sibling still owes its literal Good target.
+ * @evidence contracts/testing.md#distinguishing-cases The bad-reference citation and healthy sibling make suppression local. Direct fixture inventory state represents the loader failure; this does not reproduce an actual I/O error.
+ * @evidence contracts/testing.md#execution-ownership TestReferenceLoaderFailureSuppressesOnlyItsOwnDerivedFindings is a selectable native Go unit entry exercising the owning operations named in its behavioral answer in-process. Its direct fixture values and local comparisons require no installed artifact or product process.
  */
 func TestReferenceLoaderFailureSuppressesOnlyItsOwnDerivedFindings(t *testing.T) {
   root := t.TempDir()

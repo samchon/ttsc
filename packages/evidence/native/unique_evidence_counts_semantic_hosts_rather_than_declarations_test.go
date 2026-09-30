@@ -13,10 +13,10 @@ import (
  *  1. Cite one unit twice from a single function under `uniqueEvidence`.
  *  2. Assert only the ordinary duplicate-tag diagnostic fires.
  *  3. Move the second citation onto another function and assert the unit reports two owners.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies unique evidence counts semantic claim hosts rather than declarations. The original assertions check move the second citation onto another function and assert the unit reports two owners.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Several tags on one exported function remain one implementation or proof, so repetition must not consume a unit's single owner. A second exported identity citing the same unit is the case the policy exists to reject. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Cite one unit twice from a single function under `uniqueEvidence`. Assert only the ordinary duplicate-tag diagnostic fires. Move the second citation onto another function and assert the unit reports two owners. The assertions and inputs in this function retain its own failure identity.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestUniqueEvidenceCountsSemanticHostsRatherThanDeclarations is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule first repeats a citation on one function, requiring Duplicate evidence without uniqueEvidence; moving it to a second function must report two distinct positive hosts.
+ * @evidence contracts/testing.md#independent-expectations Unique ownership counts semantic implementations rather than written tag multiplicity.
+ * @evidence contracts/testing.md#distinguishing-cases Repeated one-host tags versus two independent functions distinguish duplicate-edge reporting from unit-owner cardinality.
+ * @evidence contracts/testing.md#execution-ownership TestUniqueEvidenceCountsSemanticHostsRatherThanDeclarations is a selectable native Go unit entry. Its graph helper parses fixture TypeScript and calls graphRule.Check in the same Go process; temporary Markdown/TypeScript files are resolver inputs, without an installed consumer or product host.
  */
 func TestUniqueEvidenceCountsSemanticHostsRatherThanDeclarations(t *testing.T) {
   config := `{"claims":[{

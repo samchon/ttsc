@@ -10,10 +10,10 @@ import "testing"
  *  1. Declare two overload signatures and one implementation for one function.
  *  2. Put the only evidence tag on the implementation.
  *  3. Assert single-evidence cardinality sees one satisfied semantic host.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies overloaded declarations retain one semantic claim-host identity. The original assertions check assert single-evidence cardinality sees one satisfied semantic host.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Source positions distinguish overload declarations physically, but the public function is one graph unit. Cardinality must judge that semantic identity once and accept its implementation declaration's citation. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Declare two overload signatures and one implementation for one function. Put the only evidence tag on the implementation. Assert single-evidence cardinality sees one satisfied semantic host. The assertions and inputs in this function retain its own failure identity.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestSingleEvidencePerSymbolUsesMergedTypeScriptIdentity is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule reads two overload signatures plus a cited implementation under exactly-one evidence and requires silence.
+ * @evidence contracts/testing.md#independent-expectations An exported overload set is one semantic function host; one implementation citation satisfies that identity.
+ * @evidence contracts/testing.md#distinguishing-cases Unannotated signatures challenge physical-declaration host counting; clean-only results do not independently certify claim activation.
+ * @evidence contracts/testing.md#execution-ownership TestSingleEvidencePerSymbolUsesMergedTypeScriptIdentity is a selectable native Go unit entry. Its graph helper parses fixture TypeScript and calls graphRule.Check in the same Go process; temporary Markdown/TypeScript files are resolver inputs, without an installed consumer or product host.
  */
 func TestSingleEvidencePerSymbolUsesMergedTypeScriptIdentity(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

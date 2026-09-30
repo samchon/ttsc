@@ -13,10 +13,10 @@ import "testing"
  *  1. Exclude two disjoint targets in one claim.
  *  2. Exclude one physical target from separate claims and reference entries.
  *  3. Assert none of the arrangements creates a duplicate.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies disjoint, claim-local, and reference-local exclusions remain independent. The original assertions check assert none of the arrangements creates a duplicate.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Exclusion uniqueness belongs to one claim-reference obligation and only to scopes sharing a selected unit. Separate requirements or separate claims express separate reviewed decisions. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Exclude two disjoint targets in one claim. Exclude one physical target from separate claims and reference entries. Assert none of the arrangements creates a duplicate. The assertions and inputs in this function retain its own failure identity.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestDisjointClaimAndReferenceLocalExclusionsAreAllowed is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule requires silence for disjoint exclusions, separate named claims excluding one target, and duplicate reference entries answered by one exclusion.
+ * @evidence contracts/testing.md#independent-expectations Exclusion uniqueness is scoped to a claim-reference obligation and intersecting selected units, so these authored arrangements are legal.
+ * @evidence contracts/testing.md#distinguishing-cases Three local subtests vary scope overlap and obligation identity; silence alone would also pass if claim activation were lost, which this entry does not independently inspect.
+ * @evidence contracts/testing.md#execution-ownership TestDisjointClaimAndReferenceLocalExclusionsAreAllowed is a selectable native Go unit entry. Its graph helper parses fixture TypeScript and calls graphRule.Check in the same Go process; temporary Markdown/TypeScript files are resolver inputs, without an installed consumer or product host.
  */
 func TestDisjointClaimAndReferenceLocalExclusionsAreAllowed(t *testing.T) {
   t.Run("disjoint scopes", func(t *testing.T) {

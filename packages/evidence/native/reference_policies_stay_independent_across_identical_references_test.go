@@ -13,10 +13,10 @@ import (
  *  1. Configure identical references, one ordinary and one requiring unique evidence.
  *  2. Cite their shared unit from two selected hosts.
  *  3. Assert only reference two reports its own cardinality.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies identical references evaluate their policies independently. The original assertions check assert only reference two reports its own cardinality.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations A declaration may participate in several overlapping obligations, but their policies cannot pool counts. Two hosts citing one shared unit must satisfy the ordinary reference and independently fail the strict twin over the same population. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Configure identical references, one ordinary and one requiring unique evidence. Cite their shared unit from two selected hosts. Assert only reference two reports its own cardinality. The assertions and inputs in this function retain its own failure identity.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestReferencePoliciesStayIndependentAcrossIdenticalReferences is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule cites one section from two functions under ordinary and uniqueEvidence references; exactly one unique failure must name reference 2.
+ * @evidence contracts/testing.md#independent-expectations The ordinary obligation permits two positive hosts, while the strict twin independently allows at most one.
+ * @evidence contracts/testing.md#distinguishing-cases Identical populations with different policy flags isolate policy ownership from resolution or selection; total graph diagnostics are not counted.
+ * @evidence contracts/testing.md#execution-ownership TestReferencePoliciesStayIndependentAcrossIdenticalReferences is a selectable native Go unit entry. Its graph helper parses fixture TypeScript and calls graphRule.Check in the same Go process; temporary Markdown/TypeScript files are resolver inputs, without an installed consumer or product host.
  */
 func TestReferencePoliciesStayIndependentAcrossIdenticalReferences(t *testing.T) {
   messages := runIndexRule(t, map[string]string{
