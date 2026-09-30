@@ -1670,6 +1670,9 @@ function loadDescriptorViaTtsx(
         }),
         TTSC_PLUGIN_DESCRIPTOR_LOAD: "1",
         TTSC_PLUGIN_DESCRIPTOR_OUT: out,
+        // The generated shim arms its own descriptor observation only after
+        // its bootstrap imports have completed, even under an armed caller.
+        TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE: "0",
         TTSC_PLUGIN_DESCRIPTOR_INPUTS_OUT: inputsOut,
         TTSC_PLUGIN_ENTRY: request,
       },

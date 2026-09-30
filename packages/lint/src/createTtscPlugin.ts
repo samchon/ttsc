@@ -122,6 +122,8 @@ const FRAMEWORK_KEYS = new Set<string>([
  * no evaluator. The extractor reads plugin maps from the resolved config and
  * its bases and forwards contributor Go sources to the descriptor's
  * `contributors` field.
+ * Its dependency envelope owns config observations; the child's bootstrap
+ * does not inherit the parent descriptor's observation channel.
  *
  * @evidence contracts/common.md#principled-implementation Entry validation and config-origin discovery resolve registered contributor sources and observed inputs before constructing the check-stage descriptor with supported capabilities.
  * @evidence contracts/common.md#clear-and-simple-design The exported factory composes validation, discovery and descriptor construction; helpers own module loading and dependency fingerprints separately.
@@ -2632,6 +2634,10 @@ function loaderTempBase(configPath: string): string {
 
 function nodeConfigLoaderEnv(configPath: string): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env };
+  // This child reports the config's actual dependency graph through its own
+  // result envelope. An inherited descriptor channel would also record this
+  // evaluator's disposable bootstrap and its ambient package-scope probes.
+  env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE = "0";
   const parts: string[] = [];
   const nodeModules = findNearestNodeModules(path.dirname(configPath));
   if (nodeModules) parts.push(nodeModules);
