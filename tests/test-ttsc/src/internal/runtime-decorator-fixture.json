@@ -1,0 +1,4 @@
+{
+  "source": "\nfunction sayHelloClass<T extends { new (...args: any[]): {} }>(ClassType: T, context: ClassDecoratorContext) {\n  return class extends ClassType {\n    constructor(...args: any[]) {\n      super(...args);\n      console.log(\"Hello Class \" + context.name);\n    }\n  };\n}\nfunction sayHelloMethod<T>(target: (this: T, ...args: any[]) => any, context: ClassMethodDecoratorContext) {\n  return function(this: T, ...args: any[]): any {\n    console.log(\"Hello Function \" + context.name.toString());\n    return target.apply(this, args);\n  };\n}\n@sayHelloClass\nclass Foo {\n  constructor(public bar: string) {}\n  @sayHelloMethod\n  getBar() { return this.bar; }\n}\nconsole.log(new Foo(\"abc\").getBar());\n",
+  "expected": "Hello Class Foo\nHello Function getBar\nabc"
+}

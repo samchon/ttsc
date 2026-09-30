@@ -20,7 +20,7 @@ if (require.main === module) {
     : [...DRIVER_TEST_PACKAGES, "./test/driver-unit"];
   const result = cp.spawnSync(
     "go",
-    ["test", "-trimpath", "-count=1", ...packages],
+    ["test", "-json", "-trimpath", "-count=1", ...packages],
     {
       cwd: path.join(root, "packages", "ttsc"),
       env: {
@@ -29,7 +29,9 @@ if (require.main === module) {
           ? `${goRoot}${path.delimiter}${process.env.PATH ?? ""}`
           : process.env.PATH,
       },
-      stdio: "inherit",
+      encoding: "utf8",
+      maxBuffer: 32 * 1024 * 1024,
+      stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
     },
   );
@@ -37,7 +39,25 @@ if (require.main === module) {
   if (result.error) {
     throw result.error;
   }
-  process.exit(result.status ?? 1);
+  process.stderr.write(result.stderr ?? "");
+  // Echo ordinary Go output while keeping emitted JS payloads in memory.
+  let ordinaryOutput = "";
+  for (const line of (result.stdout ?? "").trimEnd().split(/\r?\n/)) {
+    try {
+      const event = JSON.parse(line);
+      if (event.Action === "output") ordinaryOutput += event.Output;
+    } catch { /* The strict unit decoder reports malformed transport. */ }
+  }
+  for (const line of ordinaryOutput.split(/\r?\n/)) {
+    if (line && !line.startsWith("TTSC_RUNTIME_EMIT_V1:")) console.log(line);
+  }
+  try {
+    require("../tests/unit/runtime/test_runtime_compiler_output_preserves_decorator_effects.cjs").test_runtime_compiler_output_preserves_decorator_effects(result);
+  } catch (error) {
+    console.error(error);
+    process.exitCode = 1;
+  }
+  process.exitCode = process.exitCode || result.status || 0;
 }
 
 module.exports = { DRIVER_TEST_PACKAGES };
