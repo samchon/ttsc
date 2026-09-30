@@ -15,6 +15,11 @@ import { normalizeEvidenceBenchmarkOrigin } from "../../../../benchmarks/evidenc
  * 1. Assert every URL form a manifest declares reduces to `owner/name`.
  * 2. Assert a value that cannot reduce yields nothing rather than itself,
  *    including the profile URL that names an owner and no repository.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls normalizeEvidenceBenchmarkOrigin for eight supported URL/name spellings and seven invalid candidates, asserting owner/name or undefined exactly.
+ * @evidence contracts/testing.md#independent-expectations Literal samchon/ttsc and samchon/lint-plugin-evidence names follow the GitHub repository-address contract independently of the parser computation.
+ * @evidence contracts/testing.md#distinguishing-cases HTTPS, git+HTTPS, SSH, scp, trailing slash and whitespace aliases contrast empty, bare repository, profile-only and foreign-host inputs.
+ * @evidence contracts/testing.md#execution-ownership The exported entry owns its fixture and assertion callbacks in the source-unit TestExecutor; direct product calls use no installation, native producer or product host.
  */
 export const test_benchmark_report_records_a_resolvable_origin_or_none =
   (): void => {

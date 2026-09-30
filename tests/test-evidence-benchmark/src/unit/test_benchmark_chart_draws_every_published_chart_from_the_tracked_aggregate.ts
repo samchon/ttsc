@@ -24,6 +24,11 @@ import { benchmarkRoot } from "../internal/suiteRoot";
  * 4. Render again and assert the same bytes, so a redraw is a no-op.
  * 5. Render a cohort missing a subject and assert its chart is swept, since a
  *    chart the aggregate no longer carries is one the site would keep serving.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls writeEvidenceBenchmarkCharts on a copied aggregate; asserts SVG structure, each subject heading, unchanged input JSON, deterministic redraw and removal of a dropped subject chart.
+ * @evidence contracts/testing.md#independent-expectations Artifact contents come from the supplied report subjects; byte preservation and repeatability are invariants, while this case does not independently certify every plotted numeric value.
+ * @evidence contracts/testing.md#distinguishing-cases Nonempty cohort, identical second render and one removed subject distinguish create, reuse and stale-output reclamation.
+ * @evidence contracts/testing.md#execution-ownership This exported test_benchmark entry runs directly through the source-unit TestExecutor; its private fixture/assertion callbacks remain owned by this entry. No installed consumer, native producer or product host is required.
  */
 export const test_benchmark_chart_draws_every_published_chart_from_the_tracked_aggregate =
   (): void => {

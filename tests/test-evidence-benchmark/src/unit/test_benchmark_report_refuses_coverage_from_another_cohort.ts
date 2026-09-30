@@ -24,6 +24,11 @@ import type {
  * 3. With a foreign `source.origin`, a row naming no run, a row naming another
  *    run, and a row for a cell outside the cohort, assert each is refused and
  *    the message names what to do.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls assertEvidenceBenchmarkCoverageCohort against absent, own and foreign coverage.json fixtures; checks refusal names and recovery instructions.
+ * @evidence contracts/testing.md#independent-expectations The supplied report fixes origin and run-todo-plain identity; coverage attributed elsewhere must be refused while unavailable coverage remains publishable.
+ * @evidence contracts/testing.md#distinguishing-cases Absent and exact-origin/run rows pass; foreign origin, missing or wrong run and outside-cohort cells fail with identifying messages.
+ * @evidence contracts/testing.md#execution-ownership The exported entry owns its fixture and assertion callbacks in the source-unit TestExecutor; direct product calls use no installation, native producer or product host.
  */
 export const test_benchmark_report_refuses_coverage_from_another_cohort =
   (): void => {

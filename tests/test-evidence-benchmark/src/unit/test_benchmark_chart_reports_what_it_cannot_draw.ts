@@ -17,6 +17,11 @@ import type { ITtscEvidenceBenchmarkReportCell } from "../../../../benchmarks/ev
  *    while the token axis is unaffected.
  * 3. Render a report with no cell and assert the empty state.
  * 4. Render a cell carrying an unknown stage and assert it throws.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls Chart.arms and summary; checks unavailable price without $0 or fabricated savings, retained 1k/1.2k tokens, +20% direction, empty output and unknown-stage rejection.
+ * @evidence contracts/testing.md#independent-expectations Absent reconciled cost cannot mean zero; supplied token totals independently yield +20%, and unsupported backend-remind-9 must throw rather than select a phase.
+ * @evidence contracts/testing.md#distinguishing-cases Unpriced populated, empty and malformed-stage reports distinguish missing measurement, no population and invalid classification.
+ * @evidence contracts/testing.md#execution-ownership This exported test_benchmark entry runs directly through the source-unit TestExecutor; its private fixture/assertion callbacks remain owned by this entry. No installed consumer, native producer or product host is required.
  */
 export const test_benchmark_chart_reports_what_it_cannot_draw = (): void => {
   const priceless: string = EvidenceBenchmarkChart.arms({

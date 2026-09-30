@@ -27,6 +27,11 @@ import type { ITtscEvidenceBenchmarkTokenUsage } from "../../../../benchmarks/ev
  *    assert the amount is identical and the drops are counted.
  * 3. Drop a request from the log entirely and assert the run is refused, since a
  *    walk that no longer reconciles is not a measurement.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls collectEvidenceBenchmarkApiCost on clean, replayed and incomplete JSONL fixtures; checks request counts, equal price under replay, two replay drops and null for missing tokens.
+ * @evidence contracts/testing.md#independent-expectations Replay invariance and retained-token reconciliation establish this case; the clean amount is a relational oracle and does not independently verify the pricing table itself.
+ * @evidence contracts/testing.md#distinguishing-cases Three valid requests, two interleaved rewind/mismatched updates and a missing final request distinguish tolerated replay from an unreconciled gap.
+ * @evidence contracts/testing.md#execution-ownership The exported entry owns its fixture and assertion callbacks in the source-unit TestExecutor; direct product calls use no installation, native producer or product host.
  */
 export const test_benchmark_api_cost_survives_a_thread_two_drivers_wrote =
   (): void => {

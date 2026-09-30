@@ -18,6 +18,11 @@ import type {
  * the right one: averaging all thirteen rates gives 52.3% and multiplying them
  * gives 0.007%, against the correct 28.2%. Any of the three would look like a
  * coverage figure in a report.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls Coverage.plain and evidence; checks five wholeness values, total 1.690625/6, thirteen unique edges, empty propagation, invalid counts and asserted Evidence status.
+ * @evidence contracts/testing.md#independent-expectations Comments hand-fold the reference graph by multiplying chains and averaging branches; literal wrong mean/product alternatives distinguish plausible incorrect formulas.
+ * @evidence contracts/testing.md#distinguishing-cases Mixed rates, one empty branch, entirely empty graph, reached greater than eligible, negative and fractional counts distinguish valid composition, unavailable values and invalid measurement.
+ * @evidence contracts/testing.md#execution-ownership The exported entry and its empty/invalid/evidence assertion helpers run directly in the source-unit TestExecutor without a native producer or host.
  */
 export const test_benchmark_coverage_composes_over_the_reference_graph =
   (): void => {

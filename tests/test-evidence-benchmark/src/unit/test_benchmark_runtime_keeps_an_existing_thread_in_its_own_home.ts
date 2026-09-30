@@ -25,20 +25,27 @@ import { EvidenceBenchmarkRuntime } from "../../../../benchmarks/evidence/src/Ev
  *    the home that thread lives in.
  * 3. A run that already owns a thread and does have an isolated home keeps that
  *    one, so isolation survives every resume after the first.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls actual preparation for fresh, historical-retained and existing-isolated-retained states, checking home identity, generated configuration and no unwanted historical destination.
+ * @evidence contracts/testing.md#independent-expectations Owned operator and run directory paths define exact distinct identities; the authored operator config bytes must remain unchanged after adoption.
+ * @evidence contracts/testing.md#distinguishing-cases A defined retained session adopts only when no isolated home exists; fresh sessions and resumed isolated sessions retain their distinct home. Owned credentials remove the former login-dependent skip.
+ * @evidence contracts/testing.md#execution-ownership This original named scenario executes as a source unit with actual owned filesystem inputs and explicit home dependency; all original home/configuration assertions remain and finally removes only its own root.
  */
 export const test_benchmark_runtime_keeps_an_existing_thread_in_its_own_home =
   (): void => {
-    const credential: string = path.join(os.homedir(), ".codex", "auth.json");
-    if (!fs.existsSync(credential)) return; // Not logged in; the guard has its own case.
-    const operatorHome: string = path.join(os.homedir(), ".codex");
-
     const root: string = fs.mkdtempSync(
       path.join(os.tmpdir(), "evidence-home-adopt-"),
     );
     try {
+      const operatorHome = path.join(root, "operator");
+      fs.mkdirSync(operatorHome);
+      fs.writeFileSync(path.join(operatorHome, "auth.json"), '{"credential":"owned-retained-case"}\n');
+      fs.writeFileSync(path.join(operatorHome, "config.toml"), "operator configuration");
       // Step 1: no retained session, so this run's thread is created here.
       const fresh: string = EvidenceBenchmarkRuntime.prepareCodexHome(
         path.join(root, "fresh"),
+        undefined,
+        operatorHome,
       );
       if (path.resolve(fresh) === path.resolve(operatorHome))
         throw new Error(
@@ -55,6 +62,7 @@ export const test_benchmark_runtime_keeps_an_existing_thread_in_its_own_home =
       const adopted: string = EvidenceBenchmarkRuntime.prepareCodexHome(
         path.join(root, "retained"),
         "019fd289-2dad-7982-b0fc-118955e08129",
+        operatorHome,
       );
       if (path.resolve(adopted) !== path.resolve(operatorHome))
         throw new Error(
@@ -67,6 +75,8 @@ export const test_benchmark_runtime_keeps_an_existing_thread_in_its_own_home =
         throw new Error(
           "Adopting a thread's home must not also create the isolated one it declined to use.",
         );
+      if (fs.readFileSync(path.join(operatorHome, "config.toml"), "utf8") !== "operator configuration")
+        throw new Error("Adopting the historical home must preserve its actual configuration bytes.");
 
       // Step 3: the same retained session, once an isolated home exists. Every
       // resume after the first must stay isolated rather than falling back.
@@ -75,6 +85,7 @@ export const test_benchmark_runtime_keeps_an_existing_thread_in_its_own_home =
       const kept: string = EvidenceBenchmarkRuntime.prepareCodexHome(
         isolatedRoot,
         "019fd289-2dad-7982-b0fc-118955e08129",
+        operatorHome,
       );
       if (
         path.resolve(kept) !==

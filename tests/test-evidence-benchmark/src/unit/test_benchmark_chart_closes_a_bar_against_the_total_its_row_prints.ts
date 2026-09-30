@@ -20,6 +20,11 @@ import type {
  *    track.
  * 3. Render a cell whose stages overrun its total.
  * 4. Assert no unattributed segment is drawn and no segment leaves the track.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls Chart.summary for total/stage pairs 1000/600 and 600/1000; checks unattributed segment presence and every segment endpoint against its track.
+ * @evidence contracts/testing.md#independent-expectations The accounting contract requires the shortfall to remain visible and forbids a negative unattributed segment; half-pixel endpoint tolerance covers SVG decimal rounding.
+ * @evidence contracts/testing.md#distinguishing-cases Below-total and above-total stages distinguish gap filling from scale expansion; empty and unknown stages belong to chart_reports_what_it_cannot_draw.
+ * @evidence contracts/testing.md#execution-ownership This exported test_benchmark entry runs directly through the source-unit TestExecutor; its private fixture/assertion callbacks remain owned by this entry. No installed consumer, native producer or product host is required.
  */
 export const test_benchmark_chart_closes_a_bar_against_the_total_its_row_prints =
   (): void => {

@@ -17,6 +17,11 @@ import type { ITtscEvidenceBenchmarkReportCell } from "../../../../benchmarks/ev
  * 2. Render with a measured Plain row and an asserted Evidence row per subject,
  *    and assert the measured rows survive while the asserted ones collapse.
  * 3. Render with asserted rows that disagree and assert they do not collapse.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls Chart.summary with no coverage, measured Plain rows and asserted Evidence rows; checks absence, literal 80/60/100 percentages and conflicting rows remaining separate.
+ * @evidence contracts/testing.md#independent-expectations Supplied scores 0.8/0.6/1 require literal percentages; identical asserted rows may collapse but disagreeing values cannot represent one universal row.
+ * @evidence contracts/testing.md#distinguishing-cases Missing coverage, matching asserted values and disagreeing asserted values exercise omission, collapse and preservation.
+ * @evidence contracts/testing.md#execution-ownership This exported test_benchmark entry runs directly through the source-unit TestExecutor; its private fixture/assertion callbacks remain owned by this entry. No installed consumer, native producer or product host is required.
  */
 export const test_benchmark_chart_omits_coverage_it_was_not_given =
   (): void => {
