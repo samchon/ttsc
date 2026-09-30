@@ -15,7 +15,7 @@ import { parseTtsxCLI } from "../../../../../packages/ttsc/src/launcher/internal
  *
  * @evidence contracts/testing.md#behavioral-verification The actual launcher parser returns ordered preload and tail arrays and throws its own mode/value errors; assertions detect the historical projection bug beyond the shared schema parser.
  * @evidence contracts/testing.md#independent-expectations Node-style arguments after an entry belong to that program, one immediate optional separator is consumed, and each pre-entry require value retains argv order; unsupported one-shot watch/build and missing values independently require explicit errors.
- * @evidence contracts/testing.md#distinguishing-cases Six spaced/inline/mixed preload forms, all seven original terminal/separator tails, non-separated generator flags, post-entry watch/build/require, pre-entry refusals, terminal recovery from malformed flags and typed launcher values cover both ownership directions.
+ * @evidence contracts/testing.md#distinguishing-cases Six spaced/inline/mixed preload forms, all seven original terminal/separator tails and the original side-effect --mode/probe tail, non-separated generator flags, post-entry watch/build/require, pre-entry refusals, terminal recovery from malformed flags and typed launcher values cover both ownership directions.
  * @evidence contracts/testing.md#execution-ownership This named source unit directly calls the authored parser and its private helpers without a project, compiler or product process; retained CLI hosts own actual require/argv/error transport.
  */
 export function test_parse_ttsx_cli_preserves_preload_order_program_arguments_and_early_rejections() {
@@ -45,6 +45,7 @@ export function test_parse_ttsx_cli_preserves_preload_order_program_arguments_an
     [["a", "--", "b"], ["a", "--", "b"]],
     [["--", "--port", "3000"], ["--port", "3000"]],
     [["--", "--", "x"], ["--", "x"]],
+    [["--", "--mode", "probe"], ["--mode", "probe"]],
     [["generate", "--input", "X", "--output", "Y"], ["generate", "--input", "X", "--output", "Y"]],
     [["--watch"], ["--watch"]], [["--build"], ["--build"]],
     [["-r", "./a.cjs"], ["-r", "./a.cjs"]],
