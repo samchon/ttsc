@@ -9,7 +9,6 @@ import { resolveProjectConfig } from "../../compiler/internal/project/resolvePro
 import { runSingleFileEmit } from "../../compiler/internal/runSingleFileEmit";
 import { SidecarEnvironment } from "../../compiler/internal/sharedHost/SidecarEnvironment";
 import { getBoolean } from "../../flags/getBoolean";
-import { getNumber } from "../../flags/getNumber";
 import { getString } from "../../flags/getString";
 import { parseFlags } from "../../flags/parseFlags";
 import { resolveFlagSpec } from "../../flags/resolveFlagSpec";
@@ -25,7 +24,8 @@ import { resolveSourceBuildCachePaths } from "../../plugin/internal/source/resol
 import type { ITtscProjectInputSnapshot } from "../../structures/internal/ITtscProjectInputSnapshot";
 import type { TtscSingleFileEmitOptions } from "../../structures/internal/TtscSingleFileEmitOptions";
 import { PendingResidentCheckWatchChanges } from "./PendingResidentCheckWatchChanges";
-import { assertNoSolutionBuild } from "./assertNoSolutionBuild";
+import { prepareTtscBuildMode, type TtscBuildMode } from "./prepareTtscBuildMode";
+import { parseTtscBuildArgs } from "./parseTtscBuildArgs";
 import { getCompilerVersionText } from "./getCompilerVersionText";
 import { resolveCacheDir } from "./resolveCacheDir";
 import { resolveSingleFileOutput } from "./resolveSingleFileOutput";
@@ -130,57 +130,20 @@ function isBuildAlias(command: string): boolean {
   );
 }
 
-type TtscMode = "build" | "check" | "fix" | "format";
-
-function runCompatibleBuild(argv: readonly string[], mode: TtscMode): number {
+function runCompatibleBuild(argv: readonly string[], mode: TtscBuildMode): number {
   const checkOnly = mode !== "build";
-  const options = normalizeBuildOptions(parseBuildArgs(argv));
-  if (mode === "fix") {
-    if (options.emit === true) {
-      throw new Error("ttsc: fix and --emit are mutually exclusive");
-    }
-    options.fix = true;
-    options.emit = false;
-  }
-  if (mode === "format") {
-    if (options.emit === true) {
-      throw new Error("ttsc: format and --emit are mutually exclusive");
-    }
-    options.format = true;
-    options.emit = false;
-  }
-  if (options.watch) {
-    if (mode === "fix") {
-      throw new Error(
-        "ttsc: fix does not support watch mode; use ttsc --noEmit --watch for incremental checks",
-      );
-    }
-    if (mode === "format") {
-      throw new Error(
-        "ttsc: format does not support watch mode; use ttsc --noEmit --watch for incremental checks",
-      );
-    }
-    return runWatch(options, checkOnly);
-  }
-  const buildOptions = checkOnly ? { ...options, emit: false } : options;
-  if (buildOptions.files.length !== 0) {
-    if (mode === "fix") {
-      throw new Error("ttsc: fix requires a project, not single-file mode");
-    }
-    if (mode === "format") {
-      throw new Error("ttsc: format requires a project, not single-file mode");
-    }
-    return runSingleFile(buildOptions);
-  }
-  const result = runBuild(buildOptions);
+  const options = prepareTtscBuildMode(normalizeBuildOptions(parseTtscBuildArgs(argv)), mode);
+  if (options.watch) return runWatch(options, checkOnly);
+  if (options.files.length !== 0) return runSingleFile(options);
+  const result = runBuild(options);
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
   return result.status;
 }
 
 function normalizeBuildOptions(
-  options: ReturnType<typeof parseBuildArgs>,
-): ReturnType<typeof parseBuildArgs> {
+  options: ReturnType<typeof parseTtscBuildArgs>,
+): ReturnType<typeof parseTtscBuildArgs> {
   const cwd = path.resolve(options.cwd ?? process.cwd());
   return {
     ...options,
@@ -528,81 +491,6 @@ function parseProjectArgs(argv: readonly string[]) {
   };
 }
 
-function parseBuildArgs(argv: readonly string[]) {
-  const result = parseFlags({
-    argv,
-    errorPrefix: "ttsc:",
-    // A bare token is a single-file input only when it carries a TypeScript
-    // source extension; any other bare token is the space-separated value of a
-    // preceding forwarded flag (e.g. the `es2020` in `--target es2020`). The
-    // parser routes those values into `passthrough` in place, so the forwarded
-    // flag/value pairs reach tsgo in their original order.
-    isPositional: looksLikeInputFile,
-    subcommand: "build",
-  });
-  assertNoSolutionBuild(result, "ttsc:");
-  // Defaults: pinned by the previous hand-parser. `quiet` defaults true,
-  // `--verbose` flips it to false; `emit` defaults `undefined` so the resolved
-  // project controls ordinary build mode. `runCompatibleBuild` applies the
-  // check/fix/format no-emit decision before either execution lane runs.
-  const verbose = getBoolean(result, "--verbose");
-  const quietFlag = getBoolean(result, "--quiet");
-  const quiet = verbose === true ? false : (quietFlag ?? true);
-  const explicitEmit = getBoolean(result, "--emit");
-  const explicitNoEmit = getBoolean(result, "--noEmit");
-  const emit = resolveExplicitEmit(explicitEmit, explicitNoEmit);
-
-  // `isPositional: looksLikeInputFile` guarantees every `result.positional`
-  // token is a TypeScript input file; forwarded flag values already live in
-  // `result.passthrough` in their original order, so no reconstruction is
-  // needed here (the previous `[...passthrough, ...trailingValues]` concat
-  // reordered every flag ahead of every value).
-  const files = [...result.positional];
-  const passthrough = [...result.passthrough];
-
-  return {
-    binary: getString(result, "--binary"),
-    cacheDir: getString(result, "--cache-dir"),
-    checkers: getNumber(result, "--checkers"),
-    cwd: getString(result, "--cwd"),
-    emit,
-    files,
-    fix: false,
-    format: false,
-    outDir: getString(result, "--outDir"),
-    passthrough,
-    preserveWatchOutput: getBoolean(result, "--preserveWatchOutput") === true,
-    quiet,
-    singleThreaded: getBoolean(result, "--singleThreaded") === true,
-    tsconfig: getString(result, "--tsconfig"),
-    watch: getBoolean(result, "--watch") === true,
-  };
-}
-
-/**
- * Collapse the two launcher-owned emit switches into the tri-state consumed by
- * `runBuild` and the single-file lane. A specified boolean is significant even
- * when it is `false`: `--emit=false` is analysis-only and `--noEmit=false`
- * explicitly overrides a project's `noEmit`. `--emit` retains precedence when
- * callers supply both switches, matching the legacy true-only resolution.
- */
-function resolveExplicitEmit(
-  explicitEmit: boolean | undefined,
-  explicitNoEmit: boolean | undefined,
-): boolean | undefined {
-  if (explicitEmit !== undefined) return explicitEmit;
-  return explicitNoEmit === undefined ? undefined : !explicitNoEmit;
-}
-
-/**
- * Report whether a bare CLI token is a TypeScript source file ttsc should
- * compile in single-file mode. Anything without a TypeScript source extension
- * is treated as a forwarded flag value rather than an input file.
- */
-function looksLikeInputFile(token: string): boolean {
-  return [".ts", ".tsx", ".mts", ".cts"].some((ext) => token.endsWith(ext));
-}
-
 function printHelp(): void {
   process.stdout.write(
     [
@@ -678,7 +566,7 @@ function printCacheHelp(): void {
 }
 
 function runSingleFile(
-  options: ReturnType<typeof parseBuildArgs> &
+  options: ReturnType<typeof parseTtscBuildArgs> &
     Pick<TtscSingleFileEmitOptions, "onProjectInputs" | "onWatchInputs">,
 ): number {
   if (options.files.length !== 1) {
@@ -728,7 +616,7 @@ function runSingleFile(
  * tree.
  */
 function singleFileShouldEmit(
-  options: ReturnType<typeof parseBuildArgs>,
+  options: ReturnType<typeof parseTtscBuildArgs>,
   cwd: string,
   file: string,
 ): boolean {
@@ -742,7 +630,7 @@ function singleFileShouldEmit(
 }
 
 function runWatch(
-  options: ReturnType<typeof parseBuildArgs>,
+  options: ReturnType<typeof parseTtscBuildArgs>,
   checkOnly: boolean,
 ): number {
   const cwd = path.resolve(options.cwd ?? process.cwd());
