@@ -4,7 +4,7 @@ import { parseNativeTransformOutput } from "../../../../../packages/ttsc/src/com
 import { NativeTransformEnvelopeFixture } from "../../internal/NativeTransformEnvelopeFixture";
 
 /**
- * Verifies TtscCompiler.transform surfaces the envelope's
+ * Verifies native transform decoding surfaces the envelope's
  * `dependenciesComplete` declaration alongside the dependency list it
  * qualifies.
  *
@@ -17,6 +17,11 @@ import { NativeTransformEnvelopeFixture } from "../../internal/NativeTransformEn
  * 1. Decode the original native wire input directly through the production decoder.
  * 2. Assert the retained fields or exact rejection below.
  * 3. The real Go transport batch retains API result and no-publication boundaries.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls parseNativeTransformOutput and checks both the dependency record and the dependenciesComplete list for the same transformed source.
+ * @evidence contracts/testing.md#independent-expectations Independently authored src/main.ts dependency and completeness declarations establish literal expected values. Merely retaining one field cannot satisfy both assertions.
+ * @evidence contracts/testing.md#distinguishing-cases This positive case distinguishes dropping completeness from retaining ordinary dependencies. Mixed malformed completeness members are owned by the dedicated negative-filtering case; host admission is not inferred from decoder success.
+ * @evidence contracts/testing.md#execution-ownership The exported src/unit/api entry decodes immutable native envelope bytes once without starting a compiler, install or native producer. Public API transport is preserved by the separate shared Go envelope experiment.
  */
 export const test_ttsccompiler_transform_surfaces_the_dependency_completeness_declaration =
   () => {

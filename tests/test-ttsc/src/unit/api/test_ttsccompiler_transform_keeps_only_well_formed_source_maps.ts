@@ -4,7 +4,7 @@ import { parseNativeTransformOutput } from "../../../../../packages/ttsc/src/com
 import { NativeTransformEnvelopeFixture } from "../../internal/NativeTransformEnvelopeFixture";
 
 /**
- * Verifies TtscCompiler.transform forwards the envelope's `sourceMaps` entries
+ * Verifies native transform decoding forwards the envelope's `sourceMaps` entries
  * that are well-formed maps of transformed files, and drops the rest
  * (samchon/ttsc#1392).
  *
@@ -16,6 +16,11 @@ import { NativeTransformEnvelopeFixture } from "../../internal/NativeTransformEn
  * 1. Decode the original native wire input directly through the production decoder.
  * 2. Assert the retained fields or exact rejection below.
  * 3. The real Go transport batch retains API result and no-publication boundaries.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Invokes parseNativeTransformOutput and checks the exact version3 source map for src/main.ts while invalid-version and unreturned-file maps disappear.
+ * @evidence contracts/testing.md#independent-expectations A literal version3 map with mappingsAAAA, original source content and names[] defines the retained result; version2 and a key absent from returned TypeScript text violate the independent wire contract.
+ * @evidence contracts/testing.md#distinguishing-cases Valid mapping survives beside a version2 map for another returned file and a version3 map for an unreturned file. This case owns these version/output-membership differences, rather than every map schema permutation.
+ * @evidence contracts/testing.md#execution-ownership The named unit decodes immutable JSON and compares the complete returned map in process. No compiler output or producer artifact is built; the shared native envelope batch owns transfer into the public API.
  */
 export const test_ttsccompiler_transform_keeps_only_well_formed_source_maps =
   () => {

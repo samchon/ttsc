@@ -4,7 +4,7 @@ import { parseNativeTransformOutput } from "../../../../../packages/ttsc/src/com
 import { NativeTransformEnvelopeFixture } from "../../internal/NativeTransformEnvelopeFixture";
 
 /**
- * Verifies TtscCompiler.transform tolerates malformed `graph` and `volatile`
+ * Verifies native transform decoding tolerates malformed `graph` and `volatile`
  * envelope fields: invalid members are dropped, well-formed adjacency keys and
  * proof-failure reasons survive, and the transform itself never fails.
  *
@@ -17,6 +17,11 @@ import { NativeTransformEnvelopeFixture } from "../../internal/NativeTransformEn
  * 1. Decode the original native wire input directly through the production decoder.
  * 2. Assert the retained fields or exact rejection below.
  * 3. The real Go transport batch retains API result and no-publication boundaries.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Decodes mixed graph observations and checks the complete literal retained graph, malformed/conflicting proof-failure reasons and absent malformed volatile section.
+ * @evidence contracts/testing.md#independent-expectations Independently authored valid source edges, config path, SHA256-shaped content and missing-state observations define retained values; invalid booleans and mutually true file/directory observations define exact failure reasons.
+ * @evidence contracts/testing.md#distinguishing-cases One valid edge survives beside an invalid list and an all-invalid leaf that remains a node. Empty keys, malformed hash/realpath/reason entries and malformed volatile are filtered while valid missing-state/null witnesses remain.
+ * @evidence contracts/testing.md#execution-ownership This source unit calls only parseNativeTransformOutput with in-memory wire bytes. Graph metadata is decoded, not granted reuse authority or checked against disk; actual transport and host proof revalidation are separate owners.
  */
 export const test_ttsccompiler_transform_drops_malformed_graph_members_and_volatile =
   () => {

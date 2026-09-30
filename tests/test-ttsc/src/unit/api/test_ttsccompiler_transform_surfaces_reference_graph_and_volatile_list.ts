@@ -4,7 +4,7 @@ import { parseNativeTransformOutput } from "../../../../../packages/ttsc/src/com
 import { NativeTransformEnvelopeFixture } from "../../internal/NativeTransformEnvelopeFixture";
 
 /**
- * Verifies TtscCompiler.transform surfaces the envelope's reference graph and
+ * Verifies native transform decoding surfaces the envelope's reference graph and
  * volatile list.
  *
  * Implements the consumer half of samchon/ttsc#716: a transform host stamps a
@@ -17,6 +17,11 @@ import { NativeTransformEnvelopeFixture } from "../../internal/NativeTransformEn
  * 1. Decode the original native wire input directly through the production decoder.
  * 2. Assert the retained fields or exact rejection below.
  * 3. The real Go transport batch retains API result and no-publication boundaries.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Decodes the valid native fixture and asserts the complete config/edge/global graph and separate volatile source list with exact path identities.
+ * @evidence contracts/testing.md#independent-expectations Literal graph and volatile values authored in the wire fixture define the expected result; the unit does not synthesize dependencies from product graph logic or a generated snapshot.
+ * @evidence contracts/testing.md#distinguishing-cases Config-chain, resolved edge, global source and volatile output occupy distinct fields and must all survive. The malformed-graph case owns negative filtering while candidate-order metadata has its own positive case.
+ * @evidence contracts/testing.md#execution-ownership This named unit calls parseNativeTransformOutput with in-memory JSON only. It registers no filesystem watches or cache exemptions; actual native transport and consumer invalidation remain separate boundaries.
  */
 export const test_ttsccompiler_transform_surfaces_reference_graph_and_volatile_list =
   () => {
