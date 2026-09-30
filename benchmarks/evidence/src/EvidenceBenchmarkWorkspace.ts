@@ -17,8 +17,8 @@ import type { ITtscEvidenceBenchmarkWorkspaceVariables } from "./structures/ITts
  * Materializes one immutable benchmark workspace before native model work.
  *
  * It applies the selected template treatment, copies opaque requirements,
- * installs dependencies, commits the neutral baseline, and publishes the
- * workspace with one atomic rename.
+ * settles the directory before installing path-sensitive dependencies, and
+ * commits the neutral baseline before returning the prepared workspace.
  */
 export namespace EvidenceBenchmarkWorkspace {
   /**
@@ -105,7 +105,7 @@ export namespace EvidenceBenchmarkWorkspace {
   }
 
   /**
-   * Builds and atomically publishes the prepared workspace for one cell.
+   * Builds the prepared workspace for one cell at its permanent path.
    *
    * The tree settles at its final path before installation so pnpm's native
    * links target its permanent location. Failure removes the settled root or
