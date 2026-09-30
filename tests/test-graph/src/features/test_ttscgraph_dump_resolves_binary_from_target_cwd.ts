@@ -106,6 +106,15 @@ function runLauncher(
  *    survives.
  * 3. Assert `TTSC_GRAPH_BINARY` (absolute) still overrides, a relative override is
  *    ignored, and the default (no cwd) anchor stays `process.cwd()`.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Resolver, dump/view CLI, loadGraph and TtscGraphSession use a target-installed binary, reject an empty target, honor an absolute override and ignore a relative override.
+ * @evidence contracts/testing.md#independent-expectations Literal target package paths, null results and sentinel marker/argv observations provide independent resolution expectations; post-resolution errors must differ from the missing-binary diagnostic.
+ * @evidence contracts/testing.md#distinguishing-cases Target cwd contrasts process cwd and an empty project, absolute versus relative override, plus both CLI and model consumers. Windows checks resolution/error ownership without POSIX sentinel execution.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_dump_resolves_binary_from_target_cwd runs installed CLI commands and their real resolution/spawn consequences; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary Installed package resolution must flow through every real launcher/model consumer; testing only resolveGraphBinary would miss a consumer using process cwd or losing the chosen binary.
+ * @evidence contracts/e2e.md#shared-execution The installed sentinel is shared by resolver, CLI and model observations, while empty roots isolate misses. Current dump/view/session process calls are not yet a minimized shared batch.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Case-owned installed/empty roots and saved/restored TTSC_GRAPH_BINARY prevent ambient resolution leakage; synchronous spawns join, and constructed sessions are explicitly closed.
+ * @evidence contracts/e2e.md#preserved-coverage Original exact resolver/null/override controls, CLI diagnostics, supported marker checks, loadGraph error distinctions and session construction/close checks all remain.
  */
 export const test_ttscgraph_dump_resolves_binary_from_target_cwd =
   async (): Promise<void> => {

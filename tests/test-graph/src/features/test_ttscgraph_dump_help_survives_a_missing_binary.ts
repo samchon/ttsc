@@ -18,6 +18,15 @@ import { assert, resolveGraphLauncher } from "../internal/ttsgraph";
  * 2. Assert every help spelling exits 0 with usage naming the native authority.
  * 3. Assert an ordinary `dump` still fails, and that a resolvable binary receives
  *    `--help` instead of the launcher answering for it.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The launcher returns usage with status zero for three help spellings when no binary is installed, rejects ordinary dump, and on POSIX forwards --help to a resolved sentinel with status 23.
+ * @evidence contracts/testing.md#independent-expectations Literal usage strings, resolution-error text, status values and sentinel-recorded argv independently define fallback versus delegated help behavior.
+ * @evidence contracts/testing.md#distinguishing-cases Missing binary help contrasts missing ordinary execution; an installed sentinel must receive the original dump/help arguments. Sentinel execution is POSIX-only, not asserted on Windows.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_dump_help_survives_a_missing_binary runs installed CLI commands and their real resolution/spawn consequences; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary Installed Node launcher argument handling and native resolution must connect correctly before spawning; a direct parser or resolver call cannot certify CLI fallback/output/status.
+ * @evidence contracts/e2e.md#shared-execution The three missing-binary requests reuse one empty project; one sentinel project reuses its executable across forwarding checks. Each CLI invocation has a separate current process lifetime; further batching is unfinished.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The case-owned empty project has no installed graph binary, the empty override discards any ambient explicit override, and a separate sentinel records forwarding; synchronous spawns join and TestProject tracks cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage All three fallback spellings, ordinary failure and supported POSIX argv/status assertions remain; the existing platform distinction is recorded rather than disguised as compiler proof.
  */
 export const test_ttscgraph_dump_help_survives_a_missing_binary = () => {
   // An empty temporary project: no `ttsc` to resolve a platform package from,

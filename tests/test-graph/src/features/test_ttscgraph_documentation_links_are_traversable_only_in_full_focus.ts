@@ -65,6 +65,15 @@ const resultOf = <T extends { type: string }>(
  *    and the type reference keep their own focuses, that `details` reports the
  *    link as its own relation rather than folding it into calls or types, and
  *    that neither bounded operation carries a tag.
+ *
+ * @evidence contracts/testing.md#behavioral-verification MCP trace traverses documentation links only under full focus, execution reaches only its helper, types reaches IUsed, details separates calls/types, and neighbors preserve both documentation directions.
+ * @evidence contracts/testing.md#independent-expectations The written link, call and type references independently define the three expected neighborhoods; literal negative docTags checks prevent documentation payload leakage into tour and trace.
+ * @evidence contracts/testing.md#distinguishing-cases Full, execution and types focus differ on the same graph; direct detail dependencies contrast optional neighbors and bounded tour/trace payloads.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_documentation_links_are_traversable_only_in_full_focus starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary Native documentation edges and ordinary checker references must survive transport together before the application applies focus and projection policy.
+ * @evidence contracts/e2e.md#shared-execution All focus and detail requests share one fixture/session and suite producer. This fixture can join compatible documentation/citation inputs; cross-case shared-session work is still incomplete.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Case-owned links and declarations are immutable during requests; stdin ends and exit is awaited in finally without an exit-code assertion. The client's exit timeout can reject without killing its child.
+ * @evidence contracts/e2e.md#preserved-coverage All original traversal sets, documentation edge directions, calls/types and docTags-absence assertions are preserved. No semantic coverage transfer is claimed by adding these acknowledgments.
  */
 export const test_ttscgraph_documentation_links_are_traversable_only_in_full_focus =
   async () => {

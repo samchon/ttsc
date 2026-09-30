@@ -17,6 +17,15 @@ import { assert } from "../internal/ttsgraph";
  *    duplicate manifest key in the next delta.
  * 2. Reject the non-strict manifest and wait for the first child to exit.
  * 3. Start a clean child and accept its complete sequence-one shard generation.
+ *
+ * @evidence contracts/testing.md#behavioral-verification TtscGraphSession first accepts a valid snapshot, rejects a subsequent duplicate/unsorted shard manifest, retires that child and accepts a fresh initial snapshot from its replacement.
+ * @evidence contracts/testing.md#independent-expectations Literal duplicate manifest entries violate strict ordering; the prior valid graph is an independent control proving the failure occurs during a delta after established state.
+ * @evidence contracts/testing.md#distinguishing-cases Valid sequence-one, invalid sequence-two and valid replacement contrast retained store state with reset state; a first-frame-only check would lose this distinction.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_duplicate_native_shard_manifest_restarts_session loads the built TtscGraphSession and spawns the shared compiled Go protocol stand-in; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary Actual delta/base-generation transport, manifest validation and store reset on child retirement must interact; the Go peer supplies controlled frames, not compiler semantics.
+ * @evidence contracts/e2e.md#shared-execution Sibling cases share the memoized Go peer artifact. Three requests reuse one fixture; two child lifetimes are required by the invalid-delta recovery, and population batching remains unfinished.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique first marker/PID log preserve valid-then-invalid order and replacement sequence reset; finally closes the session, and explicit polling checks old child death.
+ * @evidence contracts/e2e.md#preserved-coverage Original first valid graph, strict-order rejection, old PID death, replacement graph and exactly two recorded children are retained.
  */
 export const test_ttscgraph_duplicate_native_shard_manifest_restarts_session =
   async () => {

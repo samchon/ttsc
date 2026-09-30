@@ -28,6 +28,15 @@ import {
  * 2. Read back what the child was spawned with and what it received.
  * 3. Require no `--artifacts` flag, and an explicit empty statement on both
  *    requests.
+ *
+ * @evidence contracts/testing.md#behavioral-verification TtscGraphSession sends an empty artifacts field on both graph requests for a no-publisher project, starts exactly one serve child and omits --artifacts from its startup argv.
+ * @evidence contracts/testing.md#independent-expectations Literal empty per-request artifact paths, two recorded requests and one serve argv independently define the resident protocol; absence of a startup flag alone would miss stale request state.
+ * @evidence contracts/testing.md#distinguishing-cases Initial and unchanged graph requests contrast startup argv with request payload ownership; the no-publisher baseline still requires actual current capability discovery.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_session_states_its_artifacts_on_every_request loads the built TtscGraphSession and spawns the shared compiled Go protocol stand-in; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary Compiled session startup, installed capability resolution and real stand-in wire logs must agree on publication state. The peer checks protocol, not compiler graph-node semantics.
+ * @evidence contracts/e2e.md#shared-execution The nativeSession helper memoizes the Go stand-in build; both requests reuse one peer and project while suite-installed capability inputs are shared. Full boundary-session batching remains unfinished.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Case-owned no-publisher tsconfig/package and logs keep the empty publication state local; finally closes the session and request/argv logs establish exact reuse.
+ * @evidence contracts/e2e.md#preserved-coverage Original one-spawn, no-startup-artifacts, two-request and both-empty-artifacts assertions remain. Binary-unavailable discovery is not treated as equivalent resolved-empty state.
  */
 export const test_ttscgraph_session_states_its_artifacts_on_every_request =
   async (): Promise<void> => {

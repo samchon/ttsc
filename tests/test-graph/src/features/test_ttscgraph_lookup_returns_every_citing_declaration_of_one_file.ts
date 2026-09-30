@@ -50,6 +50,15 @@ const lookupOf = (result: ToolResult): LookupResult => {
  * 2. Look the address up.
  * 3. Assert all five come back, that a name query is still capped, and that a
  *    limit smaller than the carrier count reports `truncated`.
+ *
+ * @evidence contracts/testing.md#behavioral-verification MCP citation lookup returns all five same-file carriers without truncation, ordinary name lookup keeps its per-file diversity cap, and an explicit citation limit returns three with truncation.
+ * @evidence contracts/testing.md#independent-expectations Five authored tag carriers and the literal requested limit independently specify counts and membership; name-ranking diversity must not silently remove exact citation answers.
+ * @evidence contracts/testing.md#distinguishing-cases Default citation completeness contrasts name diversity and an explicit three-hit bound, separating omission policy from whether a match exists.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_lookup_returns_every_citing_declaration_of_one_file starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary Real native comment facts must feed the citation index and the MCP response's truncation flag; fabricated carriers bypass extraction and wire assembly.
+ * @evidence contracts/e2e.md#shared-execution The default, name and limited queries reuse one project/session and suite compiler. A broader citation batch can preserve these targets; population consolidation is not complete.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity One source owns the five carriers and no other case contributes hits; finally closes client stdin and the successful path checks process exit.
+ * @evidence contracts/e2e.md#preserved-coverage Exact five carriers, absent default truncation, bounded name count, explicit three-hit count and true truncation remain here.
  */
 export const test_ttscgraph_lookup_returns_every_citing_declaration_of_one_file =
   async () => {

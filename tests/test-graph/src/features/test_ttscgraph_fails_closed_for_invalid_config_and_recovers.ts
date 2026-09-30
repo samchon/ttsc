@@ -32,6 +32,15 @@ const lookupArguments = (query: string) => ({
  * 1. Build an initial graph, then corrupt tsconfig.json.
  * 2. Assert the next tool result is an error rather than stale graph evidence.
  * 3. Restore the config and assert the same server answers successfully again.
+ *
+ * @evidence contracts/testing.md#behavioral-verification MCP graph access succeeds, reports isError with an invalid project configuration after corruption, then succeeds again and returns Recoverable after restoration in the same session.
+ * @evidence contracts/testing.md#independent-expectations Malformed JSON cannot define a valid project; the literal error text and restored declaration name independently require fail-closed rejection and recovery.
+ * @evidence contracts/testing.md#distinguishing-cases Valid, invalid and restored configuration states contrast within one live client. The initial success assertion checks the error flag, not a baseline declaration payload.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_fails_closed_for_invalid_config_and_recovers starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary The actual launcher, resident compiler refresh and MCP error conversion must reject invalid config without serving old facts and recover without restarting the client.
+ * @evidence contracts/e2e.md#shared-execution Three states deliberately reuse one project/session and the suite compiler; configuration invalidation requires that lifetime. Other stable cases may share preparation, and full population minimization is unfinished.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The case owns and rewrites only its tsconfig, restoring it before the final request; client stdin ends in finally and the success path checks exit.
+ * @evidence contracts/e2e.md#preserved-coverage Initial non-error, invalid error/message and recovered non-error/name assertions remain. The baseline oracle does not establish every initial graph fact.
  */
 export const test_ttscgraph_fails_closed_for_invalid_config_and_recovers =
   async () => {

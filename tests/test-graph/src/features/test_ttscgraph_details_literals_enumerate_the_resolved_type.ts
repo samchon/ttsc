@@ -60,6 +60,15 @@ const detailsOf = (result: ToolResult): DetailsResult => {
  * 2. Ask the MCP server for `details` on all five.
  * 3. Assert each value set is complete and layout-independent, that indirection
  *    resolves, and that the widened union reports nothing.
+ *
+ * @evidence contracts/testing.md#behavioral-verification MCP details reports the exact seven resolved union alternatives through wrappers and aliases, three enum values, an indirect union and its holder, while omitting literals for a widened type.
+ * @evidence contracts/testing.md#independent-expectations Literal alternatives are specified in the authored TypeScript inputs rather than copied from the dump; the widened declaration independently requires an absent finite-value list.
+ * @evidence contracts/testing.md#distinguishing-cases Wrapped versus flat and indirect versus held unions exercise resolution, and widened string is the negative control against inventing a finite enumeration.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_details_literals_enumerate_the_resolved_type starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary The native checker must resolve these types and publish their values through the resident snapshot before details returns them; literal-only synthetic nodes cannot test that connection.
+ * @evidence contracts/e2e.md#shared-execution Every union, enum and widened request shares one case project/session and the suite compiler. Compatible type-identity cases can share a larger project; full session batching is unfinished.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Case-owned aliases and holders avoid foreign symbol candidates; stdin ends and exit is awaited in finally without asserting its code. The client's exit timeout can reject without killing its child.
+ * @evidence contracts/e2e.md#preserved-coverage Exact union and enum lists and the widened-undefined assertion are retained. This boundary case remains until actual direct semantic owners and a surviving producer batch cover those distinctions.
  */
 export const test_ttscgraph_details_literals_enumerate_the_resolved_type =
   async () => {

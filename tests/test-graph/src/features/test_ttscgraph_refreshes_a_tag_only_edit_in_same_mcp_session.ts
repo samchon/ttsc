@@ -47,6 +47,15 @@ const lookupNames = (result: ToolResult): string[] => {
  * 2. Rewrite only the tag, to `docs/two.md#second`.
  * 3. Assert the new address answers and the old one no longer does, in the same
  *    session.
+ *
+ * @evidence contracts/testing.md#behavioral-verification MCP citation lookup initially finds subject under one address, then a comment-only edit moves it to the new address and removes the old hit in the same session.
+ * @evidence contracts/testing.md#independent-expectations The two literal tag addresses and unchanged executable body define the independent expectation; content hashing only semantic code would miss this edit.
+ * @evidence contracts/testing.md#distinguishing-cases Only documentation changes, contrasting new-target presence with old-target absence while declaration identity and body stay fixed.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_refreshes_a_tag_only_edit_in_same_mcp_session starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary Native incremental comment extraction, generation replacement and resident citation reindexing must respond to a non-code edit without a new MCP client.
+ * @evidence contracts/e2e.md#shared-execution The old/new requests deliberately share one project and session using the suite compiler. This transition needs an invalidated generation; unrelated stable cases can share a batch still to be built.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The case rewrites its own source after the old-target baseline; unique addresses prevent prior citation reuse, finally ends stdin and normal exit is checked.
+ * @evidence contracts/e2e.md#preserved-coverage Original subject membership, new address membership and empty old address assertions remain, preserving tag-only invalidation rather than replacing it with a cold run.
  */
 export const test_ttscgraph_refreshes_a_tag_only_edit_in_same_mcp_session =
   async () => {

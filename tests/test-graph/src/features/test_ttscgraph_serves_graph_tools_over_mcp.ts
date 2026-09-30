@@ -97,8 +97,8 @@ const graphArguments = (props: {
  * client end to end over stdio.
  *
  * The TypeScript engine is unit-smoked in isolation; this case proves the
- * shipped pipeline works: the Node launcher spawns, runs `ttscgraph dump` once
- * for a real project, builds the resident graph, and answers
+ * shipped pipeline works: the Node launcher spawns, starts `ttscgraph serve`
+ * for a real project, refreshes the resident graph, and answers
  * initialize/tools-list/tools-call for the single source-flow tool, then exits
  * cleanly when stdin closes.
  *
@@ -107,6 +107,15 @@ const graphArguments = (props: {
  * 2. Drive initialize, tools/list, and a call to each request branch.
  * 3. Assert the entrypoints, architecture counts, a lookup hit, forward/path
  *    traces reaching the callee, source-free details, and a clean exit.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The installed MCP launcher initializes with package identity, lists its sole tool and exercises escape, entrypoints, tour, overview, lookup, trace, path, impact and details with native facts, coordinates and decorators.
+ * @evidence contracts/testing.md#independent-expectations Literal tool names, authored Service/helper/source/test declarations and range-only DTO expectations are independent controls; package version checks installed assembly identity.
+ * @evidence contracts/testing.md#distinguishing-cases Graph-free escape contrasts populated operations, external inclusion contrasts default exclusion, and method/object outlines and member implementation edges contrast source-body leakage and hub-log noise.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_serves_graph_tools_over_mcp starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary The Node launcher, MCP stdio transport, resident native serve producer and application handlers must assemble together; direct handler calls cannot detect installed identity or wire/schema failures.
+ * @evidence contracts/e2e.md#shared-execution All original operations run through one existing client/project and share the suite compiler, so this is already a broad boundary batch. Other stable cases are still separate and further batching remains unfinished.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The case owns stable Service and test fixtures and one client; helper lifetime closes stdin after its callback, with normal exit checked, rather than claiming arbitrary failure-path process joins.
+ * @evidence contracts/e2e.md#preserved-coverage Every original server/tool identity, next action, signature/decorator, range, role, exclusion, neighbor cap, object member and implementation-relation assertion remains in this existing batch.
  */
 export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
   const root = TestProject.createProject({

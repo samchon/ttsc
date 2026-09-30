@@ -30,6 +30,15 @@ import {
  * 3. Ask a sidecar built before `lsp-serve`, and require `null` rather than a
  *    throw.
  * 4. Ask two verbs at once and require each its own answer, in order.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Four real stand-in daemon sessions answer supported verbs, retire on a rejected verb, return null without serve support, and serialize two concurrent asks; argv and wire order are checked.
+ * @evidence contracts/testing.md#independent-expectations Literal request verbs, invalidate flags, served markers and spawn counts define protocol expectations independently of the daemon client; null is the supported unavailable answer.
+ * @evidence contracts/testing.md#distinguishing-cases Supported replies contrast unsupported verb and missing serve mode; concurrent requests retain FIFO wire order rather than mixing response owners.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_lint_daemon_answers_or_says_it_cannot loads the built daemon client and starts controlled real Go line-protocol peers; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary TtscLintDaemon must communicate with an actual spawned line-protocol peer and retire unavailable sessions. The compiled Go fixture is a stand-in, not a real lint-rule/compiler semantic producer.
+ * @evidence contracts/e2e.md#shared-execution All four modes reuse one memoized Go stand-in artifact; incompatible serve/failure modes use isolated daemon lifetimes. Requests within each mode reuse that daemon; broader boundary batching is unfinished.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each mode owns logs and project context, preserving first-failure state and spawn counts; every private scenario closes its daemon in finally and TestProject tracks directories.
+ * @evidence contracts/e2e.md#preserved-coverage Original reply markers/verbs, cwd/config/plugins/context argv, one-spawn/no-respawn checks, null results and concurrent wire order remain under this public entry.
  */
 export const test_ttscgraph_lint_daemon_answers_or_says_it_cannot =
   async (): Promise<void> => {

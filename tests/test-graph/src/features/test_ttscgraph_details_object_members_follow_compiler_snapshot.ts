@@ -55,6 +55,15 @@ const membersOf = (result: ToolResult, name: string): Member[] => {
  *    nested, spread-origin, and dynamic names are not fabricated.
  * 3. Replace the file in the same MCP session and assert a later details call
  *    observes the new compiler snapshot rather than cached stale identity.
+ *
+ * @evidence contracts/testing.md#behavioral-verification MCP details exposes sixteen direct object members in authored order with kinds, lines and declaration-head signatures, excludes nested/spread/dynamic members and body markers, then reflects a replacement object.
+ * @evidence contracts/testing.md#independent-expectations The fixture's static direct keys, expected line coordinates and literal signature fragments supply independent expectations; eight private body markers must never appear in the response.
+ * @evidence contracts/testing.md#distinguishing-cases Methods, accessors, shorthand, literal and callable values contrast spread/dynamic/nested keys; editing the same source replaces the outline rather than retaining stale members.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_details_object_members_follow_compiler_snapshot starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary Compiler object-member metadata, source coordinates and a changed resident generation must reach details over MCP; a hand-built outline cannot detect missing native snapshot fields.
+ * @evidence contracts/e2e.md#shared-execution Initial and replacement requests reuse one project and compiler session with the shared suite binary. The mutation requires an invalidated generation, not a rebuild; larger identity batching remains incomplete.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fixture changes only its own object source after the baseline, and the second response must contain only replacement members. Client stdin is ended in finally; normal exit is asserted.
+ * @evidence contracts/e2e.md#preserved-coverage All original ordered names/kinds, signatures, line bounds, private-marker exclusions and replacement assertions survive. No source-text layout check substitutes for returned behavior.
  */
 export const test_ttscgraph_details_object_members_follow_compiler_snapshot =
   async () => {

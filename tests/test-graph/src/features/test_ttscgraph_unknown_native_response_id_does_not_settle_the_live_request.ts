@@ -24,6 +24,15 @@ import { assert } from "../internal/ttsgraph";
  * 2. Call the session twice.
  * 3. Assert both answers are the resident one, the child never restarted, and no
  *    pending entry leaked.
+ *
+ * @evidence contracts/testing.md#behavioral-verification TtscGraphSession ignores an unsolicited response ID, returns the matching empty graph, then reuses that same model without respawning or retaining pending requests.
+ * @evidence contracts/testing.md#independent-expectations The peer's unmatched ID precedes a legitimate response; literal object identity, one PID and pending zero independently require correct correlation and unchanged-generation reuse.
+ * @evidence contracts/testing.md#distinguishing-cases Unknown ID contrasts the matching live request; a second unchanged response must reuse the first model instead of leaking the unsolicited response into settlement.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_unknown_native_response_id_does_not_settle_the_live_request loads the built TtscGraphSession and spawns the shared compiled Go protocol stand-in; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary Real interleaved stdio responses and request IDs must connect to pending-map ownership; direct model identity alone cannot establish transport correlation.
+ * @evidence contracts/e2e.md#shared-execution The memoized Go peer build is shared across protocol cases, and both requests reuse one child/project. This existing within-case reuse does not yet minimize all cross-case sessions.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique response/PID state isolates unsolicited frames from other live requests; finally closes the session and the pending-map assertion checks no retained request after success.
+ * @evidence contracts/e2e.md#preserved-coverage Original empty nodes, second===first identity, one-child and pending-zero assertions remain. The fixture is controlled protocol traffic, not native checker output.
  */
 export const test_ttscgraph_unknown_native_response_id_does_not_settle_the_live_request =
   async () => {

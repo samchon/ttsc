@@ -45,6 +45,15 @@ const OVER_CEILING_HOPS = 13;
  * 3. Assert a bounded miss never carries the disconnection verdict or a junction
  *    seam, that its continuation changes at the ceiling, and that exhausted
  *    searches, found paths, and the identity path are unchanged.
+ *
+ * @evidence contracts/testing.md#behavioral-verification MCP path distinguishes exhausted, shared-junction and depth-bounded searches; it answers exact-bound paths and identity, and treats type, dispatch, external and cyclic frontiers according to eligibility.
+ * @evidence contracts/testing.md#independent-expectations Authored chains of known lengths, a literal twelve-hop ceiling and explicit disconnected/seam fixtures define independent expected actions, hop counts and reason exclusions.
+ * @evidence contracts/testing.md#distinguishing-cases Depth two versus three, twelve versus thirteen, one-hop and identity, focus changes, external inclusion and a visited cycle distinguish genuine frontier omission from absence.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_path_reports_its_depth_bound_instead_of_a_disconnection starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary Native call/type/member edges and transported identities must feed the same path eligibility rules; a synthetic traversal alone does not certify producer edge completeness.
+ * @evidence contracts/e2e.md#shared-execution All chains and policy requests share one fixture/session and suite compiler. This already batches path contrasts; compatible trace fixtures could join it, but overall preparation minimization is unfinished.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique chain and seam handles keep disconnected and bounded graphs distinct; requests do not mutate source, stdin closes in finally and successful process exit is checked.
+ * @evidence contracts/e2e.md#preserved-coverage Every original next-action/reason, junction presence/absence, exact hop count, ceiling, identity, cycle, external, type and dispatch assertion remains; no bound is weakened.
  */
 export const test_ttscgraph_path_reports_its_depth_bound_instead_of_a_disconnection =
   async () => {

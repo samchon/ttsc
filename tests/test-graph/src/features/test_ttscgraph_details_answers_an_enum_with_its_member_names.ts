@@ -55,6 +55,15 @@ const detailsOf = (result: ToolResult): DetailsResult => {
  * 2. Ask the MCP server for `details` on all three.
  * 3. Assert each enum answers with names and values, and that the class's outline
  *    is unaffected.
+ *
+ * @evidence contracts/testing.md#behavioral-verification MCP details returns qualified Colors.Red/Green/Blue members, their signatures and values, implicit numeric members, one deduplicated duplicate value, and a neighboring class method.
+ * @evidence contracts/testing.md#independent-expectations The authored enum declarations independently specify names and literal values; the class is a non-enum control, so value-only output cannot satisfy the named-member assertions.
+ * @evidence contracts/testing.md#distinguishing-cases String, implicit-number and duplicate-value enums contrast a class outline; this case does not exercise an explicit member cap, which the direct application audit unit owns.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_details_answers_an_enum_with_its_member_names starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary Native enum facts must survive snapshot transport, model construction and details projection; a synthetic member list cannot establish that the compiler actually publishes them.
+ * @evidence contracts/e2e.md#shared-execution All enum and class requests reuse one fixture and MCP session plus the suite-built compiler. Compatible identity cases are candidates for a shared project/session; that consolidation is still incomplete.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Distinct enum/class handles belong to the case project; the client ends stdin and awaits exit in finally without asserting the exit code. The client's exit timeout can reject without killing its child.
+ * @evidence contracts/e2e.md#preserved-coverage Original exact names, Red signature, literals, numeric values, duplicate-value and class-method assertions remain in this boundary entry; no portable semantic assertion has been removed.
  */
 export const test_ttscgraph_details_answers_an_enum_with_its_member_names =
   async () => {

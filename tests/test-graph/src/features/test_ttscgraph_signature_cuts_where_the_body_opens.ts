@@ -50,6 +50,15 @@ const detailsOf = (result: ToolResult): DetailsResult => {
  * 2. Ask for details on both.
  * 3. Assert the first carries no body statement and the second keeps the parameter
  *    it used to lose along with its return type.
+ *
+ * @evidence contracts/testing.md#behavioral-verification MCP details retains a one-line function's parameter head and a nested type-literal/Promise declaration head while excluding their implementation expressions.
+ * @evidence contracts/testing.md#independent-expectations The authored parameter text, port type and Promise<void> text are literal positive controls; return n * 2 and Promise.resolve are independent body markers that must be absent.
+ * @evidence contracts/testing.md#distinguishing-cases A simple body contrasts braces inside a type annotation, so cutting at the first textual brace cannot satisfy both declarations.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_signature_cuts_where_the_body_opens starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary Native declaration-head extraction and snapshot display must reach MCP without body leakage; feeding pretrimmed synthetic signatures cannot test the producer cut.
+ * @evidence contracts/e2e.md#shared-execution Both signatures share one project/session and suite binary. They can join other display fixtures without another build; current cross-case project/session batching is unfinished.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Distinct immutable function handles bind the signatures to this generation; stdin ends and exit is awaited in finally without checking its code. The client's exit timeout can reject without killing its child.
+ * @evidence contracts/e2e.md#preserved-coverage All original head-fragment presence and body-fragment absence assertions remain. The oracle checks required fragments, not equality of the entire signature.
  */
 export const test_ttscgraph_signature_cuts_where_the_body_opens = async () => {
   const root = TestProject.createProject({

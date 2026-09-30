@@ -42,6 +42,15 @@ const graphArguments = (props: {
  * 2. Ask both operations for the address that tag names.
  * 3. Assert `lookup` carries the field, `entrypoints` does not, and `details`
  *    still returns the tag.
+ *
+ * @evidence contracts/testing.md#behavioral-verification MCP lookup returns matched citation tags, entrypoints returns nonempty hits without docTags, and details still exposes the declaration's tags.
+ * @evidence contracts/testing.md#independent-expectations The public entrypoints DTO omits docTags while lookup/details support them; the literal own-property absence check catches copying the lookup DTO wholesale.
+ * @evidence contracts/testing.md#distinguishing-cases The same tagged declaration is a positive lookup/details control and a negative entrypoints payload control, distinguishing field projection from missing producer metadata.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_entrypoints_carries_no_field_its_schema_omits starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary Actual native tag publication and MCP serialization must preserve tags where allowed while omitting them from the entrypoints wire shape.
+ * @evidence contracts/e2e.md#shared-execution Three operations share one project/session and the suite compiler. They are candidates for the citation/DTO boundary batch; its current separate case session has not yet been consolidated.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fixture owns one tagged declaration and all controls use its generation; stdin ends in finally and successful exit is joined, without claiming a universal failure-path join.
+ * @evidence contracts/e2e.md#preserved-coverage Nonempty hits, lookup tags, absence from every entrypoint hit and details tags remain executable here; schema-only comparison is not used as a replacement.
  */
 export const test_ttscgraph_entrypoints_carries_no_field_its_schema_omits =
   async () => {

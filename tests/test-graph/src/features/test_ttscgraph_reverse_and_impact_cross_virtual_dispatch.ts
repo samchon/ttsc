@@ -41,6 +41,15 @@ const HUB_IMPLEMENTATIONS = 12;
  * 3. Assert the valid seam is crossed in reverse with roles tagged, that the
  *    rejected pair, the external endpoint, and the hub stay governed by the
  *    forward policy, and that bounds and cycles behave as before.
+ *
+ * @evidence contracts/testing.md#behavioral-verification MCP reverse/impact traversal crosses valid dispatch to Pipeline, Runner and main, carries public/test roles, deduplicates cyclic seams and excludes incompatible/unrelated/hub/type-only paths.
+ * @evidence contracts/testing.md#independent-expectations Authored valid and invalid implementations, literal caller names, roles, depth bound and twelve-way hub define expected inclusions and exclusions independently of traversal output.
+ * @evidence contracts/testing.md#distinguishing-cases Execution/all focus, abstract overrides, invalid Bad, unrelated solo, external inclusion, hub suppression, depth one and types-only walks distinguish the reverse seam; forward Good remains a control.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_reverse_and_impact_cross_virtual_dispatch starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary Native checker implementation relations and original edge direction must survive transport for reverse/impact consumers; hand-built reverse edges cannot certify checker eligibility.
+ * @evidence contracts/e2e.md#shared-execution All reverse, impact and forward controls share one fixture/session and suite compiler. This batches many seams already; compatible dispatch projects could be combined, but full consolidation is unfinished.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Qualified fixture names and a stable generation prevent another case's caller graph or cache from determining the result; stdin closes in finally and successful exit is checked.
+ * @evidence contracts/e2e.md#preserved-coverage Original caller names, dispatch edges, roles, hop uniqueness, all negative exclusions, external policy, truncation and forward control assertions remain intact.
  */
 export const test_ttscgraph_reverse_and_impact_cross_virtual_dispatch =
   async () => {

@@ -23,6 +23,15 @@ import {
  * 2. Return invalid JSON, schema v5, and malformed current-schema bodies.
  * 3. Require one owned diagnostic, non-zero exit, and no server for each.
  * 4. Return the valid dump and prove the viewer serves until explicitly stopped.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Viewer CLI and loadGraph reject invalid JSON, schema-v5 and malformed node payloads with owned diagnostics before serving; a valid native-produced dump then starts a live viewer.
+ * @evidence contracts/testing.md#independent-expectations The three authored invalid payloads independently require rejection; literal diagnostic counts/patterns and absence of serving/TypeGuard internals distinguish validation from accidental reducer crashes.
+ * @evidence contracts/testing.md#distinguishing-cases Invalid syntax, stale schema and malformed current shape contrast a genuinely valid compiler dump. CLI and direct loadGraph are separate consumers of the same payload.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_view_validates_dump_before_reduction runs installed viewer processes and actual HTTP or dump-validation boundaries; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary A real compiled dump-emitting stand-in feeds installed viewer/loadGraph validation, while the valid control is produced by the actual native compiler; the stand-in does not prove compiler semantics.
+ * @evidence contracts/e2e.md#shared-execution One real compiler dump and one case-built stand-in are reused across payload variants; each CLI attempt currently has its own process, and that preparation is not fully consolidated.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The mutable dump file is overwritten per variant and TTSC_GRAPH_BINARY is restored around loadGraph; the final viewer is killed/joined in finally and tracked fixtures are cleaned.
+ * @evidence contracts/e2e.md#preserved-coverage All original owned errors, no-serving/internal-error exclusions, direct loadGraph throws and valid viewer lifetime checks remain; no malformed input or valid control is removed.
  */
 export const test_ttscgraph_view_validates_dump_before_reduction =
   async (): Promise<void> => {

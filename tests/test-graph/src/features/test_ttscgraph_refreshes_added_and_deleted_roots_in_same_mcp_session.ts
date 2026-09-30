@@ -47,6 +47,15 @@ const lookup = async (
  * 1. Start one server over an include-glob project containing `OriginalRoot`.
  * 2. Add `AddedRoot` in a second file and assert it is immediately searchable.
  * 3. Delete the original file and assert its declaration disappears.
+ *
+ * @evidence contracts/testing.md#behavioral-verification MCP lookup sees Original, then a newly added Added root, and finally stops returning Original after its source file is deleted, all through one client.
+ * @evidence contracts/testing.md#independent-expectations Literal fixture names and physical add/delete operations independently specify the expected root set; stale snapshots cannot satisfy both changes.
+ * @evidence contracts/testing.md#distinguishing-cases An included root is added and another removed without reopening MCP, contrasting both expansion and contraction of the compiler project.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_refreshes_added_and_deleted_roots_in_same_mcp_session starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary Resident compiler root discovery, refreshed snapshot transport and application lookup must reflect filesystem changes; direct lookup over fixed nodes cannot exercise that connection.
+ * @evidence contracts/e2e.md#shared-execution One project and MCP/compiler lifetime is essential to observe invalidation rather than cold reload. The suite binary is shared, and stable cases could share other preparation; full batching is incomplete.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The case owns its mutable source directory and changes it only after each baseline response; stdin closes in finally and the success path checks exit.
+ * @evidence contracts/e2e.md#preserved-coverage All baseline Original, added Added and deleted Original-absence assertions remain here; a new-session result would not preserve the resident refresh distinction.
  */
 export const test_ttscgraph_refreshes_added_and_deleted_roots_in_same_mcp_session =
   async () => {

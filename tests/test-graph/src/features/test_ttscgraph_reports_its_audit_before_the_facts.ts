@@ -93,6 +93,15 @@ const auditFor = (type: string): string =>
  * 3. Assert each payload leads with `audit`, that the audit is the one its
  *    operation carries — details states its identity/fan-out split, overview
  *    the bounded whole — and that it arrives as structured content alone.
+ *
+ * @evidence contracts/testing.md#behavioral-verification MCP escape, overview and details return exactly the ordered audit/next/result envelope, correct result types and next actions, with no duplicate content text payload.
+ * @evidence contracts/testing.md#independent-expectations Literal property order and payload shape are independent expectations. Comparing each audit to auditFor establishes branch dispatch, not independent truth of its wording.
+ * @evidence contracts/testing.md#distinguishing-cases Escape avoids graph facts while overview and details have distinct scopes; each still places its audit first and returns only structured content.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_reports_its_audit_before_the_facts starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary Installed MCP serialization and application dispatch must preserve the envelope and avoid duplicate text on the wire; a direct return-value check cannot test transport shape.
+ * @evidence contracts/e2e.md#shared-execution Escape, overview and details reuse one fixture/client and the suite compiler. Compatible response-shape cases can share a session; the current population is not fully consolidated.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The case's stable declaration supplies details and overview, while escape is graph-free; stdin closes in finally and successful exit is joined.
+ * @evidence contracts/e2e.md#preserved-coverage Exact keys/order, audit branch equality, next-action strings, result types and empty content assertions all remain; direct application units separately own capped audit behavior.
  */
 export const test_ttscgraph_reports_its_audit_before_the_facts = async () => {
   const root = TestProject.createProject({

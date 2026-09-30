@@ -17,6 +17,15 @@ import { assert, resolveGraphLauncher } from "../internal/ttsgraph";
  * 2. Assert each exits with a usage error and leaves the sentinel untouched.
  * 3. On executable hosts, run valid dump forms and preserve the native exit code
  *    and forwarded arguments.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The installed launcher rejects twenty-eight malformed dump/view/MCP vectors with status two and an owned argument prefix before a sentinel runs; valid POSIX dump vectors preserve exact argv and status 23.
+ * @evidence contracts/testing.md#independent-expectations Literal malformed vectors, status two and an absent sentinel marker distinguish pre-spawn validation; literal valid argv vectors are independent forwarding controls.
+ * @evidence contracts/testing.md#distinguishing-cases Missing values, unknown options, invalid numeric forms, paths and --no-open=true contrast accepted dump spellings; the valid sentinel execution control is POSIX-only.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_launcher_rejects_malformed_arguments runs installed CLI commands and their real resolution/spawn consequences; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary CLI parsing, command dispatch and native spawn prevention must assemble in the installed entrypoint; direct parsing cannot prove the sentinel stayed untouched.
+ * @evidence contracts/e2e.md#shared-execution All vectors reuse one installed sentinel/project; each launcher command currently starts its own Node process. Invalid requests do not require compiler work, and further process batching is not implemented.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The marker is reset for each vector so an earlier accepted command cannot mask a forbidden spawn; synchronous commands join and tracked project cleanup owns the fixtures.
+ * @evidence contracts/e2e.md#preserved-coverage Every malformed vector/status/prefix/no-marker assertion and supported valid forwarding vector is preserved; no input is skipped to shorten this documentation change.
  */
 export const test_ttscgraph_launcher_rejects_malformed_arguments = () => {
   const root = TestProject.tmpdir("ttscgraph-launcher-args-");

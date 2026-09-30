@@ -58,6 +58,15 @@ const detailsOf = (result: ToolResult): DetailsResult => {
  * 2. Ask `details` for the class (with neighbors) and the union.
  * 3. Assert every member and value comes back, and that the 20 inbound references
  *    are capped to the fan-out slice.
+ *
+ * @evidence contracts/testing.md#behavioral-verification MCP details on a twenty-member class and twenty-value union retains both identity counts while returning a nonempty inbound neighborhood smaller than twenty.
+ * @evidence contracts/testing.md#independent-expectations The fixture independently contains twenty declarations and literal alternatives; the fan-out oracle is the inequalities zero < count < twenty, not an exact neighbor cap or complete name comparison.
+ * @evidence contracts/testing.md#distinguishing-cases Uncapped members and literals contrast bounded inbound fan-out in the same response. Explicit capped completeness dispatch has a separate direct application source unit.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_details_gives_whole_identity_and_caps_fan_out starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary The actual compiler snapshot must carry the full identity before the MCP projection caps popularity-based context; fabricated identity inputs would bypass that producer connection.
+ * @evidence contracts/e2e.md#shared-execution One project and MCP session serve both identity requests using the shared suite compiler. This case can join compatible identity fixtures; the current separate project/session population is not yet minimized.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The twenty-member class, union and their callers belong to one case project; stdin ends and exit is awaited in finally without asserting the exit code. The client's exit timeout can reject without killing its child.
+ * @evidence contracts/e2e.md#preserved-coverage The member-count, literal-count and positive bounded-inbound assertions all remain here. These checks cannot detect an incorrect member name when the count stays twenty.
  */
 export const test_ttscgraph_details_gives_whole_identity_and_caps_fan_out =
   async () => {

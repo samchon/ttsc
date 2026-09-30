@@ -51,6 +51,15 @@ const utf16be = (text: string): Buffer =>
  *    ECMAScript line-terminator spellings in the same project.
  * 2. Ask the real resident `ttscgraph` server for all eight declaration details.
  * 3. Assert each result carries its compiler-aligned signature head and doc.
+ *
+ * @evidence contracts/testing.md#behavioral-verification MCP details reads eight actual encoded source files and returns each declaration head and documentation under UTF-8 BOM, UTF-16 LE/BE and several line separators.
+ * @evidence contracts/testing.md#independent-expectations Each encoded byte fixture has a literal function name, expected declaration-head string and doc sentence; expected text is not produced by the graph decoder.
+ * @evidence contracts/testing.md#distinguishing-cases BOM and UTF-16 endianness contrast LF, CRLF, CR, line separator and paragraph separator inputs; body text must not leak into the expected head.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_details_reads_bom_and_utf16_source_snapshot starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary Real compiler decoding, snapshot provenance and MCP detail display must agree on these bytes and coordinates; a predecoded synthetic source cannot test that integration.
+ * @evidence contracts/e2e.md#shared-execution All eight files share one project/session and the suite-built producer. Their encodings do not require eight builds; this batch exists within the case, while cross-case batching is unfinished.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Encoded files and symbol names are case-owned and immutable during requests, preventing another generation from supplying display text; finally ends stdin and successful exit is checked.
+ * @evidence contracts/e2e.md#preserved-coverage Every original per-file exact signature and documentation assertion remains. The case establishes supported encoding/display behavior, not a timing or filesystem-platform benchmark.
  */
 export const test_ttscgraph_details_reads_bom_and_utf16_source_snapshot =
   async () => {

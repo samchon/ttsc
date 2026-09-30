@@ -47,6 +47,15 @@ const graphArguments = (request: Record<string, unknown>) => ({
  *    execution, all-edge, external-excluded, and external-included modes.
  * 3. Assert success for zero-hop identity paths and truncation only when an
  *    otherwise eligible node or hop is actually absent from the response.
+ *
+ * @evidence contracts/testing.md#behavioral-verification MCP trace reports truncation only for eligible omitted graph, across exact/overflow depth, node and hop limits, focus/external filtering and cycles; identity, disconnection and ambiguity retain distinct actions.
+ * @evidence contracts/testing.md#independent-expectations Literal fixture chains and caps independently distinguish exhausted output from an unseen continuation; identity requires one path node and no hops/steps.
+ * @evidence contracts/testing.md#distinguishing-cases Forward/reverse/impact leaf versus continuing chain, execution versus all, external exclusion/inclusion, cycles, exact node/hop counts and ambiguous start/target exercise the owned boundaries.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_trace_reports_only_actual_omissions starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary Native call/type/external identities and MCP next-action/truncation assembly must agree; a predicate-only proof cannot certify real producer eligibility.
+ * @evidence contracts/e2e.md#shared-execution All limit and policy contrasts reuse one large project/session and suite binary. This already batches its inputs; compatible path cases remain candidates for cross-case consolidation still unfinished.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Distinct fixture namespaces isolate each cap topology in one generation, with no source mutation or cache deletion; stdin closes in finally and normal exit is checked.
+ * @evidence contracts/e2e.md#preserved-coverage All original identity, ambiguity, disconnection, focus/external, cycle, node/hop and exact-versus-overflow assertions are preserved, including both truncation outcomes.
  */
 export const test_ttscgraph_trace_reports_only_actual_omissions = async () => {
   const root = TestProject.createProject({

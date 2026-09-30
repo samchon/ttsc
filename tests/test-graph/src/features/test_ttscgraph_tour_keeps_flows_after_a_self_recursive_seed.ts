@@ -126,6 +126,15 @@ const REAL_FLOW = [
  * 4. Tour the same project without the self-recursive function and assert it
  *    reports the same set of non-empty flows, so the recursion changes nothing
  *    about what the tour says.
+ *
+ * @evidence contracts/testing.md#behavioral-verification MCP tour keeps the real handle-to-work flow despite an earlier-ranked self-recursive seed and produces the same flow shape as the counterpart project without that recursion.
+ * @evidence contracts/testing.md#independent-expectations Authored self recursion reaches no new handle, whereas handle calls work; literal flow-shape comparison is a metamorphic control independent of seed implementation.
+ * @evidence contracts/testing.md#distinguishing-cases A self-only first candidate contrasts a moving flow and a no-recursion project; every returned flow must reach something and work must survive.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_tour_keeps_flows_after_a_self_recursive_seed starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary Native recursive call edges and ranking facts must reach tour composition so a self-edge cannot consume its flow search budget at the real boundary.
+ * @evidence contracts/e2e.md#shared-execution Two projects/clients share the suite compiler but preserve conflicting recursive versus nonrecursive source populations. They could be a controlled refresh batch; that session consolidation has not been implemented.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Separate projects isolate recursive and nonrecursive populations; each helper ends stdin and awaits exit in finally without asserting its code. The client's exit timeout can reject without killing its child.
+ * @evidence contracts/e2e.md#preserved-coverage Work reachability, nonempty reached sets and exact normalized flow-shape comparison remain; no recursion fixture or comparative assertion is removed.
  */
 export const test_ttscgraph_tour_keeps_flows_after_a_self_recursive_seed =
   async () => {

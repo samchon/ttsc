@@ -18,6 +18,15 @@ import { assert } from "../internal/ttsgraph";
  * 1. Materialize an app package that imports a sibling by its package name.
  * 2. Omit the node_modules link so the specifier cannot resolve.
  * 3. Assert the dump still loads, keeps the app node, and drops the sibling.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Real dump succeeds and retains the app node when a shared workspace package is on disk but unlinked, without publishing its unresolved declarations or node_modules aliases.
+ * @evidence contracts/testing.md#independent-expectations Physical absence of the package link and literal app/shared names independently define the expected incomplete resolution; the helper requires successful dump status.
+ * @evidence contracts/testing.md#distinguishing-cases An unlinked workspace import contrasts the linked workspace case, and local unrelated facts must survive while unresolved targets remain absent.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_dump_survives_unresolved_workspace_import runs the actual native dump producer on its fixture project; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary Actual compiler resolution failure must not destroy usable graph output or invent workspace edges; a synthetic missing node cannot establish native failure tolerance.
+ * @evidence contracts/e2e.md#shared-execution One unlinked workspace fixture and native dump reuse the suite compiler. It could share producer preparation with a controlled link transition, but that batching has not been implemented.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The project deliberately never creates the dependency link, preserving the unresolved state without ambient installation; synchronous dump joins and tracked fixture cleanup owns removal.
+ * @evidence contracts/e2e.md#preserved-coverage App presence, shared absence, no alias leakage and successful dump remain. This is not a claim of an installed Yarn PnP connection.
  */
 export const test_ttscgraph_dump_survives_unresolved_workspace_import = () => {
   const root = TestProject.tmpdir("ttsc-graph-unresolved-");

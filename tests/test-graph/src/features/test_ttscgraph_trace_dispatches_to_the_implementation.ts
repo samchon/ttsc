@@ -53,6 +53,15 @@ const traceOf = (result: ToolResult): TraceResult => {
  * 2. Trace forward from `Runner.run` with execution focus.
  * 3. Assert both implementations are reached over `dispatches` hops, and that the
  *    work each one does (`transform`, `persist`) is reached behind them.
+ *
+ * @evidence contracts/testing.md#behavioral-verification MCP trace follows Runner through Pipeline.start to both concrete abstract-member implementations and reaches transform and persist.
+ * @evidence contracts/testing.md#independent-expectations The authored call chain and two concrete class bodies independently name the required implementation and terminal handles.
+ * @evidence contracts/testing.md#distinguishing-cases Two valid implementations exercise branching dispatch after a real call; this positive case does not own invalid-signature rejection, which member_relations_follow_checker_dispatch covers.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_trace_dispatches_to_the_implementation starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary Native checker member relations must connect the abstract call seam to its concrete implementations before MCP traversal can show runtime continuation.
+ * @evidence contracts/e2e.md#shared-execution All requested trace facts share one project/session and suite compiler. Compatible dispatch fixtures are candidates for a shared producer/project; cross-case lifetimes remain unminimized.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Qualified fixture handles isolate the stable implementation population; stdin ends and exit is awaited in finally without asserting its code. The client's exit timeout can reject without killing its child.
+ * @evidence contracts/e2e.md#preserved-coverage Both implementation dispatches and transform/persist reachability assertions remain here; direct traversal units do not alone replace actual checker relation publication.
  */
 export const test_ttscgraph_trace_dispatches_to_the_implementation =
   async () => {

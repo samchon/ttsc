@@ -35,6 +35,15 @@ const graphArguments = () => ({
  * 1. Materialize a project with an intentionally invalid tsconfig.
  * 2. Initialize the MCP server and call only escape.
  * 3. Assert the tool succeeds and the process exits cleanly.
+ *
+ * @evidence contracts/testing.md#behavioral-verification MCP escape succeeds and reports skipped even when the fixture tsconfig is invalid, then the client exits normally.
+ * @evidence contracts/testing.md#independent-expectations The deliberately invalid JSON would prevent an actual graph load; literal skipped and non-error results independently establish that escape remains usable.
+ * @evidence contracts/testing.md#distinguishing-cases A graph-free request faces a configuration that graph access cannot accept. This is an indirect no-load oracle, not a direct assertion of child spawn counts.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_skip_request_does_not_load_graph starts the installed MCP launcher and exercises its graph-free escape branch without requiring native graph facts; it remains selected by the E2E runner/Evidence population.
+ * @evidence contracts/e2e.md#necessary-boundary Installed MCP startup and lazy application dispatch must permit escape without resolving a compiler project; direct escape calls would bypass lazy server assembly.
+ * @evidence contracts/e2e.md#shared-execution One invalid fixture and client reuse the suite launcher artifact; this request does not itself need compiler facts. Sharing with compatible lazy-start checks remains unfinished.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The case owns its invalid config, never warms a graph in that session, ends stdin in finally and checks normal exit.
+ * @evidence contracts/e2e.md#preserved-coverage Original non-error, skipped and exit assertions remain. No fake capability or suppressed compiler failure is used to certify the escape branch.
  */
 export const test_ttscgraph_skip_request_does_not_load_graph = async () => {
   const root = TestProject.createProject({

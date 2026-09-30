@@ -128,6 +128,15 @@ const reachedNames = (tour: TourResult): string[] =>
  * 2. Tour a project where a hub of the same degree sits mid-chain, and assert the
  *    hop INTO it is the surviving step.
  * 3. Assert in both that every step starts at a symbol its flow reached.
+ *
+ * @evidence contracts/testing.md#behavioral-verification MCP tour retains the sole auditWrite terminal action and keeps the step entering commitTx even when its twelve callers make it a hub before flush.
+ * @evidence contracts/testing.md#independent-expectations Authored twelve-way fan-in and named call chains define the terminal and intermediate actions; step strings must refer from a name retained by start/reached.
+ * @evidence contracts/testing.md#distinguishing-cases A terminal hub-only flow contrasts a mid-chain hub with downstream work. The step-handle check covers its source endpoint, not both endpoints.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_tour_keeps_the_terminal_action_it_ends_at starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary Native fan-in/call edges and tour's hub demotion must interact over actual snapshot transport; a graph-free string/layout assertion cannot establish these flows.
+ * @evidence contracts/e2e.md#shared-execution Two incompatible terminal and mid-chain fixtures use separate clients but share the suite compiler. They can become controlled project variants in a shared batch; current lifetimes are not yet minimized.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Separate projects isolate terminal and mid-chain fan-in; each helper ends stdin and awaits exit in finally without asserting its code. The client's exit timeout can reject without killing its child.
+ * @evidence contracts/e2e.md#preserved-coverage Original terminal flow, retained entering step and source-name handle checks remain. The negative logger-hub control is separately exercised by serves_graph_tools_over_mcp.
  */
 export const test_ttscgraph_tour_keeps_the_terminal_action_it_ends_at =
   async () => {

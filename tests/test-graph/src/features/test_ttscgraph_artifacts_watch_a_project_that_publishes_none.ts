@@ -39,14 +39,15 @@ interface IPublished {
  * 2. Assert the answer is "none", and that it names those two files.
  * 3. Assert it reads fresh against itself.
  * 4. Edit the tsconfig, and require it to read stale.
-  * @evidence contracts/testing.md#behavioral-verification The compiled publication API resolves the actual compiler plugin population, returns no artifact for a project with no publisher and records its tsconfig and manifest; an actual config edit withdraws freshness.
- * @evidence contracts/testing.md#independent-expectations An unconfigured project has no graph-node publisher; literal required watch paths and an independent config edit define the expected empty and stale answers.
- * @evidence contracts/testing.md#distinguishing-cases A successfully resolved empty population contrasts its unchanged reuse state and a subsequent plugin-config edit; portable fingerprint transitions have a separate direct-input source unit.
- * @evidence contracts/testing.md#execution-ownership This named features entry exercises compiled graph code and the real compiler plugin-discovery process over an isolated consumer fixture, so it requires the native boundary batch rather than source-unit CI.
- * @evidence contracts/e2e.md#necessary-boundary Real compiler plugin discovery must distinguish resolved-empty from unavailable and record the two discovery inputs; direct fingerprint predicates cannot establish that native connection.
- * @evidence contracts/e2e.md#shared-execution The existing graph boundary process reuses the suite-built compiler and dependency links; this one empty-publisher project starts no contributor build or publisher sidecar.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fixture owns its project files and deliberately changes only its tsconfig after the fresh baseline; TestProject tracks and removes its directory at process completion.
- * @evidence contracts/e2e.md#preserved-coverage All original no-artifact, exact watched-file, unchanged-fresh and config-edit-stale assertions remain here; separate source units cover direct freshness and declared-file transitions without a compiler host.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The compiled publishArtifacts API returns null for a no-publisher project, watches its tsconfig and package.json, reads fresh unchanged and stale after configuring @ttsc/lint.
+ * @evidence contracts/testing.md#independent-expectations Literal watched paths and the independent config edit define empty/fresh/stale expectations; resolved-empty requires a current capability discovery result, not merely an empty plugin array.
+ * @evidence contracts/testing.md#distinguishing-cases Unchanged resolved-empty contrasts a config edit that reopens discovery. Binary-unavailable discovery is not a substitute baseline: it reads stale and previously failed actual unit CI.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_artifacts_watch_a_project_that_publishes_none loads the compiled publication API with real installed capability discovery; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary publishArtifacts resolves runtime capabilities through resolveBinary/loadProjectPlugins and artifactsAreStale consults discovery.isCurrent; a fingerprint-only source unit cannot certify installed native availability.
+ * @evidence contracts/e2e.md#shared-execution This project reuses suite-built compiler and dependency links and starts no graph-node publisher sidecar. Capability discovery still has real installed inputs; shared graph-boundary batching remains incomplete.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fixture owns both discovery files and mutates only tsconfig after the fresh baseline; TestProject tracks directory cleanup at process completion, and no wholesale cache reset is performed.
+ * @evidence contracts/e2e.md#preserved-coverage No-artifact, required watch paths, unchanged-fresh and config-edit-stale assertions remain. Direct freshness source units cover constructed input transitions without replacing this discovery boundary.
  */
 export function test_ttscgraph_artifacts_watch_a_project_that_publishes_none(): void {
     const cwd = TestProject.createProject({

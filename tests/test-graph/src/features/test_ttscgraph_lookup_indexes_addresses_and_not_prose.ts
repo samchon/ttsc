@@ -49,6 +49,15 @@ const lookupOf = (result: ToolResult): LookupResult => {
  * 2. Query the prose word, the number, the URL, and the real address.
  * 3. Assert only the addresses answer through the citation index, and that a prose
  *    word neither matches nor outranks an ordinary name hit.
+ *
+ * @evidence contracts/testing.md#behavioral-verification MCP lookup recognizes markdown, operation, non-ASCII and URL addresses while ordinary prose, numeric text and a bare tag name remain name queries without citation tags.
+ * @evidence contracts/testing.md#independent-expectations Literal authored addresses and carrier names provide the oracle, including an address the ASCII name tokenizer cannot read; prose containing familiar words is not a written citation.
+ * @evidence contracts/testing.md#distinguishing-cases Address-shaped leading tokens contrast prose/numeric/bare-tag queries, and the non-ASCII address must still return its sole exact carrier.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_lookup_indexes_addresses_and_not_prose starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary Native JSDoc attachment and Unicode transport must precede the consumer's address recognition and ranking; synthetic indexed tags cannot prove comment extraction.
+ * @evidence contracts/e2e.md#shared-execution All address forms share one fixture/session and the suite producer. This fits a shared citation project with distinct targets; current cross-case session batching remains unfinished.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique immutable addresses isolate the carrier populations; stdin ends and exit is awaited in finally without asserting its code. The client's exit timeout can reject without killing its child.
+ * @evidence contracts/e2e.md#preserved-coverage Every original first-hit, sole non-ASCII hit and no-docTags negative assertion remains. Exact arbitrary fuzzy-ranking scores are not certified by this case.
  */
 export const test_ttscgraph_lookup_indexes_addresses_and_not_prose =
   async () => {

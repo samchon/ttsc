@@ -44,6 +44,15 @@ interface TraceResult {
  *    free implementation, that neither concrete base is promoted through its
  *    override, that no bodyless candidate is admitted as an implementation, and
  *    that `focus: "types"` still synthesizes nothing.
+ *
+ * @evidence contracts/testing.md#behavioral-verification MCP trace dispatch follows bodyless declarations to real implementations, excludes concrete empty/literal/arithmetic/throwing bodies and helpers, deduplicates double heritage, and returns the exact Pipeline execution path.
+ * @evidence contracts/testing.md#independent-expectations Authored declaration modifiers and bodies independently decide whether dispatch is needed; literal expected path names and negative implementation names distinguish edge-count guesses.
+ * @evidence contracts/testing.md#distinguishing-cases Abstract, interface and ambient members contrast concrete bodies, overload implementation and types-only focus; double implements/override relations still produce one implementation hop.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_dispatch_reads_declaration_facts_not_dependency_degree starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary The checker must publish body/modifier/container and heritage facts before transported graph traversal can distinguish concrete zero-degree methods from declarations.
+ * @evidence contracts/e2e.md#shared-execution All declaration contrasts and path requests reuse one fixture/session and the suite compiler. Compatible dispatch cases can join a shared graph project; current cross-case preparation is not minimized.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Distinct owner-qualified names prevent ambiguous fixture reuse, and all requests inspect one immutable generation; client stdin closes in finally and normal exit is checked.
+ * @evidence contracts/e2e.md#preserved-coverage Positive dispatch, negative concrete/helper dispatch, deduplication, types-focus and exact-path assertions remain here. A direct predicate test alone cannot replace the native fact-production coverage.
  */
 export const test_ttscgraph_dispatch_reads_declaration_facts_not_dependency_degree =
   async () => {

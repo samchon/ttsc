@@ -33,6 +33,15 @@ const traceOf = (result: ToolResult): TraceResult => {
  *    edge.
  * 3. Trace an interface call and require dispatch into Good/accepted while Bad and
  *    rejected remain unreachable.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The real native dump reports TS2416 yet retains all members, publishes Good's valid implements relation and excludes Bad's incompatible one; MCP dispatch reaches only accepted.
+ * @evidence contracts/testing.md#independent-expectations The authored return types independently make Good compatible and Bad incompatible; literal diagnostics, edge presence/absence and accepted/rejected names establish both facts and consequence.
+ * @evidence contracts/testing.md#distinguishing-cases Valid and incompatible methods share one contract, so name equality cannot pass the negative control; the graph remains usable despite the compiler diagnostic.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_member_relations_follow_checker_dispatch starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary Actual checker assignability, dump diagnostics and subsequent MCP traversal must agree; a synthetic implements edge cannot test whether the producer rejected Bad.
+ * @evidence contracts/e2e.md#shared-execution Dump and MCP consume one fixture and suite binary, but currently use separate producer lifetimes. Combining the observation with a shared producer is pending; no build per method is claimed.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fixture owns valid/invalid implementations and diagnostics; dump is synchronous, and MCP stdin ends with exit awaited in finally without an exit-code assertion. The client's exit timeout can reject without killing its child.
+ * @evidence contracts/e2e.md#preserved-coverage TS2416, retained members, valid-edge positive, invalid-edge negative, Good dispatch/accepted and Bad/rejected exclusions all remain executable.
  */
 export const test_ttscgraph_member_relations_follow_checker_dispatch =
   async () => {

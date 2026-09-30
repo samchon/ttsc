@@ -57,6 +57,15 @@ const graphArguments = (props: {
  *    ranking/truncation metadata that justifies it, `trace` and `overview`
  *    carry {@link RESULT_AUDIT}, `details` carries {@link RESULT_AUDIT_DETAILS},
  *    and the audits are distinct.
+ *
+ * @evidence contracts/testing.md#behavioral-verification MCP lookup, entrypoints and tour carry selection audits while trace, details and overview carry their exact/detail scopes; ranked scores, truncation and a real returned trace handle are also checked.
+ * @evidence contracts/testing.md#independent-expectations Three contract audit constants must be distinct, and literal score ordering and limit expectations check selection. Equality to those constants proves dispatch, not their independent wording accuracy.
+ * @evidence contracts/testing.md#distinguishing-cases Twenty handlers force a shortlist and truncated entrypoints; caller-selected trace identity contrasts ranked lookup/tour and detail/overview operations.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_result_audit_matches_selection_semantics starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary Actual native facts, MCP DTO selection and application audit dispatch must agree at the wire boundary; constants-only tests cannot prove populated requests choose the correct scope.
+ * @evidence contracts/e2e.md#shared-execution All six operation types reuse one project/session and suite binary. This is an existing within-case audit batch; cross-case response-shape sharing remains incomplete.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Twenty uniquely named handlers stay in one immutable fixture; trace uses a handle obtained in that generation, and finally ends stdin with normal exit checked.
+ * @evidence contracts/e2e.md#preserved-coverage Distinct constants, ranked scores, bounded hits, entrypoint truncation, real trace start and every operation's original audit equality are retained.
  */
 export const test_ttscgraph_result_audit_matches_selection_semantics =
   async (): Promise<void> => {

@@ -68,6 +68,15 @@ const resultOf = <T extends { type: string }>(
  * 2. Look up the Markdown target, then the operation target.
  * 3. Assert each answers with exactly the citing declarations and the tag that
  *    matched, and that `details` returns every tag while `doc` stays prose.
+ *
+ * @evidence contracts/testing.md#behavioral-verification MCP lookup returns the exact declarations citing a markdown target with only matching tags, an operation address leads its result, and details preserves ordered multiline tags with a prose summary.
+ * @evidence contracts/testing.md#independent-expectations Authored tag targets, carrier names and literal joined text define expectations; untagged declarations and unmatched tags cannot acquire citation metadata.
+ * @evidence contracts/testing.md#distinguishing-cases Markdown and operation addresses contrast unrelated tags, multiline tag continuation and an untagged symbol; details must separate prose summary from the tag sequence.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_lookup_answers_the_reverse_citation_question starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary The native producer must attach real declaration comments and transport their tag order before the reverse citation index and MCP DTO projection can answer.
+ * @evidence contracts/e2e.md#shared-execution All lookup/details requests share one fixture/session and suite binary. Citation cases can share a compatible project; separate cross-case sessions are still awaiting consolidation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Case-specific targets and carriers isolate citations; stdin ends and exit is awaited in finally without asserting its code. The client's exit timeout can reject without killing its child.
+ * @evidence contracts/e2e.md#preserved-coverage Exact carriers, matching-tag filtering, operation precedence, ordered joined tags, summary and untagged-undefined assertions are all retained.
  */
 export const test_ttscgraph_lookup_answers_the_reverse_citation_question =
   async () => {

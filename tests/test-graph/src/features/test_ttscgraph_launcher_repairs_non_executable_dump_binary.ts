@@ -14,6 +14,15 @@ import { assert, resolveGraphLauncher } from "../internal/ttsgraph";
  * 1. Materialize a fake ttscgraph script with mode 0644.
  * 2. Run the @ttsc/graph dump pass-through against that binary.
  * 3. Assert the script executed and gained an executable bit.
+ *
+ * @evidence contracts/testing.md#behavioral-verification On POSIX the installed launcher runs a fixture binary initially at mode 0644, produces its marker and leaves executable permission bits set.
+ * @evidence contracts/testing.md#independent-expectations Literal non-executable mode, successful exit, marker and nonzero executable-bit mask independently require actual permission repair and subsequent execution.
+ * @evidence contracts/testing.md#distinguishing-cases Readable-but-not-executable input must change to executable before dump. This existing case returns on Windows and does not certify Windows chmod behavior.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_launcher_repairs_non_executable_dump_binary runs installed CLI commands and their real resolution/spawn consequences; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary Real POSIX access/chmod and child execution must connect through the launcher; an in-memory permission predicate cannot prove the repaired file was runnable.
+ * @evidence contracts/e2e.md#shared-execution One project and one sentinel are prepared once for the sole launch using suite launcher artifacts. Sharing other compatible CLI preparations remains unfinished.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The case owns its binary path and initial mode, avoiding an already-executable warm input; synchronous spawn joins the child and TestProject tracks removal.
+ * @evidence contracts/e2e.md#preserved-coverage Original exit, marker and repaired-mode assertions remain, including the platform scope; no fake permission capability or added skip replaces execution.
  */
 export const test_ttscgraph_launcher_repairs_non_executable_dump_binary =
   () => {

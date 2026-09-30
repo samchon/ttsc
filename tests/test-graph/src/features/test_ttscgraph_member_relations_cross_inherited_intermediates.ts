@@ -51,6 +51,15 @@ const traceOf = (result: ToolResult): TraceResult => {
  * 2. Trace forward from the caller with execution focus.
  * 3. Assert the trace dispatches into the concrete implementation and reaches the
  *    work behind it.
+ *
+ * @evidence contracts/testing.md#behavioral-verification MCP trace crosses Root.process through an inherited abstract intermediate to Concrete.process and reaches persist, retaining the real implementation seam.
+ * @evidence contracts/testing.md#independent-expectations The authored inheritance chain has only one concrete implementation and one persist call; literal dispatch and reached-name assertions do not infer implementation from degree.
+ * @evidence contracts/testing.md#distinguishing-cases An intermediate that declares no override must not break the Root-to-Concrete relation. This positive inherited path does not own invalid-signature rejection; the checker-dispatch case does.
+ * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_member_relations_cross_inherited_intermediates starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
+ * @evidence contracts/e2e.md#necessary-boundary Native checker heritage resolution must publish transitive member relations across the empty intermediate before resident traversal can dispatch.
+ * @evidence contracts/e2e.md#shared-execution One immutable hierarchy and its trace share one project/session with the suite compiler. Compatible member-relation cases can share preparation; the current session population is not minimized.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Owner-qualified Root/Concrete handles isolate the hierarchy; stdin ends and exit is awaited in finally without asserting its code. The client's exit timeout can reject without killing its child.
+ * @evidence contracts/e2e.md#preserved-coverage Original Concrete dispatch and persist reachability assertions remain. This case alone does not establish negative dispatch filtering or every intermediate node.
  */
 export const test_ttscgraph_member_relations_cross_inherited_intermediates =
   async () => {
