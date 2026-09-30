@@ -14,6 +14,11 @@ import "testing"
 //  1. Report on `box["class"]` and assert nothing is applied automatically.
 //  2. Assert the single suggestion names the keyword and yields `box.class`.
 //  3. Assert the non-reserved twin `box["name"]` is still autofixed outright.
+//
+// @evidence contracts/testing.md#behavioral-verification The keyword access has exactly one diagnostic and suggestion with the authored title, zero automatic edits, and the exact box.class suggested result; a normal name key fixes automatically.
+// @evidence contracts/testing.md#independent-expectations The literal suggestion title and expected source encode the opt-in keyword policy independently of emitted suggestion data.
+// @evidence contracts/testing.md#distinguishing-cases Reserved class differs from nonreserved name; both the automatic no-change pass and explicit suggestion application are asserted.
+// @evidence contracts/testing.md#execution-ownership TestDotNotationOffersReservedWordCollapseAsSuggestion owns every assertion and any named table subcases in the shared Go unit population. Parsed-source Engine operations and direct fix application use disposable fixture files where needed, without a consumer install, native build or product host.
 func TestDotNotationOffersReservedWordCollapseAsSuggestion(t *testing.T) {
   assertSuggestionSnapshot(
     t,

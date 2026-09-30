@@ -18,6 +18,11 @@ import "testing"
 //  1. Report on `{ x: /* keep */ x }` and assert no edit is applied.
 //  2. Assert the source is left byte-for-byte intact.
 //  3. Assert the comment-free twin still collapses to the shorthand `{ x }`.
+//
+// @evidence contracts/testing.md#behavioral-verification The shorthand rule reports the commented long-form property but automatic fixing preserves all bytes; its comment-free twin must collapse to shorthand.
+// @evidence contracts/testing.md#independent-expectations The original source is the independent preservation oracle and the literal target { x } specifies the valid no-comment rewrite.
+// @evidence contracts/testing.md#distinguishing-cases Comment inside the deleted value span withholds an automatic edit; removing only that comment permits the normal rewrite. The suggestion test owns opt-in comment removal.
+// @evidence contracts/testing.md#execution-ownership TestObjectShorthandDeclinesFixWhenCommentInValueSpan owns every assertion and any named table subcases in the shared Go unit population. Parsed-source Engine operations and direct fix application use disposable fixture files where needed, without a consumer install, native build or product host.
 func TestObjectShorthandDeclinesFixWhenCommentInValueSpan(t *testing.T) {
   assertNoFixSnapshot(
     t,

@@ -15,6 +15,11 @@ import "testing"
 // 1. Load the annotated TypeScript fixture source embedded below.
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine compares the complete normalized finding set for the safe name key while leaving the hyphenated key clean in the same original fixture.
+// @evidence contracts/testing.md#independent-expectations The authored line annotation selects only the dot-spellable name access; JavaScript property-name grammar establishes the preserved bracket control.
+// @evidence contracts/testing.md#distinguishing-cases name reports while not-valid-key stays clean; separate fixer and suggestion cases own edit policy rather than duplicating this detection oracle.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusDotNotation owns every assertion and any named table subcases in the shared Go unit population. Parsed-source Engine operations and direct fix application use disposable fixture files where needed, without a consumer install, native build or product host.
 func TestRuleCorpusDotNotation(t *testing.T) {
   assertRuleCorpusCase(t, "dot-notation.ts", "const box = { name: \"ttsc\", \"not-valid-key\": \"kept\" };\n\n// expect: dot-notation error\nconst value = box[\"name\"];\nconst kept = box[\"not-valid-key\"];\n\nJSON.stringify([value, kept]);\n")
 }

@@ -15,6 +15,11 @@ import "testing"
 //  1. Report on `{ x: /* keep */ x }` and assert nothing is auto-applied.
 //  2. Assert the single suggestion collapses the property to `{ x }`.
 //  3. Assert the comment-free twin is still autofixed without asking.
+//
+// @evidence contracts/testing.md#behavioral-verification Exactly one titled suggestion collapses the commented property to shorthand while automatic application preserves source; the no-comment twin fixes automatically.
+// @evidence contracts/testing.md#independent-expectations The authored title warns of comment loss and the literal { x } output encodes the explicit author-selected rewrite independently of generated edits.
+// @evidence contracts/testing.md#distinguishing-cases Commented value spans differ from ordinary x: x; both automatic withholding and deliberate suggestion application remain asserted.
+// @evidence contracts/testing.md#execution-ownership TestObjectShorthandOffersWithheldCollapseAsSuggestion owns every assertion and any named table subcases in the shared Go unit population. Parsed-source Engine operations and direct fix application use disposable fixture files where needed, without a consumer install, native build or product host.
 func TestObjectShorthandOffersWithheldCollapseAsSuggestion(t *testing.T) {
   assertSuggestionSnapshot(
     t,

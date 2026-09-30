@@ -16,6 +16,11 @@ import "testing"
 // 1. Snapshot `box["class"]`.
 // 2. Enable `dot-notation`.
 // 3. Assert the rule fires but emits no fix snapshot.
+//
+// @evidence contracts/testing.md#behavioral-verification The reserved-word access must produce a finding while automatic application leaves its original source byte-identical.
+// @evidence contracts/testing.md#independent-expectations The supported conservative keyword policy withholds imposed edits; the original source is the independently established unchanged oracle.
+// @evidence contracts/testing.md#distinguishing-cases class is the withheld keyword boundary. TestFixDotNotationRewritesBracketToDotForIdentifierKey owns normal identifiers and TestDotNotationOffersReservedWordCollapseAsSuggestion owns author-approved rewriting.
+// @evidence contracts/testing.md#execution-ownership TestFixDotNotationKeepsBracketForReservedWordKey owns every assertion and any named table subcases in the shared Go unit population. Parsed-source Engine operations and direct fix application use disposable fixture files where needed, without a consumer install, native build or product host.
 func TestFixDotNotationKeepsBracketForReservedWordKey(t *testing.T) {
   assertNoFixSnapshot(
     t,

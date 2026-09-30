@@ -18,6 +18,11 @@ import "testing"
 //  1. Report on a bracket access whose span carries a block comment.
 //  2. Assert no fix is applied and the source is left byte-for-byte intact.
 //  3. Assert the comment-free twin still collapses to dot notation.
+//
+// @evidence contracts/testing.md#behavioral-verification The rule must report but apply no edit to the commented bracket span, preserving every source byte; the comment-free twin must still fix.
+// @evidence contracts/testing.md#independent-expectations The authored unchanged source and explicit p2.foo output independently distinguish safe edit ownership from deleting a comment without consent.
+// @evidence contracts/testing.md#distinguishing-cases A comment between receiver and key suppresses automatic rewriting; its absent twin rewrites. The suggestion test separately owns the opt-in action.
+// @evidence contracts/testing.md#execution-ownership TestDotNotationDeclinesFixWhenCommentInBracketSpan owns every assertion and any named table subcases in the shared Go unit population. Parsed-source Engine operations and direct fix application use disposable fixture files where needed, without a consumer install, native build or product host.
 func TestDotNotationDeclinesFixWhenCommentInBracketSpan(t *testing.T) {
   assertNoFixSnapshot(
     t,

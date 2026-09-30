@@ -15,6 +15,11 @@ import "testing"
 //  1. Report on `p1 /* keep */ ["foo"]` and assert nothing is auto-applied.
 //  2. Assert the single suggestion collapses the access to `p1.foo`.
 //  3. Assert the comment-free twin is still autofixed without asking.
+//
+// @evidence contracts/testing.md#behavioral-verification The commented bracket access exposes exactly one titled suggestion while automatic edits leave the source intact; explicit suggestion application yields p1.foo.
+// @evidence contracts/testing.md#independent-expectations The authored warning title identifies comment loss, and the independently written target source states the author-approved change.
+// @evidence contracts/testing.md#distinguishing-cases Commented access is suggestion-only; the comment-free p2 access remains automatically fixable, excluding blanket withholding.
+// @evidence contracts/testing.md#execution-ownership TestDotNotationOffersWithheldBracketCollapseAsSuggestion owns every assertion and any named table subcases in the shared Go unit population. Parsed-source Engine operations and direct fix application use disposable fixture files where needed, without a consumer install, native build or product host.
 func TestDotNotationOffersWithheldBracketCollapseAsSuggestion(t *testing.T) {
   assertSuggestionSnapshot(
     t,

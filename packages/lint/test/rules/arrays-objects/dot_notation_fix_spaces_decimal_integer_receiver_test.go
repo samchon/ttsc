@@ -17,6 +17,11 @@ import "testing"
 //  1. Fix bare decimal-integer receivers and assert the space is inserted.
 //  2. Fix hex, float, exponent, and parenthesized receivers with the dot tight.
 //  3. Re-parse every fixed output and assert it carries zero parse diagnostics.
+//
+// @evidence contracts/testing.md#behavioral-verification Seven named subcases run the actual fix applier and reparse every explicit expected result, exposing token merging or incorrect receiver spacing.
+// @evidence contracts/testing.md#independent-expectations Literal expected spellings follow JavaScript numeric-token grammar: plain decimal integers need whitespace before the member dot, unlike radix, float, exponent or parenthesized receivers.
+// @evidence contracts/testing.md#distinguishing-cases The named cases cover decimal 5, zero and numeric separators against parenthesized, hexadecimal, float and exponent receivers; full source comparison preserves each receiver spelling.
+// @evidence contracts/testing.md#execution-ownership TestFixDotNotationSpacesDecimalIntegerReceiver owns every assertion and any named table subcases in the shared Go unit population. Parsed-source Engine operations and direct fix application use disposable fixture files where needed, without a consumer install, native build or product host.
 func TestFixDotNotationSpacesDecimalIntegerReceiver(t *testing.T) {
   cases := []struct {
     name     string
