@@ -24,6 +24,11 @@ func (runtimeRuleCodeTestRule) Check(*Context, *shimast.Node) {}
 //  1. Insert a synthetic colliding file/project contributor pair in forward order.
 //  2. Reinsert the same pair in reverse order and compare assignments.
 //  3. Require both mappings to remain distinct from each other and built-ins.
+//
+// @evidence contracts/testing.md#behavioral-verification Live RuleCode resolves a synthetic colliding file/project rule pair to distinct reserved-band codes that do not reuse any built-in reservation, with identical mappings after reversed insertion order.
+// @evidence contracts/testing.md#independent-expectations Different public rule identities must receive different codes in literal [9000,18000), all frozen built-in codes remain reserved, and unchanged membership determines registration-order independence. The second run is an ordering control, not an oracle for absolute code assignments.
+// @evidence contracts/testing.md#distinguishing-cases The original colliding pair spans public Register for the file rule and a directly populated project-rule adapter; both insertion orders and every built-in reservation are checked. Explicit band checks reject absent/default-zero assignments, and cleanup invalidates the cache between populations.
+// @evidence contracts/testing.md#execution-ownership The actual file/project registries and public RuleCode resolver run in one Go process, using synthetic collision names only as inputs. This unit owns live allocator integration; contributor producer/linkage and full project-rule registration are not claimed, and no native build, install or subprocess executes.
 func TestRuntimeRuleCodesAreCollisionFreeAndOrderIndependent(t *testing.T) {
   left, right := findSyntheticRuleCodeCollision(t)
   _, leftProject := registeredProjectRules[left]
@@ -38,6 +43,11 @@ func TestRuntimeRuleCodesAreCollisionFreeAndOrderIndependent(t *testing.T) {
   }
   if forward[left] == forward[right] {
     t.Fatalf("runtime collision for %q and %q at %d", left, right, forward[left])
+  }
+  for _, name := range []string{left, right} {
+    if code := forward[name]; code < 9000 || code >= 18000 {
+      t.Fatalf("runtime code for %q outside reserved band: %d", name, code)
+    }
   }
   for builtInName, builtInCode := range builtInRuleCodes {
     if forward[left] == builtInCode || forward[right] == builtInCode {
