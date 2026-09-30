@@ -23,6 +23,11 @@ import (
 //  2. Run `check` forwarding `--declaration false` with and without
 //     `--declarationDir null`.
 //  3. Assert the reset run passes and the other reports TS5069.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual check command applies declaration:false with declarationDir:null as a clean reset; omitting only the reset retains the configured directory and produces TS5069 with status two.
+// @evidence contracts/testing.md#independent-expectations The authored declaration/declarationDir configuration and independently specified TypeScript option incompatibility determine opposite literal status/error outcomes; reset success requires fully empty stderr.
+// @evidence contracts/testing.md#distinguishing-cases Same project and declaration:false argument with versus without an explicit null reset distinguish resetting from dropping the configuration wholesale or ignoring forwarded raw options.
+// @evidence contracts/testing.md#execution-ownership Real Go command parser, compiler option merge and in-process project diagnostics execute against a temporary fixture, without a launcher, native producer, install or tsgo subprocess.
 func TestCommandCheckAppliesAForwardedNullReset(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -47,7 +52,7 @@ func TestCommandCheckAppliesAForwardedNullReset(t *testing.T) {
   }
 
   code, stderr := check(`["--declaration","false","--declarationDir","null"]`)
-  if code != 0 || strings.Contains(stderr, "TS5069") {
+  if code != 0 || stderr != "" || strings.Contains(stderr, "TS5069") {
     t.Fatalf("the forwarded reset did not apply: code=%d stderr=%q", code, stderr)
   }
   code, stderr = check(`["--declaration","false"]`)

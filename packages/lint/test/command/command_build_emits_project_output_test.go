@@ -21,6 +21,11 @@ import (
 // 1. Create a clean project with one exported value.
 // 2. Run build with --emit and a discovered lint config.
 // 3. Assert custom/main.js is written and contains the emitted export.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual in-process build command succeeds quietly and writes custom/main.js with the authored exports.value = 1 assignment, honoring the forwarded output directory.
+// @evidence contracts/testing.md#independent-expectations Authored CommonJS project, value one and custom output path independently specify emitted content and destination; reading generated output verifies a compiler side effect rather than repository file placement.
+// @evidence contracts/testing.md#distinguishing-cases Clean project with disabled no-var isolates emission from diagnostic rejection; custom outDir differs from the fixture default dist so ignoring the override cannot pass.
+// @evidence contracts/testing.md#execution-ownership Real command dispatch, project compiler and write callback execute in one Go process with temporary fixture cleanup; no installed CLI, native plugin source compilation or external compiler process runs.
 func TestCommandBuildEmitsProjectOutput(t *testing.T) {
   root := seedLintProject(t, "export const value = 1;\n")
   seedLintRules(t, root, map[string]string{"no-var": "off"})
@@ -44,4 +49,5 @@ func TestCommandBuildEmitsProjectOutput(t *testing.T) {
   if !strings.Contains(string(data), "exports.value") {
     t.Fatalf("emitted JavaScript missing export: %s", data)
   }
+  if !strings.Contains(string(data), "exports.value = 1;") { t.Fatalf("build lost the authored export value: %s", data) }
 }
