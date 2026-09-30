@@ -1,4 +1,4 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 import {
   assert,
@@ -6,7 +6,7 @@ import {
   os,
   path,
   readProjectConfig,
-} from "../../internal/project";
+} from "../../internal/project-unit";
 
 /**
  * Verifies readProjectConfig accepts JSONC comments and trailing commas.
@@ -20,6 +20,11 @@ import {
  *    the plugins array.
  * 2. Invoke `readProjectConfig`.
  * 3. Assert the plugins array parses correctly to the expected single entry.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Reads an authored JSONC config and compares the complete plugin entry, detecting a comment or trailing comma that wrongly prevents configuration loading.
+ * @evidence contracts/testing.md#independent-expectations The literal plugin descriptor is authored in the fixture; JSONC comments and trailing commas have the same value semantics as the corresponding ordinary JSON object.
+ * @evidence contracts/testing.md#distinguishing-cases A line comment and trailing commas occur together in the successful fixture; names_the_config_that_failed_to_parse owns the adjacent unterminated-object rejection.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers the exported test_readprojectconfig_accepts_jsonc_comments_and_trailing_commas once under src/unit/project. It calls the authored readProjectConfig on an isolated fixture directory; there is no installation, native build or CLI process.
  */
 export const test_readprojectconfig_accepts_jsonc_comments_and_trailing_commas =
   () => {

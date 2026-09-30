@@ -1,4 +1,4 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 import {
   assert,
@@ -6,7 +6,7 @@ import {
   os,
   path,
   readProjectConfig,
-} from "../../internal/project";
+} from "../../internal/project-unit";
 
 /**
  * Verifies readProjectConfig applies array extends in order.
@@ -22,6 +22,11 @@ import {
  *    its own `declarationDir`.
  * 3. Assert `outDir` comes from `base-b`, `rootDir` from `base-a`, `plugins` from
  *    `base-b`, and `pluginBaseDirs` lists only the `shared` directory.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Compares outDir, rootDir, declarationDir, plugins and pluginBaseDirs after ordered array inheritance, detecting reversed precedence or an incorrect declaring directory.
+ * @evidence contracts/testing.md#independent-expectations The second preset explicitly overrides output and plugins while omitting the first preset rootDir; the child declarationDir is independently authored.
+ * @evidence contracts/testing.md#distinguishing-cases Overridden options, inherited omitted options and child-only options are distinguished in one array; lets_later_array_extends_clear_inherited_plugins owns the explicit empty-list boundary.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers the exported test_readprojectconfig_applies_array_extends_in_order once under src/unit/project. It calls the authored readProjectConfig on an isolated fixture directory; there is no installation, native build or CLI process.
  */
 export const test_readprojectconfig_applies_array_extends_in_order = () => {
   const root = TestProject.physicalPath(TestProject.tmpdir("ttsc-project-"));

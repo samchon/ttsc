@@ -1,4 +1,4 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 import {
   assert,
@@ -6,7 +6,7 @@ import {
   os,
   path,
   readProjectConfig,
-} from "../../internal/project";
+} from "../../internal/project-unit";
 
 /**
  * Verifies readProjectConfig resolves package tsconfig extends.
@@ -21,6 +21,11 @@ import {
  * 2. Write a project tsconfig that extends `"@scope/tsconfig/base.json"`.
  * 3. Assert the resolved plugins and `outDir` (absolute) match the preset's
  *    values, anchored at the preset's location in node_modules.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Reads a scoped package preset subpath and checks inherited plugins and absolute output location, detecting failure to resolve node_modules presets or incorrect path ownership.
+ * @evidence contracts/testing.md#independent-expectations The authored scoped package base.json supplies the literal plugin and ../../dist/preset output; expected anchoring follows that preset directory.
+ * @evidence contracts/testing.md#distinguishing-cases A scoped package subpath contrasts with the bare manifest-selected package in resolves_package_tsconfig_extends_via_manifest and missing-target rejection.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers the exported test_readprojectconfig_resolves_package_tsconfig_extends once under src/unit/project. It calls the authored readProjectConfig on an isolated fixture directory; there is no installation, native build or CLI process.
  */
 export const test_readprojectconfig_resolves_package_tsconfig_extends = () => {
   const root = TestProject.physicalPath(TestProject.tmpdir("ttsc-project-"));

@@ -1,4 +1,4 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 import {
   assert,
@@ -6,7 +6,7 @@ import {
   os,
   path,
   readProjectConfig,
-} from "../../internal/project";
+} from "../../internal/project-unit";
 
 /**
  * Verifies readProjectConfig inherits plugins and outDir through tsconfig
@@ -21,6 +21,11 @@ import {
  * 2. Write a project tsconfig that extends it with an empty `compilerOptions`.
  * 3. Assert the resolved config carries the inherited `plugins`, `outDir`
  *    (absolute), and `pluginBaseDirs` pointing at `config/`.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Compares inherited plugins, absolute outDir and plugin base directories from a child with empty compilerOptions, detecting lost values or wrong plugin resolution ownership.
+ * @evidence contracts/testing.md#independent-expectations The preset explicitly declares one plugin and ../dist/shared; the expected values and parent directory follow that fixture rather than a second call to the reader.
+ * @evidence contracts/testing.md#distinguishing-cases An empty child preserves parent options; lets_child_tsconfig_override_inherited_plugins supplies the explicit-override twin and lets_a_child_null_reset_an_inherited_outdir supplies reset behavior.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers the exported test_readprojectconfig_inherits_plugins_and_outdir_through_tsconfig_extends once under src/unit/project. It calls the authored readProjectConfig on an isolated fixture directory; there is no installation, native build or CLI process.
  */
 export const test_readprojectconfig_inherits_plugins_and_outdir_through_tsconfig_extends =
   () => {

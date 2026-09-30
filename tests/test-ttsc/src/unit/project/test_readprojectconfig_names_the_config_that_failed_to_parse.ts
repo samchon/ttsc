@@ -1,6 +1,6 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 
-import { assert, fs, path, readProjectConfig } from "../../internal/project";
+import { assert, fs, path, readProjectConfig } from "../../internal/project-unit";
 
 /**
  * Verifies a malformed config is reported by name, in ttsc's own voice.
@@ -14,6 +14,11 @@ import { assert, fs, path, readProjectConfig } from "../../internal/project";
  * 1. Write a `tsconfig.json` whose object is left unterminated.
  * 2. Invoke `readProjectConfig` on it, and on an equally broken `jsconfig.json`.
  * 3. Assert each throw carries the `ttsc:` prefix and names that exact file.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Reads malformed tsconfig and jsconfig roots and asserts each error has the ttsc attribution prefix and exact offending path.
+ * @evidence contracts/testing.md#independent-expectations Both authored objects are unterminated, independently requiring a parse failure attributed to the respective file.
+ * @evidence contracts/testing.md#distinguishing-cases The same malformed shape is exercised under two supported config names; accepts_jsonc_comments_and_trailing_commas owns the valid JSONC twin and names_the_extended_config_that_failed_to_parse owns ancestor attribution.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers the exported test_readprojectconfig_names_the_config_that_failed_to_parse once under src/unit/project. It calls the authored readProjectConfig on an isolated fixture directory; there is no installation, native build or CLI process.
  */
 export const test_readprojectconfig_names_the_config_that_failed_to_parse =
   () => {

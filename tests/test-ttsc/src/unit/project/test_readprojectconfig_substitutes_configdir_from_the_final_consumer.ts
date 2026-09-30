@@ -1,9 +1,9 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { readProjectConfig } from "../../../../../packages/ttsc/lib/compiler/internal/project/readProjectConfig.js";
+import { readProjectConfig } from "../../../../../packages/ttsc/src/compiler/internal/project/readProjectConfig";
 
 /**
  * Verifies `${configDir}` in an inherited preset uses the final consumer.
@@ -11,6 +11,11 @@ import { readProjectConfig } from "../../../../../packages/ttsc/lib/compiler/int
  * Ordinary relative compiler paths stay relative to the config that declares
  * them. TypeScript's `${configDir}` template is deliberately different: it is
  * preserved through `extends` and substituted from the consuming tsconfig.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Checks six inherited path options and a mis-cased configDir spelling, detecting preset-relative substitution, separator loss or incorrect rewriting of the mis-cased literal.
+ * @evidence contracts/testing.md#independent-expectations Expected paths follow the authored final-consumer directory and the compiler template contract, including exact substitution spelling and the retained mis-cased literal.
+ * @evidence contracts/testing.md#distinguishing-cases Bare, slash, backslash, output-file and drive-looking suffixes contrast with the mis-cased token; resolves_inherited_relative_path_options_from_the_declaring_file owns ordinary preset-relative paths.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers the exported test_readprojectconfig_substitutes_configdir_from_the_final_consumer once under src/unit/project. It calls the authored readProjectConfig on an isolated fixture directory; there is no installation, native build or CLI process.
  */
 export const test_readprojectconfig_substitutes_configdir_from_the_final_consumer =
   (): void => {

@@ -1,4 +1,4 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 import {
   assert,
@@ -6,7 +6,7 @@ import {
   os,
   path,
   readProjectConfig,
-} from "../../internal/project";
+} from "../../internal/project-unit";
 
 /**
  * Verifies readProjectConfig resolves inherited relative path options from the
@@ -22,6 +22,11 @@ import {
  * 2. Write a `project/tsconfig.json` that extends the shared config.
  * 3. Assert both paths are returned as absolute paths anchored at `config/`, not
  *    at `project/`.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Compares inherited baseUrl and rootDir against the declaring preset directory, detecting accidental rebasing onto the consumer directory.
+ * @evidence contracts/testing.md#independent-expectations The preset authors two relative sibling paths; expected absolute directories follow their declared owner and standard path resolution.
+ * @evidence contracts/testing.md#distinguishing-cases Backslash baseUrl and slash rootDir cover both supported spellings; substitutes_configdir_from_the_final_consumer owns the deliberately consumer-relative template distinction.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers the exported test_readprojectconfig_resolves_inherited_relative_path_options_from_the_declaring_file once under src/unit/project. It calls the authored readProjectConfig on an isolated fixture directory; there is no installation, native build or CLI process.
  */
 export const test_readprojectconfig_resolves_inherited_relative_path_options_from_the_declaring_file =
   () => {

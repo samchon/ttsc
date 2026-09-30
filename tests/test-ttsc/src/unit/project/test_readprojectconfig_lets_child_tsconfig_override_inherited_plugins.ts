@@ -1,4 +1,4 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 import {
   assert,
@@ -6,7 +6,7 @@ import {
   os,
   path,
   readProjectConfig,
-} from "../../internal/project";
+} from "../../internal/project-unit";
 
 /**
  * Verifies readProjectConfig lets child tsconfig override inherited plugins.
@@ -20,6 +20,11 @@ import {
  * 2. Write a project tsconfig that extends it and provides its own `plugins` array
  *    with a different entry.
  * 3. Assert the resolved plugins contain only the child's entry.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Compares the complete child plugin array after inheritance, detecting merging with a parent plugin that the child replaces.
+ * @evidence contracts/testing.md#independent-expectations The child explicitly supplies local-plugin while the parent supplies example; tsconfig option replacement requires the expected single child entry.
+ * @evidence contracts/testing.md#distinguishing-cases Distinct parent and child arrays distinguish replacement from merging; inherits_plugins_and_outdir_through_tsconfig_extends owns omission and lets_later_array_extends_clear_inherited_plugins owns empty replacement.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers the exported test_readprojectconfig_lets_child_tsconfig_override_inherited_plugins once under src/unit/project. It calls the authored readProjectConfig on an isolated fixture directory; there is no installation, native build or CLI process.
  */
 export const test_readprojectconfig_lets_child_tsconfig_override_inherited_plugins =
   () => {

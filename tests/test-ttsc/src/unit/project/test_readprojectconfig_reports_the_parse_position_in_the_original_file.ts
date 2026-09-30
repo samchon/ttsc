@@ -1,6 +1,6 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 
-import { assert, fs, path, readProjectConfig } from "../../internal/project";
+import { assert, fs, path, readProjectConfig } from "../../internal/project-unit";
 
 /**
  * Verifies the reported parse position points into the file the user edited.
@@ -17,6 +17,11 @@ import { assert, fs, path, readProjectConfig } from "../../internal/project";
  * 2. Assert the message names the file and reports line 6.
  * 3. Assert an empty file and a comments-only file read as empty configs, and that
  *    valid JSONC with comments, a trailing comma, and a BOM still parses.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Checks line-six error attribution behind comments, empty and comment-only acceptance, non-object rejection and valid BOM JSONC, detecting location shifts introduced by intermediate parsing text.
+ * @evidence contracts/testing.md#independent-expectations The fixture explicitly places its missing delimiter at the end of line six; expected line and semantic boundaries follow the authored bytes and JSONC object contract.
+ * @evidence contracts/testing.md#distinguishing-cases Malformed text contrasts with empty, comments-only and valid BOM/comment/trailing-comma text; a JSON string root separately distinguishes syntactic validity from config validity.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers the exported test_readprojectconfig_reports_the_parse_position_in_the_original_file once under src/unit/project. It calls the authored readProjectConfig on an isolated fixture directory; there is no installation, native build or CLI process.
  */
 export const test_readprojectconfig_reports_the_parse_position_in_the_original_file =
   () => {

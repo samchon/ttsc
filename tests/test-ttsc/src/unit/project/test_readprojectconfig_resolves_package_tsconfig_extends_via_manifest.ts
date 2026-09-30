@@ -1,6 +1,6 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 
-import { assert, fs, path, readProjectConfig } from "../../internal/project";
+import { assert, fs, path, readProjectConfig } from "../../internal/project-unit";
 
 /**
  * Verifies readProjectConfig resolves package tsconfig extends via
@@ -17,6 +17,11 @@ import { assert, fs, path, readProjectConfig } from "../../internal/project";
  * 2. Write a project tsconfig that extends the bare `"example-preset"`.
  * 3. Assert the inherited plugins and absolute `outDir` come from the
  *    manifest-selected `base.json`.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Resolves a bare package carrying only a tsconfig manifest field and checks inherited plugins and output, detecting dependence on a nonexistent main or exports entry.
+ * @evidence contracts/testing.md#independent-expectations The fixture explicitly maps the package to base.json with a backslash spelling; the expected preset values and directory follow that declared config entry.
+ * @evidence contracts/testing.md#distinguishing-cases A package with no runtime entry succeeds through its config field; rejects_missing_package_tsconfig_manifest_target and names_a_malformed_package_tsconfig_manifest own the two failure twins.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers the exported test_readprojectconfig_resolves_package_tsconfig_extends_via_manifest once under src/unit/project. It calls the authored readProjectConfig on an isolated fixture directory; there is no installation, native build or CLI process.
  */
 export const test_readprojectconfig_resolves_package_tsconfig_extends_via_manifest =
   () => {
