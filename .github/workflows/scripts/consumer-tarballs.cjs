@@ -43,10 +43,6 @@ function wireConsumerTarballs(consumerRoot, patchFiles = []) {
   fs.writeFileSync(workspaceFile, YAML.stringify(workspace));
 }
 
-if (require.main === module) {
-  const [consumer, ...patches] = process.argv.slice(2);
-  if (!consumer) throw new Error("expected upstream workspace path");
-  wireConsumerTarballs(consumer, patches);
-}
-
-module.exports = { wireConsumerTarballs };
+const [consumer, ...patches] = process.argv.slice(2);
+if (!consumer) throw new Error("expected upstream workspace path");
+wireConsumerTarballs(consumer, patches);
