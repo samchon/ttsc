@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { warnMissingFseventsBinding } from "../../../../../packages/unplugin/lib/core/transform/tracker/broker/warnMissingFseventsBinding.mjs";
+import { warnMissingFseventsBinding } from "../../../../packages/unplugin/src/core/transform/tracker/broker/warnMissingFseventsBinding";
 
 /**
  * Verifies the watch broker says once, with its remedy, that macOS

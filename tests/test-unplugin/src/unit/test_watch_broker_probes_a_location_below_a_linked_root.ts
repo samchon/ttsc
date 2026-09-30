@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/lib/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS.mjs";
-import { probeForLocation } from "../../../../../packages/unplugin/lib/core/transform/tracker/broker/probeForLocation.mjs";
+import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
+import { probeForLocation } from "../../../../packages/unplugin/src/core/transform/tracker/broker/probeForLocation";
 
 /**
  * Verifies a brokered watch location is probed when the project root contains

@@ -16,6 +16,16 @@ async function main() {
   const steps = [
     { name: "Node units", args: ["--test", ...nodeTests] },
     {
+      name: "unplugin function units",
+      args: [
+        "--import",
+        pathToFileURL(path.join(root, "scripts", "register-unit-loader.mjs"))
+          .href,
+        "./src/unit/index.ts",
+      ],
+      cwd: path.join(root, "tests", "test-unplugin"),
+    },
+    {
       name: "lint harness units",
       args: [
         "--import",

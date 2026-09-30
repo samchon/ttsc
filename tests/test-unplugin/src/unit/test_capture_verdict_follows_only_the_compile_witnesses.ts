@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { createHostPathIdentityContext } from "../../../../../packages/unplugin/lib/core/transform/filesystem/createHostPathIdentityContext.mjs";
-import { createGenerationProofFailures } from "../../../../../packages/unplugin/lib/core/transform/generation/createGenerationProofFailures.mjs";
-import { projectWalkStable } from "../../../../../packages/unplugin/lib/core/transform/generation/projectWalkStable.mjs";
-import { recordProjectSnapshotFailures } from "../../../../../packages/unplugin/lib/core/transform/generation/recordProjectSnapshotFailures.mjs";
-import type { TtscProjectMutationTracker } from "../../../../../packages/unplugin/lib/core/transform/tracker/TtscProjectMutationTracker.mjs";
+import { createHostPathIdentityContext } from "../../../../packages/unplugin/src/core/transform/filesystem/createHostPathIdentityContext";
+import { createGenerationProofFailures } from "../../../../packages/unplugin/src/core/transform/generation/createGenerationProofFailures";
+import { projectWalkStable } from "../../../../packages/unplugin/src/core/transform/generation/projectWalkStable";
+import { recordProjectSnapshotFailures } from "../../../../packages/unplugin/src/core/transform/generation/recordProjectSnapshotFailures";
+import type { TtscProjectMutationTracker } from "../../../../packages/unplugin/src/core/transform/tracker/TtscProjectMutationTracker";
 
 /**
  * Verifies a capture's project verdict is decided by the evidence spanning the

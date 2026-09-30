@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import type { WatchBroker } from "../../../../../packages/unplugin/lib/core/transform/tracker/broker/WatchBroker.mjs";
-import type { WatchBrokerSink } from "../../../../../packages/unplugin/lib/core/transform/tracker/broker/WatchBrokerSink.mjs";
-import { routeWatchBrokerMessage } from "../../../../../packages/unplugin/lib/core/transform/tracker/broker/routeWatchBrokerMessage.mjs";
+import type { WatchBroker } from "../../../../packages/unplugin/src/core/transform/tracker/broker/WatchBroker";
+import type { WatchBrokerSink } from "../../../../packages/unplugin/src/core/transform/tracker/broker/WatchBrokerSink";
+import { routeWatchBrokerMessage } from "../../../../packages/unplugin/src/core/transform/tracker/broker/routeWatchBrokerMessage";
 
 /**
  * Verifies every message of the isolated watch process reaches the waiter or
@@ -49,37 +49,56 @@ export async function test_watch_broker_messages_reach_their_registrations(): Pr
   });
   const broker = () => {
     const released: string[] = [];
+    const answers: boolean[] = [];
     const calls: Record<number, unknown[][]> = { 7: [], 8: [] };
     let readied = 0;
-    const state: Pick<WatchBroker, "drains" | "registrations"> = {
-      drains: new Map([
-        [1, () => released.push("drain 1")],
-        [2, () => released.push("drain 2")],
-      ]),
-      registrations: new Map([
-        [
-          7,
-          {
-            drains: true,
-            ready: () => {
-              readied += 1;
+    const state: Pick<WatchBroker, "drainScopes" | "drains" | "registrations"> =
+      {
+        drainScopes: new Map([
+          [1, new Set([7, 8])],
+          [2, new Set([7, 8])],
+        ]),
+        drains: new Map([
+          [
+            1,
+            (answered) => {
+              released.push("drain 1");
+              answers.push(answered);
             },
-            sink: recordingSink(calls[7]!),
-            spellings: new Map([[canonical, walked]]),
-          },
-        ],
-        [
-          8,
-          {
-            drains: false,
-            ready: () => undefined,
-            sink: recordingSink(calls[8]!),
-            spellings: new Map(),
-          },
-        ],
-      ]),
-    };
+          ],
+          [
+            2,
+            (answered) => {
+              released.push("drain 2");
+              answers.push(answered);
+            },
+          ],
+        ]),
+        registrations: new Map([
+          [
+            7,
+            {
+              drains: true,
+              ready: () => {
+                readied += 1;
+              },
+              sink: recordingSink(calls[7]!),
+              spellings: new Map([[canonical, walked]]),
+            },
+          ],
+          [
+            8,
+            {
+              drains: false,
+              ready: () => undefined,
+              sink: recordingSink(calls[8]!),
+              spellings: new Map(),
+            },
+          ],
+        ]),
+      };
     return {
+      answers,
       calls,
       readied: () => readied,
       released,
@@ -114,11 +133,8 @@ export async function test_watch_broker_messages_reach_their_registrations(): Pr
   assert.equal(drained.state.drains.has(1), true);
   assert.deepEqual(
     drained.calls[7],
-    [
-      ["unproven", undefined],
-      ["unproven", undefined],
-    ],
-    "a reply naming nothing proves every watch",
+    [["unproven", undefined]],
+    "one live reply proves its scope once; a duplicate cannot replay it",
   );
   drained.route({
     drained: true,
@@ -132,12 +148,21 @@ export async function test_watch_broker_messages_reach_their_registrations(): Pr
     ],
   });
   assert.deepEqual(drained.released, ["drain 2", "drain 1"]);
+  assert.deepEqual(drained.answers, [true, true]);
   assert.deepEqual(
     drained.calls[7]!.at(-1),
     ["unproven", [walked]],
     "an unproven watch, in the registration's spelling",
   );
   assert.deepEqual(drained.calls[8], [], "a forwarding scope is never told");
+
+  const scopeless = broker();
+  scopeless.state.drainScopes!.delete(1);
+  scopeless.route({ drained: true, id: 1 });
+  assert.deepEqual(scopeless.released, ["drain 1"]);
+  assert.deepEqual(scopeless.answers, [false]);
+  assert.deepEqual(scopeless.calls, { 7: [], 8: [] });
+  assert.equal(scopeless.state.drains.has(1), false);
 
   // 3. Status messages are status calls, never events.
   const status = broker();

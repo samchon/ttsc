@@ -32,15 +32,19 @@ if (!process.env.TTSC_TEST_WORKER_FILES)
   });
 
 TestExecutor.main({
-  // `features` holds the scenarios that need neither a Go host nor a bundler
-  // process; `native-plugins` holds every scenario that builds the native
-  // compiler or drives a real host. CI lanes select one tree through
-  // `TTSC_TEST_DIRS`, and a plain local run executes both.
+  // `unit` calls authored functions directly. `features` retains package and
+  // filesystem boundaries; `native-plugins` builds the native compiler or
+  // drives a real host. CI selects each layer through `TTSC_TEST_DIRS`, while
+  // a plain local run retains all three.
   location: dirs?.length
     ? dirs.map((value) => path.join(base, value))
     : dir
       ? path.join(base, dir)
-      : [path.join(base, "features"), path.join(base, "native-plugins")],
+      : [
+          path.join(base, "unit"),
+          path.join(base, "features"),
+          path.join(base, "native-plugins"),
+        ],
 }).catch((error) => {
   console.error(error);
   process.exit(1);

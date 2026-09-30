@@ -1,6 +1,6 @@
 import assert from "node:assert";
 
-import { isDeclarationFile } from "../../../../../packages/unplugin/lib/core/transform/utils/isDeclarationFile.js";
+import { isDeclarationFile } from "../../../../packages/unplugin/src/core/transform/utils/isDeclarationFile";
 
 /**
  * Verifies declaration-file classification ignores which separator a module id

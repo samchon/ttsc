@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import type { ChildProcess } from "node:child_process";
 
-import type { WatchBroker } from "../../../../../packages/unplugin/lib/core/transform/tracker/broker/WatchBroker.mjs";
-import { drainWatchBroker } from "../../../../../packages/unplugin/lib/core/transform/tracker/broker/drainWatchBroker.mjs";
-import { routeWatchBrokerMessage } from "../../../../../packages/unplugin/lib/core/transform/tracker/broker/routeWatchBrokerMessage.mjs";
+import type { WatchBroker } from "../../../../packages/unplugin/src/core/transform/tracker/broker/WatchBroker";
+import { drainWatchBroker } from "../../../../packages/unplugin/src/core/transform/tracker/broker/drainWatchBroker";
+import { routeWatchBrokerMessage } from "../../../../packages/unplugin/src/core/transform/tracker/broker/routeWatchBrokerMessage";
 
 /**
  * Verifies a broker drain's reply reaches only the registrations its request

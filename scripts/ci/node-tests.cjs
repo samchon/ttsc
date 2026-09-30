@@ -35,6 +35,7 @@ const E2E_NODE_TESTS = new Set([
   "scripts/ci/feature-worker-isolation.test.cjs",
   "scripts/ci/gofmt-wrapper.test.cjs",
   "scripts/ci/typescript-loader.test.cjs",
+  "scripts/ci/unit-source-loader.test.cjs",
   "scripts/ci/unplugin-test-contract.test.cjs",
   "packages/ttsc/scripts/check-flags.test.cjs",
 ]);

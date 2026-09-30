@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import type { TtscProjectMutationTracker } from "../../../../../packages/unplugin/lib/core/transform/tracker/TtscProjectMutationTracker.mjs";
-import { brokeredTrackerSink } from "../../../../../packages/unplugin/lib/core/transform/tracker/broker/brokeredTrackerSink.mjs";
+import type { TtscProjectMutationTracker } from "../../../../packages/unplugin/src/core/transform/tracker/TtscProjectMutationTracker";
+import { brokeredTrackerSink } from "../../../../packages/unplugin/src/core/transform/tracker/broker/brokeredTrackerSink";
 
 /**
  * Verifies a tracker's brokered watches record exactly what its filters admit,

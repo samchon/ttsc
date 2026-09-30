@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import type { TtscWatchInput } from "../../../../../packages/unplugin/lib/core/transform/watch/TtscWatchInput.mjs";
-import { handWatchInputs } from "../../../../../packages/unplugin/lib/core/transform/watch/handWatchInputs.mjs";
+import type { TtscWatchInput } from "../../../../packages/unplugin/src/core/transform/watch/TtscWatchInput";
+import { handWatchInputs } from "../../../../packages/unplugin/src/core/transform/watch/handWatchInputs";
 
 /**
  * Verifies that when one spelling reaches the host more than once, the

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { hostDeclaresPolling } from "../../../../../packages/unplugin/lib/core/transform/tracker/hostDeclaresPolling.mjs";
+import { hostDeclaresPolling } from "../../../../packages/unplugin/src/core/transform/tracker/hostDeclaresPolling";
 
 /**
  * Verifies ttsc reads a polling declaration exactly as the host that owns it

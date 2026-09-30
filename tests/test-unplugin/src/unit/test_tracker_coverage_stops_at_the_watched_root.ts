@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/lib/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS.mjs";
-import { pathTraversesSymbolicLink } from "../../../../../packages/unplugin/lib/core/transform/tracker/pathTraversesSymbolicLink.mjs";
+import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
+import { pathTraversesSymbolicLink } from "../../../../packages/unplugin/src/core/transform/tracker/pathTraversesSymbolicLink";
 
 /**
  * Verifies a tracker keeps covering an input below a linked root, and still

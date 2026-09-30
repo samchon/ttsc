@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { inlineSourceMap } from "../../../../../packages/unplugin/lib/core/transform/utils/inlineSourceMap.mjs";
-import { resolveTransformSourceMap } from "../../../../../packages/unplugin/lib/core/transform/utils/resolveTransformSourceMap.mjs";
-import { TTSC_SOURCE_MAP_STASH } from "../../../../../packages/unplugin/lib/core/webpack/TTSC_SOURCE_MAP_STASH.mjs";
-import { restoreTtscSourceMap } from "../../../../../packages/unplugin/lib/core/webpack/restoreTtscSourceMap.mjs";
+import { inlineSourceMap } from "../../../../packages/unplugin/src/core/transform/utils/inlineSourceMap";
+import { resolveTransformSourceMap } from "../../../../packages/unplugin/src/core/transform/utils/resolveTransformSourceMap";
+import { TTSC_SOURCE_MAP_STASH } from "../../../../packages/unplugin/src/core/webpack/TTSC_SOURCE_MAP_STASH";
+import { restoreTtscSourceMap } from "../../../../packages/unplugin/src/core/webpack/restoreTtscSourceMap";
 
 /**
  * Verifies a transform's source map reaches a host only when it describes the

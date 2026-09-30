@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { isHostWrapperQuery } from "../../../../../packages/unplugin/lib/core/transform/utils/isHostWrapperQuery.mjs";
+import { isHostWrapperQuery } from "../../../../packages/unplugin/src/core/transform/utils/isHostWrapperQuery";
 
 /**
  * Verifies exactly the host-generated wrapper queries are recognized, so every
