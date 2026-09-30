@@ -1,7 +1,7 @@
-import { TestProject } from "@ttsc/testing";
 import fs from "node:fs";
 import path from "node:path";
 
+import { withIdentityBoundary } from "../internal/identityBoundary";
 import { TtsgraphClient, assert } from "../internal/ttsgraph";
 
 interface ToolResult {
@@ -53,31 +53,13 @@ const lookup = async (
  * @evidence contracts/testing.md#distinguishing-cases An included root is added and another removed without reopening MCP, contrasting both expansion and contraction of the compiler project.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_refreshes_added_and_deleted_roots_in_same_mcp_session starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Resident compiler root discovery, refreshed snapshot transport and application lookup must reflect filesystem changes; direct lookup over fixed nodes cannot exercise that connection.
- * @evidence contracts/e2e.md#shared-execution One project and MCP/compiler lifetime is essential to observe invalidation rather than cold reload. The suite binary is shared, and stable cases could share other preparation; full batching is incomplete.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The case owns its mutable source directory and changes it only after each baseline response; stdin closes in finally and the success path checks exit.
+ * @evidence contracts/e2e.md#shared-execution Twenty-five display, citation, DTO/audit, traversal, MCP protocol and config/source/root/tag invalidation entries share one project, initialized MCP session and native compiler. MCP ranking and exact tag-target queries temporarily select their original closed source universes, restoring config bytes finally; all transitions advance actual generations. Checker rejection also executes public dump CLI once for diagnostic/raw-edge delivery.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique files, names, contracts, chain topologies and citation targets preserve fixture distinctions; spec/test suffixes, decorators and real external declarations remain. MCP ranking selects its two sources and tag refresh selects its one source, then restores exact config bytes; invalid-config recovery also restores them on assertion failure. Mutations touch named fixture inputs only and serial requests synchronize each generation. Suite finally joins the shared client after complete collection.
  * @evidence contracts/e2e.md#preserved-coverage All baseline Original, added Added and deleted Original-absence assertions remain here; a new-session result would not preserve the resident refresh distinction.
  */
 export const test_ttscgraph_refreshes_added_and_deleted_roots_in_same_mcp_session =
   async () => {
-    const root = TestProject.createProject({
-      "tsconfig.json": JSON.stringify({
-        compilerOptions: {
-          target: "ES2022",
-          module: "commonjs",
-          strict: true,
-        },
-        include: ["src"],
-      }),
-      "src/original.ts": "export class OriginalRoot {}\n",
-    });
-    const client = TtsgraphClient.start(root);
-    try {
-      await client.request("initialize", {
-        protocolVersion: "2025-06-18",
-        capabilities: {},
-        clientInfo: { name: "test-graph", version: "0.0.0" },
-      });
-      client.notify("notifications/initialized", {});
+    await withIdentityBoundary(async (client, root) => {
 
       assert.ok(
         (await lookup(client, "OriginalRoot")).includes("OriginalRoot"),
@@ -92,9 +74,5 @@ export const test_ttscgraph_refreshes_added_and_deleted_roots_in_same_mcp_sessio
       assert.ok(
         !(await lookup(client, "OriginalRoot")).includes("OriginalRoot"),
       );
-    } finally {
-      client.endStdin();
-    }
-
-    assert.equal(await client.waitForExit(), 0, client.stderrText());
+    });
   };

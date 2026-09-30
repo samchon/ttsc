@@ -6,7 +6,7 @@ import { TtsgraphClient, assert } from "./ttsgraph";
 
 let preparation: Promise<{ client: TtsgraphClient; root: string; initialization: unknown }> | undefined;
 
-/** Borrow the compiler identity project shared by twenty-one named cases. */
+/** Borrow the compiler identity project shared by twenty-five named cases. */
 export async function withIdentityBoundary(
   body: (client: TtsgraphClient, root: string, initialization: unknown) => Promise<void>,
   include?: string[],
@@ -741,6 +741,14 @@ async function prepare(): Promise<{ client: TtsgraphClient; root: string; initia
       "export function mcpCoversRun(): void {",
       "  new McpService().run();",
       "}",
+      "",
+    ].join("\n"),
+    "src/config-refresh.ts": "export class Recoverable {}\n",
+    "src/source-refresh.ts": "export class BeforeEdit {}\n",
+    "src/original.ts": "export class OriginalRoot {}\n",
+    "src/tag-refresh.ts": [
+      "/** @evidence docs/one.md#first The section this implements. */",
+      "export function subject(): void {}",
       "",
     ].join("\n"),
     "src/object-outline.ts": before,

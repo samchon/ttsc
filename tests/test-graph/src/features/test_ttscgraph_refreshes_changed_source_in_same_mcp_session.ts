@@ -1,7 +1,7 @@
-import { TestProject } from "@ttsc/testing";
 import fs from "node:fs";
 import path from "node:path";
 
+import { withIdentityBoundary } from "../internal/identityBoundary";
 import { TtsgraphClient, assert } from "../internal/ttsgraph";
 
 interface ToolResult {
@@ -51,32 +51,13 @@ const lookupNames = (result: ToolResult): string[] => {
  * @evidence contracts/testing.md#distinguishing-cases Positive new-name and negative old-name results contrast the initial baseline, detecting stale addition and stale deletion together.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_refreshes_changed_source_in_same_mcp_session starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Resident compiler source invalidation and MCP model refresh must update facts between requests; a freshly constructed memory model cannot prove this lifetime transition.
- * @evidence contracts/e2e.md#shared-execution The two source generations share one project and MCP/compiler session plus the suite-built binary. That reuse is required; overall stable-case project batching remains unfinished.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity One fixture source is replaced only after its baseline query, and no other case supplies those handles; stdin ends in finally and successful exit is checked.
+ * @evidence contracts/e2e.md#shared-execution Twenty-five display, citation, DTO/audit, traversal, MCP protocol and config/source/root/tag invalidation entries share one project, initialized MCP session and native compiler. MCP ranking and exact tag-target queries temporarily select their original closed source universes, restoring config bytes finally; all transitions advance actual generations. Checker rejection also executes public dump CLI once for diagnostic/raw-edge delivery.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique files, names, contracts, chain topologies and citation targets preserve fixture distinctions; spec/test suffixes, decorators and real external declarations remain. MCP ranking selects its two sources and tag refresh selects its one source, then restores exact config bytes; invalid-config recovery also restores them on assertion failure. Mutations touch named fixture inputs only and serial requests synchronize each generation. Suite finally joins the shared client after complete collection.
  * @evidence contracts/e2e.md#preserved-coverage Before baseline, After presence and Before absence remain executable in one session. No fresh-client workaround or weaker presence-only check replaces them.
  */
 export const test_ttscgraph_refreshes_changed_source_in_same_mcp_session =
   async () => {
-    const root = TestProject.createProject({
-      "tsconfig.json": JSON.stringify({
-        compilerOptions: {
-          target: "ES2022",
-          module: "commonjs",
-          strict: true,
-        },
-        include: ["src"],
-      }),
-      "src/index.ts": "export class BeforeEdit {}\n",
-    });
-
-    const client = TtsgraphClient.start(root);
-    try {
-      await client.request("initialize", {
-        protocolVersion: "2025-06-18",
-        capabilities: {},
-        clientInfo: { name: "test-graph", version: "0.0.0" },
-      });
-      client.notify("notifications/initialized", {});
+    await withIdentityBoundary(async (client, root) => {
 
       const before = lookupNames(
         (await client.request("tools/call", {
@@ -87,7 +68,7 @@ export const test_ttscgraph_refreshes_changed_source_in_same_mcp_session =
       assert.ok(before.includes("BeforeEdit"), JSON.stringify(before));
 
       fs.writeFileSync(
-        path.join(root, "src", "index.ts"),
+        path.join(root, "src", "source-refresh.ts"),
         "export class AfterEdit {}\n",
       );
 
@@ -106,10 +87,5 @@ export const test_ttscgraph_refreshes_changed_source_in_same_mcp_session =
         })) as ToolResult,
       );
       assert.ok(!stale.includes("BeforeEdit"), JSON.stringify(stale));
-    } finally {
-      client.endStdin();
-    }
-
-    const code = await client.waitForExit();
-    assert.equal(code, 0, client.stderrText());
+    });
   };

@@ -1,7 +1,7 @@
-import { TestProject } from "@ttsc/testing";
 import fs from "node:fs";
 import path from "node:path";
 
+import { withIdentityBoundary } from "../internal/identityBoundary";
 import { TtsgraphClient, assert } from "../internal/ttsgraph";
 
 interface ToolResult {
@@ -53,42 +53,13 @@ const lookupNames = (result: ToolResult): string[] => {
  * @evidence contracts/testing.md#distinguishing-cases Only documentation changes, contrasting new-target presence with old-target absence while declaration identity and body stay fixed.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_refreshes_a_tag_only_edit_in_same_mcp_session starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Native incremental comment extraction, generation replacement and resident citation reindexing must respond to a non-code edit without a new MCP client.
- * @evidence contracts/e2e.md#shared-execution The old/new requests deliberately share one project and session using the suite compiler. This transition needs an invalidated generation; unrelated stable cases can share a batch still to be built.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The case rewrites its own source after the old-target baseline; unique addresses prevent prior citation reuse, finally ends stdin and normal exit is checked.
+ * @evidence contracts/e2e.md#shared-execution Twenty-five display, citation, DTO/audit, traversal, MCP protocol and config/source/root/tag invalidation entries share one project, initialized MCP session and native compiler. MCP ranking and exact tag-target queries temporarily select their original closed source universes, restoring config bytes finally; all transitions advance actual generations. Checker rejection also executes public dump CLI once for diagnostic/raw-edge delivery.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique files, names, contracts, chain topologies and citation targets preserve fixture distinctions; spec/test suffixes, decorators and real external declarations remain. MCP ranking selects its two sources and tag refresh selects its one source, then restores exact config bytes; invalid-config recovery also restores them on assertion failure. Mutations touch named fixture inputs only and serial requests synchronize each generation. Suite finally joins the shared client after complete collection.
  * @evidence contracts/e2e.md#preserved-coverage Original subject membership, new address membership and empty old address assertions remain, preserving tag-only invalidation rather than replacing it with a cold run.
  */
 export const test_ttscgraph_refreshes_a_tag_only_edit_in_same_mcp_session =
   async () => {
-    const root = TestProject.createProject({
-      "tsconfig.json": JSON.stringify(
-        {
-          compilerOptions: {
-            target: "ES2022",
-            module: "commonjs",
-            strict: true,
-            rootDir: "src",
-            outDir: "dist",
-          },
-          include: ["src"],
-        },
-        null,
-        2,
-      ),
-      "src/app.ts": [
-        "/** @evidence docs/one.md#first The section this implements. */",
-        "export function subject(): void {}",
-        "",
-      ].join("\n"),
-    });
-
-    const client = TtsgraphClient.start(root);
-    try {
-      await client.request("initialize", {
-        protocolVersion: "2025-06-18",
-        capabilities: {},
-        clientInfo: { name: "test-graph", version: "0.0.0" },
-      });
-      client.notify("notifications/initialized", {});
+    await withIdentityBoundary(async (client, root) => {
 
       const lookup = async (query: string): Promise<string[]> =>
         lookupNames(
@@ -106,7 +77,7 @@ export const test_ttscgraph_refreshes_a_tag_only_edit_in_same_mcp_session =
 
       // Only the comment changes: the declaration below it is byte-identical.
       fs.writeFileSync(
-        path.join(root, "src", "app.ts"),
+        path.join(root, "src", "tag-refresh.ts"),
         [
           "/** @evidence docs/two.md#second The section this implements. */",
           "export function subject(): void {}",
@@ -125,15 +96,5 @@ export const test_ttscgraph_refreshes_a_tag_only_edit_in_same_mcp_session =
         [],
         "the replaced address must stop answering",
       );
-    } finally {
-      // Closing stdin is what asks the server to exit, so it belongs here: a
-      // failing assertion above must not leave a resident compiler behind.
-      client.endStdin();
-    }
-
-    // The refresh has to leave the session healthy, not merely answer: a graph
-    // that reloads correctly and then crashes its native child on shutdown
-    // would pass every assertion above. Awaited outside the block because
-    // waiting twice on one child is what times out.
-    assert.equal(await client.waitForExit(), 0, client.stderrText());
+    }, ["src/tag-refresh.ts"]);
   };

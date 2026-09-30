@@ -1,7 +1,7 @@
-import { TestProject } from "@ttsc/testing";
 import fs from "node:fs";
 import path from "node:path";
 
+import { withIdentityBoundary } from "../internal/identityBoundary";
 import { TtsgraphClient, assert } from "../internal/ttsgraph";
 
 interface ToolResult {
@@ -38,27 +38,13 @@ const lookupArguments = (query: string) => ({
  * @evidence contracts/testing.md#distinguishing-cases Valid, invalid and restored configuration states contrast within one live client. The initial success assertion checks the error flag, not a baseline declaration payload.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_fails_closed_for_invalid_config_and_recovers starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary The actual launcher, resident compiler refresh and MCP error conversion must reject invalid config without serving old facts and recover without restarting the client.
- * @evidence contracts/e2e.md#shared-execution Three states deliberately reuse one project/session and the suite compiler; configuration invalidation requires that lifetime. Other stable cases may share preparation, and full population minimization is unfinished.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The case owns and rewrites only its tsconfig, restoring it before the final request; client stdin ends in finally and the success path checks exit.
+ * @evidence contracts/e2e.md#shared-execution Twenty-five display, citation, DTO/audit, traversal, MCP protocol and config/source/root/tag invalidation entries share one project, initialized MCP session and native compiler. MCP ranking and exact tag-target queries temporarily select their original closed source universes, restoring config bytes finally; all transitions advance actual generations. Checker rejection also executes public dump CLI once for diagnostic/raw-edge delivery.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique files, names, contracts, chain topologies and citation targets preserve fixture distinctions; spec/test suffixes, decorators and real external declarations remain. MCP ranking selects its two sources and tag refresh selects its one source, then restores exact config bytes; invalid-config recovery also restores them on assertion failure. Mutations touch named fixture inputs only and serial requests synchronize each generation. Suite finally joins the shared client after complete collection.
  * @evidence contracts/e2e.md#preserved-coverage Initial non-error, invalid error/message and recovered non-error/name assertions remain. The baseline oracle does not establish every initial graph fact.
  */
 export const test_ttscgraph_fails_closed_for_invalid_config_and_recovers =
   async () => {
-    const root = TestProject.createProject({
-      "tsconfig.json": JSON.stringify({
-        compilerOptions: { target: "ES2022", module: "commonjs", strict: true },
-        include: ["src"],
-      }),
-      "src/index.ts": "export class Recoverable {}\n",
-    });
-    const client = TtsgraphClient.start(root);
-    try {
-      await client.request("initialize", {
-        protocolVersion: "2025-06-18",
-        capabilities: {},
-        clientInfo: { name: "test-graph", version: "0.0.0" },
-      });
-      client.notify("notifications/initialized", {});
+    await withIdentityBoundary(async (client, root) => {
 
       const initial = (await client.request("tools/call", {
         name: GRAPH_TOOL_NAME,
@@ -67,6 +53,8 @@ export const test_ttscgraph_fails_closed_for_invalid_config_and_recovers =
       assert.equal(initial.isError, undefined, initial.content[0]?.text);
 
       const config = path.join(root, "tsconfig.json");
+      const original = fs.readFileSync(config);
+      try {
       fs.writeFileSync(config, "{ invalid");
       const invalid = (await client.request("tools/call", {
         name: GRAPH_TOOL_NAME,
@@ -75,17 +63,7 @@ export const test_ttscgraph_fails_closed_for_invalid_config_and_recovers =
       assert.equal(invalid.isError, true, JSON.stringify(invalid));
       assert.match(invalid.content[0]?.text ?? "", /invalid project/i);
 
-      fs.writeFileSync(
-        config,
-        JSON.stringify({
-          compilerOptions: {
-            target: "ES2022",
-            module: "commonjs",
-            strict: true,
-          },
-          include: ["src"],
-        }),
-      );
+      fs.writeFileSync(config, original);
       const recovered = (await client.request("tools/call", {
         name: GRAPH_TOOL_NAME,
         arguments: lookupArguments("Recoverable"),
@@ -95,9 +73,8 @@ export const test_ttscgraph_fails_closed_for_invalid_config_and_recovers =
         JSON.stringify(recovered.structuredContent ?? {}),
         /Recoverable/,
       );
-    } finally {
-      client.endStdin();
-    }
-
-    assert.equal(await client.waitForExit(), 0, client.stderrText());
+      } finally {
+        fs.writeFileSync(config, original);
+      }
+    });
   };
