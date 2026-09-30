@@ -19,6 +19,11 @@ import "testing"
 //     member-access operands bound in the same file.
 //  2. Apply the collected fixes through the real disk-backed fix applier.
 //  3. Assert the rewritten file byte for byte.
+//
+// @evidence contracts/testing.md#behavioral-verification assertFixSnapshot compares the complete fixed file for all four equality operators.
+// @evidence contracts/testing.md#independent-expectations The independently authored output removes typeof, uses undefined and strengthens loose equality without changing declarations or operands.
+// @evidence contracts/testing.md#distinguishing-cases Strict equality/inequality retain their operators, loose equality/inequality gain strictness, and member/identifier operands remain intact; canonical/nonqualifying negatives are TestUnicornNoTypeofUndefinedSkipsUpstreamValidForms.
+// @evidence contracts/testing.md#execution-ownership TestUnicornNoTypeofUndefinedFixRewritesComparisons is a discoverable Go unit host; owning checker-backed engine and disk-backed fix applier operations run its literal fixtures in the shared process without installation, native builds or product children. Local table/helper failures retain the source, expected replacement or option payload identity.
 func TestUnicornNoTypeofUndefinedFixRewritesComparisons(t *testing.T) {
   source := `declare const value: { deep: unknown };
 

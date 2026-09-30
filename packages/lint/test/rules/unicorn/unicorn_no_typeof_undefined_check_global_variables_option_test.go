@@ -24,6 +24,11 @@ import (
 //     suggestion (with edits, no fix) and the correct operator label.
 //  2. With the option enabled, assert a local binding still reports an autofix.
 //  3. Assert ValidateOptions accepts the boolean forms and rejects the rest.
+//
+// @evidence contracts/testing.md#behavioral-verification global comparisons become suggestions, local comparisons remain automatic fixes, and actual validateRuleOptions accepts/rejects its option vocabulary.
+// @evidence contracts/testing.md#independent-expectations Literal expected messages and operator-specific suggestion titles encode the supported safety policy; authored option payloads specify boolean versus malformed inputs independently.
+// @evidence contracts/testing.md#distinguishing-cases Enabled equality/inequality globals require suggestions and no fix, an enabled local requires a fix and no suggestion; empty/true/false/object options pass while unknown/null/string/nonobject inputs fail. Default-global negatives are TestUnicornNoTypeofUndefinedSkipsUpstreamValidForms.
+// @evidence contracts/testing.md#execution-ownership TestUnicornNoTypeofUndefinedCheckGlobalVariablesOption is a discoverable Go unit host; owning checker-backed engine and option validator operations run its literal fixtures in the shared process without installation, native builds or product children. Local table/helper failures retain the source, expected replacement or option payload identity.
 func TestUnicornNoTypeofUndefinedCheckGlobalVariablesOption(t *testing.T) {
   const ruleName = "unicorn/no-typeof-undefined"
   const message = "Compare with `undefined` directly instead of using `typeof`."

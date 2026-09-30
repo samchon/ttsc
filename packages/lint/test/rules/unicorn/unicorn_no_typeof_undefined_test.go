@@ -25,6 +25,11 @@ import (
 //  2. Run the checker-backed snapshot path.
 //  3. Assert one finding per `typeof`, at the keyword range, with the message,
 //     a non-empty fix, and no suggestion.
+//
+// @evidence contracts/testing.md#behavioral-verification four local comparisons report exactly at each typeof keyword with exact message, severity, an automatic fix and no suggestions.
+// @evidence contracts/testing.md#independent-expectations Authored keyword occurrences and literal diagnostic message derive expected ranges/text independently of the product visitor.
+// @evidence contracts/testing.md#distinguishing-cases Let/const/var/member operands cover all four equality operators; default-global and malformed comparison shapes are the named SkipsUpstreamValidForms complement.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusUnicornNoTypeofUndefined is a discoverable Go unit host; owning checker-backed engine operations run its literal fixtures in the shared process without installation, native builds or product children. Local table/helper failures retain the source, expected replacement or option payload identity.
 func TestRuleCorpusUnicornNoTypeofUndefined(t *testing.T) {
   const ruleName = "unicorn/no-typeof-undefined"
   source := `declare const object: { property: unknown };
