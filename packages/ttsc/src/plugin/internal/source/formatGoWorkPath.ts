@@ -20,6 +20,8 @@ import { autoQuoteGoModToken } from "./autoQuoteGoModToken";
  *
  * On POSIX, a backslash can be part of a filename. Preserve it there so the
  * workspace token continues to name the directory the caller supplied.
+ * The explicit platform argument permits callers to format a declared path
+ * grammar; ordinary workspace callers retain the current host by default.
  *
  * @evidence contracts/common.md#principled-implementation Windows separator normalization precedes Go's token formatter so UNC and extended-length spellings containing a comment opener are quoted rather than dropped from the workspace; POSIX backslashes retain their filename meaning.
  * @evidence contracts/common.md#clear-and-simple-design Path protocol spelling and token quoting are two explicit steps, sharing the same AutoQuote implementation as other modfile values.
@@ -31,8 +33,11 @@ import { autoQuoteGoModToken } from "./autoQuoteGoModToken";
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This converts one supplied path token and owns no shared resolution or build computation.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only its returned token survives; no filesystem handle or process is acquired.
  */
-export function formatGoWorkPath(p: string): string {
+export function formatGoWorkPath(
+  p: string,
+  platform: NodeJS.Platform = process.platform,
+): string {
   return autoQuoteGoModToken(
-    process.platform === "win32" ? p.replace(/\\/g, "/") : p,
+    platform === "win32" ? p.replace(/\\/g, "/") : p,
   );
 }

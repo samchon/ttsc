@@ -1,7 +1,5 @@
 import * as mod from "../../../../../packages/vscode/src/serverResolution";
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
-import path from "node:path";
 
 /**
  * Verifies VS Code client roots follow each Windows directory's identity.
@@ -11,7 +9,7 @@ import path from "node:path";
  * it does not stop and restart the same project unnecessarily.
  *
  * 1. Call the authored server resolution helper in the unit process.
- * 2. Prove ordinary aliases converge under the Windows platform override.
+ * 2. Prove ordinary aliases converge under supplied Windows directory authority.
  * 3. Inject a deterministic filesystem with two case-distinct roots.
  * 4. Prove planning, containment, and deepest-root selection keep both clients.
  * 5. Prove missing descendants inherit the nearest existing root semantics.
@@ -19,10 +17,9 @@ import path from "node:path";
  * @evidence contracts/testing.md#behavioral-verification root identity, root planning and deepest-root selection honor ordinary Windows aliases and sensitive directory distinctions.
  * @evidence contracts/testing.md#independent-expectations independently injected realpath and per-directory case semantics define identity, not lowercased strings.
  * @evidence contracts/testing.md#distinguishing-cases drive aliases and ordinary folding contrast with two sensitive sibling roots and missing descendants.
- * @evidence contracts/testing.md#execution-ownership The named test_vscode_server_resolution_keys_windows_roots_case_insensitively function runs under src/unit/ttscserver and calls authored serverResolution functions directly; fixture manifests are resolver input, and no language client or product process starts.
+ * @evidence contracts/testing.md#execution-ownership This named source unit calls authored serverResolution and the real identity resolver with an explicitly supplied realpath directory map and ordinary/sensitive case authority; host filesystem discovery is not impersonated and no language client or product process starts.
  */
 export function test_vscode_server_resolution_keys_windows_roots_case_insensitively() {
-  const repo = TestProject.WORKSPACE_ROOT;
   const observed = (() => {
     const upper = "C:\\Repo";
     const lower = "c:\\repo";
@@ -35,6 +32,7 @@ export function test_vscode_server_resolution_keys_windows_roots_case_insensitiv
       realpath: (location) => {
         const resolved = location.replaceAll("/", "\\");
         const folded = resolved.toLowerCase();
+        if (folded === "c:\\repo") return "C:\\Repo";
         if (folded === "c:\\ordinary") return "C:\\Ordinary";
         if (folded === "c:\\ordinary\\repo") return "C:\\Ordinary\\Repo";
         if (resolved === "C:\\Sensitive") return resolved;
@@ -50,8 +48,8 @@ export function test_vscode_server_resolution_keys_windows_roots_case_insensitiv
       "C:\\Sensitive\\project",
     ] as const;
     return {
-      sameKey: mod.rootKey(upper, "win32") === mod.rootKey(lower, "win32"),
-      planned: mod.planNonOverlappingClientRoots([upper, lower], undefined, "win32"),
+      sameKey: mod.rootKey(upper, "win32", identities) === mod.rootKey(lower, "win32", identities),
+      planned: mod.planNonOverlappingClientRoots([upper, lower], undefined, "win32", identities),
       ordinaryInjected:
         mod.rootKey("C:\\ORDINARY\\repo", "win32", identities) ===
         mod.rootKey("c:\\ordinary\\REPO", "win32", identities),

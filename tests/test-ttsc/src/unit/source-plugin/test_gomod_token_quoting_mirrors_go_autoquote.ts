@@ -16,12 +16,13 @@ import { formatGoWorkPath } from "../../../../../packages/ttsc/src/plugin/intern
  *
  * 1. Feed `autoQuoteGoModToken` a table spanning clean tokens, the space case,
  *    every forced-quote trigger, and every escape form.
- * 2. Feed `formatGoWorkPath` Windows/POSIX paths with and without spaces.
- * 3. Assert each output equals the value Go would emit for the same token.
+ * 2. Feed the explicit Windows grammar paths with and without spaces.
+ * 3. Contrast POSIX literal backslashes and check the native default grammar.
+ * 4. Assert each output equals the value Go would emit for the same token.
  * @evidence contracts/testing.md#behavioral-verification Calls authored autoQuoteGoModToken and formatGoWorkPath; literal output assertions detect invalid workspace tokens and incorrect Go escape sequences.
  * @evidence contracts/testing.md#independent-expectations The table literals follow golang.org/x/mod/modfile.AutoQuote and strconv.Quote grammar, independently of the TypeScript implementation.
- * @evidence contracts/testing.md#distinguishing-cases Covers unquoted clean tokens, empty input, spaces, quotes, comments, Unicode separators and control escapes; path cases distinguish ordinary Windows, UNC, device and POSIX spellings.
- * @evidence contracts/testing.md#execution-ownership The named source-unit entry directly executes two portable quoting functions; the retained writeGoWork integration separately validates a real Go workspace consumer.
+ * @evidence contracts/testing.md#distinguishing-cases Covers unquoted clean tokens, empty input, spaces, quotes, comments, Unicode separators and control escapes; explicit Windows grammar owns all original drive/UNC/device expectations, Linux and macOS preserve literal backslashes, and the omitted argument retains the real host default.
+ * @evidence contracts/testing.md#execution-ownership The named source-unit entry directly executes both real quoting functions with declared grammars and with the native default, without replacing process.platform; the retained writeGoWork integration separately validates a real Go workspace consumer.
  */
 export function test_gomod_token_quoting_mirrors_go_autoquote() {
   const NBSP = String.fromCodePoint(0x00a0);
@@ -97,9 +98,18 @@ export function test_gomod_token_quoting_mirrors_go_autoquote() {
   ];
   for (const [input, expected] of formatCases) {
     assert.equal(
-      formatGoWorkPath(input),
+      formatGoWorkPath(input, "win32"),
       expected,
       `formatGoWorkPath(${JSON.stringify(input)})`,
     );
   }
+  for (const platform of ["linux", "darwin"] as const) {
+    assert.equal(formatGoWorkPath("a\\b c", platform), '"a\\\\b c"');
+    assert.equal(formatGoWorkPath("a\\b", platform), "a\\b");
+    assert.equal(formatGoWorkPath("/Users/John Smith/x", platform), '"/Users/John Smith/x"');
+  }
+  assert.equal(
+    formatGoWorkPath("a\\b c"),
+    process.platform === "win32" ? '"a/b c"' : '"a\\\\b c"',
+  );
 }
