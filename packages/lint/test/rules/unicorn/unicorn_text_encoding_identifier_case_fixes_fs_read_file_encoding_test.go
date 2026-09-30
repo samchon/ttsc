@@ -14,6 +14,11 @@ import "testing"
 //     non-canonical encoding.
 //  2. Run the rule through the native fix applier.
 //  3. Assert the encoding argument is rewritten and nothing else moves.
+//
+// @evidence contracts/testing.md#behavioral-verification assertFixSnapshot verifies readFile/readFileSync second-argument encoding edits with whole-source equality.
+// @evidence contracts/testing.md#independent-expectations Authored utf8/ascii output strings preserve path, callback, assignment and surrounding declaration text independently of the normalizer.
+// @evidence contracts/testing.md#distinguishing-cases Both async readFile and sync readFileSync positions change; TestUnicornTextEncodingIdentifierCaseSuggestsWithoutFixingOffReadFilePositions owns the near-miss nonfixable positions.
+// @evidence contracts/testing.md#execution-ownership TestUnicornTextEncodingIdentifierCaseFixesFsReadFileEncoding is a discoverable Go unit host; its source/option fixtures exercise owning AST engine and fix operations in the shared Go process without consumer installation, native builds or product child hosts. Helper failures retain the source/expected fixture identity.
 func TestUnicornTextEncodingIdentifierCaseFixesFsReadFileEncoding(t *testing.T) {
   declare := "declare const fs: { readFile(p: string, e: string, cb: () => void): void; readFileSync(p: string, e: string): string };\n"
   for _, testCase := range []struct {

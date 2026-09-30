@@ -18,6 +18,11 @@ import (
 //  1. Configure the rule with { withDash: true }.
 //  2. Assert `"utf8"` reports a suggestion rewriting to `utf-8`.
 //  3. Assert `"utf-8"` (now canonical) reports nothing.
+//
+// @evidence contracts/testing.md#behavioral-verification runRuleFindingsSnapshot verifies one exact message and utf-8 suggestion edit under withDash:true, and the option-aware skip helper accepts utf-8.
+// @evidence contracts/testing.md#independent-expectations The literal message, suggestion replacement and zero control encode the supported explicit dash override independently of implementation.
+// @evidence contracts/testing.md#distinguishing-cases The same options reject utf8 and accept utf-8; the default inverse policy is covered by TestRuleCorpusUnicornTextEncodingIdentifierCase.
+// @evidence contracts/testing.md#execution-ownership TestUnicornTextEncodingIdentifierCaseWithDashOptionPrefersDash is a discoverable Go unit host; its source/option fixtures exercise owning AST engine and fix operations in the shared Go process without consumer installation, native builds or product child hosts. Helper failures retain the source/expected fixture identity.
 func TestUnicornTextEncodingIdentifierCaseWithDashOptionPrefersDash(t *testing.T) {
   options := json.RawMessage(`{"withDash":true}`)
 

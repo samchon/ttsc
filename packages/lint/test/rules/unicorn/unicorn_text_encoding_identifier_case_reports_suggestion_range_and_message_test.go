@@ -19,6 +19,11 @@ import (
 //  1. Lint one non-canonical encoding literal in a neutral position.
 //  2. Assert a single finding at the literal token with the exact message.
 //  3. Assert no autofix, and one suggestion editing the quoted content.
+//
+// @evidence contracts/testing.md#behavioral-verification five literals yield exact messages, whole-token diagnostic ranges and one payload-only suggestion with exact title/text and no autofix.
+// @evidence contracts/testing.md#independent-expectations Authored replacement pairs and independently located literal bounds specify upstream normalization and direction; test-owned sentence interpolation does not call the production message builder.
+// @evidence contracts/testing.md#distinguishing-cases UTF spellings with case/dash differences and uppercase/mixed ASCII change only inside their quotes; TestUnicornTextEncodingIdentifierCaseSkipsCanonicalAndUnknownLabels owns canonical/unknown negatives.
+// @evidence contracts/testing.md#execution-ownership TestUnicornTextEncodingIdentifierCaseReportsSuggestionRangeAndMessage is a discoverable Go unit host; owning parsed-AST engine and suggestion observations run its literal fixtures in the shared process without installation, native builds or product children. Local table/helper failures retain the source, expected replacement or option payload identity.
 func TestUnicornTextEncodingIdentifierCaseReportsSuggestionRangeAndMessage(t *testing.T) {
   for _, testCase := range []struct {
     literal     string

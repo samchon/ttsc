@@ -16,6 +16,11 @@ import "testing"
 //  1. Parse each fixture as TSX so the attribute becomes a JSX node.
 //  2. For charset/accept-charset attributes, assert the suggestion is `utf-8`.
 //  3. For off-target elements/attributes, assert the default `utf8` (or silence).
+//
+// @evidence contracts/testing.md#behavioral-verification local TSX assertion helpers require exact utf-8/utf8 suggestion text and no autofix for five reporting sources, plus two clean controls.
+// @evidence contracts/testing.md#independent-expectations Authored literal replacement strings encode context-specific WHATWG charset spelling independently of product tag/attribute matching.
+// @evidence contracts/testing.md#distinguishing-cases Meta self-closing/paired charset and form acceptCharset/accept-charset require dashed form; meta name uses default dashless form; canonical meta charset and wrong-element div charset are clean.
+// @evidence contracts/testing.md#execution-ownership TestUnicornTextEncodingIdentifierCaseEnforcesDashInJsxCharsetAttributes is a discoverable Go unit host; owning parsed-AST engine and suggestion observations run its literal fixtures in the shared process without installation, native builds or product children. Local table/helper failures retain the source, expected replacement or option payload identity.
 func TestUnicornTextEncodingIdentifierCaseEnforcesDashInJsxCharsetAttributes(t *testing.T) {
   findingsFor := func(source string) []*Finding {
     _, _, findings := runRuleFindingsSnapshotFile(

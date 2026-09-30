@@ -14,6 +14,11 @@ import "testing"
 //
 //  1. Lint an untagged template literal and assert the suggestion edits its body.
 //  2. Lint a tagged template with the same body and assert silence.
+//
+// @evidence contracts/testing.md#behavioral-verification the untagged encoding template receives one payload-only utf8 suggestion, while String.raw with the same payload is clean.
+// @evidence contracts/testing.md#independent-expectations Authored replacement text and independently calculated payload bounds preserve backtick delimiters under supported raw-tag exclusion.
+// @evidence contracts/testing.md#distinguishing-cases Only the untagged template body is editable; tagging the identical spelling with String.raw changes eligibility without changing its payload.
+// @evidence contracts/testing.md#execution-ownership TestUnicornTextEncodingIdentifierCaseHandlesTemplateLiterals is a discoverable Go unit host; owning parsed-AST engine and suggestion observations run its literal fixtures in the shared process without installation, native builds or product children. Local table/helper failures retain the source, expected replacement or option payload identity.
 func TestUnicornTextEncodingIdentifierCaseHandlesTemplateLiterals(t *testing.T) {
   source := "const enc = `utf-8`;\nvoid enc;\n"
   _, _, findings := runRuleFindingsSnapshot(t, unicornTextEncodingIdentifierCaseRuleName, source, nil)

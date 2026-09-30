@@ -15,6 +15,11 @@ import "testing"
 //  1. Construct a TextDecoder with a non-canonical (for this context) encoding.
 //  2. Assert one finding whose suggestion rewrites toward the dashed form.
 //  3. Assert the already-dashed spelling reports nothing.
+//
+// @evidence contracts/testing.md#behavioral-verification two TextDecoder labels receive utf-8 suggestions without automatic fixes, and canonical utf-8 is clean.
+// @evidence contracts/testing.md#independent-expectations Authored replacement utf-8 and literal zero control specify the supported constructor context override.
+// @evidence contracts/testing.md#distinguishing-cases Default-style utf8 and uppercase UTF-8 both change in the first TextDecoder argument; already dashed lowercase stays clean. Default nonconstructor spelling is owned by TestRuleCorpusUnicornTextEncodingIdentifierCase.
+// @evidence contracts/testing.md#execution-ownership TestUnicornTextEncodingIdentifierCaseEnforcesDashInTextDecoder is a discoverable Go unit host; owning parsed-AST engine and suggestion observations run its literal fixtures in the shared process without installation, native builds or product children. Local table/helper failures retain the source, expected replacement or option payload identity.
 func TestUnicornTextEncodingIdentifierCaseEnforcesDashInTextDecoder(t *testing.T) {
   for _, source := range []string{
     "const dec = new TextDecoder(\"utf8\");\nvoid dec;\n",
