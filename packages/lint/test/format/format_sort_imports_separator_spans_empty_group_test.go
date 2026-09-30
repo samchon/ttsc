@@ -12,6 +12,11 @@ import "testing"
 //  1. Parse a third-party and a relative import (no @api import).
 //  2. Apply that order with unsafe runtime sorting enabled.
 //  3. Assert one blank line separates the two populated groups.
+//
+// @evidence contracts/testing.md#behavioral-verification The alpha and local imports must receive exactly one blank line despite the empty api group, preserving both subsequent uses.
+// @evidence contracts/testing.md#independent-expectations The supported empty-string order entries contribute separators across skipped groups. The literal output independently specifies one blank line rather than accumulating two.
+// @evidence contracts/testing.md#distinguishing-cases The middle api group has no members. The custom-order host fills all groups and the CRLF twin checks the same empty-group boundary with another line ending.
+// @evidence contracts/testing.md#execution-ownership TestFormatSortImportsSeparatorSpansEmptyGroup owns the authored empty-middle-group whole-file LF snapshot and custom order in the selected public Go unit population. Owning syntax rule and fixture edits execute in one Go process without native builds, consumer installation or real product-host children.
 func TestFormatSortImportsSeparatorSpansEmptyGroup(t *testing.T) {
   source := "import { a } from \"alpha\";\n" +
     "import { b } from \"./local\";\n" +

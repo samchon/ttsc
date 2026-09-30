@@ -15,6 +15,11 @@ import "testing"
 //     intentionally shuffled order.
 //  2. Apply the rule's finding through the disk-backed fixer.
 //  3. Assert the rewritten file matches the canonical layout.
+//
+// @evidence contracts/testing.md#behavioral-verification Unsafe default ordering must produce alpha,zebra,local-a,local-b without blank separators and with the complete use unchanged.
+// @evidence contracts/testing.md#independent-expectations The documented default third-party-before-relative order and alphabetical ordering yield the authored literal sequence. No empty-string order entry means no group blank line.
+// @evidence contracts/testing.md#distinguishing-cases Two populated groups each contain two shuffled imports, unlike the builtin-first three-group host and explicit-separator hosts. Default safe runtime preservation belongs to separate hosts.
+// @evidence contracts/testing.md#execution-ownership TestFormatSortImportsGroupsExternalBeforeRelative owns the authored four-import complete-output fixture and explicit unsafe permission in the selected public Go unit population. Owning syntax rule and fixture edits execute in one Go process without native builds, consumer installation or real product-host children.
 func TestFormatSortImportsGroupsExternalBeforeRelative(t *testing.T) {
   source := "import { reduce } from \"./local-b\";\n" +
     "import zebra from \"zebra\";\n" +

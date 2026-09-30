@@ -16,6 +16,11 @@ import "testing"
 //  2. Apply an order that separates the two populated groups with a blank line
 //     under {"endOfLine":"crlf"}.
 //  3. Assert the blank line is "\r\n\r\n" and no lone LF remains.
+//
+// @evidence contracts/testing.md#behavioral-verification The alpha and relative imports must gain exactly a CRLF/CRLF blank separator, preserve all uses and contain no lone LF.
+// @evidence contracts/testing.md#independent-expectations The explicit crlf option requires each synthesized group line ending to be CRLF. The literal full-output and independent lone-LF check distinguish mixed-ending corruption.
+// @evidence contracts/testing.md#distinguishing-cases The middle api group is empty but its separator still applies. The LF empty-group twin and ordinary CRLF join host distinguish separator and declaration joins.
+// @evidence contracts/testing.md#execution-ownership TestFormatSortImportsGroupSeparatorHonorsCRLFEndOfLine owns the authored CRLF group-separator fixture, complete output and lone-LF assertion in the selected public Go unit population. Owning syntax rule and fixture edits execute in one Go process without native builds, consumer installation or real product-host children.
 func TestFormatSortImportsGroupSeparatorHonorsCRLFEndOfLine(t *testing.T) {
   source := "import { a } from \"alpha\";\r\n" +
     "import { b } from \"./local\";\r\n" +
