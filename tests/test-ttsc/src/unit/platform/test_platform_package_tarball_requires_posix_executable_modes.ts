@@ -6,7 +6,6 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { TestProject } from "../../../../utils/src/TestProject";
 const { validatePlatformPackages } = createRequire(import.meta.url)(path.join(TestProject.WORKSPACE_ROOT, "scripts", "assert-platform-package.cjs")) as { validatePlatformPackages(args: string[]): string[] };
-const workspaceRoot = TestProject.WORKSPACE_ROOT;
 
 /**
  * Verifies platform package tarballs require executable POSIX modes.

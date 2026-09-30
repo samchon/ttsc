@@ -3,7 +3,6 @@ import { TestProject } from "../../../../utils/src/TestProject";
 import {
   assert,
   fs,
-  os,
   path,
   resolveProjectConfig,
 } from "../../internal/project-unit";

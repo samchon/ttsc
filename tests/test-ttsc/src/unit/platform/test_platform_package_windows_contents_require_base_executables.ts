@@ -6,7 +6,6 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { TestProject } from "../../../../utils/src/TestProject";
 const { validatePlatformPackages } = createRequire(import.meta.url)(path.join(TestProject.WORKSPACE_ROOT, "scripts", "assert-platform-package.cjs")) as { validatePlatformPackages(args: string[]): string[] };
-const workspaceRoot = TestProject.WORKSPACE_ROOT;
 
 const windowsBaseExecutables = [
   "bin/ttsc.exe",
@@ -31,7 +30,7 @@ const windowsBaseExecutables = [
  *    keeping the unlisted Go-tool and non-platform boundaries explicit.
  * 3. Confirm win32-arm64 follows the same base-path rule.
  *
- * @evidence contracts/testing.md#behavioral-verification Source and tarball validators accept complete Windows 0644 artifacts and reject missing required base executables, while accepting base-only artifacts, win32-arm64 and non-platform packages.
+ * @evidence contracts/testing.md#behavioral-verification Source and tarball validators accept complete Windows 0644 artifacts and reject missing required base executables, while accepting base-only artifacts, win32-arm64 and non-platform packages; mixed targets collect every error in target order and a later call retains none of the earlier diagnostics.
  * @evidence contracts/testing.md#independent-expectations Authored Windows executable paths and synthetic tar populations determine which required files are present; POSIX execute metadata is inapplicable to Windows.
  * @evidence contracts/testing.md#distinguishing-cases 1. Exercise empty and single-file-missing Windows source packages and tarballs against the real release validation operation. 2. Accept complete 0644 Windows artifacts without executable metadata while keeping the unlisted Go-tool and non-platform boundaries explicit. 3. Confirm win32-arm64 follows the same base-path rule.
  * @evidence contracts/testing.md#execution-ownership This source unit calls validatePlatformPackages on every original archive and directory variant without a process. The matching feature CLI batch retains positive/negative exit and stderr transport; all original validator failure meanings remain here.
@@ -42,17 +41,16 @@ export const test_platform_package_windows_contents_require_base_executables =
       path.join(process.cwd(), ".tmp-platform-windows-"),
     );
     try {
-
       const emptySource = path.join(root, "empty-source");
       const emptyTarball = path.join(root, "empty.tgz");
       writeWindowsSourcePackage(emptySource, []);
       writeWindowsTarball(emptyTarball, []);
       assertAllBaseExecutablesMissing(
-                emptySource,
+        emptySource,
         "missing executable",
       );
       assertAllBaseExecutablesMissing(
-                emptyTarball,
+        emptyTarball,
         "tarball missing executable",
       );
 
@@ -64,11 +62,11 @@ export const test_platform_package_windows_contents_require_base_executables =
       writeWindowsSourcePackage(missingGofmtSource, withoutGofmt);
       writeWindowsTarball(missingGofmtTarball, withoutGofmt);
       assertMissing(
-                missingGofmtSource,
+        missingGofmtSource,
         "missing executable bin/go/bin/gofmt.exe",
       );
       assertMissing(
-                missingGofmtTarball,
+        missingGofmtTarball,
         "tarball missing executable bin/go/bin/gofmt.exe",
       );
 
@@ -85,6 +83,13 @@ export const test_platform_package_windows_contents_require_base_executables =
       ]);
       assertAccepted(completeSource);
       assertAccepted(completeTarball);
+      assert.deepEqual(
+        validatePlatformPackages([emptySource, completeSource, emptyTarball]),
+        windowsBaseExecutables.map((relative) => `@ttsc/win32-x64: missing executable ${relative}`).concat(
+          windowsBaseExecutables.map((relative) => `@ttsc/win32-x64: tarball missing executable ${relative}`),
+        ),
+      );
+      assert.deepEqual(validatePlatformPackages([completeSource]), []);
 
       const baseOnlySource = path.join(root, "base-only-source");
       const baseOnlyTarball = path.join(root, "base-only.tgz");
