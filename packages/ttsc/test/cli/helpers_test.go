@@ -1,14 +1,18 @@
 package ttsc_test
 
 import (
+  "errors"
+  "fmt"
   "io"
   "os"
   "os/exec"
   "path/filepath"
   "runtime"
-  "strconv"
   "strings"
+  "sync"
+  "syscall"
   "testing"
+  "time"
 )
 
 type apiDiagnostic struct {
@@ -31,7 +35,7 @@ type utilityTransformResult struct {
 }
 
 // packageRoot returns the `packages/ttsc` module root from this black-box test
-// package. Command tests run from that directory so `go run ./cmd/ttsc` uses
+// package. Command tests build there using
 // the same module graph as a developer running the native host by hand.
 func packageRoot(t *testing.T) string {
   t.Helper()
@@ -56,78 +60,106 @@ func writeProjectFile(t *testing.T, root, name, contents string) {
   }
 }
 
-// runNativeCommand executes the Go ttsc command exactly through its CLI entry
-// point. This keeps command-frontdoor tests black-box: only exit code, stdout,
-// stderr, and generated project files are observed.
+// runNativeCommand starts a fresh process using the suite's one native artifact.
 func runNativeCommand(t *testing.T, args ...string) (int, string, string) {
   t.Helper()
-  goArgs := []string{"run"}
-  if coverDir := os.Getenv("TTSC_NATIVE_COMMAND_COVERDIR"); coverDir != "" {
-    if err := os.MkdirAll(coverDir, 0o755); err != nil {
-      t.Fatal(err)
-    }
-    goArgs = append(goArgs, "-cover", "-covermode=atomic", "-coverpkg="+nativeCommandCoverPackages())
-  }
-  cmd := exec.Command("go", append(append(goArgs, "./cmd/ttsc"), args...)...)
-  cmd.Dir = packageRoot(t)
-  if coverDir := os.Getenv("TTSC_NATIVE_COMMAND_COVERDIR"); coverDir != "" {
-    cmd.Env = append(os.Environ(), "GOCOVERDIR="+coverDir)
-  }
-  out, err := cmd.Output()
-  stderr := ""
-  if exit, ok := err.(*exec.ExitError); ok {
-    stderr = string(exit.Stderr)
-    if status, ok := goRunExitStatus(stderr); ok {
-      return status, string(out), stderr
-    }
-    return exit.ExitCode(), string(out), stderr
-  }
-  if err != nil {
-    t.Fatalf("go run ./cmd/ttsc failed before exit code: %v", err)
-  }
-  return 0, string(out), stderr
+  return runBuiltNativeCommandInDir(t, packageRoot(t), args...)
 }
 
-// runBuiltNativeCommandInDir builds the native command and executes it from a
-// caller-provided working directory. Use this for branches that depend on the
-// child process cwd rather than an explicit `--cwd` flag.
+// runBuiltNativeCommandInDir preserves each caller's cwd, arguments and streams.
 func runBuiltNativeCommandInDir(t *testing.T, dir string, args ...string) (int, string, string) {
   t.Helper()
-  bin := filepath.Join(t.TempDir(), "ttsc")
-  if runtime.GOOS == "windows" {
-    bin += ".exe"
-  }
-
-  goArgs := []string{"build", "-o", bin}
-  if coverDir := os.Getenv("TTSC_NATIVE_COMMAND_COVERDIR"); coverDir != "" {
-    if err := os.MkdirAll(coverDir, 0o755); err != nil {
-      t.Fatal(err)
-    }
-    goArgs = append(goArgs, "-cover", "-covermode=atomic", "-coverpkg="+nativeCommandCoverPackages())
-  }
-  goArgs = append(goArgs, "./cmd/ttsc")
-
-  build := exec.Command("go", goArgs...)
-  build.Dir = packageRoot(t)
-  if output, err := build.CombinedOutput(); err != nil {
-    t.Fatalf("go build ./cmd/ttsc failed: %v\n%s", err, output)
-  }
-
-  cmd := exec.Command(bin, args...)
+  cmd := exec.Command(buildNativeCommandBinary(t), args...)
   cmd.Dir = dir
   if coverDir := os.Getenv("TTSC_NATIVE_COMMAND_COVERDIR"); coverDir != "" {
     cmd.Env = append(os.Environ(), "GOCOVERDIR="+coverDir)
   }
   out, err := cmd.Output()
-  stderr := ""
   if exit, ok := err.(*exec.ExitError); ok {
-    stderr = string(exit.Stderr)
-    return exit.ExitCode(), string(out), stderr
+    return exit.ExitCode(), string(out), string(exit.Stderr)
   }
   if err != nil {
     t.Fatalf("built ttsc failed before exit code: %v", err)
   }
-  return 0, string(out), stderr
+  return 0, string(out), ""
+}
+
+// Product sources, build flags and toolchain remain fixed in this test package.
+// TestMain owns the artifact through all cases, parallel callers and -count runs;
+// no individual case cleanup may delete a later consumer's binary.
+var nativeCommandBuild struct {
+  once      sync.Once
+  directory string
+  binary    string
+  err       error
+}
+
+// TestMain releases the suite-owned command only after every case has returned.
+func TestMain(m *testing.M) {
+  code := m.Run()
+  if nativeCommandBuild.directory != "" {
+    if err := removeCommandTestDirectory(nativeCommandBuild.directory); err != nil {
+      fmt.Fprintf(os.Stderr, "remove ttsc command test artifact: %v\n", err)
+      code = 1
+    }
+  }
+  os.Exit(code)
+}
+
+// removeCommandTestDirectory follows testing.TempDir's bounded Windows cleanup
+// policy (Go issues 50051 and 51442): a waited-for command image can still carry
+// transient access/share denial. Other errors and persistent locks remain failures.
+func removeCommandTestDirectory(directory string) error {
+  const windowsAccessDenied = syscall.Errno(5)
+  const windowsSharingViolation = syscall.Errno(32)
+  deadline := time.Now().Add(2 * time.Second)
+  for {
+    err := os.RemoveAll(directory)
+    if runtime.GOOS != "windows" ||
+      (!errors.Is(err, windowsAccessDenied) && !errors.Is(err, windowsSharingViolation)) ||
+      time.Now().Add(10*time.Millisecond).After(deadline) {
+      return err
+    }
+    time.Sleep(10 * time.Millisecond)
+  }
+}
+
+// buildNativeCommandBinary links once for fresh command processes. A failed producer
+// remains a failure for every dependent case rather than being retried or skipped.
+func buildNativeCommandBinary(t *testing.T) string {
+  t.Helper()
+  nativeCommandBuild.once.Do(func() {
+    directory, err := os.MkdirTemp(os.Getenv("GOTMPDIR"), "ttsc-command-test-")
+    nativeCommandBuild.directory = directory
+    if err != nil {
+      nativeCommandBuild.err = err
+      return
+    }
+    binary := filepath.Join(directory, "ttsc")
+    if runtime.GOOS == "windows" {
+      binary += ".exe"
+    }
+    goArgs := []string{"build", "-o", binary}
+    if coverDir := os.Getenv("TTSC_NATIVE_COMMAND_COVERDIR"); coverDir != "" {
+      if err := os.MkdirAll(coverDir, 0o755); err != nil {
+        nativeCommandBuild.err = err
+        return
+      }
+      goArgs = append(goArgs, "-cover", "-covermode=atomic", "-coverpkg="+nativeCommandCoverPackages())
+    }
+    goArgs = append(goArgs, "./cmd/ttsc")
+    build := exec.Command("go", goArgs...)
+    build.Dir = packageRoot(t)
+    if output, err := build.CombinedOutput(); err != nil {
+      nativeCommandBuild.err = fmt.Errorf("go build ./cmd/ttsc: %w\n%s", err, output)
+      return
+    }
+    nativeCommandBuild.binary = binary
+  })
+  if nativeCommandBuild.err != nil {
+    t.Fatalf("ttsc command producer failed: %v", nativeCommandBuild.err)
+  }
+  return nativeCommandBuild.binary
 }
 
 // nativeCommandCoverPackages lists the packages charged to command-frontdoor
@@ -139,25 +171,6 @@ func nativeCommandCoverPackages() string {
     "github.com/samchon/ttsc/packages/ttsc/driver",
     "github.com/samchon/ttsc/packages/ttsc/utility",
   }, ",")
-}
-
-// goRunExitStatus recovers the wrapped program exit code from `go run`.
-// The Go tool exits with status 1 for any non-zero program status and appends
-// `exit status N` to stderr, so command-frontdoor tests need this small unwrap.
-func goRunExitStatus(stderr string) (int, bool) {
-  for _, line := range strings.Split(strings.TrimSpace(stderr), "\n") {
-    line = strings.TrimSpace(line)
-    if !strings.HasPrefix(line, "exit status ") {
-      continue
-    }
-    value := strings.TrimPrefix(line, "exit status ")
-    status, err := strconv.Atoi(value)
-    if err != nil {
-      return 0, false
-    }
-    return status, true
-  }
-  return 0, false
 }
 
 // captureUtilityOutput redirects process stdout/stderr around utility package

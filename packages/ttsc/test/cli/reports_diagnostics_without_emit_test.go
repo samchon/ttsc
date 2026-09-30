@@ -33,8 +33,8 @@ func TestCLIReportsDiagnosticsWithoutEmit(t *testing.T) {
   writeProjectFile(t, root, "index.ts", `const value: string = 123;
 `)
 
-  // Diagnostic assertion: go-run wrapping is unwrapped by the helper so this
-  // checks the native ttsc exit code, not the Go tool's generic status.
+  // Diagnostic assertion: the shared native binary runs directly, so this
+  // checks its actual exit code rather than a Go tool wrapper status.
   code, out, errOut := runNativeCommand(t, "api-transform", "--cwd", root)
   if code != 2 {
     t.Fatalf("api-transform should fail with diagnostics: code=%d stdout=%q stderr=%q", code, out, errOut)

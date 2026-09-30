@@ -1,16 +1,21 @@
 package ttscserver_test
 
 import (
+  "errors"
+  "fmt"
   "os"
   "os/exec"
   "path/filepath"
   "runtime"
   "strings"
+  "sync"
+  "syscall"
   "testing"
+  "time"
 )
 
 // packageRoot returns the `packages/ttsc` module root from this black-box test
-// package. ttscserver command tests run from there so `go run ./cmd/ttscserver`
+// package. The shared command builds there so it
 // sees the same module graph as a developer launching the LSP host by hand.
 func packageRoot(t *testing.T) string {
   t.Helper()
@@ -89,34 +94,82 @@ process.stdout.write(path.join(platformRoot, "lib", process.platform === "win32"
   return binary
 }
 
-// buildTtscserverBinary builds the ttscserver binary into a temp directory.
-// Reusing the same temp directory across a test run would let subprocesses
-// share it, but go test isolates each Test* per process so the simple
-// per-test build is fine for the tiny package.
+// Product sources, build flags and toolchain remain fixed in this test package.
+// TestMain owns the artifact through all cases, parallel callers and -count runs;
+// no individual case cleanup may delete a later consumer's binary.
+var ttscserverBuild struct {
+  once      sync.Once
+  directory string
+  binary    string
+  err       error
+}
+
+// TestMain releases the suite-owned command only after every case has returned.
+func TestMain(m *testing.M) {
+  code := m.Run()
+  if ttscserverBuild.directory != "" {
+    if err := removeCommandTestDirectory(ttscserverBuild.directory); err != nil {
+      fmt.Fprintf(os.Stderr, "remove ttscserver command test artifact: %v\n", err)
+      code = 1
+    }
+  }
+  os.Exit(code)
+}
+
+// removeCommandTestDirectory follows testing.TempDir's bounded Windows cleanup
+// policy (Go issues 50051 and 51442): a waited-for command image can still carry
+// transient access/share denial. Other errors and persistent locks remain failures.
+func removeCommandTestDirectory(directory string) error {
+  const windowsAccessDenied = syscall.Errno(5)
+  const windowsSharingViolation = syscall.Errno(32)
+  deadline := time.Now().Add(2 * time.Second)
+  for {
+    err := os.RemoveAll(directory)
+    if runtime.GOOS != "windows" ||
+      (!errors.Is(err, windowsAccessDenied) && !errors.Is(err, windowsSharingViolation)) ||
+      time.Now().Add(10*time.Millisecond).After(deadline) {
+      return err
+    }
+    time.Sleep(10 * time.Millisecond)
+  }
+}
+
+// buildTtscserverBinary links once for fresh command processes. A failed producer
+// remains a failure for every dependent case rather than being retried or skipped.
 func buildTtscserverBinary(t *testing.T) string {
   t.Helper()
-  bin := filepath.Join(t.TempDir(), "ttscserver")
-  if filepath.Separator == '\\' {
-    bin += ".exe"
-  }
-  goArgs := []string{"build"}
-  if coverDir := os.Getenv("TTSC_NATIVE_COMMAND_COVERDIR"); coverDir != "" {
-    if err := os.MkdirAll(coverDir, 0o755); err != nil {
-      t.Fatal(err)
+  ttscserverBuild.once.Do(func() {
+    directory, err := os.MkdirTemp(os.Getenv("GOTMPDIR"), "ttscserver-command-test-")
+    ttscserverBuild.directory = directory
+    if err != nil {
+      ttscserverBuild.err = err
+      return
     }
-    goArgs = append(goArgs,
-      "-cover",
-      "-covermode=atomic",
-      "-coverpkg="+nativeCommandCoverPackages(),
-    )
+    binary := filepath.Join(directory, "ttscserver")
+    if runtime.GOOS == "windows" {
+      binary += ".exe"
+    }
+    goArgs := []string{"build", "-o", binary}
+    if coverDir := os.Getenv("TTSC_NATIVE_COMMAND_COVERDIR"); coverDir != "" {
+      if err := os.MkdirAll(coverDir, 0o755); err != nil {
+        ttscserverBuild.err = err
+        return
+      }
+      goArgs = append(goArgs, "-cover", "-covermode=atomic", "-coverpkg="+nativeCommandCoverPackages())
+    }
+    goArgs = append(goArgs, "./cmd/ttscserver")
+    build := exec.Command("go", goArgs...)
+    build.Dir = packageRoot(t)
+    if output, err := build.CombinedOutput(); err != nil {
+      ttscserverBuild.err = fmt.Errorf("go build ./cmd/ttscserver: %w\n%s", err, output)
+      return
+    }
+    ttscserverBuild.binary = binary
+  })
+  if ttscserverBuild.err != nil {
+    t.Fatalf("ttscserver command producer failed: %v", ttscserverBuild.err)
   }
-  goArgs = append(goArgs, "-o", bin, "./cmd/ttscserver")
-  build := exec.Command("go", goArgs...)
-  build.Dir = packageRoot(t)
-  if output, err := build.CombinedOutput(); err != nil {
-    t.Fatalf("go build ./cmd/ttscserver failed: %v\n%s", err, output)
-  }
-  return bin
+  return ttscserverBuild.binary
 }
 
 // nativeCommandCoverPackages lists the packages charged to coverage profiles
