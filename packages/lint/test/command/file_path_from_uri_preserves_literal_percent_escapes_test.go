@@ -16,6 +16,11 @@ import (
 // 1. Build a file URI whose encoded path segment is `a%2520b.ts`.
 // 2. Convert it through the LSP URI helper.
 // 3. Assert the resolved path still names `a%20b.ts`.
+//
+// @evidence contracts/testing.md#behavioral-verification filePathFromURI decodes file URI a%2520b.ts exactly once into a literal a%20b.ts filesystem name.
+// @evidence contracts/testing.md#independent-expectations URI percent decoding turns %25 into percent without recursively interpreting the resulting %20; independently authored filesystem input to filepath.Abs establishes the intended native path.
+// @evidence contracts/testing.md#distinguishing-cases Owns encoded percent adjacent to hexadecimal space spelling, detecting accidental double-unescaping; unrelated URI validation and LSP edit scope use other tests.
+// @evidence contracts/testing.md#execution-ownership TestFilePathFromURIPreservesLiteralPercentEscapes is a selected Go unit entry calling filePathFromURI in-process and comparing its returned native path without building a native artifact, installing a consumer or spawning a product process.
 func TestFilePathFromURIPreservesLiteralPercentEscapes(t *testing.T) {
   got, err := filePathFromURI("file:///tmp/ttsc-lsp/a%2520b.ts")
   if err != nil {

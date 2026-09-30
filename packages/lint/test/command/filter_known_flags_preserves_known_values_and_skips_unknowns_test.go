@@ -22,6 +22,11 @@ import (
 // 1. Build a mixed argument list with known and future flags.
 // 2. Filter it against the check/build flag contract.
 // 3. Assert known values and positional arguments are preserved in order.
+//
+// @evidence contracts/testing.md#behavioral-verification filterKnownFlags preserves the exact order of known Boolean/value/equals flags and positional source while dropping unknown flags with their values.
+// @evidence contracts/testing.md#independent-expectations The authored allow-list marks value-taking versus Boolean flags; an independent literal complete argument vector establishes preservation and omission without rerunning filtering logic.
+// @evidence contracts/testing.md#distinguishing-cases Owns bare Boolean, separate known value, equals-value, unknown separate/inline values and positional argument in one mixed input; case-variant names are separate.
+// @evidence contracts/testing.md#execution-ownership TestFilterKnownFlagsPreservesKnownValuesAndSkipsUnknowns is a selected Go unit entry calling filterKnownFlags in-process and comparing the complete returned argument vector without building a native artifact, installing a consumer or spawning a product process.
 func TestFilterKnownFlagsPreservesKnownValuesAndSkipsUnknowns(t *testing.T) {
   got := filterKnownFlags([]string{
     "--emit",

@@ -20,6 +20,11 @@ import (
 //     unknown flag against a normalized allow-list.
 //  2. Assert both known flags survive with their value adjacency intact.
 //  3. Assert the unknown flag is still dropped together with its value.
+//
+// @evidence contracts/testing.md#behavioral-verification filterKnownFlags retains EMIT, OutDir with dist and inline CWD while dropping unknown Future and its following value.
+// @evidence contracts/testing.md#independent-expectations The normalized flag-name contract is case-insensitive while output spelling and value adjacency stay unchanged; a literal complete expected vector is independent of the filter.
+// @evidence contracts/testing.md#distinguishing-cases Owns case variants for Boolean, separate value and inline value, plus an unknown name; ordinary spelling and positional retention have a companion case.
+// @evidence contracts/testing.md#execution-ownership TestFilterKnownFlagsResolvesNamesCaseInsensitively is a selected Go unit entry calling filterKnownFlags in-process and comparing preserved spelling, ordering and value adjacency without building a native artifact, installing a consumer or spawning a product process.
 func TestFilterKnownFlagsResolvesNamesCaseInsensitively(t *testing.T) {
   got := filterKnownFlags([]string{
     "--EMIT",
