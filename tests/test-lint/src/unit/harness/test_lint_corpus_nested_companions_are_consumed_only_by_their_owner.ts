@@ -18,6 +18,11 @@ import {
  * 1. Materialize nested grouped entries with one companion each.
  * 2. Validate the complete corpus ownership graph.
  * 3. Assert each entry collects only its own companion path.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Discovery finds both nested grouped entries, while collectExtraSources assigns each entry only its own src companion.
+ * @evidence contracts/testing.md#independent-expectations The separately authored outer and nested case roots define ownership; literal companion arrays independently forbid recursive collection from stealing another entry's source.
+ * @evidence contracts/testing.md#distinguishing-cases Both entries have distinct positive markers and marked helpers; the outer entry must exclude the nested helper and the nested entry must retain it.
+ * @evidence contracts/testing.md#execution-ownership Directly calls discovery and collection on an isolated temporary tree, removes it in finally, and starts no native host or compiler.
  */
 export const test_lint_corpus_nested_companions_are_consumed_only_by_their_owner =
   (): void => {

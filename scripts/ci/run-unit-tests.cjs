@@ -45,18 +45,6 @@ async function main() {
       ],
       cwd: path.join(root, "tests", suite),
     })),
-    {
-      name: "lint harness units",
-      args: [
-        "--import",
-        pathToFileURL(
-          path.join(root, "scripts", "register-typescript-loader.mjs"),
-        ).href,
-        "./src/index.ts",
-      ],
-      cwd: path.join(root, "tests", "test-lint"),
-      env: { TTSC_TEST_DIRS: "features/harness" },
-    },
     ...GO_UNIT_RUNNERS.map((runner) => ({
       name: runner,
       args: [path.join(root, "scripts", runner)],

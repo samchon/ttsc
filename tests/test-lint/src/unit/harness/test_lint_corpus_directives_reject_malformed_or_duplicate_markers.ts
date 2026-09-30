@@ -1,4 +1,4 @@
-import { TestLint } from "@ttsc/testing";
+import { TestLint } from "../../../../utils/src/lint/TestLint";
 import assert from "node:assert/strict";
 
 import {
@@ -16,6 +16,11 @@ import {
  * 1. Mix valid directives with missing-colon and duplicate markers.
  * 2. Parse each source through the same option and filename helpers as corpus.
  * 3. Assert malformed and duplicate contracts report before execution.
+ *
+ * @evidence contracts/testing.md#behavioral-verification applyCorpusOptions and resolveCorpusSourcePath reject malformed or duplicated reserved directives even when a preceding valid directive would otherwise classify the source.
+ * @evidence contracts/testing.md#independent-expectations Authored option and filename strings independently contain a missing colon or duplicate target; literal error patterns identify the original filename and rejection category.
+ * @evidence contracts/testing.md#distinguishing-cases Malformed options, repeated rule options, malformed filenames and repeated filenames each retain their own rejection assertion; valid marker parsing is covered by the source-path and options helpers tests.
+ * @evidence contracts/testing.md#execution-ownership Calls the authored directive parsers directly on in-memory source and rule records, without writing a project or running a native plugin.
  */
 export const test_lint_corpus_directives_reject_malformed_or_duplicate_markers =
   (): void => {

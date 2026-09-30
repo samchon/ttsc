@@ -49,11 +49,18 @@ registerHooks({
         context,
         nextResolve,
       );
+    if (specifier === "ttsc" || specifier.startsWith("ttsc/"))
+      return resolve(specifier, {
+        ...context,
+        // Authored-source units may import owners that the filtered install
+        // did not link. Resolve this workspace package through its actual
+        // public export map, rather than requiring an incidental parent link.
+        parentURL: new URL("../packages/ttsc/package.json", import.meta.url).href,
+        conditions: [...context.conditions, "types"],
+      }, nextResolve);
     return resolve(
       specifier,
-      specifier === "ttsc" || specifier.startsWith("ttsc/")
-        ? { ...context, conditions: [...context.conditions, "types"] }
-        : context,
+      context,
       nextResolve,
     );
   },

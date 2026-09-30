@@ -1,4 +1,5 @@
-import { TestLint, TestProject } from "@ttsc/testing";
+import { TestLint } from "../../../../utils/src/lint/TestLint";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -14,6 +15,11 @@ import path from "node:path";
  * 1. Try invalid source, package-link, exact-temp, and junction targets.
  * 2. Assert every rejected plan leaves its pre-existing roots untouched.
  * 3. Materialize normalized spaced sources and a scoped package link.
+ *
+ * @evidence contracts/testing.md#behavioral-verification TestLint.createProject rejects unsafe or colliding source, config, package-link and project-root plans before any write, while materializing legal normalized source paths.
+ * @evidence contracts/testing.md#independent-expectations Authored invalid plans, sentinel contents and literal target paths independently define refusal and nonmutation; actual generated files and JSON contents certify accepted plans rather than repository file presence.
+ * @evidence contracts/testing.md#distinguishing-cases Traversal/absolute paths, separator/case aliases, device names, streams, trailing characters, generated-target collisions, root files and linked escaping roots reject. Spaced sources, normalized companions, scoped package links and COM0/LPT0 legal controls succeed.
+ * @evidence contracts/testing.md#execution-ownership Calls the authored materialization helper directly using disposable temporary trees and sentinel observations, cleaning every tree/project in finally; no compiler, installation or native lint host executes.
  */
 export const test_lint_fixture_source_paths_are_preflighted_portably =
   (): void => {

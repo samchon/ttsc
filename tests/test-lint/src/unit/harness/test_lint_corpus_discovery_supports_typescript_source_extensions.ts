@@ -16,6 +16,11 @@ import { listLintCases } from "../../helpers/assertLintCase";
  * 1. Materialize every canonical TypeScript suffix and a JavaScript control.
  * 2. Discover exactly the lowercase TypeScript sources.
  * 3. Add each uppercase suffix in turn and assert discovery rejects it.
+ *
+ * @evidence contracts/testing.md#behavioral-verification listLintCases returns exactly the canonical TypeScript source suffixes, excludes JavaScript, and explicitly rejects uppercase variants rather than silently skipping them.
+ * @evidence contracts/testing.md#independent-expectations The fixture author lists the supported ts/tsx/mts/cts and declaration suffixes; exact sorted path expectations are independent of the discovery implementation.
+ * @evidence contracts/testing.md#distinguishing-cases Each canonical suffix is a positive entry, JavaScript is an unrelated-file control, and each uppercase suffix is added then removed independently to preserve its rejection identity.
+ * @evidence contracts/testing.md#execution-ownership Calls the authored discovery helper on a temporary tree, with each suffix scenario evaluated once and cleaned in finally; no compiler starts.
  */
 export const test_lint_corpus_discovery_supports_typescript_source_extensions =
   (): void => {

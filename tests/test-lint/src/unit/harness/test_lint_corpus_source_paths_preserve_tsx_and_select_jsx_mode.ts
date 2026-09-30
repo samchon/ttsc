@@ -1,4 +1,4 @@
-import { TestLint } from "@ttsc/testing";
+import { TestLint } from "../../../../utils/src/lint/TestLint";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -19,6 +19,11 @@ import { resolveCorpusSourcePath } from "../../helpers/assertLintCase";
  * 2. Materialize default, TS-only companion, and POSIX/Windows TSX companion
  *    projects.
  * 3. Assert only projects with an included TSX source select React JSX mode.
+ *
+ * @evidence contracts/testing.md#behavioral-verification resolveCorpusSourcePath preserves source suffixes and explicit overrides, and TestLint.createProject enables React JSX only when a TSX source falls under the included src subtree.
+ * @evidence contracts/testing.md#independent-expectations Literal default/override paths and authored project sources define expected filenames and jsx settings; the test reads the actual generated config rather than checking repository configuration text.
+ * @evidence contracts/testing.md#distinguishing-cases Canonical source suffixes and named TSX override succeed; uppercase suffix rejects, TS-only plus out-of-include TSX stays non-JSX, and POSIX/backslash included companions enable JSX.
+ * @evidence contracts/testing.md#execution-ownership Directly calls the source-path and project-materialization helpers; all generated projects are cleaned in finally and no TestLint.run, compile or install is invoked.
  */
 export const test_lint_corpus_source_paths_preserve_tsx_and_select_jsx_mode =
   (): void => {

@@ -1,4 +1,4 @@
-import { TestLint } from "@ttsc/testing";
+import { TestLint } from "../../../../utils/src/lint/TestLint";
 import assert from "node:assert/strict";
 
 /**
@@ -12,6 +12,11 @@ import assert from "node:assert/strict";
  * 1. Parse malformed line, JSX-block, and mixed marker stacks.
  * 2. Parse valid markers at end-of-file with no following source line.
  * 3. Assert every invalid form reports its line and failure category.
+ *
+ * @evidence contracts/testing.md#behavioral-verification TestLint.parseExpectations rejects malformed reserved markers and valid markers that have no following target, including errors after an earlier valid marker.
+ * @evidence contracts/testing.md#independent-expectations Each source and literal regex independently identifies its malformed line or targetless end-of-file; none of the expected locations come from parser output.
+ * @evidence contracts/testing.md#distinguishing-cases Invalid severity, colon/spacing, truncated/trailing text, broken JSX blocks, mixed valid/invalid stacks and targetless line/JSX markers each keep their own rejection assertion. The acceptance case owns valid stacks.
+ * @evidence contracts/testing.md#execution-ownership Directly calls the authored parser for each in-memory source/pattern pair in one exported entry; no filesystem, compiler or host setup is needed.
  */
 export const test_lint_expectation_parser_rejects_malformed_or_targetless_markers =
   (): void => {

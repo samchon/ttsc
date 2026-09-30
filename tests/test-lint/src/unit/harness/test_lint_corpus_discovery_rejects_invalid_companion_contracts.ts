@@ -16,6 +16,11 @@ import { listLintCases } from "../../helpers/assertLintCase";
  * 1. Materialize malformed, duplicate, conflicting, orphan, and ambiguous roles.
  * 2. Run strict discovery against each isolated corpus root.
  * 3. Assert every invalid contract fails for its structural reason.
+ *
+ * @evidence contracts/testing.md#behavioral-verification listLintCases refuses malformed, duplicate, conflicting, orphaned and ambiguously owned companion roles rather than silently removing them from the corpus.
+ * @evidence contracts/testing.md#independent-expectations Each authored tree states its entry and companion roles; literal error patterns independently identify the structural contradiction rather than copying discovery output.
+ * @evidence contracts/testing.md#distinguishing-cases Malformed and duplicate companion declarations, expectation/skip/filename conflicts, root orphan, missing owner and two possible owners are exercised as separate named scenarios.
+ * @evidence contracts/testing.md#execution-ownership Each named scenario directly calls strict discovery on its own temporary tree and cleans it in finally; no compiler, installation or host runs.
  */
 export const test_lint_corpus_discovery_rejects_invalid_companion_contracts =
   (): void => {

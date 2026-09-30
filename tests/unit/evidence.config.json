@@ -6,8 +6,7 @@
       "type": "typescript",
       "root": "../..",
       "files": [
-        "tests/test-*/src/unit/**/test_*.ts",
-        "tests/test-lint/src/features/harness/test_*.ts"
+        "tests/test-*/src/unit/**/test_*.ts"
       ],
       "symbol": "function",
       "reference": {

@@ -17,6 +17,11 @@ import {
  * 1. Materialize a grouped case below a directory named `src`.
  * 2. Discover the positive entry and validate its companion ownership.
  * 3. Assert collection preserves the companion's project-relative path.
+ *
+ * @evidence contracts/testing.md#behavioral-verification listLintCases and collectExtraSources recognize a grouped case beneath an unrelated directory named src, preserving the companion as src/helper.ts.
+ * @evidence contracts/testing.md#independent-expectations The authored examples/src/grouped-case tree independently identifies the positive entry and its own src subtree; literal expected paths forbid treating the first src segment as the project root.
+ * @evidence contracts/testing.md#distinguishing-cases The outer path and owned subtree both contain src, and entry discovery plus exact companion collection distinguish doubled or truncated paths. Nested ownership rejection is covered by the nested companion case.
+ * @evidence contracts/testing.md#execution-ownership Directly calls the authored discovery and collection helpers against a temporary tree and removes it in finally; no project build or host runs.
  */
 export const test_lint_corpus_companion_owner_allows_src_in_case_path =
   (): void => {

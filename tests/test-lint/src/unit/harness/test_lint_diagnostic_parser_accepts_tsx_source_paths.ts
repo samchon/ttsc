@@ -1,4 +1,4 @@
-import { TestLint } from "@ttsc/testing";
+import { TestLint } from "../../../../utils/src/lint/TestLint";
 import assert from "node:assert/strict";
 
 /**
@@ -10,6 +10,11 @@ import assert from "node:assert/strict";
  * 1. Render diagnostics for every supported TypeScript suffix.
  * 2. Preserve file, position, severity, rule, and message expectations.
  * 3. Assert JavaScript and non-canonical uppercase suffixes are ignored.
+ *
+ * @evidence contracts/testing.md#behavioral-verification TestLint.parseDiagnostics preserves all rendered fields for canonical TypeScript source suffixes and excludes JavaScript and uppercase suffix output.
+ * @evidence contracts/testing.md#independent-expectations Literal diagnostic records independently define file, line, column, rule, severity and message. Rendering those records is an inverse format fixture, not a value copied from parser output.
+ * @evidence contracts/testing.md#distinguishing-cases TSX, spaced TS paths, module and declaration suffixes succeed; JavaScript and uppercase TS/TSX/declaration messages are explicit negative controls.
+ * @evidence contracts/testing.md#execution-ownership Calls the authored diagnostic parser on an in-memory stderr string, with no process needed to generate that string.
  */
 export const test_lint_diagnostic_parser_accepts_tsx_source_paths =
   (): void => {
