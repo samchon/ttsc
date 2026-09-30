@@ -23,7 +23,8 @@
       "name": "Node function units",
       "type": "javascript",
       "files": [
-        "scripts/**/*.test.cjs"
+        "scripts/**/*.test.cjs",
+        "runtime/test_runtime_compiler_output_preserves_decorator_effects.cjs"
       ],
       "symbol": "function",
       "reference": {
