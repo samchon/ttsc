@@ -15,6 +15,11 @@ import "testing"
 //  2. Run the rule through the native fix applier.
 //  3. Assert the digits are canonical while `n` stays lowercase and every `_`
 //     stays exactly where it was.
+//
+// @evidence contracts/testing.md#behavioral-verification assertFixSnapshot verifies seven bigint/separator rewrites without damaging valid suffix or grouping.
+// @evidence contracts/testing.md#independent-expectations The authored full-source outputs encode lowercase n, unchanged underscores, lowercase radix prefixes and uppercase hex digits.
+// @evidence contracts/testing.md#distinguishing-cases Hex bigint including e-as-digit, binary bigint, octal bigint and separated bigint change; a separated ordinary hex changes only its prefix. Canonical separated bigint is covered by TestUnicornNumberLiteralCaseSkipsCanonicalLiterals.
+// @evidence contracts/testing.md#execution-ownership TestUnicornNumberLiteralCaseFixesBigintAndSeparatedLiterals is a discoverable Go unit host; its literal fixtures and table cases execute the owning engine/fix operations in the shared Go process without consumer installation, native builds or product children. Helper failures retain each input and expected string.
 func TestUnicornNumberLiteralCaseFixesBigintAndSeparatedLiterals(t *testing.T) {
   for _, testCase := range []struct {
     source   string

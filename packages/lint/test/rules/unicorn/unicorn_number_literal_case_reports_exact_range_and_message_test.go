@@ -18,6 +18,11 @@ import (
 //  1. Lint one uppercase-exponent literal.
 //  2. Assert a single finding at the literal token with the exact message.
 //  3. Assert the fix is one edit spanning the token with the canonical text.
+//
+// @evidence contracts/testing.md#behavioral-verification one finding carries the exact 1E10-to-1e10 message and one token-wide edit.
+// @evidence contracts/testing.md#independent-expectations The authored token bounds and literal 1e10 replacement independently specify normalization direction rather than deriving expected text from the rule.
+// @evidence contracts/testing.md#distinguishing-cases The exact numeric token changes while declaration prefix and semicolon are excluded; TestUnicornNumberLiteralCaseSkipsCanonicalLiterals owns the lower-e negative.
+// @evidence contracts/testing.md#execution-ownership TestUnicornNumberLiteralCaseReportsExactRangeAndMessage is a discoverable Go unit host; owning engine and fixer operations run its literal fixtures in the shared process without installation, native builds or product children. Failures retain the source and literal expected replacement or finding identity.
 func TestUnicornNumberLiteralCaseReportsExactRangeAndMessage(t *testing.T) {
   source := "const foo = 1E10;\n"
   token := "1E10"

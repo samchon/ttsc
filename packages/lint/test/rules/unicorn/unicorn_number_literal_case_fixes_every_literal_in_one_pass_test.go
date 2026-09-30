@@ -16,6 +16,11 @@ import "testing"
 //     already-canonical literals — two of them on the same line.
 //  2. Run the rule through the native fix applier once.
 //  3. Assert every non-canonical literal is rewritten and nothing else moved.
+//
+// @evidence contracts/testing.md#behavioral-verification assertFixSnapshot verifies one batch fixes four noncanonical literals in a mixed file without moving neighboring canonical declarations.
+// @evidence contracts/testing.md#independent-expectations The independent whole-source expected string applies case-only normalization while retaining every digit, separator, bigint suffix and statement.
+// @evidence contracts/testing.md#distinguishing-cases Two changed literals share a line; later binary bigint and separated hex also change while the interleaved canonical pair does not.
+// @evidence contracts/testing.md#execution-ownership TestUnicornNumberLiteralCaseFixesEveryLiteralInOnePass is a discoverable Go unit host; its literal fixtures and table cases execute the owning engine/fix operations in the shared Go process without consumer installation, native builds or product children. Helper failures retain each input and expected string.
 func TestUnicornNumberLiteralCaseFixesEveryLiteralInOnePass(t *testing.T) {
   assertFixSnapshot(
     t,

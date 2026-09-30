@@ -16,6 +16,11 @@ import "testing"
 //     (bare, signed, fractional, leading-dot, separated, `0`-leading).
 //  2. Run the rule through the native fix applier.
 //  3. Assert the rewritten source equals the upstream-canonical spelling.
+//
+// @evidence contracts/testing.md#behavioral-verification assertFixSnapshot verifies seven uppercase decimal-exponent rewrites.
+// @evidence contracts/testing.md#independent-expectations The authored whole-source pairs specify e-only normalization and retain mantissa, exponent sign and separator bytes.
+// @evidence contracts/testing.md#distinguishing-cases Bare/positive/negative exponents, fractional and leading-dot mantissas, separators and zero-leading exponents change; TestUnicornNumberLiteralCaseSkipsCanonicalLiterals owns lower-e negatives.
+// @evidence contracts/testing.md#execution-ownership TestUnicornNumberLiteralCaseFixesUppercaseExponent is a discoverable Go unit host; its literal fixtures and table cases execute the owning engine/fix operations in the shared Go process without consumer installation, native builds or product children. Helper failures retain each input and expected string.
 func TestUnicornNumberLiteralCaseFixesUppercaseExponent(t *testing.T) {
   for _, testCase := range []struct {
     source   string

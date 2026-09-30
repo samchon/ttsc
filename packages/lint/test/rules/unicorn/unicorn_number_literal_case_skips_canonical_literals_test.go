@@ -14,6 +14,11 @@ import "testing"
 //
 //  1. Feed the rule a literal in its canonical spelling.
 //  2. Assert the engine emits zero findings for it.
+//
+// @evidence contracts/testing.md#behavioral-verification assertRuleSkipsSource requires zero diagnostics for thirteen authored canonical literals.
+// @evidence contracts/testing.md#independent-expectations The literal zero oracle follows the supported canonical case policy, with decimal/legacy-octal forms containing no case-bearing marker.
+// @evidence contracts/testing.md#distinguishing-cases Plain decimal, zero, signed/fractional/separated exponents, hex/binary/octal, legacy octal, decimal bigint and separated hex bigint stay clean; rewrite twins are the corresponding Fixes* entries.
+// @evidence contracts/testing.md#execution-ownership TestUnicornNumberLiteralCaseSkipsCanonicalLiterals is a discoverable Go unit host; its literal fixtures and table cases execute the owning engine/fix operations in the shared Go process without consumer installation, native builds or product children. Helper failures retain each input and expected string.
 func TestUnicornNumberLiteralCaseSkipsCanonicalLiterals(t *testing.T) {
   for _, source := range []string{
     "const n = 123;\n",
