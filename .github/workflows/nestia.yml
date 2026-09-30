@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/nestia.yml"
+      - ".github/workflows/scripts/consumer-tarballs.cjs"
       - "experimental/native-host-provenance/**"
       - "patches/typia@15.0.0.patch"
       - "experimental/tarballs/**"
@@ -77,64 +78,7 @@ jobs:
         run: git -C experimental/nestia apply --directory=packages/core "$GITHUB_WORKSPACE/experimental/native-host-provenance/nestia.patch"
 
       - name: Use local ttsc tarballs
-        working-directory: experimental/nestia
-        run: |
-          # nestia resolves ttsc through a catalog and may grow its own
-          # top-level `overrides:` block, in which case appending a second one
-          # makes pnpm fail with a duplicated-mapping-key YAML error (see the
-          # typia workflow). Merge the local-tarball overrides into the existing
-          # block instead, creating it only when absent, and no-op on re-run.
-          node -e '
-          const fs = require("fs");
-          const path = require("path");
-          const file = "pnpm-workspace.yaml";
-          const text = fs.readFileSync(file, "utf8");
-          const entries = [
-            "  ttsc: file:../tarballs/ttsc.tgz",
-            "  \"@ttsc/unplugin\": file:../tarballs/unplugin.tgz",
-            "  \"@ttsc/linux-x64\": file:../tarballs/ttsc-linux-x64.tgz",
-          ].join("\n");
-          let merged = text.includes("file:../tarballs/ttsc.tgz")
-            ? text
-            : /^overrides:[ \t]*$/m.test(text)
-              ? text.replace(/^overrides:[ \t]*$/m, (line) => line + "\n" + entries)
-              : text.replace(/\s*$/, "") + "\n\noverrides:\n" + entries + "\n";
-          // The standalone typia host is also exercised by nestia tests.
-          // Install the same physical-write provenance implementation used by
-          // this workspace while retaining the version selected by nestia master.
-          const patch = path.join(process.env.GITHUB_WORKSPACE, "patches", "typia@15.0.0.patch");
-          const patchEntry = "  typia@15.0.0: " + JSON.stringify(patch);
-          if (!merged.includes(patchEntry)) {
-            if (/^[ \t]+["\u0027]?typia@15\.0\.0["\u0027]?:/m.test(merged))
-              throw new Error("typia already has a different consumer patch");
-            merged = /^patchedDependencies:[ \t]*$/m.test(merged)
-              ? merged.replace(/^patchedDependencies:[ \t]*$/m, (line) => line + "\n" + patchEntry)
-              : merged.replace(/\s*$/, "") + "\n\npatchedDependencies:\n" + patchEntry + "\n";
-          }
-          fs.writeFileSync(file, merged);
-
-          // An auto-installed peer can resolve the registry build with the
-          // same version instead of the candidate tarball. Bind each importer
-          // that consumes a compiler host directly to the candidate compiler.
-          const ttscTarball = path.resolve("../tarballs/ttsc.tgz");
-          const sections = ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"];
-          const visit = (directory) => {
-            for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-              if (entry.name === ".git" || entry.name === "node_modules") continue;
-              const target = path.join(directory, entry.name);
-              if (entry.isDirectory()) visit(target);
-              else if (entry.name === "package.json") {
-                const manifest = JSON.parse(fs.readFileSync(target, "utf8"));
-                const has = (name) => sections.some((section) => manifest[section]?.[name] !== undefined);
-                if (!["typia", "@ttsc/factory", "@ttsc/unplugin"].some(has) || has("ttsc")) continue;
-                manifest.devDependencies ??= {};
-                manifest.devDependencies.ttsc = "file:" + path.relative(path.dirname(target), ttscTarball).replaceAll(path.sep, "/");
-                fs.writeFileSync(target, JSON.stringify(manifest, null, 2) + "\n");
-              }
-            }
-          };
-          visit(".");
-          '
+        run: node .github/workflows/scripts/consumer-tarballs.cjs experimental/nestia patches/typia@15.0.0.patch
 
       - name: Install nestia dependencies
         working-directory: experimental/nestia

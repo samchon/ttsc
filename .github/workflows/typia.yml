@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/typia.yml"
+      - ".github/workflows/scripts/consumer-tarballs.cjs"
       - "experimental/native-host-provenance/**"
       - "experimental/source-map/**"
       - "website/compiler-dependencies/package.json"
@@ -75,70 +76,7 @@ jobs:
         run: git -C experimental/typia apply --directory=packages/typia "$GITHUB_WORKSPACE/experimental/native-host-provenance/typia.patch"
 
       - name: Use local ttsc tarballs
-        working-directory: experimental/typia
-        run: |
-          # typia's pnpm-workspace.yaml already declares its own `overrides:`
-          # block (and resolves ttsc through a catalog), so appending a second
-          # `overrides:` key makes pnpm fail with a duplicated-mapping-key YAML
-          # error. Merge the local-tarball overrides into the existing block
-          # instead, creating the block only when typia drops it.
-          node -e '
-          const fs = require("fs");
-          const path = require("path");
-          const file = "pnpm-workspace.yaml";
-          const entries = [
-            "  ttsc: file:../tarballs/ttsc.tgz",
-            "  \"@ttsc/unplugin\": file:../tarballs/unplugin.tgz",
-            "  \"@ttsc/linux-x64\": file:../tarballs/ttsc-linux-x64.tgz",
-          ].join("\n");
-          const text = fs.readFileSync(file, "utf8");
-          const localTarballs = entries.split("\n").map((entry) => entry.trim());
-          const present = localTarballs.filter((entry) => text.includes(entry));
-          if (present.length !== 0 && present.length !== localTarballs.length) {
-            throw new Error(`partial local-tarball overrides: ${present.join(", ")}`);
-          }
-          const merged = present.length === localTarballs.length
-            ? text
-            : /^overrides:[ \t]*$/m.test(text)
-              ? text.replace(/^overrides:[ \t]*$/m, (line) => line + "\n" + entries)
-              : text.replace(/\s*$/, "") + "\n\noverrides:\n" + entries + "\n";
-          for (const entry of localTarballs) {
-            if (!merged.includes(entry)) throw new Error(`missing local override: ${entry}`);
-          }
-          fs.writeFileSync(file, merged);
-
-          // pnpm 10 does not apply a file override to an auto-installed exact
-          // peer. Give importers that consume a compiler host an explicit
-          // local ttsc so they cannot resolve the unpublished candidate from npm.
-          const ttscTarball = path.resolve("../tarballs/ttsc.tgz");
-          const dependencySections = [
-            "dependencies",
-            "devDependencies",
-            "optionalDependencies",
-            "peerDependencies",
-          ];
-          const visit = (directory) => {
-            for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-              if (entry.name === ".git" || entry.name === "node_modules") continue;
-              const target = path.join(directory, entry.name);
-              if (entry.isDirectory()) visit(target);
-              else if (entry.name === "package.json") patchImporter(target);
-            }
-          };
-          const patchImporter = (manifestFile) => {
-            const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-            const has = (name) => dependencySections.some(
-              (section) => manifest[section]?.[name] !== undefined,
-            );
-            if (!["typia", "@ttsc/factory", "@ttsc/unplugin"].some(has) || has("ttsc")) return;
-            manifest.devDependencies ??= {};
-            const relative = path.relative(path.dirname(manifestFile), ttscTarball)
-              .replaceAll(path.sep, "/");
-            manifest.devDependencies.ttsc = `file:${relative}`;
-            fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
-          };
-          visit(".");
-          '
+        run: node .github/workflows/scripts/consumer-tarballs.cjs experimental/typia
 
       - name: Test typia master
         working-directory: experimental/typia
