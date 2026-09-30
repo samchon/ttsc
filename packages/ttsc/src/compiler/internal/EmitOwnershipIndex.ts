@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
 import { isOutsideRelativePath } from "./isOutsideRelativePath";
 
 /**
@@ -17,6 +18,8 @@ import { isOutsideRelativePath } from "./isOutsideRelativePath";
  *
  * Source-content freshness belongs to the generation owner. An owned output
  * that disappears remains owned, so its reader reports that failure by name.
+ * Output coordinates use one native identity transaction to compare actual
+ * writer aliases; captured source coordinates are never resolved again.
  *
  * @evidence contracts/common.md#principled-implementation The producer owner associates its eligible sources with actual writes under its documented observation premises; captured physical coordinates establish ownership independently of filename precedence or source-map settings.
  * @evidence contracts/common.md#clear-and-simple-design One source index replaces forward layout, inverse filename buckets and map parsing with the actual producing build's associations.
@@ -27,7 +30,7 @@ import { isOutsideRelativePath } from "./isOutsideRelativePath";
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work find and its build owner establish continued reuse, not this class shape independently.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller owns index lifetime; find describes its bounded retained population.
  *
- * @evidence contracts/portability.md#os-neutral-implementation Captured physical coordinates stay distinct from later lexical aliases; native realpath supplies canonical spelling and only Windows volume-root spelling is normalized.
+ * @evidence contracts/portability.md#os-neutral-implementation Output writer aliases use the shared native filesystem identity resolver, preserving sensitive or unknown missing names; captured physical source coordinates remain distinct from later lexical aliases and normalize only Windows volume-root spelling.
  */
 export class EmitOwnershipIndex {
   /** Absolute native directory containing this build's isolated outputs. */
@@ -63,7 +66,11 @@ export class EmitOwnershipIndex {
     /** Observed producer refusal reasons; these never establish ownership. */
     emittedSourceProofFailures?: Readonly<Record<string, string>>;
   }) {
-    this.emitDir = path.resolve(props.emitDir);
+    // Output spelling is not provenance: the same native writer file can be
+    // named through a case, short-name or directory-link alias. Resolve only
+    // output coordinates here; captured source coordinates stay untouched.
+    const outputIdentity = createFilesystemPathIdentityContext();
+    this.emitDir = outputIdentity.resolve(path.resolve(props.emitDir)).path;
     this.rootDir = path.resolve(props.rootDir);
     if (
       props.emittedSources !== undefined &&
@@ -81,7 +88,9 @@ export class EmitOwnershipIndex {
       props.outputs === undefined
         ? undefined
         : new Set(
-            props.outputs.map((file) => path.resolve(this.emitDir, file)),
+            props.outputs.map((file) =>
+              outputIdentity.resolve(path.resolve(this.emitDir, file)).key,
+            ),
           );
     const accounted = new Set<string>();
     for (const [output, sources] of Object.entries(
@@ -90,7 +99,8 @@ export class EmitOwnershipIndex {
       if (!path.isAbsolute(output) || !Array.isArray(sources)) {
         throw new Error("ttsc: invalid emitted-source provenance record");
       }
-      const location = path.resolve(output);
+      const identity = outputIdentity.resolve(path.resolve(output));
+      const location = identity.path;
       if (!isJavaScriptOutput(location)) continue;
       const relative = path.relative(this.emitDir, location);
       if (relative === "" || isOutsideRelativePath(relative)) {
@@ -98,12 +108,12 @@ export class EmitOwnershipIndex {
           "ttsc: emitted-source provenance escapes its output directory",
         );
       }
-      if (recorded !== undefined && !recorded.has(location)) {
+      if (recorded !== undefined && !recorded.has(identity.key)) {
         throw new Error(
           "ttsc: emitted-source provenance names an unrecorded output",
         );
       }
-      accounted.add(location);
+      accounted.add(identity.key);
       const keys = new Set<string>();
       for (const source of sources) {
         if (typeof source !== "string" || !path.isAbsolute(source)) {
@@ -187,7 +197,7 @@ export class EmitOwnershipIndex {
    * @evidence contracts/common.md#clear-and-simple-design One source lookup replaces filename inference; unavailable proof is explicit rather than a hidden fallback policy.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Legacy and unknown records cannot gain a unique owner through extension order or a lexical source alias resolved after compilation.
    * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes exact, absent and error outcomes, plus fresh alias observation from source-content freshness; errors distinguish missing producer metadata, ownerless or ambiguous rows and uncovered written outputs with their native coordinates.
-   * @evidence contracts/performance.md#efficient-algorithms Construction indexes P associations and records proof gaps once; a successful query resolves native identity and performs one map lookup without scanning outputs or source maps. Unavailable errors format retained reason text rather than rereading the output tree.
+   * @evidence contracts/performance.md#efficient-algorithms Construction indexes P associations and resolves output coordinates in one memoized native identity transaction; missing suffixes can add ancestor and case-observation work. A successful query resolves source identity and performs one map lookup without scanning outputs or source maps; unavailable errors format retained reason text rather than rereading the output tree.
    * @evidence contracts/performance.md#reuse-equivalent-work A completed build's captured associations serve all queries while aliases stay fresh; another build requires a new index.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Index storage grows with captured associations and proof-gap path bytes, with no query history or retained native handle; each successful query finishes its native realpath observation synchronously.
    * @evidence contracts/portability.md#os-neutral-implementation Native realpath resolves current aliases to physical spelling; exact captured names remain distinct when directory case policy changes, without OS-wide lowercase assumptions.
