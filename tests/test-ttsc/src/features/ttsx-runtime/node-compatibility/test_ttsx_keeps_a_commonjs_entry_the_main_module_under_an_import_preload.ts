@@ -25,11 +25,11 @@ import { pathToFileURL } from "node:url";
  * 3. Assert each run is the main module, requires its dependency, and has the
  *    `require` the runtime gives a hook-served CommonJS module.
  *
- * @evidence contracts/testing.md#behavioral-verification Three actual bootstraps reach one CommonJS typed main under import preloading; each exact JSON verifies main identity, typed dependency and require.cache availability.
- * @evidence contracts/testing.md#independent-expectations main true and dep are literal NativeNode and fixture expectations; a separate native JavaScript main under a public passthrough load hook establishes require.cache availability independently of product capability detection.
+ * @evidence contracts/testing.md#behavioral-verification Three actual bootstraps reach one CommonJS typed main under import preloading; each exact JSON verifies main identity, typed dependency, an object cache and identity with public createRequire's shared cache.
+ * @evidence contracts/testing.md#independent-expectations A separate native JavaScript main under the same empty import preload establishes full CommonJS main/cache semantics independently of the product. Node 22 load-hook require omits cache, but the product explicitly restores ordinary shared native cache access; that restricted hook binding is therefore not the expected public runtime API.
  * @evidence contracts/testing.md#distinguishing-cases CLI NODE_OPTIONS, native --import register and native preload with -r register are distinct loader entry paths, each preserving main-module semantics.
  * @evidence contracts/testing.md#execution-ownership This named filename-matching E2E entry runs the real built launcher or public register and native host. Portable option/cache decisions stay in source units; recursive main24 and the explicit Node compatibility directory both select this actual boundary.
- * @evidence contracts/e2e.md#necessary-boundary Three actual bootstraps reach one CommonJS typed main under import preloading; each exact JSON verifies main identity, typed dependency and require.cache availability. Direct source calls cannot prove this NativeNode loader or process connection.
+ * @evidence contracts/e2e.md#necessary-boundary Three actual bootstraps reach one CommonJS typed main under import preloading; exact native-cache identity, main identity and typed dependency require the real Node loader connection. Direct source calls cannot prove this process assembly.
  * @evidence contracts/e2e.md#shared-execution One immutable workspace supplies all three product bootstraps plus one inexpensive native-reference host with no product compiler preparation. Distinct Node process starts are necessary because preload mode is chosen at process creation; equivalent compiler preparation is still mediated by the runtime.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity All consumers read the same immutable source/preload files; synchronous spawns complete each host before the next and no source mutation or cold-cache claim is made.
  * @evidence contracts/e2e.md#preserved-coverage All original meaningful status, output and state assertions remain in this named entry; physical directory selection removes only repeated unrelated portable cases from floor/current execution, while main24 retains the entire runtime population.
@@ -39,8 +39,10 @@ export function test_ttsx_keeps_a_commonjs_entry_the_main_module_under_an_import
       "src/main.ts": [
         `declare const require: any;`,
         `declare const module: any;`,
+        `declare const __filename: string;`,
         `console.log(JSON.stringify({`,
         `  cache: typeof require.cache,`,
+        `  shared: require.cache === require("node:module").createRequire(__filename).cache,`,
         `  dep: require("./dep.js").value,`,
         `  main: require.main === module,`,
         `}));`,
@@ -48,8 +50,7 @@ export function test_ttsx_keeps_a_commonjs_entry_the_main_module_under_an_import
       ].join("\n"),
       "src/dep.ts": `export const value: string = "dep";\n`,
       "preload.mjs": ``,
-      "native-reference.cjs": `console.log(JSON.stringify({ cache: typeof require.cache, main: require.main === module }));\n`,
-      "native-reference-hook.mjs": `import { registerHooks } from "node:module";\nregisterHooks({ load(url, context, nextLoad) { return nextLoad(url, context); } });\n`,
+      "native-reference.cjs": `console.log(JSON.stringify({ cache: typeof require.cache, main: require.main === module, shared: require.cache === require("node:module").createRequire(__filename).cache }));\n`,
     });
     const preload = pathToFileURL(path.join(root, "preload.mjs")).href;
     const register = path.join(
@@ -63,7 +64,7 @@ export function test_ttsx_keeps_a_commonjs_entry_the_main_module_under_an_import
       process.execPath,
       [
         "--import",
-        pathToFileURL(path.join(root, "native-reference-hook.mjs")).href,
+        preload,
         "native-reference.cjs",
       ],
       { cwd: root },
@@ -72,10 +73,10 @@ export function test_ttsx_keeps_a_commonjs_entry_the_main_module_under_an_import
     const native = JSON.parse(reference.stdout.trim()) as {
       cache: string;
       main: boolean;
+      shared: boolean;
     };
-    assert.equal(native.main, true);
-    assert.ok(native.cache === "object" || native.cache === "undefined");
-    const expected = { cache: native.cache, dep: "dep", main: true };
+    assert.deepEqual(native, { cache: "object", main: true, shared: true });
+    const expected = { cache: native.cache, dep: "dep", main: true, shared: native.shared };
     for (const [label, result] of [
       [
         "ttsx",
