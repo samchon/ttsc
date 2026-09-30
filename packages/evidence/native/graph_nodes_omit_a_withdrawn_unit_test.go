@@ -24,8 +24,8 @@ import (
 //  2. Publish both populations through the same filter GraphNodes applies.
 //  3. Assert the survivors are published and nothing withdrawn is.
 // @evidence .agents/skills/contracts/testing.md#behavioral-verification graphRule.GraphNodes over authored Prisma model DTOs exercises this case: TestGraphNodesOmitAWithdrawnUnit verifies the publisher drops a unit that named the tag it hid itself behind, and keeps its untagged siblings. The original assertions check assert the survivors are published and nothing withdrawn is.
-// @evidence .agents/skills/contracts/testing.md#independent-expectations A withdrawn unit is retained internally so a citation of it can be told why the target it names is not there. Publishing it would put a node in the graph for something the rule says is not part of the surface — the graph would answer a question the linter answers the other way, which is the one thing this boundary exists to prevent. The authored fixture and literal assertions below pin that contract; literal Sale and Sale.price expectations independently pin the surviving model. The withdrawn-address loop uses prismaModelUnits output and therefore does not independently certify that collector's address spelling; this entry owns the publisher filter.
-// @evidence .agents/skills/contracts/testing.md#distinguishing-cases Materialize a withdrawn model with its columns, and a surviving one. Publish both populations through the same filter GraphNodes applies. Assert the survivors are published and nothing withdrawn is. The assertions and inputs in this function retain its own failure identity.
+// @evidence .agents/skills/contracts/testing.md#independent-expectations A withdrawn unit is retained internally so a citation of it can be told why the target it names is not there. Publishing it would put a node in the graph for something the rule says is not part of the surface — the graph would answer a question the linter answers the other way, which is the one thing this boundary exists to prevent. The authored fixture and literal assertions below pin that contract. Literal Prisma addresses Ledger, Ledger.amount and Ledger.sale follow the authored model and field names. Their exact three-unit presence is required before publication, and their literal absence afterward prevents an empty collector result or a shared addressing error from satisfying the negative check. Literal Sale and Sale.price expectations pin the surviving control.
+// @evidence .agents/skills/contracts/testing.md#distinguishing-cases Materialize a withdrawn model with its columns, and a surviving one. Publish both populations through the same filter GraphNodes applies. Assert the three authored withdrawn addresses exist before filtering and are absent afterward, while Sale and Sale.price remain public. The original generated-unit exclusion loop also remains.
 // @evidence .agents/skills/contracts/testing.md#execution-ownership TestGraphNodesOmitAWithdrawnUnit is the selectable Go test entry; its local loops and closures remain owned by this entry. It exercises graphRule.GraphNodes over authored Prisma model DTOs within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
 func TestGraphNodesOmitAWithdrawnUnit(t *testing.T) {
   withdrawn := prismaModelUnits(prismaModel{
@@ -36,6 +36,21 @@ func TestGraphNodesOmitAWithdrawnUnit(t *testing.T) {
       {Name: "sale", Symbol: "relation"},
     },
   })
+  // These literal addresses establish that the negative population exists;
+  // an empty or misaddressed collector result must not make filtering vacuous.
+  withdrawnTargets := map[string]bool{}
+  for _, unit := range withdrawn {
+    withdrawnTargets[unit.Target] = true
+  }
+  if len(withdrawn) != 3 || len(withdrawnTargets) != 3 {
+    t.Fatalf("expected one withdrawn model and its two fields, got %v", withdrawnTargets)
+  }
+  for _, target := range []string{"prisma:Ledger", "prisma:Ledger.amount", "prisma:Ledger.sale"} {
+    if !withdrawnTargets[target] {
+      t.Fatalf("the authored withdrawn fixture did not materialize %s: %v", target, withdrawnTargets)
+    }
+  }
+
   surviving := prismaModelUnits(prismaModel{
     Name:   "Sale",
     Fields: []prismaField{{Name: "price", Symbol: "column"}},
@@ -89,6 +104,11 @@ func TestGraphNodesOmitAWithdrawnUnit(t *testing.T) {
         "the withdrawn unit %s was published; the rule says it is not part of the surface",
         unit.Target,
       )
+    }
+  }
+  for _, target := range []string{"prisma:Ledger", "prisma:Ledger.amount", "prisma:Ledger.sale"} {
+    if published[target] {
+      t.Fatalf("the literal withdrawn address %s was published", target)
     }
   }
 }
