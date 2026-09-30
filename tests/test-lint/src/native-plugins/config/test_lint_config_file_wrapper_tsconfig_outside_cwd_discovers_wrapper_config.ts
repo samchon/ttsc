@@ -28,9 +28,17 @@ import {
  *    tsconfig that extends the project's tsconfig.
  * 3. Compile via `TtscCompiler` using the wrapper tsconfig; assert the wrapper's
  *    `no-var` rule fires (not the project's `no-console` rule).
+ *
+ * @evidence contracts/testing.md#behavioral-verification Real TtscCompiler compiles from a separate wrapper containing no-var config while the cwd project contains competing no-console config; exactly the wrapper's rendered no-var error must result.
+ * @evidence contracts/testing.md#independent-expectations The authored source triggers both potential rules, but independent competing configs enable one each; the literal full no-var message/category list proves wrapper selection and rejects the cwd decoy finding.
+ * @evidence contracts/testing.md#distinguishing-cases Both search origins hold eligible configs, so accidental cwd-only selection cannot pass; the paired config-less wrapper case covers fallback rather than precedence.
+ * @evidence contracts/testing.md#execution-ownership This named entry invokes the emitted compiler API with wrapper tsconfig and project cwd; Go discovery units own internal origin selection but not the compiler-to-host context transfer.
+ * @evidence contracts/e2e.md#necessary-boundary The compiler must convey a wrapper-root configuration selection through real plugin/native compilation to its public diagnostic result; direct resolver inputs do not prove that context is preserved by the compiler adapter.
+ * @evidence contracts/e2e.md#shared-execution One wrapper compile covers both winning no-var and losing no-console origins. Unchanged builtin source/compiler artifacts reuse sharedPluginCache and sharedGoBuildCache; no additional contributor producer is created.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The temporary wrapper and consumer are independently owned and removed in finally; config and source stay fixed during compilation, and no result from the fallback-origin scenario is reused.
+ * @evidence contracts/e2e.md#preserved-coverage Original failure type and exact rendered no-var message/category list remain executable, including absence of the competing cwd no-console finding.
  */
-export const test_lint_config_file_wrapper_tsconfig_outside_cwd_discovers_wrapper_config =
-  () => {
+export function test_lint_config_file_wrapper_tsconfig_outside_cwd_discovers_wrapper_config() {
     const project = createLintProject({
       name: "config-file-wrapper-outside-cwd",
       source: SOURCE,
@@ -82,4 +90,4 @@ export const test_lint_config_file_wrapper_tsconfig_outside_cwd_discovers_wrappe
       fs.rmSync(wrapper, { recursive: true, force: true });
       project.cleanup();
     }
-  };
+  }
