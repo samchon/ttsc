@@ -1,6 +1,7 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import child_process from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -15,18 +16,26 @@ import path from "node:path";
  * runtime directory behind; a program that died of a signal made ttsx exit 1
  * instead of dying of the same signal.
  *
- * 1. Create a program that prints `ready` and then waits, with or without a
+ * 1. Create a program that prints authenticated readiness and waits, with or without a
  *    `SIGTERM`/`SIGINT` handler that exits 3.
  * 2. Send `SIGTERM` to the launcher's pid alone, and `SIGINT` to its process
  *    group, once the program is ready.
  * 3. Assert the handler ran and its code came back, an unhandled `SIGTERM` ended
  *    ttsx by `SIGTERM`, and no runtime directory remains.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Real SIGTERM to the launcher must reach a handler and return exit 3; unhandled SIGTERM must report that signal; process-group SIGINT must reach the handler once. Each session must remove runtime output.
+ * @evidence contracts/testing.md#independent-expectations Native close code/signal, literal handler output and exactly one SIGINT occurrence are independent Node process observations, while native directory reads check cleanup.
+ * @evidence contracts/testing.md#distinguishing-cases Handled and unhandled SIGTERM distinguish forwarding from signal propagation; group SIGINT distinguishes duplicate launcher forwarding from direct group delivery. Windows returns because this delivery model is unavailable.
+ * @evidence contracts/testing.md#execution-ownership The named async E2E entry owns three POSIX detached launcher/program sessions and their assertions; program and signaling helpers are not separate test entries.
+ * @evidence contracts/e2e.md#necessary-boundary Real process-group delivery and native termination reporting require actual launcher/program lifetimes; a signal-listener unit cannot establish kernel delivery or resulting cleanup.
+ * @evidence contracts/e2e.md#shared-execution The three sessions share one project and existing compiler artifacts, but distinct termination modes require separate lifetimes; current preparation still repeats checked compilation for those sessions.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fixture declares its own workspace boundary so an ancestor installation cannot select an external cache. Each launcher owns a distinct POSIX process group; only its authenticated complete stdout readiness line gates signaling. Close, error and timeout clear the timer and terminate that owned group before settlement; stderr supplies diagnostics only.
+ * @evidence contracts/e2e.md#preserved-coverage Handled codes/output, unhandled native signal, exactly-once group delivery and all three empty runtime-index assertions remain; the Windows early return is unchanged and is not POSIX coverage.
  */
-export const test_ttsx_forwards_termination_signals_and_cleans_up_on_posix =
-  async () => {
+export async function test_ttsx_forwards_termination_signals_and_cleans_up_on_posix() {
     if (process.platform === "win32") return;
     const root = TestProject.createProject({
-      "package.json": JSON.stringify({ name: "signals", private: true }),
+      "package.json": JSON.stringify({ name: "signals", private: true, workspaces: ["packages/*"] }),
       "tsconfig.json": JSON.stringify({
         compilerOptions: {
           target: "ES2022",
@@ -75,12 +84,12 @@ export const test_ttsx_forwards_termination_signals_and_cleans_up_on_posix =
       "SIGINT must reach the program once",
     );
     assert.deepEqual(listDirectory(runtimeRoot), []);
-  };
+  }
 
-/** A program that prints `ready`, then waits, handling signals if asked. */
+/** A program that echoes its spawn token, then waits, handling signals if asked. */
 function program(handles: boolean): string {
   return [
-    `declare const process: { on(event: string, listener: (signal: string) => void): void; exit(code: number): never };`,
+    `declare const process: { env: Record<string, string | undefined>; on(event: string, listener: (signal: string) => void): void; exit(code: number): never };`,
     `declare function setInterval(callback: () => void, ms: number): unknown;`,
     ...(handles
       ? [
@@ -92,7 +101,7 @@ function program(handles: boolean): string {
           `}`,
         ]
       : []),
-    `console.log("ready");`,
+    `console.log("ready:" + process.env.TTSC_TEST_READY_TOKEN);`,
     `setInterval(() => {}, 1000);`,
     `export {};`,
     ``,
@@ -101,7 +110,7 @@ function program(handles: boolean): string {
 
 /**
  * Start ttsx in its own process group, signal it once the program prints
- * `ready`, and collect how it ended.
+ * the complete token-bearing stdout line, and collect how it ended.
  */
 function runUntilSignaled(
   root: string,
@@ -113,6 +122,7 @@ function runUntilSignaled(
   output: string;
 }> {
   return new Promise((resolve, reject) => {
+    const token = crypto.randomBytes(16).toString("hex");
     const child = child_process.spawn(
       process.execPath,
       [TestProject.TTSX_BIN, "--cwd", root, entry],
@@ -123,29 +133,70 @@ function runUntilSignaled(
           ...process.env,
           TTSC_BINARY: TestProject.NATIVE_BINARY,
           TTSC_TSGO_BINARY: TestProject.TSGO_BINARY,
+          TTSC_TEST_READY_TOKEN: token,
         },
         stdio: ["ignore", "pipe", "pipe"],
       },
     );
     let output = "";
+    let stdout = "";
     let signaled = false;
-    const timer = setTimeout(() => {
-      child.kill("SIGKILL");
-      reject(new Error(`ttsx ${entry} did not end:\n${output}`));
-    }, 120_000);
-    const collect = (chunk: Buffer): void => {
-      output += chunk.toString("utf8");
-      if (!signaled && output.includes("ready")) {
-        signaled = true;
-        signal(child);
+    let failure: Error | undefined;
+    const closeGroup = (): void => {
+      if (child.pid === undefined) return;
+      try {
+        process.kill(-child.pid, "SIGKILL");
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
       }
     };
-    child.stdout!.on("data", collect);
-    child.stderr!.on("data", collect);
-    child.once("error", reject);
+    const fail = (error: Error): void => {
+      if (failure !== undefined) return;
+      failure = error;
+      clearTimeout(timer);
+      try {
+        closeGroup();
+      } catch (cleanupError) {
+        failure = new AggregateError([error, cleanupError], "signal session cleanup failed");
+        child.kill("SIGKILL");
+      }
+    };
+    const timer = setTimeout(() => {
+      fail(new Error(`ttsx ${entry} did not end:\n${output}`));
+    }, 120_000);
+    child.stdout!.on("data", (chunk: Buffer) => {
+      const bytes = chunk.toString("utf8");
+      output += bytes;
+      stdout += bytes;
+      for (;;) {
+        const newline = stdout.indexOf("\n");
+        if (newline < 0) break;
+        const line = stdout.slice(0, newline).replace(/\r$/, "");
+        stdout = stdout.slice(newline + 1);
+        if (signaled || failure !== undefined || line !== `ready:${token}`) continue;
+        signaled = true;
+        try {
+          signal(child);
+        } catch (error) {
+          fail(error instanceof Error ? error : new Error(String(error)));
+        }
+      }
+    });
+    child.stderr!.on("data", (chunk: Buffer) => {
+      output += chunk.toString("utf8");
+    });
+    child.once("error", fail);
     child.once("close", (code, received) => {
       clearTimeout(timer);
-      resolve({ code, signal: received, output });
+      try {
+        closeGroup();
+      } catch (error) {
+        failure = failure === undefined
+          ? error instanceof Error ? error : new Error(String(error))
+          : new AggregateError([failure, error], "signal session cleanup failed");
+      }
+      if (failure !== undefined) reject(failure);
+      else resolve({ code, signal: received, output });
     });
   });
 }

@@ -11,6 +11,7 @@ import {
   runDirectory,
   runtimeRunsDirectory,
   startWaitingRun,
+  stopWaitingRun,
 } from "../../internal/ttsx-run";
 
 /**
@@ -31,11 +32,19 @@ import {
  *    the first run's directory remains.
  * 3. Force-terminate the first program, run a program to completion, and assert no
  *    run directory remains.
+ *
+ * @evidence contracts/testing.md#behavioral-verification A real waiting run is killed at the launcher, then later completed runs must preserve any surviving program owner and finally remove all generations after that program is killed.
+ * @evidence contracts/testing.md#independent-expectations The program reports its actual PID; native liveness decides whether the live-child preservation branch applies. Directory observations and literal done output are independent ownership oracles.
+ * @evidence contracts/testing.md#distinguishing-cases Launcher-dead/program-live and all-owners-dead states distinguish preservation from reclamation; platform-native child survival determines the first state rather than assuming POSIX behavior everywhere.
+ * @evidence contracts/testing.md#execution-ownership The matching async E2E entry owns one waiting pair and two completion sessions; helper source is fixture input, and the conditional live-child branch is not executed on every platform.
+ * @evidence contracts/e2e.md#necessary-boundary Forced termination bypasses product cleanup and actual surviving child admission must protect the shared output; synthetic owner records alone cannot demonstrate that lifecycle.
+ * @evidence contracts/e2e.md#shared-execution All sessions reuse one project and isolated cache; waiting and two later preparation lifetimes establish successive ownership states. Equivalent compiler preparation is still repeated by the current harness.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fixture declares its own workspace boundary so an ancestor installation cannot select an external cache. Finally closes the acquired launcher tree and authenticated waiting program even if a state assertion fails; startup failures close their own tree before rejecting. Deliberate launcher-only and later program kills remain separate from final cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Post-kill directory retention, conditional live-child preservation, each done status/output and final empty run index remain; native child-survival coverage is explicitly conditional.
  */
-export const test_ttsx_reclaims_the_directory_of_a_force_terminated_run =
-  async (): Promise<void> => {
+export async function test_ttsx_reclaims_the_directory_of_a_force_terminated_run(): Promise<void> {
     const root = TestProject.createProject({
-      "package.json": JSON.stringify({ name: "killed-run", private: true }),
+      "package.json": JSON.stringify({ name: "killed-run", private: true, workspaces: ["packages/*"] }),
       "tsconfig.json": JSON.stringify({
         compilerOptions: {
           target: "ES2022",
@@ -61,6 +70,7 @@ export const test_ttsx_reclaims_the_directory_of_a_force_terminated_run =
     };
 
     const killed = await startWaitingRun(root, "src/waiting.ts");
+    let primaryFailure: unknown;
     try {
       await forceTerminate(killed.launcher.pid!);
       const directory = runDirectory(runs, killed.launcher.pid!);
@@ -82,7 +92,17 @@ export const test_ttsx_reclaims_the_directory_of_a_force_terminated_run =
         [],
         "the directory of a force-terminated run remained",
       );
+    } catch (error) {
+      primaryFailure = error;
+      throw error;
     } finally {
-      await forceTerminate(killed.program);
+      try {
+        await stopWaitingRun(killed);
+      } catch (cleanupError) {
+        if (primaryFailure !== undefined) throw new AggregateError(
+          [primaryFailure, cleanupError], "terminated run failed and cleanup failed",
+        );
+        throw cleanupError;
+      }
     }
-  };
+  }

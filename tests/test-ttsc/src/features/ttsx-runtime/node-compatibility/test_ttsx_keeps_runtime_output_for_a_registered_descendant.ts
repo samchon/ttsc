@@ -29,7 +29,7 @@ import {
  * @evidence contracts/testing.md#execution-ownership This named filename-matching E2E entry runs the real built launcher or public register and native host. Portable option/cache decisions stay in source units; recursive main24 and the explicit Node compatibility directory both select this actual boundary.
  * @evidence contracts/e2e.md#necessary-boundary An actual detached Node descendant claims the runtime run, survives parent exit and clean, then imports lazy.ts; exact result and eventual removal distinguish premature cleanup and permanent retention. Direct source calls cannot prove this NativeNode loader or process connection.
  * @evidence contracts/e2e.md#shared-execution One launcher preparation is shared by parent and detached worker; two clean calls deliberately bracket its live and finished states, rather than preparing another compiler program.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity An isolated cache and worker-ready barrier prevent warm external owners from deciding cleanup; release permits the real lazy import and finally forceTerminate closes the known worker PID.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fixture declares its own workspace boundary so an ancestor installation cannot select an external cache. An isolated cache and worker-ready barrier prevent warm external owners from deciding cleanup; release permits the real lazy import and finally forceTerminate closes the known worker PID.
  * @evidence contracts/e2e.md#preserved-coverage All original meaningful status, output and state assertions remain in this named entry; physical directory selection removes only repeated unrelated portable cases from floor/current execution, while main24 retains the entire runtime population.
  */
 export async function test_ttsx_keeps_runtime_output_for_a_registered_descendant(): Promise<void> {
@@ -37,6 +37,7 @@ export async function test_ttsx_keeps_runtime_output_for_a_registered_descendant
       "package.json": JSON.stringify({
         name: "runtime-descendant",
         private: true,
+        workspaces: ["packages/*"],
       }),
       "tsconfig.json": JSON.stringify({
         compilerOptions: {

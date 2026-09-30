@@ -24,11 +24,19 @@ import { runtimeRunsDirectory } from "../../internal/ttsx-run";
  * 2. Run an entry through ttsx, and assert the planted directory is gone.
  * 3. Plant another, run the entry through `node --import ttsc/register`, and
  *    assert that directory is gone too.
+ *
+ * @evidence contracts/testing.md#behavioral-verification ttsx and node --import register each execute the typed entry and must remove a separately planted stale run whose actual local owner has exited.
+ * @evidence contracts/testing.md#independent-expectations Each seed PID is verified absent by the native process probe; fixed ran output and stale-tree absence follow public execution and cleanup contracts independently of owner decoding.
+ * @evidence contracts/testing.md#distinguishing-cases Both launcher and register assembly paths consume newly seeded stale trees; keeping a live or uncertain owner belongs to complementary ownership and cleanup cases.
+ * @evidence contracts/testing.md#execution-ownership The named E2E entry owns both actual product host sessions and their per-session stale seeds; helper child source only establishes genuine departed-process evidence.
+ * @evidence contracts/e2e.md#necessary-boundary The two public entry adapters must both reach preparation sweeping; testing ProcessOwnedDirectory directly cannot detect a missing adapter call.
+ * @evidence contracts/e2e.md#shared-execution The entry project, built register artifact and cache are shared, while each adapter requires its own process lifetime and newly seeded stale tree. Both preparations currently compile the same project separately.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fixture declares its own workspace boundary so an ancestor installation cannot select an external cache. Each phase plants a distinct stale generation immediately before its consumer; isolated HOME/TMP/cache environment prevents external cleanup, and synchronous sessions exit before the next seed.
+ * @evidence contracts/e2e.md#preserved-coverage Both zero statuses, ran outputs and their individual stale-removal assertions remain; no equivalence claim hides the repeated adapter preparations.
  */
-export const test_ttsx_and_register_remove_a_run_directory_whose_owners_are_gone =
-  (): void => {
+export function test_ttsx_and_register_remove_a_run_directory_whose_owners_are_gone(): void {
     const root = TestProject.createProject({
-      "package.json": JSON.stringify({ name: "gone-owner", private: true }),
+      "package.json": JSON.stringify({ name: "gone-owner", private: true, workspaces: ["packages/*"] }),
       "tsconfig.json": JSON.stringify({
         compilerOptions: {
           module: "commonjs",
@@ -95,7 +103,7 @@ export const test_ttsx_and_register_remove_a_run_directory_whose_owners_are_gone
       false,
       "ttsc/register kept a run directory whose owners are gone",
     );
-  };
+  }
 
 /** The id of a process of this host that ran and has ended. */
 function endedProcessId(): number {

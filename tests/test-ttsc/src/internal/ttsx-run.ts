@@ -1,5 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 import child_process from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -9,6 +10,8 @@ import { isolatedCacheEnvironment } from "./isolated-cache-environment";
 export interface IWaitingRun {
   /** The launcher process. */
   launcher: child_process.ChildProcess;
+  /** Resolves after the owned launcher and its captured stdio have closed. */
+  closed: Promise<void>;
   /** The pid of the program the launcher spawned. */
   program: number;
   /** Everything the run printed so far. */
@@ -16,13 +19,13 @@ export interface IWaitingRun {
 }
 
 /**
- * A program that prints `ready:<pid>` and then waits until it is terminated,
+ * A program that prints `ready:<token>:<pid>` and waits until terminated,
  * for `startWaitingRun`.
  */
 export const WAITING_PROGRAM = [
-  `declare const process: { pid: number };`,
+  `declare const process: { pid: number; env: Record<string, string | undefined> };`,
   `declare function setInterval(callback: () => void, ms: number): unknown;`,
-  `console.log("ready:" + process.pid);`,
+  `console.log("ready:" + process.env.TTSC_TEST_READY_TOKEN + ":" + process.pid);`,
   `setInterval(() => {}, 1000);`,
   `export {};`,
   ``,
@@ -51,51 +54,127 @@ export function runDirectory(runs: string, pid: number): string {
 
 /**
  * Start ttsx on `entry`, a program such as `WAITING_PROGRAM`, and resolve once
- * it printed its pid.
+ * its complete stdout line carries this spawn's random token and a valid PID.
+ * Stderr remains diagnostic output. Failed startup closes the owned POSIX
+ * group or Windows taskkill tree before rejecting.
  */
 export function startWaitingRun(
   root: string,
   entry: string,
 ): Promise<IWaitingRun> {
   return new Promise((resolve, reject) => {
+    const token = crypto.randomBytes(16).toString("hex");
     const launcher = child_process.spawn(
       process.execPath,
       [TestProject.TTSX_BIN, "--cwd", root, entry],
       {
         cwd: root,
+        detached: process.platform !== "win32",
         env: {
           ...process.env,
           ...isolatedCacheEnvironment(root),
           TTSC_BINARY: TestProject.NATIVE_BINARY,
           TTSC_TSGO_BINARY: TestProject.TSGO_BINARY,
+          TTSC_TEST_READY_TOKEN: token,
         },
         stdio: ["ignore", "pipe", "pipe"],
         windowsHide: true,
       },
     );
+    const closed = new Promise<void>((done) => launcher.once("close", () => done()));
     let output = "";
-    let started = false;
-    const timer = setTimeout(() => {
-      launcher.kill("SIGKILL");
-      reject(new Error(`ttsx ${entry} did not start:\n${output}`));
-    }, 120_000);
-    const collect = (chunk: Buffer): void => {
-      output += chunk.toString("utf8");
-      const ready = /ready:(\d+)/.exec(output);
-      if (started || ready === null) return;
-      started = true;
+    let stdout = "";
+    let settled = false;
+    let program: number | undefined;
+    const fail = async (error: Error): Promise<void> => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
-      resolve({ launcher, output: () => output, program: Number(ready[1]) });
+      try {
+        await stopWaitingProcessTree(launcher, program);
+        await closed;
+        reject(error);
+      } catch (cleanupError) {
+        reject(new AggregateError([error, cleanupError], "waiting run failed and cleanup failed"));
+      }
     };
-    launcher.stdout!.on("data", collect);
-    launcher.stderr!.on("data", collect);
-    launcher.once("error", reject);
-    launcher.once("exit", () => {
-      if (started) return;
-      clearTimeout(timer);
-      reject(new Error(`ttsx ${entry} ended before it started:\n${output}`));
+    const timer = setTimeout(() => {
+      void fail(new Error(`ttsx ${entry} did not start:\n${output}`));
+    }, 120_000);
+    launcher.stdout!.on("data", (chunk: Buffer) => {
+      const bytes = chunk.toString("utf8");
+      output += bytes;
+      stdout += bytes;
+      for (;;) {
+        const newline = stdout.indexOf("\n");
+        if (newline < 0) break;
+        const line = stdout.slice(0, newline).replace(/\r$/, "");
+        stdout = stdout.slice(newline + 1);
+        const prefix = `ready:${token}:`;
+        if (!line.startsWith(prefix)) continue;
+        const pidText = line.slice(prefix.length);
+        const pid = /^\d+$/.test(pidText) ? Number(pidText) : NaN;
+        if (!Number.isSafeInteger(pid) || pid <= 0 || pid === launcher.pid) {
+          void fail(new Error(`invalid waiting program PID: ${line}`));
+          continue;
+        }
+        if (settled) continue;
+        program = pid;
+        settled = true;
+        clearTimeout(timer);
+        resolve({ launcher, closed, output: () => output, program });
+      }
+    });
+    launcher.stderr!.on("data", (chunk: Buffer) => {
+      output += chunk.toString("utf8");
+    });
+    launcher.once("error", (error) => void fail(error));
+    launcher.once("close", () => {
+      if (!settled) void fail(new Error(`ttsx ${entry} ended before it started:\n${output}`));
     });
   });
+}
+
+/**
+ * End the test-owned launcher tree and authenticated waiting program.
+ * Intentional launcher-only termination remains a separate test operation;
+ * this helper is the finalizer even after that launcher already exited.
+ */
+export async function stopWaitingRun(run: IWaitingRun): Promise<void> {
+  await stopWaitingProcessTree(run.launcher, run.program);
+  await run.closed;
+}
+
+/** Startup may fail before a program PID exists; its owned tree still closes. */
+async function stopWaitingProcessTree(
+  launcher: child_process.ChildProcess,
+  program: number | undefined,
+): Promise<void> {
+  const failures: unknown[] = [];
+  if (launcher.pid !== undefined) {
+    if (process.platform !== "win32") {
+      try {
+        process.kill(-launcher.pid, "SIGKILL");
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ESRCH") failures.push(error);
+      }
+    } else if (launcher.exitCode === null && launcher.signalCode === null) {
+      const result = child_process.spawnSync(
+        "taskkill", ["/PID", String(launcher.pid), "/T", "/F"],
+        { windowsHide: true, encoding: "utf8" },
+      );
+      if (result.error !== undefined || (result.status !== 0 && isRunning(launcher.pid))) {
+        failures.push(result.error ?? new Error(result.stderr || result.stdout));
+      }
+    }
+  }
+  const pids = [
+    launcher.exitCode === null && launcher.signalCode === null ? launcher.pid : undefined,
+    program,
+  ].filter((pid): pid is number => pid !== undefined);
+  const results = await Promise.allSettled(pids.map((pid) => forceTerminate(pid)));
+  for (const result of results) if (result.status === "rejected") failures.push(result.reason);
+  if (failures.length !== 0) throw new AggregateError(failures, "waiting run cleanup failed");
 }
 
 /** Whether a process with `pid` is running. */

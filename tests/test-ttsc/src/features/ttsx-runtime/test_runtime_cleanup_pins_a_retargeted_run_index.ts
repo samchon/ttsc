@@ -21,8 +21,17 @@ import { resolveRuntimeCleanTargets } from "../../../../../packages/ttsc/lib/lau
  *    retarget the index and assert the deletion target remains the original.
  * 2. Retarget another index just after its directory is listed for sweeping.
  * 3. Assert the original dead run is swept and the victim's data survives.
+ *
+ * @evidence contracts/testing.md#behavioral-verification resolveRuntimeCleanTargets and resolveSafeCacheCleanupTargets must retain the original physical stale target; ProcessOwnedDirectory.sweep must delete the original stale run while preserving victim bytes after retargeting.
+ * @evidence contracts/testing.md#independent-expectations A real exited PID establishes abandonment, the current PID establishes liveness and literal victim bytes establish preservation independently of the path-selection implementation.
+ * @evidence contracts/testing.md#distinguishing-cases The clean plan retains a live sibling while selecting a dead sibling; a separate sweep retargets immediately after listing and must not follow the alias to a same-named victim.
+ * @evidence contracts/testing.md#execution-ownership This named feature entry currently imports built owner functions directly and uses one child to obtain genuine dead-process evidence and the supported sweep selection callback to retarget only its own alias after enumeration.
+ * @evidence contracts/e2e.md#necessary-boundary The actual process-liveness probe, owner records, native symlink or junction and physical deletion must connect without retargeting deletion into a same-named victim; no compiler or installed CLI is required.
+ * @evidence contracts/e2e.md#shared-execution One genuine departed PID is shared by both fixture scenarios, with no native build or product host; moving portable owners to source units must preserve that evidence rather than invent a dead PID.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Separate original/victim trees retain distinct bytes across both retargets; the supported accepts callback changes only the fixture alias after actual enumeration and before owner inspection. No foreign method is replaced; TestProject owns the temporary trees.
+ * @evidence contracts/e2e.md#preserved-coverage All kept-count, original-target, exercised-retarget, stale-removal and victim-byte assertions remain; the callback preserves the original after-enumeration counterexample without replacing filesystem methods.
  */
-export const test_runtime_cleanup_pins_a_retargeted_run_index = (): void => {
+export function test_runtime_cleanup_pins_a_retargeted_run_index(): void {
   const root = TestProject.tmpdir("ttsx-run-index-retarget-");
   const project = path.join(root, "project");
   const cache = path.join(root, "cache");
@@ -54,36 +63,14 @@ export const test_runtime_cleanup_pins_a_retargeted_run_index = (): void => {
   recordOwner(path.join(sweepVictim, "stale"), deadPid);
   fs.writeFileSync(path.join(sweepVictim, "stale", "keep.txt"), "victim");
   fs.symlinkSync(sweepOriginal, sweepAlias, linkKind());
-  const originalReaddir = fs.readdirSync;
   let switched = false;
-  Object.defineProperty(fs, "readdirSync", {
-    configurable: true,
-    value: ((location: fs.PathLike, ...options: unknown[]) => {
-      const entries = Reflect.apply(originalReaddir, fs, [
-        location,
-        ...options,
-      ]);
-      const named = path.resolve(String(location));
-      if (
-        !switched &&
-        (named === sweepAlias || named === fs.realpathSync.native(sweepAlias))
-      ) {
-        switched = true;
-        replaceLink(sweepAlias, sweepVictim);
-      }
-      return entries;
-    }) as typeof fs.readdirSync,
-    writable: true,
+  ProcessOwnedDirectory.sweep(sweepAlias, () => {
+    if (!switched) {
+      switched = true;
+      replaceLink(sweepAlias, sweepVictim);
+    }
+    return true;
   });
-  try {
-    ProcessOwnedDirectory.sweep(sweepAlias);
-  } finally {
-    Object.defineProperty(fs, "readdirSync", {
-      configurable: true,
-      value: originalReaddir,
-      writable: true,
-    });
-  }
   assert.equal(switched, true, "the sweep race was not exercised");
   assert.equal(
     plannedCorrectly,
@@ -95,7 +82,7 @@ export const test_runtime_cleanup_pins_a_retargeted_run_index = (): void => {
     fs.readFileSync(path.join(sweepVictim, "stale", "keep.txt"), "utf8"),
     "victim",
   );
-};
+}
 
 function recordOwner(directory: string, pid: number): void {
   fs.mkdirSync(directory, { recursive: true });
