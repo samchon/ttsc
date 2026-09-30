@@ -59,6 +59,8 @@ export function test_runtime_compiler_args_preserves_options_and_lowers_only_une
     { options: { jsx: "preserve", jsxFragmentFactory: "F" }, suffix: ["--jsx", "react"] },
     { options: { jsx: "preserve", reactNamespace: "R" }, suffix: ["--jsx", "react"] },
     { options: { jsx: "preserve", jsxFactory: "h", jsxFragmentFactory: "F", reactNamespace: "R", jsxImportSource: "myjsx" }, suffix: ["--jsx", "react-jsx", "--jsxFactory", "null", "--jsxFragmentFactory", "null", "--reactNamespace", "null"] },
+    { options: { jsx: "preserve", jsxFactory: "h", jsxFragmentFactory: "Fragment", jsxImportSource: "myjsx" }, suffix: ["--jsx", "react-jsx", "--jsxFactory", "null", "--jsxFragmentFactory", "null"] },
+    { options: { jsx: "preserve", reactNamespace: "R", jsxImportSource: "myjsx" }, suffix: ["--jsx", "react-jsx", "--reactNamespace", "null"] },
   ]) {
     project.compilerOptions = { plugins: [], ...scenario.options };
     assert.deepEqual(runtimeCompilerArgs(project), [...scenario.suffix, ...tail], JSON.stringify(scenario.options));
@@ -68,5 +70,9 @@ export function test_runtime_compiler_args_preserves_options_and_lowers_only_une
   assert.deepEqual(runtimeCompilerArgs(project, ["--noLib", "false"]), ["--noLib", "false", ...implied, ...tail]);
   assert.deepEqual(runtimeCompilerArgs(project, ["--lib", "esnext"]), ["--lib", "esnext", "--target", "es2025", "--module", "esnext", ...tail]);
   assert.deepEqual(runtimeCompilerArgs(project, ["--noEmit", "true", "--emitDeclarationOnly", "true"], undefined, null), ["--noEmit", "true", "--emitDeclarationOnly", "true"]);
+  project.compilerOptions = { plugins: [], target: "ES2022", module: "commonjs" };
+  for (const flags of [["--noEmit"], ["--emitDeclarationOnly", "--declaration"], ["--noEmit", "--emitDeclarationOnly", "--declaration"]]) {
+    assert.deepEqual(runtimeCompilerArgs(project, flags), [...flags, ...tail]);
+  }
 }
 
