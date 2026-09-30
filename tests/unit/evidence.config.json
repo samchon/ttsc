@@ -144,6 +144,62 @@
         "symbol": "h2",
         "checklist": true
       }
+    },
+    {
+      "name": "Go utility plugin semantic units",
+      "type": "go",
+      "root": "../..",
+      "files": [
+        "packages/banner/test/unit/**/*_test.go",
+        "packages/paths/test/unit/**/*_test.go",
+        "packages/strip/test/unit/**/*_test.go"
+      ],
+      "symbol": "function",
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": [
+          "contracts/testing.md"
+        ],
+        "symbol": "h2",
+        "checklist": true
+      }
+    },
+    {
+      "name": "Go transformer fixture operation units",
+      "type": "go",
+      "root": "../..",
+      "files": [
+        "tests/go-transformer/transformer/*_test.go"
+      ],
+      "symbol": "function",
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": [
+          "contracts/testing.md"
+        ],
+        "symbol": "h2",
+        "checklist": true
+      }
+    },
+    {
+      "name": "Go AST shim text units",
+      "type": "go",
+      "root": "../..",
+      "files": [
+        "packages/ttsc/shim/ast/test/*_test.go"
+      ],
+      "symbol": "function",
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": [
+          "contracts/testing.md"
+        ],
+        "symbol": "h2",
+        "checklist": true
+      }
     }
   ]
 }
