@@ -31,9 +31,26 @@ jobs:
           node-version: 24.x
           cache: pnpm
       - uses: actions/setup-go@v7
+        id: go
         with:
           go-version-file: packages/ttsc/go.mod
-          cache-dependency-path: "**/go.sum"
+          cache: false
+      - name: Locate Go caches
+        id: go-cache
+        shell: bash
+        run: |
+          echo "build=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+          echo "modules=$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
+      - name: Restore Go modules and build objects
+        id: go-cache-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ steps.go-cache.outputs.build }}
+            ${{ steps.go-cache.outputs.modules }}
+          key: e2e-go-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('**/go.sum', '**/go.mod') }}-${{ github.sha }}
+          restore-keys: |
+            e2e-go-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('**/go.sum', '**/go.mod') }}-
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.0
@@ -106,3 +123,14 @@ jobs:
         run: node scripts/ci/run-validation-group.cjs --lanes=runtime-node-current --concurrency=2
         env:
           TTSC_TEST_WORKERS: 2
+      # Go validates cached objects against sources, toolchains and build flags.
+      # Keep objects produced by failing tests, including the distinct -race
+      # build. Test commands still force execution and retain their exit status.
+      - name: Save Go modules and build objects
+        if: ${{ !cancelled() && steps.go-cache-restore.outcome == 'success' && steps.go-cache-restore.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ steps.go-cache.outputs.build }}
+            ${{ steps.go-cache.outputs.modules }}
+          key: ${{ steps.go-cache-restore.outputs.cache-primary-key }}
