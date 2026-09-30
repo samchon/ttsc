@@ -122,9 +122,17 @@ const CLIENT_CAPABILITIES = {
  *    after the corpus is known to be live.
  * 5. Resolve a plugin item and assert `ttscserver` answers it without handing
  *    TypeScript-Go an item it never produced.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The real rule-published JSDoc corpus must return param/returns and exact replacement range from an unsaved buffer, remain absent outside its block and resolve its own item locally.
+ * @evidence contracts/testing.md#independent-expectations Saved bytes without JSDoc, authored dirty block/caret/typed fragment and literal param/returns and ownership marker independently prescribe the published item and resolve response.
+ * @evidence contracts/testing.md#distinguishing-cases Tests disk versus dirty-buffer authority, in-block versus outside scope, two vocabulary entries and ownership-preserving resolve; upstream hover/plain-completion probes retain failure context.
+ * @evidence contracts/testing.md#execution-ownership The named server entry owns real jsdoc rule registration, lsp-hints transport, proxy merge and completionItem resolve in one actual editor session.
+ * @evidence contracts/e2e.md#necessary-boundary Matcher/merge units cannot prove the lint contributor corpus crosses lsp-hints into the live editor buffer and that plugin-owned resolve stays out of TypeScript-Go.
+ * @evidence contracts/e2e.md#shared-execution One immutable producer, server and saved document serve the dirty buffer, corpus polling, negative scope and resolve sequence; polling observes one asynchronous population rather than starting more hosts.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Dirty text is notified without writing disk, the literal saved-source assertion verifies this authority separation, readiness precedes polling, and session shutdown plus project cleanup always run.
+ * @evidence contracts/e2e.md#preserved-coverage Preserves both corpus entries, filter/detail, exact edit range/text, unchanged disk, empty outside-block result and resolve marker; the original asynchronous readiness protocol is not replaced by a preloaded fake corpus.
  */
-export const test_ttscserver_lsp_completion_serves_the_live_jsdoc_corpus =
-  async () => {
+export async function test_ttscserver_lsp_completion_serves_the_live_jsdoc_corpus() {
     const project = TestLint.createProject({
       name: "ttscserver-lsp-completion-corpus",
       rules: { "jsdoc/check-tag-names": "error", "no-var": "error" },
@@ -356,7 +364,7 @@ export const test_ttscserver_lsp_completion_serves_the_live_jsdoc_corpus =
     } finally {
       project.cleanup();
     }
-  };
+  }
 
 /**
  * Bound for the corpus wait, measured from a sidecar already known to answer.

@@ -25,9 +25,17 @@ type Publication = {
  * 1. Open a session with a Markdown link to a missing exported name.
  * 2. Repair the external file and send the editor's watched-file event.
  * 3. Verify the project diagnostic clears, then returns on deletion.
+ *
+ * @evidence contracts/testing.md#behavioral-verification A real evidence contributor must publish the missing export, clear it after external file repair, then publish the missing file after deletion and watched-file notification.
+ * @evidence contracts/testing.md#independent-expectations The Markdown file-qualified reference, initial other export, repaired value export and literal missing-export/file messages prescribe each original transition independently.
+ * @evidence contracts/testing.md#distinguishing-cases The reference population is outside the Program; an external content repair and file deletion distinguish contributor dependency invalidation from ordinary edited source diagnostics.
+ * @evidence contracts/testing.md#execution-ownership The named server entry connects built evidence descriptor, linked contributor, project diagnostics and editor watched-file notifications in one real session.
+ * @evidence contracts/e2e.md#necessary-boundary Graph decision units cannot prove that contributor-declared external dependencies reach the native LSP project channel and trigger publication after editor events.
+ * @evidence contracts/e2e.md#shared-execution One evidence/lint producer, one initialized server and one unchanged Program source serve the entire missing-repaired-deleted transition sequence.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity All Markdown/external/config paths are private; each waiter precedes its triggering write and notification, session shutdown and project cleanup always run, and contributor inputs are not bypassed by a warm build.
+ * @evidence contracts/e2e.md#preserved-coverage Original missing-export wait, same-URI clearing predicate, missing-file wait and nonempty deletion assertion remain; exact graph decision matrices stay with evidence units.
  */
-export const test_ttscserver_revalidates_file_qualified_evidence_links =
-  async (): Promise<void> => {
+export async function test_ttscserver_revalidates_file_qualified_evidence_links() {
     const entry = path.join(
       TestProject.WORKSPACE_ROOT,
       "packages/evidence/lib/index.js",
@@ -117,4 +125,4 @@ module.exports = { plugins: { evidence }, rules: { "evidence/graph": ["error", {
     } finally {
       project.cleanup();
     }
-  };
+  }

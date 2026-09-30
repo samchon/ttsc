@@ -32,9 +32,17 @@ type PublishDiagnosticsParams = {
  * 2. Start ttscserver through the JavaScript launcher and open the file.
  * 3. Wait for plugin diagnostics on the edited file.
  * 4. Assert `no-var` is present and `no-console` is absent.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The real launcher must preserve configFile through its manifest so the no-var finding appears and the conflicting default no-console rule remains absent.
+ * @evidence contracts/testing.md#independent-expectations The authored custom and default config JSON select opposite rules for the same var and console source; literal positive and negative codes decide the result.
+ * @evidence contracts/testing.md#distinguishing-cases A valid explicit config competes with an existing default config; checking both no-var presence and no-console absence distinguishes actual precedence from loading both.
+ * @evidence contracts/testing.md#execution-ownership The named server entry starts one real launcher and observes native diagnostics; descriptor/config decision units do not own the private manifest to sidecar handoff.
+ * @evidence contracts/e2e.md#necessary-boundary The actual manifest serializer, Go proxy and sidecar invocation must agree on configFile; direct rule execution cannot prove that connection.
+ * @evidence contracts/e2e.md#shared-execution One source document and one server session exercise both precedence controls, using the shared immutable lint build instead of another standalone installation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Both configs and the source belong to one temporary consumer; no producer bytes change, and runTtscserverSession shuts down before project cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Keeps both original code assertions and the actual publication wait; a default fallback remains a failure rather than being hidden by a weaker rule check.
  */
-export const test_ttscserver_lsp_honors_explicit_lint_config_file =
-  async () => {
+export async function test_ttscserver_lsp_honors_explicit_lint_config_file() {
     const project = TestLint.createProject({
       name: "ttscserver-lsp-explicit-lint-config",
       pluginConfig: { configFile: "./custom-lint.config.json" },
@@ -98,4 +106,4 @@ export const test_ttscserver_lsp_honors_explicit_lint_config_file =
     } finally {
       project.cleanup();
     }
-  };
+  }

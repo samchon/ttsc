@@ -87,9 +87,17 @@ const CLIENT_CAPABILITIES = {
  *    TypeScript-Go's own answer rather than merely coming back.
  * 4. Assert `client/registerCapability` was answered, the handshake the whole
  *    upstream stream hangs on.
+ *
+ * @evidence contracts/testing.md#behavioral-verification A real mixed LSP session must retain upstream hover/symbol/completion providers and return inferred legacy number, greet symbol and upstream legacy completion after native no-var publication.
+ * @evidence contracts/testing.md#independent-expectations Authored declaration and caret positions prescribe literal inferred type, symbol and scope completion; the public provider keys and registerCapability method are independent handshake expectations.
+ * @evidence contracts/testing.md#distinguishing-cases Distinguishes native lint readiness from actual upstream hover, explicitly forwarded symbol requests and merged completion items filtered to exclude plugin ownership markers.
+ * @evidence contracts/testing.md#execution-ownership The named server entry owns the actual launcher/proxy/upstream stream and server-initiated capability registration, with bounded language requests after one native diagnostic readiness wait.
+ * @evidence contracts/e2e.md#necessary-boundary Synthetic merge or rule units cannot establish that real TypeScript-Go advances its dispatch loop after registerCapability and its responses survive the proxy.
+ * @evidence contracts/e2e.md#shared-execution One source, one handshake and one server answer all three upstream feature requests plus native readiness; no separate native producer or language-feature session is built for each verb.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The temporary source and lint config stay immutable, requests follow the required initialization/opening order, exact lint build identity may be shared, and session shutdown precedes cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage All provider, type, registration, symbol and non-plugin completion assertions remain, including the original timeout context that distinguishes an upstream hang from native diagnostics readiness.
  */
-export const test_ttscserver_answers_typescript_go_language_requests =
-  async () => {
+export async function test_ttscserver_answers_typescript_go_language_requests() {
     const project = TestLint.createProject({
       name: "ttscserver-typescript-go-requests",
       rules: { "no-var": "error" },
@@ -230,7 +238,7 @@ export const test_ttscserver_answers_typescript_go_language_requests =
     } finally {
       project.cleanup();
     }
-  };
+  }
 
 /**
  * Bound for one upstream request. Every one of them is asked after tsgo has

@@ -39,9 +39,17 @@ const SELECTION_TIMEOUT = 120_000;
  * 3. Start a new session: it reports the new message.
  * 4. Change the copy's descriptor module and report it: that session announces
  *    `ttsc/pluginSelectionChanged` too.
+ *
+ * @evidence contracts/testing.md#behavioral-verification A real session announces selection change after copied Go rule source changes, the next startup returns the edited diagnostic message, and changing its descriptor announces selection change again.
+ * @evidence contracts/testing.md#independent-expectations Original and replacement literal rule messages plus the pluginSelectionChanged method independently prescribe source recompilation and descriptor restart outcomes.
+ * @evidence contracts/testing.md#distinguishing-cases Go-source mutation must affect the next actual binary message; descriptor-only mutation must also end selection even though the diagnostic rule source is unchanged.
+ * @evidence contracts/testing.md#execution-ownership The named server entry owns two actual native startups against a private lint package copy and real watched-file notifications; source-key units do not prove rebuilt code reaches the editor.
+ * @evidence contracts/e2e.md#necessary-boundary Source fingerprinting, native compilation, launcher manifest and LSP restart policy must agree on the current artifact rather than retaining an old binary or descriptor.
+ * @evidence contracts/e2e.md#shared-execution One copied producer and consumer share both sessions and Go objects; two source identities and the restart are intentional inputs, so an immutable canonical binary cannot stand in for the edited rule.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The copied package and its node_modules link isolate all edits from workspace files; each session attempts shutdown, shared plugin cache keys distinguish original and edited source, and project cleanup always runs.
+ * @evidence contracts/e2e.md#preserved-coverage Keeps original message equality, actual source edit, edited-message equality and both selection notifications; no capability stub or cache opt-out substitutes for rebuilt source.
  */
-export const test_ttscserver_ends_the_session_when_a_plugin_source_or_descriptor_changes =
-  async () => {
+export async function test_ttscserver_ends_the_session_when_a_plugin_source_or_descriptor_changes() {
     const project = TestLint.createProject({
       name: "ttscserver-plugin-selection-inputs",
       rules: { "no-var": "error" },
@@ -173,4 +181,4 @@ export const test_ttscserver_ends_the_session_when_a_plugin_source_or_descriptor
     } finally {
       project.cleanup();
     }
-  };
+  }

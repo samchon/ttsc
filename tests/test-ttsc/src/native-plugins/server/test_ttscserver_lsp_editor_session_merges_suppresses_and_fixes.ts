@@ -85,9 +85,17 @@ const FIXED = SAVED.replace("var legacy", "let legacy");
  *    ttsc-owned `ttsc.lint.fixAll` action comes back.
  * 4. Execute that command and assert the returned WorkspaceEdit fixes the
  *    violation without writing the file, then shut the server down cleanly.
+ *
+ * @evidence contracts/testing.md#behavioral-verification One real editor session preserves merged initialize capabilities, publishes the exact var range/severity/message, suppresses dirty findings, republishes on save and returns a targeted fix without writing disk.
+ * @evidence contracts/testing.md#independent-expectations Literal capability ids/kinds, authored source/append range, var underline/severity and expected let rewrite independently prescribe every original editor transition.
+ * @evidence contracts/testing.md#distinguishing-cases Separates upstream capability preservation from native actions, dirty suppression from absence by retaining var, and returned WorkspaceEdit from sidecar disk mutation after save.
+ * @evidence contracts/testing.md#execution-ownership The named server entry owns actual initialize/didOpen/incremental didChange/didSave/codeAction/executeCommand across the native proxy and lint producer in one Linux session.
+ * @evidence contracts/e2e.md#necessary-boundary Direct rule or synthetic publication units cannot establish ordered editor notifications, dirty-buffer suppression, saved revalidation and actual command manifest routing across the native bridge.
+ * @evidence contracts/e2e.md#shared-execution One project, native producer and initialized server execute the complete original editor lifecycle; rule decisions remain in the shared Go units instead of recreating hosts for each notification.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only the temporary source is intentionally saved by the harness, the dirty edit remains buffer-only until that step, command nonmutation is checked against saved bytes, and failure-preserving session shutdown precedes cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Keeps every capability, range, severity, message, dirty/saved predicate, action target and exact WorkspaceEdit/disk assertion; the no-var-only fixture remains separate from cascade policies so its expected let rewrite stays unchanged.
  */
-export const test_ttscserver_lsp_editor_session_merges_suppresses_and_fixes =
-  async () => {
+export async function test_ttscserver_lsp_editor_session_merges_suppresses_and_fixes() {
     const project = TestLint.createProject({
       name: "ttscserver-lsp-editor-session",
       rules: { "no-var": "error" },
@@ -311,7 +319,7 @@ export const test_ttscserver_lsp_editor_session_merges_suppresses_and_fixes =
     } finally {
       project.cleanup();
     }
-  };
+  }
 
 /**
  * Bound for a publishDiagnostics wait. `lsp-diagnostics` goes to the resident

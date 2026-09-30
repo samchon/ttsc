@@ -39,9 +39,17 @@ const SELECTION_TIMEOUT = 120_000;
  * 3. Start a session with no plugin, write a `package.json` whose dependencies
  *    include `@ttsc/lint`, which publishes itself as a plugin, report it, and
  *    wait for `ttsc/pluginSelectionChanged`.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Actual sessions must announce pluginSelectionChanged when tsconfig adds or removes the plugin and when a previously plugin-free manifest adds its dependency; the intervening session must publish no-var.
+ * @evidence contracts/testing.md#independent-expectations Original configured and unconfigured tsconfig bytes, package dependency insertion, literal notification method and no-var publication independently prescribe the selection transitions.
+ * @evidence contracts/testing.md#distinguishing-cases Exercises plugin addition and removal through compilerOptions and addition through package discovery, including a plugin-free initial state and a positive next-session diagnostic.
+ * @evidence contracts/testing.md#execution-ownership The named server entry owns three intentionally distinct startup selections and real editor watched-file events; source fingerprint units cannot establish process lifecycle notifications.
+ * @evidence contracts/e2e.md#necessary-boundary The launcher selection snapshot and live native watched-file handling must agree on restart inputs, including inputs absent from a plugin-free initial selection.
+ * @evidence contracts/e2e.md#shared-execution One consumer and canonical lint producer serve three sessions; restarting is the behavior being verified, so sessions cannot be collapsed into an unchanged host that masks selection boundaries.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only private tsconfig and manifest are changed, each notification waiter is installed before writing, and every started session attempts shutdown before final consumer cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Preserves all three original selection notifications plus the intervening no-var publication and actual lifecycle handling; does not replace the restart assertion with a pure membership predicate.
  */
-export const test_ttscserver_ends_the_session_when_what_selects_its_plugins_changes =
-  async () => {
+export async function test_ttscserver_ends_the_session_when_what_selects_its_plugins_changes() {
     const project = TestLint.createProject({
       name: "ttscserver-plugin-selection-config",
       rules: { "no-var": "error" },
@@ -156,4 +164,4 @@ export const test_ttscserver_ends_the_session_when_what_selects_its_plugins_chan
     } finally {
       project.cleanup();
     }
-  };
+  }
