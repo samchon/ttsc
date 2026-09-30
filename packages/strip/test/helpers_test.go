@@ -1,13 +1,15 @@
 package strip_test
 
 import (
+  "bytes"
   "encoding/json"
+  "fmt"
   "os"
   "os/exec"
   "path/filepath"
   "runtime"
-  "strconv"
   "strings"
+  "sync"
   "testing"
 )
 
@@ -16,7 +18,7 @@ type transformResult struct {
 }
 
 // packageRoot resolves the `packages/strip` module root from this external
-// test package. Command tests execute `go run ./plugin` from that root.
+// test package. Command tests execute the shared native producer from that root.
 func packageRoot(t *testing.T) string {
   t.Helper()
   _, file, _, ok := runtime.Caller(0)
@@ -26,55 +28,96 @@ func packageRoot(t *testing.T) string {
   return filepath.Dir(filepath.Dir(file))
 }
 
-// runPlugin executes the strip sidecar exactly through its command entrypoint.
-// TTSC_PLUGIN_COVERDIR optionally enables Go command coverage for subprocess
-// branches that this external test package cannot otherwise count.
+// One immutable producer is shared by this test process; invocation state is not.
+var pluginBinaryOnce sync.Once
+var pluginBinaryPath string
+var pluginBinaryDirectory string
+var pluginBinaryError error
+
+// TestMain releases the producer directory owned by this test process after
+// all cases, including failing cases, finish. A suite-supplied binary remains
+// the suite runner's responsibility; each invocation still has its own process.
+// Abrupt termination or a test panic can prevent this normal cleanup path.
+//
+// @evidence contracts/common.md#principled-implementation sync.Once resolves one producer before concurrent callers execute it; m.Run completes the population before releasing only the fallback directory acquired by this process.
+// @evidence contracts/common.md#clear-and-simple-design TestMain owns release, resolvePluginBinary owns acquisition and runPlugin owns independent invocation; the supplied-binary branch has no hidden rebuild.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts These helpers execute the actual compiled plugin with original arguments and separate fixtures; they do not replace product methods, globals, statuses or output expectations.
+// @evidence contracts/common.md#meaningful-documentation The declaration documents fallback ownership, runner ownership and the abrupt-termination limitation separately from these acknowledgments; private helper comments explain reuse and both captured streams.
+// @evidence contracts/performance.md#efficient-algorithms Resolution and stat occur once per Go test process; each necessary command executes directly and captures its streams, without reentering the Go build tool for every case.
+// @evidence contracts/performance.md#reuse-equivalent-work Only immutable producer bytes from the same checkout, Go workspace and inherited toolchain flags are reused during this process; configuration and fixture state remain per invocation, and a new suite invocation rebuilds after source changes.
+// @evidence contracts/performance.md#bound-retention-and-release-resources At most one fallback directory and producer are retained until m.Run returns, then RemoveAll releases them and reports failure through status; supplied bytes are released by the runner, and hard termination has no guaranteed cleanup.
+// @evidence contracts/portability.md#os-neutral-implementation filepath joins native paths and exec.Command preserves individual arguments without a shell; only the executable suffix uses GOOS, and actual process ExitCode and separate byte streams supply the result without parsing platform-dependent Go-tool diagnostics.
+func TestMain(m *testing.M) {
+  status := m.Run()
+  if pluginBinaryDirectory != "" {
+    if err := os.RemoveAll(pluginBinaryDirectory); err != nil {
+      fmt.Fprintf(os.Stderr, "cleanup native producer: %v\n", err)
+      status = 1
+    }
+  }
+  os.Exit(status)
+}
+
+// resolvePluginBinary reuses one real producer with inherited toolchain flags.
+// A supplied binary is mandatory, not a hint that permits an unobserved rebuild.
+func resolvePluginBinary(t *testing.T) string {
+  t.Helper()
+  pluginBinaryOnce.Do(func() {
+    pluginBinaryPath = os.Getenv("TTSC_UTILITY_TEST_BINARY")
+    if pluginBinaryPath != "" {
+      if _, err := os.Stat(pluginBinaryPath); err != nil {
+        pluginBinaryError = fmt.Errorf("prepared native producer: %w", err)
+      }
+      return
+    }
+    pluginBinaryDirectory, pluginBinaryError = os.MkdirTemp("", "ttsc-strip-test-producer-")
+    if pluginBinaryError != nil {
+      return
+    }
+    pluginBinaryPath = filepath.Join(pluginBinaryDirectory, "plugin")
+    if runtime.GOOS == "windows" {
+      pluginBinaryPath += ".exe"
+    }
+    buildArgs := []string{"build", "-o", pluginBinaryPath}
+    if os.Getenv("TTSC_PLUGIN_COVERDIR") != "" {
+      buildArgs = append(buildArgs, "-cover", "-covermode=atomic", "-coverpkg=./plugin,./driver")
+    }
+    buildArgs = append(buildArgs, "./plugin")
+    command := exec.Command("go", buildArgs...)
+    command.Dir = packageRoot(t)
+    if output, err := command.CombinedOutput(); err != nil {
+      pluginBinaryError = fmt.Errorf("build native producer: %w\n%s", err, output)
+    }
+  })
+  if pluginBinaryError != nil {
+    t.Fatal(pluginBinaryError)
+  }
+  return pluginBinaryPath
+}
+
+// runPlugin captures the real producer status and both streams on every exit.
+// Each invocation gets its own process and fixture state; only compiled bytes are shared.
 func runPlugin(t *testing.T, args ...string) (int, string, string) {
   t.Helper()
-  goArgs := []string{"run"}
+  cmd := exec.Command(resolvePluginBinary(t), args...)
+  cmd.Dir = packageRoot(t)
   if coverDir := os.Getenv("TTSC_PLUGIN_COVERDIR"); coverDir != "" {
     if err := os.MkdirAll(coverDir, 0o755); err != nil {
       t.Fatal(err)
     }
-    goArgs = append(goArgs, "-cover", "-covermode=atomic", "-coverpkg=./plugin,./driver")
-  }
-  goArgs = append(goArgs, "./plugin")
-  cmd := exec.Command("go", append(goArgs, args...)...)
-  cmd.Dir = packageRoot(t)
-  if coverDir := os.Getenv("TTSC_PLUGIN_COVERDIR"); coverDir != "" {
     cmd.Env = append(os.Environ(), "GOCOVERDIR="+coverDir)
   }
-  out, err := cmd.Output()
-  stderr := ""
+  var stdout, stderr bytes.Buffer
+  cmd.Stdout = &stdout
+  cmd.Stderr = &stderr
+  err := cmd.Run()
   if exit, ok := err.(*exec.ExitError); ok {
-    stderr = string(exit.Stderr)
-    if status, ok := goRunExitStatus(stderr); ok {
-      return status, string(out), stderr
-    }
-    return exit.ExitCode(), string(out), stderr
+    return exit.ExitCode(), stdout.String(), stderr.String()
   }
   if err != nil {
-    t.Fatalf("go run ./plugin failed before exit code: %v", err)
+    t.Fatalf("native producer failed before exit code: %v", err)
   }
-  return 0, string(out), stderr
-}
-
-// goRunExitStatus extracts the sidecar exit code from the `go run` wrapper
-// error text.
-func goRunExitStatus(stderr string) (int, bool) {
-  for _, line := range strings.Split(strings.TrimSpace(stderr), "\n") {
-    line = strings.TrimSpace(line)
-    if !strings.HasPrefix(line, "exit status ") {
-      continue
-    }
-    value := strings.TrimPrefix(line, "exit status ")
-    status, err := strconv.Atoi(value)
-    if err != nil {
-      return 0, false
-    }
-    return status, true
-  }
-  return 0, false
+  return 0, stdout.String(), stderr.String()
 }
 
 // seedProject writes a self-contained TypeScript fixture project under a fresh

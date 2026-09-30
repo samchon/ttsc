@@ -57,10 +57,8 @@ for (const name of packageNames) {
   try {
     const goWork = path.join(workdir, "go.work");
     writeUtilityGoWork(goWork, packageDir);
-    // Prewarm the plugin/driver build outside `go test`: the command tests
-    // `go run ./plugin` DURING test execution, so on a cold cache (fresh CI
-    // runner) the full typescript-go compile counts against the 10-minute
-    // test timeout and can single-handedly blow it.
+    // Build the actual producer once; every surviving command case executes
+    // this same binary rather than invoking the Go tool again during tests.
     const env = {
       ...process.env,
       GOWORK: goWork,
@@ -71,7 +69,13 @@ for (const name of packageNames) {
     const warm =
       layer === "unit"
         ? null
-        : cp.spawnSync("go", ["build", "-o", workdir, "./..."], {
+        : cp.spawnSync("go", [
+            "build", "-o", workdir,
+            ...(env.TTSC_PLUGIN_COVERDIR
+              ? ["-cover", "-covermode=atomic", "-coverpkg=./plugin,./driver"]
+              : []),
+            "./...",
+          ], {
             cwd: packageDir,
             env,
             stdio: "inherit",
@@ -84,6 +88,11 @@ for (const name of packageNames) {
       process.exitCode = warm.status ?? 1;
       continue;
     }
+    if (warm)
+      env.TTSC_UTILITY_TEST_BINARY = path.join(
+        workdir,
+        `plugin${process.platform === "win32" ? ".exe" : ""}`,
+      );
     const selection = `^(${unitTests[name].join("|")})$`;
     const args = ["test", "-count=1"];
     if (layer === "unit") args.push(`-run=${selection}`);
