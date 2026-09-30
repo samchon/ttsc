@@ -26,9 +26,17 @@ import {
  * 2. A second child acquires successor B, then A's delayed `finally` runs.
  * 3. Assert A reports release failure, B remains the active current generation,
  *    and B later releases normally.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Actual built lease operations let child A finalize only after child B acquires the successor; assertions require A release false, exact live B fence, B normal release true, both tombstones and stale parent release false.
+ * @evidence contracts/testing.md#independent-expectations Generation fences and deterministic tombstones independently require an old generation to lack authority over a successor; observed leases supplied by actual acquisitions define the expected identities.
+ * @evidence contracts/testing.md#distinguishing-cases Delayed old finalization and duplicate parent finalization must fail while the successor stays active; the same successor subsequently releases successfully. Dead-owner observation and competing reclaim are separate fenced cases.
+ * @evidence contracts/testing.md#execution-ownership This named E2E entry invokes built lock operations in two actual independent holder processes and the observing parent, with barrier-controlled interleaving rather than elapsed timing.
+ * @evidence contracts/e2e.md#necessary-boundary An actual delayed child finalizer must encounter another process's acquired native directory generation; a pure lease predicate cannot establish filesystem retirement or successor survival across those lifetimes.
+ * @evidence contracts/e2e.md#shared-execution One worker script and one lock root serve old and successor holders; two simultaneous holder lifetimes are essential because one must retain its old finalizer while the other owns current. No compiler or consumer installation is performed.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The isolated root retains deterministic old/successor generations and barriers control acquisition and finalization. Finally releases both workers and awaits their settlements even after parent assertion failure, preventing barrier timeouts from leaking into later cases.
+ * @evidence contracts/e2e.md#preserved-coverage All original status, release-result, active-fence, released-state, tombstone and stale-release assertions remain unchanged; failure-path cleanup adds no skipped assertion or artificial abandonment claim.
  */
-export const test_ttsx_dependency_cache_old_finalizer_cannot_release_a_successor =
-  async () => {
+export async function test_ttsx_dependency_cache_old_finalizer_cannot_release_a_successor() {
     const root = TestProject.tmpdir("ttsx-depcache-finalizer-");
     const lockDir = path.join(root, "entry.lock");
     const workerScript = writeLockHolderScript(root, lockDir);
@@ -48,6 +56,8 @@ export const test_ttsx_dependency_cache_old_finalizer_cannot_release_a_successor
       },
       script: workerScript,
     });
+    let successor: ReturnType<typeof spawnNodeWorker> | undefined;
+    try {
     await waitForCondition(
       () => fs.existsSync(oldLeaseFile),
       "old holder acquisition",
@@ -61,7 +71,7 @@ export const test_ttsx_dependency_cache_old_finalizer_cannot_release_a_successor
       "the parent should retire generation A",
     );
 
-    const successor = spawnNodeWorker({
+    successor = spawnNodeWorker({
       env: {
         LOCK_LEASE_FILE: successorLeaseFile,
         LOCK_RELEASE_FILE: successorReleaseFile,
@@ -117,4 +127,9 @@ export const test_ttsx_dependency_cache_old_finalizer_cannot_release_a_successor
     // The parent's late reclaim of the already-retired generation A must also
     // fail without touching the released state.
     assert.equal(releaseDependencyBuildLock(lockDir, oldLease), false);
-  };
+    } finally {
+      fs.writeFileSync(oldFinalizeFile, "release\n", "utf8");
+      fs.writeFileSync(successorReleaseFile, "release\n", "utf8");
+      await Promise.allSettled(successor === undefined ? [oldHolder] : [oldHolder, successor]);
+    }
+  }

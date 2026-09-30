@@ -27,9 +27,17 @@ import {
  * 2. Assert the lock reads abandoned, reclaim it, then acquire it live and assert
  *    it reads active with the live fence.
  * 3. Release the live generation and assert the lock reads released.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Built lease operations acquire in a child that exits unreleased, inspect its exact abandoned fence, reclaim it, acquire a live parent successor, then verify active, normal released and stale reclaim false plus both tombstones.
+ * @evidence contracts/testing.md#independent-expectations The seed's process exit independently establishes owner death and its published acquired lease identifies the expected abandoned generation; the running parent independently establishes live ownership rather than an invented PID.
+ * @evidence contracts/testing.md#distinguishing-cases Dead owner permits reclaim, live successor remains active, normal release reports released, and duplicate stale reclaim fails without disturbing released state. Separate stale-observer and old-finalizer cases own concurrent contender schedules.
+ * @evidence contracts/testing.md#execution-ownership This named E2E entry invokes built protocol operations in one real seed process and the parent; direct admission units separately own elapsed-budget policy without creating an artificial death state.
+ * @evidence contracts/e2e.md#necessary-boundary Native process death must be recognized through persisted lease metadata and connect to atomic retirement and successor acquisition; pure elapsed-time or fabricated owner-record assertions cannot verify this observation.
+ * @evidence contracts/e2e.md#shared-execution One short-lived seed is the only additional process required; all inspected, reclaimed, acquired and released states share one lock root and no compiler or installation preparation repeats.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The seed exits before parent inspection, so its dead state is genuine rather than timing dependent. The successor is released normally and a fenced finally release also closes ownership after an assertion failure; TestProject owns the isolated directory.
+ * @evidence contracts/e2e.md#preserved-coverage All original seed-status, abandoned/live exact-fence, acquisition, release, released-state, duplicate-reclaim and per-generation tombstone assertions are retained; no semantic case is removed in this contract enrollment.
  */
-export const test_ttsx_dependency_cache_recovers_from_a_dead_owner_and_reports_lock_states =
-  async () => {
+export async function test_ttsx_dependency_cache_recovers_from_a_dead_owner_and_reports_lock_states() {
     const root = TestProject.tmpdir("ttsx-depcache-states-");
     const lockDir = path.join(root, "entry.lock");
     const seedFile = path.join(root, "seed.json");
@@ -71,6 +79,7 @@ export const test_ttsx_dependency_cache_recovers_from_a_dead_owner_and_reports_l
       "a fresh contender should acquire after recovery",
     );
 
+    try {
     // A live local owner is never stolen.
     const active = inspectDependencyBuildLock(lockDir, Date.now());
     assert.equal(active.state, "active");
@@ -92,4 +101,7 @@ export const test_ttsx_dependency_cache_recovers_from_a_dead_owner_and_reports_l
       fs.existsSync(path.join(lockDir, "retired", lease!.generation)),
       true,
     );
-  };
+    } finally {
+      releaseDependencyBuildLock(lockDir, lease!);
+    }
+  }

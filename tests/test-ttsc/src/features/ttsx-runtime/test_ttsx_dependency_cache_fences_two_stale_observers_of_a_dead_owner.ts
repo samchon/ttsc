@@ -24,9 +24,17 @@ import {
  * 2. Two observers report that generation abandoned and hold at a barrier.
  * 3. Release A to reclaim and hold the successor, then release B and assert one
  *    reclaim wins, one build-hold exists, and the successor is still current.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Actual acquisition, inspection and reclaim operations run in a seed child and two stale observers; exactly one reclaim and holder, exact live successor fence, absent second holding record and seed tombstone are asserted.
+ * @evidence contracts/testing.md#independent-expectations Both barriers publish the seed's actual acquired fence before either observer mutates it; deterministic retirement grants that fence one successful reclaim, independently of the implementation's reported aggregate counts.
+ * @evidence contracts/testing.md#distinguishing-cases A real exited owner is observed abandoned by both peers; observer A replaces it before stale B acts. B must fail reclaim and acquisition without harming active A; both independent reports and files distinguish a duplicate winner.
+ * @evidence contracts/testing.md#execution-ownership This named E2E entry owns an actual dead seed PID plus two concurrently alive contender processes invoking built protocol operations; direct source units cover marker validation and live contender timeout separately.
+ * @evidence contracts/e2e.md#necessary-boundary Real local PID death, native atomic generation retirement and two process observations must compose safely; a same-process simulation cannot establish the peer-generation fencing connection exercised here.
+ * @evidence contracts/e2e.md#shared-execution One lock root and one observer script serve both contenders; the seed must exit independently to establish genuine death, while two live observer lifetimes must coexist with stale fences. These three process roles cannot be replaced by per-assertion compiler builds.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Explicit ready/release/build barriers enforce the stale observation schedule over an isolated lock root. Finally opens every barrier and awaits both workers even when parent assertions fail; immutable seed and successor fence identities are not reused across other tests.
+ * @evidence contracts/e2e.md#preserved-coverage Original seed status, both ready fences, reclaim outcomes, one holder/one reclaimer counts, absent B lease, exact active successor and retired seed tombstone remain; added cleanup only closes the existing process ownership on failure.
  */
-export const test_ttsx_dependency_cache_fences_two_stale_observers_of_a_dead_owner =
-  async () => {
+export async function test_ttsx_dependency_cache_fences_two_stale_observers_of_a_dead_owner() {
     const root = TestProject.tmpdir("ttsx-depcache-fence-");
     const lockDir = path.join(root, "entry.lock");
 
@@ -129,6 +137,7 @@ export const test_ttsx_dependency_cache_fences_two_stale_observers_of_a_dead_own
       script: observerScript,
     });
 
+    try {
     await waitForCondition(
       () => fs.existsSync(readyA) && fs.existsSync(readyB),
       "both stale observers",
@@ -181,4 +190,10 @@ export const test_ttsx_dependency_cache_fences_two_stale_observers_of_a_dead_own
       fs.existsSync(path.join(lockDir, "retired", seed.generation)),
       true,
     );
-  };
+    } finally {
+      fs.writeFileSync(releaseA, "release\n", "utf8");
+      fs.writeFileSync(releaseB, "release\n", "utf8");
+      fs.writeFileSync(path.join(root, "build-release"), "release\n", "utf8");
+      await Promise.allSettled([workerA, workerB]);
+    }
+  }
