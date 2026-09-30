@@ -24,6 +24,15 @@ import {
  * 1. Create a project with `outDir: "lib"` and `src/index.ts`, and a link to it.
  * 2. Run `ttsc src/index.ts` with the link as the cwd.
  * 3. Assert the output is `lib/src/index.js`, named relative to the cwd.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Linked cwd positional index.ts exits zero, creates lib/src/index.js but not lib/index.js, and prints relative mirrored path.
+ * @evidence contracts/testing.md#independent-expectations Authored src location under effective project root independently fixes target; lexical alias must not flatten layout.
+ * @evidence contracts/testing.md#distinguishing-cases Physical project reached by junction/link cwd; no explicit rootDir.
+ * @evidence contracts/testing.md#execution-ownership Named E2E test_ttsc_single_file_mirrors_its_source_through_a_linked_cwd is discovered under features/compiler by @ttsc/test-ttsc src/index.ts/TestExecutor. It runs the built CLI through actual child processes; private helpers keep the cases and assertions above in this entry.
+ * @evidence contracts/e2e.md#necessary-boundary Real linked filesystem identity and native-output lookup reach launcher materialization and reporting.
+ * @evidence contracts/e2e.md#shared-execution One private fixture/project and installed workspace native binaries serve this entry. A single CLI invocation proves the stated boundary; its actual private native passes are owned by the launcher rather than repeated test setup. Related portable argument/path policies can run separately without this host.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private tracked project isolates authored config and observed output paths from other cases. Synchronous spawn captures completion before disk/stdout assertions; toolchain overrides live only in the child environment. Root cleanup occurs at process exit; hung-child cancellation is not exercised.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: Linked cwd positional index.ts exits zero, creates lib/src/index.js but not lib/index.js, and prints relative mirrored path. No case is removed or transferred by these acknowledgments; the oracle limitations above remain explicit.
  */
 export const test_ttsc_single_file_mirrors_its_source_through_a_linked_cwd =
   (): void => {
