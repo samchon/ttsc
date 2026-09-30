@@ -13,6 +13,8 @@ on:
       - "scripts/go-build-cache.cjs"
       - "scripts/go-sdk-extraction.cjs"
       - "scripts/go-sdk-integrity.cjs"
+      - "scripts/go-work.cjs"
+      - "scripts/ci/consumer-go-workspace.cjs"
       - "scripts/platform-target.cjs"
       - "packages/ttsc/**"
       - "packages/banner/**"
@@ -109,10 +111,22 @@ jobs:
       - name: Use System Go For Source Plugin Build
         run: echo "TTSC_GO_BINARY=$(go env GOROOT)/bin/go" >> "$GITHUB_ENV"
 
+      - name: Bind nestia Go tests to the current driver and shims
+        run: |
+          node scripts/ci/consumer-go-workspace.cjs "$RUNNER_TEMP/nestia-current-driver.work" \
+            experimental/nestia/packages/core/native \
+            experimental/nestia/packages/core/test \
+            experimental/nestia/packages/sdk/native \
+            experimental/nestia/packages/sdk/test
+
       - name: Test nestia
         working-directory: experimental/nestia
         env:
           # Mirror nestia's own test.yml: keep Node's native TS strip / module
           # detection off so the e2e run matches nestia's CI environment.
           NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
-        run: pnpm test
+          TTSC_CACHE_DIR: ${{ runner.temp }}/nestia-plugin-cache
+        run: |
+          pnpm build
+          GOWORK="$RUNNER_TEMP/nestia-current-driver.work" pnpm test:go
+          pnpm --filter=./tests/test-* --workspace-concurrency=1 -r start
