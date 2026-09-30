@@ -15,7 +15,7 @@ import {
  * writing any JavaScript to the output directory. Companion to the corpus
  * variant; exercises the default (non-corpus-wrapper) command surface.
  *
- * 1. Create a project with a type error (`string` assigned to `number`).
+ * 1. Create a project with a type error (`number` assigned to `string`).
  * 2. Run the real `ttsc` launcher with `--emit`.
  * 3. Assert non-zero exit, the type-error message on stderr, and no
  *    `dist/main.js`.

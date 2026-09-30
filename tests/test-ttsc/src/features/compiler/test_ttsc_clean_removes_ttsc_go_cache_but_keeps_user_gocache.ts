@@ -6,6 +6,7 @@ import {
   spawn,
   ttscBin,
 } from "../../internal/compiler-corpus";
+import { isolatedCacheEnvironment } from "../../internal/isolated-cache-environment";
 
 /**
  * Verifies `ttsc clean` removes ttsc-owned Go cache but keeps user GOCACHE.
@@ -25,12 +26,13 @@ import {
  * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_ttsc_clean_removes_ttsc_go_cache_but_keeps_user_gocache in features/compiler through the test-ttsc boundary runner. This named E2E entry owns its actual launcher invocations and local scenario loops; portable source units are dispatched separately by TestSourceUnits.
  * @evidence contracts/e2e.md#necessary-boundary The real launcher resolves cache ownership from child environment and performs filesystem deletion. A unit cache-root table cannot prove the public clean command deletes exactly those consumer resources.
  * @evidence contracts/e2e.md#shared-execution One commonJsProject consumer, one built launcher and one set of seeded cache directories serve one clean invocation. There is no compiler or native contributor build; seeding distinguishes deletion and preservation within the same command.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique consumer paths isolate all four caches. HOME/USERPROFILE/XDG_CACHE_HOME/LOCALAPPDATA point to fixture cache-home only in the child, so legacy global cleanup cannot affect the developer cache. The child exits synchronously and TestProject cleans roots at runner exit.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique consumer paths isolate all four caches. An explicit pnpm workspace marker prevents an ancestor installation from owning the default cache. isolatedCacheEnvironment resets inherited cache overrides and places home/temp paths in the child fixture; this command then supplies its dedicated ttsc Go cache and protected user Go cache. The child exits synchronously and TestProject cleans roots at runner exit.
  * @evidence contracts/e2e.md#preserved-coverage All original CLI status, output and generated-artifact assertions remain in test_ttsc_clean_removes_ttsc_go_cache_but_keeps_user_gocache. No assertion or case is removed or transferred; this entry retains its real launcher connection rather than claiming a parser unit executes it.
  */
 export const test_ttsc_clean_removes_ttsc_go_cache_but_keeps_user_gocache =
   (): void => {
     const root = commonJsProject({
+      "pnpm-workspace.yaml": "packages: []\n",
       "src/main.ts": `export const value = "clean-go-cache";\n`,
     });
     const cacheRoot = path.join(root, "node_modules", ".cache", "ttsc");
@@ -48,18 +50,12 @@ export const test_ttsc_clean_removes_ttsc_go_cache_but_keeps_user_gocache =
       fs.writeFileSync(path.join(target, "seed"), "cache\n", "utf8");
     }
 
-    // Isolate the machine cache locations so clean's pre-0.17 legacy-global
-    // cache reclamation cannot touch the real developer cache when run locally.
-    const home = path.join(root, "cache-home");
     const result = spawn(ttscBin, ["clean", "--cwd", root], {
       cwd: root,
       env: {
+        ...isolatedCacheEnvironment(root),
         GOCACHE: userGoCache,
         TTSC_GO_CACHE_DIR: ttscGoCache,
-        HOME: home,
-        USERPROFILE: home,
-        XDG_CACHE_HOME: path.join(home, ".cache"),
-        LOCALAPPDATA: path.join(home, "AppData", "Local"),
       },
     });
 

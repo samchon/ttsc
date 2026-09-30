@@ -1,10 +1,10 @@
 import {
   assert,
   createProject,
-  path,
   spawn,
   ttscBin,
 } from "../../internal/toolchain";
+import { isolatedCacheEnvironment } from "../../internal/isolated-cache-environment";
 
 /**
  * Verifies `ttsc clean` accepts tsgo passthrough flags (RC-3 + RC-4).
@@ -28,12 +28,13 @@ import {
  * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_ttsc_clean_subcommand_does_not_reject_tsgo_passthrough in features/compiler through the test-ttsc boundary runner. This named E2E entry owns its actual launcher invocations and local scenario loops; portable source units are dispatched separately by TestSourceUnits.
  * @evidence contracts/e2e.md#necessary-boundary The real launcher must dispatch clean through the shared public argument surface without rejecting recognized passthrough. A parser unit alone does not show the command-specific dispatcher preserves acceptance.
  * @evidence contracts/e2e.md#shared-execution One consumer and built JS launcher serve one exited clean child; no native compiler or Go build is invoked. The already built launcher is shared with other CLI boundary cases.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fixture root and cache-home are unique; all platform home/cache variables are overridden only in the child so cleanup cannot reach developer caches. No parent environment is mutated. The exited child retains no process handle and TestProject owns temporary cleanup.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A unique fixture with its own pnpm workspace marker prevents default cleanup from selecting an ancestor installation. isolatedCacheEnvironment places home/temp paths inside that fixture and clears inherited cache overrides only in the child. No parent environment is mutated, the exited child retains no process handle and TestProject owns temporary cleanup.
  * @evidence contracts/e2e.md#preserved-coverage All original CLI status, output and generated-artifact assertions remain in test_ttsc_clean_subcommand_does_not_reject_tsgo_passthrough. No assertion or case is removed or transferred; this entry retains its real launcher connection rather than claiming a parser unit executes it.
  */
 export const test_ttsc_clean_subcommand_does_not_reject_tsgo_passthrough =
   () => {
     const root = createProject({
+      "pnpm-workspace.yaml": "packages: []\n",
       "tsconfig.json": JSON.stringify({
         compilerOptions: {
           target: "ES2022",
@@ -47,20 +48,12 @@ export const test_ttsc_clean_subcommand_does_not_reject_tsgo_passthrough =
       "src/main.ts": `export const x = 1;\n`,
     });
 
-    // Isolate the machine cache locations so clean's pre-0.17 legacy-global
-    // cache reclamation cannot touch the real developer cache when run locally.
-    const home = path.join(root, "cache-home");
     const result = spawn(
       ttscBin,
       ["clean", "--cwd", root, "--strict", "--tsconfig", "tsconfig.json"],
       {
         cwd: root,
-        env: {
-          HOME: home,
-          USERPROFILE: home,
-          XDG_CACHE_HOME: path.join(home, ".cache"),
-          LOCALAPPDATA: path.join(home, "AppData", "Local"),
-        },
+        env: isolatedCacheEnvironment(root),
       },
     );
 
