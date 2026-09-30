@@ -3,7 +3,6 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import YAML from "yaml";
 
 import type { EvidenceBenchmarkWorkspace as Workspace } from "../../../../benchmarks/evidence/src/EvidenceBenchmarkWorkspace";
@@ -24,7 +23,7 @@ import type { EvidenceBenchmarkWorkspace as Workspace } from "../../../../benchm
  * @evidence contracts/testing.md#behavioral-verification Calls authored adoptRepositoryPatches against actual Node filesystem inputs, comparing both prepared mappings and patch bytes; selector/version conflicts, occupied or linked patch directories, folded basename collisions, malformed selectors and escaped source paths must reject before changing workspace YAML.
  * @evidence contracts/testing.md#independent-expectations Independently authored typia/core selectors, exact versions, binary patch buffers and an existing unrelated override supply literal expectations. Source and destination buffers are compared directly rather than trusting a reported copy hash.
  * @evidence contracts/testing.md#distinguishing-cases Repository and consumer mappings combine identically in two distinct arms; accepted exact bindings contrast existing-selector, conflicting-version, occupied directory, linked directory, case-folded name, malformed selector and outside-repository negatives. Neither an installation nor emitted provenance is claimed by this source operation case.
- * @evidence contracts/testing.md#execution-ownership The matching named src/unit function loads authored preparation through the source-unit CommonJS loader, uses only owned temporary filesystem/YAML inputs, and removes its exact root in finally; no benchmark cell, requirements, template, package installation or native producer is run.
+ * @evidence contracts/testing.md#execution-ownership The matching named src/unit function loads authored preparation through the source-unit CommonJS loader with native module-relative file ownership, uses only owned temporary filesystem/YAML inputs, and removes its exact root in finally; no benchmark cell, requirements, template, package installation or native producer is run.
  */
 export function test_benchmark_preparation_preserves_dependency_patch_bytes(): void {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-benchmark-patches-unit-"));
@@ -43,8 +42,8 @@ export function test_benchmark_preparation_preserves_dependency_patch_bytes(): v
     fs.writeFileSync(consumerManifest, JSON.stringify({
       patchedDependencies: { "@nestia/core@14.0.1": "patches/core.patch" },
     }));
-    const owner = (createRequire(import.meta.url)(
-      fileURLToPath(new URL("../../../../benchmarks/evidence/src/EvidenceBenchmarkWorkspace.ts", import.meta.url)),
+    const owner = (createRequire(__filename)(
+      path.resolve(__dirname, "../../../../benchmarks/evidence/src/EvidenceBenchmarkWorkspace.ts"),
     ) as { EvidenceBenchmarkWorkspace: typeof Workspace }).EvidenceBenchmarkWorkspace;
     const initial = "# retained comment\npackages: [packages/*]\noverrides:\n  retained: 1.2.3\n";
     const makeWorkspace = (name: string, source = initial): string => {
