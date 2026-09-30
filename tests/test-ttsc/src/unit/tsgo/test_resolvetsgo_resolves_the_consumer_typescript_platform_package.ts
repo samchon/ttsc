@@ -1,9 +1,9 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { resolveTsgo } from "../../../../../packages/ttsc/lib/compiler/internal/resolveTsgo.js";
+import { resolveTsgo } from "../../../../../packages/ttsc/src/compiler/internal/resolveTsgo";
 
 /**
  * Verifies resolveTsgo resolves the consumer's `typescript` platform package.
@@ -20,9 +20,13 @@ import { resolveTsgo } from "../../../../../packages/ttsc/lib/compiler/internal/
  * 2. Call `resolveTsgo` with `cwd` pointing at the temp directory.
  * 3. Assert `binary`, `version`, and `gitHead` all match the fake package
  *    metadata.
+ *
+ * @evidence contracts/testing.md#behavioral-verification resolveTsgo returns the consumer platform binary, version and gitHead and reports a missing binary without inventing a fallback.
+ * @evidence contracts/testing.md#independent-expectations the independently authored fixture package graph and literal metadata define the supported consumer compiler identity.
+ * @evidence contracts/testing.md#distinguishing-cases a complete fixture installation contrasts with a deleted executable and successful restoration.
+ * @evidence contracts/testing.md#execution-ownership The named test_resolvetsgo_resolves_the_consumer_typescript_platform_package function runs under src/unit/tsgo and calls the authored resolver directly; manifests and empty binary files are filesystem inputs, not an installed or launched compiler.
  */
-export const test_resolvetsgo_resolves_the_consumer_typescript_platform_package =
-  () => {
+export function test_resolvetsgo_resolves_the_consumer_typescript_platform_package() {
     const root = TestProject.physicalPath(
       TestProject.tmpdir("ttsc-tsgo-test-"),
     );
@@ -67,4 +71,8 @@ export const test_resolvetsgo_resolves_the_consumer_typescript_platform_package 
     assert.equal(resolved.version, "7.0.1-rc.consumer");
     assert.equal(resolved.gitHead, "abc123");
     assert.equal(resolved.binary, binary);
-  };
+    fs.unlinkSync(binary);
+    assert.throws(() => resolveTsgo({ cwd: root, env: {} }), /TypeScript executable not found/);
+    fs.writeFileSync(binary, "", "utf8");
+    assert.equal(resolveTsgo({ cwd: root, env: {} }).binary, binary);
+}

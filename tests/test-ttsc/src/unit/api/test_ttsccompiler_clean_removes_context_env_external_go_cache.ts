@@ -1,11 +1,9 @@
-import {
-  TtscCompiler,
-  assert,
-  createProject,
-  fs,
-  path,
-  tsgo,
-} from "../../internal/compiler";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
+import { TtscCompiler } from "../../../../../packages/ttsc/src/TtscCompiler";
 
 /**
  * Verifies TtscCompiler.clean removes the instance's `context.env`-injected
@@ -30,10 +28,16 @@ import {
  * 2. Run `clean()` on an instance whose `context.env` carries both Go caches.
  * 3. Assert the plugin cache and external Go cache are removed, the user `GOCACHE`
  *    survives, and `process.env.TTSC_GO_CACHE_DIR` is still unset.
+ *
+ * @evidence contracts/testing.md#behavioral-verification TtscCompiler.clean removes instance-selected plugin and external Go caches while preserving the user GOCACHE and ambient environment.
+ * @evidence contracts/testing.md#independent-expectations TTSC_GO_CACHE_DIR is compiler-owned and GOCACHE is caller-owned; independently seeded roots make accidental deletion observable.
+ * @evidence contracts/testing.md#distinguishing-cases Relative plugin cache and external owned Go cache are removed while a separate user Go cache remains; the effective instance environment differs from ambient state.
+ * @evidence contracts/testing.md#execution-ownership This named source-unit function calls the authored TtscCompiler.clean on fixture directories without preparation, compilation or a host; prepare-to-clean publication remains covered by the surviving API E2E.
  */
-export const test_ttsccompiler_clean_removes_context_env_external_go_cache =
-  () => {
-    const root = createProject();
+export function test_ttsccompiler_clean_removes_context_env_external_go_cache() {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-clean-context-unit-"));
+    fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ private: true }));
+    fs.writeFileSync(path.join(root, "tsconfig.json"), "{}");
     const pluginCache = path.join(root, ".cache", "ttsc", "plugins");
     const externalGoCache = path.join(root, "instance-go-cache");
     const userGoCache = path.join(root, "user-go-cache");
@@ -46,7 +50,6 @@ export const test_ttsccompiler_clean_removes_context_env_external_go_cache =
     delete process.env.TTSC_GO_CACHE_DIR;
     try {
       const compiler = new TtscCompiler({
-        binary: tsgo,
         cwd: root,
         env: {
           TTSC_CACHE_DIR: ".cache/ttsc",
@@ -67,5 +70,6 @@ export const test_ttsccompiler_clean_removes_context_env_external_go_cache =
       if (previousTtscGoCache === undefined)
         delete process.env.TTSC_GO_CACHE_DIR;
       else process.env.TTSC_GO_CACHE_DIR = previousTtscGoCache;
+      fs.rmSync(root, { recursive: true, force: true });
     }
-  };
+}
